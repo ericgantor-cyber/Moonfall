@@ -85,7 +85,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -111,14 +111,16 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString FrameStatus = Hero->FrameGenerationPreference == 0 ? TEXT("Off")
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
-     TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts")};
+     TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
+     TEXT("Display mode")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
-     FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f)};
+     FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : TEXT("Borderless")};
    const float MinusX = MenuLeft + MenuWidth - 111.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
-   for (int32 i = 0; i < 7; ++i) {
+   for (int32 i = 0; i < 8; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     DrawRect(bSelected ? FLinearColor(0.22f,0.18f,0.36f,0.98f)
