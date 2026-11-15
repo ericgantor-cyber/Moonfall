@@ -165,6 +165,14 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn("Hunter\'s Oil", self.source)
         self.assertIn('Healing Draught', self.source)
 
+    def test_materials_and_consumables_visible_without_hover(self):
+        self.assertIn('stacks) • Crafting storage', self.source)
+        self.assertIn('row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"', self.source)
+        self.assertIn('str(recipe["name"])+"[/b]\\n"+_recipe_hover_details(recipe)', self.source)
+        self.assertIn('[b]CONSUMABLES[/b]', self.source)
+        self.assertIn('owned • Temporary hunting effect (25 seconds)', self.source)
+        self.assertIn('owned • Restores 35% maximum health', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
