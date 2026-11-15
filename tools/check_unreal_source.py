@@ -3569,5 +3569,43 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetNextUnchartedDungeonZone()", page)
         self.assertIn("(PanelHeight - 145.f) / 13.f", page)
 
+
+    def test_main_based_dungeon_layout_has_connected_colliding_rooms(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallDungeonLayout", layout_h)
+        self.assertIn("static constexpr int32 ChamberCount = 14;", layout_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", layout)
+        self.assertIn("Floors->ClearInstances();", layout)
+        self.assertIn("Walls->ClearInstances();", layout)
+        self.assertIn("Chamber < ChamberCount", layout)
+        self.assertIn("Chamber < ChamberCount; ++Chamber", layout)
+        self.assertIn("Chamber < ChamberCount; ++Chamber", layout)
+        self.assertIn("FVector(ChamberLength / 100.f, ChamberWidth / 100.f, 0.4f)", layout)
+        self.assertIn("for (int32 Chamber = 1; Chamber < ChamberCount; ++Chamber)", layout)
+        self.assertIn("FVector(X, Side * 315.f, 150.f)", layout)
+        self.assertIn("Walls->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertIn("Floors->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertNotIn("UGameplayStatics::OpenLevel", layout)
+        self.assertNotIn("Tick(", layout)
+        self.assertNotIn("SpawnActor<", layout)
+
+    def test_dungeon_layout_guards_persistence_and_once_only_final_event(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("ZoneIndex < 0 || ZoneIndex >= 6", layout)
+        self.assertIn("DungeonIndex < 0 || DungeonIndex >= 5", layout)
+        self.assertIn("Hero->IsPlayerControlled()", layout)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", layout)
+        self.assertIn("Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)", layout)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", layout)
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1]
+        self.assertIn("if (bFinalChamberNotified", final)
+        self.assertIn("&& !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;", final)
+        self.assertLess(final.index("bFinalChamberNotified = true;"),
+                        final.index("OnFinalChamberEntered(Hero);"))
+        self.assertIn("FinalChamberTrigger->SetGenerateOverlapEvents(false);", final)
+        self.assertNotIn("SaveWorldProgress(", layout)
+        self.assertNotIn("GiveExperience(", layout)
+
 if __name__ == "__main__":
     unittest.main()
