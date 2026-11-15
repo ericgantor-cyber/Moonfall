@@ -112,38 +112,7 @@ jobs:
           $lines = @(Get-Content -LiteralPath '.github/workflows/unreal-hosted-windows.yml')
           $parsed = 0
           for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -notmatch '^\s{8}run:\s*\|\s*
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          & ./MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1
-          $localBuild = Get-Content -LiteralPath 'MoonfallUnreal/Build/Build-Windows.ps1' -Raw
-          $hostedBuild = Get-Content -LiteralPath '.github/workflows/unreal-windows-build.yml' -Raw
-          if ($localBuild -notmatch 'Test-UnrealEngineVersion\.ps1') {
-            throw 'Local Windows build bypasses Unreal version validation.'
-          }
-          if ($hostedBuild -notmatch 'Test-UnrealEngineVersion\.ps1') {
-            throw 'Self-hosted Windows build bypasses Unreal version validation.'
-          }
-          Write-Host 'Both Unreal Windows build entrypoints call the tested engine version guard.'
-
-      - name: Validate Unreal project and module configuration
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          project = json.loads(Path('MoonfallUnreal/MoonfallUnreal.uproject').read_text())
-          assert project['EngineAssociation'] == '5.4'
-          assert any(m['Name'] == 'MoonfallUnreal' and m['Type'] == 'Runtime' for m in project['Modules'])
-          module = Path('MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnreal.Build.cs').read_text()
-          for dependency in ('Core', 'CoreUObject', 'Engine', 'InputCore', 'NavigationSystem'):
-              assert '"'+dependency+'"' in module, dependency
-          targets = list(Path('MoonfallUnreal/Source').glob('*.Target.cs'))
-          assert targets, 'Missing Unreal target definitions'
-          print('Unreal 5.4 project metadata, module dependencies and targets validated.')
-          PY
-) { continue }
+            if ($lines[$i] -notmatch '^\s{8}run:\s*\|\s*$') { continue }
             $body = [System.Collections.Generic.List[string]]::new()
             for ($j = $i + 1; $j -lt $lines.Count; $j++) {
               $line = $lines[$j]
