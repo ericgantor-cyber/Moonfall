@@ -402,10 +402,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
- Input->BindAction(TEXT("InventoryPageUp"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryPageUp);
- Input->BindAction(TEXT("InventoryPageDown"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryPageDown);
- Input->BindAction(TEXT("InventoryFirst"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryFirst);
- Input->BindAction(TEXT("InventoryLast"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryLast);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -463,35 +459,34 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
 }
 
-// Page navigation changes only the highlighted item and transient view offset.
-// It never equips, salvages, or mutates persistent inventory data.
-void AMoonfallHeroPawn::InventoryPageUp()
+int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
- InventorySelection = FMath::Max(0, InventorySelection - GetInventoryVisibleRows());
- KeepInventorySelectionVisible();
-}
-
-void AMoonfallHeroPawn::InventoryPageDown()
-{
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
- InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1),
-                                 InventorySelection + GetInventoryVisibleRows());
- KeepInventorySelectionVisible();
-}
-
-void AMoonfallHeroPawn::InventoryFirst()
-{
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
- InventorySelection = 0;
- KeepInventorySelectionVisible();
-}
-
-void AMoonfallHeroPawn::InventoryLast()
-{
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
- InventorySelection = FMath::Max(0, InventoryItemCodes.Num() - 1);
- KeepInventorySelectionVisible();
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return INDEX_NONE;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return INDEX_NONE;
+ const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, float(Width) - 24.f));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = (float(Width) - PanelWidth) * 0.5f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 Count = InventoryItemCodes.Num();
+ const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
+ const int32 End = FMath::Min(Count, Start + Rows);
+ const float Spacing = FMath::Max(21.f, (PanelHeight - 290.f) / Rows);
+ const float FirstY = Top + 145.f;
+ if (MouseX < Left + 12.f || MouseX > Left + PanelWidth - 16.f ||
+     MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
+  return INDEX_NONE;
+ const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
+ const int32 Index = Start + RelativeRow;
+ return Index >= Start && Index < End && InventoryItemCodes.IsValidIndex(Index)
+   ? Index : INDEX_NONE;
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
@@ -980,6 +975,8 @@ void AMoonfallHeroPawn::ToggleInventory() {
   KeepInventorySelectionVisible();
  }
  bInventoryOpen = !bInventoryOpen;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
@@ -2406,6 +2403,14 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bInventoryOpen) {
+  const int32 HitIndex = HitTestInventoryRow();
+  if (HitIndex != INDEX_NONE) {
+   InventorySelection = HitIndex;
+   EquipInventoryItem(HitIndex);
+  }
+  return;
+ }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
@@ -2448,6 +2453,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
  CastRight();
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (bInventoryOpen) {
+  const int32 HitIndex = HitTestInventoryRow();
+  if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  return;
+ }
  if (!bResidentContextOpen) { CastLeft(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
