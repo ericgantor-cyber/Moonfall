@@ -26,6 +26,13 @@ func _run()->void:
  assert(source.contains('_cue(player.global_position+Vector3(0.0,-0.35,0.0),"spell"'))
  assert(source.contains("BOSS POSTURE BROKEN!"))
  assert(source.contains("is_instance_valid(staggered_body)"))
+ # Lifecycle must clear transient combo and dodge reward states.
+ for entry in ["func _start_game(","func _restore_data(","func _respawn_player(","func _death_return_to_title("]:
+  assert(source.contains(entry))
+ assert(source.contains("func _rhythm_reset_transient_combat()->void:"))
+ assert(source.contains("rhythm_counter_until=-999.0"))
+ assert(source.contains("rhythm_dodge_rewarded=false"))
+ assert(source.contains("rhythm_chain=0"))
  instance.free()
  print("Combat rhythm live scene wiring: assertions passed")
  quit()
