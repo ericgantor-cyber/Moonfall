@@ -26,6 +26,10 @@ public:
  int32 DungeonBossRank = 0;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
  void OnDungeonBossIdentityReady(FName FamilyId, FText Title, int32 Rank);
+ // Fires once when a regional special warning actually begins. A Blueprint
+ // can play a clear icon, sound, animation or controller cue for this move.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);
  // Humanoid enemy ancestry, not a divine boss identity or visual asset.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
