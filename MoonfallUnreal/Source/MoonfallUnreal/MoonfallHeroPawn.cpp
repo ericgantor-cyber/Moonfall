@@ -475,7 +475,7 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
- const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, float(Width) - 24.f));
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
  // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
  const float Left = float(Width) - PanelWidth - 12.f;
@@ -525,7 +525,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
   return INDEX_NONE;
- const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, float(Width) - 24.f));
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
  // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
  const float Left = float(Width) - PanelWidth - 12.f;
