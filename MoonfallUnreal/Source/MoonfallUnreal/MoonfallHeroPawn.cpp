@@ -465,6 +465,40 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  return Order;
 }
 
+bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return false;
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 Count = InventoryItemCodes.Num();
+ if (Count <= Rows) return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float TrackX = Left + PanelWidth - 11.f;
+ const float TrackY = Top + 145.f;
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
+ const float TrackHeight = RowSpacing * Rows;
+ // The visible track is 4px; extend its pointer target for easier clicking.
+ if (MouseX < TrackX - 8.f || MouseX > TrackX + 8.f ||
+     MouseY < TrackY || MouseY > TrackY + TrackHeight)
+  return false;
+ const float ThumbHeight = FMath::Max(14.f, TrackHeight * Rows / Count);
+ const float Travel = FMath::Max(1.f, TrackHeight - ThumbHeight);
+ const float Fraction = FMath::Clamp((MouseY - TrackY - ThumbHeight * 0.5f) / Travel, 0.f, 1.f);
+ InventoryViewStart = FMath::Clamp(FMath::RoundToInt(Fraction * (Count - Rows)), 0, Count - Rows);
+ return true;
+}
+
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
@@ -2524,6 +2558,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    KeepInventorySelectionVisible();
    return;
   }
+  if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
