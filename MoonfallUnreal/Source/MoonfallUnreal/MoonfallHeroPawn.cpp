@@ -2639,7 +2639,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
      const float RowY = FirstRowY + ClickedRow * RowGap;
      if (MouseX >= MenuLeft + 10.f && MouseX <= MenuLeft + MenuWidth - 10.f
-         && ClickedRow >= 0 && ClickedRow < 7
+         && ClickedRow >= 0 && ClickedRow < 8
          && MouseY >= RowY && MouseY <= RowY + RowHeight) {
       OptionsSelection = ClickedRow;
       const float MinusX = MenuLeft + MenuWidth - 111.f;
