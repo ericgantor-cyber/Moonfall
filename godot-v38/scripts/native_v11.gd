@@ -1408,9 +1408,16 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  var selected:bool=inventory_selected_index==index
  tile.name="ItemTile_%d"%index
  var is_equipped:bool=not inventory_show_vault and not equipped.is_empty() and equipped==gear
- tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+(" • EQUIPPED" if is_equipped else "")
+ var difference:int=int(gear.get("power",0))-_equipment_power()
+ var comparison:String=""
+ if not inventory_show_vault:
+  if is_equipped:comparison="EQUIPPED"
+  elif difference>0:comparison="▲ +"+str(difference)+" power"
+  elif difference<0:comparison="▼ "+str(difference)+" power"
+  else:comparison="= same power"
+ tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+("\n"+comparison if comparison!="" else "")
  tile.clip_text=true
- tile.custom_minimum_size=Vector2(124,78)
+ tile.custom_minimum_size=Vector2(124,92)
  tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  tile.focus_mode=Control.FOCUS_ALL
  tile.add_theme_font_size_override("font_size",14)
@@ -1429,7 +1436,6 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  hover_style.set_border_width_all(3)
  tile.add_theme_stylebox_override("hover",hover_style)
  tile.add_theme_stylebox_override("focus",hover_style)
- var difference:int=int(gear.get("power",0))-_equipment_power()
  tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))
  if not inventory_show_vault:
   tile.tooltip_text+="\nCompared with equipped: "+("+" if difference>0 else "")+str(difference)+" power"
