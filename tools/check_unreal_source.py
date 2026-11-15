@@ -52,6 +52,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         packaging = workflow[package:]
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
         self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
+        self.assertIn("if ($games[0].Length -le 0)", packaging)
+        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
+        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
+        self.assertIn("'.ucas' -and $_.Length -gt 0", packaging)
+        self.assertIn("$pakFiles.Count -eq 0 -and", packaging)
+        self.assertIn("no nonempty cooked .pak or paired .utoc/.ucas", packaging)
 
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
