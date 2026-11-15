@@ -85,6 +85,13 @@ class MouseMenusContract(unittest.TestCase):
         self.assertLess(sale.index("gear_items.remove_at(idx)"), sale.index("inventory_selected_index=-1"))
         self.assertIn("inventory_restore_focus=false", sale)
 
+    def test_equipped_item_status_and_action_guards(self):
+        self.assertIn('(" • EQUIPPED" if is_equipped else "")', self.source)
+        self.assertIn('if not equipped.is_empty() and equipped==selected_item:', self.source)
+        self.assertIn('button.disabled=true', self.source)
+        self.assertIn('action.begins_with("inventory_deposit:")', self.source)
+        self.assertIn('not equipped.is_empty() and equipped==gear_items[item_index]', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
