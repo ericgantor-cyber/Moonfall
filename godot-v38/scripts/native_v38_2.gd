@@ -558,7 +558,7 @@ func _create_atlas()->void:
  var layout:VBoxContainer=VBoxContainer.new()
  atlas_panel.add_child(layout)
  var heading:Label=Label.new()
- heading.text="MOONFALL ATLAS | N ↑ | CLICK TO MARK"
+ heading.text="MOONFALL ATLAS | N ↑ | LEFT: MARK | RIGHT: CLEAR | WHEEL: ZOOM"
  atlas_heading=heading
  layout.add_child(heading)
  atlas_chart=NAVIGATION_MAP.new()
@@ -566,6 +566,7 @@ func _create_atlas()->void:
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  layout.add_child(atlas_chart)
  atlas_chart.connect("waypoint_selected",_atlas_select_waypoint)
+ atlas_chart.connect("waypoint_cleared",_atlas_clear)
  atlas_chart.connect("zoom_requested",_atlas_zoom)
  atlas_readout=Label.new()
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -603,13 +604,6 @@ func _create_atlas()->void:
  atlas_fast_travel_status.name="DungeonDiscoveryProgress"
  atlas_fast_travel_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_fast_travel_status)
- var zoom_controls:HBoxContainer=HBoxContainer.new()
- layout.add_child(zoom_controls)
- for item in [{"text":"ZOOM +","multiplier":0.75},{"text":"ZOOM -","multiplier":1.333333}]:
-  var zoom:Button=Button.new()
-  zoom.text=str(item["text"])
-  zoom.pressed.connect(_atlas_zoom.bind(float(item["multiplier"])))
-  zoom_controls.add_child(zoom)
  var close:Button=Button.new()
  close.text="CLOSE"
  close.pressed.connect(func():atlas_panel.visible=false)
@@ -1085,15 +1079,6 @@ func _refresh_atlas()->void:
   atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
 
 func _unhandled_key_input(event:InputEvent)->void:
- if event is InputEventKey and event.pressed and not event.echo and is_instance_valid(atlas_panel) and atlas_panel.visible:
-  if event.keycode==KEY_EQUAL or event.keycode==KEY_KP_ADD:
-   _atlas_zoom(0.75)
-   get_viewport().set_input_as_handled()
-   return
-  if event.keycode==KEY_MINUS or event.keycode==KEY_KP_SUBTRACT:
-   _atlas_zoom(1.333333)
-   get_viewport().set_input_as_handled()
-   return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
