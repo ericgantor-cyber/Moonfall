@@ -129,6 +129,18 @@ class MouseMenusContract(unittest.TestCase):
         self.assertNotIn("_equip(", section)
         self.assertIn('"FIND BEST POWER","inventory_select_best"', self.source)
 
+    def test_find_upgrade_above_current_power_without_auto_equip(self):
+        section = self.source.split('  "inventory_select_upgrade":', 1)[1].split('  "inventory_select_next","inventory_select_prev":', 1)[0]
+        self.assertIn("if inventory_show_vault:return", section)
+        self.assertIn("INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)", section)
+        self.assertIn("candidate_power<=equipped_power:continue", section)
+        self.assertIn("candidate_power>int(gear_items[upgrade_index].get", section)
+        self.assertIn('No matching power upgrades found.', section)
+        self.assertIn('inventory_selected_index=upgrade_index', section)
+        self.assertIn("inventory_restore_focus=true", section)
+        self.assertNotIn("_equip(", section)
+        self.assertIn('"FIND UPGRADE","inventory_select_upgrade"', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
