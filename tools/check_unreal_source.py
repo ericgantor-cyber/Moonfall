@@ -3967,5 +3967,35 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
 
+
+    def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        cpp = self.hero_cpp
+        for token in ("GetDefeatedDungeonBossCount(int32 Zone) const;",
+                      "GetTotalDefeatedDungeonBosses() const;",
+                      "GetClearedDungeonZoneCount() const;",
+                      "OnDungeonBossVictory(int32 Zone, int32 Dungeon, int32 SalvageEarned);",
+                      "OnDungeonZoneCleared(int32 Zone);", "OnAllDungeonsCleared();"):
+            self.assertIn(token, header)
+        block = cpp.split("bool AMoonfallHeroPawn::MarkDungeonBossDefeated(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
+        for token in ("HasDefeatedDungeonBoss(Zone, Dungeon)", "GetDefeatedDungeonBossCount(Zone) == 4",
+                      "GetTotalDefeatedDungeonBosses() == 29",
+                      "20 + Zone * 5 + Dungeon * 2", "bCompletesZone ? 100 : 0",
+                      "bCompletesWorld ? 500 : 0", "MaxSalvage = 100000000",
+                      "const int32 PreviousSalvage = Salvage;", "Salvage = PreviousSalvage;",
+                      "DefeatedDungeonBossMask = PreviousMask;", "OnDungeonZoneCleared(Zone);",
+                      "OnAllDungeonsCleared();"):
+            self.assertIn(token, block)
+        self.assertLess(block.index("DefeatedDungeonBossMask |="), block.index("if (!SaveWorldProgress())"))
+        self.assertLess(block.index("Salvage = SafeSalvage + SalvageEarned;"),
+                        block.index("if (!SaveWorldProgress())"))
+        self.assertLess(block.index("if (!SaveWorldProgress())"),
+                        block.index("OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);"))
+        self.assertLess(block.index("OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);"),
+                        block.index("if (bCompletesZone) OnDungeonZoneCleared(Zone);"))
+        self.assertNotIn("AwardExperience(", block)
+        self.assertNotIn("SpawnGroundEquipmentDrop(", block)
+
 if __name__ == "__main__":
     unittest.main()
