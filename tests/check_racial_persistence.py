@@ -35,11 +35,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 8", self.save)
+        self.assertIn("int32 Version = 9", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 8", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 9", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -249,7 +249,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 8", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 9", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -527,7 +527,7 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("if (!SaveWorldProgress()) {"))
 
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
-        self.assertIn("int32 Version = 8;", self.save)
+        self.assertIn("int32 Version = 9;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
         self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
         self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)
