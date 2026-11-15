@@ -1418,9 +1418,7 @@ func _menu_tab(which: String) -> void:
     var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
     if crafting_category!="All" and category!=crafting_category:continue
     available.append(i)
-    var possible:int=_recipe_possible_count(recipe)
-    var label:String=("◆ " if crafting_selected_index==i else "")+str(recipe.get("name","Recipe"))+" • "+category+" • "+("READY ×"+str(possible) if issue=="" else "MISSING")
-    # Recipe buttons are built below, after sorting, to keep selection and focus consistent.
+   # Apply ordering before building the clickable recipe list.
    if crafting_ready_first:
     var ready:Array[int]=[]
     var blocked:Array[int]=[]
