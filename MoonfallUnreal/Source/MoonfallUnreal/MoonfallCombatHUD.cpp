@@ -14,7 +14,10 @@ void AMoonfallCombatHUD::DrawHUD()
  Super::DrawHUD();
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
- if (!IsValid(Hero)) return;
+ if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }
+ // A hidden bag/character sheet must not retain a previously computed score.
+ // Reopening the bag always recomputes advice for its current contents.
+ if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
@@ -489,6 +492,45 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
   }
+  // Cache the read-only selected-row score. Ownership validation searches the
+  // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
+  // Changing selection, equipped gear, count or selected item invalidates it.
+  // Same-count changes in other slots refresh within 0.25 seconds.
+  const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
+  const bool bRefreshAdvisor = !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
+    || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
+    || CachedAdvisorSelectedCode != AdvisorCode
+    || CachedAdvisorWeapon != Hero->EquippedWeaponCode
+    || CachedAdvisorArmor != Hero->EquippedArmorCode
+    || CachedAdvisorAccessory != Hero->EquippedAccessoryCode
+    || AdvisorNow < AdvisorScoreUpdatedAt
+    || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f;
+  if (bRefreshAdvisor) {
+   CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
+   CachedAdvisorHero = Hero;
+   CachedAdvisorCount = Count;
+   CachedAdvisorSelected = Selected;
+   CachedAdvisorSelectedCode = AdvisorCode;
+   CachedAdvisorWeapon = Hero->EquippedWeaponCode;
+   CachedAdvisorArmor = Hero->EquippedArmorCode;
+   CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
+   AdvisorScoreUpdatedAt = AdvisorNow;
+   bAdvisorScoreCached = true;
+  }
+  const int32 SelectedUpgradeScore = CachedAdvisorScore;
+  const bool bCompactAdvisor = PanelWidth < 550.f;
+  const FString AdvisorLine = Count == 0
+    ? (bCompactAdvisor ? TEXT("GEAR: EMPTY BAG") : TEXT("GEAR ADVISOR: find equipment to compare"))
+    : SelectedUpgradeScore > 0
+      ? (bCompactAdvisor ? FString::Printf(TEXT("GEAR: UPGRADE (+%d)"), SelectedUpgradeScore)
+         : FString::Printf(TEXT("GEAR ADVISOR: selected gear is an upgrade (+%d)"), SelectedUpgradeScore))
+      : (bCompactAdvisor ? TEXT("GEAR: NO UPGRADE") : TEXT("GEAR ADVISOR: selected gear is not an upgrade"));
+  DrawText(AdvisorLine,
+    SelectedUpgradeScore > 0 ? FLinearColor(0.50f,0.95f,0.62f)
+      : FLinearColor(0.74f,0.82f,0.94f),
+    Left + 18.f, Top + PanelHeight - 50.f, nullptr,
+    PanelWidth < 550.f ? 0.56f : 0.74f);
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
