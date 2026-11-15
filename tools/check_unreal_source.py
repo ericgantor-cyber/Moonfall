@@ -3627,7 +3627,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_dungeon_room_event_requires_safe_save_and_fires_once(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
-        overlap = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1]
+        overlap = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
         self.assertIn("Hero->IsPlayerControlled()", overlap)
         self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", overlap)
         self.assertIn("if ((EnteredChambersMask & Bit) != 0u) return;", overlap)
