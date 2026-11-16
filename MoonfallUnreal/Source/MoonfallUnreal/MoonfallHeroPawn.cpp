@@ -238,6 +238,10 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // A nonfinite frame delta must not poison the persistent autosave or
+ // defeat/respawn timers, leaving the hero unable to save or respawn.
+ const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
+     ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen) {
@@ -270,13 +274,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
   DefeatElapsedSeconds = 0.f;
-  SecondsSinceLastWorldSave += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  SecondsSinceLastWorldSave += SafeTimerDelta;
   if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
       && GetWorld()->GetTimeSeconds() >= NextSafeCheckpointAt) {
    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
   }
  } else {
-  DefeatElapsedSeconds += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  DefeatElapsedSeconds += SafeTimerDelta;
   if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
  }
  UpdateNativeFinisher(DeltaSeconds);
