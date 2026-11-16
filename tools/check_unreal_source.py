@@ -3285,6 +3285,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal()", tick)
 
+    def test_dungeon_scout_wide_flank_keeps_visibility_and_path_budget(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        movement = tick.split("// Give different ordinary enemies stable approach lanes", 1)[1].split(
+            "// Solve paths only when the cache expires", 1)[0]
+        self.assertIn("if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f", movement)
+        self.assertIn("} else if (bDungeonScout) {", movement)
+        self.assertIn("FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;", movement)
+        self.assertIn("FlankDistance = 185.f;", movement)
+        self.assertLess(movement.index("} else if (bElite) {"),
+                        movement.index("} else if (bDungeonScout) {"))
+        self.assertLess(movement.index("} else if (bDungeonScout) {"),
+                        movement.index("} else {"))
+        self.assertIn("Target += Side.GetSafeNormal() * FlankDistance * FlankSign;", movement)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal()", tick)
+
     def test_boss_basic_attack_patterns_randomize_without_immediate_repeats(self):
         self.assertIn("int32 LastBossAttackPattern = -1;", self.enemy_h)
         self.assertIn("const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;", self.enemy_cpp)
