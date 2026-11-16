@@ -2952,6 +2952,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("++ConsideredAllies;"))
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
 
+    def test_dungeon_attack_coordination_does_not_cross_chambers(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        scope = self.enemy_cpp.split("// Small-pack coordination:", 1)[1].split(
+            "// Alternate quick strikes", 1)[0]
+        self.assertIn("int32 DungeonChamberIndex = -1;", self.enemy_h)
+        self.assertIn("Enemy->DungeonChamberIndex = ChamberIndex;", combat)
+        self.assertLess(combat.index("Enemy->DungeonChamberIndex = ChamberIndex;"),
+                        combat.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn("DungeonChamberIndex < 0", scope)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex", scope)
+        self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
+                        scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"))
+        self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
+                        scope.index("++ConsideredAllies;"))
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+
     def test_attack_coordination_ignores_destroying_and_nonfinite_allies(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         scope = tick.split("// Small-pack coordination:", 1)[1].split(

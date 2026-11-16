@@ -335,6 +335,8 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   Enemy->Health = bEliteEncounter ? 145.f : 75.f;
   Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
   Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
+  // Record chamber before BeginPlay to isolate attack slots across rooms.
+  Enemy->DungeonChamberIndex = ChamberIndex;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
   // The first surviving regular spawn in a two-mob chamber is the scout.
   // A rejected first spawn must not leave the chamber without a scout.
