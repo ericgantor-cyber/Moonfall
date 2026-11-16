@@ -689,6 +689,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Switch flank side after a low-health withdrawal.
     FlankSign = bRetreatFlankLeft ? -1.f : 1.f;
     FlankDistance = 125.f;
+   } else if (bDungeonScout) {
+    // Visible-target-only scout flank. Keep cached path budget and collision
+    // sweeping identical to other enemies; never flank an unseen hero.
+    FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;
+    FlankDistance = 185.f;
    } else {
     // Deterministic actor-local lanes: left/right, near/wide. Collision
     // sweeps still protect against walls and occupied corridors.
