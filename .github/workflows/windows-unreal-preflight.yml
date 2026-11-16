@@ -11,6 +11,8 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Build/**'
+      - 'MoonfallUnreal/Source/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/windows-unreal-preflight.yml'
 
 jobs:
@@ -25,9 +27,13 @@ jobs:
           if (Test-Path (Join-Path $engine 'Engine\Build\BatchFiles\Build.bat')) {
             Write-Host 'Unreal Engine 5.4 is present.'
             & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $engine -PreflightOnly
+            if (-not $?) { throw 'Unreal packaging preflight failed.' }
+            'Windows preflight: Unreal 5.4 packaging prerequisites verified. Native C++ compilation was NOT performed.' >> $env:GITHUB_STEP_SUMMARY
           } else {
             Write-Host 'Unreal Engine 5.4 is not installed on this hosted runner.'
             Write-Host 'This job validates PowerShell syntax and prerequisite discovery only.'
+            'Windows preflight: PowerShell syntax only; Unreal 5.4 is not installed. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
+            'To compile, dispatch this workflow on the PR branch with compile_on_self_hosted=true and an authorized Unreal 5.4 Windows runner.' >> $env:GITHUB_STEP_SUMMARY
           }
       - name: Parse Windows scripts on Windows
         shell: pwsh
@@ -63,6 +69,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
           if (-not $?) { throw 'Moonfall Unreal Editor compile failed.' }
+      - name: Record verified native compilation provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'moonfall-unreal-native-compile.txt'
+          @(
+            'Native Unreal 5.4 editor compile: SUCCEEDED'
+            "Commit: $env:GITHUB_SHA"
+            "Git ref: $env:GITHUB_REF"
+            "Runner: $env:RUNNER_NAME"
+            "Verified at: $([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content -LiteralPath $evidence -Encoding UTF8
+          "Native UE5.4 Editor compilation succeeded for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          Get-Content -LiteralPath $evidence | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
+      - name: Save native compile provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-native-compile-evidence
+          path: ${{ runner.temp }}/moonfall-unreal-native-compile.txt
+          if-no-files-found: error
+          retention-days: 30
       - name: Save Unreal compilation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
