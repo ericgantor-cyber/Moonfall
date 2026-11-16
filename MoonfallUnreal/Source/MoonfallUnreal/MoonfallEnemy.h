@@ -104,6 +104,8 @@ private:
  float LastSawHeroAt = -100.f;
  bool bCanSeeHero = false;
  FVector LastKnownHeroPosition = FVector::ZeroVector;
+ // Home position for persistent dungeon patrol behavior.
+ FVector DungeonHomePosition = FVector::ZeroVector;
  // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
  float NextObstacleSidestepAt = 0.f;
  int32 ObstacleSidestepCount = 0;
