@@ -3073,7 +3073,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
         self.assertLess(helper.index("ActiveDivineMoveId = NAME_None;"),
                         helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
-        self.assertEqual(cpp.count("CancelDivineSignature();"), 6)
+        # Six existing cancellation paths plus recovery from a corrupt windup.
+        self.assertEqual(cpp.count("CancelDivineSignature();"), 7)
         impact = cpp.split("const FName ResolvedMove = ActiveDivineMoveId;", 1)[1]
         self.assertLess(impact.index("bDivineSignatureActive = false;"),
                         impact.index("OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);"))
