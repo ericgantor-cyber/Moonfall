@@ -1927,7 +1927,18 @@ bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops(const TArray<FMoonfallW
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
    Loot->SetPersistentDropId(Record.DropId);
+   // Reject partially initialized pickups instead of allowing an untracked
+   // collect or recording a missing restored drop as present.
+   if (Loot->GetPersistentDropId() != Record.DropId) {
+    Loot->Destroy();
+    continue;
+   }
    Loot->InitializeLoot(Record.ItemCode);
+   if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()
+       || Loot->GetItemCode() != Record.ItemCode) {
+    if (IsValid(Loot)) Loot->Destroy();
+    continue;
+   }
   }
  }
  return true;
@@ -1944,7 +1955,13 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
   AMoonfallGroundLoot* Loot = *It;
   if (!IsValid(Loot) || !Loot->GetPersistentDropId().IsValid()) continue;
   const FGuid Id = Loot->GetPersistentDropId();
-  if (!Expected.Contains(Id) || Present.Contains(Id)) { Loot->Destroy(); continue; }
+  const int32 MatchingRecord = PendingWorldLoot.IndexOfByPredicate(
+   [&](const FMoonfallWorldLootRecord& Record) {
+    return Record.LevelId == LevelId && Record.DropId == Id
+      && Record.ItemCode == Loot->GetItemCode();
+   });
+  if (!Expected.Contains(Id) || Present.Contains(Id) || MatchingRecord == INDEX_NONE
+      || Loot->IsActorBeingDestroyed()) { Loot->Destroy(); continue; }
   Present.Add(Id);
  }
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
@@ -1954,7 +1971,18 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
    Loot->SetPersistentDropId(Record.DropId);
+   // Reject partially initialized pickups instead of allowing an untracked
+   // collect or recording a missing restored drop as present.
+   if (Loot->GetPersistentDropId() != Record.DropId) {
+    Loot->Destroy();
+    continue;
+   }
    Loot->InitializeLoot(Record.ItemCode);
+   if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()
+       || Loot->GetItemCode() != Record.ItemCode) {
+    if (IsValid(Loot)) Loot->Destroy();
+    continue;
+   }
    Present.Add(Record.DropId);
   }
  }
