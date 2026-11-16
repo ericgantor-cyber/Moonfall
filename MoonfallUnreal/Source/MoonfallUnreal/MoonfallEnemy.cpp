@@ -454,6 +454,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Drop stale aggro once out of range; otherwise guards can stay stranded.
   if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
    LastSawHeroAt = -100.f;
+   InvestigationEndsAt = -1.f;
    bCanSeeHero = false;
    ReturnToDungeonPost();
   }
@@ -661,6 +662,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bCanSeeHero) {
    LastSawHeroAt = Now;
    LastKnownHeroPosition = HeroPosition;
+   InvestigationEndsAt = -1.f;
   }
  }
  // Scouts remember only the last visible position, never the hero behind walls.
@@ -669,20 +671,28 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
  const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= LastSeenGrace);
+   && Now - LastSawHeroAt <= LastSeenGrace)
+   || (!bCanSeeHero && InvestigationEndsAt > Now);
  if (!bHasRecentSight) {
+  InvestigationEndsAt = -1.f;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   ReturnToDungeonPost();
   return;
  }
- // Search terminates when an ordinary enemy actually reaches the last
- // observed location. Do not orbit a vacant position for 2.5 seconds.
+ // Investigate at the last seen position, then disengage and return.
+ // No extra sight traces or path requests during the investigation.
  if (!bBoss && !bCanSeeHero
      && FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)) {
-  LastSawHeroAt = -100.f;
-  CachedWaypoint = FVector::ZeroVector;
-  NextPathRefreshAt = 0.f;
+  if (InvestigationEndsAt < 0.f)
+   InvestigationEndsAt = Now + (bDungeonScout ? 2.f : 1.2f);
+  if (Now >= InvestigationEndsAt) {
+   InvestigationEndsAt = -1.f;
+   LastSawHeroAt = -100.f;
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
+   ReturnToDungeonPost();
+  }
   return;
  }
  // Each divine phase compresses the signature cycle without shortening
