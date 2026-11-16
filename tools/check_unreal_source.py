@@ -453,7 +453,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
         self.assertIn("SetTextRenderColor(QualityColor);", ground_cpp)
-        self.assertIn("if (bCollected || ItemCode <= 0) return false;", ground_cpp)
+        self.assertIn("if (bCollected || ItemCode <= 0 || IsActorBeingDestroyed()) return false;", ground_cpp)
         self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", ground_cpp)
         self.assertLess(ground_cpp.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1].index("Hero->CollectGroundEquipmentCode(ItemCode)"), ground_cpp.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1].index("Destroy();"))
         self.assertIn("ItemCode = 0;", ground_h)
