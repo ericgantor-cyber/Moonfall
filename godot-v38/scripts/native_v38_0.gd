@@ -842,24 +842,14 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
       attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
-    if bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0)):
+    if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
-     # Shape names remain readable even when the danger colors are hard to distinguish.
-     var shape_hint:String="CONE" if boss_name.begins_with("Z ") else "CIRCLE"
-     # Show a quantized countdown; label updates only when the tenth changes.
-     var strike_left:float=maxf(0.0,float(beast.get("v404_tell_until",0.0))-map_time)
-     var strike_tenths:int=clampi(ceili(strike_left*10.0),0,14)
-     var urgency:String="STRIKE NOW" if strike_tenths<=3 else "STRIKE IN "+str(float(strike_tenths)/10.0)+"s"
-     # Actionable shape-specific guidance, never tied to a flashing/color-only cue.
-     var escape_hint:String="SIDESTEP" if boss_name.begins_with("Z ") else "EXIT CIRCLE"
-     var warning_text:String=boss_name+"  •  "+warning+"  •  "+shape_hint+"  •  "+urgency+"  •  "+escape_hint
-     if boss_plate.text!=warning_text:boss_plate.text=warning_text
-     var danger_color:Color=Color(1.0,0.35,0.3) if boss_name.begins_with("Z ") else Color(0.75,0.4,1.0)
-     if boss_plate.modulate!=danger_color:boss_plate.modulate=danger_color
+     boss_plate.text=boss_name+"  •  "+warning+"  •  DODGE!"
+     boss_plate.modulate=Color(1.0,0.35,0.3) if boss_name.begins_with("Z ") else Color(0.75,0.4,1.0)
     else:
      var expected:String=boss_name+"  •  PHASE "+str(beast.get("boss_phase",1))
      if boss_plate.text!=expected:boss_plate.text=expected
-     if boss_plate.modulate!=Color.WHITE:boss_plate.modulate=Color.WHITE
+     boss_plate.modulate=Color.WHITE
  if not bool(beast.get("alive",false)) or bool(beast.get("boss",false)):return
  if bool(beast.get("hostile",false)):
   var guard_body:CharacterBody3D=beast.get("body") as CharacterBody3D
