@@ -463,8 +463,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      Side *= Sign;
     }
     ++ObstacleSidestepCount;
+    // A single 0.1-second AI step is too short to clear many doorframes.
+    // Reserve a modest swept clearance step at most once per 0.6 seconds.
+    const float SidestepDistance = FMath::Min(80.f,
+      FMath::Max(Step, SafeReturnSpeed * 0.6f * 0.35f));
     FHitResult SidestepHit;
-    AddActorWorldOffset(Side * FMath::Min(Step, 80.f), true, &SidestepHit);
+    AddActorWorldOffset(Side * SidestepDistance, true, &SidestepHit);
    }
   }
  };
