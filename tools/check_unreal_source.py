@@ -4048,6 +4048,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Restored->DefeatedDungeonBossMask", source)
         self.assertIn("Restored->Salvage, 4321", source)
         self.assertIn("Restored->Level, 17", source)
+        self.assertIn("const uint32 AllDungeons = (1u << 30) - 1u;", source)
+        self.assertIn("0x15555555u, 0x2AAAAAAAu, AllDungeons", source)
+        self.assertIn("for (const uint32 VictoryMask : Scenarios)", source)
+        self.assertIn("Pattern->DefeatedDungeonBossMask", source)
+        self.assertIn("Original->Version = 9;", source)
+        self.assertIn("Original->DefeatedDungeonBossMask = 0;", source)
+        self.assertIn("Legacy->Version, 9", source)
+        self.assertIn("Legacy->DiscoveredDungeonMask", source)
+        self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
+        self.assertIn("Legacy->Salvage, 9876", source)
+        self.assertIn("Legacy->Level, 23", source)
         self.assertIn("all four native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
