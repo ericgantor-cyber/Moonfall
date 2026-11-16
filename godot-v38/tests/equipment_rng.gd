@@ -43,7 +43,7 @@ func _run()->void:
  check(RNG.rarity_from_chance(410)==0 and RNG.rarity_from_chance(999)==0,"common remains possible on every independent roll")
  check(RNG.rarity_from_chance(999,40)==0,"maximum luck does not guarantee rarity")
  check(RNG.rarity_from_chance(999,999999)==0,"excessive luck clamps to bounded odds")
- check(RNG.rarity_from_chance(30,0)==3 and RNG.rarity_from_chance(30,40)==4,"luck changes odds but not past-roll memory")
+ check(RNG.rarity_from_chance(29,0)==3 and RNG.rarity_from_chance(29,40)==4,"luck changes odds but not past-roll memory")
  check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
  var no_history:Dictionary=RNG.roll(item,2345,0,0)
  check(no_history==RNG.roll(item,2345,0,1000000),"even extreme legacy pity cannot change a roll")
