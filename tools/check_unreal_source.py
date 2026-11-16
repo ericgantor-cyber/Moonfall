@@ -3937,6 +3937,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
         self.assertIn("MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);", self.hero_h)
+        # Permanent victories must only be committed by native kill handling.
+        marker = self.hero_h.split("bool MarkDungeonBossDefeated(", 1)[0]
+        declaration_prefix = marker.splitlines()[-3:]
+        self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
+        self.assertIn("Internal kill-path API only", self.hero_h)
         self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
