@@ -184,18 +184,22 @@ jobs:
             if ($check.ExitCode -ne 0) { throw "Installed launcher failed integrity check: $($check.ExitCode)" }
             & .\\MoonfallUnreal\\Build\\Test-PackagedGame.ps1 -GameExecutable $game -ObservationSeconds 8
             if (-not $?) { throw 'Installed Unreal game launch test failed.' }
-            'UE5 installed game, launcher and NSIS installer smoke tests passed.' >> $env:GITHUB_STEP_SUMMARY
+            Write-Host 'UE5 installed game and launcher smoke tests passed; checking uninstall next.'
           }
           finally {
             $uninstaller = Join-Path $directory 'Uninstall.exe'
             if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
               $remove = Start-Process -FilePath $uninstaller -ArgumentList @('/S', "_?=$directory") -PassThru -Wait
-              if ($remove.ExitCode -ne 0) { Write-Warning "NSIS uninstall returned $($remove.ExitCode)" }
+              if ($remove.ExitCode -ne 0) { throw "NSIS uninstall failed with code $($remove.ExitCode)" }
+              foreach ($leftover in @($uninstallKey, $desktopLink, $startMenuLink)) {
+                if (Test-Path -LiteralPath $leftover) { throw "Uninstall left an integration behind: $leftover" }
+              }
             }
             elseif ($setupSucceeded) {
-              Write-Warning 'Installer completed, but Uninstall.exe was missing.'
+              throw 'Installer completed but Uninstall.exe was missing.'
             }
           }
+          'UE5 NSIS install, installed game launch, and uninstall smoke checks passed.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
