@@ -1202,7 +1202,9 @@ func _process(delta:float)->void:
  var equipped_state:Variant=get("gear_state")
  if equipped_state is Dictionary:
   equipment_luck=clampi(int(preload("res://scripts/systems/equipment_inventory.gd").totals(equipped_state).get("luck",0)),0,40)
- v380_status_text.text+="\nLUCK "+str(equipment_luck)+"  •  Improves random loot rarity odds (no guarantees)"
+ var luck_odds:Dictionary=preload("res://scripts/systems/equipment_rng.gd").rarity_odds_per_thousand(equipment_luck)
+ var rare_or_better:int=int(luck_odds["Rare"])+int(luck_odds["Epic"])+int(luck_odds["Legendary"])
+ v380_status_text.text+="\nLUCK "+str(equipment_luck)+"  •  Enemy Rare+ "+str(rare_or_better/10.0)+"%  •  Legendary "+str(float(luck_odds["Legendary"])/10.0)+"% (RNG, no guarantees)"
  v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
   v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])

@@ -46,6 +46,21 @@ func _run()->void:
  check(RNG.rarity_from_chance(29,0)==3 and RNG.rarity_from_chance(29,40)==4,"luck changes odds but not past-roll memory")
  check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
  check(RNG.AFFIXES.has("Luck"),"Luck rolls as an equipment affix")
+ var no_luck_odds:Dictionary=RNG.rarity_odds_per_thousand(0)
+ var max_luck_odds:Dictionary=RNG.rarity_odds_per_thousand(40)
+ check(no_luck_odds=={"Common":590,"Uncommon":240,"Rare":120,"Epic":40,"Legendary":10},"zero Luck exact per-thousand odds")
+ check(max_luck_odds=={"Common":470,"Uncommon":280,"Rare":160,"Epic":60,"Legendary":30},"maximum Luck exact per-thousand odds")
+ check(RNG.rarity_odds_per_thousand(-100)==no_luck_odds and RNG.rarity_odds_per_thousand(100000)==max_luck_odds,"extreme Luck odds clamp")
+ var lucky_total:int=0
+ for count in max_luck_odds.values():lucky_total+=int(count)
+ check(lucky_total==1000 and max_luck_odds["Common"]>0,"Luck preserves Common and totals 1000")
+ for luck_level in [0,1,5,20,40]:
+  var counted:Dictionary={"Common":0,"Uncommon":0,"Rare":0,"Epic":0,"Legendary":0}
+  for outcome in range(1000):
+   var outcome_tier:int=RNG.rarity_from_chance(outcome,luck_level)
+   counted[RNG.RARITIES[outcome_tier]]+=1
+  check(counted==RNG.rarity_odds_per_thousand(luck_level),"displayed odds match all possible rarity rolls "+str(luck_level))
+
  # World loot uses the same stat but independent zone-weighted RNG.
  check(RNG.world_rarity_from_roll(0.005,0,0)==4,"world base legendary boundary")
  check(RNG.world_rarity_from_roll(0.01,0,0)==3,"world strict legendary cutoff")

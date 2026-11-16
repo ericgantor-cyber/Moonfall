@@ -44,3 +44,16 @@ static func world_rarity_from_roll(roll:float,zone:int,luck:int=0)->int:
  if value<clampf(0.16+float(safe_zone)*0.016+float(boost)*0.002,0.16,0.42):return 2
  if value<clampf(0.48+float(safe_zone)*0.020+float(boost)*0.003,0.48,0.82):return 1
  return 0
+
+## Exact enemy-drop odds per 1000 rolls. No pity or drop-history state.
+static func rarity_odds_per_thousand(luck:int=0)->Dictionary:
+ var boost:int=clampi(luck,0,40)
+ var legendary:int=10+boost/2
+ var epic_plus:int=50+boost
+ var rare_plus:int=170+boost*2
+ var uncommon_plus:int=410+boost*3
+ return {"Common":1000-uncommon_plus,
+  "Uncommon":uncommon_plus-rare_plus,
+  "Rare":rare_plus-epic_plus,
+  "Epic":epic_plus-legendary,
+  "Legendary":legendary}
