@@ -428,7 +428,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
         self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
-        self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
+        self.assertIn("RegisterPersistentEquipmentDrops(Drops)", spawn)
+        self.assertIn("Loot->InitializeLoot(Record.ItemCode);", spawn)
+        self.assertIn("FGuid::NewGuid()", spawn)
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
@@ -928,6 +930,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bAutoLootEnabled &&", tick)
         self.assertIn("bool bAutoLootEnabled = true;", self.hero_h)
         self.assertIn('TEXT("AutoLootEnabled"), bAutoLootEnabled', self.hero_cpp)
+
+    def test_unified_v11_world_loot_persistence_is_atomic(self):
+        from pathlib import Path
+        persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
+        ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
+        ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
+        self.assertIn("int32 Version = 11;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
+        self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
+        self.assertIn("Save->Version > 11", self.hero_cpp)
+        self.assertIn("Save->Version >= 11", self.hero_cpp)
+        self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
+        self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
+        self.assertIn("if (!SaveWorldProgress()) { PendingWorldLoot.SetNum(Before); return false; }", self.hero_cpp)
+        collect = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode",1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl",1)[0]
+        self.assertIn("PendingWorldLoot.RemoveAt(Index);", collect)
+        self.assertIn("PendingWorldLoot.Insert(Previous, Index);", collect)
+        self.assertIn("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)", collect)
+        self.assertLess(collect.index("PendingWorldLoot.RemoveAt(Index);"),
+                        collect.index("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)"))
+        self.assertIn("GetPersistentDropId()", ground_h)
+        self.assertIn("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+        self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
+        self.assertNotIn("UMoonfallRewardSaveGame", self.hero_cpp)
 
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
@@ -3539,9 +3568,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 10", self.hero_cpp)
+        self.assertIn("Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -4023,7 +4052,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4033,7 +4062,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)

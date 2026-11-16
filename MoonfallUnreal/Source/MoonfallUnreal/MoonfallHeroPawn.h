@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "MoonfallPersistentSave.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -214,8 +215,8 @@ public:
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") bool CollectGroundEquipmentCode(int32 ItemCode);
+ bool CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
- // Throttled automatic loot only uses the same validated pickup transaction as manual loot.
  float AutoLootElapsed = 0.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
@@ -240,7 +241,6 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
- // Wide inventory: explicit left-click equip control, never triggered by row selection.
  bool HitTestInventoryEquipButton() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
@@ -419,5 +419,8 @@ private:
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
  bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
+ TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
+ bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
+ void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };

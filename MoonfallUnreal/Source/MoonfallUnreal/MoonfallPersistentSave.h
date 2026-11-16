@@ -3,13 +3,23 @@
 #include "GameFramework/SaveGame.h"
 #include "MoonfallPersistentSave.generated.h"
 
+USTRUCT()
+struct FMoonfallWorldLootRecord {
+ GENERATED_BODY()
+ UPROPERTY() FGuid DropId;
+ UPROPERTY() int32 ItemCode = 0;
+ UPROPERTY() FVector Location = FVector::ZeroVector;
+ UPROPERTY() FName LevelId = NAME_None;
+};
 // One persistent character, not a disposable match/run. Version before changing layout.
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
  // Version 10: 30 persistent dungeon boss defeats, preserving V9 treasure.
- UPROPERTY() int32 Version = 10;
+ UPROPERTY() int32 Version = 11;
+ // V11 stores uncollected enemy loot in the same world-save transaction.
+ UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  // One permanent defeat bit per dungeon; older saves default to no victories.
  UPROPERTY() int32 DefeatedDungeonBossMask = 0;
  // 30 dungeons * 14 rooms. 0: ungenerated, positive: pending, -1: collected.
