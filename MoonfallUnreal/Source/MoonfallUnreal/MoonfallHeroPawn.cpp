@@ -178,6 +178,54 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   bRewardSaveInitialized = true;
   return false;
  }
+ // Validate every persisted item and drop before mutating live rewards.
+ // The previous truncate/continue loader could silently discard entries and
+ // overwrite the original slot during the next automatic reward save.
+ const auto ValidSavedEquipment = [](int32 Code) {
+  const int32 Affix = Code / 100000;
+  const int32 Slot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  return Code > 0 && Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2
+   && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+   && (Rarity != 0 || Affix == 0)
+   && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ };
+ bool bInvalidRewardRecord = Save->CollectedKeys.Num() > 128
+  || Save->UnlockedGateIds.Num() > 256
+  || (Save->SchemaVersion >= 3 && Save->InventoryItemCodes.Num() > 4096)
+  || (Save->SchemaVersion >= 4 && Save->PendingWorldLoot.Num() > 512);
+ if (Save->SchemaVersion >= 3) {
+  for (const int32 Code : Save->InventoryItemCodes)
+   if (!ValidSavedEquipment(Code)) { bInvalidRewardRecord = true; break; }
+  const int32 EquippedCodes[] = {Save->EquippedWeaponCode,
+   Save->EquippedArmorCode, Save->EquippedAccessoryCode};
+  for (int32 Slot = 0; Slot < 3; ++Slot) {
+   const int32 Code = EquippedCodes[Slot];
+   if (Code != 0 && (!ValidSavedEquipment(Code)
+       || ((Code / 10000) % 10) != Slot
+       || !Save->InventoryItemCodes.Contains(Code))) bInvalidRewardRecord = true;
+  }
+ }
+ if (Save->SchemaVersion >= 4) {
+  TSet<FGuid> SeenDropIds;
+  for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot) {
+   if (!Record.DropId.IsValid() || SeenDropIds.Contains(Record.DropId)
+       || !ValidSavedEquipment(Record.ItemCode)
+       || Record.Location.ContainsNaN()
+       || (Save->SchemaVersion >= 5 && Record.LevelId.IsNone())) {
+    bInvalidRewardRecord = true;
+    break;
+   }
+   SeenDropIds.Add(Record.DropId);
+  }
+ }
+ if (bInvalidRewardRecord) {
+  bRewardSaveLoadFailed = true;
+  bRewardSaveInitialized = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall reward slot has invalid or oversized entries; original save protected."));
+  return false;
+ }
  bRewardSaveLoadFailed = false;
  bRewardSaveInitialized = true;
  const int32 PreviousArmorTierOnLoad = ArmorTier;
