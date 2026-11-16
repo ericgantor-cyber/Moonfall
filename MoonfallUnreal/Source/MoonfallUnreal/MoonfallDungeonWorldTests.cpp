@@ -150,6 +150,26 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & MidDungeon) != 0u);
  TestEqual(TEXT("Reward balance survives"), Restored->Salvage, 4321);
  TestEqual(TEXT("Character level survives"), Restored->Level, 17);
+
+ // Check every dungeon ledger position separately. One-hot round trips
+ // detect dropped bits and accidental cross-zone victories, not just endpoints.
+ for (int32 Slot = 0; Slot < 30; ++Slot) {
+  const uint32 VictoryBit = 1u << Slot;
+  Original->DiscoveredDungeonMask = static_cast<int32>(VictoryBit);
+  Original->DefeatedDungeonBossMask = static_cast<int32>(VictoryBit);
+  Bytes.Reset();
+  const FString Label = FString::Printf(TEXT("Dungeon boss slot %d"), Slot);
+  if (!TestTrue(Label + TEXT(" saves to memory"),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* OneVictory = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(*FString::Printf(TEXT("%s restores"), *Label), OneVictory))
+   return false;
+  TestEqual(Label + TEXT(" discovery remains isolated"),
+    OneVictory->DiscoveredDungeonMask, static_cast<int32>(VictoryBit));
+  TestEqual(Label + TEXT(" victory remains isolated"),
+    OneVictory->DefeatedDungeonBossMask, static_cast<int32>(VictoryBit));
+ }
  return !HasAnyErrors();
 }
 
