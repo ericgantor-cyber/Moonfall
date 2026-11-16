@@ -4028,6 +4028,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Hero->HasDefeatedDungeonBoss(0, -1)', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(0, 5)', source)
 
+    def test_native_boss_victories_survive_memory_save_round_trip(self):
+        # This checks test registration and intended coverage; a real UE5.4
+        # Editor run must still execute the native serialization scenario.
+        source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        name = "Moonfall.Dungeons.BossVictorySaveRoundTrip"
+        self.assertIn(name, source)
+        self.assertIn(name, runner)
+        self.assertIn("UGameplayStatics::SaveGameToMemory(Original, Bytes)", source)
+        self.assertIn("UGameplayStatics::LoadGameFromMemory(Bytes)", source)
+        self.assertIn("1u << 29", source)
+        self.assertIn("Restored->DiscoveredDungeonMask", source)
+        self.assertIn("Restored->DefeatedDungeonBossMask", source)
+        self.assertIn("Restored->Salvage, 4321", source)
+        self.assertIn("Restored->Level, 17", source)
+        self.assertIn("all four native tests explicitly passed", runner)
+
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         cpp = self.hero_cpp
