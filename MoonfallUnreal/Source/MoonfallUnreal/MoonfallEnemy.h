@@ -17,6 +17,28 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Generic dungeon-boss presentation only. Never replaces divine boss IDs.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FName DungeonBossFamily = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DungeonBossRank = 0;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossIdentityReady(FName FamilyId, FText Title, int32 Rank);
+ // Fires once when a regional special warning actually begins. A Blueprint
+ // can play a clear icon, sound, animation or controller cue for this move.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);
+ // Read-only native HUD warning. Updated only when an attack is committed;
+ // the existing warning deadline determines when this label is visible.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossAttackLabel;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ float DungeonBossAttackWarningDuration = 0.f;
+ // Red: dodge-only (cannot block/parry). Blue: standard parryable boss strike.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ bool bDungeonBossAttackDodgeOnly = false;
  // Humanoid enemy ancestry, not a divine boss identity or visual asset.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;

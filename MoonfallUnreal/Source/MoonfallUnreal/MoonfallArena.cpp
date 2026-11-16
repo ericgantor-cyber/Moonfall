@@ -4,12 +4,24 @@
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/ConstructorHelpers.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
+ DungeonRoad = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonRoad"));
+ DungeonRoad->SetupAttachment(GetRootComponent());
+ DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);
+ // Cull distant road tiles visually while their physical collision and
+ // NavMesh geometry remain intact for uninterrupted travel across zones.
+ DungeonRoad->SetCullDistances(24000, 34000);
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
@@ -27,7 +39,40 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
- CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ // Southern gate: a 400-unit opening aligns with the walkable dungeon road.
+ // Split only this boundary; retain divine encounters, NPCs and shrine layout.
+ CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));
+ CreateBlock(FVector(850,-1500,200),FVector(13,1,5));
+ // Ground bridge between arena Y=-1500 and first dungeon floor edge Y=-2500.
+ // Same top surface (Z=0) as the dungeon; no teleport or level load.
+ CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));
+ // Instanced, flat east/west road. Every one of the 30 entrances overlaps
+ // the road by 200 units; the south arena bridge joins it at the center.
+ // Only 30 mesh instances, not 30 extra actors or dynamic pathfinding ticks.
+ DungeonRoad->ClearInstances();
+ for (int32 Slot = 0; Slot < 30; ++Slot) {
+  const float X = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+  DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
+ }
+ // One readable sign for each five-dungeon zone. UI/map code can also obtain
+ // exact entrance positions from the game mode without scanning actors.
+ // Noncolliding components cost no Tick and do not obstruct the road.
+ for (int32 Zone = 0; Zone < 6; ++Zone) {
+  UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(
+    this, FName(*FString::Printf(TEXT("DungeonZoneSign_%d"), Zone + 1)));
+  if (!IsValid(Sign)) continue;
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS 1-5"), Zone + 1)));
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(65.f);
+  Sign->SetTextRenderColor(FColor(114, 210, 236));
+  Sign->RegisterComponent();
+  const float ZoneCenterX = (static_cast<float>(Zone * 5 + 2) - 14.5f) * 1350.f;
+  Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));
+  DungeonZoneSigns.Add(Sign);
+ }
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
  // defeating a boss or using an attack key. Stable IDs persist between saves.
