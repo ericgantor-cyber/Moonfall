@@ -3864,6 +3864,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
+    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+        readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
+        section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
+            "The **new startup map generator**", 1)[0]
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        self.assertIn("Test-DungeonNative.ps1", section)
+        self.assertIn("compile", section.lower())
+        self.assertIn("There is no `-SkipBuild` option.", section)
+        for name in ("All30EntranceLocations", "SeededRoomArchetypes",
+                     "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip"):
+            full = "Moonfall.Dungeons." + name
+            self.assertIn(full, section)
+            self.assertIn(full, runner)
+        self.assertIn("EditorExitCode=0", section)
+        self.assertIn("AnyNativeTestFailed=False", section)
+        self.assertIn("compile_on_self_hosted=true", section)
+        self.assertIn("moonfall-unreal-native-dungeon-test-evidence", section)
+        self.assertNotIn("Use `-SkipBuild`", section)
+        self.assertNotIn("$SkipBuild", runner)
+
     def test_windows_native_unreal_runner_fails_closed_on_missing_results(self):
         script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
         self.assertIn("Test-UnrealEngineVersion.ps1", script)
