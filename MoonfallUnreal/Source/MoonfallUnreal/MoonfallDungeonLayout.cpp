@@ -276,8 +276,17 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now) || Now < NextHazardDamageAt) return;
- NextHazardDamageAt = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
+ if (!FMath::IsFinite(Now) || Now < 0.f) return;
+ // A corrupt cooldown or world-time reset must not disable the trap.
+ const bool bClockRewound = FMath::IsFinite(LastHazardObservedTime)
+   && LastHazardObservedTime >= 0.f && Now < LastHazardObservedTime;
+ LastHazardObservedTime = Now;
+ const float Remaining = NextHazardDamageAt - Now;
+ if (!bClockRewound && FMath::IsFinite(Remaining)
+     && Remaining > 0.f && Remaining <= 20.f) return;
+ const float Next = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
+ if (!FMath::IsFinite(Next) || Next <= Now) return;
+ NextHazardDamageAt = Next;
  Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));
 }
 
