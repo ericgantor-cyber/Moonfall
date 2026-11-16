@@ -3950,6 +3950,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 6)", combat)
         self.assertIn("const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;", combat)
         self.assertIn("const int32 Requested = bEliteEncounter ? 1", combat)
+        self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", combat)
+        self.assertIn("const float RetryX = Attempt == 0 ? 0.f : (Attempt == 1 ? 70.f : -70.f);", combat)
+        self.assertIn("const float RetrySide = Attempt == 0 ? 0.f : (Attempt == 1 ? -70.f : 70.f);", combat)
+        self.assertIn("Side + RetrySide, 100.f", combat)
+        self.assertIn("break; // Successful slot: never produce more than Count enemies.", combat)
+        self.assertLess(combat.index("for (int32 Attempt = 0; Attempt < 3; ++Attempt)"),
+                        combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertLess(combat.index("++Spawned;"),
+                        combat.index("break; // Successful slot: never produce more than Count enemies."))
         self.assertIn("const float Side = (Index % 2 == 0) ? -200.f : 200.f;", combat)
         self.assertIn("const float OffsetX = (Index / 2 - 1) * 275.f", combat)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
