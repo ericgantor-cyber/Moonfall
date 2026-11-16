@@ -14,6 +14,19 @@ class GroundLootCollectionSafety(unittest.TestCase):
                       "if (InItemCode <= 0) { Destroy(); return; }",
                       "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25", "Destroy();"):
             self.assertIn(token, body)
+    def test_world_drop_guid_is_valid_and_write_once(self):
+        body = self.source.split("void AMoonfallGroundLoot::SetPersistentDropId(", 1)[1].split(
+            "void AMoonfallGroundLoot::InitializeDungeonReward(", 1)[0]
+        for token in ("!InId.IsValid()", "bCollected || IsActorBeingDestroyed()",
+                      "ItemCode != 0", "PersistentDropId.IsValid()",
+                      "RewardZone != INDEX_NONE", "RewardDungeon != INDEX_NONE",
+                      "RewardChamber != INDEX_NONE", "PersistentDropId = InId;"):
+            self.assertIn(token, body)
+            if token != "PersistentDropId = InId;":
+                self.assertLess(body.index(token), body.index("PersistentDropId = InId;"))
+        header = (SOURCE.parent / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
+        self.assertIn("void SetPersistentDropId(const FGuid& InId);", header)
+        self.assertNotIn("PersistentDropId = InId;", header)
     def test_dungeon_reward_identity_is_write_once(self):
         body = self.source.split("void AMoonfallGroundLoot::InitializeDungeonReward(", 1)[1].split(
             "bool AMoonfallGroundLoot::TryCollect()", 1)[0]

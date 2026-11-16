@@ -73,6 +73,16 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
+void AMoonfallGroundLoot::SetPersistentDropId(const FGuid& InId)
+{
+ // World-drop identity is immutable and must never replace dungeon reward
+ // coordinates. The existing spawn/restore call sites assign the ID first.
+ if (!InId.IsValid() || bCollected || IsActorBeingDestroyed() || ItemCode != 0
+     || PersistentDropId.IsValid() || RewardZone != INDEX_NONE
+     || RewardDungeon != INDEX_NONE || RewardChamber != INDEX_NONE) return;
+ PersistentDropId = InId;
+}
+
 void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
 {
  // The persisted reward identity is write-once. A second initialization
