@@ -39,7 +39,7 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = main
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = "Moonfall v38.3 Godot Windows build and installer"
           # An automatic rerun must never overwrite an already published prerelease.
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
               echo "Existing prerelease $RELEASE_TAG preserved; no new publication."
               echo "publish=false" >> "$GITHUB_OUTPUT"
