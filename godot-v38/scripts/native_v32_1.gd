@@ -5,6 +5,12 @@ extends "res://scripts/native_v32_0.gd"
 const V321_RULES:=preload("res://scripts/systems/dungeon_stage2_rules.gd")
 const V321_VISUAL_INTERVAL:float=0.50
 var v321_chambers:Array[Dictionary]=[]
+var v321_passages:Array[Dictionary]=[]
+var v321_annexes:Array[Dictionary]=[]
+var v321_annex_passages:Array[Dictionary]=[]
+var v321_region_dungeons:Array[Dictionary]=[]
+var v321_region_rooms:Array[Dictionary]=[]
+var v321_region_room_passages:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -17,13 +23,15 @@ func _release_label()->String:return "v32.1"
 func _build_scene()->void:
  super._build_scene()
  _v321_build_chambers()
+ _v321_build_region_dungeon_entrances()
+ _v321_build_region_dungeon_interiors()
 
 func _v321_build_chambers()->void:
  var shared_floor:=CylinderMesh.new()
- shared_floor.top_radius=4.1
- shared_floor.bottom_radius=4.1
+ shared_floor.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ shared_floor.bottom_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
  shared_floor.height=0.055
- shared_floor.radial_segments=18
+ shared_floor.radial_segments=24
  var shared_pillar:=CylinderMesh.new()
  shared_pillar.top_radius=0.24
  shared_pillar.bottom_radius=0.38
@@ -32,6 +40,14 @@ func _v321_build_chambers()->void:
  var shared_cap:=SphereMesh.new()
  shared_cap.radius=0.28
  shared_cap.height=0.56
+ # Lightweight shared collision and ruined-wall meshes, reused for every site.
+ var chamber_collision_floor:=CylinderShape3D.new()
+ chamber_collision_floor.radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ chamber_collision_floor.height=0.16
+ var chamber_wall_mesh:=BoxMesh.new()
+ chamber_wall_mesh.size=Vector3(2.0,2.3,0.42)
+ var chamber_wall_shape:=BoxShape3D.new()
+ chamber_wall_shape.size=chamber_wall_mesh.size
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var zone:int=int(entry["zone"])
@@ -59,6 +75,51 @@ func _v321_build_chambers()->void:
    floor_mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
    floor_mesh.position.y=0.04
    root.add_child(floor_mesh)
+   # One static body per chamber supports floor and solid ruin walls.
+   # Collision stays active while distant visual meshes are culled.
+   var interior_body:=StaticBody3D.new()
+   interior_body.name="RiftInteriorCollision"
+   root.add_child(interior_body)
+   var floor_collision:=CollisionShape3D.new()
+   floor_collision.name="RiftInteriorFloorCollision"
+   floor_collision.shape=chamber_collision_floor
+   floor_collision.position.y=0.04
+   interior_body.add_child(floor_collision)
+   # Broken perimeter with genuine open doors facing both connected bridges.
+   # Keep the combat core open: solid walls sit beyond the expanded floor rim.
+   for segment in range(V321_RULES.CHAMBER_WALL_SEGMENTS):
+    var wall_angle:float=TAU*float(segment)/float(V321_RULES.CHAMBER_WALL_SEGMENTS)
+    if V321_RULES.wall_segment_open(stage,wall_angle):continue
+    var wall_position:=Vector3(cos(wall_angle)*V321_RULES.CHAMBER_WALL_RADIUS,1.14,sin(wall_angle)*V321_RULES.CHAMBER_WALL_RADIUS)
+    var wall_rotation:float=-wall_angle-PI*0.5
+    var wall:=MeshInstance3D.new()
+    wall.name="RiftInteriorWall_%d"%segment
+    wall.mesh=chamber_wall_mesh
+    wall.material_override=stone_material
+    wall.position=wall_position
+    wall.rotation.y=wall_rotation
+    wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    root.add_child(wall)
+    var wall_collision:=CollisionShape3D.new()
+    wall_collision.name="RiftInteriorWallCollision_%d"%segment
+    wall_collision.shape=chamber_wall_shape
+    wall_collision.position=wall_position
+    wall_collision.rotation.y=wall_rotation
+    interior_body.add_child(wall_collision)
+   # Low, nonblocking stage-specific floor sigils differentiate each sanctum.
+   # Geometry is purely visual; it cannot obstruct heroes, enemies or bridges.
+   var stage_ring:=MeshInstance3D.new()
+   stage_ring.name="RiftInteriorStageRing"
+   var ring:=TorusMesh.new()
+   ring.inner_radius=1.65+float(stage)*0.30
+   ring.outer_radius=1.79+float(stage)*0.30
+   ring.rings=12
+   ring.ring_segments=24
+   stage_ring.mesh=ring
+   stage_ring.material_override=glow_material
+   stage_ring.position.y=0.115
+   stage_ring.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(stage_ring)
    for p in range(3):
     var angle:float=TAU*float(p)/3.0
     var pos:=Vector3(cos(angle)*4.0,1.10,sin(angle)*4.0)
@@ -86,6 +147,362 @@ func _v321_build_chambers()->void:
    root.add_child(sign)
    root.visible=false
    v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
+ _v321_build_passages()
+ _v321_build_exploration_annexes()
+
+## Physical, always-world-connected links between the authored chambers.
+## No teleport, scene swap, new wave or inaccessible separate map.
+func _v321_build_passages()->void:
+ var walkway_mesh:=BoxMesh.new()
+ var walkway_material:=StandardMaterial3D.new()
+ walkway_material.albedo_color=Color(0.23,0.24,0.31)
+ walkway_material.roughness=0.94
+ var edge_mesh:=BoxMesh.new()
+ var edge_material:=StandardMaterial3D.new()
+ edge_material.albedo_color=Color(0.35,0.33,0.41)
+ edge_material.roughness=0.91
+ for site_id in range(rifts.size()):
+  var anchor:Vector3=rifts[site_id]["anchor"]
+  for pair in [[1,2],[2,3],[3,1]]:
+   var start:Vector3=V321_RULES.room_position(anchor,int(pair[0]))
+   var finish:Vector3=V321_RULES.room_position(anchor,int(pair[1]))
+   var delta:Vector3=finish-start
+   var length:float=Vector2(delta.x,delta.z).length()
+   if length<=0.0:continue
+   var bridge:=Node3D.new()
+   bridge.name="RiftPassage_%d_%d_%d" % [site_id,int(pair[0]),int(pair[1])]
+   bridge.position=(start+finish)*0.5+Vector3(0,0.03,0)
+   bridge.rotation.y=-atan2(delta.z,delta.x)
+   world.add_child(bridge)
+   var floor:=MeshInstance3D.new()
+   floor.name="RiftPassageFloor"
+   var platform:=walkway_mesh.duplicate() as BoxMesh
+   platform.size=Vector3(length+1.0,0.16,3.6)
+   floor.mesh=platform
+   floor.material_override=walkway_material
+   bridge.add_child(floor)
+   var body:=StaticBody3D.new()
+   body.name="RiftPassageCollision"
+   bridge.add_child(body)
+   var collision:=CollisionShape3D.new()
+   var footprint:=BoxShape3D.new()
+   footprint.size=platform.size
+   collision.shape=footprint
+   body.add_child(collision)
+   for side in [-1.0,1.0]:
+    var curb:=MeshInstance3D.new()
+    curb.name="RiftPassageEdge"
+    var edge:=edge_mesh.duplicate() as BoxMesh
+    edge.size=Vector3(length+1.0,0.35,0.28)
+    curb.mesh=edge
+    curb.material_override=edge_material
+    curb.position=Vector3(0,0.19,side*1.85)
+    bridge.add_child(curb)
+   # A simple stone arch provides a readable threshold without blocking the walkway.
+   for side in [-1.0,1.0]:
+    var arch_post:=MeshInstance3D.new()
+    arch_post.name="RiftPassageArchPost"
+    var pillar_shape:=BoxMesh.new()
+    pillar_shape.size=Vector3(0.55,3.3,0.55)
+    arch_post.mesh=pillar_shape
+    arch_post.material_override=edge_material
+    arch_post.position=Vector3(0,1.55,side*2.1)
+    bridge.add_child(arch_post)
+   var lintel:=MeshInstance3D.new()
+   lintel.name="RiftPassageArch"
+   var lintel_shape:=BoxMesh.new()
+   lintel_shape.size=Vector3(0.65,0.55,4.8)
+   lintel.mesh=lintel_shape
+   lintel.material_override=edge_material
+   lintel.position=Vector3(0,3.3,0)
+   bridge.add_child(lintel)
+   v321_passages.append({"node":bridge,"site":site_id,"start":start,"end":finish,"width":3.6})
+
+# Stages 4–14 are real exploration space with no new wave / stage triggers.
+# They reuse shared meshes and preserve all original 1–3 story chambers.
+func _v321_build_exploration_annexes()->void:
+ var floor_mesh:=CylinderMesh.new()
+ floor_mesh.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_mesh.bottom_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_mesh.height=0.16
+ floor_mesh.radial_segments=20
+ var floor_shape:=CylinderShape3D.new()
+ floor_shape.radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_shape.height=0.16
+ var passage_mesh:=BoxMesh.new()
+ var passage_shape:=BoxShape3D.new()
+ var floor_material:=StandardMaterial3D.new()
+ floor_material.albedo_color=Color(0.17,0.18,0.24)
+ floor_material.roughness=0.93
+ var path_material:=StandardMaterial3D.new()
+ path_material.albedo_color=Color(0.27,0.28,0.35)
+ path_material.roughness=0.95
+ # Shared low-poly decorative pieces avoid per-room unique mesh allocations.
+ var sigil_ring:=TorusMesh.new()
+ sigil_ring.inner_radius=2.1
+ sigil_ring.outer_radius=2.26
+ sigil_ring.rings=8
+ sigil_ring.ring_segments=20
+ var sigil_marker:=BoxMesh.new()
+ sigil_marker.size=Vector3(0.48,0.16,0.48)
+ var annex_palette:Array[StandardMaterial3D]=[]
+ for annex_stage in range(4,15):
+  var tint:=StandardMaterial3D.new()
+  tint.albedo_color=V321_RULES.annex_tint(annex_stage)
+  tint.emission_enabled=true
+  tint.emission=tint.albedo_color*0.28
+  tint.roughness=0.72
+  annex_palette.append(tint)
+ for site_id in range(rifts.size()):
+  var anchor:Vector3=rifts[site_id]["anchor"]
+  for stage in range(4,15):
+   var position:Vector3=V321_RULES.exploration_position(anchor,stage)
+   var room:=Node3D.new()
+   room.name="RiftAnnex_%d_%d"%[site_id,stage]
+   room.position=position
+   world.add_child(room)
+   var surface:=MeshInstance3D.new()
+   surface.name="RiftAnnexFloor"
+   surface.mesh=floor_mesh
+   surface.material_override=floor_material
+   surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   room.add_child(surface)
+   var solid:=StaticBody3D.new()
+   solid.name="RiftAnnexCollision"
+   room.add_child(solid)
+   var shape:=CollisionShape3D.new()
+   shape.shape=floor_shape
+   solid.add_child(shape)
+   # Stage identity is decorative, not a new objective or collision obstacle.
+   var tint_material:StandardMaterial3D=annex_palette[stage-4]
+   var decoration:=MeshInstance3D.new()
+   decoration.name="RiftAnnexSigil"
+   decoration.mesh=sigil_ring
+   decoration.material_override=tint_material
+   decoration.position.y=0.13
+   decoration.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   room.add_child(decoration)
+   for marker_id in range(3):
+    var angle:float=TAU*float(marker_id)/3.0+float(stage)*0.22
+    var rune:=MeshInstance3D.new()
+    rune.name="RiftAnnexRune_%d"%marker_id
+    rune.mesh=sigil_marker
+    rune.material_override=tint_material
+    rune.position=Vector3(cos(angle)*3.2,0.17,sin(angle)*3.2)
+    rune.rotation.y=angle
+    rune.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    room.add_child(rune)
+   var sign:=Label3D.new()
+   sign.name="RiftAnnexLabel"
+   sign.text="CHAMBER %d / 14 • %s" % [stage,V321_RULES.annex_title(stage)]
+   sign.font_size=25
+   sign.pixel_size=0.005
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.position.y=2.6
+   sign.modulate=V321_RULES.annex_tint(stage)
+   room.add_child(sign)
+   room.visible=false
+   v321_annexes.append({"node":room,"site":site_id,"stage":stage})
+   var previous:Vector3=V321_RULES.exploration_previous(anchor,stage)
+   var delta:Vector3=position-previous
+   var length:float=Vector2(delta.x,delta.z).length()
+   if length<=0.0:continue
+   var passage:=Node3D.new()
+   passage.name="RiftAnnexBridge_%d_%d"%[site_id,stage]
+   passage.position=(position+previous)*0.5+Vector3(0,0.02,0)
+   passage.rotation.y=-atan2(delta.z,delta.x)
+   world.add_child(passage)
+   var bridge_mesh:=MeshInstance3D.new()
+   bridge_mesh.name="RiftAnnexBridgeFloor"
+   var bridge_geometry:=passage_mesh.duplicate() as BoxMesh
+   bridge_geometry.size=Vector3(length+3.0,0.16,3.6)
+   bridge_mesh.mesh=bridge_geometry
+   bridge_mesh.material_override=path_material
+   passage.add_child(bridge_mesh)
+   var bridge_body:=StaticBody3D.new()
+   bridge_body.name="RiftAnnexBridgeCollision"
+   passage.add_child(bridge_body)
+   var bridge_collision:=CollisionShape3D.new()
+   var collision_geometry:=passage_shape.duplicate() as BoxShape3D
+   collision_geometry.size=bridge_geometry.size
+   bridge_collision.shape=collision_geometry
+   bridge_body.add_child(bridge_collision)
+   passage.visible=false
+   v321_annex_passages.append({"node":passage,"site":site_id,"stage":stage,"start":previous,"end":position,"width":3.6})
+
+# Five separate regional dungeon entrances, each reachable from the open world.
+# No corridors join one dungeon to another; interiors remain separate work.
+func _v321_build_region_dungeon_entrances()->void:
+ var shared_floor:=CylinderMesh.new()
+ shared_floor.top_radius=6.0
+ shared_floor.bottom_radius=6.0
+ shared_floor.height=0.16
+ shared_floor.radial_segments=18
+ var shared_shape:=CylinderShape3D.new()
+ shared_shape.radius=6.0
+ shared_shape.height=0.16
+ for zone in range(REGIONS.size()):
+  var region_centre:Vector2=REGIONS[zone]["at"]
+  var zone_tint:Color=Color(str(REGIONS[zone]["light"]))
+  var ground_material:=StandardMaterial3D.new()
+  ground_material.albedo_color=zone_tint.darkened(0.72)
+  ground_material.roughness=0.95
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var position:Vector3=V321_RULES.regional_dungeon_position(region_centre,dungeon_id)
+   var hub:=Node3D.new()
+   hub.name="RegionDungeonEntrance_%d_%d" % [zone,dungeon_id]
+   hub.position=position
+   world.add_child(hub)
+   var surface:=MeshInstance3D.new()
+   surface.name="RegionDungeonEntranceFloor"
+   surface.mesh=shared_floor
+   surface.material_override=ground_material
+   surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   hub.add_child(surface)
+   var body:=StaticBody3D.new()
+   body.name="RegionDungeonEntranceCollision"
+   hub.add_child(body)
+   var shape:=CollisionShape3D.new()
+   shape.shape=shared_shape
+   body.add_child(shape)
+   var sign:=Label3D.new()
+   sign.name="RegionDungeonEntranceLabel"
+   sign.text="DUNGEON %d / 5" % (dungeon_id+1)
+   sign.font_size=30
+   sign.pixel_size=0.006
+   sign.position.y=2.2
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.modulate=zone_tint
+   hub.add_child(sign)
+   hub.visible=false
+   v321_region_dungeons.append({"node":hub,"zone":zone,"dungeon":dungeon_id})
+   v321_region_rooms.append({"node":hub,"zone":zone,"dungeon":dungeon_id,"stage":1})
+
+
+# Build 13 more chambers behind each of the five independent entrance hubs.
+# Original entrance plazas count as chamber 1. All 14 are physical and walkable.
+# There is no inter-dungeon connection and no new wave trigger or scene swap.
+func _v321_build_region_dungeon_interiors()->void:
+ var chamber_mesh:=CylinderMesh.new()
+ chamber_mesh.top_radius=6.0
+ chamber_mesh.bottom_radius=6.0
+ chamber_mesh.height=0.16
+ chamber_mesh.radial_segments=18
+ var chamber_shape:=CylinderShape3D.new()
+ chamber_shape.radius=6.0
+ chamber_shape.height=0.16
+ var link_mesh:=BoxMesh.new()
+ var link_shape:=BoxShape3D.new()
+ # Reuse one set of lightweight ceremonial landmark resources for all rooms.
+ var seal_mesh:=TorusMesh.new()
+ seal_mesh.inner_radius=1.7
+ seal_mesh.outer_radius=1.9
+ seal_mesh.rings=8
+ seal_mesh.ring_segments=18
+ var archive_mesh:=BoxMesh.new()
+ archive_mesh.size=Vector3(1.7,0.24,0.8)
+ var altar_mesh:=CylinderMesh.new()
+ altar_mesh.top_radius=0.8
+ altar_mesh.bottom_radius=1.1
+ altar_mesh.height=0.30
+ altar_mesh.radial_segments=8
+ var beacon_mesh:=SphereMesh.new()
+ beacon_mesh.radius=0.65
+ beacon_mesh.height=1.3
+ beacon_mesh.radial_segments=8
+ beacon_mesh.rings=4
+ var landmark_meshes:Array[Mesh]=[seal_mesh,archive_mesh,altar_mesh,beacon_mesh]
+ for zone in range(REGIONS.size()):
+  var centre:Vector2=REGIONS[zone]["at"]
+  var color:Color=Color(str(REGIONS[zone]["light"]))
+  var chamber_material:=StandardMaterial3D.new()
+  chamber_material.albedo_color=color.darkened(0.78)
+  chamber_material.roughness=0.94
+  var corridor_material:=StandardMaterial3D.new()
+  corridor_material.albedo_color=color.darkened(0.84)
+  corridor_material.roughness=0.97
+  var landmark_material:=StandardMaterial3D.new()
+  landmark_material.albedo_color=color.lightened(0.18)
+  landmark_material.emission_enabled=true
+  landmark_material.emission=color*0.24
+  landmark_material.roughness=0.8
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   for stage in range(2,V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON+1):
+    var at:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage)
+    var room:=Node3D.new()
+    room.name="RegionDungeonRoom_%d_%d_%d" % [zone,dungeon_id,stage]
+    room.position=at
+    world.add_child(room)
+    var floor:=MeshInstance3D.new()
+    floor.name="RegionDungeonRoomFloor"
+    floor.mesh=chamber_mesh
+    floor.material_override=chamber_material
+    floor.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    room.add_child(floor)
+    var body:=StaticBody3D.new()
+    body.name="RegionDungeonRoomCollision"
+    room.add_child(body)
+    var collision:=CollisionShape3D.new()
+    collision.shape=chamber_shape
+    body.add_child(collision)
+    var nameplate:=Label3D.new()
+    nameplate.name="RegionDungeonChamberLabel"
+    nameplate.text="DUNGEON %d / 5  |  %d / 14  •  %s" % [dungeon_id+1,stage,V321_RULES.regional_chamber_title(stage)]
+    nameplate.font_size=24
+    nameplate.pixel_size=0.005
+    nameplate.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+    nameplate.position.y=2.35
+    nameplate.modulate=color
+    room.add_child(nameplate)
+    var marker_type:int=V321_RULES.regional_landmark_type(dungeon_id,stage)
+    if marker_type>=0:
+     var landmark:=MeshInstance3D.new()
+     landmark.name="RegionDungeonLandmark"
+     landmark.mesh=landmark_meshes[marker_type]
+     landmark.material_override=landmark_material
+     landmark.position=Vector3(0.0,0.25 if marker_type!=3 else 1.1,0.0)
+     landmark.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+     room.add_child(landmark)
+     nameplate.text+="  |  "+V321_RULES.regional_landmark_name(dungeon_id,stage)
+    if stage in V321_RULES.REGIONAL_CACHE_STAGES:
+     var cache_sign:=Label3D.new()
+     cache_sign.name="RegionalRelicCacheSign"
+     cache_sign.text="RELIC CACHE • INTERACT" if stage==7 else "ECLIPSE TREASURE • INTERACT"
+     cache_sign.position=Vector3(2.7,1.45,0.0)
+     cache_sign.font_size=24
+     cache_sign.pixel_size=0.005
+     cache_sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+     cache_sign.modulate=Color("ffd783")
+     room.add_child(cache_sign)
+    room.visible=false
+    v321_region_rooms.append({"node":room,"zone":zone,"dungeon":dungeon_id,"stage":stage})
+    var previous:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage-1)
+    var delta:Vector3=at-previous
+    var corridor_length:float=Vector2(delta.x,delta.z).length()
+    if corridor_length<=0.0:continue
+    var bridge:=Node3D.new()
+    bridge.name="RegionDungeonInternalPassage_%d_%d_%d" % [zone,dungeon_id,stage]
+    bridge.position=(previous+at)*0.5+Vector3(0,0.02,0)
+    bridge.rotation.y=-atan2(delta.z,delta.x)
+    world.add_child(bridge)
+    var walkway:=MeshInstance3D.new()
+    walkway.name="RegionDungeonInternalFloor"
+    var tile:=link_mesh.duplicate() as BoxMesh
+    tile.size=Vector3(corridor_length+2.0,0.16,3.6)
+    walkway.mesh=tile
+    walkway.material_override=corridor_material
+    walkway.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    bridge.add_child(walkway)
+    var bridge_body:=StaticBody3D.new()
+    bridge_body.name="RegionDungeonInternalCollision"
+    bridge.add_child(bridge_body)
+    var bridge_shape:=CollisionShape3D.new()
+    var footprint:=link_shape.duplicate() as BoxShape3D
+    footprint.size=tile.size
+    bridge_shape.shape=footprint
+    bridge_body.add_child(bridge_shape)
+    bridge.visible=false
+    v321_region_room_passages.append({"node":bridge,"zone":zone,"dungeon":dungeon_id,"start":previous,"end":at,"width":3.6})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)

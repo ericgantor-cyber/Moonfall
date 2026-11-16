@@ -1,0 +1,37 @@
+name: Moonfall generated AI art integrity
+
+on:
+  pull_request:
+    paths:
+      - 'engine-comparison/GENERATED_ART_SHA256.json'
+      - 'engine-comparison/tools/verify_generated_art.py'
+      - 'engine-comparison/tools/install_generated_art.py'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallGeneratedArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt/**'
+      - '.github/workflows/generated-ai-art-integrity.yml'
+  push:
+    branches:
+      - prototype/unreal-unity-comparison-20261104
+    paths:
+      - 'engine-comparison/GENERATED_ART_SHA256.json'
+      - 'engine-comparison/tools/verify_generated_art.py'
+      - 'engine-comparison/tools/install_generated_art.py'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallGeneratedArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-art:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate both engine art copies (missing allowed only until upload)
+        run: python engine-comparison/tools/verify_generated_art.py
+      - name: Python syntax check
+        run: python -m py_compile engine-comparison/tools/install_generated_art.py engine-comparison/tools/verify_generated_art.py

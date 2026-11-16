@@ -1,0 +1,47 @@
+name: Import original Godot art into engine comparison
+
+on:
+  push:
+    branches:
+      - prototype/unreal-unity-comparison-20261104
+    paths:
+      - 'engine-comparison/tools/import_godot_art.py'
+      - 'engine-comparison/tools/verify_art_import.py'
+      - '.github/workflows/import-godot-art.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: moonfall-art-import
+  cancel-in-progress: false
+
+jobs:
+  copy-art-byte-safely:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lossless WebP conversion support
+        run: python -m pip install 'Pillow>=11,<13'
+      - name: Import all Godot visual source assets for the two experiments
+        run: python engine-comparison/tools/import_godot_art.py
+      - name: Verify all outputs against source manifest
+        run: python engine-comparison/tools/verify_art_import.py
+      - name: Commit generated engine files and manifest to the experiment branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add engine-comparison/unity/Assets/Resources/MoonfallArt engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt engine-comparison/ART_IMPORT_MANIFEST.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Import all original Godot artwork into Unity and Unreal source-art staging"
+            git push origin HEAD:prototype/unreal-unity-comparison-20261104
+          fi

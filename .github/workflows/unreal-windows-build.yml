@@ -1,0 +1,179 @@
+name: Moonfall Unreal Windows build (self-hosted)
+on:
+  workflow_dispatch:
+jobs:
+  unreal-build:
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal 5.4 installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT on your trusted self-hosted Windows runner (e.g. C:\Program Files\Epic Games\UE_5.4).' }
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
+          $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
+          & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $env:UE54_ROOT
+          # The project-owned .umap is generated after the Editor target compiles.
+          # Do not require it before we have invoked Unreal Editor.
+          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
+          $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vsInstallation) { throw 'Visual Studio 2022 C++ build tools are missing. Install Desktop development with C++ and Windows SDK.' }
+          if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
+          if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnreal.Target.cs')) { throw 'Missing Win64 Game target' }
+          if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs')) { throw 'Missing Win64 Editor target' }
+          $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+          if (-not $dotnet) { throw 'Missing .NET SDK: install .NET 8 before starting the Unreal build.' }
+          $sdks = @(& dotnet --list-sdks)
+          if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'Install .NET 8 SDK for the launcher.' }
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) { throw 'Missing NSIS 3 makensis.exe on PATH.' }
+          Write-Host 'Prerequisites passed: Unreal engine, VS C++ tools, game targets, .NET 8 SDK and NSIS. Startup map is validated after generation.'
+      - name: Compile Unreal Editor Win64 Development
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
+          if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Generate and validate Moonfall startup level
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $editor = Join-Path $env:UE54_ROOT 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+          if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "Unreal Editor command executable missing: $editor" }
+          $project = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $script = (Resolve-Path 'MoonfallUnreal\Build\Create-StartupLevel.py').Path
+          $map = 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+          # Always run the generator. It preserves an existing map and safely
+          # resumes the config step if an earlier build stopped after map save.
+          & $editor $project "-ExecutePythonScript=$script" -unattended -nop4
+          if ($LASTEXITCODE -ne 0) { throw "Unreal level generator exited $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {
+            throw 'Unreal Editor did not save MoonfallStart.umap. Inspect editor logs; no installer will be published.'
+          }
+          # Fail closed if script execution was skipped, failed partially, or
+          # saved a level without setting correct startup map and game mode.
+          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          if (-not $?) { throw 'Generated Moonfall startup-level preflight failed.' }
+          "MoonfallStart.umap exists and packaging preflight passed. Gameplay is unverified." >> $env:GITHUB_STEP_SUMMARY
+      - name: Package Windows game using AutomationTool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uat = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path $uat)) { throw "RunUAT.bat not found: $uat" }
+          $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
+          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
+          if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
+          $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
+          Write-Host "Packaged executable found: $($exe.FullName)"
+      - name: Smoke-test packaged Unreal game launch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
+          & .\MoonfallUnreal\Build\Test-PackagedGame.ps1 -GameExecutable $exes[0].FullName -ObservationSeconds 8
+          if (-not $?) { throw 'Packaged Moonfall game launch smoke test failed.' }
+          "Packaged game remained running for the eight-second smoke test. Graphics and gameplay are not verified." >> $env:GITHUB_STEP_SUMMARY
+      - name: Publish self-contained Windows launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install .NET 8 SDK on the Windows build runner.' }
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
+          $gameRoot = $exes[0].Directory.FullName
+          & dotnet publish 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher publish failed' }
+          if (-not (Test-Path (Join-Path $gameRoot 'MoonfallLauncher.exe'))) { throw 'Launcher executable missing' }
+      - name: Verify launcher recognizes packaged Unreal game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
+          $root = $exes[0].Directory.FullName
+          $launcher = Join-Path $root 'MoonfallLauncher.exe'
+          if (-not (Test-Path $launcher)) { throw 'Compiled launcher missing from game package' }
+          $process = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $root -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Launcher rejected packaged game files: $($process.ExitCode)" }
+          Write-Host 'Launcher recognizes packaged Unreal game file structure. Gameplay has NOT been tested.'
+      - name: Upload packaged Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Development
+          path: MoonfallUnrealPackaged/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Build Windows installer with NSIS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) { throw 'Install NSIS 3 and put makensis.exe on PATH on the trusted Windows runner.' }
+          $packaged = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
+          $exes = @(Get-ChildItem $packaged -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
+          $sourceDir = $exes[0].Directory.FullName
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal.exe'))) { throw 'Staged game entrypoint is missing' }
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallLauncher.exe'))) { throw 'Published launcher missing' }
+          if (-not (Test-Path (Join-Path $sourceDir 'Engine'))) { throw 'Packaged Unreal Engine runtime directory missing; refusing incomplete installer' }
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal'))) { throw 'Packaged Moonfall content directory missing; refusing incomplete installer' }
+          if (-not (Get-ChildItem (Join-Path $sourceDir 'MoonfallUnreal') -Recurse -File | Select-Object -First 1)) { throw 'Cooked game content directory is empty' }
+          Write-Host 'Packaging complete game root including Unreal runtime and cooked content.'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          & $nsis.Source "/DSOURCE_DIR=$sourceDir" "/DOUTPUT_EXE=$out" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $out)) { throw 'NSIS installer compilation failed' }
+      - name: Verify installer and write SHA-256 checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Cannot hash missing Windows installer.' }
+          $details = Get-Item -LiteralPath $installer
+          if ($details.Length -le 0) { throw 'Windows installer is empty.' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$installer.sha256"
+          "Installer size: $($details.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+          "Installer SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Installer
+          path: |
+            MoonfallUnreal-Setup.exe
+            MoonfallUnreal-Setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Unreal diagnostic logs on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Build-Logs
+          path: |
+            MoonfallUnreal/Saved/Logs/
+            MoonfallUnreal/Saved/CookReports/
+            MoonfallUnreal/Intermediate/Build/Win64/*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Summarize Windows build result
+        if: always()
+        shell: pwsh
+        run: |
+          "## Moonfall Unreal Windows build" >> $env:GITHUB_STEP_SUMMARY
+          "Job result: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
+          "Requires trusted self-hosted Unreal Engine 5.4 runner. Source lint and launcher compilation alone do not prove gameplay." >> $env:GITHUB_STEP_SUMMARY
+          "On failure, inspect compilation/AutomationTool console logs and the diagnostic artifact if present." >> $env:GITHUB_STEP_SUMMARY
+      - name: Report status
+        shell: pwsh
+        run: Write-Host 'Unreal project packaged and NSIS installer compiled. Installation testing, gameplay and frame generation still require verification.'

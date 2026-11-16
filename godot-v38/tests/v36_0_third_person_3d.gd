@@ -13,6 +13,32 @@ func _run()->void:
  check(RULES.zoom_from_legacy(17.5)<RULES.DEFAULT_DISTANCE,"wheel zooms closer")
  check(RULES.zoom_from_legacy(20.5)>RULES.DEFAULT_DISTANCE,"wheel zooms farther")
  check(RULES.safe_distance(10.0)<10.0,"collision avoids scenery")
+ # Right-stick analog orbit starts without jumping to 18% speed.
+ var stick_quiet:Vector2=RULES.orbit_stick_input(Vector2(0.15,0.0))
+ var stick_edge:Vector2=RULES.orbit_stick_input(Vector2(0.18,0.0))
+ var stick_small:Vector2=RULES.orbit_stick_input(Vector2(0.19,0.0))
+ var stick_half:Vector2=RULES.orbit_stick_input(Vector2(0.5,0.0))
+ var stick_full:Vector2=RULES.orbit_stick_input(Vector2(1.0,0.0))
+ var stick_diagonal:Vector2=RULES.orbit_stick_input(Vector2(0.5,0.5))
+ check(stick_quiet==Vector2.ZERO and stick_edge==Vector2.ZERO,"right-stick deadzone suppresses noise without movement")
+ check(stick_small.x>0.0 and stick_small.x<0.03 and stick_half.x>stick_small.x and stick_half.x<1.0,"right-stick camera orbit grows smoothly past deadzone")
+ check(absf(stick_full.x-1.0)<0.001 and stick_diagonal.length()<=1.001 and absf(stick_diagonal.x-stick_diagonal.y)<0.001,"right-stick preserves full and diagonal analog response")
+ check(RULES.orbit_frame_step(-1.0)==0.0 and absf(RULES.orbit_frame_step(0.4)-0.08)<0.001 and absf(RULES.orbit_frame_step(0.016)-0.016)<0.001,"camera orbit frame time clamps hitches but preserves normal updates")
+ # Blocking scenery must not leave the camera outside the physics clearance
+ # while smoothing. Open-space follow still eases rather than popping outward.
+ var focus:=Vector3.ZERO
+ var far_camera:=Vector3(0.0,0.0,12.0)
+ var near_camera:=Vector3(0.0,0.0,3.0)
+ var blocked_position:Vector3=RULES.collision_constrained_position(far_camera,near_camera,focus,3.0,true,0.1)
+ check(blocked_position==near_camera,"camera retracts immediately inside detected obstacle clearance")
+ var clear_position:Vector3=RULES.collision_constrained_position(near_camera,far_camera,focus,12.0,false,0.1)
+ check(clear_position.z>3.0 and clear_position.z<12.0,"camera extends smoothly after wall clears")
+ var ordinary_follow:Vector3=RULES.collision_constrained_position(far_camera,near_camera,focus,3.0,false,0.1)
+ check(ordinary_follow.z>3.0 and ordinary_follow.z<12.0,"unblocked camera follow retains interpolation")
+ var already_safe:Vector3=RULES.collision_constrained_position(near_camera,Vector3(0.0,0.0,2.7),focus,3.0,true,0.1)
+ check(already_safe.z<3.0 and already_safe.z>2.7,"blocked camera can smoothly follow while already safe")
+ var clamped_blend:Vector3=RULES.collision_constrained_position(near_camera,far_camera,focus,12.0,false,2.0)
+ check(clamped_blend==far_camera,"camera follow blending remains bounded")
  # Forty-four additional camera safety cases: 11 each for zoom, orbit, pitch and collision.
  var zoom_inputs:=[-100.0,-10.0,0.0,12.0,15.0,17.5,19.0,20.5,25.0,31.0,100.0]
  var last_zoom:float=RULES.MIN_DISTANCE
@@ -82,8 +108,82 @@ func _run()->void:
   check(follow_camera.projection==Camera3D.PROJECTION_PERSPECTIVE,"perspective projection active")
   check(absf(follow_camera.fov-66.0)<0.01,"vertical FOV is configured")
  check(is_instance_valid(game.get("hero_sprite")),"original hero billboard preserved")
+ # Radial deadzone is continuous and bounded for accessible slow walking.
+ var deadzone:float=0.22 # Match the source's controller deadzone constant.
+ var quiet:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone*0.8,0.0))
+ var edge:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone,0.0))
+ var gentle:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone+0.01,0.0))
+ var mid:Vector2=game.call("_gamepad_radial_input",Vector2(0.5,0.0))
+ var full:Vector2=game.call("_gamepad_radial_input",Vector2(1.0,0.0))
+ var diagonal:Vector2=game.call("_gamepad_radial_input",Vector2(0.5,0.5))
+ check(quiet==Vector2.ZERO and edge==Vector2.ZERO,"stick noise and deadzone edge produce no movement")
+ check(gentle.x>0.0 and gentle.x<0.03,"stick movement starts smoothly just past deadzone")
+ check(mid.x>gentle.x and mid.x<1.0 and absf(full.x-1.0)<0.001,"stick movement smoothly reaches full speed")
+ check(diagonal.x>0.0 and is_equal_approx(diagonal.x,diagonal.y) and diagonal.length()<=1.0,"diagonal movement preserves direction and bounded speed")
+ check(game.call("_gamepad_radial_input",Vector2(2.0,0.0)).length()<=1.001,"out-of-range controller axis is bounded")
  var moved:Vector3=game.call("_map_movement_to_camera",Vector3(0.0,0.0,-1.0))
  check(moved.z<0.0 and moved.x<0.0,"forward input follows camera yaw")
+ # Camera customization is testable independently from hardware buttons.
+ var sensitivity_values:Array[float]=[0.65,1.0,1.45]
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,0.65))-1.0)<0.001,"camera sensitivity moves from slow to normal")
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,1.0))-1.45)<0.001,"camera sensitivity moves from normal to fast")
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,1.45))-0.65)<0.001,"camera sensitivity wraps to slow")
+ var fov_values:Array[float]=[58.0,66.0,76.0]
+ check(absf(float(game.call("_v36_cycle_camera_setting",fov_values,76.0))-58.0)<0.001,"accessible field-of-view presets wrap safely")
+ game.set("v36_yaw",2.5)
+ game.set("v36_pitch",1.0)
+ game.call("_v36_recenter_camera")
+ check(absf(float(game.get("v36_yaw"))-RULES.DEFAULT_YAW)<0.001 and absf(float(game.get("v36_pitch"))-RULES.DEFAULT_PITCH)<0.001,"camera reset returns to readable original angle")
+ var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
+ check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
+ check("KEY_F9" in camera_source and "KEY_F11" not in camera_source,"camera recenter remains while FOV shortcuts are removed")
+ check("KEY_F10" not in camera_source,"F10 has no camera action")
+ check("KEY_F10" not in (load("res://scripts/native_v11.gd") as GDScript).source_code and "event.keycode==KEY_ESCAPE" in (load("res://scripts/native_v11.gd") as GDScript).source_code,"F10 is unbound and Escape opens Atlas")
+ check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
+ check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
+ check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
+ # All wheel events keep zooming, even when Alt is held.
+ game.call("_start_game","z")
+ var alt_wheel:=InputEventMouseButton.new()
+ alt_wheel.pressed=true
+ alt_wheel.alt_pressed=true
+ alt_wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ var before_fov:float=float(game.get("v36_fov"))
+ var before_zoom:float=float(game.get("v36_distance"))
+ game.call("_unhandled_input",alt_wheel)
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov),"Alt+wheel cannot modify FOV outside Settings")
+ check(float(game.get("v36_distance"))<before_zoom,"Alt+wheel keeps normal zoom behavior")
+ # Atlas camera options are focusable and use the same persisted preferences.
+ game.call("_menu_tab","System")
+ var camera_game:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
+ check(camera_game!=null and "func _v36_show_camera_settings()->void:" in camera_game.source_code,"camera settings menu is implemented")
+ game.call("_atlas_execute","camera_settings_open")
+ check("CAMERA SETTINGS" in str(game.get("menu_body").text),"camera settings panel opens in Atlas")
+ game.call("_atlas_execute","camera_fov_fine_up")
+ check(is_equal_approx(float(game.get("v36_fov")),minf(76.0,before_fov+1.0)),"Settings fine-tunes FOV by one degree")
+ game.call("_atlas_execute","camera_fov_fine_down")
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov),"Settings fine step reverses cleanly")
+ game.call("_atlas_execute","camera_fov_up")
+ check(is_equal_approx(float(game.get("v36_fov")),minf(76.0,before_fov+5.0)),"Settings increases FOV five degrees")
+ game.call("_atlas_execute","camera_fov_down")
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov),"Settings decreases FOV five degrees")
+ game.call("_atlas_execute","camera_fov_focused")
+ check(is_equal_approx(float(game.get("v36_fov")),58.0),"Focused FOV preset selects 58 degrees")
+ game.call("_atlas_execute","camera_fov_fine_down")
+ check(is_equal_approx(float(game.get("v36_fov")),58.0),"FOV lower bound is enforced")
+ game.call("_atlas_execute","camera_fov_wide")
+ check(is_equal_approx(float(game.get("v36_fov")),76.0),"Wide FOV preset selects 76 degrees")
+ game.call("_atlas_execute","camera_fov_fine_up")
+ check(is_equal_approx(float(game.get("v36_fov")),76.0),"FOV upper bound is enforced")
+ game.call("_atlas_execute","camera_fov_reset")
+ check(is_equal_approx(float(game.get("v36_fov")),66.0),"Balanced FOV preset resets to 66 degrees")
+ check(is_equal_approx(float(game.get("camera").fov),66.0),"Settings immediately updates live perspective camera")
+ check("FIELD OF VIEW" in str(game.get("menu_body").text),"FOV choices have clear in-game description")
+ game.call("_atlas_execute","camera_settings_back")
+ check(str(game.get("current_tab"))=="System","Settings returns to System")
+ # Start zoom comparison from a known farther distance; the earlier
+ # Alt-wheel check may have already placed us at the requested target.
+ game.call("_v24_set_zoom",22.0)
  var before:float=game.get("v36_distance")
  game.call("_v24_set_zoom",17.5)
  check(float(game.get("v36_distance"))<before,"legacy zoom keys map to third-person distance")

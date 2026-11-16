@@ -330,7 +330,7 @@ func _build_ui() -> void:
 	var controls := _ui_label(root, Vector2(18, 0), 15, Color("bac9e6"))
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	controls.position = Vector2(18, -72)
-	controls.text = "WASD / Arrows: move  •  Shift: run  •  Left click / Space: strike  •  G: interact  •  F: Hunter Senses  •  Esc: menu"
+	controls.text = "WASD / Arrows: move  •  Shift: run  •  Left click: strike  •  Wheel: zoom  •  G: interact  •  F: Hunter Senses  •  Esc: menu"
 	start_screen = _make_menu(root, "CHOOSE YOUR HERO")
 	var columns := HBoxContainer.new()
 	columns.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -393,7 +393,7 @@ func _make_menu(parent: Control, title: String) -> Control:
 	veil.color = Color(0.025, 0.02, 0.06, 0.96)
 	panel.add_child(veil)
 	var heading := _ui_label(panel, Vector2(72, 30), 34, Color("e9c587"))
-	heading.text = "☾  " + title
+	heading.text = "" + title
 	var note := _ui_label(panel, Vector2(72, 78), 15, Color("a1aac7"))
 	note.text = "Native isometric Witchwood vertical slice • Original character art • Godot 4"
 	return panel
@@ -453,15 +453,18 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				if is_instance_valid(clue):
 					clue.visible = senses_on
 			_show_message("Hunter Senses: " + ("ON" if senses_on else "OFF"), 2.2)
-		KEY_SPACE:
-			_attack()
 	get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not hero_playing or menu_open:
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_attack()
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_attack()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			camera.size = clampf(camera.size - 1.0, 10.0, 28.0)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			camera.size = clampf(camera.size + 1.0, 10.0, 28.0)
 
 func _toggle_menu() -> void:
 	menu_open = not menu_open

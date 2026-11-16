@@ -1,0 +1,243 @@
+extends "res://scripts/native_v38_0.gd"
+## First playable realm-choice integration. All locations stay in the same world.
+const REALM_ETHICS := preload("res://scripts/systems/morality_reputation.gd")
+const EQUIPMENT := preload("res://scripts/systems/equipment_inventory.gd")
+const KEY_RING := preload("res://scripts/systems/key_ring.gd")
+var gear_state:Dictionary = {}
+var key_ring_state:Dictionary = {}
+var key_ring_button:Button
+var key_ring_details:Label
+var key_ring_expanded:bool = false
+var gear_status:Label
+var realm_ethics:Dictionary = {}
+var realm_panel:PanelContainer
+var realm_status:Label
+var realm_choice_buttons:Array[Button] = []
+var realm_quest_buttons:Array[Button] = []
+var realm_progress:Label
+var realm_victories:int = 0
+var realm_elemental_kills:int = 0
+var realm_companion:Label
+var realm_companion_ethic:String = "Good"
+
+func _ready() -> void:
+ realm_ethics = REALM_ETHICS.new_state()
+ gear_state = EQUIPMENT.new_state()
+ key_ring_state = KEY_RING.new_state()
+ super._ready()
+ _build_realm_choice_panel()
+
+func _start_game(selected_hero:String) -> void:
+ super._start_game(selected_hero)
+ realm_ethics = REALM_ETHICS.new_state()
+ realm_victories = 0
+ realm_elemental_kills = 0
+ realm_companion_ethic = "Good"
+ gear_state = EQUIPMENT.new_state()
+ key_ring_state = KEY_RING.new_state()
+ key_ring_expanded = false
+ EQUIPMENT.add_item(gear_state,"ashwood_sword")
+ EQUIPMENT.equip(gear_state,"ashwood_sword",1)
+ _refresh_realm_choices()
+
+func _checkpoint_extra_data() -> Dictionary:
+ var data:Dictionary = super._checkpoint_extra_data()
+ data["gear_state"] = gear_state.duplicate(true)
+ data["key_ring_state"] = key_ring_state.duplicate(true)
+ data["realm_ethics"] = realm_ethics.duplicate(true)
+ data["realm_victories"] = realm_victories
+ data["realm_elemental_kills"] = realm_elemental_kills
+ data["realm_companion_ethic"] = realm_companion_ethic
+ return data
+
+func _restore_data(data:Dictionary) -> void:
+ super._restore_data(data)
+ var extra:Variant = data.get("optional_resources", {})
+ gear_state = EQUIPMENT.normalize(extra.get("gear_state",{}) if extra is Dictionary else {})
+ key_ring_state = KEY_RING.normalize(extra.get("key_ring_state",{}) if extra is Dictionary else {})
+ key_ring_expanded = not key_ring_state["keys"].is_empty()
+ realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
+ realm_victories = maxi(0,int(extra.get("realm_victories",0))) if extra is Dictionary else 0
+ realm_elemental_kills = maxi(0,int(extra.get("realm_elemental_kills",0))) if extra is Dictionary else 0
+ realm_companion_ethic = str(extra.get("realm_companion_ethic","Good")) if extra is Dictionary else "Good"
+ if realm_companion_ethic not in ["Good","Evil"]:realm_companion_ethic="Good"
+ _refresh_realm_choices()
+
+func _build_realm_choice_panel() -> void:
+ var layer:CanvasLayer = get_node_or_null("NativeAtlasUI") as CanvasLayer
+ if not is_instance_valid(layer):
+  return
+ realm_panel = PanelContainer.new()
+ realm_panel.name = "RealmChoicePanel"
+ realm_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+ realm_panel.offset_left = -330
+ realm_panel.offset_right = -16
+ realm_panel.offset_top = 160
+ realm_panel.offset_bottom = 585
+ layer.add_child(realm_panel)
+ var layout:VBoxContainer = VBoxContainer.new()
+ realm_panel.add_child(layout)
+ realm_status = Label.new()
+ realm_status.name = "RealmEthicsStatus"
+ realm_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(realm_status)
+ realm_progress=Label.new()
+ realm_progress.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(realm_progress)
+ realm_companion=Label.new()
+ layout.add_child(realm_companion)
+ gear_status=Label.new()
+ gear_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(gear_status)
+ key_ring_button = Button.new()
+ key_ring_button.name = "KeyRingToggle"
+ key_ring_button.pressed.connect(_toggle_key_ring)
+ layout.add_child(key_ring_button)
+ key_ring_details = Label.new()
+ key_ring_details.name = "KeyRingDetails"
+ key_ring_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(key_ring_details)
+ var equip_button:Button=Button.new()
+ equip_button.text="EQUIP BEST OWNED WEAPON"
+ equip_button.pressed.connect(_equip_best_realm_weapon)
+ layout.add_child(equip_button)
+ var companion_swap:Button=Button.new()
+ companion_swap.text="SWITCH COMPANION ETHIC"
+ companion_swap.pressed.connect(_swap_realm_companion)
+ layout.add_child(companion_swap)
+ for entry in [
+  {"id":"realm_village_aid","text":"PROTECT THE VILLAGE","moral":35,"factions":{"Villagers":40,"Wardens":20}},
+  {"id":"realm_village_betray","text":"BETRAY THE VILLAGE","moral":-40,"factions":{"Villagers":-45,"Outlaws":30}}
+ ]:
+  var button:Button = Button.new()
+  button.text = str(entry["text"])
+  button.pressed.connect(_choose_realm_action.bind(entry))
+  layout.add_child(button)
+  realm_choice_buttons.append(button)
+ for quest in [
+  {"id":"realm_wardens_oath","text":"QUEST: HELP THE WARDENS","faction":"Wardens","minimum":20,"alignment":"Good","moral":15,"factions":{"Wardens":25,"Villagers":10}},
+  {"id":"realm_outlaw_pact","text":"QUEST: JOIN THE OUTLAWS","faction":"Outlaws","minimum":20,"alignment":"Evil","moral":-15,"factions":{"Outlaws":25,"Wardens":-20}}
+ ]:
+  var quest_button:Button=Button.new()
+  quest_button.text=str(quest["text"])
+  quest_button.pressed.connect(_complete_realm_quest.bind(quest))
+  layout.add_child(quest_button)
+  realm_quest_buttons.append(quest_button)
+ _refresh_realm_choices()
+
+func _complete_realm_quest(quest:Dictionary)->void:
+ if not hero_playing or death_active or menu_open:return
+ var id:String=str(quest["id"])
+ if not REALM_ETHICS.quest_available(realm_ethics,str(quest["faction"]),int(quest["minimum"]),str(quest["alignment"])):return
+ if REALM_ETHICS.normalize(realm_ethics)["choices"].has(id):return
+ realm_ethics=REALM_ETHICS.apply_choice(realm_ethics,id,int(quest["moral"]),quest["factions"])
+ if id=="realm_wardens_oath":_award_key("wardens_crest")
+ elif id=="realm_outlaw_pact":_award_key("outlaw_seal")
+ _show_message("Quest completed: "+str(quest["text"]),3.0)
+ _refresh_realm_choices()
+
+func _choose_realm_action(entry:Dictionary) -> void:
+ if not hero_playing or death_active or menu_open:
+  return
+ # The two outcomes belong to one decision; a second choice cannot reverse it.
+ var choices:Dictionary = REALM_ETHICS.normalize(realm_ethics)["choices"]
+ if choices.has("realm_village_aid") or choices.has("realm_village_betray"):
+  return
+ realm_ethics = REALM_ETHICS.apply_choice(realm_ethics, str(entry["id"]), int(entry["moral"]), entry["factions"])
+ _show_message("The realm remembers: " + str(entry["text"]), 3.0)
+ _refresh_realm_choices()
+
+func _refresh_realm_choices() -> void:
+ if not is_instance_valid(realm_status):
+  return
+ var state:Dictionary = REALM_ETHICS.normalize(realm_ethics)
+ realm_status.text = "REALM CHOICES | " + REALM_ETHICS.alignment(int(state["morality"])) + "\nVillagers: " + REALM_ETHICS.standing(int(state["factions"].get("Villagers",0))) + " | Wardens: " + REALM_ETHICS.standing(int(state["factions"].get("Wardens",0))) + "\nOutlaws: " + REALM_ETHICS.standing(int(state["factions"].get("Outlaws",0)))
+ if is_instance_valid(realm_progress):
+  var evolving:Dictionary=REALM_ETHICS.weapon_evolution(state,realm_victories,realm_elemental_kills)
+  realm_progress.text="WEAPON: "+str(evolving["alignment"])+" • Rank "+str(evolving["rank"])+" • Bonus "+str(evolving["bonus_percent"])+"% | Companion loyalty: "+str(REALM_ETHICS.companion_loyalty(state,"Good"))+" (Good), "+str(REALM_ETHICS.companion_loyalty(state,"Evil"))+" (Evil)"
+ if is_instance_valid(realm_companion):
+  var loyalty:int=REALM_ETHICS.companion_loyalty(state,realm_companion_ethic)
+  realm_companion.text="ACTIVE COMPANION: "+realm_companion_ethic+" | Loyalty "+str(loyalty)+" | "+("Loyal" if loyalty>=55 else "Uncertain")
+ if is_instance_valid(key_ring_button):
+  key_ring_button.text = ("▼ " if key_ring_expanded else "▶ ")+"KEY RING ("+str(key_ring_state.get("keys",[]).size())+")"
+ if is_instance_valid(key_ring_details):
+  key_ring_details.visible = key_ring_expanded
+  key_ring_details.text = KEY_RING.display_lines(key_ring_state)
+ if is_instance_valid(gear_status):
+  var stats:Dictionary=EQUIPMENT.totals(gear_state)
+  gear_status.text="GOLD "+str(gear_state.get("gold",0))+" | GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
+ var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
+ for button in realm_choice_buttons:
+  if is_instance_valid(button):
+   button.disabled = decided
+ for i in range(realm_quest_buttons.size()):
+  var quest_id:String="realm_wardens_oath" if i==0 else "realm_outlaw_pact"
+  var faction:String="Wardens" if i==0 else "Outlaws"
+  var ethic:String="Good" if i==0 else "Evil"
+  realm_quest_buttons[i].disabled=state["choices"].has(quest_id) or not REALM_ETHICS.quest_available(state,faction,20,ethic)
+ realm_panel.visible = hero_playing and not death_active and not menu_open
+
+func _process(delta:float) -> void:
+ super._process(delta)
+ if is_instance_valid(realm_panel):
+  realm_panel.visible = hero_playing and not death_active and not menu_open
+
+func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
+ # Evolving weapons use real accomplishments, not clicks or simulated kills.
+ var was_alive:bool=bool(target.get("alive",false))
+ var prior_hp:float=float(target.get("hp",0.0))
+ var evolution:Dictionary=REALM_ETHICS.weapon_evolution(realm_ethics,realm_victories,realm_elemental_kills)
+ var stats:Dictionary=EQUIPMENT.totals(gear_state)
+ var gear_multiplier:float=1.0+minf(0.5,float(stats["weapon_power"])*0.008)
+ var weapon_multiplier:float=(1.0+float(evolution["bonus_percent"])/100.0)*gear_multiplier
+ super._apply_player_hit(target,base_damage*weapon_multiplier,stagger_strength)
+ if not was_alive or prior_hp<=0.0 or bool(target.get("alive",false)) or float(target.get("hp",0.0))>0.0:
+  return
+ if bool(target.get("realm_kill_recorded",false)):
+  return
+ target["realm_kill_recorded"]=true
+ realm_victories+=1
+ # Collect enemy gold directly into the persistent purse with no pickup key.
+ var gold_found:int=EQUIPMENT.gold_for_kill(realm_victories)
+ EQUIPMENT.add_gold(gear_state,gold_found)
+ if realm_victories==5:_award_key("fallen_gate_key")
+ # Award one deterministic catalog item for each confirmed player kill.
+ var dropped:Dictionary=EQUIPMENT.loot_enemy(gear_state,maxi(1,realm_victories/6+1),realm_victories*37)
+ if not dropped.is_empty() and realm_victories%5==0:
+  _show_message("Loot found: "+str(dropped["name"]),2.0)
+ # Only count kills carrying an explicit elemental classification.
+ var element:String=str(target.get("element","")).to_lower()
+ if element in ["fire","water","air","earth","lightning","ice","arcane"]:
+  realm_elemental_kills+=1
+ _refresh_realm_choices()
+
+func _swap_realm_companion()->void:
+ if not hero_playing or death_active or menu_open:return
+ realm_companion_ethic="Evil" if realm_companion_ethic=="Good" else "Good"
+ _refresh_realm_choices()
+
+func _equip_best_realm_weapon()->void:
+ if not hero_playing or death_active or menu_open:return
+ var selected_id:String=""
+ var best_power:int=-1
+ for id in gear_state.get("items",{}):
+  var item:Dictionary=EQUIPMENT.CATALOG.get_item(str(id))
+  if str(item.get("category",""))!="weapon":continue
+  if int(item.get("level_required",1))>maxi(1,realm_victories/6+1):continue
+  if int(item.get("power",0))>best_power:
+   best_power=int(item["power"])
+   selected_id=str(id)
+ if selected_id!="" and EQUIPMENT.equip(gear_state,selected_id,maxi(1,realm_victories/6+1)):
+  _show_message("Equipped: "+str(EQUIPMENT.CATALOG.get_item(selected_id).get("name","")),2.0)
+ _refresh_realm_choices()
+
+func _toggle_key_ring()->void:
+ key_ring_expanded = not key_ring_expanded
+ _refresh_realm_choices()
+
+func _award_key(key_id:String)->void:
+ # Quest and milestone keys enter the ring immediately, without a bag action.
+ if KEY_RING.add_key(key_ring_state,key_id):
+  key_ring_expanded = true
+  _show_message("Key collected: "+str(KEY_RING.KEY_NAMES[key_id]),3.0)
+  _refresh_realm_choices()

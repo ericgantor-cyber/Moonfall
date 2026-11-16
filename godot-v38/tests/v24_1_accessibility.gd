@@ -21,10 +21,10 @@ func _run() -> void:
  zoom_key.keycode=KEY_EQUAL
  zoom_key.pressed=true
  game.call("_unhandled_input", zoom_key)
- check(is_equal_approx(game.get("v24_camera_size"),20.5), "keyboard zoom in")
+ check(is_equal_approx(game.get("v24_camera_size"),22.0), "plus key does not zoom")
  zoom_key.keycode=KEY_MINUS
  game.call("_unhandled_input", zoom_key)
- check(is_equal_approx(game.get("v24_camera_size"),22.0), "keyboard zoom out")
+ check(is_equal_approx(game.get("v24_camera_size"),22.0), "minus key does not zoom")
  game.set("menu_open", true)
  game.call("_unhandled_input", zoom_key)
  check(is_equal_approx(game.get("v24_camera_size"),22.0), "menus block gameplay zoom")

@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "decision": "UE5 migration target; Godot remains production until Windows gameplay parity is proven",
+  "unreal_project": "engine-comparison/unreal/MoonfallPrototype/MoonfallPrototype.uproject",
+  "godot_reference": "godot-v38/scripts/main.gd",
+  "constraints": {
+    "preserve_original_art": [
+      "Z_Original.webp",
+      "Nyra_Original.png"
+    ],
+    "boss_roles": [
+      "Z",
+      "Nyra"
+    ],
+    "click_only_attack": true,
+    "continuous_world": true,
+    "no_waves": true,
+    "windows": [
+      "10",
+      "11"
+    ],
+    "do_not_replace_godot_without_build": true
+  },
+  "features": [
+    {
+      "id": "input",
+      "status": "source_present_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini"
+      ],
+      "gate": "Left click attacks, Space does not attack, mouse wheel zoom and dodge work in Windows build"
+    },
+    {
+      "id": "continuous_world",
+      "status": "source_present_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallWorldRules.h"
+      ],
+      "gate": "Walk between all six regions and 30 chambers without teleportation or waves"
+    },
+    {
+      "id": "boss_combat",
+      "status": "source_present_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp"
+      ],
+      "gate": "Z and Nyra are bosses, attack warnings are visible, dodge/counterplay work"
+    },
+    {
+      "id": "progression_saves",
+      "status": "source_present_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgressSave.h"
+      ],
+      "gate": "Save and reload level, experience, boss rewards and checkpoint"
+    },
+    {
+      "id": "hud",
+      "status": "source_present_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp"
+      ],
+      "gate": "HP red, mana blue, XP purple; HUD legible with no black orbit background"
+    },
+    {
+      "id": "quest_and_atlas",
+      "status": "world_map_zoom_pan_fog_markers_source_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp",
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgressSave.h",
+        "engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini"
+      ],
+      "gate": "UE5.6 Windows runtime verification required: M map, 1x–3x wheel zoom, arrow-key pan, clipping, click-to-pin projection, fog-hidden markers and separate gameplay camera zoom. Terrain art and production Atlas parity remain pending."
+    },
+    {
+      "id": "crafting_inventory",
+      "status": "source_rules_unverified",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallInventoryRules.h"
+      ],
+      "gate": "Inventory, loot and crafting operate in runtime and persist"
+    },
+    {
+      "id": "windows_release",
+      "status": "unverified",
+      "unreal": [],
+      "gate": "Build and smoke test a signed or clearly labeled unsigned Windows 10/11 installer with shortcut and uninstall"
+    }
+  ]
+}

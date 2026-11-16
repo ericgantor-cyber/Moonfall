@@ -1,0 +1,216 @@
+name: Moonfall Unreal 5.4 source build (manual, licensed)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_build:
+        description: "I authorize a costly engine source build on a large Windows runner"
+        required: true
+        type: boolean
+        default: false
+      package_game:
+        description: "After successful UE and Moonfall compilation, cook and upload Windows game (untested)"
+        required: true
+        type: boolean
+        default: false
+      create_installer:
+        description: "After real Win64 game cooking, build NSIS installer with desktop shortcut (untested)"
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: moonfall-ue54-source-build
+  cancel-in-progress: false
+jobs:
+  source-build:
+    if: ${{ inputs.confirm_build }}
+    runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
+    timeout-minutes: 360
+    steps:
+      - name: Check runner prerequisites before using Epic credentials
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $drive = [IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd('\')
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$drive'"
+          if (-not $disk -or $disk.FreeSpace -lt 250GB) {
+            throw 'UE source build requires at least 250 GB free. Provision a larger Windows runner and set MOONFALL_HOSTED_RUNNER.'
+          }
+          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw 'VS2022 tools not found' }
+          $vs = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+          if ($LASTEXITCODE -ne 0 -or -not ($vs | Where-Object { $_ })) { throw 'VS2022 C++ tools not found' }
+          "Disk and VS2022 ready for UE source build." >> $env:GITHUB_STEP_SUMMARY
+      - name: Checkout trusted Moonfall build helpers
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: build-tools
+          persist-credentials: false
+      - name: Checkout pinned Moonfall Unreal PR 690 source
+        uses: actions/checkout@v4
+        with:
+          ref: 8151ec565bfc78446b30eab5428d0285a3360849
+          path: game-source
+          persist-credentials: false
+      - name: Confirm Epic source token secret is configured
+        shell: pwsh
+        env:
+          EPIC_TOKEN: ${{ secrets.MOONFALL_EPIC_SOURCE_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:EPIC_TOKEN)) {
+            throw 'Configure MOONFALL_EPIC_SOURCE_TOKEN in Moonfall GitHub Actions secrets. Do not paste a token into chat.'
+          }
+      - name: Checkout authorized private Epic Unreal Engine 5.4
+        uses: actions/checkout@v4
+        with:
+          repository: EpicGames/UnrealEngine
+          ref: '5.4'
+          token: ${{ secrets.MOONFALL_EPIC_SOURCE_TOKEN }}
+          path: ue-source
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact engine and game revision
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = (& git -C game-source rev-parse HEAD).Trim()
+          if ($sha -ne '8151ec565bfc78446b30eab5428d0285a3360849') { throw 'Unexpected Moonfall game commit' }
+          $file = '.\ue-source\Engine\Build\Build.version'
+          if (-not (Test-Path $file)) { throw 'Unreal source Build.version missing' }
+          $version = Get-Content $file -Raw | ConvertFrom-Json
+          if ($version.MajorVersion -ne 5 -or $version.MinorVersion -ne 4) { throw 'Epic source is not UE 5.4' }
+      - name: Fetch Unreal engine dependencies
+        shell: pwsh
+        working-directory: ue-source
+        run: |
+          & .\Setup.bat -unattended
+          if ($LASTEXITCODE -ne 0) { throw "Epic Setup.bat failed: $LASTEXITCODE" }
+      - name: Generate Unreal Engine C++ project files
+        shell: pwsh
+        working-directory: ue-source
+        run: |
+          & .\GenerateProjectFiles.bat
+          if ($LASTEXITCODE -ne 0) { throw "Epic GenerateProjectFiles failed: $LASTEXITCODE" }
+      - name: Build licensed Unreal 5.4 Win64 installed engine
+        shell: pwsh
+        working-directory: ue-source
+        run: |
+          & .\Engine\Build\BatchFiles\RunUAT.bat BuildGraph '-target=Make Installed Build Win64' '-script=Engine/Build/InstalledEngineBuild.xml' -nosign '-set:HostPlatformOnly=true' '-set:WithDDC=false' '-set:WithAndroid=false' '-set:WithIOS=false' '-set:WithMac=false' '-set:WithLinux=false'
+          if ($LASTEXITCODE -ne 0) { throw "Unreal BuildGraph failed: $LASTEXITCODE" }
+      - name: Check actual engine binaries and compile Moonfall C++
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'ue-source\LocalBuilds\Engine\Windows'
+          & .\build-tools\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $root
+          & .\game-source\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $root -CompileOnly
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall real C++ compile failed: $LASTEXITCODE" }
+          "Actual Moonfall Unreal C++ compilation passed. No playable installer was built." >> $env:GITHUB_STEP_SUMMARY
+      - name: Cook and package actual Moonfall Win64 Development game
+        if: ${{ inputs.package_game || inputs.create_installer }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uat = Join-Path $env:GITHUB_WORKSPACE 'ue-source\LocalBuilds\Engine\Windows\Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path -LiteralPath $uat -PathType Leaf)) {
+            throw 'Real built engine does not contain RunUAT.bat; packaging is blocked.'
+          }
+          $project = (Resolve-Path -LiteralPath '.\game-source\MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $output = Join-Path $env:GITHUB_WORKSPACE 'MoonfallWin64Packaged'
+          if (Test-Path -LiteralPath $output) {
+            throw 'Refusing to overwrite existing Moonfall packaged game directory.'
+          }
+          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$output" -utf8output
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall Win64 cooking/packaging failed: $LASTEXITCODE" }
+          $executables = @(Get-ChildItem -LiteralPath $output -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($executables.Count -ne 1) { throw "Expected one packaged MoonfallUnreal.exe, got $($executables.Count)" }
+          $root = $executables[0].Directory.FullName
+          foreach ($folder in @('Engine', 'MoonfallUnreal')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
+              throw "Missing required packaged folder: $folder"
+            }
+          }
+          $gameData = Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1
+          if (-not $gameData) { throw 'Packaged Moonfall game contains no cooked game files.' }
+          "Real Moonfall Win64 Development package created from source-built UE 5.4; runtime gameplay and installer still untested." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload real Moonfall Windows game only if the full build succeeds
+        if: ${{ inputs.package_game && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED
+          path: MoonfallWin64Packaged/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Prepare .NET 8 for Windows launcher
+        if: ${{ inputs.create_installer }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build real-game Windows launcher and installer
+        if: ${{ inputs.create_installer }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:GITHUB_WORKSPACE 'MoonfallWin64Packaged'
+          $executables = @(Get-ChildItem -LiteralPath $output -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($executables.Count -ne 1) { throw 'No single verified real MoonfallUnreal.exe to install.' }
+          $root = $executables[0].Directory.FullName
+          foreach ($folder in @('Engine', 'MoonfallUnreal')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
+              throw "Real packaged game missing $folder"
+            }
+          }
+          if (-not (Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1)) {
+            throw 'Cooked content folder empty, refusing installer.'
+          }
+          $project = '.\\game-source\\MoonfallUnreal\\Launcher\\MoonfallLauncher.csproj'
+          & dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$root"
+          if ($LASTEXITCODE -ne 0) { throw "Real launcher compilation failed: $LASTEXITCODE" }
+          $launcher = Join-Path $root 'MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Moonfall launcher missing after publish' }
+          $checked = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $root -Wait -PassThru
+          if ($checked.ExitCode -ne 0) { throw "Real packaged game launcher validation failed: $($checked.ExitCode)" }
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS\\makensis.exe'
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+              & choco install nsis -y --no-progress --limit-output
+              if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed: $LASTEXITCODE" }
+            }
+            $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            $nsis = if ($nsis) { $nsis.Source } else { $candidate }
+          } else {
+            $nsis = $nsis.Source
+          }
+          if (-not (Test-Path -LiteralPath $nsis -PathType Leaf)) { throw 'NSIS compiler unavailable' }
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          $script = '.\\game-source\\MoonfallUnreal\\Installer\\MoonfallUnreal.nsi'
+          & $nsis "/DSOURCE_DIR=$root" "/DOUTPUT_EXE=$installer" $script
+          if ($LASTEXITCODE -ne 0) { throw "NSIS installer compilation failed: $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf) -or
+              (Get-Item -LiteralPath $installer).Length -le 0) { throw 'NSIS output is missing or empty' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -LiteralPath "$installer.sha256"
+          "Actual game installer and launcher built from UE source-compiled Moonfall game. Installation and gameplay remain untested." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload actual Moonfall Windows installer only after success
+        if: ${{ inputs.create_installer && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-REAL-Windows-Installer-UNTESTED
+          path: |
+            MoonfallUnreal-Setup.exe
+            MoonfallUnreal-Setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 3
+      - name: Upload Moonfall game compile logs only on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-SourceBuild-GameLogs-ONLY
+          path: |
+            game-source/MoonfallUnreal/Saved/Logs/
+            game-source/MoonfallUnreal/Intermediate/Build/Win64/*.log
+          if-no-files-found: warn
+          retention-days: 3

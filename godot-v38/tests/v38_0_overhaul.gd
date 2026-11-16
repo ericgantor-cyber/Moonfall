@@ -16,6 +16,12 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var jump_script:GDScript=load("res://scripts/native_v11.gd") as GDScript
+ check(jump_script!=null and "KEY_SPACE:_jump()" in jump_script.source_code and "KEY_CTRL:_dodge()" in jump_script.source_code,"keyboard jump and dodge bindings")
+ check(jump_script!=null and "JOY_BUTTON_A:_dodge()" in jump_script.source_code and "MOUSE_BUTTON_LEFT and event.pressed:_attack()" in jump_script.source_code,"controller dodge and mouse attack preserved")
+ check(jump_script!=null and "jump_coyote_remaining>0.0" in jump_script.source_code and "jump_buffer_remaining" in jump_script.source_code,"buffered jump and ledge grace")
+ check(jump_script!=null and "vertical_speed-=22.0*delta" in jump_script.source_code and "player.velocity=Vector3(dir.x*speed,vertical_speed,dir.z*speed)" in jump_script.source_code,"gravity and horizontal movement integrated")
+ check(jump_script!=null and "wait_open or wait_transition_active or mounted" in jump_script.source_code,"jump disabled in menus, wait transitions and on mounts")
  var talent_scene:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
  check(talent_scene!=null and "func _v398_build_tree()" in talent_scene.source_code and "func _v398_unlock(id:String)" in talent_scene.source_code,"celestial talent screen and button unlocking wired")
  check(talent_scene!=null and "event.keycode==KEY_K" in talent_scene.source_code,"K opens tree without replacing T tame control")
@@ -103,13 +109,19 @@ func _run()->void:
  check("ResourceLoader.exists(selected_hud_art)" in orb_source,"missing image falls back without breaking HUD")
  check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
  check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
- check("if not hero_playing or menu_open or death_active:return" in orb_source,"spell input cannot consume mana when gameplay is inactive")
+ check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in orb_source,"spell and dodge cannot spend resources while resting or transitioning")
+ var attack_code:String=orb_source.substr(orb_source.find("func _attack()->void:"),orb_source.find("func _spell(which:String)->void:")-orb_source.find("func _attack()->void:"))
+ check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:" in attack_code,"attack rejects rest and transition states before its inherited combo logic")
+ var spell_code:String=orb_source.substr(orb_source.find("func _spell(which:String)->void:"),orb_source.find("func _dodge()->void:")-orb_source.find("func _spell(which:String)->void:"))
+ check(spell_code.find("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return")>=0 and spell_code.find("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return")<spell_code.find("v385_mana-=cost"),"spell cannot deduct mana during rest or travel transitions")
+ var damage_code:String=orb_source.substr(orb_source.find("func _apply_incoming_damage(raw:float)->void:"),orb_source.find("func _apply_player_hit(")-orb_source.find("func _apply_incoming_damage(raw:float)->void:"))
+ check("or wait_open or wait_transition_active or mounted or v36_dragging" in damage_code,"defensive guard bypasses damage blocking during rest and transition states")
  check("target[\"stagger_until\"]=maxf(" in orb_source,"successful regular enemy hits use existing stagger timer")
  check("body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))" in orb_source,"knockback uses collision-aware bounded movement")
  check("if not bool(beast.get(\"alive\",false)) or bool(beast.get(\"boss\",false)):return" in orb_source,"knockback excludes bosses and defeated enemies")
  check("func _attack()->void:" in orb_source and "super._attack()" in orb_source,"combat attack guard delegates valid hits to inherited combo and damage code")
  var dodge_code:String=orb_source.substr(orb_source.find("func _dodge()->void:"),orb_source.find("func _start_game(")-orb_source.find("func _dodge()->void:"))
- check(dodge_code.find("if not hero_playing or menu_open or death_active:return")<dodge_code.find("if v387_stamina<dodge_cost:"),"dodge state guarded before insufficient stamina warning")
+ check(dodge_code.find("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return")<dodge_code.find("if v387_stamina<dodge_cost:"),"dodge state guarded before insufficient stamina warning")
  check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
  check("func _apply_incoming_damage(raw:float)->void:" in orb_source and "V392_PARRY_WINDOW" in orb_source,"guard and timed parry intercept incoming damage")
  check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*maxf(0.20,0.35-0.035*float(v398_ranks.get(\"defense_guard\",0)))" in orb_source,"right mouse guard mitigates damage and scales with defense talents")
@@ -179,6 +191,9 @@ func _run()->void:
  game.set("dodge_cooldown",0.0)
  game.set("v387_stamina",150.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
+ var hud_label:Label=game.get("v380_status_text") as Label
+ check(is_instance_valid(hud_label) and hud_label.get_theme_font_size("font_size")>=16,"optional HUD uses readable font size")
+ check(is_instance_valid(hud_label) and hud_label.autowrap_mode==TextServer.AUTOWRAP_WORD_SMART,"optional HUD wraps long text")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
   if "MOONFALL NATIVE v13" in (label_node as Label).text:obsolete_title=true
@@ -245,12 +260,15 @@ func _run()->void:
  if enemy_script!=null:
   var source:String=enemy_script.source_code
   var tick_start:int=source.find("func _update_beast_step(")
-  var tick_end:int=source.find("\\nfunc ",tick_start+1)
+  var tick_end:int=source.find("\nfunc ",tick_start+1)
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
+  check('elif engaged and v383_intent=="retreat":' in tick and "distance<8.0 else Vector3.ZERO" in tick,"retreat AI keeps safe spacing instead of advancing again")
   check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
+  check('elif engaged and v383_intent=="guard" and distance<=2.5:' in tick and "body.velocity=Vector3.ZERO" in tick,"guard intent holds nearby melee position during cooldown")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
+  check('elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:' in tick and "body.velocity=Vector3.ZERO" in tick,"boss holds position during active attack warning")
   check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")

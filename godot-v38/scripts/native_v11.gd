@@ -1,4 +1,8 @@
 extends "res://scripts/main.gd"
+const JUMP_BUFFER_SECONDS:float=0.14
+const JUMP_COYOTE_SECONDS:float=0.12
+var jump_buffer_remaining:float=0.0
+var jump_coyote_remaining:float=0.0
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
@@ -129,6 +133,13 @@ var inventory_filter:String="All"
 var inventory_sort:String="Default"
 var inventory_page:int=0
 var inventory_show_vault:bool=false
+var inventory_selected_index:int=-1
+var inventory_restore_focus:bool=false
+var crafting_selected_index:int=0
+var crafting_craftable_only:bool=false
+var crafting_category:String="All"
+var crafting_ready_first:bool=false
+var crafting_restore_focus:bool=false
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -227,7 +238,8 @@ var rifts_completed := 0
 
 # v11 keeps weather, time and regional encounters within the existing world.
 # Slots and markers are built once, never generated per frame.
-const DAY_LENGTH_SECONDS := 480.0
+const DAY_LENGTH_SECONDS := 7200.0
+# Pre-metadata save files used the 960-second world cycle.
 const WEATHER_INTERVAL_SECONDS := 145.0
 const WEATHER_TYPES := ["Clear", "Mist", "Rain", "Eclipse"]
 const WORLD_EVENT_GOAL := 3
@@ -239,8 +251,22 @@ const WORLD_EVENT_SITES := [
  {"name":"Shattered Relic Cache","kind":"cache","zone":4,"material":"Moon Sigil"},
  {"name":"Eclipse Citadel Hunt","kind":"hunt","zone":5,"material":"Dusk Cinder"}
 ]
-var world_clock := 240.0
+var world_clock := 3600.0
 var world_day := 1
+var wait_open := false
+var wait_hours := 1
+var wait_label: Label
+var wait_panel: PanelContainer
+var wait_clock_bar: ProgressBar
+var wait_clock_art: Label
+var wait_clock_dial: Control
+var wait_actions_container: HBoxContainer
+var wait_transition_active := false
+var wait_transition_elapsed := 0.0
+var wait_transition_start := 0.0
+var wait_transition_start_day := 1
+var wait_transition_end := 0.0
+const WAIT_TRANSITION_DURATION := 2.4
 var weather_name := "Clear"
 var weather_remaining := WEATHER_INTERVAL_SECONDS
 var weather_changes := 0
@@ -313,8 +339,17 @@ func _gamepad_direction() -> Vector3:
  if pads.is_empty():return Vector3.ZERO
  var id:int = pads[0]
  var stick:=Vector2(Input.get_joy_axis(id,JOY_AXIS_LEFT_X),Input.get_joy_axis(id,JOY_AXIS_LEFT_Y))
- if stick.length() < GAMEPAD_DEADZONE:return Vector3.ZERO
- return Vector3(stick.x, 0.0, stick.y).limit_length(1.0)
+ var input_direction:Vector2=_gamepad_radial_input(stick)
+ return Vector3(input_direction.x,0.0,input_direction.y)
+
+func _gamepad_radial_input(stick:Vector2)->Vector2:
+ # Deadzone must start at zero speed, not jump to 22% movement as the
+ # stick crosses the threshold. Preserve direction and full analog range.
+ if not stick.is_finite():return Vector2.ZERO
+ var magnitude:float=stick.length()
+ if magnitude<=GAMEPAD_DEADZONE:return Vector2.ZERO
+ var strength:float=clampf((minf(magnitude,1.0)-GAMEPAD_DEADZONE)/(1.0-GAMEPAD_DEADZONE),0.0,1.0)
+ return stick.normalized()*strength
 
 ## Camera mode hook. Legacy versions keep world-axis movement; 3D uses view-relative movement.
 func _map_movement_to_camera(raw_direction:Vector3)->Vector3:
@@ -461,8 +496,10 @@ func _update_region_visibility() -> void:
   for creature in zone_beast_lists[zone]:
    var body:CharacterBody3D=creature["body"]
    if is_instance_valid(body) and bool(creature.get("alive",false)):
-    body.visible=visible
-    if not visible:body.velocity=Vector3.ZERO
+    # Region refresh is frequent; avoid redundant scene-tree visibility writes
+    # and unnecessary velocity assignments for idle, offscreen creatures.
+    if body.visible!=visible:body.visible=visible
+    if not visible and body.velocity!=Vector3.ZERO:body.velocity=Vector3.ZERO
 
 func _make_shrine(i: int) -> void:
  var center: Vector2=REGIONS[i]["at"]
@@ -783,10 +820,104 @@ func _build_ui() -> void:
  hint=_ui_label(root,Vector2(18,43),15,Color("c6dccf"))
  status=_ui_label(root,Vector2(18,75),17,Color("ffd391"))
  world_hud=_ui_label(root,Vector2(18,111),14,Color("bcabec"))
+ # Illustrated fantasy parchment overlay: built from native Godot UI, no external art assets.
+ wait_panel=PanelContainer.new()
+ wait_panel.name="CelestialWaitPanel"
+ wait_panel.tooltip_text="Wait for up to 24 in-game hours. Waiting is unavailable during combat."
+ wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+ wait_panel.position=Vector2(-325,-175)
+ wait_panel.custom_minimum_size=Vector2(650,350)
+ wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
+ wait_panel.focus_mode=Control.FOCUS_ALL
+ wait_panel.clip_contents=false
+ var wait_frame:=StyleBoxFlat.new()
+ wait_frame.bg_color=Color("151b32")
+ wait_frame.border_color=Color("d5ac69")
+ wait_frame.set_border_width_all(3)
+ wait_frame.set_corner_radius_all(22)
+ wait_frame.set_content_margin_all(18)
+ wait_frame.shadow_color=Color(0,0,0,0.7)
+ wait_frame.shadow_size=14
+ wait_panel.add_theme_stylebox_override("panel",wait_frame)
+ root.add_child(wait_panel)
+ var wait_column:=VBoxContainer.new()
+ wait_column.add_theme_constant_override("separation",14)
+ wait_panel.add_child(wait_column)
+ var wait_art:=Label.new()
+ wait_art.text="✦   ═════  THE PASSING HOURS  ═════   ✦"
+ wait_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_art.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ wait_art.add_theme_font_size_override("font_size",26)
+ wait_art.add_theme_color_override("font_color",Color("e8c883"))
+ wait_art.tooltip_text="Moonfall celestial waiting clock"
+ wait_column.add_child(wait_art)
+ wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
+ wait_clock_dial.custom_minimum_size=Vector2(560,176)
+ wait_clock_dial.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ wait_clock_dial.tooltip_text="Animated astronomical clock showing the selected time of day"
+ wait_column.add_child(wait_clock_dial)
+ wait_clock_art=Label.new()
+ wait_clock_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_clock_art.add_theme_font_size_override("font_size",29)
+ wait_clock_art.add_theme_color_override("font_color",Color("f4d69a"))
+ wait_column.add_child(wait_clock_art)
+ wait_clock_bar=ProgressBar.new()
+ wait_clock_bar.custom_minimum_size=Vector2(560,26)
+ wait_clock_bar.max_value=24.0
+ wait_clock_bar.min_value=0.0
+ wait_clock_bar.show_percentage=false
+ wait_clock_bar.tooltip_text="Projected time of day on the 24-hour celestial clock"
+ wait_clock_bar.mouse_filter=Control.MOUSE_FILTER_PASS
+ var track:=StyleBoxFlat.new()
+ track.bg_color=Color("34354a")
+ track.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("background",track)
+ var fill:=StyleBoxFlat.new()
+ fill.bg_color=Color("ddaa61")
+ fill.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("fill",fill)
+ wait_column.add_child(wait_clock_bar)
+ wait_label=Label.new()
+ wait_label.add_theme_font_size_override("font_size",23)
+ wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
+ wait_label.tooltip_text="Current and projected day, time and phase"
+ wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ wait_column.add_child(wait_label)
+ wait_actions_container=HBoxContainer.new()
+ var wait_actions:=wait_actions_container
+ # Accessible large controls for mouse and touch users.
+ wait_actions.add_theme_constant_override("separation",8)
+ wait_actions.add_theme_constant_override("separation",6)
+ wait_column.add_child(wait_actions)
+ for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
+  var step_button:=Button.new()
+  step_button.text=str(entry[0])
+  step_button.custom_minimum_size=Vector2(72,44)
+  step_button.tooltip_text="Adjust waiting by %d hours" % int(entry[1])
+  step_button.focus_mode=Control.FOCUS_ALL
+  step_button.pressed.connect(_wait_change_hours.bind(int(entry[1])))
+  wait_actions.add_child(step_button)
+ var accept_button:=Button.new()
+ accept_button.text="WAIT"
+ accept_button.custom_minimum_size=Vector2(90,44)
+ accept_button.tooltip_text="Confirm waiting for the chosen number of hours"
+ accept_button.focus_mode=Control.FOCUS_ALL
+ accept_button.pressed.connect(_finish_wait.bind(true))
+ wait_actions.add_child(accept_button)
+ var cancel_button:=Button.new()
+ cancel_button.text="CANCEL"
+ cancel_button.custom_minimum_size=Vector2(90,44)
+ cancel_button.tooltip_text="Close Wait without advancing time"
+ cancel_button.focus_mode=Control.FOCUS_ALL
+ cancel_button.pressed.connect(_finish_wait.bind(false))
+ wait_actions.add_child(cancel_button)
+ wait_panel.visible=false
+ wait_panel.process_mode=Node.PROCESS_MODE_ALWAYS
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
- controls.text="WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • F10/Esc atlas"
+ controls.text="P wait • WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • Esc atlas"
  quick_actions=PanelContainer.new()
  quick_actions.name="QuickActions"
  quick_actions.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -825,22 +956,108 @@ func _build_ui() -> void:
  choices.position=Vector2(58,108)
  choices.add_theme_constant_override("separation",22)
  start_screen.add_child(choices)
- for entry in [{"id":"z","name":"Z • Void Reaper","art":Z_ART},{"id":"nyra","name":"Nyra • Eclipse Queen","art":NYRA_ART}]:
-  var column:=VBoxContainer.new()
-  column.custom_minimum_size=Vector2(335,355)
-  choices.add_child(column)
-  var portrait:=TextureRect.new()
-  portrait.texture=entry["art"]
-  portrait.custom_minimum_size=Vector2(310,260)
-  portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-  portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-  column.add_child(portrait)
-  var launch:=Button.new()
-  launch.text="NEW GAME AS "+str(entry["name"])
-  launch.custom_minimum_size=Vector2(310,56)
-  launch.pressed.connect(_start_game.bind(str(entry["id"])))
-  column.add_child(launch)
-  if not is_instance_valid(hero_start_button):hero_start_button=launch
+ # Z and Nyra are gods/bosses, not new-game playable avatars.
+ # Legacy z/nyra checkpoint identifiers remain readable until the dedicated
+ # save-migration and real boss encounter stages are implemented.
+ var divine_lore:=VBoxContainer.new()
+ divine_lore.custom_minimum_size=Vector2(335,180)
+ choices.add_child(divine_lore)
+ var divine_heading:=Label.new()
+ divine_heading.text="Z & NYRA • GODS OF MOONFALL"
+ divine_heading.add_theme_font_size_override("font_size",20)
+ divine_lore.add_child(divine_heading)
+ var divine_note:=Label.new()
+ divine_note.text="Your journey begins with your own hero. Z and Nyra are world powers, not playable characters."
+ divine_note.custom_minimum_size=Vector2(330,90)
+ divine_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ divine_lore.add_child(divine_note)
+ # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
+ var creator_scroll:=ScrollContainer.new()
+ creator_scroll.custom_minimum_size=Vector2(320,390)
+ creator_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ choices.add_child(creator_scroll)
+ var custom_column:=VBoxContainer.new()
+ custom_column.custom_minimum_size=Vector2(290,0)
+ custom_column.add_theme_constant_override("separation",7)
+ creator_scroll.add_child(custom_column)
+ var custom_title:=Label.new()
+ custom_title.text="CREATE YOUR HERO • SCROLL FOR OPTIONS"
+ custom_column.add_child(custom_title)
+ creator_scroll.tooltip_text="Scroll to reach all appearance options. Keyboard Tab moves between controls."
+ var custom_name_edit:=LineEdit.new()
+ custom_name_edit.placeholder_text="Hero name"
+ custom_name_edit.max_length=24
+ custom_name_edit.text="Wanderer"
+ custom_column.add_child(custom_name_edit)
+ var custom_color_picker:=OptionButton.new()
+ for color_name in ["Crimson","Azure","Emerald","Violet","Gold"]:
+  custom_color_picker.add_item(color_name)
+ custom_column.add_child(custom_color_picker)
+ var hair_picker:=OptionButton.new()
+ for hair_name in ["Short dark","Long brown","Golden","Silver"]:
+  hair_picker.add_item(hair_name)
+ custom_column.add_child(hair_picker)
+ var eye_picker:=OptionButton.new()
+ for eye_name in ["Blue","Green","Violet","Amber"]:
+  eye_picker.add_item(eye_name)
+ custom_column.add_child(eye_picker)
+ var skin_picker:=OptionButton.new()
+ for skin_name in ["Warm","Fair","Bronze","Deep","Rose"]:
+  skin_picker.add_item(skin_name)
+ custom_column.add_child(skin_picker)
+ var face_picker:=OptionButton.new()
+ for face_name in ["Neutral","Smile","Scar"]:
+  face_picker.add_item(face_name)
+ custom_column.add_child(face_picker)
+ var accessory_picker:=OptionButton.new()
+ for accessory_name in ["None","Visor","Shoulder trim"]:
+  accessory_picker.add_item(accessory_name)
+ custom_column.add_child(accessory_picker)
+ var build_picker:=OptionButton.new()
+ for build_name in ["Slender","Balanced","Broad"]:
+  build_picker.add_item(build_name)
+ build_picker.select(1)
+ custom_column.add_child(build_picker)
+ var custom_preview:=TextureRect.new()
+ custom_preview.custom_minimum_size=Vector2(240,220)
+ custom_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+ custom_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+ custom_column.add_child(custom_preview)
+ var refresh_preview:=func(_index:int=0)->void:
+  _refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected,build_picker.selected)
+ refresh_preview.call()
+ for picker in [custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]:
+  picker.item_selected.connect(refresh_preview)
+ var appearance_actions:=HBoxContainer.new()
+ appearance_actions.add_theme_constant_override("separation",8)
+ custom_column.add_child(appearance_actions)
+ var randomize_button:=Button.new()
+ randomize_button.text="RANDOMIZE LOOK"
+ randomize_button.tooltip_text="Randomize only your custom hero appearance; no class or gameplay changes."
+ randomize_button.custom_minimum_size=Vector2(140,44)
+ appearance_actions.add_child(randomize_button)
+ var reset_button:=Button.new()
+ reset_button.text="RESET LOOK"
+ reset_button.custom_minimum_size=Vector2(115,44)
+ appearance_actions.add_child(reset_button)
+ var appearance_pickers:Array=[custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]
+ randomize_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:
+   picker.select(randi_range(0,picker.item_count-1))
+  refresh_preview.call()
+ )
+ reset_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:picker.select(0)
+  build_picker.select(1)
+  refresh_preview.call()
+ )
+ var custom_launch:=Button.new()
+ custom_launch.text="CREATE & PLAY"
+ # Keyboard/controller focus must target the remaining new-game button.
+ hero_start_button=custom_launch
+ custom_launch.custom_minimum_size=Vector2(230,52)
+ custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected,build_picker.selected))
+ custom_column.add_child(custom_launch)
  if not _read_save().is_empty():
   var continue_btn:=Button.new()
   continue_btn.position=Vector2(145,530)
@@ -852,57 +1069,74 @@ func _build_ui() -> void:
  menu_panel.visible=false
  pause_screen=menu_panel
  var frame:=PanelContainer.new()
- frame.position=Vector2(48,115)
- frame.size=Vector2(1090,550)
+ frame.position=Vector2(48,95)
+ frame.size=Vector2(1090,590)
  menu_panel.add_child(frame)
  var layout:=VBoxContainer.new()
- layout.add_theme_constant_override("separation",8)
+ layout.add_theme_constant_override("separation",5)
  frame.add_child(layout)
+ var tab_scroll:=ScrollContainer.new()
+ tab_scroll.custom_minimum_size=Vector2(0,40)
+ tab_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tab_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+ tab_scroll.follow_focus=true
+ layout.add_child(tab_scroll)
  var tabs:=HBoxContainer.new()
- tabs.add_theme_constant_override("separation",7)
- layout.add_child(tabs)
+ tabs.add_theme_constant_override("separation",3)
+ tab_scroll.add_child(tabs)
  for tab in ["Character","World","Wallet","Inventory","Materials","Hero Skills","Tamer","Professions","Hunter","Bestiary","System"]:
   var tab_button:=Button.new()
   tab_button.text=tab
-  tab_button.custom_minimum_size=Vector2(86,43)
+  tab_button.custom_minimum_size=Vector2(82,34)
   tab_button.add_theme_font_size_override("font_size",12)
+  tab_button.tooltip_text="Open "+tab
   tab_button.pressed.connect(_menu_tab.bind(tab))
   tabs.add_child(tab_button)
   if not is_instance_valid(atlas_first_tab):atlas_first_tab=tab_button
  var contents:=HBoxContainer.new()
- contents.add_theme_constant_override("separation",14)
+ contents.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ contents.add_theme_constant_override("separation",8)
  layout.add_child(contents)
  var guide_column:=VBoxContainer.new()
- guide_column.custom_minimum_size=Vector2(300,450)
+ guide_column.custom_minimum_size=Vector2(270,400)
+ guide_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
  contents.add_child(guide_column)
  beast_guide=TextureRect.new()
- beast_guide.custom_minimum_size=Vector2(295,200)
+ beast_guide.custom_minimum_size=Vector2(268,165)
  beast_guide.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
  beast_guide.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
  guide_column.add_child(beast_guide)
  inventory_search_input=LineEdit.new()
  inventory_search_input.placeholder_text="Search equipment or materials..."
- inventory_search_input.custom_minimum_size=Vector2(295,34)
+ inventory_search_input.custom_minimum_size=Vector2(268,32)
  inventory_search_input.max_length=80
+ inventory_search_input.clear_button_enabled=true
+ inventory_search_input.tooltip_text="Click to search bag or materials. Use the clear icon to reset."
  inventory_search_input.visible=false
  inventory_search_input.text_changed.connect(_on_inventory_query_changed)
  guide_column.add_child(inventory_search_input)
  var action_scroll:=ScrollContainer.new()
- action_scroll.custom_minimum_size=Vector2(295,175)
+ action_scroll.custom_minimum_size=Vector2(268,195)
+ action_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ action_scroll.follow_focus=true
+ action_scroll.tooltip_text="Scroll the action list with your mouse wheel."
  guide_column.add_child(action_scroll)
  menu_buttons=VBoxContainer.new()
- menu_buttons.add_theme_constant_override("separation",6)
+ menu_buttons.add_theme_constant_override("separation",3)
  action_scroll.add_child(menu_buttons)
  var scroller:=ScrollContainer.new()
- scroller.custom_minimum_size=Vector2(735,452)
+ scroller.custom_minimum_size=Vector2(735,420)
+ scroller.size_flags_vertical=Control.SIZE_EXPAND_FILL
  scroller.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ scroller.follow_focus=true
+ scroller.tooltip_text="Scroll character details, inventory details, and settings with your mouse wheel."
  contents.add_child(scroller)
  menu_body=RichTextLabel.new()
  menu_body.bbcode_enabled=true
  menu_body.fit_content=true
  menu_body.scroll_active=true
  menu_body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
- menu_body.add_theme_font_size_override("normal_font_size",17)
+ menu_body.add_theme_font_size_override("normal_font_size",15)
  scroller.add_child(menu_body)
  _menu_tab("Character")
  if is_instance_valid(hero_start_button):hero_start_button.call_deferred("grab_focus")
@@ -917,6 +1151,8 @@ func _inventory_action(action:String)->void:
  match action:
   "inventory_toggle":
    inventory_show_vault=not inventory_show_vault
+   inventory_selected_index=-1
+   inventory_restore_focus=false
    inventory_page=0
   "inventory_filter":
    var filters: Array[String]=["All","Common","Uncommon","Rare","Epic","Legendary","Mythic","Crafted"]
@@ -928,6 +1164,47 @@ func _inventory_action(action:String)->void:
    inventory_page=0
   "inventory_page_next":inventory_page+=1
   "inventory_page_prev":inventory_page=maxi(0,inventory_page-1)
+  "inventory_select_best":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    _show_message("No matching equipment to inspect.",2)
+    return
+   var best_index:int=matching[0]
+   for index in matching:
+    if int(gear_items[index].get("power",0))>int(gear_items[best_index].get("power",0)):
+     best_index=index
+   inventory_selected_index=best_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(best_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
+  "inventory_select_upgrade":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   var equipped_power:int=_equipment_power()
+   var upgrade_index:int=-1
+   for index in matching:
+    var candidate_power:int=int(gear_items[index].get("power",0))
+    if candidate_power<=equipped_power:continue
+    if upgrade_index<0 or candidate_power>int(gear_items[upgrade_index].get("power",0)):
+     upgrade_index=index
+   if upgrade_index<0:
+    _show_message("No matching power upgrades found.",2)
+    return
+   inventory_selected_index=upgrade_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(upgrade_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
+  "inventory_select_next","inventory_select_prev":
+   var source:Array=vault_items if inventory_show_vault else gear_items
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    inventory_selected_index=-1
+    return
+   var selected_at:int=matching.find(inventory_selected_index)
+   if selected_at<0:selected_at=0 if action=="inventory_select_next" else matching.size()-1
+   else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
+   inventory_selected_index=matching[selected_at]
+   inventory_restore_focus=true
+   inventory_page=floori(float(selected_at)/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_upgrade":
    var cost:int=INVENTORY_RULES.upgrade_cost(bag_capacity)
    if cost<=0 or not _wallet_can_afford(cost*MONEY_RULES.COPPER_PER_GOLD):
@@ -940,12 +1217,21 @@ func _inventory_action(action:String)->void:
   _:
    if action.begins_with("inventory_deposit:"):
     var idx:int=int(action.get_slice(":",1))
+    if idx<0 or idx>=gear_items.size():
+     _show_message("Item unavailable.",2)
+     return
+    # Prevent equipped gear from leaving the bag while still active.
+    if not equipped.is_empty() and equipped==gear_items[idx]:
+     _show_message("Unequip that item before depositing it.",2)
+     return
     if INVENTORY_RULES.transfer_gear(gear_items,vault_items,idx,INVENTORY_RULES.VAULT_LIMIT):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Vault full or item unavailable.",2)
    elif action.begins_with("inventory_withdraw:"):
     var idx:int=int(action.get_slice(":",1))
     if INVENTORY_RULES.transfer_gear(vault_items,gear_items,idx,bag_capacity):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Bag full or item unavailable.",2)
 
@@ -964,8 +1250,11 @@ func _menu_tab(which: String) -> void:
  if not is_instance_valid(menu_body):return
  if is_instance_valid(inventory_search_input):
   inventory_search_input.visible=which in ["Inventory","Materials"]
- for child in menu_buttons.get_children():child.queue_free()
+ for child in menu_buttons.get_children():
+  menu_buttons.remove_child(child)
+  child.queue_free()
  beast_guide.texture=null
+ beast_guide.visible=which in ["Character","Bestiary"]
  match which:
   "Character":
    beast_guide.texture=NYRA_ART if hero=="nyra" else Z_ART
@@ -1026,19 +1315,75 @@ func _menu_tab(which: String) -> void:
    var matches:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
    var pages:int=INVENTORY_RULES.page_count(matches.size())
    inventory_page=clampi(inventory_page,0,pages-1)
-   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\n\n"
-   for n in range(inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE,mini((inventory_page+1)*INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())):
+   var start:int=inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE
+   var end:int=mini(start+INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())
+   # Never keep a hidden or stale selection when the filter or page changes.
+   if end>start and not (inventory_selected_index in matches.slice(start,end)):
+    inventory_selected_index=matches[start]
+   elif matches.is_empty():inventory_selected_index=-1
+   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nClick a tile to inspect • Right-click a bag tile to equip.\n"
+   var item_grid:=GridContainer.new()
+   item_grid.columns=2
+   item_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+   item_grid.add_theme_constant_override("h_separation",5)
+   item_grid.add_theme_constant_override("v_separation",5)
+   menu_buttons.add_child(item_grid)
+   for n in range(start,end):
     var index:int=matches[n]
     var gear:Dictionary=source[index]
-    text+=str(index+1)+". "+str(gear.get("rarity","Common"))+" "+str(gear.get("name","Gear"))+" • Power "+str(gear.get("power",0))+"\n"
-    if inventory_show_vault:
-     _atlas_action("WITHDRAW: "+str(gear.get("name","Gear")),"inventory_withdraw:"+str(index))
-    else:
-     _atlas_action("EQUIP: "+str(gear.get("name","Gear")),"equip:"+str(index))
-     _atlas_action("DEPOSIT: "+str(gear.get("name","Gear")),"inventory_deposit:"+str(index))
+    _inventory_tile(item_grid,gear,index)
+   inventory_restore_focus=false
    if matches.is_empty():text+="No matching equipment. Defeat enemies or change your search.\n"
+   if end>start:
+    var selected_item:Dictionary=source[inventory_selected_index]
+    if inventory_show_vault:
+     _atlas_action("WITHDRAW SELECTED: "+str(selected_item.get("name","Gear")),"inventory_withdraw:"+str(inventory_selected_index))
+    else:
+     if not equipped.is_empty() and equipped==selected_item:
+      _atlas_action("EQUIPPED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     else:
+      _atlas_action("EQUIP SELECTED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     _atlas_action("DEPOSIT SELECTED","inventory_deposit:"+str(inventory_selected_index))
+    if matches.size()>1:
+     _atlas_action("PREVIOUS ITEM","inventory_select_prev")
+     _atlas_action("NEXT ITEM","inventory_select_next")
+    if not inventory_show_vault and not matches.is_empty():
+     _atlas_action("FIND BEST POWER","inventory_select_best","Select the strongest matching item without equipping it.")
+     _atlas_action("FIND UPGRADE","inventory_select_upgrade","Select the strongest matching item above your current equipment power. Does not equip.")
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
+   if inventory_selected_index>=0 and inventory_selected_index<source.size():
+    var selected:Dictionary=source[inventory_selected_index]
+    var chosen_rarity:String=str(selected.get("rarity","Common"))
+    var selected_power:int=int(selected.get("power",0))
+    text+="\n\n[b]ITEM INSPECTION[/b]\n[color="+_inventory_rarity_color(chosen_rarity)+"][b]"+str(selected.get("name","Gear"))+"[/b][/color]"
+    text+="\n"+chosen_rarity+" • Item Power "+str(selected_power)
+    if not inventory_show_vault and not equipped.is_empty() and equipped==selected:
+     text+="\n[color=#57dc91][b]CURRENTLY EQUIPPED[/b][/color]"
+    if selected.has("affix") and str(selected.get("affix",""))!="":
+     text+="\nBonus: "+str(selected.get("affix","")).capitalize()+" • "+str(selected.get("affix_value",0))
+    if not inventory_show_vault:
+     var equipped_power:int=_equipment_power()
+     var difference:int=selected_power-equipped_power
+     text+="\n[b]COMPARE WITH EQUIPPED[/b]"
+     if not equipped.is_empty() and equipped==selected:text+="\nYou are already wearing this item."
+     text+="\nCurrent: "+str(equipped.get("name","None"))+" • Power "+str(equipped_power)
+     text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
+     var current_affix:String=str(equipped.get("affix",""))
+     var chosen_affix:String=str(selected.get("affix",""))
+     if chosen_affix!="" or current_affix!="":
+      text+="\n[b]BONUS COMPARISON[/b]"
+      text+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+      text+="\nSelected bonus: "+_inventory_bonus_label(selected)
+      if chosen_affix!="" and chosen_affix==current_affix:
+       var bonus_delta:float=float(selected.get("affix_value",0))-float(equipped.get("affix_value",0))
+       text+="\nSame bonus difference: [color="+("#57dc91" if bonus_delta>0.0 else "#ed8391" if bonus_delta<0.0 else "#c8d4e6")+"]"+("+" if bonus_delta>0.0 else "")+str(snappedf(bonus_delta,0.001))+"[/color]"
+      elif chosen_affix=="" or current_affix=="":text+="\nOne item has no bonus; review its overall power and effects."
+      else:text+="\nDifferent bonus types; compare their effects before equipping."
+    else:text+="\nIn vault • Withdraw to compare or equip."
+    if inventory_show_vault:text+="\nWithdraw before equipping."
+    elif not equipped.is_empty() and equipped==selected:text+="\nThis equipment is already active."
+    else:text+="\nRight-click its tile to equip or use Equip Selected."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
    menu_body.text=text
   "Materials":
@@ -1051,7 +1396,8 @@ func _menu_tab(which: String) -> void:
     var amount:int=int(materials[key])
     if amount<=0:continue
     var stacks:Array[int]=INVENTORY_RULES.material_stack_counts(amount)
-    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks)\n"
+    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks) • Crafting storage\n"
+    _material_hover_row(str(key),amount,stacks.size())
     found+=1
    if found==0:text+="No matching materials.\n"
    text+="\nCraft items in the Professions tab."
@@ -1069,24 +1415,67 @@ func _menu_tab(which: String) -> void:
    if not companion.is_empty():text+="\nCompanion health: "+str(int(companion.get("hp",0)))+" / "+str(int(companion.get("max",80)))
    menu_body.text=text
   "Professions":
-   var text:="[b]PROFESSIONS / CRAFTING[/b]\nSkinning "+str(skinning_skill)+" / 300\nLeatherworking "+str(crafting_skill)+" / 300\n\n[b]Materials:[/b]\n"
-   for k in materials.keys():text+=str(k)+": "+str(materials[k])+"\n"
-   text+="\n[b]Recipes[/b]\n"
+   var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300 • "+_craft_skill_rank(skinning_skill)
+   text+="\nLeatherworking "+str(crafting_skill)+" / 300 • "+_craft_skill_rank(crafting_skill)
+   text+="\n"+_craft_skill_progress(skinning_skill,"Skinning")
+   text+="\n"+_craft_skill_progress(crafting_skill,"Leatherworking")+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
+   _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
+   _atlas_action("CATEGORY: "+crafting_category.to_upper(),"recipe_category","Browse all recipes, equipment, or consumables.")
+   _atlas_action("ORDER: "+("READY FIRST" if crafting_ready_first else "RECIPE LIST"),"recipe_order","Show craftable recipes first or restore the original recipe order.")
+   var available:Array[int]=[]
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
-    text+=str(i+1)+". "+str(recipe["name"])+" • "+str(recipe["cost"])+"\n"
-    _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i))
+    var issue:String=INVENTORY_RULES.craft_issue(recipe,materials,gear_items.size(),bag_capacity)
+    if crafting_craftable_only and issue!="":continue
+    var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
+    if crafting_category!="All" and category!=crafting_category:continue
+    available.append(i)
+   # Apply ordering before building the clickable recipe list.
+   if crafting_ready_first:
+    var ready:Array[int]=[]
+    var blocked:Array[int]=[]
+    for recipe_index in available:
+     if INVENTORY_RULES.craft_issue(RECIPES[recipe_index],materials,gear_items.size(),bag_capacity)=="":ready.append(recipe_index)
+     else:blocked.append(recipe_index)
+    available=ready+blocked
+   # Reconcile selection before creating list buttons, so the visible marker is correct.
+   if not available.is_empty() and not (crafting_selected_index in available):
+    crafting_selected_index=available[0]
+   var ready_count:int=0
+   for recipe_index in available:
+    var entry:Dictionary=RECIPES[recipe_index]
+    var issue:String=INVENTORY_RULES.craft_issue(entry,materials,gear_items.size(),bag_capacity)
+    if issue=="":ready_count+=1
+    var kind:String="Consumable" if int(entry.get("power",0))==0 else "Equipment"
+    var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else _recipe_blocker_summary(entry))
+    _atlas_action(title,"recipe_select:"+str(recipe_index),"Select this recipe to see all ingredients and crafting information.")
+   crafting_restore_focus=false
+   text+="\nRecipes: "+str(available.size())+" • Ready: "+str(ready_count)+" • Missing: "+str(available.size()-ready_count)
+   if available.is_empty():
+    text+="\nNo recipes match these filters. Change category or show all recipes.\n"
+   else:
+    var chosen:Dictionary=RECIPES[crafting_selected_index]
+    var chosen_issue:String=INVENTORY_RULES.craft_issue(chosen,materials,gear_items.size(),bag_capacity)
+    text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
+    text+="\n"+_recipe_hover_details(chosen)
+    text+="\n[b]CAN CRAFT:[/b] "+str(_recipe_possible_count(chosen))+" with current materials and bag space."
+    text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else _recipe_blocker_summary(chosen)+" • "+chosen_issue)
+    if _combat_threat():text+="\nCrafting blocked while enemies are attacking."
+    _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
    menu_body.text=text
   "Hunter":
    var text:="[b]HUNTER'S PATH[/b]\n\nHunter Senses: "+("ACTIVE" if senses_on else "INACTIVE")+"\nContracts completed: "+str(contracts_done.size())+"/6\nHunter Oil: "+str(int(hunter_oil_time))+"s\n"
    if contract_zone>=0:text+="\nACTIVE CONTRACT: "+str(REGIONS[contract_zone]["name"])+" · "+str(contract_kills)+" / 3 hostile beasts.\n"
    else:text+="\nAccept one regional monster contract; hunt three hostile beasts in that region.\n"
+   text+="\n\n[b]CONSUMABLES[/b]"
+   text+="\nHunter\'s Oil: "+str(materials.get("Hunter\'s Oil",0))+" owned • Temporary hunting effect (25 seconds). Dismount before use."
+   text+="\nHealing Draught: "+str(materials.get("Healing Draught",0))+" owned • Restores 35% maximum health. Dismount before use."
    menu_body.text=text
    _atlas_action("TOGGLE HUNTER SENSES","senses")
    for i in range(REGIONS.size()):
     if not (i in contracts_done):_atlas_action("ACCEPT: "+str(REGIONS[i]["name"]),"contract:"+str(i))
-   _atlas_action("USE HUNTER'S OIL","oil")
-   _atlas_action("USE HEALING DRAUGHT","heal")
+   _atlas_action("USE HUNTER'S OIL","oil","Hunter's Oil\nOwned: "+str(materials.get("Hunter's Oil",0))+"\nApplies a temporary hunting effect for 25 seconds. Dismount before use.")
+   _atlas_action("USE HEALING DRAUGHT","heal","Healing Draught\nOwned: "+str(materials.get("Healing Draught",0))+"\nRestores 35% of maximum health, up to full health. Dismount before use.")
   "Bestiary":
    var text:="[b]MOONFALL BESTIARY[/b]\nEight native beast families. Normal, Moon-Touched, Duskborn, and Elder variants may appear.\n\n"
    for k in BEASTS.keys():
@@ -1096,7 +1485,7 @@ func _menu_tab(which: String) -> void:
    menu_body.text=text
    for k in PORTRAITS.keys():_atlas_action(str(k).replace("_"," ").capitalize(),"portrait:"+str(k))
   "System":
-   menu_body.text="[b]MOONFALL NATIVE v13 OPTIONS[/b]\nGodot 4.7.2 native Windows build uses Direct3D 12 where supported, with rendering fallbacks.\nNative Godot project: no browser or WebGL dependency.\n\nSimple controls:\nWASD / arrows move, left click attack, Space dodge, Q/E/R spells, G loot/events/shrine, T tame, M mount, F senses, H pet stance, Tab map, F10 or Esc menu.\nController: left stick move, X attack, A dodge, B interact, Y tame, shoulders spells, D-pad up pet stance, D-pad down minimap, Start menu.\n\nNative save schema 2 is separate from browser v104."
+   menu_body.text="[b]MOONFALL NATIVE v13 OPTIONS[/b]\nGodot 4.7.2 native Windows build uses Direct3D 12 where supported, with rendering fallbacks.\nNative Godot project: no browser or WebGL dependency.\n\nSimple controls:\nWASD / arrows move, left click attack, Space dodge, Q/E/R spells, G loot/events/shrine, T tame, M mount, F senses, H pet stance, Tab map, Esc menu.\nController: left stick move, X attack, A dodge, B interact, Y tame, shoulders spells, D-pad up pet stance, D-pad down minimap, Start menu.\n\nNative save schema 2 is separate from browser v104."
    _atlas_action("SAVE NATIVE CHECKPOINT","save")
    _atlas_action("LOAD NATIVE CHECKPOINT","load")
    _atlas_action("SHOW WORLD DIAGNOSTICS","diagnostics")
@@ -1107,13 +1496,203 @@ func _menu_tab(which: String) -> void:
    _atlas_action("RESUME GAME","resume")
    _atlas_action("RETURN TO HERO SELECT","title")
 
+func _material_hover_row(name:String,amount:int,stack_count:int)->void:
+ var row:=Label.new()
+ row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"
+ row.tooltip_text=name+"\nOwned: "+str(amount)+"\nStorage: Materials (separate from gear bag)\nStacks: "+str(stack_count)+" • 999 per stack\nUsed for crafting when required by recipes."
+ row.mouse_filter=Control.MOUSE_FILTER_STOP
+ row.custom_minimum_size=Vector2(270,30)
+ row.add_theme_font_size_override("font_size",15)
+ menu_buttons.add_child(row)
+
+func _craft_skill_rank(level:int)->String:
+ if level>=300:return "Master"
+ if level>=225:return "Artisan"
+ if level>=150:return "Expert"
+ if level>=75:return "Journeyman"
+ return "Apprentice"
+
+func _craft_skill_progress(level:int,profession:String="Leatherworking")->String:
+ var current:int=clampi(level,1,300)
+ if current>=300:return profession+": MASTER • MAX 300/300 ["+"■".repeat(10)+"]"
+ var milestone:int=75 if current<75 else 150 if current<150 else 225 if current<225 else 300
+ var start:int=1 if current<75 else 75 if current<150 else 150 if current<225 else 225
+ var range_size:int=milestone-start
+ var gained:int=current-start
+ var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
+ var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
+ return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+
+func _recipe_blocker_summary(recipe:Dictionary)->String:
+ var costs:Dictionary=recipe.get("cost",{})
+ var missing:PackedStringArray=PackedStringArray()
+ for material in costs.keys():
+  var needed:int=int(costs[material])-int(materials.get(str(material),0))
+  if needed>0:missing.append(str(needed)+" "+str(material))
+ if not missing.is_empty():
+  return "NEED "+", ".join(missing)
+ if int(recipe.get("power",0))>0 and gear_items.size()>=bag_capacity:
+  return "BAG FULL"
+ return "BLOCKED"
+
+func _recipe_possible_count(recipe:Dictionary)->int:
+ var costs:Dictionary=recipe.get("cost",{})
+ if costs.is_empty():return 0
+ var possible:int=999
+ for material in costs.keys():
+  var required:int=int(costs[material])
+  if required<=0:return 0
+  possible=mini(possible,floori(float(materials.get(str(material),0))/float(required)))
+ if int(recipe.get("power",0))>0:
+  possible=mini(possible,maxi(0,bag_capacity-gear_items.size()))
+ return maxi(0,possible)
+
+func _recipe_hover_details(recipe:Dictionary)->String:
+ var info:String=str(recipe.get("name","Recipe"))
+ var costs_value:Variant=recipe.get("cost",{})
+ if costs_value is Dictionary:
+  var costs:Dictionary=costs_value
+  for material in costs.keys():
+   var required:int=int(costs[material])
+   var owned:int=int(materials.get(str(material),0))
+   info+="\n"+str(material)+": "+str(owned)+" / "+str(required)+(" • READY" if owned>=required else " • NEED "+str(required-owned))
+ var power:int=int(recipe.get("power",0))
+ if power>0:info+="\nCrafted equipment power: "+str(power)
+ info+="\nSelect Craft to attempt this recipe."
+ return info
+
+func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
+ var tile:=Button.new()
+ var rarity:String=str(gear.get("rarity","Common"))
+ var name:String=str(gear.get("name","Gear"))
+ var selected:bool=inventory_selected_index==index
+ tile.name="ItemTile_%d"%index
+ var is_equipped:bool=not inventory_show_vault and not equipped.is_empty() and equipped==gear
+ var difference:int=int(gear.get("power",0))-_equipment_power()
+ var comparison:String=""
+ if not inventory_show_vault:
+  if is_equipped:comparison="EQUIPPED"
+  elif difference>0:comparison="▲ +"+str(difference)+" power"
+  elif difference<0:comparison="▼ "+str(difference)+" power"
+  else:comparison="= same power"
+ tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+("\n"+comparison if comparison!="" else "")
+ tile.clip_text=true
+ tile.custom_minimum_size=Vector2(124,92)
+ tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tile.focus_mode=Control.FOCUS_ALL
+ tile.add_theme_font_size_override("font_size",14)
+ tile.add_theme_color_override("font_color",Color(_inventory_rarity_color(rarity)))
+ tile.add_theme_color_override("font_hover_color",Color(_inventory_rarity_color(rarity)))
+ tile.add_theme_color_override("font_focus_color",Color(_inventory_rarity_color(rarity)))
+ var normal_style:=StyleBoxFlat.new()
+ normal_style.bg_color=Color("#20232f") if not selected else Color("#373047")
+ normal_style.border_color=Color(_inventory_rarity_color(rarity))
+ normal_style.set_border_width_all(3 if selected else 1)
+ normal_style.set_corner_radius_all(6)
+ normal_style.set_content_margin_all(5)
+ tile.add_theme_stylebox_override("normal",normal_style)
+ var hover_style:StyleBoxFlat=normal_style.duplicate() as StyleBoxFlat
+ hover_style.bg_color=Color("#3b3b56")
+ hover_style.set_border_width_all(3)
+ tile.add_theme_stylebox_override("hover",hover_style)
+ tile.add_theme_stylebox_override("focus",hover_style)
+ # Every bag and vault item has a complete mouse-hover summary.
+ tile.tooltip_text=_inventory_hover_details(gear,inventory_show_vault,is_equipped)
+ tile.tooltip_text+="\nLeft-click to inspect"+(" • Already equipped" if is_equipped else " • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
+ tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
+ tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
+ grid.add_child(tile)
+ if selected and inventory_restore_focus:tile.call_deferred("grab_focus")
+
+func _inventory_hover_details(item:Dictionary,in_vault:bool,is_equipped:bool)->String:
+ var name:String=str(item.get("name","Gear"))
+ var rarity:String=str(item.get("rarity","Common"))
+ var power:int=int(item.get("power",0))
+ var detail:String=name+"\n"+rarity+" • Item Power "+str(power)
+ detail+="\nBonus: "+_inventory_bonus_label(item)
+ if in_vault:
+  detail+="\nLocation: Personal Vault"
+  detail+="\nWithdraw this item to equip it."
+ else:
+  detail+="\nLocation: Equipment Bag"
+  if is_equipped:detail+="\nCURRENTLY EQUIPPED"
+  else:
+   var current_power:int=_equipment_power()
+   var difference:int=power-current_power
+   detail+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(current_power)
+   detail+="\nPower change: "+("+" if difference>0 else "")+str(difference)
+   var current_bonus:String=str(equipped.get("affix",""))
+   var candidate_bonus:String=str(item.get("affix",""))
+   if candidate_bonus!="" and candidate_bonus==current_bonus:
+    var bonus_difference:float=float(item.get("affix_value",0))-float(equipped.get("affix_value",0))
+    detail+="\nSame bonus change: "+("+" if bonus_difference>0.0 else "")+str(snappedf(bonus_difference,0.001))
+   elif current_bonus!="" or candidate_bonus!="":
+    detail+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+ return detail
+
+func _inventory_bonus_label(item:Dictionary)->String:
+ var affix:String=str(item.get("affix",""))
+ if affix=="":return "None"
+ return affix.capitalize()+" ("+str(item.get("affix_value",0))+")"
+
+func _inventory_rarity_color(rarity:String)->String:
+ match rarity:
+  "Uncommon":return "#62d77e"
+  "Rare":return "#5a9bf8"
+  "Epic":return "#b980ef"
+  "Legendary":return "#f7ac54"
+  "Mythic":return "#f7799a"
+  "Crafted":return "#62d8d3"
+  _:return "#dee5ee"
+
 func _atlas_action(label: String, action: String, tip: String="") -> void:
  var button:=Button.new()
  button.text=label
  if tip!="":button.tooltip_text=tip
- button.custom_minimum_size=Vector2(270,32)
+ button.custom_minimum_size=Vector2(260,32)
+ button.add_theme_font_size_override("font_size",13)
+ button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+ button.clip_text=true
+ button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ button.focus_mode=Control.FOCUS_ALL
+ if current_tab=="Professions" and action=="craft_selected":
+  if crafting_selected_index<0 or crafting_selected_index>=RECIPES.size():button.disabled=true
+  else:
+   var issue:String=INVENTORY_RULES.craft_issue(RECIPES[crafting_selected_index],materials,gear_items.size(),bag_capacity)
+   if _combat_threat():issue="Cannot craft while enemies are attacking."
+   if issue!="":
+    button.disabled=true
+    button.tooltip_text=issue
+ if current_tab=="Inventory" and not inventory_show_vault and (action.begins_with("equip:") or action.begins_with("inventory_deposit:")):
+  var gear_index:int=int(action.get_slice(":",1))
+  if gear_index>=0 and gear_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[gear_index]:
+   button.disabled=true
+   button.tooltip_text="Already equipped." if action.begins_with("equip:") else "Cannot deposit equipped gear. Equip another item first."
+ if action.begins_with("equip:") or action.begins_with("inventory_select:"):
+  if not button.disabled:
+   if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+   elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
+   else:button.tooltip_text="Left-click to inspect; right-click to equip."
+   button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
+ if current_tab=="Professions" and crafting_restore_focus and action=="recipe_select:"+str(crafting_selected_index):
+  button.call_deferred("grab_focus")
+
+func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
+ if not menu_open or current_tab!="Inventory":return
+ if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
+  if action.begins_with("inventory_select:"):
+   if inventory_show_vault:
+    get_viewport().set_input_as_handled()
+    return
+   var item_index:int=int(action.get_slice(":",1))
+   if item_index>=0 and item_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[item_index]:
+    get_viewport().set_input_as_handled()
+    return
+   _atlas_execute("equip:"+action.get_slice(":",1))
+  else:_atlas_execute(action)
+  get_viewport().set_input_as_handled()
 
 func _branch_hex(branch: String) -> String:
  if branch=="Bond":return "#d783ee"
@@ -1121,6 +1700,44 @@ func _branch_hex(branch: String) -> String:
  return "#7fcce9"
 
 func _atlas_execute(action: String) -> void:
+ if action.begins_with("recipe_select:"):
+  if not menu_open or current_tab!="Professions":return
+  var recipe_index:int=int(action.get_slice(":",1))
+  if recipe_index<0 or recipe_index>=RECIPES.size():return
+  crafting_selected_index=recipe_index
+  crafting_restore_focus=true
+  _menu_tab("Professions")
+  return
+ if action=="recipe_filter":
+  if not menu_open or current_tab!="Professions":return
+  crafting_craftable_only=not crafting_craftable_only
+  _menu_tab("Professions")
+  return
+ if action=="recipe_category":
+  if not menu_open or current_tab!="Professions":return
+  var categories:Array[String]=["All","Equipment","Consumable"]
+  crafting_category=categories[(categories.find(crafting_category)+1)%categories.size()]
+  _menu_tab("Professions")
+  return
+ if action=="recipe_order":
+  if not menu_open or current_tab!="Professions":return
+  crafting_ready_first=not crafting_ready_first
+  _menu_tab("Professions")
+  return
+ if action=="craft_selected":
+  if not menu_open or current_tab!="Professions":return
+  _craft(crafting_selected_index)
+  _menu_tab("Professions")
+  return
+ if action.begins_with("inventory_select:"):
+  if not menu_open or current_tab!="Inventory":return
+  var selected_index:int=int(action.get_slice(":",1))
+  var inventory_source:Array=vault_items if inventory_show_vault else gear_items
+  if selected_index<0 or selected_index>=inventory_source.size():return
+  inventory_selected_index=selected_index
+  inventory_restore_focus=true
+  _menu_tab("Inventory")
+  return
  if action.begins_with("inventory_"):
   _inventory_action(action)
   _menu_tab("Inventory")
@@ -1208,8 +1825,12 @@ func _reset_new_adventure() -> void:
  bag_capacity=INVENTORY_RULES.BAG_START_CAPACITY
  vault_items.clear()
  inventory_query=""
+ inventory_selected_index=-1
+ inventory_restore_focus=false
  inventory_page=0
  inventory_show_vault=false
+ crafting_selected_index=0
+ crafting_craftable_only=false
  if is_instance_valid(inventory_search_input):inventory_search_input.text=""
  equipped={}
  learned_talents={}
@@ -1247,8 +1868,11 @@ func _reset_new_adventure() -> void:
  restored_wildlife=0
  bosses_transformed=0
  rifts_completed=0
- world_clock=240.0
+ world_clock=3600.0
  world_day=1
+ wait_transition_active=false
+ wait_open=false
+ _set_wait_display()
  weather_name="Clear"
  weather_remaining=WEATHER_INTERVAL_SECONDS
  living_visual_tick=0.0
@@ -1287,11 +1911,83 @@ func _reset_new_adventure() -> void:
  _update_region_visibility()
  _update_camera(1.0)
 
+var custom_hero_name:String="Wanderer"
+var custom_hero_color:int=0
+var custom_hero_hair:int=0
+var custom_hero_eyes:int=0
+var custom_hero_skin:int=0
+var custom_hero_face:int=0
+var custom_hero_accessory:int=0
+var custom_hero_build:int=1
+
+func _custom_hero_texture(index:int,hair:int=0,eyes:int=0,skin:int=0,face:int=0,accessory:int=0,build:int=1) -> Texture2D:
+ var palette:Array=[Color("962f45"),Color("3166a1"),Color("358060"),Color("70449c"),Color("c99c42")]
+ var color:Color=palette[clampi(index,0,palette.size()-1)]
+ var image:=Image.create(64,80,false,Image.FORMAT_RGBA8)
+ image.fill(Color.TRANSPARENT)
+ for y in range(80):
+  for x in range(64):
+   var dx:float=float(x-32)
+   var head:bool=dx*dx+float(y-20)*float(y-20)<144.0
+   var body_width:float=[0.82,1.0,1.20][clampi(build,0,2)]
+   var body:bool=y>=35 and y<76 and absf(dx)<(17.0+float(y-35)*0.27)*body_width
+   if head or body:
+    image.set_pixel(x,y,color.lightened(0.18) if head else color.darkened(0.2))
+ var skin_color:Color=[Color("d7ad8d"),Color("f0c7a0"),Color("a46b4c"),Color("71442f"),Color("e3b6a5")][clampi(skin,0,4)]
+ for yy in range(9,34):
+  for xx in range(15,49):
+   var dx:float=float(xx-32)
+   if dx*dx+float(yy-20)*float(yy-20)<144.0:image.set_pixel(xx,yy,skin_color)
+ var hair_color:Color=[Color("24202d"),Color("94603b"),Color("e2c87f"),Color("bdb9c5")][clampi(hair,0,3)]
+ var eye_color:Color=[Color("8fd5eb"),Color("77bd87"),Color("a780d3"),Color("c99362")][clampi(eyes,0,3)]
+ for yy in range(9,17):
+  for xx in range(20,44):
+   if (hair%2==0 and yy<13) or (hair%2==1 and (xx<25 or xx>39 or yy<11)):
+    image.set_pixel(xx,yy,hair_color)
+ for xx in [27,37]:
+  image.set_pixel(xx,23,eye_color)
+  image.set_pixel(xx+1,23,eye_color)
+ if face==1:
+  for xx in range(28,37):image.set_pixel(xx,29,Color("623f40"))
+ elif face==2:
+  for xx in range(25,40):
+   if xx%2==0:image.set_pixel(xx,30,Color("81574d"))
+ if accessory==1:
+  for xx in range(23,42):image.set_pixel(xx,22,Color("d3d7dd"))
+ elif accessory==2:
+  for yy in range(37,57):
+   image.set_pixel(15,yy,Color("d8bd7c"))
+   image.set_pixel(48,yy,Color("d8bd7c"))
+ return ImageTexture.create_from_image(image)
+
+func _refresh_custom_preview(preview:TextureRect,palette:int,hair:int,eyes:int,skin:int,face:int,accessory:int,build:int) -> void:
+ preview.texture=_custom_hero_texture(palette,hair,eyes,skin,face,accessory,build)
+
+func _apply_custom_hero_visual() -> void:
+ if hero=="custom":
+  hero_sprite.texture=_custom_hero_texture(custom_hero_color,custom_hero_hair,custom_hero_eyes,custom_hero_skin,custom_hero_face,custom_hero_accessory,custom_hero_build)
+  hero_sprite.pixel_size=2.65/80.0
+
+func _start_custom_game(name:String,color_index:int,hair_index:int,eye_index:int,skin_index:int,face_index:int,accessory_index:int,build_index:int) -> void:
+ _start_game("custom")
+ custom_hero_name=name.strip_edges().substr(0,24)
+ if custom_hero_name.is_empty():custom_hero_name="Wanderer"
+ custom_hero_color=clampi(color_index,0,4)
+ custom_hero_hair=clampi(hair_index,0,3)
+ custom_hero_eyes=clampi(eye_index,0,3)
+ custom_hero_skin=clampi(skin_index,0,4)
+ custom_hero_face=clampi(face_index,0,2)
+ custom_hero_accessory=clampi(accessory_index,0,2)
+ custom_hero_build=clampi(build_index,0,2)
+ _apply_custom_hero_visual()
+ _show_message("Explore as "+custom_hero_name+"!",4.0)
+
 func _start_game(selected: String) -> void:
  _reset_new_adventure()
- hero="nyra" if selected=="nyra" else "z"
+ hero=selected if selected in ["z","nyra","custom"] else "z"
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  hero_playing=true
  menu_open=false
  region_index=_region_here()
@@ -1300,7 +1996,7 @@ func _start_game(selected: String) -> void:
  menu_panel.visible=false
  if is_instance_valid(quick_actions):quick_actions.visible=true
  if is_instance_valid(minimap):minimap.visible=minimap_visible
- _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else "Z")+".",4.0)
+ _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z")+".",4.0)
  _update_hud()
 
 func _load_from_main_menu() -> void:
@@ -1318,14 +2014,110 @@ func _toggle_menu() -> void:
   if is_instance_valid(atlas_first_tab):atlas_first_tab.call_deferred("grab_focus")
  _update_hud()
 
+func _wait_clock_text(clock:float) -> String:
+ var hour:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0))
+ var minute:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*1440.0))%60
+ return "%02d:%02d" % [hour,minute]
+
+func _wait_change_hours(step:int) -> void:
+ if not wait_open or wait_transition_active:return
+ wait_hours=clampi(wait_hours+step,1,24)
+ _set_wait_display()
+
+func _set_wait_display() -> void:
+ if is_instance_valid(wait_panel):wait_panel.visible=wait_open or wait_transition_active
+ if is_instance_valid(wait_actions_container):wait_actions_container.visible=wait_open and not wait_transition_active
+ if is_instance_valid(wait_label):
+  if not wait_open and not wait_transition_active:return
+  if is_instance_valid(wait_clock_dial):wait_clock_dial.hour=fposmod(world_clock if wait_transition_active else world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+  if wait_transition_active:
+   # The animation is informational; keep buttons hidden while it runs.
+   wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace / Enter / P / controller A: skip animation" % [world_day,_wait_clock_text(world_clock),_day_phase()]
+   if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+   if is_instance_valid(wait_clock_art):
+    wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ✧   ✦" if _day_phase()=="Day" or _day_phase()=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
+   return
+  if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+  var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
+  var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
+  if is_instance_valid(wait_clock_art):wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ☽   ✦" if future_phase=="Day" or future_phase=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
+  wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Home/End 1/24h • Enter accept • Esc cancel\nController: D-pad adjust • LB/RB 1/24h • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
+
+func _finish_wait(confirm:bool) -> void:
+ # The visible transition panel must not permit a second wait or cancellation.
+ if wait_transition_active:return
+ if not wait_open:return
+ if confirm and (not hero_playing or menu_open or _combat_threat()):
+  _show_message("Cannot wait during combat or while the menu is open.",2.5)
+  confirm=false
+ if confirm:
+  wait_hours=clampi(wait_hours,1,24)
+  wait_transition_start_day=world_day
+  wait_transition_start=world_clock
+  wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  wait_transition_elapsed=0.0
+  wait_transition_active=true
+ wait_open=false
+ _set_wait_display()
+
+func _skip_wait_animation() -> void:
+ if not wait_transition_active:return
+ _animate_wait(WAIT_TRANSITION_DURATION)
+
+func _animate_wait(delta:float) -> void:
+ if not wait_transition_active:return
+ if not is_finite(delta):return
+ wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+maxf(delta,0.0))
+ var fraction:float=clampf(wait_transition_elapsed/WAIT_TRANSITION_DURATION,0.0,1.0)
+ var eased:float=fraction*fraction*(3.0-2.0*fraction)
+ var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
+ world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
+ # Display the correct day as the clock passes midnight during the animation.
+ var passed_days:int=int(floor(absolute_clock/DAY_LENGTH_SECONDS))
+ world_day=mini(99999,wait_transition_start_day+passed_days)
+ _set_wait_display()
+ _refresh_world_lighting()
+ _update_hud()
+ if fraction>=1.0:
+  world_day=mini(99999,wait_transition_start_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
+  wait_transition_active=false
+  wait_transition_elapsed=0.0
+  _set_wait_display()
+  _save_game()
+  _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
+
 func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
- if event.keycode in [KEY_ESCAPE,KEY_F10]:
+ if wait_open:
+  match event.keycode:
+   KEY_LEFT:wait_hours=maxi(1,wait_hours-1)
+   KEY_RIGHT:wait_hours=mini(24,wait_hours+1)
+   KEY_DOWN:wait_hours=maxi(1,wait_hours-6)
+   KEY_UP:wait_hours=mini(24,wait_hours+6)
+   KEY_HOME:wait_hours=1
+   KEY_END:wait_hours=24
+   KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)
+   KEY_ESCAPE, KEY_P:_finish_wait(false)
+  _set_wait_display()
+  get_viewport().set_input_as_handled()
+  return
+ if wait_transition_active:
+  if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER,KEY_P]:_skip_wait_animation()
+  get_viewport().set_input_as_handled()
+  return
+ if event.keycode==KEY_ESCAPE:
   if hero_playing:_toggle_menu()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_transition_active:return
  match event.keycode:
+  KEY_P:
+   if not wait_transition_active and not _combat_threat():
+    wait_hours=1
+    wait_open=true
+    _set_wait_display()
+   else:_show_message("Cannot wait while enemies are nearby.",2.0)
   KEY_G:_interact()
   KEY_T:_tame()
   KEY_M:_toggle_mount()
@@ -1333,12 +2125,32 @@ func _unhandled_key_input(event: InputEvent) -> void:
   KEY_Q:_spell("nova")
   KEY_E:_spell("dash")
   KEY_R:_spell("fire")
-  KEY_SPACE:_dodge()
+  KEY_SPACE:_jump()
+  KEY_CTRL:_dodge()
   KEY_H:_cycle_companion_stance()
   KEY_TAB:_toggle_minimap()
  get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+ if wait_transition_active:
+  if event is InputEventJoypadButton and event.pressed and event.button_index==JOY_BUTTON_A:
+   _skip_wait_animation()
+   get_viewport().set_input_as_handled()
+  return
+ if wait_open:
+  if event is InputEventJoypadButton and event.pressed:
+   match event.button_index:
+    JOY_BUTTON_DPAD_LEFT:wait_hours=maxi(1,wait_hours-1)
+    JOY_BUTTON_DPAD_RIGHT:wait_hours=mini(24,wait_hours+1)
+    JOY_BUTTON_DPAD_DOWN:wait_hours=maxi(1,wait_hours-6)
+    JOY_BUTTON_DPAD_UP:wait_hours=mini(24,wait_hours+6)
+    JOY_BUTTON_LEFT_SHOULDER:wait_hours=1
+    JOY_BUTTON_RIGHT_SHOULDER:wait_hours=24
+    JOY_BUTTON_A:_finish_wait(true)
+    JOY_BUTTON_B:_finish_wait(false)
+   _set_wait_display()
+   get_viewport().set_input_as_handled()
+  return
  if event is InputEventJoypadButton and event.pressed:
   if event.button_index==JOY_BUTTON_START:
    if hero_playing:_toggle_menu()
@@ -1358,11 +2170,11 @@ func _unhandled_input(event: InputEvent) -> void:
    JOY_BUTTON_DPAD_RIGHT:_toggle_mount()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:_attack()
 
 func _physics_process(delta: float) -> void:
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
  dodge_time=maxf(0.0,dodge_time-delta)
@@ -1386,7 +2198,21 @@ func _physics_process(delta: float) -> void:
  if mounted:speed=8.4+float(learned_talents.get("endurance",0))*0.4
  if dodge_time>0:speed*=1.6
  if weather_name=="Rain" and not mounted:speed*=0.93
- player.velocity=dir*speed
+ var grounded:bool=player.is_on_floor()
+ if grounded:jump_coyote_remaining=JUMP_COYOTE_SECONDS
+ else:jump_coyote_remaining=maxf(0.0,jump_coyote_remaining-delta)
+ if jump_buffer_remaining>0.0:
+  jump_buffer_remaining=maxf(0.0,jump_buffer_remaining-delta)
+  if not mounted and (grounded or jump_coyote_remaining>0.0):
+   player.velocity.y=8.0
+   jump_buffer_remaining=0.0
+   jump_coyote_remaining=0.0
+ var vertical_speed:float=player.velocity.y
+ if grounded and vertical_speed<=0.0:vertical_speed=-0.05
+ else:
+  vertical_speed-=22.0*delta
+  if vertical_speed>0.0 and not Input.is_key_pressed(KEY_SPACE):vertical_speed-=12.0*delta
+ player.velocity=Vector3(dir.x*speed,vertical_speed,dir.z*speed)
  player.move_and_slide()
  player.position.x=clampf(player.position.x,-WORLD_X,WORLD_X)
  player.position.z=clampf(player.position.z,-WORLD_Z,WORLD_Z)
@@ -1397,11 +2223,11 @@ func _physics_process(delta: float) -> void:
  ecology_step+=delta
  region_refresh_tick+=delta
  if region_refresh_tick>=REGION_REFRESH_SECONDS:
-  region_refresh_tick=0.0
+  region_refresh_tick=fmod(region_refresh_tick,REGION_REFRESH_SECONDS)
   _update_region_visibility()
  respawn_refresh_tick+=delta
  if respawn_refresh_tick>=RESPAWN_REFRESH_SECONDS:
-  respawn_refresh_tick=0.0
+  respawn_refresh_tick=fmod(respawn_refresh_tick,RESPAWN_REFRESH_SECONDS)
   _update_respawns()
  _update_beasts(delta)
  _update_coin_drops(delta)
@@ -1424,6 +2250,7 @@ func _physics_process(delta: float) -> void:
   _update_hud()
 
 func _process(delta: float) -> void:
+ _animate_wait(delta)
  if is_instance_valid(camera):_update_camera(delta)
  scenery_light_tick+=delta
  if scenery_light_tick<0.1:return
@@ -1478,7 +2305,8 @@ func _ecology_update(delta:float) -> void:
  # Scan up to the small native population. Avoid spawning and new timers per beast.
  # Squared-distance thresholds avoid repeated square roots in herd/predator loops.
  if ecology_step<0.32:return
- ecology_step=0.0
+ # Keep fractional elapsed time without unbounded catch-up loops.
+ ecology_step=fmod(ecology_step,0.32)
  for creature in zone_beast_lists[region_index]:
   if not bool(creature.get("alive",false)):continue
   var body:CharacterBody3D=creature["body"]
@@ -1581,8 +2409,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
  var move_speed:=float(BEASTS[kind]["speed"])
  var is_hostile:=bool(beast["hostile"])
- var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
- var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
+ # Passive wildlife never attacks; skip perception/day-phase work for it.
+ # Preserve hostile sight checks, weather scaling and alert ranges.
+ var engaged:bool=false
+ if is_hostile:
+  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
+  engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
@@ -1595,15 +2427,26 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
  if staggered:
   body.velocity=Vector3.ZERO
+ elif elite and float(beast.get("elite_lunge_windup",0.0))>0.0:
+  # Lock the elite in place while its fixed-target attack warning counts down.
+  # Otherwise AI movement can slide the attacker through its own telegraph.
+  body.velocity=Vector3.ZERO
+ elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:
+  # Hold position while the existing boss warning disk resolves.
+  body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
- elif engaged and v383_intent=="retreat" and distance<8.0:
-  body.velocity=-diff.normalized()*move_speed*0.85
+ elif engaged and v383_intent=="retreat":
+  # Keep defensive spacing instead of advancing again after reaching safety.
+  body.velocity=-diff.normalized()*move_speed*0.85 if distance<8.0 else Vector3.ZERO
  elif engaged and v383_intent=="strafe" and distance>1.7 and distance<6.0:
   # Stable per-actor orbit side, no random calls or additional physics bodies.
   var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
   var orbit_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
+ elif engaged and v383_intent=="guard" and distance<=2.5:
+  # Hold the melee guard instead of jittering during cooldown.
+  body.velocity=Vector3.ZERO
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
@@ -1975,6 +2818,14 @@ func _spell(which: String) -> void:
    hits+=1
  _show_message(("Moon Nova" if which=="nova" else "Eclipse Flame")+": "+str(hits)+" hits",1.3)
 
+func _jump() -> void:
+ if not hero_playing or menu_open or wait_open or wait_transition_active or mounted or not is_instance_valid(player):return
+ jump_buffer_remaining=JUMP_BUFFER_SECONDS
+ if player.is_on_floor() or jump_coyote_remaining>0.0:
+  player.velocity.y=8.0
+  jump_buffer_remaining=0.0
+  jump_coyote_remaining=0.0
+
 func _dodge() -> void:
  if mounted:_show_message("No dodging on a mount.",1);return
  if dodge_cooldown>0:return
@@ -2021,7 +2872,11 @@ func _defeat_beast(beast: Dictionary,pet_kill: bool) -> void:
  var loot_chance:=0.42 if variant=="normal" else 1.0
  if rng.randf()<loot_chance:_create_gear_drop(at,kind,variant,zone)
  _make_carcass(at,kind,variant,zone)
+ # Record the pre-kill rift count so a newly completed chamber can force a
+ # checkpoint even when routine kill autosave is on cooldown.
+ var previously_cleared_rifts:int=rifts_cleared.size()
  if int(beast.get("dungeon_site",-1))>=0:_on_rift_enemy_defeated(beast)
+ var rift_completed_on_kill:bool=rifts_cleared.size()>previously_cleared_rifts
  if bool(beast.get("boss",false)):
   var boss_id:=int(beast.get("boss_id",-1))
   if not (boss_id in defeated_boss_ids):
@@ -2045,7 +2900,7 @@ func _defeat_beast(beast: Dictionary,pet_kill: bool) -> void:
    _show_message("MONSTER CONTRACT COMPLETE! Bonus gold, gear and reagents.",3)
   else:_show_message("Contract kill: "+str(contract_kills)+"/3",2)
  else:_show_message(("Companion" if pet_kill else "You")+" defeated a "+variant+" "+kind+". Loot + carcass!",2)
- if auto_save_cooldown<=0.0 or event_completed_on_kill:
+ if auto_save_cooldown<=0.0 or event_completed_on_kill or rift_completed_on_kill:
   auto_save_cooldown=8.0
   suppress_autosave_message=true
   _save_game()
@@ -2342,8 +3197,15 @@ func _craft(index: int) -> void:
  var result:Dictionary=INVENTORY_RULES.craft_commit(recipe,materials)
  if not result["gear"].is_empty():gear_items.append(result["gear"])
  else:_gain_material(str(result["material"]),1)
+ var skill_before:int=crafting_skill
+ var previous_rank:String=_craft_skill_rank(skill_before)
  crafting_skill=mini(300,crafting_skill+1)
- _show_message("Crafted "+str(recipe["name"])+"!",2)
+ var new_rank:String=_craft_skill_rank(crafting_skill)
+ var feedback:String="Crafted "+str(recipe["name"])+"! Leatherworking "+str(skill_before)+" → "+str(crafting_skill)+"/300"
+ if crafting_skill==skill_before:feedback+=" • Skill cap reached."
+ elif new_rank!=previous_rank:feedback+=" • "+new_rank.to_upper()+" RANK REACHED!"
+ else:feedback+=" • "+_craft_skill_progress(crafting_skill,"Next milestone")
+ _show_message(feedback,3)
  _save_game()
 
 func _use_consumable(item: String) -> void:
@@ -2356,6 +3218,7 @@ func _use_consumable(item: String) -> void:
 
 func _equip(index: int) -> void:
  if index<0 or index>=gear_items.size():return
+ inventory_selected_index=index
  equipped=INVENTORY_RULES.equip_copy(gear_items,index)
  _show_message("Equipped "+str(equipped["name"]),2)
  _save_game()
@@ -2390,8 +3253,9 @@ func _release_label() -> String:
 
 func _update_hud() -> void:
  if not is_instance_valid(hud):return
- hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+("NYRA" if hero=="nyra" else "Z")+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
- hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
+ var display_hero:String="NYRA" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z"
+ hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+display_hero+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
+ hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_wait_clock_text(world_clock)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
  status.text=status_message
  world_hud.text="CRITS "+str(critical_hits)+"  | STAGGERS "+str(stagger_events)+"  | COMBO "+str(combat_combo if map_time<=combat_combo_until else 0)+"  | HERO PTS "+str(hero_points)+"  | TAMER PTS "+str(tamer_points)+"  | POWER "+str(_current_power())+"/"+str(_recommended_power(region_index))+"  | PET "+companion_stance+"  | RIFTS "+str(rifts_cleared.size())+"/3  | EVENTS "+str(events_completed.size())+"/6  | LOOT "+str(gear_drops.size())+("  | SKIN "+str(snappedf(skinning_left,0.1))+"s" if skinning_left>0 else "")
 
@@ -2426,7 +3290,8 @@ func _save_game() -> void:
   "contract_zone":contract_zone,"contract_kills":contract_kills,
   "clues":found_clues.duplicate(),"bosses":defeated_boss_ids.duplicate(),"quality":graphics_quality,
   "dormant_wildlife":dormant,"pet_stance":companion_stance,
-  "world_clock":world_clock,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
+  "custom_hero_name":custom_hero_name,"custom_hero_color":custom_hero_color,"custom_hero_hair":custom_hero_hair,"custom_hero_eyes":custom_hero_eyes,"custom_hero_skin":custom_hero_skin,"custom_hero_face":custom_hero_face,"custom_hero_accessory":custom_hero_accessory,"custom_hero_build":custom_hero_build,
+  "world_clock":world_clock,"world_cycle_seconds":DAY_LENGTH_SECONDS,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
  save["optional_resources"]=_checkpoint_extra_data()
@@ -2457,10 +3322,31 @@ func _load_game() -> void:
  if not hero_playing or hero!=str(data["hero"]):_start_game(str(data["hero"]))
  _restore_data(data)
 
+func _normalize_saved_world_clock(data:Dictionary) -> float:
+ var saved_cycle:float=float(data.get("world_cycle_seconds",960.0))
+ if not is_finite(saved_cycle) or saved_cycle<=0.0:saved_cycle=960.0
+ var saved_clock:float=float(data.get("world_clock",saved_cycle*0.5))
+ if not is_finite(saved_clock):saved_clock=saved_cycle*0.5
+ return fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
+
 func _restore_data(data: Dictionary) -> void:
+ # UI-only selection never follows the previous hero into a loaded save.
+ inventory_selected_index=-1
+ inventory_restore_focus=false
+ inventory_page=0
+ inventory_show_vault=false
  hero=str(data.get("hero","z"))
+ custom_hero_name=str(data.get("custom_hero_name","Wanderer")).substr(0,24)
+ custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
+ custom_hero_hair=clampi(int(data.get("custom_hero_hair",0)),0,3)
+ custom_hero_eyes=clampi(int(data.get("custom_hero_eyes",0)),0,3)
+ custom_hero_skin=clampi(int(data.get("custom_hero_skin",0)),0,4)
+ custom_hero_face=clampi(int(data.get("custom_hero_face",0)),0,2)
+ custom_hero_accessory=clampi(int(data.get("custom_hero_accessory",0)),0,2)
+ custom_hero_build=clampi(int(data.get("custom_hero_build",1)),0,2)
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  var coords:Array=data["at"]
  player.position=Vector3(clampf(float(coords[0]),-WORLD_X,WORLD_X),0.85,clampf(float(coords[1]),-WORLD_Z,WORLD_Z))
  gold=clampi(int(data.get("gold",0)),0,99999999)
@@ -2485,7 +3371,7 @@ func _restore_data(data: Dictionary) -> void:
  combat_combo=0
  combat_combo_until=0.0
  # Optional v11 fields are ignored by v10 saves; older checkpoints remain valid.
- world_clock=clampf(float(data.get("world_clock",240.0)),0.0,DAY_LENGTH_SECONDS-0.01)
+ world_clock=_normalize_saved_world_clock(data)
  world_day=clampi(int(data.get("world_day",1)),1,99999)
  weather_name=str(data.get("weather","Clear"))
  if not (weather_name in WEATHER_TYPES):weather_name="Clear"
@@ -2729,6 +3615,8 @@ func _wallet_action(action:String)->void:
   var price:int=MONEY_RULES.sell_value(item)
   var item_name:String=str(item.get("name","Gear"))
   gear_items.remove_at(idx)
+  inventory_selected_index=-1
+  inventory_restore_focus=false
   _add_coins(price)
   _show_message("Sold "+item_name+" for "+MONEY_RULES.format_total(price),2)
   _save_game()

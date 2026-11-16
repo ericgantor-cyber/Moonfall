@@ -3,10 +3,13 @@ extends RefCounted
 const PAGE_SIZE:int=8
 const CATEGORIES:Array[String]=["All","Getting Started","Combat","Heroes & Upgrades","Bosses & Invasions","World & Exploration","Water & Diving","Professions & Crafting","Gear & Economy","Creatures & Companions","Death & Recovery","Controls & Accessibility","Performance & Saves"]
 const ENTRIES:Array[Dictionary]=[
- {"category":"Getting Started","title":"Choose your hero","tip":"Z specializes in aggressive void attacks; Nyra uses distinct eclipse magic. Pick the hero whose abilities suit you."},
- {"category":"Getting Started","title":"Learn the controls","tip":"WASD or arrows move. Left click attacks. Space dodges. Q, E, and R cast spells. G interacts."},
+ {"category":"Getting Started","title":"Create your hero","tip":"Create a Wanderer to explore Moonfall. Z and Nyra are gods and future boss encounters, not new-game playable avatars. Older checkpoints remain readable."},
+ {"category":"Getting Started","title":"Learn the controls","tip":"WASD or arrows move. Left click attacks, right click guards, Space jumps, Ctrl dodges, Q/E/R cast spells, and G interacts."},
  {"category":"Getting Started","title":"Controller basics","tip":"Left stick moves. Right stick moves the camera. X attacks, A dodges, B interacts, and Start opens the Atlas."},
- {"category":"Getting Started","title":"Open your Atlas","tip":"Esc or F10 opens the Raven Atlas. F1 opens this searchable Tips Codex directly during play."},
+ {"category":"Controls & Accessibility","title":"WoW-style controller ability layers","tip":"Hold LT + X/Y/B/A for Dash, Nova, Fire, or Jump. Hold RT + X/Y/B/A for Senses, Companion stance, Mount, or Interact. Release triggers to keep the original Xbox controls."},
+ {"category":"Controls & Accessibility","title":"Optional keyboard action bar","tip":"Alt+1 Dash, Alt+2 Nova, Alt+3 Fire, Alt+4 Senses, Alt+5 Companion stance, Alt+6 Mount. Existing Q/E/R spells and mouse attacks still work."},
+ {"category":"Controls & Accessibility","title":"Camera and Atlas shortcuts","tip":"F6 sensitivity, F7 vertical invert, F8 horizontal invert, F9 recenter. Open Atlas > System > Camera Settings for FOV plus/minus and inversion. Esc opens the Atlas; mouse wheel or PageUp/PageDown zoom."},
+ {"category":"Getting Started","title":"Open your Atlas","tip":"Esc opens the Raven Atlas. F1 opens this searchable Tips Codex directly during play."},
  {"category":"Getting Started","title":"Read the status messages","tip":"Short messages explain pickups, combat hazards, new discoveries, and nearby interactions."},
  {"category":"Getting Started","title":"Explore deliberately","tip":"The world is connected. Follow roads and activate shrines before moving into harder regions."},
  {"category":"Getting Started","title":"Save often","tip":"Use the Atlas System tab to save your checkpoint before a long expedition."},
@@ -93,7 +96,7 @@ const ENTRIES:Array[Dictionary]=[
  {"category":"Death & Recovery","title":"Plan ahead","tip":"Bring healing items and unlock shrines before heading into dangerous regions."},
  {"category":"Death & Recovery","title":"Recover after defeat","tip":"Review gear, professions and recent combat choices before trying the encounter again."},
  {"category":"Controls & Accessibility","title":"Keyboard movement","tip":"WASD or arrow keys steer your hero; movement responds to the third-person camera."},
- {"category":"Controls & Accessibility","title":"Mouse camera","tip":"Hold right mouse and drag to orbit the third-person camera."},
+ {"category":"Controls & Accessibility","title":"Mouse camera","tip":"Hold Alt and right-drag to orbit the camera; plain right-click guards and parries. Mouse wheel zooms; middle-click locks aim."},
  {"category":"Controls & Accessibility","title":"Camera zoom","tip":"Mouse wheel or configured zoom inputs change your viewing distance."},
  {"category":"Controls & Accessibility","title":"Gamepad support","tip":"Move with left stick, orbit camera with right stick and open the menu with Start."},
  {"category":"Controls & Accessibility","title":"Menu by controller","tip":"Raven Atlas buttons are focusable; navigate and activate them using standard UI focus controls."},

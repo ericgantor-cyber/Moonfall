@@ -1,0 +1,42 @@
+name: Moonfall Unreal local build script checks
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/unreal-local-build-script-checks.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/unreal-local-build-script-checks.yml'
+jobs:
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local build script PowerShell syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = 'MoonfallUnreal/Build/Build-Windows.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'Local Unreal build script contains PowerShell parse errors'
+          }
+          $content = Get-Content $file -Raw
+          foreach ($item in @('MoonfallUnrealEditor', 'BuildCookRun', '--check-install', 'makensis.exe')) {
+            if (-not $content.Contains($item)) { throw "Build step absent: $item" }
+          }
+          $workflow = Get-Content '.github/workflows/unreal-compile-windows.yml' -Raw
+          foreach ($required in @(
+            'Start-Transcript -LiteralPath $transcript -Force',
+            'Stop-Transcript | Out-Null',
+            'finally {',
+            'if: always()',
+            'MoonfallUnrealCompile/EditorBuild-Transcript.txt'
+          )) {
+            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
+          }
+          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'

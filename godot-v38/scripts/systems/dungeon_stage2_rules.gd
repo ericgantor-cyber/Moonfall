@@ -1,11 +1,157 @@
 extends RefCounted
 ## Stage 2 rift layout and reward rules. No save-format change.
 const ROOM_OFFSETS:Array[Vector3]=[Vector3(-11.0,0,-3.0),Vector3(11.0,0,-3.0),Vector3(0,0,11.0)]
+const CHAMBER_FLOOR_RADIUS:float=6.2
+const CHAMBER_WALL_RADIUS:float=6.48
+const CHAMBER_WALL_SEGMENTS:int=20
+const REGIONAL_DUNGEON_COUNT:int=5
+const REGIONAL_DUNGEON_RING_RADIUS:float=43.0
+
+# Five separate dungeon entry positions in each region, reachable from open terrain.
+# Positioning alone does not add links between independent dungeons.
+static func regional_dungeon_position(centre:Vector2,index:int)->Vector3:
+ var angle:float=-PI*0.5+TAU*float(posmod(index,REGIONAL_DUNGEON_COUNT))/float(REGIONAL_DUNGEON_COUNT)
+ return Vector3(centre.x+cos(angle)*REGIONAL_DUNGEON_RING_RADIUS,0.0,centre.y+sin(angle)*REGIONAL_DUNGEON_RING_RADIUS)
+# Region dungeons are distinct from original story rifts. Each dungeon has
+# fourteen physical chambers, extending radially outward from its own entrance.
+# No dungeon-to-dungeon doorway, corridor or direct passage is generated.
+# Native hostile species supported by inherited boss/AI/art pipelines.
+# Guardian species are rolled per adventure and stored in its checkpoint.
+const REGIONAL_GUARDIAN_SPECIES:Array[String]=["wolf","boar","serpent","panther"]
+# Native traits alter boss durability and presentation, not the combat scheduler.
+const REGIONAL_GUARDIAN_TRAITS:Array[String]=["Moonbound","Emberborn","Venomheart","Eclipsed"]
+const REGIONAL_GUARDIAN_TRAIT_COLORS:Array[Color]=[
+ Color("b9a2ff"),Color("ffad73"),Color("8ae0a8"),Color("f184b1")
+]
+static func regional_guardian_trait(zone:int,dungeon_id:int,species_index:int)->int:
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT:return -1
+ return posmod(species_index+zone*3+dungeon_id,REGIONAL_GUARDIAN_TRAITS.size())
+
+static func regional_guardian_health_multiplier(trait_id:int)->float:
+ match trait_id:
+  0:return 1.08
+  1:return 1.16
+  2:return 1.24
+  3:return 1.32
+  _:return 1.0
+
+static func regional_guardian_relic(zone:int,dungeon_id:int,trait_id:int,affix:String)->Dictionary:
+ var trait_name:String=REGIONAL_GUARDIAN_TRAITS[clampi(trait_id,0,REGIONAL_GUARDIAN_TRAITS.size()-1)]
+ return {"name":trait_name+" Guardian Crest • Region %d, Dungeon %d" % [zone+1,dungeon_id+1],
+  "rarity":"Legendary","power":mini(250,55+zone*12+dungeon_id*3),
+  "affix":affix,"affix_value":0.13+0.01*float(clampi(trait_id,0,3))}
+
+const REGIONAL_CHAMBERS_PER_DUNGEON:int=14
+const REGIONAL_ROOM_OFFSETS:Array[Vector2]=[
+ Vector2(0,0),Vector2(-11,14),Vector2(11,14),Vector2(0,28),
+ Vector2(-14,28),Vector2(-28,28),Vector2(-28,42),
+ Vector2(-14,42),Vector2(0,42),Vector2(14,42),
+ Vector2(28,42),Vector2(28,56),Vector2(14,56),Vector2(0,56)
+]
+static func regional_chamber_position(centre:Vector2,dungeon_id:int,stage:int)->Vector3:
+ var entrance:Vector3=regional_dungeon_position(centre,dungeon_id)
+ if stage<1 or stage>REGIONAL_CHAMBERS_PER_DUNGEON:return entrance
+ var outward:Vector2=Vector2(entrance.x-centre.x,entrance.z-centre.y).normalized()
+ var across:Vector2=Vector2(outward.y,-outward.x)
+ var local:Vector2=REGIONAL_ROOM_OFFSETS[stage-1]
+ return entrance+Vector3(across.x*local.x+outward.x*local.y,0,across.y*local.x+outward.y*local.y)
+
+# Four readable, low-poly exploration landmarks; no collidable obstructions.
+const REGIONAL_LANDMARK_NAMES:Array[String]=["Moon Seal","Stone Archive","Eclipse Altar","Raven Beacon"]
+static func regional_landmark_type(dungeon_id:int,stage:int)->int:
+ if stage<2 or stage>REGIONAL_CHAMBERS_PER_DUNGEON:return -1
+ return posmod(dungeon_id*3+stage,REGIONAL_LANDMARK_NAMES.size())
+
+static func regional_landmark_name(dungeon_id:int,stage:int)->String:
+ var marker_type:int=regional_landmark_type(dungeon_id,stage)
+ return REGIONAL_LANDMARK_NAMES[marker_type] if marker_type>=0 else ""
+
+# Two hand-discovered caches per dungeon: stage 7 and its stage-14 end.
+# No timed waves or forced room transitions.
+const REGIONAL_ENCOUNTER_STAGES:Array[int]=[3,5,9,12]
+static func regional_encounter_index(zone:int,dungeon_id:int,stage:int)->int:
+ var stage_slot:int=REGIONAL_ENCOUNTER_STAGES.find(stage)
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT or stage_slot<0:return -1
+ return (zone*REGIONAL_DUNGEON_COUNT+dungeon_id)*REGIONAL_ENCOUNTER_STAGES.size()+stage_slot
+
+static func regional_encounter_variant(stage:int)->String:
+ return "elder" if stage==12 else ("dusk" if stage==9 else "normal")
+
+const REGIONAL_CACHE_STAGES:Array[int]=[7,14]
+static func regional_cache_index(zone:int,dungeon_id:int,stage:int)->int:
+ if stage!=7 and stage!=14:return -1
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT:return -1
+ return (zone*REGIONAL_DUNGEON_COUNT+dungeon_id)*2+(1 if stage==14 else 0)
+
+static func regional_cache_reward(zone:int,dungeon_id:int,stage:int,affix:String)->Dictionary:
+ var is_final:bool=stage==14
+ return {
+  "name":("Eclipse Heart" if is_final else "Lost Sanctum Relic")+" • Region %d, Dungeon %d" % [zone+1,dungeon_id+1],
+  "rarity":"Legendary" if is_final else "Epic",
+  "power":mini(250,46+zone*13+dungeon_id*2+(26 if is_final else 9)),
+  "affix":affix,
+  "affix_value":0.17 if is_final else 0.11
+ }
+
+static func regional_chamber_title(stage:int)->String:
+ if stage==1:return "Dungeon Threshold"
+ if stage==2:return "Outer Sanctum"
+ if stage==3:return "Guardian Crossing"
+ if stage>=4 and stage<=14:return annex_title(stage)
+ return "Unknown Chamber"
+
+# Physical exploration annexes, stages 4–14, branch from the existing Guardian Heart.
+# Each step is 14m, exceeding the 12.4m diameter of enlarged floors.
+const EXPLORATION_OFFSETS:Array[Vector3]=[
+ Vector3(0,0,25),Vector3(-14,0,25),Vector3(-28,0,25),
+ Vector3(-28,0,39),Vector3(-14,0,39),Vector3(0,0,39),
+ Vector3(14,0,39),Vector3(28,0,39),Vector3(28,0,53),
+ Vector3(14,0,53),Vector3(0,0,53)
+]
+const ANNEX_TITLES:Array[String]=[
+ "Moonlit Archive","Cinder Reliquary","Raven Watch","Lost Observatory",
+ "Whispering Vault","Twilight Garden","Ember Crucible","Fallen Library",
+ "Astral Gallery","Hollow Shrine","Eclipse Threshold"
+]
+const ANNEX_SIGILS:Array[String]=["archive","embers","watch","stars","echo","garden","forge","scroll","astral","shrine","eclipse"]
 const ROOM_NAMES:Array[String]=["Outer Sanctum","Moonbound Passage","Guardian Heart"]
 const STAGE_LOOT_NAMES:Array[String]=["Ravenwood Vow","Ashen Moon Vow","Bloodmoon Vow"]
 
 static func room_position(anchor:Vector3,stage:int)->Vector3:
  return anchor+ROOM_OFFSETS[clampi(stage,1,3)-1]
+
+# Keep the actual walkway approaches open when placing solid chamber walls.
+# Each room has two connected neighbours; no new phantom exits.
+static func wall_segment_open(stage:int,angle:float)->bool:
+ if stage<1 or stage>3 or not is_finite(angle):return true
+ var here:Vector3=ROOM_OFFSETS[stage-1]
+ for other_stage in range(1,4):
+  if other_stage==stage:continue
+  var offset:Vector3=ROOM_OFFSETS[other_stage-1]-here
+  var doorway_angle:float=atan2(offset.z,offset.x)
+  if absf(wrapf(angle-doorway_angle,-PI,PI))<0.70:return true
+ return false
+
+static func exploration_position(anchor:Vector3,stage:int)->Vector3:
+ if stage<4 or stage>14:return anchor
+ return anchor+EXPLORATION_OFFSETS[stage-4]
+
+static func annex_title(stage:int)->String:
+ if stage<4 or stage>14:return "Unknown Chamber"
+ return ANNEX_TITLES[stage-4]
+
+static func annex_sigil(stage:int)->String:
+ if stage<4 or stage>14:return ""
+ return ANNEX_SIGILS[stage-4]
+
+static func annex_tint(stage:int)->Color:
+ if stage<4 or stage>14:return Color(0.5,0.5,0.6)
+ var hue:float=fmod(float(stage-4)*0.137,1.0)
+ return Color.from_hsv(hue,0.38,0.85)
+
+static func exploration_previous(anchor:Vector3,stage:int)->Vector3:
+ if stage<=4:return room_position(anchor,3)
+ return exploration_position(anchor,stage-1)
 
 static func enemy_position(anchor:Vector3,stage:int,slot:int)->Vector3:
  var center:Vector3=room_position(anchor,stage)

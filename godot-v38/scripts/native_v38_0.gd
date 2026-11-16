@@ -3,9 +3,21 @@ extends "res://scripts/native_v37_7.gd"
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const CELESTIAL_TALENTS:=preload("res://scripts/systems/celestial_talents_v398.gd")
+const CLASSLESS_TALENTS:=preload("res://scripts/systems/moonfall_talent_tree.gd")
 var v398_panel:PanelContainer
 var v398_tree_list:VBoxContainer
 var v398_ranks:Dictionary={}
+var v406_ranks:Dictionary={} # Separate from legacy combat ranks.
+var v406_active_branch:String="might"
+var v406_branch_bar:HBoxContainer
+var v406_respec_button:Button
+const V406_WEB:=preload("res://scripts/systems/moonfall_talent_web.gd")
+const V406_PANEL_LAYOUT:=preload("res://scripts/systems/moonfall_talent_panel_layout.gd")
+var v406_web:Control
+var v406_selected_node:String=""
+var v406_details:Label
+var v406_purchase_button:Button
+var v406_points_label:Label
 # Character creation keeps original Z/Nyra artwork; customization is identity and origin.
 var v399_creator:PanelContainer
 var v399_name:LineEdit
@@ -85,7 +97,7 @@ func _build_ui()->void:
  for node in start_screen.find_children("*","Label",true,false):
   var title:Label=node as Label
   if is_instance_valid(title) and "MOONFALL v37.7" in title.text:
-   title.text="☾  MOONFALL v38.0 • THE LIVING REALM"
+   title.text="MOONFALL v38.0 • THE LIVING REALM"
 
 func _v400_apply_adventurer_look()->void:
  # Distinct placeholder adventurer sprite; original Z_ART/NYRA_ART files are untouched.
@@ -212,7 +224,6 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v404_tell_until"]=0.0
  creature["v404_attack_pending"]=false
  creature["v405_cleave_facing"]=Vector3.FORWARD
- creature["v406_attack_origin"]=Vector3.ZERO
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -226,34 +237,35 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
    portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    portrait.position=Vector3(0.0,0.4,0.0)
    boss_body.add_child(portrait)
-   var warning_ring:MeshInstance3D=MeshInstance3D.new()
-   warning_ring.name="BossAttackGroundWarning"
-   var disc:CylinderMesh=CylinderMesh.new()
-   disc.top_radius=4.0 if zone==0 else 7.0
-   disc.bottom_radius=disc.top_radius
-   disc.height=0.025
+   # Ground warning meshes are independent of original Z and Nyra portrait art.
+   var warning_zone:MeshInstance3D=MeshInstance3D.new()
+   warning_zone.name="BossGroundAttackWarning"
    if zone==0:
-    var wedge:SurfaceTool=SurfaceTool.new()
-    wedge.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var sector:SurfaceTool=SurfaceTool.new()
+    sector.begin(Mesh.PRIMITIVE_TRIANGLES)
     for segment in range(24):
-     var angle_a:float=deg_to_rad(-60.0+float(segment)*5.0)
-     var angle_b:float=deg_to_rad(-60.0+float(segment+1)*5.0)
-     wedge.add_vertex(Vector3.ZERO)
-     wedge.add_vertex(Vector3(sin(angle_a)*4.0,0.0,-cos(angle_a)*4.0))
-     wedge.add_vertex(Vector3(sin(angle_b)*4.0,0.0,-cos(angle_b)*4.0))
-    warning_ring.mesh=wedge.commit()
+     var start_angle:float=deg_to_rad(-60.0+float(segment)*5.0)
+     var end_angle:float=deg_to_rad(-60.0+float(segment+1)*5.0)
+     sector.add_vertex(Vector3.ZERO)
+     sector.add_vertex(Vector3(sin(start_angle)*4.0,0.0,-cos(start_angle)*4.0))
+     sector.add_vertex(Vector3(sin(end_angle)*4.0,0.0,-cos(end_angle)*4.0))
+    warning_zone.mesh=sector.commit()
    else:
-    warning_ring.mesh=disc
-   var paint:StandardMaterial3D=StandardMaterial3D.new()
-   paint.albedo_color=Color(1.0,0.15,0.14,0.28) if zone==0 else Color(0.6,0.18,1.0,0.28)
-   paint.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
-   paint.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-   paint.no_depth_test=false
-   warning_ring.material_override=paint
-   warning_ring.position.y=0.08
-   warning_ring.visible=false
-   boss_body.add_child(warning_ring)
-   creature["v406_warning_ring"]=warning_ring
+    var disc:CylinderMesh=CylinderMesh.new()
+    disc.top_radius=7.0
+    disc.bottom_radius=7.0
+    disc.height=0.025
+    warning_zone.mesh=disc
+   var warning_material:StandardMaterial3D=StandardMaterial3D.new()
+   warning_material.albedo_color=Color(1.0,0.15,0.14,0.32) if zone==0 else Color(0.6,0.18,1.0,0.32)
+   warning_material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+   warning_material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+   warning_material.cull_mode=BaseMaterial3D.CULL_DISABLED
+   warning_zone.material_override=warning_material
+   warning_zone.position.y=0.08
+   warning_zone.visible=false
+   boss_body.add_child(warning_zone)
+   creature["v406_warning_zone"]=warning_zone
    var aura:OmniLight3D=OmniLight3D.new()
    aura.name="EclipsePhaseAura"
    aura.light_color=Color(0.85,0.1,0.24) if zone==0 else Color(0.42,0.15,0.9)
@@ -328,10 +340,10 @@ func _v380_build_status_panel()->void:
  v380_status_panel=PanelContainer.new()
  v380_status_panel.name="V380_OptionalLiveStatus"
  v380_status_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
- v380_status_panel.offset_left=-370.0
+ v380_status_panel.offset_left=-410.0
  v380_status_panel.offset_right=-15.0
  v380_status_panel.offset_top=20.0
- v380_status_panel.offset_bottom=150.0
+ v380_status_panel.offset_bottom=185.0
  v380_status_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
  var background:=StyleBoxFlat.new()
  background.bg_color=Color(0.03,0.09,0.16,0.86)
@@ -346,7 +358,8 @@ func _v380_build_status_panel()->void:
  layer.add_child(v380_status_panel)
  v380_status_text=Label.new()
  v380_status_text.name="V380_AccessibleReadout"
- v380_status_text.add_theme_font_size_override("font_size",13)
+ v380_status_text.add_theme_font_size_override("font_size",16)
+ v380_status_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  v380_status_text.add_theme_color_override("font_color",Color("cce9f5"))
  v380_status_text.mouse_filter=Control.MOUSE_FILTER_IGNORE
  v380_status_panel.add_child(v380_status_text)
@@ -493,48 +506,216 @@ func _v398_build_tree()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
  if not is_instance_valid(layer):return
  v398_panel=PanelContainer.new()
- v398_panel.name="CelestialTalentTree"
- v398_panel.set_anchors_preset(Control.PRESET_CENTER)
- v398_panel.custom_minimum_size=Vector2(490,550)
- v398_panel.position=Vector2(-245,-275)
+ v398_panel.name="ClasslessTalentWeb"
+ v398_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+ v398_panel.custom_minimum_size=Vector2(1100,730)
+ v398_panel.position=Vector2.ZERO
  layer.add_child(v398_panel)
- var scroller:ScrollContainer=ScrollContainer.new()
- v398_panel.add_child(scroller)
+ get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)
+ _v406_fit_panel_to_viewport()
+ var outer:VBoxContainer=VBoxContainer.new()
+ outer.add_theme_constant_override("separation",10)
+ v398_panel.add_child(outer)
+ var header:HBoxContainer=HBoxContainer.new()
+ outer.add_child(header)
+ var title:Label=Label.new()
+ title.text="MOONFALL  |  CLASSLESS TALENTS  |  CONSTELLATION WEB"
+ title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ header.add_child(title)
+ v406_points_label=Label.new()
+ header.add_child(v406_points_label)
+ var body:HBoxContainer=HBoxContainer.new()
+ body.add_theme_constant_override("separation",12)
+ body.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ outer.add_child(body)
+ var graph_column:VBoxContainer=VBoxContainer.new()
+ graph_column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ graph_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ body.add_child(graph_column)
+ v406_branch_bar=HBoxContainer.new()
+ graph_column.add_child(v406_branch_bar)
+ for branch_id in ["might","agility","arcana"]:
+  var focus:Button=Button.new()
+  focus.text=branch_id.to_upper()
+  focus.custom_minimum_size=Vector2(148,52)
+  focus.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+  focus.pressed.connect(_v406_select_branch.bind(branch_id))
+  v406_branch_bar.add_child(focus)
+ v406_web=V406_WEB.new()
+ v406_web.custom_minimum_size=Vector2(760,565)
+ v406_web.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ v406_web.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ v406_web.talent_selected.connect(_v406_web_selected)
+ graph_column.add_child(v406_web)
+ var graph_actions:HBoxContainer=HBoxContainer.new()
+ graph_column.add_child(graph_actions)
+ var fit:Button=Button.new()
+ fit.text="SHOW ENTIRE WEB"
+ fit.custom_minimum_size=Vector2(180,48)
+ fit.pressed.connect(func():v406_web.fit_all())
+ graph_actions.add_child(fit)
+ var next_button:Button=Button.new()
+ next_button.text="NEXT AVAILABLE (N)"
+ next_button.custom_minimum_size=Vector2(195,48)
+ next_button.pressed.connect(_v406_next_available)
+ graph_actions.add_child(next_button)
+ for action in ["-","+"]:
+  var zoom_button:Button=Button.new()
+  zoom_button.text=action
+  zoom_button.custom_minimum_size=Vector2(60,48)
+  zoom_button.pressed.connect(_v406_zoom.bind(1.2 if action=="+" else 1.0/1.2))
+  graph_actions.add_child(zoom_button)
+ var close_button:Button=Button.new()
+ close_button.text="CLOSE (K)"
+ close_button.custom_minimum_size=Vector2(120,48)
+ close_button.pressed.connect(_v398_toggle_tree)
+ graph_actions.add_child(close_button)
+ var side:VBoxContainer=VBoxContainer.new()
+ side.custom_minimum_size.x=265
+ body.add_child(side)
+ var side_title:Label=Label.new()
+ side_title.text="SELECTED TALENT"
+ side.add_child(side_title)
+ v406_details=Label.new()
+ v406_details.custom_minimum_size.y=170
+ v406_details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ side.add_child(v406_details)
+ v406_purchase_button=Button.new()
+ v406_purchase_button.text="SPEND TALENT POINT"
+ v406_purchase_button.custom_minimum_size.y=56
+ v406_purchase_button.pressed.connect(_v406_purchase_selected)
+ side.add_child(v406_purchase_button)
+ var index_title:Label=Label.new()
+ index_title.text="TALENT INDEX (KEYBOARD)"
+ side.add_child(index_title)
+ var index_scroll:ScrollContainer=ScrollContainer.new()
+ index_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ index_scroll.custom_minimum_size.y=190
+ side.add_child(index_scroll)
  v398_tree_list=VBoxContainer.new()
- v398_tree_list.custom_minimum_size=Vector2(465,0)
- scroller.add_child(v398_tree_list)
+ v398_tree_list.custom_minimum_size.x=248
+ index_scroll.add_child(v398_tree_list)
+ v406_respec_button=Button.new()
+ v406_respec_button.text="RESET ALL TALENT POINTS"
+ v406_respec_button.custom_minimum_size.y=58
+ var reset_confirm:ConfirmationDialog=ConfirmationDialog.new()
+ reset_confirm.title="Reset all talent ranks?"
+ reset_confirm.dialog_text="Refund every spent talent point? Your level, XP, and equipment will be preserved."
+ reset_confirm.ok_button_text="REFUND ALL POINTS"
+ reset_confirm.confirmed.connect(_v406_respec)
+ v398_panel.add_child(reset_confirm)
+ v406_respec_button.pressed.connect(func():reset_confirm.popup_centered())
+ side.add_child(v406_respec_button)
  v398_panel.visible=false
+
+func _v406_fit_panel_to_viewport()->void:
+ if not is_instance_valid(v398_panel):return
+ var layout:Dictionary=V406_PANEL_LAYOUT.placement(get_viewport().get_visible_rect().size)
+ var factor:float=float(layout["scale"])
+ v398_panel.scale=Vector2(factor,factor)
+ v398_panel.position=layout["position"]
+
+func _v406_next_available()->void:
+ if not is_instance_valid(v406_web):return
+ var next_id:String=v406_web.next_available(v406_selected_node)
+ if next_id=="":return
+ _v406_web_selected(next_id)
+ v406_web.focus_node(next_id)
+
+func _v406_zoom(factor:float)->void:
+ if is_instance_valid(v406_web):v406_web.zoom_by(factor)
+
+func _v406_select_branch(branch_id:String)->void:
+ v406_active_branch=branch_id
+ if is_instance_valid(v406_web):v406_web.focus_branch(branch_id)
+ _v398_refresh_tree()
+
+func _v406_web_selected(id:String)->void:
+ # Keep the keyboard-friendly index in sync when selecting a star in
+ # another branch without moving or resetting the player's web view.
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))!=id:continue
+  v406_active_branch=str(node.get("branch",v406_active_branch))
+  break
+ v406_selected_node=id
+ _v398_refresh_tree()
+
+func _v406_index_selected(id:String)->void:
+ v406_selected_node=id
+ if is_instance_valid(v406_web):v406_web.focus_node(id)
+ _v398_refresh_tree()
+
+func _v406_purchase_selected()->void:
+ if v406_selected_node!="":_v398_unlock(v406_selected_node)
 
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
  for child in v398_tree_list.get_children():child.queue_free()
- var level_now:int=maxi(1,int(hero_level))
- var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
- var heading:Label=Label.new()
- heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
- v398_tree_list.add_child(heading)
- for branch in CELESTIAL_TALENTS.BRANCHES:
-  var section:Label=Label.new()
-  section.text=str(branch).to_upper()
-  v398_tree_list.add_child(section)
-  for id in CELESTIAL_TALENTS.TALENTS:
-   var info:Dictionary=CELESTIAL_TALENTS.TALENTS[id]
-   if str(info["branch"])!=str(branch):continue
-   if info.has("hero") and str(info["hero"])!=str(hero):continue
-   var talent_button:Button=Button.new()
-   talent_button.text=str(id).replace("_"," ").capitalize()+"  "+str(v398_ranks.get(id,0))+"/"+str(info["max_rank"])
-   talent_button.disabled=not CELESTIAL_TALENTS.can_unlock(str(hero),level_now,v398_ranks,str(id))
-   talent_button.pressed.connect(_v398_unlock.bind(str(id)))
-   v398_tree_list.add_child(talent_button)
+ var level_now:int=clampi(int(hero_level),1,100)
+ var state:Dictionary=CLASSLESS_TALENTS.evaluate(level_now,v406_ranks)
+ if not bool(state.get("ok",false)):
+  v406_details.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
+  v406_purchase_button.disabled=true
+  return
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ v406_points_label.text="LEVEL "+str(level_now)+"  |  POINTS "+str(state.get("available",0))
+ if is_instance_valid(v406_web):
+  v406_web.set_data(tree,v406_ranks,level_now,int(state.get("available",0)))
+  v406_web.select_node(v406_selected_node)
+ var selected:Dictionary={}
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))==v406_selected_node:selected=node
+  if str(node.get("branch",""))!=v406_active_branch:continue
+  var node_id:String=str(node.get("id",""))
+  var index_button:Button=Button.new()
+  index_button.text=str(node.get("title",node_id))+"  "+str(v406_ranks.get(node_id,0))+"/"+str(node.get("max_rank",1))
+  index_button.custom_minimum_size.y=42.0
+  index_button.pressed.connect(_v406_index_selected.bind(node_id))
+  v398_tree_list.add_child(index_button)
+ if selected.is_empty():
+  v406_details.text="Click a star in the web or choose a talent from the index.\nMouse wheel: zoom\nDrag: move map\nArrows / +/-: keyboard controls"
+  v406_purchase_button.disabled=true
+ else:
+  var title:String=str(selected.get("title",""))
+  var rank:int=int(v406_ranks.get(v406_selected_node,0))
+  var max_rank:int=int(selected.get("max_rank",1))
+  var effect:Dictionary=selected.get("effect",{})
+  var requires:Array=selected.get("requires",[])
+  var dependencies:String="None" if requires.is_empty() else ", ".join(PackedStringArray(requires))
+  var amount:String=str(effect.get("amount_per_rank",0))
+  var bonus:String=amount+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
+  v406_details.text=title+"\n"+str(selected.get("branch","")).to_upper()+" • TIER "+str(selected.get("tier",1))+"\nRank "+str(rank)+"/"+str(max_rank)+"  •  Level "+str(selected.get("min_level",1))+"+\nBonus: "+bonus+"\nRequires: "+dependencies
+  var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,v406_selected_node)
+  v406_purchase_button.disabled=not bool(preview.get("ok",false))
+  v406_purchase_button.tooltip_text=str(preview.get("error","Learn one rank"))
+ if is_instance_valid(v406_respec_button):
+  v406_respec_button.disabled=v406_ranks.is_empty()
 
 func _v398_unlock(id:String)->void:
- v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(hero_level)),v398_ranks,id)
+ var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
+ _v406_sync_health()
+ _save_game()
+ _v398_refresh_tree()
+
+func _v406_respec()->void:
+ var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
+ _v406_sync_health()
+ _save_game()
  _v398_refresh_tree()
 
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
- if v398_panel.visible:_v398_refresh_tree()
+ if v398_panel.visible:
+  _v406_fit_panel_to_viewport()
+  _v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
@@ -552,14 +733,18 @@ func _unhandled_input(event:InputEvent)->void:
    _show_message("Sword angle: "+v394_strike_direction_label,0.55)
    get_viewport().set_input_as_handled()
    return
- if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active:
+ if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active and not event.alt_pressed:
+  # Plain right-click starts parry; Alt+right-click is reserved for camera orbit.
   v392_guard_started=map_time
   get_viewport().set_input_as_handled()
   return
  super._unhandled_input(event)
 
 func _apply_incoming_damage(raw:float)->void:
- if not hero_playing or menu_open or death_active or mounted or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+ # Alt + right-drag orbits the camera, not a defensive guard.
+ # The camera handler marks that state when orbit begins, even after Alt is
+ # released while the right button is still held.
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or mounted or v36_dragging or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
   super._apply_incoming_damage(raw)
   return
  var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW+0.035*float(v398_ranks.get("defense_guard",0))
@@ -619,8 +804,6 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    if map_time>=float(beast.get("v404_tell_next",0.0)):
     beast["v404_tell_until"]=map_time+1.35
     beast["v404_attack_pending"]=true
-    var warning_body:Node3D=beast.get("body") as Node3D
-    if is_instance_valid(warning_body):beast["v406_attack_origin"]=warning_body.global_position
     if boss_name.begins_with("Z ") and is_instance_valid(player):
      var origin:Node3D=beast.get("body") as Node3D
      if is_instance_valid(origin):
@@ -641,12 +824,12 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       in_arc=forward.dot(offset.normalized())>=0.5
      if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
-   var ground_ring:MeshInstance3D=beast.get("v406_warning_ring") as MeshInstance3D
-   if is_instance_valid(ground_ring):
-    ground_ring.visible=bool(beast.get("v404_attack_pending",false))
-    if boss_name.begins_with("Z ") and ground_ring.visible:
-     var cleave_facing:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
-     ground_ring.rotation.y=atan2(cleave_facing.x,-cleave_facing.z)
+   var attack_zone:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
+   if is_instance_valid(attack_zone):
+    attack_zone.visible=bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0))
+    if attack_zone.visible and boss_name.begins_with("Z "):
+     var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+     attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
@@ -694,8 +877,47 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  # Bounded 1.8-meter/second separation that obeys physics collisions.
  body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
+# Validated classless talents augment combat without mutating legacy stats or saves.
+var v406_damage_context:String=""
+var v406_applied_health_bonus:float=0.0
+var v406_bonuses_level:int=-1
+var v406_bonuses_dirty:bool=true
+var v406_bonuses_cache:Dictionary={}
+func _v406_invalidate_bonus_cache()->void:
+ v406_bonuses_dirty=true
+
+func _v406_bonus(stat:String,kind:String)->float:
+ if v406_ranks.is_empty():return 0.0
+ if v406_bonuses_dirty or v406_bonuses_level!=hero_level:
+  v406_bonuses_dirty=false
+  v406_bonuses_level=hero_level
+  var state:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),v406_ranks)
+  v406_bonuses_cache=state.get("bonuses",{}) if bool(state.get("ok",false)) else {}
+ return float(v406_bonuses_cache.get(stat,{}).get(kind,0.0))
+
+func _v406_resource_max(stat:String,base:float)->float:
+ return maxf(base,base*(1.0+_v406_bonus(stat,"percent"))+_v406_bonus(stat,"flat"))
+
+func _v406_sync_health()->void:
+ # Preserve current HP; never heal automatically when talent ranks change.
+ var old_cap:float=maxf(1.0,max_hp)
+ var base_cap:float=maxf(1.0,old_cap-v406_applied_health_bonus)
+ var target_cap:float=_v406_resource_max("health",base_cap)
+ v406_applied_health_bonus=target_cap-base_cap
+ max_hp=target_cap
+ hp=clampf(hp,0.0,max_hp)
+ # Respec must not leave spent mana or stamina above the new caps.
+ v385_mana=clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA))
+ v387_stamina=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
+
+func _hero_damage_multiplier()->float:
+ var base:float=super._hero_damage_multiplier()
+ if v406_damage_context=="melee":return base*(1.0+_v406_bonus("melee_damage","percent"))+_v406_bonus("melee_damage","flat")
+ if v406_damage_context=="magic":return base*(1.0+_v406_bonus("magic_damage","percent"))+_v406_bonus("magic_damage","flat")
+ return base
+
 func _attack()->void:
- if not hero_playing or menu_open or death_active:
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
   return
  # Hold Shift while attacking for a slower, harder-hitting melee strike.
@@ -716,7 +938,9 @@ func _attack()->void:
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
+ v406_damage_context="melee"
  super._attack()
+ v406_damage_context=""
  v391_heavy_attack_active=false
  v393_riposte_active=false
  if attack_cooldown>cooldown_before:
@@ -729,9 +953,11 @@ func _attack()->void:
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
- if not hero_playing or menu_open or death_active:return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or ability_cooldown>0.0:
+  v406_damage_context="magic"
   super._spell(which)
+  v406_damage_context=""
   return
  var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
  var cost:float=maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
@@ -739,11 +965,13 @@ func _spell(which:String)->void:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
   return
  v385_mana-=cost
+ v406_damage_context="magic"
  super._spell(which)
+ v406_damage_context=""
 
 func _dodge()->void:
  # Inactive gameplay must not trigger dodge actions or resource warnings.
- if not hero_playing or menu_open or death_active:return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or dodge_cooldown>0.0:
   super._dodge()
   return
@@ -759,30 +987,45 @@ func _dodge()->void:
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  _v400_apply_adventurer_look()
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
  v401_z_intro_seen=false
  _v401_end_z_intro()
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
+ return {"mana":clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA)),"stamina":clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA)),"celestial_ranks":v398_ranks.duplicate(true),"classless_ranks":v406_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
+ v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
   var saved_identity:Variant=resources.get("character_identity",{})
   if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
-  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
-  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
+  # Restore validated ranks before clamping saved resources to their bonus caps.
+  var classless_saved:Variant=resources.get("classless_ranks",{})
+  if classless_saved is Dictionary:
+   var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
+   if bool(restored.get("ok",false)):
+    v406_ranks=restored["allocations"].duplicate(true)
+    _v406_invalidate_bonus_cache()
+  _v406_sync_health()
+  hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
+  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
+  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
   if saved_ranks is Dictionary:
    # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.
@@ -798,19 +1041,23 @@ func _restore_data(data:Dictionary)->void:
  else:
   v385_mana=V385_MAX_MANA
   v387_stamina=V387_MAX_STAMINA
+ _v406_sync_health()
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v387_stamina_bar):
-  v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+  v387_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
+  v387_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var orb_hint:Label=v387_stamina_bar.get_parent().get_node_or_null("V387_OrbLowStamina") as Label
   if is_instance_valid(orb_hint):orb_hint.visible=v387_stamina<V387_DODGE_COST
- if is_instance_valid(v387_fallback_stamina_bar):v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+ if is_instance_valid(v387_fallback_stamina_bar):
+  v387_fallback_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
+  v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
  if is_instance_valid(v387_stamina_warning):v387_stamina_warning.visible=v387_stamina<V387_DODGE_COST
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
-  var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
+  var mana_value:int=clampi(roundi(v385_mana),0,roundi(_v406_resource_max("mana",V385_MAX_MANA)))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(_v406_resource_max("mana",V385_MAX_MANA)),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
@@ -819,7 +1066,7 @@ func _v384_refresh_vitals()->void:
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
  # This display is backed by the spell-cost resource in v38.5.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(_v406_resource_max("mana",V385_MAX_MANA)),experience,experience_target,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
@@ -846,13 +1093,13 @@ func _process(delta:float)->void:
      _v401_begin_z_intro()
      break
  if hero_playing and not death_active and not menu_open:
-  v385_mana=minf(V385_MAX_MANA,v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
+  v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA),v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
   if v387_stamina_regen_wait>0.0:
    var delay_used:float=minf(v387_stamina_regen_wait,stamina_step)
    v387_stamina_regen_wait-=delay_used
    stamina_step-=delay_used
-  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+(V387_STAMINA_REGEN+1.5*float(v398_ranks.get("survival_fortitude",0)))*stamina_step)
+  if stamina_step>0.0:v387_stamina=minf(_v406_resource_max("stamina",V387_MAX_STAMINA),v387_stamina+(V387_STAMINA_REGEN+1.5*float(v398_ranks.get("survival_fortitude",0)))*stamina_step)
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
@@ -884,11 +1131,11 @@ func _process(delta:float)->void:
    if bool(creature.get("alive",false)) and bool(creature.get("hostile",false)):hostile_count+=1
  v383_peak_hostiles=maxi(v383_peak_hostiles,hostile_count)
  v380_status_text.text=V380_RULES.safe_label(region,hp,max_hp,v372_oxygen,underwater,v373_depth,current_threat)
- v380_status_text.text+="\nFPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
+ v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
-  v380_status_text.text+="\nCombat FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])
+  v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])
  else:
-  v380_status_text.text+="\nCombat FPS: no encounter sampled yet"
+  v380_status_text.text+="\nCOMBAT FPS: no encounter sampled yet"
  v380_status_text.add_theme_color_override("font_color",Color("ffb5a9") if V380_RULES.air_urgency(v372_oxygen,underwater)>0 else Color("cce9f5"))
  v380_status_updates+=1
 

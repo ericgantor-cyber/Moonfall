@@ -38,6 +38,59 @@ func _v321_update_chambers()->void:
    v322_label_writes+=1
   else:v322_skipped_label_writes+=1
   v321_chamber_checks+=1
+ # Each rift's three real walkways are culled separately from chamber decorations.
+ # The gameplay collision remains active even when the platform mesh is offscreen.
+ for passage in v321_passages:
+  var bridge:Node3D=passage.get("node") as Node3D
+  if not is_instance_valid(bridge):continue
+  var visible_now:bool=hero_playing and bridge.global_position.distance_squared_to(here)<95.0*95.0
+  if bridge.visible!=visible_now:
+   bridge.visible=visible_now
+   v322_visibility_switches+=1
+
+ # Annexes use independent distance culling; their StaticBody3D collisions never deactivate.
+ for annex in v321_annexes:
+  var room:Node3D=annex.get("node") as Node3D
+  if not is_instance_valid(room):continue
+  var should_show:bool=hero_playing and room.global_position.distance_squared_to(here)<90.0*90.0
+  if room.visible!=should_show:
+   room.visible=should_show
+   v322_visibility_switches+=1
+ for annex_link in v321_annex_passages:
+  var link:Node3D=annex_link.get("node") as Node3D
+  if not is_instance_valid(link):continue
+  var should_show:bool=hero_playing and link.global_position.distance_squared_to(here)<95.0*95.0
+  if link.visible!=should_show:
+   link.visible=should_show
+   v322_visibility_switches+=1
+
+ # Only dungeon entrance decorations are culled; physics remains active.
+ for dungeon in v321_region_dungeons:
+  var entrance:Node3D=dungeon.get("node") as Node3D
+  if not is_instance_valid(entrance):continue
+  var show_entrance:bool=hero_playing and entrance.global_position.distance_squared_to(here)<100.0*100.0
+  if entrance.visible!=show_entrance:
+   entrance.visible=show_entrance
+   v322_visibility_switches+=1
+
+ # Cull only visual room and corridor nodes. Static bodies remain present.
+ # This avoids processing visual batches across all 30 dungeons every frame.
+ for dungeon_room in v321_region_rooms:
+  # The entrance already has its own independent visibility pass above.
+  if int(dungeon_room.get("stage",0))==1:continue
+  var chamber:Node3D=dungeon_room.get("node") as Node3D
+  if not is_instance_valid(chamber):continue
+  var show_room:bool=hero_playing and chamber.global_position.distance_squared_to(here)<95.0*95.0
+  if chamber.visible!=show_room:
+   chamber.visible=show_room
+   v322_visibility_switches+=1
+ for dungeon_passage in v321_region_room_passages:
+  var hallway:Node3D=dungeon_passage.get("node") as Node3D
+  if not is_instance_valid(hallway):continue
+  var show_link:bool=hero_playing and hallway.global_position.distance_squared_to(here)<105.0*105.0
+  if hallway.visible!=show_link:
+   hallway.visible=show_link
+   v322_visibility_switches+=1
 
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
@@ -45,4 +98,9 @@ func _perf_report()->Dictionary:
  report["dungeon_label_writes"]=v322_label_writes
  report["dungeon_label_writes_skipped"]=v322_skipped_label_writes
  report["dungeon_visibility_switches"]=v322_visibility_switches
+ report["dungeon_connected_passages"]=v321_passages.size()+v321_annex_passages.size()
+ report["dungeon_exploration_annexes"]=v321_annexes.size()
+ report["regional_dungeon_entrances"]=v321_region_dungeons.size()
+ report["regional_dungeon_physical_rooms"]=v321_region_rooms.size()
+ report["regional_dungeon_internal_passages"]=v321_region_room_passages.size()
  return report

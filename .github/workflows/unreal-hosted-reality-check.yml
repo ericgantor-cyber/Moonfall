@@ -1,0 +1,216 @@
+name: Moonfall Windows hosted runner reality check
+
+# Lightweight Windows capacity report and source safety assertions on workflow edits.
+# Does not download Unreal, compile Moonfall, or provision a paid large runner.
+on:
+  push:
+    paths:
+      - '.github/workflows/unreal-hosted-reality-check.yml'
+      - '.github/workflows/unreal-hosted-windows.yml'
+      - '.github/workflows/unreal-engine-from-source-windows.yml'
+      - '.github/workflows/unreal-epic-access-check.yml'
+      - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.Tests.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-hosted-windows:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Retrieve pinned PR 690 Unreal source snapshot (no secrets)
+        uses: actions/checkout@v4
+        with:
+          ref: 8151ec565bfc78446b30eab5428d0285a3360849
+          path: pr690-snapshot
+          persist-credentials: false
+      - name: Verify pinned PR source resolves to intended Unreal project
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'pr690-snapshot'
+          $head = (& git -C $root rev-parse HEAD).Trim()
+          if ($head -ne '8151ec565bfc78446b30eab5428d0285a3360849') {
+            throw 'Pinned PR snapshot resolved to unexpected commit.'
+          }
+          foreach ($relative in @('MoonfallUnreal\MoonfallUnreal.uproject', 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs', 'MoonfallUnreal\Build\Build-Windows.ps1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) {
+              throw "Pinned Moonfall PR is missing $relative"
+            }
+          }
+          # Prevent regression: rebuilding Moonfall must never destroy a prior
+          # successful installer before its replacement passes verification.
+          foreach ($sourceRoot in @($env:GITHUB_WORKSPACE, $root)) {
+            $buildScript = Get-Content -LiteralPath (Join-Path $sourceRoot 'MoonfallUnreal\Build\Build-Windows.ps1') -Raw
+            if ($buildScript.Contains('$previousSetup =') -or
+                -not $buildScript.Contains('$backupSetup =') -or
+                -not $buildScript.Contains('Promoted installer SHA256 mismatch.')) {
+              throw 'Moonfall Windows rebuild might delete a working installer before replacement is verified.'
+            }
+          }
+          # The quest boss can differ from the nearest combat boss when
+          # continuous exploration places more than one boss in the world.
+          $hud = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallCombatHUD.cpp') -Raw
+          $hero = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallHeroPawn.cpp') -Raw
+          $arena = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallArena.cpp') -Raw
+          $enemy = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallEnemy.cpp') -Raw
+          foreach ($check in @(
+            @($hud, 'const AMoonfallEnemy* QuestBoss = Hero->GetArenaBossQuestTarget();'),
+            @($hud, 'const float Progress = IsValid(QuestBoss)'),
+            @($hero, 'ActiveArenaBoss = Boss;'),
+            @($hero, 'ActiveArenaBoss.Get() != DefeatedBoss'),
+            @($hero, 'QuestTarget = CurrentLocation;'),
+            @($arena, 'Hero->BeginArenaBossQuest(Enemy);'),
+            @($arena, 'Enemy->Tags.AddUnique(FName(TEXT("MoonfallArenaQuestBoss")))'),
+            @($hero, 'Candidate->ActorHasTag(FName(TEXT("MoonfallArenaQuestBoss")))'),
+            @($hero, 'NextArenaBossQuestSearchAt = Now + 0.5f'),
+            @($hero, 'if (bArenaBossQuestActive && !ActiveArenaBoss.IsValid())'),
+            @($enemy, 'Hero->CompleteArenaBossQuest(this);'),
+            @($enemy, 'NextAttackAt = FMath::Max(NextAttackAt, Now + 0.45f)'),
+            @($enemy, 'CrowRecoverUntil = FMath::Max(CrowRecoverUntil, GetWorld()->GetTimeSeconds() + 0.45f)')
+          )) {
+            if (-not $check[0].Contains($check[1])) { throw "Assigned quest boss actor regression: $($check[1])" }
+          }
+          if ($hud.Contains('QuestBossDistanceSq') -or $enemy.Contains('Hero->CompleteArenaBossQuest();')) {
+            throw 'Quest tracker must never guess a boss by proximity or complete quests without actor identity.'
+          }
+          "Pinned Moonfall PR 690 source checkout verified at $head; installer preservation and quest boss selection checks passed; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
+      - name: Verify hosted Unreal compile safeguards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $workflow = Get-Content '.github/workflows/unreal-hosted-windows.yml' -Raw
+          foreach ($rule in @(
+            "workflow_dispatch:",
+            "(inputs.attempt_compile || inputs.package_game) && needs.windows-preflight.outputs.has_capacity == 'true'",
+            "minimum_free_gb:",
+            "MOONFALL_UE54_ARCHIVE_SHA256",
+            "Test-UnrealInstalledArchive.ps1",
+            "Test-UnrealEngineVersion.ps1",
+            "inputs.package_game",
+            "source_snapshot:",
+            "pr690-pinned",
+            "8151ec565bfc78446b30eab5428d0285a3360849",
+            "path: build-tools",
+            "path: game-source",
+            "source snapshot selection",
+            "RunUAT.bat",
+            "MoonfallUnrealPackaged",
+            "MoonfallUnreal-REAL-Game-Windows-Development-UNTESTED",
+            "if-no-files-found: error",
+            "-ReserveBytes 15GB",
+            "Expand-Archive -LiteralPath",
+            "Build-Windows.ps1 -UnrealRoot",
+            "-CompileOnly"
+          )) {
+            if (-not $workflow.Contains($rule)) {
+              throw "Hosted Unreal workflow safety regression: missing $rule"
+            }
+          }
+          Write-Host 'Hosted Unreal build workflow safeguards verified as source text; UE compilation not run.'
+      - name: Check optional licensed UE 5.4 source build safeguards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceWorkflow = Get-Content '.github/workflows/unreal-engine-from-source-windows.yml' -Raw
+          foreach ($rule in @(
+            'workflow_dispatch:',
+            'if: ${{ inputs.confirm_build }}',
+            "repository: EpicGames/UnrealEngine",
+            'ref: ''5.4''',
+            'secrets.MOONFALL_EPIC_SOURCE_TOKEN',
+            'persist-credentials: false',
+            '250GB',
+            'Setup.bat',
+            'GenerateProjectFiles.bat',
+            'Make Installed Build Win64',
+            'Test-UnrealEngineVersion.ps1',
+            '8151ec565bfc78446b30eab5428d0285a3360849',
+            'CompileOnly',
+            'inputs.package_game',
+            'MoonfallWin64Packaged',
+            'Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED',
+            'if-no-files-found: error',
+            'BuildCookRun',
+            'inputs.create_installer',
+            'actions/setup-dotnet@v4',
+            'MoonfallLauncher.exe',
+            'MoonfallUnreal.nsi',
+            'MoonfallUnreal-REAL-Windows-Installer-UNTESTED',
+            'MoonfallUnreal-Setup.exe.sha256',
+            'if: failure()'
+          )) {
+            if (-not $sourceWorkflow.Contains($rule)) {
+              throw "Licensed Unreal source workflow missing safeguard: $rule"
+            }
+          }
+          # The checkout legitimately uses path: ue-source; only artifact
+          # upload blocks referencing that path are prohibited.
+          $uploadAt = $sourceWorkflow.IndexOf('uses: actions/upload-artifact@v4')
+          if ($uploadAt -ge 0) {
+            $uploadConfig = $sourceWorkflow.Substring($uploadAt)
+            if ($uploadConfig -match '(?m)^\s+path:\s*ue-source(?:/|\s|$)') {
+              throw 'Never upload privately licensed Epic engine source.'
+            }
+          }
+          "Optional licensed UE source build configuration passed source-text safeguards (no engine compile)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Verify Epic private access-check is manual and does not clone source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = '.github/workflows/unreal-epic-access-check.yml'
+          $flow = Get-Content -LiteralPath $file -Raw
+          foreach ($rule in @(
+            'workflow_dispatch:',
+            'secrets.MOONFALL_EPIC_SOURCE_TOKEN',
+            'https://api.github.com/repos/EpicGames/UnrealEngine',
+            'https://api.github.com/repos/EpicGames/UnrealEngine/branches/5.4',
+            'MOONFALL_EPIC_ACCESS_PASS'
+          )) {
+            if (-not $flow.Contains($rule)) { throw "Epic access check safeguard missing: $rule" }
+          }
+          if ($flow -match '(?m)^  push:' -or
+              $flow -match '(?m)^  pull_request:' -or
+              $flow.Contains('actions/checkout@') -or
+              $flow.Contains('upload-artifact@')) {
+            throw 'Epic access check must stay manual, metadata-only, and without artifacts.'
+          }
+          'Epic UE 5.4 private access-check workflow safety assertions passed; no secret was used.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Run synthetic Unreal archive security regression tests
+        shell: pwsh
+        run: |
+          & .\MoonfallUnreal\Build\Test-UnrealInstalledArchive.Tests.ps1
+      - name: Run Unreal 5.4 metadata and toolchain preflight regression cases
+        shell: pwsh
+        run: |
+          & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.Tests.ps1
+      - name: Report actual Windows hosted runner capacity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($env:RUNNER_TEMP)).TrimEnd('\')
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$root'"
+          if (-not $disk) { throw 'Unable to inspect hosted Windows runner disk.' }
+          $free = [math]::Round($disk.FreeSpace / 1GB, 2)
+          $size = [math]::Round($disk.Size / 1GB, 2)
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $hasVS = $false
+          if (Test-Path -LiteralPath $vswhere) {
+            $installs = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+            $hasVS = ($LASTEXITCODE -eq 0) -and [bool](@($installs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count)
+          }
+          "## Moonfall actual GitHub-hosted Windows capability" >> $env:GITHUB_STEP_SUMMARY
+          "Runner: $env:RUNNER_NAME" >> $env:GITHUB_STEP_SUMMARY
+          "Disk: $size GB total, $free GB currently free" >> $env:GITHUB_STEP_SUMMARY
+          "VS 2022 C++ tools found: $hasVS" >> $env:GITHUB_STEP_SUMMARY
+          "Standard runner meets 80 GB minimum: $($disk.FreeSpace -ge 80GB)" >> $env:GITHUB_STEP_SUMMARY
+          "No Unreal Engine compilation, installation, installer, or gameplay testing was attempted." >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "MOONFALL_REALITY_CHECK free_gb=$free total_gb=$size vs2022_cpp=$hasVS minimum_80gb=$($disk.FreeSpace -ge 80GB)"

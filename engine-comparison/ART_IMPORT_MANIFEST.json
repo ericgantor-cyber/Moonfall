@@ -1,0 +1,1216 @@
+{
+  "schema_version": 1,
+  "source_root": "godot-v38/assets",
+  "source_count": 71,
+  "imported_files": 142,
+  "notes": "Godot artwork is untouched. Unreal SourceArt must be imported in the editor; model assets may require manual setup.",
+  "assets": [
+    {
+      "source": "godot-v38/assets/beasts/dusk_bear.webp",
+      "source_sha256": "af9df497b9706af46eb0804c2ee2431d24a2c8d34b217398536808c56502edc5",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/dusk_bear.png",
+          "sha256": "2d7523db9e51bd11434ed6a4c9f5e05ffd3147f02d51aaa60f821a853bf22df0"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/dusk_bear.png",
+          "sha256": "2d7523db9e51bd11434ed6a4c9f5e05ffd3147f02d51aaa60f821a853bf22df0"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/dusk_boar.webp",
+      "source_sha256": "120deacb70c75e850186ae649874ab389a5120091b52c4c27310e57705a36b30",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/dusk_boar.png",
+          "sha256": "564e5c1ac6414eeb164f45a693625d7b6c3a7905b0e422d0eeeefd29ff480984"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/dusk_boar.png",
+          "sha256": "564e5c1ac6414eeb164f45a693625d7b6c3a7905b0e422d0eeeefd29ff480984"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/dusk_fox.webp",
+      "source_sha256": "e58fcfe0a1992745969fca31b63a36fd31227b1d0e266eb086f30114d1f5a577",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/dusk_fox.png",
+          "sha256": "31a266802a8dcef69e3d9125bd37d89be9ed52c81e1151baaad21f86fa1dd3ca"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/dusk_fox.png",
+          "sha256": "31a266802a8dcef69e3d9125bd37d89be9ed52c81e1151baaad21f86fa1dd3ca"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/elder_elk.webp",
+      "source_sha256": "28253b96b7b4ac54dcff65341cfb87cc87f7ad4f9d519cdc6781907417a076cf",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/elder_elk.png",
+          "sha256": "918d643d40cf5fdf2ac16f193d597e2e5a2c36afa2bc978f72b50913254132e5"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/elder_elk.png",
+          "sha256": "918d643d40cf5fdf2ac16f193d597e2e5a2c36afa2bc978f72b50913254132e5"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/elder_owl.webp",
+      "source_sha256": "c10941a0213052d7b047737b5f16d8fe8917be512f0d42d3f3f338bb55d4fc1a",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/elder_owl.png",
+          "sha256": "b77de4baebc4d5ddd679500aa87c35937fb0d68f2806e6aa8c50e2b1df4c4e12"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/elder_owl.png",
+          "sha256": "b77de4baebc4d5ddd679500aa87c35937fb0d68f2806e6aa8c50e2b1df4c4e12"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/elder_serpent.webp",
+      "source_sha256": "8d794c8593b1953477c11f4c9253c1726e5662ea2b3fb3d8929ff06bfc6e22b8",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/elder_serpent.png",
+          "sha256": "6af1df37d559083c5ddfcbd509b65649529e983408907428f41d9cedc560dc09"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/elder_serpent.png",
+          "sha256": "6af1df37d559083c5ddfcbd509b65649529e983408907428f41d9cedc560dc09"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/moon_panther.webp",
+      "source_sha256": "4504a43a0f0667099a11de514adefce1729b1df2ed1d5911c6f13567692fbae6",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/moon_panther.png",
+          "sha256": "f10cea0214c98c5f127bdc250c92353e286add49775d84d91e98ea83309cf05f"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/moon_panther.png",
+          "sha256": "f10cea0214c98c5f127bdc250c92353e286add49775d84d91e98ea83309cf05f"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/moon_stag.webp",
+      "source_sha256": "b35e542559b48f5a6274044a19c60146584a38782e4b0283783352c38d17bb2c",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/moon_stag.png",
+          "sha256": "f1069cebf0a81eca16690d494641d0422e05828a589bbfe0481e3ba6fe9cab0b"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/moon_stag.png",
+          "sha256": "f1069cebf0a81eca16690d494641d0422e05828a589bbfe0481e3ba6fe9cab0b"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/beasts/moon_wolf.webp",
+      "source_sha256": "2b9d1a35211b4048825ffe7384133fb4c7dcce38b5e3a97a475465170b39451c",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/beasts/moon_wolf.png",
+          "sha256": "5615310366c218d2289cd731b33d32379df56881a16f0242da35893bc97a765d"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/beasts/moon_wolf.png",
+          "sha256": "5615310366c218d2289cd731b33d32379df56881a16f0242da35893bc97a765d"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/heroes/Nyra_Original.png",
+      "source_sha256": "64aa23e2de7ea0e07347171c3ebe4beae13166359b08855d1076db9dd25871a9",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/heroes/Nyra_Original.png",
+          "sha256": "64aa23e2de7ea0e07347171c3ebe4beae13166359b08855d1076db9dd25871a9"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/heroes/Nyra_Original.png",
+          "sha256": "64aa23e2de7ea0e07347171c3ebe4beae13166359b08855d1076db9dd25871a9"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/heroes/Z_Original.webp",
+      "source_sha256": "81b8ac6bae0830ab8d8bf53d2cdcbc8bae07256a8b7a9d4398ce4591bafd0666",
+      "format": ".webp",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/heroes/Z_Original.png",
+          "sha256": "e5641ad2cb1b9e32b77c6d45801ff0c2153e29b9065c3a098d8db4f422c045ad"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/heroes/Z_Original.png",
+          "sha256": "e5641ad2cb1b9e32b77c6d45801ff0c2153e29b9065c3a098d8db4f422c045ad"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png",
+      "source_sha256": "e99ba42241e1b96718c52175b962d02972f1a609ae3b284bf4ae1f9b74755e51",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png",
+          "sha256": "e99ba42241e1b96718c52175b962d02972f1a609ae3b284bf4ae1f9b74755e51"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png",
+          "sha256": "e99ba42241e1b96718c52175b962d02972f1a609ae3b284bf4ae1f9b74755e51"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_0.png",
+      "source_sha256": "2bde68eebcfabef8cb787129fcb87d81550141c878286188c8db6f4f36ece087",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_0.png",
+          "sha256": "2bde68eebcfabef8cb787129fcb87d81550141c878286188c8db6f4f36ece087"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_0.png",
+          "sha256": "2bde68eebcfabef8cb787129fcb87d81550141c878286188c8db6f4f36ece087"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_1.png",
+      "source_sha256": "1290e4a3c469f7006ab9d24fe29e75eeddcc6965e5f02bfc91cefa1f5d6be341",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_1.png",
+          "sha256": "1290e4a3c469f7006ab9d24fe29e75eeddcc6965e5f02bfc91cefa1f5d6be341"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_1.png",
+          "sha256": "1290e4a3c469f7006ab9d24fe29e75eeddcc6965e5f02bfc91cefa1f5d6be341"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_2.png",
+      "source_sha256": "4c9b2b2d02841afe094b8a303ac8055a5eaf7fe9b826baac8fb3136b2904adc0",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_2.png",
+          "sha256": "4c9b2b2d02841afe094b8a303ac8055a5eaf7fe9b826baac8fb3136b2904adc0"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_2.png",
+          "sha256": "4c9b2b2d02841afe094b8a303ac8055a5eaf7fe9b826baac8fb3136b2904adc0"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_3.png",
+      "source_sha256": "397e8a15a31c9459cf0eab69ff8c5c62769ebaf932aca3e99a4f35d5811ec8bd",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_3.png",
+          "sha256": "397e8a15a31c9459cf0eab69ff8c5c62769ebaf932aca3e99a4f35d5811ec8bd"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_3.png",
+          "sha256": "397e8a15a31c9459cf0eab69ff8c5c62769ebaf932aca3e99a4f35d5811ec8bd"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_4.png",
+      "source_sha256": "47d4829a81af6b80b903238e40988cb0cf66cfd08a6c95775463d5ac2590359c",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_4.png",
+          "sha256": "47d4829a81af6b80b903238e40988cb0cf66cfd08a6c95775463d5ac2590359c"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_4.png",
+          "sha256": "47d4829a81af6b80b903238e40988cb0cf66cfd08a6c95775463d5ac2590359c"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v21/crest_5.png",
+      "source_sha256": "a8da48ffa0fc112ed58146f46bf19c54208295765fa45720e55837021ea55a2d",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v21/crest_5.png",
+          "sha256": "a8da48ffa0fc112ed58146f46bf19c54208295765fa45720e55837021ea55a2d"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v21/crest_5.png",
+          "sha256": "a8da48ffa0fc112ed58146f46bf19c54208295765fa45720e55837021ea55a2d"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/armor.png",
+      "source_sha256": "220552732b7290fad4a89195d3fb6450a6b5b46fbea9fd4f17f86662876539a2",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/armor.png",
+          "sha256": "220552732b7290fad4a89195d3fb6450a6b5b46fbea9fd4f17f86662876539a2"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/armor.png",
+          "sha256": "220552732b7290fad4a89195d3fb6450a6b5b46fbea9fd4f17f86662876539a2"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/blade.png",
+      "source_sha256": "ffcccef621dd7b91eb4dc761bd9c72bed20549d662c6002c67e8c732124336f0",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/blade.png",
+          "sha256": "ffcccef621dd7b91eb4dc761bd9c72bed20549d662c6002c67e8c732124336f0"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/blade.png",
+          "sha256": "ffcccef621dd7b91eb4dc761bd9c72bed20549d662c6002c67e8c732124336f0"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/boots.png",
+      "source_sha256": "d78779af2489f12d689ff94557073abd29d0c759eef96c2c2c6e7d30797a3d14",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/boots.png",
+          "sha256": "d78779af2489f12d689ff94557073abd29d0c759eef96c2c2c6e7d30797a3d14"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/boots.png",
+          "sha256": "d78779af2489f12d689ff94557073abd29d0c759eef96c2c2c6e7d30797a3d14"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/charm.png",
+      "source_sha256": "19b322ab43d60068ff9e972b24132e3146bff81f1ced994b2dde7364caefdce6",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/charm.png",
+          "sha256": "19b322ab43d60068ff9e972b24132e3146bff81f1ced994b2dde7364caefdce6"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/charm.png",
+          "sha256": "19b322ab43d60068ff9e972b24132e3146bff81f1ced994b2dde7364caefdce6"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/cloak.png",
+      "source_sha256": "a4bf28fd585453aaedc110a01e14cbda3e83a41fe6bdbc381a9b6bb879df2700",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/cloak.png",
+          "sha256": "a4bf28fd585453aaedc110a01e14cbda3e83a41fe6bdbc381a9b6bb879df2700"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/cloak.png",
+          "sha256": "a4bf28fd585453aaedc110a01e14cbda3e83a41fe6bdbc381a9b6bb879df2700"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/helm.png",
+      "source_sha256": "99d68d4059c1590c5ae66352a46bfa8271b52c2d84080e384891ab7dc589c49d",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/helm.png",
+          "sha256": "99d68d4059c1590c5ae66352a46bfa8271b52c2d84080e384891ab7dc589c49d"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/helm.png",
+          "sha256": "99d68d4059c1590c5ae66352a46bfa8271b52c2d84080e384891ab7dc589c49d"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/potion.png",
+      "source_sha256": "ae7ef5baee91bcc246d320e4bf9798024836b3c5331f16657c1f5821bc8ee342",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/potion.png",
+          "sha256": "ae7ef5baee91bcc246d320e4bf9798024836b3c5331f16657c1f5821bc8ee342"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/potion.png",
+          "sha256": "ae7ef5baee91bcc246d320e4bf9798024836b3c5331f16657c1f5821bc8ee342"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/relic.png",
+      "source_sha256": "5c4f4fb3915033944ee7f989e8cda76bbb4ebf6e8c45dd96260bafde61448612",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/relic.png",
+          "sha256": "5c4f4fb3915033944ee7f989e8cda76bbb4ebf6e8c45dd96260bafde61448612"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/relic.png",
+          "sha256": "5c4f4fb3915033944ee7f989e8cda76bbb4ebf6e8c45dd96260bafde61448612"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/ring.png",
+      "source_sha256": "49b3a161abd764d287dd3fbf9eaf6c5a1f1e772f80038fcf1906ff7abae57be7",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/ring.png",
+          "sha256": "49b3a161abd764d287dd3fbf9eaf6c5a1f1e772f80038fcf1906ff7abae57be7"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/ring.png",
+          "sha256": "49b3a161abd764d287dd3fbf9eaf6c5a1f1e772f80038fcf1906ff7abae57be7"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/rune.png",
+      "source_sha256": "9134e585e69de9389cae5de7d195ee5c10c4bbe02cb52b89f23183c4d6d102e2",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/rune.png",
+          "sha256": "9134e585e69de9389cae5de7d195ee5c10c4bbe02cb52b89f23183c4d6d102e2"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/rune.png",
+          "sha256": "9134e585e69de9389cae5de7d195ee5c10c4bbe02cb52b89f23183c4d6d102e2"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/shield.png",
+      "source_sha256": "f5fb8c995abda2819f65a304cf8d02c8efb5276e08c41be8b473e3ed1a76e229",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/shield.png",
+          "sha256": "f5fb8c995abda2819f65a304cf8d02c8efb5276e08c41be8b473e3ed1a76e229"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/shield.png",
+          "sha256": "f5fb8c995abda2819f65a304cf8d02c8efb5276e08c41be8b473e3ed1a76e229"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v22/gear/staff.png",
+      "source_sha256": "5f46b261ec241ee82f9bf5223e4f3104c579a1705346e4d189ad92d9784c1e02",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v22/gear/staff.png",
+          "sha256": "5f46b261ec241ee82f9bf5223e4f3104c579a1705346e4d189ad92d9784c1e02"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v22/gear/staff.png",
+          "sha256": "5f46b261ec241ee82f9bf5223e4f3104c579a1705346e4d189ad92d9784c1e02"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/boss_phase.png",
+      "source_sha256": "05bd9c48a9a555f1f76eb6d5d64b222fb83a984f5313312aa9f5846073c214da",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/boss_phase.png",
+          "sha256": "05bd9c48a9a555f1f76eb6d5d64b222fb83a984f5313312aa9f5846073c214da"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/boss_phase.png",
+          "sha256": "05bd9c48a9a555f1f76eb6d5d64b222fb83a984f5313312aa9f5846073c214da"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/dungeon_seal.png",
+      "source_sha256": "c942eabf3aad7e53e5576eac2d85e8bb1224742e1f3f018878f7360501fdb28f",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/dungeon_seal.png",
+          "sha256": "c942eabf3aad7e53e5576eac2d85e8bb1224742e1f3f018878f7360501fdb28f"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/dungeon_seal.png",
+          "sha256": "c942eabf3aad7e53e5576eac2d85e8bb1224742e1f3f018878f7360501fdb28f"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/forge.png",
+      "source_sha256": "d2a2f4f1a738324c87221551374c58676d77e1ae16b2d1d1f94691a09b79170a",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/forge.png",
+          "sha256": "d2a2f4f1a738324c87221551374c58676d77e1ae16b2d1d1f94691a09b79170a"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/forge.png",
+          "sha256": "d2a2f4f1a738324c87221551374c58676d77e1ae16b2d1d1f94691a09b79170a"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/moon_surge.png",
+      "source_sha256": "28ae60166c3b5a369201bbc59b7850504ea4882e37173ec5a0f0b186bd7070d6",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/moon_surge.png",
+          "sha256": "28ae60166c3b5a369201bbc59b7850504ea4882e37173ec5a0f0b186bd7070d6"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/moon_surge.png",
+          "sha256": "28ae60166c3b5a369201bbc59b7850504ea4882e37173ec5a0f0b186bd7070d6"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/rare_loot.png",
+      "source_sha256": "feed9fb934e6cde5be3d027ca2047bbe9bb2d13e78688cb79aaa23892c37b634",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/rare_loot.png",
+          "sha256": "feed9fb934e6cde5be3d027ca2047bbe9bb2d13e78688cb79aaa23892c37b634"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/rare_loot.png",
+          "sha256": "feed9fb934e6cde5be3d027ca2047bbe9bb2d13e78688cb79aaa23892c37b634"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/rift_warning.png",
+      "source_sha256": "72577003c4be49ea5ae7d817ba52b6b3e95072e9ec670ad56eced94f4b994604",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/rift_warning.png",
+          "sha256": "72577003c4be49ea5ae7d817ba52b6b3e95072e9ec670ad56eced94f4b994604"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/rift_warning.png",
+          "sha256": "72577003c4be49ea5ae7d817ba52b6b3e95072e9ec670ad56eced94f4b994604"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/treasure_bearer.png",
+      "source_sha256": "f78849c66e172b595e5e696706017069f43e19380f0134a12a8f980315465807",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/treasure_bearer.png",
+          "sha256": "f78849c66e172b595e5e696706017069f43e19380f0134a12a8f980315465807"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/treasure_bearer.png",
+          "sha256": "f78849c66e172b595e5e696706017069f43e19380f0134a12a8f980315465807"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_3_art/treasure_cache.png",
+      "source_sha256": "b15c3aba905fb7c5569c095805068fed063b6805cb0e31b5bfd725bb0f6a86c5",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_3_art/treasure_cache.png",
+          "sha256": "b15c3aba905fb7c5569c095805068fed063b6805cb0e31b5bfd725bb0f6a86c5"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_3_art/treasure_cache.png",
+          "sha256": "b15c3aba905fb7c5569c095805068fed063b6805cb0e31b5bfd725bb0f6a86c5"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/boar.png",
+      "source_sha256": "54fca4c2703bf39a63563c7b842507ef70861afb2df8a200e4fad079f15550b1",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/boar.png",
+          "sha256": "54fca4c2703bf39a63563c7b842507ef70861afb2df8a200e4fad079f15550b1"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/boar.png",
+          "sha256": "54fca4c2703bf39a63563c7b842507ef70861afb2df8a200e4fad079f15550b1"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/boss_0.png",
+      "source_sha256": "0a7e6000e3db6023b0851955f560485f4ef211800ad66b28c826b76c5ba9e0ac",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/boss_0.png",
+          "sha256": "0a7e6000e3db6023b0851955f560485f4ef211800ad66b28c826b76c5ba9e0ac"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/boss_0.png",
+          "sha256": "0a7e6000e3db6023b0851955f560485f4ef211800ad66b28c826b76c5ba9e0ac"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/boss_1.png",
+      "source_sha256": "4153c46bcef4c4bb79e09152e142b1f3a1c7a1c86032a96ac0ac11c2a7ced761",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/boss_1.png",
+          "sha256": "4153c46bcef4c4bb79e09152e142b1f3a1c7a1c86032a96ac0ac11c2a7ced761"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/boss_1.png",
+          "sha256": "4153c46bcef4c4bb79e09152e142b1f3a1c7a1c86032a96ac0ac11c2a7ced761"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/boss_2.png",
+      "source_sha256": "b1b3dc3e846b1c1bacc4590d7beca3bf058eabf5444601aa60daa6ab7169f282",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/boss_2.png",
+          "sha256": "b1b3dc3e846b1c1bacc4590d7beca3bf058eabf5444601aa60daa6ab7169f282"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/boss_2.png",
+          "sha256": "b1b3dc3e846b1c1bacc4590d7beca3bf058eabf5444601aa60daa6ab7169f282"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/boss_3.png",
+      "source_sha256": "b124005a238748e686a86c13eb67460fbf50a632f33d9d9d172f4920d41fe2c9",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/boss_3.png",
+          "sha256": "b124005a238748e686a86c13eb67460fbf50a632f33d9d9d172f4920d41fe2c9"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/boss_3.png",
+          "sha256": "b124005a238748e686a86c13eb67460fbf50a632f33d9d9d172f4920d41fe2c9"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/elk.png",
+      "source_sha256": "688808d90aa0b637605bde7b36fc9acf276ac31e60839ebd7a2fe8794e5d6f22",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/elk.png",
+          "sha256": "688808d90aa0b637605bde7b36fc9acf276ac31e60839ebd7a2fe8794e5d6f22"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/elk.png",
+          "sha256": "688808d90aa0b637605bde7b36fc9acf276ac31e60839ebd7a2fe8794e5d6f22"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/fox.png",
+      "source_sha256": "7b83ace96706e8a5a61a91cac9ac8d66c70fb1bac217a33fa7feecdc3bf976ab",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/fox.png",
+          "sha256": "7b83ace96706e8a5a61a91cac9ac8d66c70fb1bac217a33fa7feecdc3bf976ab"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/fox.png",
+          "sha256": "7b83ace96706e8a5a61a91cac9ac8d66c70fb1bac217a33fa7feecdc3bf976ab"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/owl.png",
+      "source_sha256": "432615111236082949d58fe757272beaa9b7453f6f323226da5531701a583755",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/owl.png",
+          "sha256": "432615111236082949d58fe757272beaa9b7453f6f323226da5531701a583755"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/owl.png",
+          "sha256": "432615111236082949d58fe757272beaa9b7453f6f323226da5531701a583755"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/panther.png",
+      "source_sha256": "ac45a4541d2f552221e4810801f312a54cf08516635340a75a092a8e31c1127f",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/panther.png",
+          "sha256": "ac45a4541d2f552221e4810801f312a54cf08516635340a75a092a8e31c1127f"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/panther.png",
+          "sha256": "ac45a4541d2f552221e4810801f312a54cf08516635340a75a092a8e31c1127f"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_0.png",
+      "source_sha256": "8a7e8671e79b210c6a7ce2f892f1803347bc1f56ad526a735f398b8aad8d0739",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_0.png",
+          "sha256": "8a7e8671e79b210c6a7ce2f892f1803347bc1f56ad526a735f398b8aad8d0739"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_0.png",
+          "sha256": "8a7e8671e79b210c6a7ce2f892f1803347bc1f56ad526a735f398b8aad8d0739"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_1.png",
+      "source_sha256": "9dc3c2cb58890ba672488eea5b82708ca627356f8afb429c4db5d25be7e72edf",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_1.png",
+          "sha256": "9dc3c2cb58890ba672488eea5b82708ca627356f8afb429c4db5d25be7e72edf"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_1.png",
+          "sha256": "9dc3c2cb58890ba672488eea5b82708ca627356f8afb429c4db5d25be7e72edf"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_2.png",
+      "source_sha256": "9c2e9cf741b8e083a83ef6d12de39ccf4daa9b3188153e417ee5817016c08cec",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_2.png",
+          "sha256": "9c2e9cf741b8e083a83ef6d12de39ccf4daa9b3188153e417ee5817016c08cec"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_2.png",
+          "sha256": "9c2e9cf741b8e083a83ef6d12de39ccf4daa9b3188153e417ee5817016c08cec"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_3.png",
+      "source_sha256": "102e5461092b29147430bf06cdacd055e6e6c67c2aa56ae227980f058e2887ae",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_3.png",
+          "sha256": "102e5461092b29147430bf06cdacd055e6e6c67c2aa56ae227980f058e2887ae"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_3.png",
+          "sha256": "102e5461092b29147430bf06cdacd055e6e6c67c2aa56ae227980f058e2887ae"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_4.png",
+      "source_sha256": "774bc5e0b968bfd886467b0b589721759ddf82807066a2429e15c5d10f2fad6e",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_4.png",
+          "sha256": "774bc5e0b968bfd886467b0b589721759ddf82807066a2429e15c5d10f2fad6e"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_4.png",
+          "sha256": "774bc5e0b968bfd886467b0b589721759ddf82807066a2429e15c5d10f2fad6e"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/region_5.png",
+      "source_sha256": "8d9696e9435275af404b43c559af7bd3271a300ab27dff06a4ff7e1a54aff3cb",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/region_5.png",
+          "sha256": "8d9696e9435275af404b43c559af7bd3271a300ab27dff06a4ff7e1a54aff3cb"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/region_5.png",
+          "sha256": "8d9696e9435275af404b43c559af7bd3271a300ab27dff06a4ff7e1a54aff3cb"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/serpent.png",
+      "source_sha256": "0ac34e2fe64f785525f3e8e6af40b807333945a5da2b19daf95eae8fcd440801",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/serpent.png",
+          "sha256": "0ac34e2fe64f785525f3e8e6af40b807333945a5da2b19daf95eae8fcd440801"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/serpent.png",
+          "sha256": "0ac34e2fe64f785525f3e8e6af40b807333945a5da2b19daf95eae8fcd440801"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/stag.png",
+      "source_sha256": "680526de08c951a798b93296f1fb4bad2786503b8f96102b13aaaaa390e083e9",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/stag.png",
+          "sha256": "680526de08c951a798b93296f1fb4bad2786503b8f96102b13aaaaa390e083e9"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/stag.png",
+          "sha256": "680526de08c951a798b93296f1fb4bad2786503b8f96102b13aaaaa390e083e9"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_4_bestiary/wolf.png",
+      "source_sha256": "3c59ab8e066305969080ecfdd2690cb749d24b8ebc65832ef8d11c10c287da03",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_4_bestiary/wolf.png",
+          "sha256": "3c59ab8e066305969080ecfdd2690cb749d24b8ebc65832ef8d11c10c287da03"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_4_bestiary/wolf.png",
+          "sha256": "3c59ab8e066305969080ecfdd2690cb749d24b8ebc65832ef8d11c10c287da03"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_0.png",
+      "source_sha256": "8c57dac29166f9a4544297401998f46a33f68dacea6b3c0e05ff2037e8b0fefa",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_0.png",
+          "sha256": "8c57dac29166f9a4544297401998f46a33f68dacea6b3c0e05ff2037e8b0fefa"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_0.png",
+          "sha256": "8c57dac29166f9a4544297401998f46a33f68dacea6b3c0e05ff2037e8b0fefa"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_1.png",
+      "source_sha256": "74a4da7450c321a3b84af2a9e493cee735d7512ae4103d4964a0fd8ed229884b",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_1.png",
+          "sha256": "74a4da7450c321a3b84af2a9e493cee735d7512ae4103d4964a0fd8ed229884b"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_1.png",
+          "sha256": "74a4da7450c321a3b84af2a9e493cee735d7512ae4103d4964a0fd8ed229884b"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_2.png",
+      "source_sha256": "a59bb12d8f515ca919bf618a07751f06d1231904b9a4dc4a4ffc12b9881df4a4",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_2.png",
+          "sha256": "a59bb12d8f515ca919bf618a07751f06d1231904b9a4dc4a4ffc12b9881df4a4"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_2.png",
+          "sha256": "a59bb12d8f515ca919bf618a07751f06d1231904b9a4dc4a4ffc12b9881df4a4"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_3.png",
+      "source_sha256": "036b965607ced1693a96067c20f4c44e6176736e5173329a173041c61a791080",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_3.png",
+          "sha256": "036b965607ced1693a96067c20f4c44e6176736e5173329a173041c61a791080"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_3.png",
+          "sha256": "036b965607ced1693a96067c20f4c44e6176736e5173329a173041c61a791080"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_4.png",
+      "source_sha256": "779ab5667663742fd8c2c76235c5dc7348717eed52fe77394c8ac5e11a687654",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_4.png",
+          "sha256": "779ab5667663742fd8c2c76235c5dc7348717eed52fe77394c8ac5e11a687654"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_4.png",
+          "sha256": "779ab5667663742fd8c2c76235c5dc7348717eed52fe77394c8ac5e11a687654"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_5.png",
+      "source_sha256": "a9ed0d53b00a8318718617e5a3ed38dfa4f935a13ad4ada62279174def8349db",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_5.png",
+          "sha256": "a9ed0d53b00a8318718617e5a3ed38dfa4f935a13ad4ada62279174def8349db"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_5.png",
+          "sha256": "a9ed0d53b00a8318718617e5a3ed38dfa4f935a13ad4ada62279174def8349db"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/normal_6.png",
+      "source_sha256": "9301f407a5ea6fbadc8b8b668ca342543611c8ea4575920e4cdd1544cc3edabc",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/normal_6.png",
+          "sha256": "9301f407a5ea6fbadc8b8b668ca342543611c8ea4575920e4cdd1544cc3edabc"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/normal_6.png",
+          "sha256": "9301f407a5ea6fbadc8b8b668ca342543611c8ea4575920e4cdd1544cc3edabc"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_0.png",
+      "source_sha256": "6f4192d5483f9b83a3076c93d08a130bfaced7bc86cb5966d10a56d714064236",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_0.png",
+          "sha256": "6f4192d5483f9b83a3076c93d08a130bfaced7bc86cb5966d10a56d714064236"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_0.png",
+          "sha256": "6f4192d5483f9b83a3076c93d08a130bfaced7bc86cb5966d10a56d714064236"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_1.png",
+      "source_sha256": "3ba7f7219bbf5c13a8bb90d6de633b1a7074541b7d7b42f84ecd6cd691d5cc7c",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_1.png",
+          "sha256": "3ba7f7219bbf5c13a8bb90d6de633b1a7074541b7d7b42f84ecd6cd691d5cc7c"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_1.png",
+          "sha256": "3ba7f7219bbf5c13a8bb90d6de633b1a7074541b7d7b42f84ecd6cd691d5cc7c"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_2.png",
+      "source_sha256": "fc0ff23dca81a8fe970315687119d73b927d6c9e70210284b6e402c7a615d7e3",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_2.png",
+          "sha256": "fc0ff23dca81a8fe970315687119d73b927d6c9e70210284b6e402c7a615d7e3"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_2.png",
+          "sha256": "fc0ff23dca81a8fe970315687119d73b927d6c9e70210284b6e402c7a615d7e3"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_3.png",
+      "source_sha256": "04f371c66440e51d2ea6ff37c505850e4388773a7548dae836f138ae543acb16",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_3.png",
+          "sha256": "04f371c66440e51d2ea6ff37c505850e4388773a7548dae836f138ae543acb16"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_3.png",
+          "sha256": "04f371c66440e51d2ea6ff37c505850e4388773a7548dae836f138ae543acb16"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_4.png",
+      "source_sha256": "d9dcce4637c203fd3b84534e80e54cff8f3b2043d24645490dc270b421461489",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_4.png",
+          "sha256": "d9dcce4637c203fd3b84534e80e54cff8f3b2043d24645490dc270b421461489"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_4.png",
+          "sha256": "d9dcce4637c203fd3b84534e80e54cff8f3b2043d24645490dc270b421461489"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_5.png",
+      "source_sha256": "14443e45ccb8657357702b2176dedbba1d240e534f240e84327d317949e26738",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_5.png",
+          "sha256": "14443e45ccb8657357702b2176dedbba1d240e534f240e84327d317949e26738"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_5.png",
+          "sha256": "14443e45ccb8657357702b2176dedbba1d240e534f240e84327d317949e26738"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v31_realism/surface_6.png",
+      "source_sha256": "7e91fcf426708a17593086c6f2f7d01f7301143a0004b7052003847e24cee1cb",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v31_realism/surface_6.png",
+          "sha256": "7e91fcf426708a17593086c6f2f7d01f7301143a0004b7052003847e24cee1cb"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v31_realism/surface_6.png",
+          "sha256": "7e91fcf426708a17593086c6f2f7d01f7301143a0004b7052003847e24cee1cb"
+        }
+      ]
+    },
+    {
+      "source": "godot-v38/assets/v36_world_art/lunar_pink_moon_sky.png",
+      "source_sha256": "e1cc8f292c6a83db9b2d42fa59d7e24608b7552a83b375779baffdef883711b1",
+      "format": ".png",
+      "outputs": [
+        {
+          "engine": "unity",
+          "path": "engine-comparison/unity/Assets/Resources/MoonfallArt/v36_world_art/lunar_pink_moon_sky.png",
+          "sha256": "e1cc8f292c6a83db9b2d42fa59d7e24608b7552a83b375779baffdef883711b1"
+        },
+        {
+          "engine": "unreal_source_art",
+          "path": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/v36_world_art/lunar_pink_moon_sky.png",
+          "sha256": "e1cc8f292c6a83db9b2d42fa59d7e24608b7552a83b375779baffdef883711b1"
+        }
+      ]
+    }
+  ]
+}

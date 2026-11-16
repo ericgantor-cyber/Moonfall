@@ -1,0 +1,62 @@
+name: Moonfall Windows launcher compile
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/windows-launcher-compile.yml'
+
+jobs:
+  compile-launcher:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore and compile Windows launcher
+        shell: pwsh
+        run: |
+          dotnet build ./MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release --nologo -warnaserror
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check launcher executable
+        shell: pwsh
+        run: |
+          $file = 'MoonfallUnreal/Launcher/bin/Release/net8.0-windows/MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $file)) { throw "Launcher executable missing: $file" }
+          Write-Host "Launcher compiled: $file"
+
+      - name: Publish self-contained launcher for Windows
+        shell: pwsh
+        run: |
+          dotnet publish ./MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./MoonfallLauncherArtifact
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path ./MoonfallLauncherArtifact/MoonfallLauncher.exe)) { throw 'Published launcher executable missing' }
+      - name: Write launcher SHA256 verification file
+        shell: pwsh
+        run: |
+          $exe = './MoonfallLauncherArtifact/MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Missing published launcher' }
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallLauncher.exe" | Set-Content -Encoding ascii -Path './MoonfallLauncherArtifact/SHA256SUMS.txt'
+          if (-not (Test-Path ./MoonfallLauncherArtifact/SHA256SUMS.txt)) { throw 'Missing checksum manifest' }
+      - name: Verify published launcher SHA256
+        shell: pwsh
+        run: |
+          $exe = './MoonfallLauncherArtifact/MoonfallLauncher.exe'
+          $checksum = './MoonfallLauncherArtifact/SHA256SUMS.txt'
+          if (-not (Test-Path -LiteralPath $exe) -or -not (Test-Path -LiteralPath $checksum)) { throw 'Launcher or checksum missing' }
+          $line = (Get-Content -LiteralPath $checksum -TotalCount 1).Trim()
+          if ($line -notmatch '^([0-9a-f]{64})  MoonfallLauncher[.]exe$') { throw 'Invalid checksum manifest' }
+          $expected = $Matches[1]
+          $actual = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw 'Published launcher SHA256 mismatch' }
+          Write-Host 'Launcher SHA256 verification passed.'
+      - name: Upload launcher artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallLauncher-win-x64
+          path: MoonfallLauncherArtifact/**
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,213 @@
+name: Moonfall Windows launcher real build and install checks
+
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/unreal-launcher-windows.yml'
+      - 'MoonfallUnreal/Installer/MoonfallUnreal.nsi'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonfall-launcher-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-launcher:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish real self-contained Windows launcher
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish '.\MoonfallUnreal\Launcher\MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o .\LauncherBuild
+          if ($LASTEXITCODE -ne 0) { throw "Launcher .NET compilation failed: $LASTEXITCODE" }
+          $exe = '.\LauncherBuild\MoonfallLauncher.exe'
+          if (-not (Test-Path $exe -PathType Leaf)) { throw 'Launcher .exe was not created.' }
+          $size = (Get-Item $exe).Length
+          if ($size -le 0) { throw 'Launcher executable is empty.' }
+          "MoonfallLauncher.exe compiled: $size bytes" >> $env:GITHUB_STEP_SUMMARY
+      - name: Verify launcher refuses missing game files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $launcher = (Resolve-Path '.\LauncherBuild\MoonfallLauncher.exe').Path
+          $work = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          Copy-Item -LiteralPath $launcher -Destination (Join-Path $work 'MoonfallLauncher.exe')
+          $isolated = Join-Path $work 'MoonfallLauncher.exe'
+          $result = Start-Process -FilePath $isolated -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
+          if ($result.ExitCode -ne 2) { throw "Expected exit 2 for missing game, got $($result.ExitCode)" }
+          Write-Host 'Missing-game negative test passed.'
+      - name: Verify launcher accepts complete synthetic game layout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          # Synthetic files are ONLY for the launcher file-presence test.
+          # Do not upload or distribute them as a real game.
+          New-Item -ItemType Directory -Force -Path (Join-Path $work 'Engine'), (Join-Path $work 'MoonfallUnreal') | Out-Null
+          Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal.exe') -Value 'not a real executable'
+          Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal\placeholder.dat') -Value 'synthetic'
+          $result = Start-Process -FilePath (Join-Path $work 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Expected exit 0 for structurally complete test layout, got $($result.ExitCode)" }
+          "Two launcher file-structure tests passed (synthetic layout; NOT Unreal gameplay)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Compile NSIS installer template using test-only files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+              choco install nsis -y --no-progress --limit-output
+              if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed: $LASTEXITCODE" }
+            }
+            $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            if (-not $nsis) {
+              $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+            } else { $nsis = $nsis.Source }
+          } else { $nsis = $nsis.Source }
+          if (-not (Test-Path -LiteralPath $nsis -PathType Leaf)) {
+            throw 'NSIS compiler not available on Windows runner.'
+          }
+          $fixture = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          foreach ($file in @('MoonfallLauncher.exe', 'MoonfallUnreal.exe', 'MoonfallUnreal\placeholder.dat')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $fixture $file) -PathType Leaf)) {
+              throw "Missing test fixture file $file"
+            }
+          }
+          # Never publish this installer: it contains a deliberately fake game.
+          $installer = Join-Path $env:RUNNER_TEMP 'MOONFALL-TEST-ONLY-DO-NOT-DISTRIBUTE.exe'
+          try {
+            & $nsis "/DSOURCE_DIR=$fixture" "/DOUTPUT_EXE=$installer" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+            if ($LASTEXITCODE -ne 0) { throw "NSIS compilation failed: $LASTEXITCODE" }
+            if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+              throw 'NSIS compilation returned success without creating a binary.'
+            }
+            if ((Get-Item -LiteralPath $installer).Length -le 0) {
+              throw 'NSIS generated an empty installer.'
+            }
+            # Negative tests: NSIS must refuse incomplete packages at compile time.
+            $negativeRoot = Join-Path $env:RUNNER_TEMP 'moonfall-nsis-negative-fixtures'
+            if (Test-Path -LiteralPath $negativeRoot) {
+              throw 'Refusing to reuse an existing negative test fixture folder.'
+            }
+            New-Item -ItemType Directory -Force -Path $negativeRoot | Out-Null
+            foreach ($missing in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine', 'MoonfallUnreal')) {
+              $negative = Join-Path $negativeRoot ($missing.Replace('.', '_'))
+              New-Item -ItemType Directory -Force -Path $negative | Out-Null
+              Copy-Item -Path (Join-Path $fixture '*') -Destination $negative -Recurse
+              Remove-Item -LiteralPath (Join-Path $negative $missing) -Recurse -Force
+              $badOutput = Join-Path $negativeRoot ("bad-" + $missing.Replace('.', '_') + '.exe')
+              & $nsis "/DSOURCE_DIR=$negative" "/DOUTPUT_EXE=$badOutput" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi' *> $null
+              if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $badOutput -PathType Leaf)) {
+                throw "NSIS incorrectly accepted a source missing $missing"
+              }
+              Write-Host "NSIS missing-payload test passed: $missing"
+            }
+            # PowerShell's GitHub Actions wrapper propagates LASTEXITCODE,
+            # even when deliberately nonzero native command results were expected.
+            $global:LASTEXITCODE = 0
+            Remove-Item -LiteralPath $negativeRoot -Recurse -Force
+            # Actually execute the installer in silent mode, using a dedicated
+            # temporary destination. It contains test-only files, never a real game.
+            $installRoot = Join-Path $env:RUNNER_TEMP 'MOONFALL-NSIS-SMOKE-TEST-ONLY'
+            if (Test-Path -LiteralPath $installRoot) {
+              throw 'Refusing to reuse a preexisting smoke-test installation directory.'
+            }
+            # Use a disposable GitHub-hosted Windows machine. Refuse to
+            # overwrite any existing user's shortcut or uninstall entry.
+            $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Moonfall Unreal.lnk'
+            $menuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Unreal\Moonfall Unreal.lnk'
+            $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+            foreach ($oldShortcut in @($desktopShortcut, $menuShortcut)) {
+              if (Test-Path -LiteralPath $oldShortcut) {
+                throw "Refusing to alter preexisting shortcut: $oldShortcut"
+              }
+            }
+            if (Test-Path -LiteralPath $uninstallKey) {
+              throw 'Refusing to overwrite a preexisting Moonfall uninstall entry.'
+            }
+            $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit $($install.ExitCode)" }
+            foreach ($file in @('MoonfallLauncher.exe', 'MoonfallUnreal.exe', 'Uninstall.exe', 'MoonfallUnreal\\placeholder.dat')) {
+              if (-not (Test-Path -LiteralPath (Join-Path $installRoot $file) -PathType Leaf)) {
+                throw "NSIS install missing expected test fixture: $file"
+              }
+            }
+            $shell = New-Object -ComObject WScript.Shell
+            foreach ($shortcut in @($desktopShortcut, $menuShortcut)) {
+              if (-not (Test-Path -LiteralPath $shortcut -PathType Leaf)) {
+                throw "Installer did not create Moonfall shortcut: $shortcut"
+              }
+              $target = $shell.CreateShortcut($shortcut).TargetPath
+              $expectedLauncher = Join-Path $installRoot 'MoonfallLauncher.exe'
+              if (-not [string]::Equals(
+                  [IO.Path]::GetFullPath($target), [IO.Path]::GetFullPath($expectedLauncher),
+                  [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Shortcut has wrong target: $shortcut"
+              }
+            }
+            if (-not (Test-Path -LiteralPath $uninstallKey)) {
+              throw 'Installer did not register Moonfall in Windows uninstall settings.'
+            }
+            $registration = Get-ItemProperty -LiteralPath $uninstallKey
+            if ($registration.InstallLocation -ne $installRoot) {
+              throw 'Moonfall uninstall registration has the wrong install location.'
+            }
+            $launchCheck = Start-Process -FilePath (Join-Path $installRoot 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $installRoot -Wait -PassThru
+            if ($launchCheck.ExitCode -ne 0) {
+              throw "Installed launcher failed file layout test: $($launchCheck.ExitCode)"
+            }
+            $remove = Start-Process -FilePath (Join-Path $installRoot 'Uninstall.exe') -ArgumentList '/S' -Wait -PassThru
+            if ($remove.ExitCode -ne 0) {
+              throw "NSIS silent uninstall failed with exit $($remove.ExitCode)"
+            }
+            if (Test-Path -LiteralPath (Join-Path $installRoot 'MoonfallUnreal.exe')) {
+              throw 'NSIS uninstall left test game files behind.'
+            }
+            foreach ($shortcut in @($desktopShortcut, $menuShortcut)) {
+              if (Test-Path -LiteralPath $shortcut) {
+                throw "NSIS uninstall left a shortcut behind: $shortcut"
+              }
+            }
+            if (Test-Path -LiteralPath $uninstallKey) {
+              throw 'NSIS uninstall left Windows uninstall registration behind.'
+            }
+            "NSIS install, launcher verification, two shortcut targets, uninstall registration, and uninstall cleanup all passed with synthetic files." >> $env:GITHUB_STEP_SUMMARY
+            "No playable Moonfall Unreal game or real release installer was created." >> $env:GITHUB_STEP_SUMMARY
+          } finally {
+            if (Test-Path -LiteralPath $installer) {
+              Remove-Item -LiteralPath $installer -Force
+            }
+            $testRoot = Join-Path $env:RUNNER_TEMP 'MOONFALL-NSIS-SMOKE-TEST-ONLY'
+            if (Test-Path -LiteralPath $testRoot) {
+              Remove-Item -LiteralPath $testRoot -Recurse -Force
+            }
+          }
+      - name: Hash standalone launcher binary
+        run: |
+          $exe = '.\LauncherBuild\MoonfallLauncher.exe'
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallLauncher.exe" | Set-Content -Encoding ascii '.\LauncherBuild\MoonfallLauncher.exe.sha256'
+          "Launcher SHA256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "This is ONLY a launcher binary, NOT a packaged Moonfall Unreal game or installer." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload launcher-only test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallLauncher-ONLY-NOT-THE-GAME
+          path: |
+            LauncherBuild/MoonfallLauncher.exe
+            LauncherBuild/MoonfallLauncher.exe.sha256
+          if-no-files-found: error
+          retention-days: 7

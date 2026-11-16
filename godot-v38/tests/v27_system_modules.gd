@@ -28,22 +28,136 @@ func _run()->void:
    check(int(enc["zone"])==zone,"encounter zone %d"%zone)
    if bool(enc["boss"]):guardian_count+=1
  check(expected_count==47 and guardian_count==5,"47 native population slots with five guardians")
+ check(SPAWNS.region_encounters(-1,{"at":Vector2.ZERO,"monster":"wolf"}).is_empty(),"negative region index never generates spawns")
+ check(SPAWNS.region_encounters(0,{}).is_empty(),"missing encounter metadata is safely rejected")
+ check(SPAWNS.region_encounters(0,{"at":Vector2.ZERO}).is_empty(),"missing monster type does not crash encounter loading")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(NAN,0),"monster":"wolf"}).is_empty(),"NaN region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(INF,0),"monster":"wolf"}).is_empty(),"infinite region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(1.0e30,0),"monster":"wolf"}).is_empty(),"overflowing region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":"bad","monster":"wolf"}).is_empty(),"malformed position type is rejected")
+ check(SPAWNS.region_encounters(0,{"at":Vector2.ZERO,"monster":""}).is_empty(),"blank encounter archetype is rejected")
+ var spawn_geometry_ok:bool=true
+ for sample_index in range(111):
+  var theta:float=TAU*float(sample_index)/111.0
+  var center_sample:Vector2=Vector2(cos(theta)*120.0,sin(theta)*120.0)
+  var layouts:Array[Dictionary]=SPAWNS.region_encounters(1,{"at":center_sample,"monster":"wolf"})
+  if layouts.size()!=8:
+   spawn_geometry_ok=false
+   break
+  for encounter in layouts:
+   var where:Vector3=encounter["at"]
+   if not is_finite(where.x) or not is_finite(where.z) or where.distance_to(Vector3(center_sample.x,0.0,center_sample.y))>33.0:
+    spawn_geometry_ok=false
+    break
+  if not spawn_geometry_ok:break
+ check(spawn_geometry_ok,"111 encounter centers produce bounded finite spawn geometry")
  check(game.get("beasts").size()>=expected_count,"existing ecology extra actors retained")
  check(is_equal_approx(SPAWNS.health_scale(3,"elder",true),6.912),"guardian HP scale unchanged")
+ check(is_equal_approx(SPAWNS.health_scale(-2147483647,"normal",false),1.0),"invalid negative enemy tier uses base health")
+ check(is_equal_approx(SPAWNS.health_scale(0,"elder",true),4.32),"zero tier preserves boss health floor")
+ check(is_equal_approx(SPAWNS.health_scale(2147483647,"elder",true),SPAWNS.health_scale(256,"elder",true)),"corrupted huge tier is bounded")
+ var health_scale_sweep_ok:bool=true
+ for sample_index in range(111):
+  var tier:int=1+sample_index
+  var variant:String="elder" if sample_index%2==0 else "normal"
+  var is_guardian:bool=sample_index%3==0
+  var expected:float=(1.0+float(tier-1)*0.3)*(1.35 if variant!="normal" else 1.0)*(3.2 if is_guardian else 1.0)
+  if not is_equal_approx(SPAWNS.health_scale(tier,variant,is_guardian),expected):
+   health_scale_sweep_ok=false
+   break
+ check(health_scale_sweep_ok,"111 valid tier rarity and boss scaling combinations remain unchanged")
  check(is_equal_approx(AI.perception(false,"Clear",false),10.0),"base perception unchanged")
  check(is_equal_approx(AI.perception(true,"Mist",true),14.0*0.78*1.16),"weather night alert perception")
  var heading:Vector3=AI.approach(Vector3(5,0,0),2.5,1,false,1,5.0)
  check(heading.z<0.0 and is_equal_approx(heading.length(),2.5),"flank steering and speed preserved")
  check(is_equal_approx(AI.approach(Vector3(5,0,0),2.5,1,true,3,5.0).length(),3.25),"guardian phase acceleration")
  check(AI.approach(Vector3.ZERO,2.0,0,false,1,0.0)==Vector3.ZERO,"zero-length pursuit avoids NaNs")
+ check(AI.approach(Vector3(NAN,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"NaN chase heading fails safely")
+ check(AI.approach(Vector3(INF,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"infinite chase heading fails safely")
+ check(AI.approach(Vector3(1.0e30,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"overflowing chase heading fails safely")
+ check(AI.approach(Vector3(5,0,0),NAN,0,false,1,5.0)==Vector3.ZERO,"NaN chase speed fails safely")
+ check(AI.approach(Vector3(5,0,0),INF,0,false,1,5.0)==Vector3.ZERO,"infinite chase speed fails safely")
+ check(AI.approach(Vector3(5,0,0),2.0,0,false,1,-1.0)==Vector3.ZERO,"negative chase distance fails safely")
+ check(AI.approach(Vector3(5,0,0),2.0,0,true,1000000,5.0).length()<=14.0,"corrupt boss phase does not create unlimited speed")
+ var heading_sweep_safe:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var heading_sample:Vector3=AI.approach(Vector3(cos(angle)*5.0,0.0,sin(angle)*5.0),2.5,0,false,1,5.0)
+  if not is_finite(heading_sample.x) or not is_finite(heading_sample.z) or not is_equal_approx(heading_sample.length(),2.5):
+   heading_sweep_safe=false
+   break
+ check(heading_sweep_safe,"111 pursuit headings preserve finite movement speed")
  check(AI.retreat_due(27.0,100.0,false,-1,20.0,19.0),"wounded normal beast retreat")
  check(not AI.retreat_due(27.0,100.0,true,-1,20.0,19.0),"guardian retreat excluded")
  check(not AI.retreat_due(27.0,100.0,false,0,20.0,19.0),"rift beasts do not retreat")
+ check(not AI.retreat_due(15.0,INF,false,-1,20.0,19.0),"infinite maximum health never triggers retreat")
+ check(not AI.retreat_due(INF,100.0,false,-1,20.0,19.0),"infinite health never triggers retreat")
+ check(not AI.retreat_due(15.0,0.0,false,-1,20.0,19.0),"zero maximum health never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,INF,19.0),"infinite clock never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,20.0,NAN),"NaN cooldown never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,-1.0,0.0),"negative clock never triggers retreat")
+ check(not AI.retreat_due(150.0,100.0,false,-1,20.0,19.0),"corrupt over-max health never triggers retreat")
+ var retreat_sweep_ok:bool=true
+ for sample_index in range(111):
+  var hp:float=float(sample_index)+0.5
+  var should_retreat:bool=hp<28.0 and hp<=100.0
+  if AI.retreat_due(hp,100.0,false,-1,20.0,19.0)!=should_retreat:
+   retreat_sweep_ok=false
+   break
+ check(retreat_sweep_ok,"111 health samples preserve normal retreat threshold")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,false,false,0,0.0,1.0),50.0),"base player damage unchanged")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,true,true,2,0.10,1.0),105.6),"critical execute fury order preserved")
+ check(COMBAT.outgoing_damage(NAN,false,false,0,0.0,1.0)==0.0,"NaN damage input is rejected")
+ check(COMBAT.outgoing_damage(INF,false,false,0,0.0,1.0)==0.0,"infinite base damage is rejected")
+ check(COMBAT.outgoing_damage(-5.0,false,false,0,0.0,1.0)==0.0,"negative damage is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,NAN,1.0)==0.0,"NaN fury is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,0.0,INF)==0.0,"infinite power multiplier is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,true,-10,0.0,1.0)==0.0,"negative execution rank is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,0.0,-1.0)==0.0,"negative power cannot heal targets")
+ check(COMBAT.outgoing_damage(25.0,false,true,99999999,0.0,1.0)==0.0,"corrupted execution rank is rejected")
+ var damage_sweep_ok:bool=true
+ for sample_index in range(111):
+  var base_damage:float=10.0+float(sample_index)*0.5
+  var critical_hit:bool=sample_index%3==0
+  var wounded_hit:bool=sample_index%2==0
+  var rank:int=sample_index%6
+  var fury_factor:float=float(sample_index%4)*0.05
+  var power_factor:float=0.75+float(sample_index%7)*0.1
+  var expected_damage:float=base_damage*(1.6 if critical_hit else 1.0)
+  if wounded_hit:expected_damage*=1.0+0.1*float(rank)
+  expected_damage*=1.0+fury_factor
+  expected_damage*=power_factor
+  if not is_equal_approx(COMBAT.outgoing_damage(base_damage,critical_hit,wounded_hit,rank,fury_factor,power_factor),expected_damage):
+   damage_sweep_ok=false
+   break
+ check(damage_sweep_ok,"111 valid outgoing damage combinations preserve existing balance")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3(2,0,0),0),"outside marked elite attack range")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.2),"dodge avoids elite strike")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.0),"valid close-range attack lands")
+ check(COMBAT.elite_missed(Vector3(NAN,0,0),Vector3.ZERO,0.0),"invalid attack coordinate cannot hit")
+ check(COMBAT.elite_missed(Vector3.ZERO,Vector3(INF,0,0),0.0),"invalid hero coordinate cannot hit")
+ check(COMBAT.elite_missed(Vector3(1.0e30,0,0),Vector3(-1.0e30,0,0),0.0),"overflowing planar separation cannot hit")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,NAN),"NaN dodge timer cannot grant invulnerability")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,INF),"infinite dodge timer cannot grant invulnerability")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,-1.0),"negative dodge timer cannot grant invulnerability")
+ for test_index in range(111):
+  var angle:float=TAU*float(test_index)/111.0
+  var inside:Vector3=Vector3(cos(angle)*1.89,0.0,sin(angle)*1.89)
+  var outside:Vector3=Vector3(cos(angle)*1.91,0.0,sin(angle)*1.91)
+  check(not COMBAT.elite_missed(Vector3.ZERO,inside,0.0) and COMBAT.elite_missed(Vector3.ZERO,outside,0.0),"elite planar strike threshold heading %d"%test_index)
  check(is_equal_approx(COMBAT.guardian_attack_cooldown(3),2.1),"guardian phase attack rate")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(-2147483647),3.0),"corrupt negative boss phase cannot stall attacks")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(0),3.0),"zero phase safely falls back to initial cooldown")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(2147483647),1.6),"corrupt high boss phase respects fast attack floor")
+ var guardian_phase_sweep_ok:bool=true
+ for sample_index in range(111):
+  var phase:int=sample_index-30
+  var expected:float=maxf(1.6,3.0-0.45*float(maxi(1,phase)-1))
+  var actual:float=COMBAT.guardian_attack_cooldown(phase)
+  if not is_finite(actual) or actual<1.6 or actual>3.0 or not is_equal_approx(actual,expected):
+   guardian_phase_sweep_ok=false
+   break
+ check(guardian_phase_sweep_ok,"111 guardian cooldown phases stay inside 1.6-3.0 seconds")
  # Reproducible CPU microbenchmark, not a claim about real-world FPS.
  var start:=Time.get_ticks_usec()
  var sum:float=0.0

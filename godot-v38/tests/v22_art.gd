@@ -14,7 +14,7 @@ func _run() -> void:
  root.add_child(game)
  await process_frame
  check(game.get("v22_beast_details").size()==game.get("beasts").size(),"Every creature gets optional anatomy")
- check(game.get("v22_guardian_headdresses").size()==8,"Five roaming guardians and three invasion commanders have headdresses")
+ check(game.get("v22_guardian_headdresses").size()==10,"Five guardians, three invasion commanders, and Z/Nyra retain headdresses")
  check(game.get("v22_arena_roots").size()==3,"Three existing world rifts are dressed as arenas")
  check(game.get("v22_arenas")==3,"Rift arena count")
  check(game.get("v22_visual_parts")>=300,"Hundreds of creature details added")
@@ -39,10 +39,17 @@ func _run() -> void:
  game.get("gear_items").append({"name":"Moonward Boots","rarity":"Epic","power":18})
  game.call("_menu_tab","Inventory")
  check(game.get("beast_guide").texture!=null,"Inventory shows item icon")
- var icons:=0
+ var equip_icons:=0
+ var tile_icons:=0
  for child in game.get("menu_buttons").get_children():
-  if child is Button and not child.is_queued_for_deletion() and child.text.begins_with("EQUIP:") and child.icon!=null:icons+=1
- check(icons>=1,"Equip buttons have artwork")
+  if child is Button and not child.is_queued_for_deletion() and (child.text.begins_with("EQUIP SELECTED:") or child.text.begins_with("EQUIPPED:")) and child.icon!=null:
+   equip_icons+=1
+  if child is GridContainer:
+   for tile in child.get_children():
+    if tile is Button and tile.name.begins_with("ItemTile_") and tile.icon!=null:
+     tile_icons+=1
+ check(equip_icons>=1,"Selected equip action has artwork")
+ check(tile_icons>=1,"Inventory tiles have artwork")
  game.call("_apply_graphics_quality","Smooth")
  check(not game.get("v22_beast_details")[0].visible,"Smooth hides nonessential creature detailing")
  game.call("_apply_graphics_quality","Full")

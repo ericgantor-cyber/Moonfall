@@ -1,0 +1,133 @@
+# Headless boot smoke test only. A passing result does not establish playable gameplay.
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)][string]$PackageDirectory,
+    [int]$BootSeconds = 25,
+    [string]$DiagnosticsDirectory = ''
+)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+if ($BootSeconds -lt 10 -or $BootSeconds -gt 120) {
+    throw 'BootSeconds must be between 10 and 120 seconds.'
+}
+$PackageDirectory = (Resolve-Path -LiteralPath $PackageDirectory -ErrorAction Stop).Path
+$ManifestPath = Join-Path $PackageDirectory 'MoonfallPackageManifest.json'
+if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+    throw 'Missing package integrity manifest; refusing a boot test against unknown files.'
+}
+$Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+if ($Manifest.project -ne 'MoonfallPrototype' -or $Manifest.engine -ne '5.6' -or
+    $Manifest.tested_in_game -ne $false -or $Manifest.installer -ne $false) {
+    throw 'Package integrity manifest is invalid.'
+}
+# Match the manifest against the exact archive contents before creating smoke logs.
+# An allowlist of files is stronger than checking only known file hashes, because
+# unexpected executables or cooked assets could otherwise travel with the build.
+$ManifestFiles = @($Manifest.files)
+if ($ManifestFiles.Count -eq 0) {
+    throw 'Package manifest has an empty file inventory.'
+}
+$Recorded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($Entry in $ManifestFiles) {
+    $Name = ([string]$Entry.path).Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($Name) -or -not $Recorded.Add($Name)) {
+        throw "Empty or duplicate file path in package manifest: $Name"
+    }
+}
+$Actual = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File |
+    Where-Object { $_.Name -ne 'MoonfallPackageManifest.json' })
+if ($Actual.Count -ne $Recorded.Count) {
+    throw "Package file count mismatch: manifest=$($Recorded.Count), actual=$($Actual.Count)"
+}
+foreach ($Item in $Actual) {
+    $Relative = $Item.FullName.Substring($PackageDirectory.Length).TrimStart('\', '/').Replace('\', '/')
+    if (-not $Recorded.Contains($Relative)) {
+        throw "Unlisted file present in Windows package: $Relative"
+    }
+}
+# Verify every archived file against the packager's SHA256 inventory before launch.
+foreach ($Entry in @($Manifest.files)) {
+    $RelativePath = [string]$Entry.path
+    if ([string]::IsNullOrWhiteSpace($RelativePath) -or
+        [System.IO.Path]::IsPathRooted($RelativePath) -or
+        $RelativePath -match '(^|[\\/])\.\.([\\/]|$)') {
+        throw "Invalid manifest file path: $RelativePath"
+    }
+    $Target = Join-Path $PackageDirectory $RelativePath
+    if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
+        throw "Missing packaged file: $RelativePath"
+    }
+    $Item = Get-Item -LiteralPath $Target
+    if ($Item.Length -ne [long]$Entry.bytes) {
+        throw "Packaged file length mismatch: $RelativePath"
+    }
+    $Sha = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($Sha -ne [string]$Entry.sha256) {
+        throw "Packaged file SHA256 mismatch: $RelativePath"
+    }
+}
+$Files = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File -Filter 'MoonfallPrototype*.exe')
+$Exe = $Files | Where-Object { $_.Name -match '^MoonfallPrototype-Win64-Development\.exe$' -and $_.Length -gt 0 } |
+    Select-Object -First 1
+if (-not $Exe) {
+    $Exe = $Files | Where-Object { $_.Name -eq 'MoonfallPrototype.exe' -and $_.Length -gt 0 } |
+        Select-Object -First 1
+}
+if (-not $Exe) { throw 'No nonempty MoonfallPrototype Windows executable in the package.' }
+
+# Never write diagnostics inside the manifest-locked game archive. Even one
+# extra boot log makes a downloaded package fail its own integrity check.
+if ([string]::IsNullOrWhiteSpace($DiagnosticsDirectory)) {
+    $DiagnosticsDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ('MoonfallSmoke-' + [guid]::NewGuid().ToString('N'))
+}
+$SmokeDir = [System.IO.Path]::GetFullPath($DiagnosticsDirectory)
+$PackagePrefix = $PackageDirectory.TrimEnd('\\', '/') + [System.IO.Path]::DirectorySeparatorChar
+if ($SmokeDir.Equals($PackageDirectory, [StringComparison]::OrdinalIgnoreCase) -or
+    $SmokeDir.StartsWith($PackagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Smoke diagnostics must be outside the cooked package directory.'
+}
+New-Item -ItemType Directory -Force -Path $SmokeDir | Out-Null
+$LogPath = Join-Path $SmokeDir 'MoonfallBoot.log'
+if (Test-Path -LiteralPath $LogPath) {
+    Remove-Item -LiteralPath $LogPath -Force
+}
+$Process = $null
+try {
+    # Start-Process concatenates ArgumentList: quote the absolute log argument so
+    # runner and workspace directories containing spaces remain one Windows arg.
+    $QuotedLogPath = '"' + $LogPath + '"'
+    $Args = @('-nullrhi', '-unattended', '-nosplash', "-abslog=$QuotedLogPath")
+    $Process = Start-Process -FilePath $Exe.FullName -ArgumentList $Args -PassThru -WorkingDirectory $Exe.DirectoryName
+    Start-Sleep -Seconds $BootSeconds
+    $Process.Refresh()
+    if ($Process.HasExited) {
+        throw "Moonfall exited before $BootSeconds-second boot check (exit code $($Process.ExitCode))."
+    }
+    if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+        throw 'Moonfall did not write its expected Unreal boot log.'
+    }
+    $Log = Get-Content -LiteralPath $LogPath -Raw
+    if ($Log -notmatch '(?i)(/Game/Maps/MoonfallWorld|MoonfallWorld)') {
+        throw 'Boot log does not confirm the MoonfallWorld startup map.'
+    }
+    if ($Log -notmatch '(?m)^.*MOONFALL_BOOT_READY pawn=MoonfallPawn regions=6 chambers=30(?:\\s|$)') {
+        throw 'The Moonfall gameplay pawn did not confirm continuous-world initialization.'
+    }
+    if ($Log -match '(?i)(Fatal error:|Unhandled Exception:|Assertion failed:|LogWindows: Error:)') {
+        throw 'Unreal boot log reported a fatal error.'
+    }
+    Write-Host "Headless UE5.6 boot smoke passed for $BootSeconds seconds."
+    Write-Host "Log: $LogPath"
+    Write-Host 'This is not a display, input, quest, save-load, audio or performance test.'
+}
+finally {
+    if ($Process) {
+        $Process.Refresh()
+        if (-not $Process.HasExited) {
+            Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+            $Process.WaitForExit(5000) | Out-Null
+        }
+        $Process.Dispose()
+    }
+}

@@ -1,0 +1,108 @@
+name: Moonfall AI Art Studio offline tests
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'
+  pull_request:
+    paths:
+      - 'godot-v38/tools/ai_art_studio.py'
+      - 'godot-v38/tools/ai_art_auto_audit.py'
+      - 'godot-v38/tools/ai_art_budget.py'
+      - 'godot-v38/tests/test_ai_art_budget.py'
+      - 'godot-v38/docs/AI_ART_PERFORMANCE_BUDGET.md'
+      - 'godot-v38/tests/test_ai_art_auto_audit.py'
+      - 'godot-v38/tools/Audit-Moonfall-Art.cmd'
+      - 'godot-v38/tools/Import-Moonfall-Art.cmd'
+      - 'godot-v38/tools/Approve-Reviewed-Moonfall-Art.cmd'
+      - 'godot-v38/docs/AI_ART_STUDIO.md'
+      - 'godot-v38/tools/ai_art_review.py'
+      - 'godot-v38/tools/ai_art_game_catalog.py'
+      - 'godot-v38/tests/test_ai_art_3d.py'
+      - 'godot-v38/scripts/systems/ai_art_3d_runtime.gd'
+      - 'godot-v38/tools/ai_art_3d.py'
+      - 'godot-v38/tests/test_ai_art_intake.py'
+      - 'godot-v38/tools/ai_art_intake.py'
+      - 'godot-v38/tests/test_ai_art_approve_selected.py'
+      - 'godot-v38/tools/ai_art_approve_selected.py'
+      - 'godot-v38/tools/ai_art_release_audit.py'
+      - 'godot-v38/assets/ai_generated/rigged/**'
+      - 'godot-v38/scripts/systems/ai_art_animation_runtime.gd'
+      - 'godot-v38/tests/test_ai_art_rig.py'
+      - 'godot-v38/tools/ai_art_autorig.py'
+      - 'godot-v38/tools/ai_art_rig.py'
+      - 'godot-v38/tests/test_ai_art_release_audit.py'
+      - 'godot-v38/scripts/systems/ai_art_auto_quality.gd'
+      - 'godot-v38/scripts/native_v38_2.gd'
+      - 'godot-v38/assets/ai_generated/**'
+      - 'godot-v38/tools/ai_art_direction.py'
+      - 'godot-v38/scripts/systems/ai_art_whole_game.gd'
+      - 'godot-v38/tests/test_ai_art_studio.py'
+      - 'godot-v38/tests/test_ai_art_review.py'
+      - 'godot-v38/scripts/systems/americas_wildlife_catalog.gd'
+      - '.github/workflows/ai-art-studio-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'godot-v38/tools/ai_art_*.py'
+      - 'godot-v38/tools/*Moonfall-Art.cmd'
+      - 'godot-v38/docs/AI_ART_STUDIO.md'
+      - 'godot-v38/tests/test_ai_art_*.py'
+      - 'godot-v38/scripts/systems/ai_art_*.gd'
+      - 'godot-v38/scripts/native_v38_2.gd'
+      - 'godot-v38/assets/ai_generated/**'
+      - '.github/workflows/ai-art-studio-tests.yml'
+permissions:
+  contents: read
+jobs:
+  offline-art-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run no-network/no-billing art pipeline tests
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+        run: python -m unittest discover -s tests -p 'test_ai_art_*.py' -v
+      - name: Verify every approved sprite and 3D model before release
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+          MESHY_API_KEY: ''
+        run: python tools/ai_art_release_audit.py --strict
+      - name: Auto-audit approved, staged, rigging, PBR, 4K and unknown art
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+          MESHY_API_KEY: ''
+        run: python tools/ai_art_auto_audit.py --strict --output-dir ai_art_staging/review
+      - name: Build offline art performance budget report
+        working-directory: godot-v38
+        run: python tools/ai_art_budget.py
+      - name: Publish AI Art audit summary to GitHub job
+        if: always()
+        shell: bash
+        run: |
+          if test -f godot-v38/ai_art_staging/review/auto_audit.md; then
+            cat godot-v38/ai_art_staging/review/auto_audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if test -f godot-v38/ai_art_staging/review/art_budget.md; then
+            cat godot-v38/ai_art_staging/review/art_budget.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload searchable local art audit dashboard and JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-AI-Art-Audit
+          path: |
+            godot-v38/ai_art_staging/review/auto_audit.html
+            godot-v38/ai_art_staging/review/auto_audit.json
+            godot-v38/ai_art_staging/review/auto_audit.md
+            godot-v38/ai_art_staging/review/art_budget.csv
+            godot-v38/ai_art_staging/review/art_budget.json
+            godot-v38/ai_art_staging/review/art_budget.md
+          if-no-files-found: ignore
+          retention-days: 14

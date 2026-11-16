@@ -1,0 +1,139 @@
+name: Windows Unreal build prerequisites
+
+on:
+  workflow_dispatch:
+    inputs:
+      compile_on_self_hosted:
+        description: 'Run actual Unreal 5.4 Editor compile on a configured self-hosted Windows runner'
+        type: boolean
+        required: true
+        default: false
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - 'MoonfallUnreal/Source/**'
+      - 'tools/check_unreal_source.py'
+      - '.github/workflows/windows-unreal-preflight.yml'
+
+jobs:
+  windows-preflight:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Unreal Engine 5.4 installation
+        shell: pwsh
+        run: |
+          $engine = 'C:\Program Files\Epic Games\UE_5.4'
+          if (Test-Path (Join-Path $engine 'Engine\Build\BatchFiles\Build.bat')) {
+            Write-Host 'Unreal Engine 5.4 is present.'
+            & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $engine -PreflightOnly
+            if (-not $?) { throw 'Unreal packaging preflight failed.' }
+            'Windows preflight: Unreal 5.4 packaging prerequisites verified. Native C++ compilation was NOT performed.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            Write-Host 'Unreal Engine 5.4 is not installed on this hosted runner.'
+            Write-Host 'This job validates PowerShell syntax and prerequisite discovery only.'
+            'Windows preflight: PowerShell syntax only; Unreal 5.4 is not installed. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
+            'To compile, dispatch this workflow on the PR branch with compile_on_self_hosted=true and an authorized Unreal 5.4 Windows runner.' >> $env:GITHUB_STEP_SUMMARY
+          }
+      - name: Parse Windows scripts on Windows
+        shell: pwsh
+        run: |
+          $scripts = @(Get-ChildItem MoonfallUnreal/Build -Filter '*.ps1' -Recurse -File)
+          if ($scripts.Count -eq 0) { throw 'No build scripts found' }
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) { throw "PowerShell parse error: $($script.Name)" }
+          }
+          Write-Host "Parsed $($scripts.Count) build scripts on Windows."
+
+  unreal-editor-compile:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal compiler prerequisites
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
+          $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
+          if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompilePreflightOnly
+          if (-not $?) { throw 'Moonfall build prerequisites failed.' }
+      - name: Compile Moonfall Unreal Editor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          if (-not $?) { throw 'Moonfall Unreal Editor compile failed.' }
+      - name: Record verified native compilation provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'moonfall-unreal-native-compile.txt'
+          @(
+            'Native Unreal 5.4 editor compile: SUCCEEDED'
+            "Commit: $env:GITHUB_SHA"
+            "Git ref: $env:GITHUB_REF"
+            "Runner: $env:RUNNER_NAME"
+            "Verified at: $([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content -LiteralPath $evidence -Encoding UTF8
+          "Native UE5.4 Editor compilation succeeded for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          Get-Content -LiteralPath $evidence | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
+      - name: Save native compile provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-native-compile-evidence
+          path: ${{ runner.temp }}/moonfall-unreal-native-compile.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Run real UE5.4 dungeon automation tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The runner always compiles this checkout itself; no stale-binary bypass.
+          & ./MoonfallUnreal/Build/Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT
+          if (-not $?) { throw 'Native UE5.4 dungeon tests failed.' }
+          $report = 'MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt'
+          if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
+            throw 'Native dungeon test report is missing.'
+          }
+          $contents = Get-Content -LiteralPath $report -Raw
+          foreach ($required in @(
+            'Moonfall.Dungeons.All30EntranceLocations',
+            'Moonfall.Dungeons.SeededRoomArchetypes',
+            'Moonfall.Dungeons.BossVictoryLedgerDefaults',
+            'Moonfall.Dungeons.BossVictorySaveRoundTrip'
+          )) {
+            if (-not $contents.Contains("$required=True")) {
+              throw "Native dungeon test was not verified as passing: $required"
+            }
+          }
+          if (-not $contents.Contains('EditorExitCode=0') -or
+              -not $contents.Contains('AnyNativeTestFailed=False')) {
+            throw 'Native dungeon test report does not show a successful Editor run.'
+          }
+          "Native UE5.4 dungeon automation: all four tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+      - name: Preserve native dungeon test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-native-dungeon-test-evidence
+          path: |
+            MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt
+            MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Save Unreal compilation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-build-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            MoonfallUnreal/Saved/Logs/**
+            MoonfallUnreal/Intermediate/Build/**/*.log

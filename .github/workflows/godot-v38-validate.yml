@@ -30,3 +30,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/verify_v38_overhaul.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify accessible Windows launchpad and installer shortcuts
+        shell: pwsh
+        run: |
+          python tests/verify_launcher_v38.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
