@@ -149,6 +149,53 @@ jobs:
           "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$installer.sha256"
           "Installer size: $($details.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
           "Installer SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+      - name: Smoke-test UE5 Windows installer and installed game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path 'MoonfallUnreal-Setup.exe').Path
+          # NSIS creates shortcuts and an HKCU uninstall entry; avoid changing an
+          # existing installation on a persistent self-hosted Windows runner.
+          $uninstallKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MoonfallUnreal'
+          $desktopLink = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Unreal.lnk'
+          $startMenuLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Unreal\\Moonfall Unreal.lnk'
+          if ((Test-Path -LiteralPath $uninstallKey) -or
+              (Test-Path -LiteralPath $desktopLink) -or
+              (Test-Path -LiteralPath $startMenuLink)) {
+            throw 'Refusing installer smoke test: an existing Moonfall Unreal installation or shortcut was detected.'
+          }
+          $directory = Join-Path $env:RUNNER_TEMP ("MoonfallUE5-InstallerTest-" + [guid]::NewGuid().ToString('N'))
+          if ((Test-Path -LiteralPath $directory) -or $directory.Contains('"')) {
+            throw 'Smoke-test installation directory is unsafe.'
+          }
+          $setupSucceeded = $false
+          try {
+            # NSIS /D= sets a temporary path and must be the final argument.
+            $install = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$directory") -PassThru -Wait
+            if ($install.ExitCode -ne 0) { throw "NSIS installer failed: $($install.ExitCode)" }
+            $setupSucceeded = $true
+            $game = Join-Path $directory 'MoonfallUnreal.exe'
+            $launcher = Join-Path $directory 'MoonfallLauncher.exe'
+            $uninstaller = Join-Path $directory 'Uninstall.exe'
+            foreach ($file in @($game, $launcher, $uninstaller)) {
+              if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Installed file missing: $file" }
+            }
+            $check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $directory -PassThru -Wait
+            if ($check.ExitCode -ne 0) { throw "Installed launcher failed integrity check: $($check.ExitCode)" }
+            & .\\MoonfallUnreal\\Build\\Test-PackagedGame.ps1 -GameExecutable $game -ObservationSeconds 8
+            if (-not $?) { throw 'Installed Unreal game launch test failed.' }
+            'UE5 installed game, launcher and NSIS installer smoke tests passed.' >> $env:GITHUB_STEP_SUMMARY
+          }
+          finally {
+            $uninstaller = Join-Path $directory 'Uninstall.exe'
+            if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
+              $remove = Start-Process -FilePath $uninstaller -ArgumentList @('/S', "_?=$directory") -PassThru -Wait
+              if ($remove.ExitCode -ne 0) { Write-Warning "NSIS uninstall returned $($remove.ExitCode)" }
+            }
+            elseif ($setupSucceeded) {
+              Write-Warning 'Installer completed, but Uninstall.exe was missing.'
+            }
+          }
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
