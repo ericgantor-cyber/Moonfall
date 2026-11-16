@@ -3994,6 +3994,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
 
 
+    def test_v10_native_dungeon_runner_requires_boss_ledger_check(self):
+        # CI source contracts ensure the real Editor test runner cannot
+        # silently omit the native V10 boss ledger scenario.
+        source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
+        self.assertIn(name, source)
+        self.assertIn(name, runner)
+        self.assertIn('Save->Version, 10', source)
+        self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
+        self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(6, 0)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(0, -1)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(0, 5)', source)
+
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         cpp = self.hero_cpp
