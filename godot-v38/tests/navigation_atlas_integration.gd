@@ -464,6 +464,11 @@ func _run()->void:
  check("for annex in v321_annexes" in cull_source and "for annex_link in v321_annex_passages" in cull_source,"annex visuals are independently distance-culled")
  check("v321_passages" in passage_source and "func _atlas_dungeon_passages(" in source and "set_dungeon_passages" in source,"world-connected walkways are projected into real atlas floor plan")
  check("for passage in v321_passages" in cull_source,"passage visuals are culled without removing collision")
+ # Current Godot boss ground cues remain intact; show a brief dodge confirmation
+ # only after a valid completed dodge, not on rejected stamina/mount input.
+ var boss_combat_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_0.gd")
+ check('warning_zone.name="BossGroundAttackWarning"' in boss_combat_source and 'creature["v406_warning_zone"]=warning_zone' in boss_combat_source,"original hero boss art retains independent ground-warning cues")
+ check('super._dodge()\n _show_message("DODGE!",0.45)' in boss_combat_source,"successful dodge displays brief feedback after the movement action")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)

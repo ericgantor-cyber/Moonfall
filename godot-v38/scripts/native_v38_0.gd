@@ -983,6 +983,7 @@ func _dodge()->void:
  v387_stamina-=dodge_cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
+ _show_message("DODGE!",0.45)
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
