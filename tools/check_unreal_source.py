@@ -2975,6 +2975,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
                         scope.index("if (++NearbyWindingAllies >= 2) break;"))
 
+    def test_enemy_recovers_own_corrupt_windup_without_instant_hit(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        guard = tick.split("if (!FMath::IsFinite(WindupEndsAt)) {", 1)[1].split("\n }", 1)[0]
+        for reset in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                      "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
+                      "bComboSecondHitActive = false;",
+                      "LockedAttackDirection = FVector::ZeroVector;",
+                      "CachedWaypoint = FVector::ZeroVector;",
+                      "NextPathRefreshAt = 0.f;",
+                      "Now + 0.35f"):
+            self.assertIn(reset, guard)
+        self.assertLess(tick.index("if (!FMath::IsFinite(WindupEndsAt)) {"),
+                        tick.index("const bool Staggered = Now < HitReactionEndsAt;"))
+        self.assertNotIn("ApplyMoonfallDamageFrom(", guard)
+
     def test_wounded_elite_retreat_is_brief_cooldown_gated_and_collision_safe(self):
         self.assertIn("float TacticalRetreatUntil = -1.f;", self.enemy_h)
         self.assertIn("float NextTacticalRetreatAt = 0.f;", self.enemy_h)
