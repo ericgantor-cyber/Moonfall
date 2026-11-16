@@ -12,6 +12,13 @@ var rhythm_counter_until:float=-999.0
 const RHYTHM_COUNTER_MULTIPLIER:float=1.25
 const RHYTHM_COUNTER_SECONDS:float=1.0
 
+func _process(delta:float)->void:
+ super._process(delta)
+ # Keep the visible and saved-in-memory combo stage in sync with its window.
+ # No extra work on enemies, no extra allocations, and no input changes.
+ if rhythm_chain>0 and RHYTHM.chain_expired(rhythm_chain,map_time-rhythm_last_strike_at):
+  rhythm_chain=0
+
 func _attack()->void:
  # Only a landed attack advances this extra combo layer. Inherited damage,
  # cooldown and targeting still run exactly once per input.
