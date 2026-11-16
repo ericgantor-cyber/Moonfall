@@ -226,6 +226,7 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v405_cleave_facing"]=Vector3.FORWARD
  creature["v407_release_until"]=0.0
  creature["v407_precision_rewarded"]=false
+ creature["v407_counter_open_until"]=0.0
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -782,6 +783,11 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
  super._apply_player_hit(target,base_damage*(V396_MATCHED_GUARD_REDUCTION if matched_guard and not guard_break else V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
  if hp_before<=float(target.get("hp",0.0)):return
+ # A riposte briefly interrupts the matching boss once, without extra damage.
+ if bool(target.get("boss",false)) and v393_riposte_active and bool(target.get("v400_bloodline",false)):
+  if map_time<float(target.get("v407_counter_open_until",0.0)) and bool(target.get("alive",false)):
+   target["v407_counter_open_until"]=0.0
+   target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.45)
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
  target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.22)
@@ -807,6 +813,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     beast["v404_tell_until"]=map_time+1.35
     beast["v404_attack_pending"]=true
     beast["v407_precision_rewarded"]=false
+    beast["v407_counter_open_until"]=0.0
     if boss_name.begins_with("Z ") and is_instance_valid(player):
      var origin:Node3D=beast.get("body") as Node3D
      if is_instance_valid(origin):
@@ -1028,11 +1035,16 @@ func _dodge()->void:
   return
  # Charge stamina only when the dodge is eligible to start.
  var precision_target:Dictionary=_v407_precision_dodge_target()
+ var dodge_before:float=dodge_time
  v387_stamina-=dodge_cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
- if not precision_target.is_empty():
+ # Only award the counter when inherited dodge mechanics actually start.
+ var dodge_started:bool=dodge_time>dodge_before and dodge_time>0.0
+ if not dodge_started:return
+ if not precision_target.is_empty() and bool(precision_target.get("alive",false)):
   precision_target["v407_precision_rewarded"]=true
+  precision_target["v407_counter_open_until"]=map_time+0.85
   v393_riposte_until=maxf(v393_riposte_until,map_time+0.85)
   _show_message("PERFECT DODGE!",0.65)
  else:
