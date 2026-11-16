@@ -1044,8 +1044,8 @@ func _dodge()->void:
  if not dodge_started:return
  if not precision_target.is_empty() and bool(precision_target.get("alive",false)):
   precision_target["v407_precision_rewarded"]=true
-  precision_target["v407_counter_open_until"]=map_time+0.85
-  v393_riposte_until=maxf(v393_riposte_until,map_time+0.85)
+  precision_target["v407_counter_open_until"]=map_time+1.0
+  v393_riposte_until=maxf(v393_riposte_until,map_time+1.0)
   _show_message("PERFECT DODGE!",0.65)
  else:
   _show_message("DODGE!",0.45)
