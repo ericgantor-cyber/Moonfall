@@ -24,6 +24,7 @@ AMoonfallEnemy::AMoonfallEnemy() {
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
+ DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
@@ -415,17 +416,49 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bInCombatArea = Distance < 2200.f;
  const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
    && WindupEndsAt - Now <= 0.25f;
- // Dungeon trash mobs are spread across 30 long lanes. They do not need
- // to poll the player multiple times per second while several kilometers away.
- // Keep divine bosses, authored arena enemies and all nearby combat unchanged.
+ // Dawnwalker/Assassin's Creed/Skyrim-style simulation LOD: retain authored enemies,
+ // but wake nearby combat immediately and check distant dungeon mobs less often.
+ // No enemy is removed, respawned, or granted free attacks by this optimization.
+ // Bosses and elite encounters keep their existing responsiveness.
  const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea
    && Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")));
  const float DesiredTickInterval = bDashing ? 0.03f
-   : (bInCombatArea ? 0.1f : (bDistantDungeonMob ? 1.0f : 0.4f));
+   : (bInCombatArea ? 0.1f
+      : (bDistantDungeonMob ? (Distance >= 10000.f ? 2.0f : 1.0f) : 0.4f));
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
+ // Returning guards retain their world presence instead of disappearing.
+ // Use swept, bounded movement and no extra perception traces or path queries.
+ // The longer out-of-combat tick interval must not slow return travel to a crawl.
+ const auto ReturnToDungeonPost = [&]() {
+  if (bBoss || bElite
+      || !ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
+      || DungeonHomePosition.ContainsNaN()) return;
+  FVector ToHome = DungeonHomePosition - GetActorLocation();
+  ToHome.Z = 0.f;
+  const float HomeDistance = ToHome.Size();
+  if (!FMath::IsFinite(HomeDistance) || HomeDistance <= 85.f) return;
+  const float SafeReturnSpeed = FMath::Clamp(
+    FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
+  const float ReturnDelta = FMath::IsFinite(DeltaSeconds)
+    ? FMath::Clamp(DeltaSeconds, 0.f, 2.f) : 0.f;
+  const float Step = FMath::Min(HomeDistance,
+    SafeReturnSpeed * 0.6f * ReturnDelta);
+  if (Step > 0.f) {
+   FHitResult ReturnHit;
+   AddActorWorldOffset(ToHome.GetSafeNormal() * Step, true, &ReturnHit);
+  }
+ };
  if (!bInCombatArea) {
+  // Drop stale aggro once out of range; otherwise guards can stay stranded.
+  if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
+   LastSawHeroAt = -100.f;
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
+   bCanSeeHero = false;
+   ReturnToDungeonPost();
+  }
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   bComboSecondHitPending = false;
@@ -626,10 +659,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bCanSeeHero != bWasVisible) {
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
+   // Give lost-target searches enough travel time to reach the last sighting.
+   if (bWasVisible && !bCanSeeHero) {
+    const bool bScout = ActorHasTag(FName(TEXT("DungeonScout")))
+      && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+    SearchTravelEndsAt = Now + (bScout ? 11.f : 8.f);
+   }
   }
   if (bCanSeeHero) {
    LastSawHeroAt = Now;
    LastKnownHeroPosition = HeroPosition;
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
   }
  }
  // Scouts remember only the last visible position, never the hero behind walls.
@@ -638,19 +679,33 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
  const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= LastSeenGrace);
+   && Now - LastSawHeroAt <= LastSeenGrace)
+   || (!bCanSeeHero && SearchTravelEndsAt > Now)
+   || (!bCanSeeHero && InvestigationEndsAt > Now);
  if (!bHasRecentSight) {
+  SearchTravelEndsAt = -1.f;
+  InvestigationEndsAt = -1.f;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
+  ReturnToDungeonPost();
   return;
  }
- // Search terminates when an ordinary enemy actually reaches the last
- // observed location. Do not orbit a vacant position for 2.5 seconds.
+ // Investigate at the last seen position, then disengage and return.
+ // No extra sight traces or path requests during the investigation.
  if (!bBoss && !bCanSeeHero
      && FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)) {
-  LastSawHeroAt = -100.f;
-  CachedWaypoint = FVector::ZeroVector;
-  NextPathRefreshAt = 0.f;
+  if (InvestigationEndsAt < 0.f) {
+   SearchTravelEndsAt = -1.f;
+   InvestigationEndsAt = Now + (bDungeonScout ? 2.f : 1.2f);
+  }
+  if (Now >= InvestigationEndsAt) {
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
+   LastSawHeroAt = -100.f;
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
+   ReturnToDungeonPost();
+  }
   return;
  }
  // Each divine phase compresses the signature cycle without shortening

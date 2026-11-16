@@ -102,8 +102,14 @@ private:
  // Ordinary enemies remember the last visible hero location for a short time.
  float NextSightCheckAt = 0.f;
  float LastSawHeroAt = -100.f;
+ // Investigate briefly after reaching the hero's last seen position.
+ float InvestigationEndsAt = -1.f;
+ // Maximum time to reach the last known player location.
+ float SearchTravelEndsAt = -1.f;
  bool bCanSeeHero = false;
  FVector LastKnownHeroPosition = FVector::ZeroVector;
+ // Home position for persistent dungeon patrol behavior.
+ FVector DungeonHomePosition = FVector::ZeroVector;
  // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
  float NextObstacleSidestepAt = 0.f;
  int32 ObstacleSidestepCount = 0;

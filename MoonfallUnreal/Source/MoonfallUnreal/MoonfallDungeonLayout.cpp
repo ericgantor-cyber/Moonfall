@@ -297,31 +297,25 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 1) return false;
 
- // Hard lifetime budget. Visiting other chambers cannot raise it above six;
- // excess chambers still count as visited rather than retrying forever.
- const int32 Remaining = FMath::Max(0, 6 - SpawnedEncounterCount);
+ // Budget six enemies for each interior chamber, so earlier encounters do not
+ // exhaust the dungeon budget before later rooms. Elites still spawn alone.
+ const int32 MaxDungeonEncounterSpawns = (ChamberCount - 2) * 6;
+ const int32 Remaining = FMath::Max(0, MaxDungeonEncounterSpawns - SpawnedEncounterCount);
  if (Remaining == 0) return true;
- // Check global live population only on chamber entry, never every Tick.
- // This protects slower Windows PCs when multiple dungeons remain visited.
- constexpr int32 MaxLiveWorldEnemies = 60;
- int32 AliveWorldEnemies = 0;
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
-  const AMoonfallEnemy* Other = *It;
-  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
-  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
- }
+ // Encounter size is authored, not reduced by momentary frame rate.
+ // Distant dungeon enemies already use lower-frequency AI simulation.
  FRandomStream EncounterRandom(
    GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
  const int32 Requested = bEliteEncounter ? 1
-   : FMath::Clamp(EnemiesPerCombatChamber, 1, 2);
- const int32 Count = FMath::Min(Remaining,
-   FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies));
+   : FMath::Clamp(EnemiesPerCombatChamber, 1, 6);
+ const int32 Count = FMath::Min(Remaining, Requested);
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
-  const float Side = Index == 0 ? -200.f : 200.f;
-  const float OffsetX = EncounterRandom.FRandRange(-150.f, 150.f);
+  // Two lanes of three enemies, spaced to fit within the chamber floor.
+  const float Side = (Index % 2 == 0) ? -200.f : 200.f;
+  const float OffsetX = (Index / 2 - 1) * 275.f
+    + EncounterRandom.FRandRange(-40.f, 40.f);
   const FVector Position = GetActorTransform().TransformPosition(
     FVector(ChamberIndex * ChamberLength + OffsetX, Side, 100.f));
   const FTransform SpawnTransform(GetActorRotation(), Position);
@@ -338,7 +332,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Record chamber before BeginPlay to isolate attack slots across rooms.
   Enemy->DungeonChamberIndex = ChamberIndex;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
-  // The first surviving regular spawn in a two-mob chamber is the scout.
+  // The first surviving regular spawn in a multi-mob chamber is the scout.
   // A rejected first spawn must not leave the chamber without a scout.
   // Elite encounters retain their original behavior.
   if (!bEliteEncounter && Spawned == 0 && Count > 1)
@@ -410,16 +404,8 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
      || DungeonIndex < 0 || DungeonIndex >= 5) return false;
  // Existing saves must not respawn permanently defeated bosses.
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
- // Count all living world enemies once, on first final-room entry only.
- // Bosses cannot bypass the same global cap imposed on combat chambers.
- constexpr int32 MaxLiveWorldEnemies = 60;
- int32 AliveWorldEnemies = 0;
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
-  const AMoonfallEnemy* Other = *It;
-  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
-  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
- }
+ // Bosses are not withheld by the regular-room performance spawn budget.
+ // Their existing collision and save guards remain in force.
  // Position the boss away from the centerline where the player enters.
  const FVector Position = GetActorTransform().TransformPosition(
    FVector((ChamberCount - 1) * ChamberLength + 270.f, 190.f, 100.f));
