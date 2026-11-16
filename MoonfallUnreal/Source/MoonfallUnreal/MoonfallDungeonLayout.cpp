@@ -337,7 +337,14 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
   Enemy->FinishSpawning(SpawnTransform);
-  if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) ++Spawned;
+  // Do not count or retain actors whose deferred spawn was rejected.
+  // A valid but rejected actor must be cleaned up before another attempt.
+  if (!IsValid(Enemy)) continue;
+  if (Enemy->IsActorBeingDestroyed()) {
+   Enemy->Destroy();
+   continue;
+  }
+  ++Spawned;
  }
  if (Spawned == 0) return false;
  SpawnedEncounterCount += Spawned;

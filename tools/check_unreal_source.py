@@ -3765,6 +3765,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_rejected_deferred_dungeon_enemy_is_not_counted(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        for guard in ("Enemy->FinishSpawning(SpawnTransform);",
+                      "if (!IsValid(Enemy)) continue;",
+                      "if (Enemy->IsActorBeingDestroyed()) {",
+                      "Enemy->Destroy();", "++Spawned;"):
+            self.assertIn(guard, combat)
+        self.assertLess(combat.index("Enemy->FinishSpawning(SpawnTransform);"),
+                        combat.index("if (Enemy->IsActorBeingDestroyed()) {"))
+        self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
+
     def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
