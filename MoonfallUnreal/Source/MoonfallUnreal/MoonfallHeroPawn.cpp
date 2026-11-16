@@ -2933,7 +2933,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
 }
 void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
-  if (HitTestInventorySortButton() || HitTestInventoryEquipButton()) return;
+  if (HitTestInventorySortButton()) return;
+  if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
