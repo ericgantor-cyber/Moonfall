@@ -9,13 +9,8 @@ static func roll(item:Dictionary,seed:int,luck:int=0,_legacy_pity:int=0)->Dictio
  var tier:int=clampi(int(item.get("tier",1)),1,100)
  var rng:RandomNumberGenerator=RandomNumberGenerator.new()
  rng.seed=seed
- var boost:int=clampi(luck,0,40)
  var chance:int=rng.randi_range(0,999)
- var rarity:int=0
- if chance<10+boost/2:rarity=4
- elif chance<50+boost:rarity=3
- elif chance<170+boost*2:rarity=2
- elif chance<410+boost*3:rarity=1
+ var rarity:int=rarity_from_chance(chance,luck)
  var affixes:Array[Dictionary]=[]
  var pool:Array[String]=AFFIXES.duplicate()
  for i in range(mini(rarity,3)):
@@ -24,3 +19,15 @@ static func roll(item:Dictionary,seed:int,luck:int=0,_legacy_pity:int=0)->Dictio
   pool.remove_at(index)
   affixes.append({"stat":kind,"value":1+tier+rng.randi_range(0,rarity+1)})
  return {"item_id":str(item.get("id","")),"rarity":RARITIES[rarity],"rarity_index":rarity,"affixes":affixes,"power_bonus":rarity*2+rng.randi_range(0,2),"roll_seed":seed}
+
+## Maps one independent 0..999 roll to rarity; no previous-drop state.
+## At zero luck: 1% Legendary, 4% Epic, 12% Rare, 24% Uncommon.
+## Luck only moves the thresholds, capped to preserve a Common chance.
+static func rarity_from_chance(chance:int,luck:int=0)->int:
+ var boost:int=clampi(luck,0,40)
+ var value:int=clampi(chance,0,999)
+ if value<10+boost/2:return 4
+ if value<50+boost:return 3
+ if value<170+boost*2:return 2
+ if value<410+boost*3:return 1
+ return 0
