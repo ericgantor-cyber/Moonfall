@@ -255,11 +255,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // This is the actual killing blow, not room entry or a corpse expiration.
    // Only enemies tagged by our own dungeon layout may affect its boss ledger.
    if (bBoss && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
-    if (const AMoonfallDungeonLayout* Dungeon = Cast<AMoonfallDungeonLayout>(GetOwner())) {
-     if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
-         UGameplayStatics::GetPlayerPawn(this, 0))) {
-      LivingHero->MarkDungeonBossDefeated(Dungeon->ZoneIndex, Dungeon->DungeonIndex);
-     }
+    if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
+        UGameplayStatics::GetPlayerPawn(this, 0))) {
+     LivingHero->MarkDungeonBossDefeated(this);
     }
    }
    OnEnemyDefeated(bLastHitWasShatter);
