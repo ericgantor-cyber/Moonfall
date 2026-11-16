@@ -5,6 +5,7 @@ var rhythm_chain:int=0
 var rhythm_last_strike_at:float=-999.0
 var rhythm_strike_active:bool=false
 var rhythm_strike_landed:bool=false
+var rhythm_pending_stage:int=1
 var rhythm_last_posture_message_at:float=-999.0
 var rhythm_dodge_started_at:float=-999.0
 var rhythm_dodge_rewarded:bool=false
@@ -26,10 +27,16 @@ func _attack()->void:
  var stage:int=RHYTHM.next_chain(rhythm_chain,map_time-rhythm_last_strike_at) if eligible else rhythm_chain
  var before_cooldown:float=attack_cooldown
  rhythm_strike_landed=false
+ rhythm_pending_stage=stage
  rhythm_strike_active=eligible
  super._attack()
  rhythm_strike_active=false
- if not eligible or attack_cooldown<=before_cooldown or not rhythm_strike_landed:return
+ rhythm_pending_stage=1
+ if not eligible or attack_cooldown<=before_cooldown:return
+ # An accepted swing that misses breaks the chain; rejected inputs do not.
+ if not rhythm_strike_landed:
+  rhythm_chain=0
+  return
  rhythm_chain=stage
  rhythm_last_strike_at=map_time
  if rhythm_chain==3:
@@ -55,7 +62,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var last_pressure_at:float=float(target.get("rhythm_last_pressure_at",map_time))
  var current:float=RHYTHM.recovered_posture(float(target.get("rhythm_posture",0.0)),maxf(0.0,map_time-last_pressure_at))
  target["rhythm_last_pressure_at"]=map_time
- var impact:float=12.0+4.0*float(clampi(RHYTHM.next_chain(rhythm_chain,map_time-rhythm_last_strike_at),1,RHYTHM.MAX_CHAIN)-1)
+ var impact:float=RHYTHM.posture_impact(rhythm_pending_stage)
  var next_posture:float=RHYTHM.posture_after_hit(current,maximum,impact,v393_riposte_active)
  target["rhythm_posture"]=next_posture
  if RHYTHM.posture_broken(next_posture,maximum):
@@ -103,6 +110,7 @@ func _rhythm_reset_transient_combat()->void:
  rhythm_last_strike_at=-999.0
  rhythm_strike_active=false
  rhythm_strike_landed=false
+ rhythm_pending_stage=1
  rhythm_last_posture_message_at=-999.0
  rhythm_dodge_started_at=-999.0
  rhythm_dodge_rewarded=false
