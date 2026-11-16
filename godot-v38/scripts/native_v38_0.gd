@@ -827,13 +827,27 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    var attack_zone:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
    if is_instance_valid(attack_zone):
     attack_zone.visible=bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0))
-    if attack_zone.visible and boss_name.begins_with("Z "):
-     var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
-     attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
+    if attack_zone.visible:
+     # Progressively strengthen the existing ground cue without flashing or changing its hitbox.
+     var warning_remaining:float=maxf(0.0,float(beast.get("v404_tell_until",0.0))-map_time)
+     var warning_progress:float=clampf(1.0-warning_remaining/1.35,0.0,1.0)
+     var danger_material:StandardMaterial3D=attack_zone.material_override as StandardMaterial3D
+     if is_instance_valid(danger_material):
+      var target_alpha:float=lerpf(0.36,0.62,warning_progress)
+      if absf(danger_material.albedo_color.a-target_alpha)>0.025:
+       var next_color:Color=danger_material.albedo_color
+       next_color.a=target_alpha
+       danger_material.albedo_color=next_color
+     if boss_name.begins_with("Z "):
+      var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+      attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
-     boss_plate.text=boss_name+"  •  "+warning+"  •  DODGE!"
+     # Shape names remain readable even when the danger colors are hard to distinguish.
+     var shape_hint:String="CONE" if boss_name.begins_with("Z ") else "CIRCLE"
+     var warning_text:String=boss_name+"  •  "+warning+"  •  "+shape_hint+"  •  DODGE!"
+     if boss_plate.text!=warning_text:boss_plate.text=warning_text
      boss_plate.modulate=Color(1.0,0.35,0.3) if boss_name.begins_with("Z ") else Color(0.75,0.4,1.0)
     else:
      var expected:String=boss_name+"  •  PHASE "+str(beast.get("boss_phase",1))
