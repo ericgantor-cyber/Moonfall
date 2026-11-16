@@ -136,7 +136,12 @@ if (-not $editorCompiledForStartupMap) {
 }
 
 if ($CompileOnly) {
-    Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
+    # Build the standalone game target as well as the Editor target. An Editor
+    # compile alone does not establish that MoonfallUnreal Win64 will link.
+    Write-Host 'Compiling Unreal 5.4 standalone Game target Win64 Development...'
+    & $build MoonfallUnreal Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal Game target compilation failed: $LASTEXITCODE" }
+    Write-Host 'Unreal Editor and standalone Game Win64 Development targets compiled. Compile-only mode skips cooking, packaging, launcher and NSIS.'
     exit 0
 }
 
