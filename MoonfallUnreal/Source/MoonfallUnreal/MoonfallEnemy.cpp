@@ -159,6 +159,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     LastKnownHeroPosition = Attacker->GetActorLocation();
     CachedWaypoint = FVector::ZeroVector;
     NextPathRefreshAt = 0.f;
+    // A distant mob may be ticking only once a second. A nearby hit should
+    // wake its AI for responsive combat without an extra pathfinding scan.
+    if (PrimaryActorTick.TickInterval > 0.1f)
+     SetActorTickInterval(0.1f);
    }
   }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
