@@ -1041,7 +1041,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
-        self.assertIn("bCriticalSpell ? 1.5f : 1.f", cast)
+        self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("GetVersatilityBonus() * 0.5f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1)", hud)
