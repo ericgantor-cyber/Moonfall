@@ -453,10 +453,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Throttle attempts across AI ticks; never teleport through world geometry.
    if (ReturnHit.bBlockingHit && Now >= NextObstacleSidestepAt) {
     NextObstacleSidestepAt = Now + 0.6f;
-    const FVector Side(-ReturnDirection.Y, ReturnDirection.X, 0.f);
-    const float Sign = (ObstacleSidestepCount++ % 2 == 0) ? 1.f : -1.f;
+    // Slide along the actual obstacle surface first. Perpendicular-only
+    // avoidance can keep pushing guards into angled dungeon doorframes.
+    FVector Side = FVector::VectorPlaneProject(ReturnDirection, ReturnHit.Normal);
+    Side.Z = 0.f;
+    if (!Side.Normalize()) {
+     Side = FVector(-ReturnDirection.Y, ReturnDirection.X, 0.f);
+     const float Sign = (ObstacleSidestepCount % 2 == 0) ? 1.f : -1.f;
+     Side *= Sign;
+    }
+    ++ObstacleSidestepCount;
     FHitResult SidestepHit;
-    AddActorWorldOffset(Side * Sign * FMath::Min(Step, 80.f), true, &SidestepHit);
+    AddActorWorldOffset(Side * FMath::Min(Step, 80.f), true, &SidestepHit);
    }
   }
  };
