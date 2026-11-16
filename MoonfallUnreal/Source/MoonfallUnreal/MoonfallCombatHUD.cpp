@@ -263,6 +263,15 @@ void AMoonfallCombatHUD::DrawHUD()
        : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
           Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
      FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+  // Match HitTestInventoryEquipButton exactly: wide panels only.
+  // Row clicks remain selection-only; this is a separate explicit action.
+  if (PanelWidth >= 550.f && Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) {
+   const float EquipX = Left + PanelWidth - 186.f;
+   const float EquipY = Top + 87.f;
+   DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
+   DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
+     EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+  }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();

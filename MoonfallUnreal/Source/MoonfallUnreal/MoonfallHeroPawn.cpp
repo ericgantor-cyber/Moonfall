@@ -578,6 +578,28 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
         MouseY >= SortY && MouseY <= SortY + 28.f;
 }
 
+bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+     FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ if (PanelWidth < 550.f) return false; // compact layout leaves this button hidden
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float EquipX = Left + PanelWidth - 186.f;
+ const float EquipY = Top + 87.f;
+ return MouseX >= EquipX && MouseX <= EquipX + 172.f &&
+        MouseY >= EquipY && MouseY <= EquipY + 30.f;
+}
+
 int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
 {
  int32 ViewWidth = 0;
@@ -3026,6 +3048,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
 void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
   if (HitTestInventorySortButton()) return;
+  if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
@@ -3129,6 +3152,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
+   return;
+  }
+  if (HitTestInventoryEquipButton()) {
+   EquipSelectedInventoryItem();
    return;
   }
   if (ScrollInventoryToMouseTrack()) return;

@@ -896,14 +896,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             else:
                 self.assertEqual(up, 3)
 
-    def test_autoloot_setting_is_persisted_without_overriding_durable_pickup(self):
+    def test_explicit_mouse_equip_button_preserves_selection_only_rows(self):
+        self.assertIn("bool HitTestInventoryEquipButton() const;", self.hero_h)
+        helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
+        self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("const float EquipY = Top + 87.f;", helper)
+        self.assertIn("MouseX <= EquipX + 172.f", helper)
+        self.assertIn("MouseY <= EquipY + 30.f", helper)
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
+        self.assertIn("if (HitTestInventoryEquipButton())", click)
+        self.assertIn("EquipSelectedInventoryItem();", click)
+        self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", click)
+        self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
+        self.assertIn("const float EquipY = Top + 87.f;", self.hud)
+
+    def test_autoloot_preference_is_user_configurable_and_persisted(self):
         self.assertIn("void SetAutoLootEnabled(bool bEnabled);", self.hero_h)
-        self.assertIn("bAutoLootEnabled = bEnabled;", self.hero_cpp)
-        self.assertIn('GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
-        self.assertIn('GConfig->Flush(false, GGameUserSettingsIni)', self.hero_cpp)
-        self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
-        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground)
+        method = self.hero_cpp.split("void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("bAutoLootEnabled = bEnabled;", method)
+        self.assertIn("AutoLootElapsed = 0.f;", method)
+        self.assertIn('TEXT("AutoLootEnabled")', method)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni)", method)
+        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", (
+            ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8"))
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
@@ -922,6 +941,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bAutoLootEnabled &&", tick)
         self.assertIn("bool bAutoLootEnabled = true;", self.hero_h)
         self.assertIn('TEXT("AutoLootEnabled"), bAutoLootEnabled', self.hero_cpp)
+
+    def test_unified_v11_world_loot_persistence_is_atomic(self):
+        from pathlib import Path
+        persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
+        ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
+        ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
+        self.assertIn("int32 Version = 11;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
+        self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
+        self.assertIn("Save->Version > 11", self.hero_cpp)
+        self.assertIn("Save->Version >= 11", self.hero_cpp)
+        self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
+        self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
+        self.assertIn("if (!SaveWorldProgress()) { PendingWorldLoot.SetNum(Before); return false; }", self.hero_cpp)
+        collect = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode",1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl",1)[0]
+        self.assertIn("PendingWorldLoot.RemoveAt(Index);", collect)
+        self.assertIn("PendingWorldLoot.Insert(Previous, Index);", collect)
+        self.assertIn("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)", collect)
+        self.assertLess(collect.index("PendingWorldLoot.RemoveAt(Index);"),
+                        collect.index("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)"))
+        self.assertIn("GetPersistentDropId()", ground_h)
+        self.assertIn("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+        self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
+        self.assertNotIn("UMoonfallRewardSaveGame", self.hero_cpp)
 
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
