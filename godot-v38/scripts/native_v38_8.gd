@@ -374,6 +374,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     # A timed dodge through the danger area earns a small, bounded stamina return.
     v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+5.0)
     _show_message("PERFECT EVADE! +5 stamina",0.9)
+    _rhythm_confirmed_enemy_dodge()
    else:
     _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
     _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
@@ -477,3 +478,7 @@ func _update_hud()->void:
  if _divine_blessing_earned("z"):buffs+="  | Z: +15% DMG / +3 KILL HP"
  if _divine_blessing_earned("nyra"):buffs+="  | NYRA: +30 HP / 8% GUARD"
  if not buffs.is_empty():world_hud.text+=buffs
+
+# Optional gameplay extension; overridden by the combat rhythm layer.
+func _rhythm_confirmed_enemy_dodge()->void:
+ pass
