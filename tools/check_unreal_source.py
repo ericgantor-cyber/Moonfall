@@ -3891,6 +3891,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("merge_pull_request", script)
 
 
+    def test_self_hosted_ue54_workflow_runs_and_preserves_dungeon_evidence(self):
+        # Source CI proves wiring only. This is not equivalent to a real
+        # self-hosted Windows Unreal Editor compile or dungeon test run.
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-4]", workflow)
+        self.assertIn("name: Run real UE5.4 dungeon automation tests", workflow)
+        self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
+        self.assertIn("name: Preserve native dungeon test evidence", workflow)
+        self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
+        self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
+        self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
+        self.assertIn("EditorExitCode=0", workflow)
+        self.assertIn("AnyNativeTestFailed=False", workflow)
+        for name in ("All30EntranceLocations", "SeededRoomArchetypes",
+                     "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip"):
+            self.assertIn("Moonfall.Dungeons." + name, workflow)
+        self.assertLess(workflow.index("name: Compile Moonfall Unreal Editor"),
+                        workflow.index("name: Run real UE5.4 dungeon automation tests"))
+        self.assertLess(workflow.index("name: Run real UE5.4 dungeon automation tests"),
+                        workflow.index("name: Preserve native dungeon test evidence"))
+        self.assertIn("if: always()", workflow)
+
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
