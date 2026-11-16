@@ -455,6 +455,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
    LastSawHeroAt = -100.f;
    InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
    bCanSeeHero = false;
    ReturnToDungeonPost();
   }
@@ -658,11 +659,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bCanSeeHero != bWasVisible) {
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
+   // Give lost-target searches enough travel time to reach the last sighting.
+   if (bWasVisible && !bCanSeeHero) {
+    const bool bScout = ActorHasTag(FName(TEXT("DungeonScout")))
+      && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+    SearchTravelEndsAt = Now + (bScout ? 11.f : 8.f);
+   }
   }
   if (bCanSeeHero) {
    LastSawHeroAt = Now;
    LastKnownHeroPosition = HeroPosition;
    InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
   }
  }
  // Scouts remember only the last visible position, never the hero behind walls.
@@ -672,8 +680,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
    && Now - LastSawHeroAt <= LastSeenGrace)
+   || (!bCanSeeHero && SearchTravelEndsAt > Now)
    || (!bCanSeeHero && InvestigationEndsAt > Now);
  if (!bHasRecentSight) {
+  SearchTravelEndsAt = -1.f;
   InvestigationEndsAt = -1.f;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
@@ -684,10 +694,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // No extra sight traces or path requests during the investigation.
  if (!bBoss && !bCanSeeHero
      && FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)) {
-  if (InvestigationEndsAt < 0.f)
+  if (InvestigationEndsAt < 0.f) {
+   SearchTravelEndsAt = -1.f;
    InvestigationEndsAt = Now + (bDungeonScout ? 2.f : 1.2f);
+  }
   if (Now >= InvestigationEndsAt) {
    InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
    LastSawHeroAt = -100.f;
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
