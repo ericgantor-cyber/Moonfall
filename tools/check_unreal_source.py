@@ -2990,6 +2990,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_enemy_hit_wakes_distant_ai_without_extra_nav_queries(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        nearby = damage.split("FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation())", 1)[1].split(
+            "\n   }", 1)[0]
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", nearby)
+        self.assertIn("NextPathRefreshAt = 0.f;", nearby)
+        self.assertIn("if (PrimaryActorTick.TickInterval > 0.1f)", nearby)
+        self.assertIn("SetActorTickInterval(0.1f);", nearby)
+        self.assertNotIn("FindPathToLocationSynchronously(", nearby)
+
     def test_lost_sight_investigation_repaths_once_and_stops_at_last_seen_location(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const bool bWasVisible = bCanSeeHero;", tick)
