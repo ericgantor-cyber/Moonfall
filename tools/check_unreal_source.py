@@ -3670,7 +3670,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", hazard)
         self.assertIn("!FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f", hazard)
         self.assertIn("!FMath::IsFinite(HazardCooldownSeconds)", hazard)
-        self.assertIn("Now < NextHazardDamageAt", hazard)
+        self.assertIn("const bool bClockRewound", hazard)
+        self.assertIn("float LastHazardObservedTime = -1.f;", layout_h)
+        self.assertIn("Now < LastHazardObservedTime", hazard)
+        self.assertIn("LastHazardObservedTime = Now;", hazard)
+        self.assertIn("!bClockRewound && FMath::IsFinite(Remaining)", hazard)
+        self.assertIn("Remaining > 0.f && Remaining <= 20.f", hazard)
+        self.assertIn("if (!FMath::IsFinite(Next) || Next <= Now) return;", hazard)
         self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
         self.assertIn("Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));", hazard)
         self.assertLess(hazard.index("Hero->DiscoverDungeonEntrance("),
@@ -3936,7 +3942,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
-        self.assertIn("MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);", self.hero_h)
+        self.assertIn("MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss);", self.hero_h)
         # Permanent victories must only be committed by native kill handling.
         marker = self.hero_h.split("bool MarkDungeonBossDefeated(", 1)[0]
         declaration_prefix = marker.splitlines()[-3:]
@@ -3951,6 +3957,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
         self.assertIn("!HasDiscoveredDungeon(Zone, Dungeon)", marker)
         self.assertIn("HasDefeatedDungeonBoss(Zone, Dungeon)", marker)
+        self.assertIn("IsValid(DefeatedBoss)", marker)
+        self.assertIn("DefeatedBoss->GetWorld() != GetWorld()", marker)
+        self.assertIn("DefeatedBoss->Health > 0.f", marker)
+        self.assertIn("DefeatedBoss->Tags.Contains(FName(TEXT(", marker)
+        self.assertIn("Cast<AMoonfallDungeonLayout>(DefeatedBoss->GetOwner())", marker)
+        self.assertLess(marker.index("IsValid(DefeatedBoss)"),
+                        marker.index("DefeatedDungeonBossMask |="))
         self.assertIn("bWorldProgressLoadInProgress", marker)
         self.assertIn("bPersistentSaveWritesBlocked", marker)
         self.assertLess(marker.index("DefeatedDungeonBossMask |="),
@@ -3966,8 +3979,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         death = enemy.split("if (Health <= 0.0f) {", 1)[1].split(
             "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
         self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))', death)
-        self.assertIn("Cast<AMoonfallDungeonLayout>(GetOwner())", death)
-        self.assertIn("LivingHero->MarkDungeonBossDefeated(Dungeon->ZoneIndex, Dungeon->DungeonIndex);", death)
+        self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
+        self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
