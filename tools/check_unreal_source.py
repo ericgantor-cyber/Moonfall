@@ -2939,6 +2939,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_dungeon_attack_coordination_is_isolated_by_owner(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        scope = tick.split("// Small-pack coordination:", 1)[1].split(
+            "// Alternate quick strikes", 1)[0]
+        for guard in ('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
+                      'Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
+                      '!bDungeonMember || !bOtherDungeonMember',
+                      '!IsValid(GetOwner())', 'Other->GetOwner() != GetOwner()'):
+            self.assertIn(guard, scope)
+        self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
+                        scope.index("++ConsideredAllies;"))
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+
     def test_wounded_elite_retreat_is_brief_cooldown_gated_and_collision_safe(self):
         self.assertIn("float TacticalRetreatUntil = -1.f;", self.enemy_h)
         self.assertIn("float NextTacticalRetreatAt = 0.f;", self.enemy_h)
