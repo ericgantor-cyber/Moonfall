@@ -2229,7 +2229,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea", tick)
         self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")))', tick)
-        self.assertIn("bDistantDungeonMob ? 1.0f : 0.4f", tick)
+        self.assertIn("bDistantDungeonMob ? (Distance >= 10000.f ? 2.0f : 1.0f) : 0.4f", tick)
+        self.assertIn("Distance >= 10000.f ? 2.0f : 1.0f", tick)
         self.assertIn("bInCombatArea ? 0.1f", tick)
         self.assertIn("bDashing ? 0.03f", tick)
         self.assertLess(tick.index("const float Distance = Difference.Size();"),
