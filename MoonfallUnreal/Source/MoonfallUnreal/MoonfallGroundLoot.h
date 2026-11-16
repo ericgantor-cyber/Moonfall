@@ -17,7 +17,7 @@ public:
  // Validated dungeon coordinates bind pickup to the persisted V9 claim.
  void InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber);
  int32 GetItemCode() const { return ItemCode; }
- void SetPersistentDropId(const FGuid& InId) { PersistentDropId = InId; }
+ void SetPersistentDropId(const FGuid& InId);
  const FGuid& GetPersistentDropId() const { return PersistentDropId; }
  bool TryCollect();
 private:
