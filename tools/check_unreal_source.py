@@ -5015,8 +5015,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             'TEXT("[SELECTED] ")',
             "Key == EKeys::Gamepad_LeftShoulder",
             "Key == EKeys::Gamepad_RightShoulder",
-            "Key == EKeys::PageUp",
-            "Key == EKeys::PageDown",
+            "NativeOnMouseWheel(",
+            "ZoomPreview(WheelDelta);",
             "Key == EKeys::Gamepad_RightTrigger",
             "Key == EKeys::Gamepad_LeftTrigger",
             "Key == EKeys::R",
@@ -5027,6 +5027,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ):
             self.assertIn(required, widget)
         # Preview controls must not directly mutate the real player or source art.
+        self.assertNotIn("Key == EKeys::PageUp", widget)
+        self.assertNotIn("Key == EKeys::PageDown", widget)
         self.assertNotIn("SetSkeletalMesh(", widget)
         self.assertNotIn("SaveGameToSlot(", widget)
 
