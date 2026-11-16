@@ -89,6 +89,8 @@ public:
 
 private:
  float NextHazardDamageAt = -1.f;
+ // Last valid overlap clock tracks backward time jumps.
+ float LastHazardObservedTime = -1.f;
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* Overlapped, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
