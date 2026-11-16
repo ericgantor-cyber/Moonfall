@@ -3869,6 +3869,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Test-UnrealEngineVersion.ps1", script)
         self.assertIn("Build-Windows.ps1", script)
         self.assertIn("-CompileOnly", script)
+        self.assertNotIn("$SkipBuild", script)
+        self.assertIn("if (-not $?) { throw 'Native UE5 Win64 compilation command failed.' }", script)
+        self.assertIn("if ($LASTEXITCODE -ne 0)", script)
+        self.assertLess(script.index("Build-Windows.ps1"),
+                        script.index("& $editor $project"))
         self.assertIn("UnrealEditor-Cmd.exe", script)
         self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
