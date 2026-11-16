@@ -839,11 +839,27 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (Hit.bBlockingHit && Now >= NextObstacleSidestepAt
       && SafeAIDelta > 0.f && !Direction.IsNearlyZero()) {
    NextObstacleSidestepAt = Now + 0.6f;
-   const FVector Side(-Direction.Y, Direction.X, 0.f);
-   const float SideSign = ((GetUniqueID() + static_cast<uint32>(ObstacleSidestepCount++)) % 2u == 0u) ? -1.f : 1.f;
-   const FVector EscapeStep = Side.GetSafeNormal() * SideSign * (120.f * SafeAIDelta);
+   // Slide along the obstacle face, rather than making tiny perpendicular
+   // nudges that can repeatedly fail at angled doorways.
+   FVector Side = FVector::VectorPlaneProject(Direction.GetSafeNormal2D(), Hit.Normal);
+   Side.Z = 0.f;
+   if (!Side.Normalize()) {
+    Side = FVector(-Direction.Y, Direction.X, 0.f).GetSafeNormal();
+    const float SideSign = ((GetUniqueID() + static_cast<uint32>(ObstacleSidestepCount)) % 2u == 0u) ? -1.f : 1.f;
+    Side *= SideSign;
+   }
+   ++ObstacleSidestepCount;
+   // A second blocked slide means the surface route failed. Try its
+   // opposite direction on the next cooldown, not on this AI tick.
+   if (bReverseCombatWallSlide) Side *= -1.f;
+   const float EscapeDistance = FMath::Min(80.f,
+     FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
    FHitResult EscapeHit;
-   AddActorWorldOffset(EscapeStep, true, &EscapeHit);
+   AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
+   // Each failed escape alternates direction; a successful slide resets it.
+   bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;
+  } else if (!Hit.bBlockingHit) {
+   bReverseCombatWallSlide = false;
   }
   // A blocked route is invalidated only on its original repath cooldown.
   // The existing single navigation solve then selects a fresh waypoint.
