@@ -11,9 +11,9 @@ on:
         required: true
         type: string
       release_tag:
-        description: "New prerelease tag, e.g. v38.5-rc1"
+        description: "New prerelease tag, e.g. v38.5-rc2"
         required: true
-        default: "v38.5-rc1"
+        default: "v38.5-rc2"
         type: string
 permissions:
   actions: read
@@ -28,7 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
-          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -38,7 +38,7 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = success
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = main
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = "Moonfall v38.3 Godot Windows build and installer"
-          # An automatic rerun must never overwrite an already published prerelease.
+          # Auto-publish rc2 only once; never overwrite any existing prerelease.
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
               echo "Existing prerelease $RELEASE_TAG preserved; no new publication."
@@ -80,7 +80,7 @@ jobs:
       - name: Bundle versioned download archives
         if: steps.validate.outputs.publish == 'true'
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -91,7 +91,7 @@ jobs:
         if: steps.validate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
