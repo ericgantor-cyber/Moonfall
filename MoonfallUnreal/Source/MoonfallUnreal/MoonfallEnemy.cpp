@@ -787,6 +787,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      const AMoonfallEnemy* Other = *It;
      if (!IsValid(Other) || Other == this || Other->Health <= 0.f
          || Other->bBoss || Other->bElite) continue;
+     // A dungeon mob only coordinates with enemies from its own dungeon.
+     // Never let an adjacent room/dungeon or open-world actor consume a slot.
+     const bool bDungeonMember = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+     const bool bOtherDungeonMember = Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+     if (bDungeonMember || bOtherDungeonMember) {
+      if (!bDungeonMember || !bOtherDungeonMember
+          || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()) continue;
+     }
      ++ConsideredAllies;
      if (Other->WindupEndsAt > Now
          && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
