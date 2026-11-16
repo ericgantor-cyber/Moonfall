@@ -38,6 +38,43 @@ class GroundLootCollectionSafety(unittest.TestCase):
             self.assertIn(token, body)
         self.assertLess(body.index("RewardZone != INDEX_NONE"), body.index("RewardZone = Zone;"))
         self.assertLess(body.index("PersistentDropId.IsValid()"), body.index("RewardZone = Zone;"))
+    def test_dungeon_spawn_checks_reward_identity_before_registration(self):
+        header = (SOURCE.parent / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
+        layout = (SOURCE.parent / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        for token in ("HasDungeonRewardIdentity(int32 Zone, int32 Dungeon, int32 Chamber) const",
+                      "RewardZone == Zone", "RewardDungeon == Dungeon",
+                      "RewardChamber == Chamber", "!PersistentDropId.IsValid()"):
+            self.assertIn(token, header)
+        for token in ("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);",
+                      "if (!Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)) {",
+                      "Loot->Destroy();", "return false;",
+                      "SpawnedTreasure[ChamberIndex] = Loot;"):
+            self.assertIn(token, treasure)
+        self.assertLess(treasure.index("Loot->InitializeDungeonReward("),
+                        treasure.index("if (!Loot->HasDungeonRewardIdentity("))
+        self.assertLess(treasure.index("if (!Loot->HasDungeonRewardIdentity("),
+                        treasure.index("SpawnedTreasure[ChamberIndex] = Loot;"))
+
+    def test_world_drop_restore_validates_identity_and_item_before_presence(self):
+        hero = (SOURCE.parent / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        restore = hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        for token in ("Record.ItemCode == Loot->GetItemCode()",
+                      "MatchingRecord == INDEX_NONE", "Loot->IsActorBeingDestroyed()",
+                      "Loot->GetPersistentDropId() != Record.DropId",
+                      "Loot->GetItemCode() != Record.ItemCode",
+                      "Present.Add(Record.DropId);"):
+            self.assertIn(token, restore)
+        self.assertLess(restore.index("MatchingRecord == INDEX_NONE"),
+                        restore.index("Present.Add(Id);"))
+        self.assertLess(restore.index("Loot->GetItemCode() != Record.ItemCode"),
+                        restore.index("Present.Add(Record.DropId);"))
+        creation = hero.split("bool AMoonfallHeroPawn::", 1)
+        self.assertGreaterEqual(hero.count("Loot->GetPersistentDropId() != Record.DropId"), 2)
+        self.assertGreaterEqual(hero.count("Loot->GetItemCode() != Record.ItemCode"), 2)
+
     def test_pickup_proximity_visibility_and_persistent_saves(self):
         body = self.source.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
         for token in ("HeroPosition.ContainsNaN()", "LootPosition.ContainsNaN()",

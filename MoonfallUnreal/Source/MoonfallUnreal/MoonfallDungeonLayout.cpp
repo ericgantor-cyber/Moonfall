@@ -383,6 +383,12 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
   return false;
  }
  Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);
+ // Initialization can reject invalid/reused reward identities; do not
+ // register that actor as dungeon treasure or expose it as ordinary loot.
+ if (!Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)) {
+  Loot->Destroy();
+  return false;
+ }
  SpawnedTreasure[ChamberIndex] = Loot;
  OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
  return true;
