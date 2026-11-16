@@ -45,6 +45,18 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("MAX_int64 - Gold", self.hero)
         self.assertNotIn("99999999", self.hero[self.hero.index("int64 AMoonfallHeroPawn::AddGold"):self.hero.index("bool AMoonfallHeroPawn::HasQuestKey")])
 
+    def test_durable_autoloot_save_rejects_corrupted_records(self):
+        load = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        for required in ("ValidSavedEquipment(Record.ItemCode)",
+                         "SeenDropIds.Contains(Record.DropId)",
+                         "Record.Location.ContainsNaN()",
+                         "Save->InventoryItemCodes.Contains(Code)",
+                         "if (bInvalidRewardRecord)"):
+            self.assertIn(required, load)
+        self.assertLess(load.index("if (bInvalidRewardRecord)"),
+                        load.index("const int32 PreviousArmorTierOnLoad = ArmorTier;"))
+
     def test_key_whitelist_duplicate_guard_and_milestone(self):
         for key in ("wardens_crest", "outlaw_seal", "fallen_gate_key"):
             self.assertIn(key, self.hero)
