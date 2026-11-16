@@ -170,6 +170,48 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   TestEqual(*(Label + TEXT(" victory remains isolated")),
     OneVictory->DefeatedDungeonBossMask, static_cast<int32>(VictoryBit));
  }
+
+ // Sparse, alternating and fully cleared campaigns catch errors which
+ // one-hot tests cannot detect when several bits are set simultaneously.
+ const uint32 AllDungeons = (1u << 30) - 1u;
+ const uint32 Scenarios[] = {0u, 0x15555555u, 0x2AAAAAAAu, AllDungeons};
+ for (const uint32 VictoryMask : Scenarios) {
+  Original->DiscoveredDungeonMask = static_cast<int32>(AllDungeons);
+  Original->DefeatedDungeonBossMask = static_cast<int32>(VictoryMask);
+  Bytes.Reset();
+  const FString Label = FString::Printf(TEXT("Victory pattern 0x%08x"), VictoryMask);
+  if (!TestTrue(*(Label + TEXT(" serializes")),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* Pattern = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(*(Label + TEXT(" restores")), Pattern)) return false;
+  TestEqual(*(Label + TEXT(" keeps all discovered entrances")),
+    Pattern->DiscoveredDungeonMask, static_cast<int32>(AllDungeons));
+  TestEqual(*(Label + TEXT(" keeps exact victories")),
+    Pattern->DefeatedDungeonBossMask, static_cast<int32>(VictoryMask));
+ }
+
+ // Emulate serialized V9 data and check it retains existing progress with
+ // zero new boss victories. This does not substitute for loading a genuine
+ // historical on-disk V9 fixture through LoadWorldProgress.
+ Original->Version = 9;
+ Original->DiscoveredDungeonMask = static_cast<int32>(FirstDungeon | MidDungeon);
+ Original->DefeatedDungeonBossMask = 0;
+ Original->Salvage = 9876;
+ Original->Level = 23;
+ Bytes.Reset();
+ if (!TestTrue(TEXT("V9-compatible save serializes"),
+       UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+ UMoonfallPersistentSave* Legacy = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("V9-compatible save restores"), Legacy)) return false;
+ TestEqual(TEXT("Legacy version remains V9 before game migration"), Legacy->Version, 9);
+ TestEqual(TEXT("Legacy discovered entrances retained"),
+   Legacy->DiscoveredDungeonMask, static_cast<int32>(FirstDungeon | MidDungeon));
+ TestEqual(TEXT("Legacy has no invented boss victories"),
+   Legacy->DefeatedDungeonBossMask, 0);
+ TestEqual(TEXT("Legacy currency retained"), Legacy->Salvage, 9876);
+ TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
  return !HasAnyErrors();
 }
 
