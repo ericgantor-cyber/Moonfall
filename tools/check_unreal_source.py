@@ -1091,7 +1091,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
-        self.assertIn("bCriticalSpell ? 1.5f : 1.f", cast)
+        self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("GetVersatilityBonus() * 0.5f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1)", hud)
@@ -3650,7 +3650,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 14.f", page)
+        self.assertIn("(PanelHeight - 145.f) / 18.f", page)
         self.assertIn("Equipment power: %d", page)
 
 
@@ -4418,6 +4418,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", self.hud)
         self.assertIn("SET PREVIEW:", self.hud)
         self.assertIn("PowerCompareLine", self.hud)
+
+
+    def test_legendary_perks_require_owned_canonical_gear_and_respect_caps(self):
+        self.assertIn("HasLegendaryPerk(int32 Slot) const", self.hero_h)
+        fn = self.hero_cpp.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        self.assertIn("Slot < 0 || Slot > 2", fn)
+        self.assertIn("InventoryItemCodes.Contains(Code)", fn)
+        self.assertIn("DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier)", fn)
+        self.assertIn("Rarity == 5", fn)
+        self.assertNotIn("SaveWorldProgress(", fn)
+        self.assertIn("HasLegendaryPerk(0) ? 1.65f : 1.5f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(2) ? 0.025f : 0.f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(1) ? 0.015f : 0.f", self.hero_cpp)
+        self.assertIn("FMath::Min(0.34f", self.hero_cpp)
+        self.assertIn("0.f, 0.20f", self.hero_cpp)
+        self.assertIn("LEGENDARY EQUIPMENT PERKS", self.hud)
+        for slot in range(3):
+            self.assertIn(f"Hero->HasLegendaryPerk({slot})", self.hud)
 
 
 if __name__ == "__main__":

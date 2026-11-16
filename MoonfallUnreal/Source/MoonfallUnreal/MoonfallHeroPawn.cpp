@@ -140,6 +140,16 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
      + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, 3);
 }
 
+bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return false;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ if (!InventoryItemCodes.Contains(Code)) return false;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Rarity == 5;
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
@@ -188,7 +198,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 {
  const float TraitHaste = InventoryItemCodes.Contains(EquippedAccessoryCode)
    ? ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) * 0.006f : 0.f;
- return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
+   + (HasLegendaryPerk(2) ? 0.025f : 0.f),
    0.f, 0.20f);
 }
 
@@ -831,7 +842,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -1079,7 +1090,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (bOwnedArmor && ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f)
    + (bOwnedArmor ? FMath::Clamp(ValidEquippedRarity(EquippedArmorCode, 1) * 0.005f, 0.f, 0.025f) : 0.f)
    + GetVersatilityBonus() * 0.5f
-   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
+   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+   + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
    && Now < RacePowerActiveUntil;
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
