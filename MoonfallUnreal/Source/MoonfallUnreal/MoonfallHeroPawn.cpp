@@ -106,6 +106,40 @@ int32 AMoonfallHeroPawn::GetEquipmentPower() const
  return Total;
 }
 
+int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
+{
+ if (!InventoryItemCodes.Contains(ItemCode)) return 0;
+ const int32 CandidatePower = GetItemPower(ItemCode);
+ if (CandidatePower <= 0) return 0;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ const bool bCurrentOwnedAndValid = InventoryItemCodes.Contains(CurrentCode)
+     && DecodeEquippedItem(CurrentCode, Slot, Trait, Rarity, Tier);
+ return CandidatePower - (bCurrentOwnedAndValid ? GetItemPower(CurrentCode) : 0);
+}
+
+int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
+{
+ if (Affix < 1 || Affix > 3 || !InventoryItemCodes.Contains(CandidateCode)
+     || GetItemPower(CandidateCode) <= 0) return 0;
+ const int32 Slot = (CandidateCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
+ if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
+  return 0;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
+ const bool bCurrentValid = InventoryItemCodes.Contains(CurrentCode)
+     && DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
+ return FMath::Clamp(GetSetPieceCount(Affix)
+     - (bCurrentValid && PreviousRarity >= 1 && PreviousTrait == Affix ? 1 : 0)
+     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, 3);
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;

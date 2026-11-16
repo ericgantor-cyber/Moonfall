@@ -448,8 +448,10 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
     const FString SetLine = bValidDetail && SelectedAffix > 0
-      ? FString::Printf(TEXT("EQUIPPED SET: %s %d/3  |  %s"),
-          DetailTraits[SelectedAffix], SetPieces, SetEffects[SelectedAffix])
+      ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
+          DetailTraits[SelectedAffix], SetPieces,
+          Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
+          SetEffects[SelectedAffix])
       : TEXT("EQUIPPED SET: no set bonus from this item");
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
@@ -496,7 +498,9 @@ void AMoonfallCombatHUD::DrawHUD()
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   DrawText(CompareLine,
+   const FString PowerCompareLine = CompareLine +
+     FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
+   DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),

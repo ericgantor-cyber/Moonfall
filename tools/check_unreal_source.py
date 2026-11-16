@@ -4397,5 +4397,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveWorldProgress()", item + score)
 
 
+    def test_inventory_power_and_projected_set_preview_are_read_only(self):
+        for declaration in ("GetItemPowerDelta(int32 ItemCode) const",
+                            "GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const"):
+            self.assertIn(declaration, self.hero_h)
+            self.assertIn(declaration, self.hero_cpp)
+        delta = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
+        projected = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        for code in (delta, projected):
+            self.assertIn("InventoryItemCodes.Contains(", code)
+            self.assertIn("DecodeEquippedItem(", code)
+            self.assertNotIn("EquipInventoryItem(", code)
+            self.assertNotIn("SaveWorldProgress(", code)
+        self.assertIn("GetSetPieceCount(Affix)", projected)
+        self.assertIn("PreviousRarity >= 1", projected)
+        self.assertIn("CandidateRarity >= 1", projected)
+        self.assertIn("Hero->GetItemPowerDelta(SelectedCode)", self.hud)
+        self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", self.hud)
+        self.assertIn("SET PREVIEW:", self.hud)
+        self.assertIn("PowerCompareLine", self.hud)
+
+
 if __name__ == "__main__":
     unittest.main()
