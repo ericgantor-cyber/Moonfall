@@ -113,6 +113,8 @@ private:
  // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
  float NextObstacleSidestepAt = 0.f;
  int32 ObstacleSidestepCount = 0;
+ // Reverse an unsuccessful combat wall-slide on the next cooldown.
+ bool bReverseCombatWallSlide = false;
  // Brief tactical withdrawal for wounded elites, with a long re-use cooldown.
  float TacticalRetreatUntil = -1.f;
  float TacticalReengageUntil = -1.f;
