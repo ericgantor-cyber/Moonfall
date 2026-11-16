@@ -247,8 +247,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    DefeatAnimationOrigin = GetActorLocation();
    bDefeatAnimationShatter = bLastHitWasShatter;
    DefeatAnimationStyle = 1;
-   SetActorTickEnabled(true);
-   SetActorTickInterval(0.f);
+   // Queued corpses have no animation to update yet. A zero-interval tick
+   // would otherwise run every frame for up to 9.5 seconds per corpse.
+   // Lifespan timers and finisher callbacks work without actor Tick.
+   SetActorTickEnabled(false);
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
@@ -275,8 +277,13 @@ void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
 {
  if (Health > 0.f || !GetWorld() || DefeatAnimationStartedAt >= 0.f) return;
  DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
  DefeatAnimationOrigin = GetActorLocation();
- DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();
+ DefeatAnimationStartedAt = Now;
+ // Only active defeat choreography needs every-frame mesh updates.
+ SetActorTickInterval(0.f);
+ SetActorTickEnabled(true);
  // Keep the defeated actor only as long as its choreography needs.
  SetLifeSpan(1.25f);
 }
