@@ -82,6 +82,30 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
+int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
+{
+ // Use the same strict decoder as equipped combat stats. No save mutations.
+ if (ItemCode <= 0) return 0;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
+ return Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0);
+}
+
+int32 AMoonfallHeroPawn::GetEquipmentPower() const
+{
+ const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 Total = 0;
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (InventoryItemCodes.Contains(Codes[Slot])
+      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
+   Total += GetItemPower(Codes[Slot]);
+ }
+ return Total;
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;

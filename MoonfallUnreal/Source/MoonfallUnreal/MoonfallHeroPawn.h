@@ -86,6 +86,9 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Display-only comparison score, never used for combat or save data.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
  // Derived primary attributes, no additional persistent save schema.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetInsight() const;

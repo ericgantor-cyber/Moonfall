@@ -3650,7 +3650,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 13.f", page)
+        self.assertIn("(PanelHeight - 145.f) / 14.f", page)
+        self.assertIn("Equipment power: %d", page)
 
 
     def test_main_based_dungeon_layout_has_connected_colliding_rooms(self):
@@ -4372,6 +4373,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Seconds <= 0.3f)", hud)
         self.assertIn("Hero->bReduceMotion", hud)
         self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+
+    def test_equipment_power_on_character_sheet_is_safe_and_read_only(self):
+        # The source contract is not a native Unreal Editor runtime test.
+        for declaration in ("GetItemPower(int32 ItemCode) const",
+                            "GetEquipmentPower() const"):
+            self.assertIn(declaration, self.hero_h)
+            self.assertIn(declaration, self.hero_cpp)
+        item = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[0]
+        score = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        for expression in ("DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)",
+                           "Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0)",
+                           "if (Slot < 0 || Slot > 2) return 0;"):
+            self.assertIn(expression, item)
+        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
+        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
+        self.assertIn("Hero->GetEquipmentPower()", self.hud)
+        self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
+        self.assertNotIn("SaveWorldProgress()", item + score)
+
 
 if __name__ == "__main__":
     unittest.main()
