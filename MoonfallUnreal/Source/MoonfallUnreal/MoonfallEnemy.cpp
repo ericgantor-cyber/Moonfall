@@ -446,8 +446,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Step = FMath::Min(HomeDistance,
     SafeReturnSpeed * 0.6f * ReturnDelta);
   if (Step > 0.f) {
+   const FVector ReturnDirection = ToHome.GetSafeNormal();
    FHitResult ReturnHit;
-   AddActorWorldOffset(ToHome.GetSafeNormal() * Step, true, &ReturnHit);
+   AddActorWorldOffset(ReturnDirection * Step, true, &ReturnHit);
+   // Try one swept sidestep when a doorframe blocks the direct journey home.
+   // Throttle attempts across AI ticks; never teleport through world geometry.
+   if (ReturnHit.bBlockingHit && Now >= NextObstacleSidestepAt) {
+    NextObstacleSidestepAt = Now + 0.6f;
+    const FVector Side(-ReturnDirection.Y, ReturnDirection.X, 0.f);
+    const float Sign = (ObstacleSidestepCount++ % 2 == 0) ? 1.f : -1.f;
+    FHitResult SidestepHit;
+    AddActorWorldOffset(Side * Sign * FMath::Min(Step, 80.f), true, &SidestepHit);
+   }
   }
  };
  if (!bInCombatArea) {
