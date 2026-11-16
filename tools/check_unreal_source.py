@@ -3258,7 +3258,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
-        self.assertIn("if (!bEliteEncounter && Index == 0 && Count > 1)", combat)
+        self.assertIn("if (!bEliteEncounter && Spawned == 0 && Count > 1)", combat)
+        self.assertNotIn("if (!bEliteEncounter && Index == 0 && Count > 1)", combat)
+        self.assertLess(combat.index("if (!bEliteEncounter && Spawned == 0 && Count > 1)"),
+                        combat.index("++Spawned;"))
         self.assertIn('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));', combat)
         self.assertLess(combat.index('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));'),
                         combat.index("Enemy->FinishSpawning(SpawnTransform);"))

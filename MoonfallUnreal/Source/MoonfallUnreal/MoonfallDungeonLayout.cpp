@@ -336,9 +336,10 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
   Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
-  // Exactly one regular enemy per two-mob chamber is a scout.
+  // The first surviving regular spawn in a two-mob chamber is the scout.
+  // A rejected first spawn must not leave the chamber without a scout.
   // Elite encounters retain their original behavior.
-  if (!bEliteEncounter && Index == 0 && Count > 1)
+  if (!bEliteEncounter && Spawned == 0 && Count > 1)
    Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
   Enemy->FinishSpawning(SpawnTransform);
   // Do not count or retain actors whose deferred spawn was rejected.
