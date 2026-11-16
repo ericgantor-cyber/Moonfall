@@ -3903,11 +3903,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
         self.assertIn("const int32 MaxDungeonEncounterSpawns = (ChamberCount - 2) * 6;", combat)
         self.assertIn("MaxDungeonEncounterSpawns - SpawnedEncounterCount", combat)
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertNotIn("MaxLiveWorldEnemies", combat)
         self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
-        self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
-        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
-        self.assertLess(combat.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies)"),
+        self.assertIn("GetWorld()->GetDeltaSeconds()", combat)
+        self.assertIn("const float Load = FMath::Max(", combat)
+        self.assertIn("const int32 PerformanceSpawnBudget = Load <= 1.3f ? 6", combat)
+        self.assertIn("FMath::Min(Requested, PerformanceSpawnBudget)", combat)
+        self.assertLess(combat.index("PerformanceSpawnBudget"),
                         combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertIn("if (Remaining == 0) return true;", combat)
         self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 6)", combat)
@@ -4188,10 +4190,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         final.index("bFinalChamberNotified = true;"))
         self.assertLess(final.index("bFinalChamberNotified = true;"),
                         final.index("OnFinalChamberEntered(Hero);"))
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", boss)
-        self.assertIn("TActorIterator<AMoonfallEnemy>", boss)
-        self.assertLess(boss.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;"),
-                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertNotIn("MaxLiveWorldEnemies", boss)
+        self.assertNotIn("PerformanceSpawnBudget", boss)
+        self.assertIn("Bosses are not withheld by the regular-room performance spawn budget.", boss)
         self.assertIn("ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding", boss)
         self.assertIn("Boss->bElite = true;", boss)
         self.assertIn("Boss->bBoss = true;", boss)
