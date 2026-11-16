@@ -5007,5 +5007,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", listing)
         self.assertNotIn("SpawnActor", listing)
 
+    def test_character_creation_accessible_navigation_and_mouse_preview(self):
+        widget = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        for required in (
+            "Choice->SetContentPadding(FMargin(12.f, 12.f))",
+            "ChoiceFont.Size = 20",
+            'TEXT("[SELECTED] ")',
+            "Key == EKeys::Gamepad_LeftShoulder",
+            "Key == EKeys::Gamepad_RightShoulder",
+            "Key == EKeys::PageUp",
+            "Key == EKeys::PageDown",
+            "Key == EKeys::Gamepad_RightTrigger",
+            "Key == EKeys::Gamepad_LeftTrigger",
+            "Key == EKeys::R",
+            "Key == EKeys::Gamepad_FaceButton_Top",
+            "ResetPreviewView(); return FReply::Handled();",
+            "RaceList->SetScrollOffset(PreviousScrollOffset)",
+            "OnRaceConfirmed.Broadcast(Selection.RaceId)",
+        ):
+            self.assertIn(required, widget)
+        # Preview controls must not directly mutate the real player or source art.
+        self.assertNotIn("SetSkeletalMesh(", widget)
+        self.assertNotIn("SaveGameToSlot(", widget)
+
+
 if __name__ == "__main__":
     unittest.main()
