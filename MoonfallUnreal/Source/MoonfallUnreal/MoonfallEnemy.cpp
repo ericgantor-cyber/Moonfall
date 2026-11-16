@@ -790,7 +790,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
          It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
      ++ScannedActors;
      const AMoonfallEnemy* Other = *It;
-     if (!IsValid(Other) || Other == this || Other->Health <= 0.f
+     // Ignore teardown and invalid-health actors before consuming the limited
+     // candidate budget or delaying another enemy's attack.
+     if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
+         || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
          || Other->bBoss || Other->bElite) continue;
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
