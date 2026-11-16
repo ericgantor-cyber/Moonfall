@@ -103,3 +103,73 @@ The prototype currently defaults to the generic engine Entry map. Before packagi
 7. Launch the packaged game and test the installer, gameplay and accessibility on Windows 10 and 11. A process-launch smoke test does not prove gameplay correctness.
 
 Packaging deliberately stops with an actionable error if the project-owned startup level is missing. The map and a verified Unreal Windows build have not yet been created by this change.
+
+
+## Native UE5.4 dungeon verification
+
+The repository's source and PowerShell checks are **not** native compilation
+or gameplay verification. On a Windows 10/11 machine with Unreal Engine
+**5.4**, Visual Studio 2022 C++ build tools and a checkout of the intended
+commit, run this command from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNative.ps1 -UnrealRoot "C:\Program Files\Epic Games\UE_5.4"
+```
+
+The runner **always compiles the checked-out Unreal C++ source** first.
+There is no `-SkipBuild` option. It then runs these four real Unreal Editor
+automation tests:
+
+1. `Moonfall.Dungeons.All30EntranceLocations`
+2. `Moonfall.Dungeons.SeededRoomArchetypes`
+3. `Moonfall.Dungeons.BossVictoryLedgerDefaults`
+4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
+
+It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
+and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
+A passing source workflow does not count: verify all **four** native test
+results are explicitly `True`, `EditorExitCode=0`, and
+`AnyNativeTestFailed=False`. If compilation, Editor execution or any test
+fails, the native runner must not report success.
+
+For an authorized self-hosted GitHub Actions runner, select the
+`Windows Unreal build prerequisites` workflow, choose the **PR branch**,
+and dispatch with `compile_on_self_hosted=true`. That job requires a
+Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
+environment variable. It compiles, runs all four tests, and uploads
+`moonfall-unreal-native-dungeon-test-evidence` containing the log and
+result report. Normal hosted GitHub preflight checks do **not** run these tests.
+
+Even four passing Editor automation tests do not prove the runtime gameplay
+loop. In Play In Editor, separately check physical dungeon connections,
+enemy navigation and hazards, boss spawn/death, rewards and exactly-once
+victory persistence after saving and relaunching. Also test the packaged
+Windows installer and accessibility controls before release.
+
+
+The **new startup map generator** now places a second, broad NavMeshBoundsVolume
+covering the six-zone road and 30 dungeon interiors. The project is configured
+for **Dynamic Recast** with navigation generated only around the hero's
+`UNavigationInvokerComponent` (3000-unit tile generation, 5000-unit removal).
+The generator checks the actual nav brush extent before saving the new map.
+Epic documents both these settings for runtime-generated geometry.
+
+**Existing MoonfallStart.umap files are intentionally never overwritten by the
+startup generator.** On Windows, with Unreal Editor closed and the map backed
+up, run the opt-in retrofit using Unreal Editor 5.4:
+
+```powershell
+& "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" ".\MoonfallUnreal\MoonfallUnreal.uproject" '-ExecutePythonScript=MoonfallUnreal/Build/Upgrade-DungeonNavigation.py' -unattended -nop4 -log
+```
+
+That script verifies the existing map, creates a `.before-dungeon-nav.umap`
+backup, adds only the labeled dungeon-nav volume, checks the actual geometry
+bounds, then saves. It skips a map that already has the labeled volume and
+fails closed if a prior backup is stale. It does not relocate existing actors,
+replace existing nav volumes, or change any art.
+
+These changes are not proof of working navigation. **Build and test in UE5.4
+Editor**, use **P** to visualize actual walkable tiles, and verify enemies can
+cross dungeon doors and reach players across the road after new runtime geometry
+appears. Confirm tile generation, navmesh memory, and startup time on Windows
+10/11 before merging PR #948. Original Z/Nyra art and Godot are unchanged.
