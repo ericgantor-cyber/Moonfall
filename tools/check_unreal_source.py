@@ -3869,6 +3869,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Test-UnrealEngineVersion.ps1", script)
         self.assertIn("Build-Windows.ps1", script)
         self.assertIn("-CompileOnly", script)
+        self.assertNotIn("$SkipBuild", script)
+        self.assertIn("if (-not $?) { throw 'Native UE5 Win64 compilation command failed.' }", script)
+        self.assertIn("if ($LASTEXITCODE -ne 0)", script)
+        self.assertLess(script.index("Build-Windows.ps1"),
+                        script.index("& $editor $project"))
         self.assertIn("UnrealEditor-Cmd.exe", script)
         self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
@@ -3885,6 +3890,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         script.index("& $editor $project"))
         self.assertNotIn("merge_pull_request", script)
 
+
+    def test_self_hosted_ue54_workflow_runs_and_preserves_dungeon_evidence(self):
+        # Source CI proves wiring only. This is not equivalent to a real
+        # self-hosted Windows Unreal Editor compile or dungeon test run.
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-4]", workflow)
+        self.assertIn("name: Run real UE5.4 dungeon automation tests", workflow)
+        self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
+        self.assertIn("name: Preserve native dungeon test evidence", workflow)
+        self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
+        self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
+        self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
+        self.assertIn("EditorExitCode=0", workflow)
+        self.assertIn("AnyNativeTestFailed=False", workflow)
+        for name in ("All30EntranceLocations", "SeededRoomArchetypes",
+                     "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip"):
+            self.assertIn("Moonfall.Dungeons." + name, workflow)
+        self.assertLess(workflow.index("name: Compile Moonfall Unreal Editor"),
+                        workflow.index("name: Run real UE5.4 dungeon automation tests"))
+        self.assertLess(workflow.index("name: Run real UE5.4 dungeon automation tests"),
+                        workflow.index("name: Preserve native dungeon test evidence"))
+        self.assertIn("if: always()", workflow)
 
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
@@ -4027,6 +4055,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Hero->HasDefeatedDungeonBoss(6, 0)', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(0, -1)', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(0, 5)', source)
+
+    def test_native_boss_victories_survive_memory_save_round_trip(self):
+        # This checks test registration and intended coverage; a real UE5.4
+        # Editor run must still execute the native serialization scenario.
+        source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        name = "Moonfall.Dungeons.BossVictorySaveRoundTrip"
+        self.assertIn(name, source)
+        self.assertIn(name, runner)
+        self.assertIn("UGameplayStatics::SaveGameToMemory(Original, Bytes)", source)
+        self.assertIn("UGameplayStatics::LoadGameFromMemory(Bytes)", source)
+        self.assertIn("1u << 29", source)
+        self.assertIn("for (int32 Slot = 0; Slot < 30; ++Slot)", source)
+        self.assertIn("const uint32 VictoryBit = 1u << Slot;", source)
+        self.assertIn("Bytes.Reset();", source)
+        self.assertIn("OneVictory->DiscoveredDungeonMask", source)
+        self.assertIn("OneVictory->DefeatedDungeonBossMask", source)
+        self.assertIn("Restored->DiscoveredDungeonMask", source)
+        self.assertIn("Restored->DefeatedDungeonBossMask", source)
+        self.assertIn("Restored->Salvage, 4321", source)
+        self.assertIn("Restored->Level, 17", source)
+        self.assertIn("const uint32 AllDungeons = (1u << 30) - 1u;", source)
+        self.assertIn("0x15555555u, 0x2AAAAAAAu, AllDungeons", source)
+        self.assertIn("for (const uint32 VictoryMask : Scenarios)", source)
+        self.assertIn("Pattern->DefeatedDungeonBossMask", source)
+        self.assertIn("Original->Version = 9;", source)
+        self.assertIn("Original->DefeatedDungeonBossMask = 0;", source)
+        self.assertIn("Legacy->Version, 9", source)
+        self.assertIn("Legacy->DiscoveredDungeonMask", source)
+        self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
+        self.assertIn("Legacy->Salvage, 9876", source)
+        self.assertIn("Legacy->Level, 23", source)
+        self.assertIn("all four native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")

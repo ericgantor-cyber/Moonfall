@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonPlacementTest,
@@ -107,6 +108,110 @@ bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Dungeon beyond five rejected"), Hero->HasDefeatedDungeonBoss(0, 5));
  TestEqual(TEXT("Invalid zone cannot yield victories"),
    Hero->GetDefeatedDungeonBossCount(6), 0);
+ return !HasAnyErrors();
+}
+
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonBossSaveRoundTripTest,
+  "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
+{
+ // Serialize to memory only. Never touch the player's on-disk world slot.
+ UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!TestNotNull(TEXT("Create V10 save object"), Original)) return false;
+ constexpr uint32 FirstDungeon = 1u;
+ constexpr uint32 LastDungeon = 1u << 29;
+ constexpr uint32 MidDungeon = 1u << 14;
+ Original->DiscoveredDungeonMask = static_cast<int32>(
+   FirstDungeon | MidDungeon | LastDungeon);
+ Original->DefeatedDungeonBossMask = static_cast<int32>(
+   FirstDungeon | LastDungeon);
+ Original->Salvage = 4321;
+ Original->Level = 17;
+ TArray<uint8> Bytes;
+ if (!TestTrue(TEXT("Serialize boss ledger in memory"),
+       UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+ if (!TestTrue(TEXT("Serialized bytes are present"), Bytes.Num() > 0))
+  return false;
+ UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("Restore V10 save from bytes"), Restored)) return false;
+ TestEqual(TEXT("Save format still V10"), Restored->Version, 10);
+ TestEqual(TEXT("Discovered first, middle and final dungeons survive"),
+   Restored->DiscoveredDungeonMask, Original->DiscoveredDungeonMask);
+ TestEqual(TEXT("First and 30th dungeon victories survive"),
+   Restored->DefeatedDungeonBossMask, Original->DefeatedDungeonBossMask);
+ TestTrue(TEXT("Final victory uses bit 29"),
+   (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & LastDungeon) != 0u);
+ TestFalse(TEXT("Undefeated middle dungeon stays unbeaten"),
+   (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & MidDungeon) != 0u);
+ TestEqual(TEXT("Reward balance survives"), Restored->Salvage, 4321);
+ TestEqual(TEXT("Character level survives"), Restored->Level, 17);
+
+ // Check every dungeon ledger position separately. One-hot round trips
+ // detect dropped bits and accidental cross-zone victories, not just endpoints.
+ for (int32 Slot = 0; Slot < 30; ++Slot) {
+  const uint32 VictoryBit = 1u << Slot;
+  Original->DiscoveredDungeonMask = static_cast<int32>(VictoryBit);
+  Original->DefeatedDungeonBossMask = static_cast<int32>(VictoryBit);
+  Bytes.Reset();
+  const FString Label = FString::Printf(TEXT("Dungeon boss slot %d"), Slot);
+  if (!TestTrue(*(Label + TEXT(" saves to memory")),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* OneVictory = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(*FString::Printf(TEXT("%s restores"), *Label), OneVictory))
+   return false;
+  TestEqual(*(Label + TEXT(" discovery remains isolated")),
+    OneVictory->DiscoveredDungeonMask, static_cast<int32>(VictoryBit));
+  TestEqual(*(Label + TEXT(" victory remains isolated")),
+    OneVictory->DefeatedDungeonBossMask, static_cast<int32>(VictoryBit));
+ }
+
+ // Sparse, alternating and fully cleared campaigns catch errors which
+ // one-hot tests cannot detect when several bits are set simultaneously.
+ const uint32 AllDungeons = (1u << 30) - 1u;
+ const uint32 Scenarios[] = {0u, 0x15555555u, 0x2AAAAAAAu, AllDungeons};
+ for (const uint32 VictoryMask : Scenarios) {
+  Original->DiscoveredDungeonMask = static_cast<int32>(AllDungeons);
+  Original->DefeatedDungeonBossMask = static_cast<int32>(VictoryMask);
+  Bytes.Reset();
+  const FString Label = FString::Printf(TEXT("Victory pattern 0x%08x"), VictoryMask);
+  if (!TestTrue(*(Label + TEXT(" serializes")),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* Pattern = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(*(Label + TEXT(" restores")), Pattern)) return false;
+  TestEqual(*(Label + TEXT(" keeps all discovered entrances")),
+    Pattern->DiscoveredDungeonMask, static_cast<int32>(AllDungeons));
+  TestEqual(*(Label + TEXT(" keeps exact victories")),
+    Pattern->DefeatedDungeonBossMask, static_cast<int32>(VictoryMask));
+ }
+
+ // Emulate serialized V9 data and check it retains existing progress with
+ // zero new boss victories. This does not substitute for loading a genuine
+ // historical on-disk V9 fixture through LoadWorldProgress.
+ Original->Version = 9;
+ Original->DiscoveredDungeonMask = static_cast<int32>(FirstDungeon | MidDungeon);
+ Original->DefeatedDungeonBossMask = 0;
+ Original->Salvage = 9876;
+ Original->Level = 23;
+ Bytes.Reset();
+ if (!TestTrue(TEXT("V9-compatible save serializes"),
+       UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+ UMoonfallPersistentSave* Legacy = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("V9-compatible save restores"), Legacy)) return false;
+ TestEqual(TEXT("Legacy version remains V9 before game migration"), Legacy->Version, 9);
+ TestEqual(TEXT("Legacy discovered entrances retained"),
+   Legacy->DiscoveredDungeonMask, static_cast<int32>(FirstDungeon | MidDungeon));
+ TestEqual(TEXT("Legacy has no invented boss victories"),
+   Legacy->DefeatedDungeonBossMask, 0);
+ TestEqual(TEXT("Legacy currency retained"), Legacy->Salvage, 9876);
+ TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
  return !HasAnyErrors();
 }
 

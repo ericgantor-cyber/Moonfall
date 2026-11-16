@@ -1,6 +1,5 @@
 param(
     [string]$UnrealRoot = $env:UE54_ROOT,
-    [switch]$SkipBuild,
     [string]$ReportDirectory = ""
 )
 $ErrorActionPreference = 'Stop'
@@ -19,10 +18,11 @@ if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
     throw "Unreal project missing: $project"
 }
 & (Join-Path $PSScriptRoot 'Test-UnrealEngineVersion.ps1') -UnrealRoot $UnrealRoot
-if (-not $SkipBuild) {
-    & (Join-Path $PSScriptRoot 'Build-Windows.ps1') -UnrealRoot $UnrealRoot -CompileOnly
-    if ($LASTEXITCODE -ne 0) { throw "Native UE5 Win64 compilation failed: $LASTEXITCODE" }
-}
+# This native evidence must always use freshly compiled C++ from this checkout.
+# A skip-build switch could otherwise test stale Editor binaries after changes.
+& (Join-Path $PSScriptRoot 'Build-Windows.ps1') -UnrealRoot $UnrealRoot -CompileOnly
+if (-not $?) { throw 'Native UE5 Win64 compilation command failed.' }
+if ($LASTEXITCODE -ne 0) { throw "Native UE5 Win64 compilation failed: $LASTEXITCODE" }
 if (-not $ReportDirectory) {
     $ReportDirectory = Join-Path $repoRoot 'MoonfallUnrealLocalBuild\DungeonAutomation'
 }
@@ -42,7 +42,8 @@ $logText = Get-Content -LiteralPath $log -Raw
 $required = @(
     'Moonfall.Dungeons.All30EntranceLocations',
     'Moonfall.Dungeons.SeededRoomArchetypes',
-    'Moonfall.Dungeons.BossVictoryLedgerDefaults'
+    'Moonfall.Dungeons.BossVictoryLedgerDefaults',
+    'Moonfall.Dungeons.BossVictorySaveRoundTrip'
 )
 # Fail closed. A test being discovered or started does not count as success.
 $results = @{}
@@ -65,4 +66,4 @@ $summary | ForEach-Object { Write-Host $_ }
 if ($editorExit -ne 0 -or $failedMarker -or ($results.Values -contains $false)) {
     throw "Native dungeon tests NOT verified as passed. Inspect $log and $report."
 }
-Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all three native tests explicitly passed in UE5.4.'
+Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all four native tests explicitly passed in UE5.4.'
