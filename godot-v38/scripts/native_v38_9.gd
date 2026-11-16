@@ -32,12 +32,10 @@ func _attack()->void:
  super._attack()
  rhythm_strike_active=false
  rhythm_pending_stage=1
- if not eligible or attack_cooldown<=before_cooldown:return
- # An accepted swing that misses breaks the chain; rejected inputs do not.
- if not rhythm_strike_landed:
-  rhythm_chain=0
-  return
- rhythm_chain=stage
+ var accepted:bool=eligible and attack_cooldown>before_cooldown
+ # A rejected input preserves the combo; an accepted miss ends it.
+ rhythm_chain=RHYTHM.resolved_chain(rhythm_chain,stage,accepted,rhythm_strike_landed)
+ if not accepted or not rhythm_strike_landed:return
  rhythm_last_strike_at=map_time
  if rhythm_chain==3:
   _show_message("TRIPLE STRIKE!",0.65)
