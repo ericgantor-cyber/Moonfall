@@ -302,23 +302,31 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  const int32 MaxDungeonEncounterSpawns = (ChamberCount - 2) * 6;
  const int32 Remaining = FMath::Max(0, MaxDungeonEncounterSpawns - SpawnedEncounterCount);
  if (Remaining == 0) return true;
- // Check global live population only on chamber entry, never every Tick.
- // This protects slower Windows PCs when multiple dungeons remain visited.
- constexpr int32 MaxLiveWorldEnemies = 60;
+ // Estimate current load when the chamber is entered. This is a soft
+ // performance budget, not a global enemy-count limit. Existing enemies remain.
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
   if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
   if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
-  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
+  ++AliveWorldEnemies;
  }
+ // Frame delta is a snapshot, not a benchmark; use conservative load tiers
+ // and fall back to a 60 FPS frame when the world has not started ticking.
+ const float FrameSeconds = GetWorld()->GetDeltaSeconds();
+ const float FrameMilliseconds = FMath::IsFinite(FrameSeconds) && FrameSeconds > 0.f
+   ? FrameSeconds * 1000.f : (1000.f / 60.f);
+ const float Load = FMath::Max(FrameMilliseconds / (1000.f / 60.f),
+   static_cast<float>(AliveWorldEnemies) / 48.f);
+ const int32 PerformanceSpawnBudget = Load <= 1.3f ? 6
+   : (Load <= 1.75f ? 4 : (Load <= 2.5f ? 2 : 1));
  FRandomStream EncounterRandom(
    GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
  const int32 Requested = bEliteEncounter ? 1
    : FMath::Clamp(EnemiesPerCombatChamber, 1, 6);
  const int32 Count = FMath::Min(Remaining,
-   FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies));
+   FMath::Min(Requested, PerformanceSpawnBudget));
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   // Two lanes of three enemies, spaced to fit within the chamber floor.
@@ -413,16 +421,8 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
      || DungeonIndex < 0 || DungeonIndex >= 5) return false;
  // Existing saves must not respawn permanently defeated bosses.
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
- // Count all living world enemies once, on first final-room entry only.
- // Bosses cannot bypass the same global cap imposed on combat chambers.
- constexpr int32 MaxLiveWorldEnemies = 60;
- int32 AliveWorldEnemies = 0;
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
-  const AMoonfallEnemy* Other = *It;
-  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
-  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
- }
+ // Bosses are not withheld by the regular-room performance spawn budget.
+ // Their existing collision and save guards remain in force.
  // Position the boss away from the centerline where the player enters.
  const FVector Position = GetActorTransform().TransformPosition(
    FVector((ChamberCount - 1) * ChamberLength + 270.f, 190.f, 100.f));
