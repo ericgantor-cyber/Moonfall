@@ -283,8 +283,12 @@ void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
 
 void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 {
- if (!Body || !GetWorld() || DefeatAnimationStartedAt < 0.f) return;
- const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
+ if (!Body || !GetWorld() || !FMath::IsFinite(DefeatAnimationStartedAt)
+     || DefeatAnimationStartedAt < 0.f) return;
+ const float WorldTime = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(WorldTime)) return;
+ const float Age = WorldTime - DefeatAnimationStartedAt;
+ if (!FMath::IsFinite(Age)) return;
  const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
  const float Ease = T * T * (3.f - 2.f * T);
  const float Direction = DefeatAnimationStyle % 2 == 0 ? -1.f : 1.f;
