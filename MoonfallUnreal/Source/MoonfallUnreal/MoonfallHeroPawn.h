@@ -100,7 +100,8 @@ public:
  int32 DefeatedDungeonBossMask = 0;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
  bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Boss")
+ // Internal kill-path API only: never allow a generic Blueprint event
+ // to persist a victory without the real dungeon boss death callback.
  bool MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);
  // Permanent WoW-style zone/campaign completion counters (not discovery).
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
