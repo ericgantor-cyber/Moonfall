@@ -133,6 +133,13 @@ var inventory_filter:String="All"
 var inventory_sort:String="Default"
 var inventory_page:int=0
 var inventory_show_vault:bool=false
+var inventory_selected_index:int=-1
+var inventory_restore_focus:bool=false
+var crafting_selected_index:int=0
+var crafting_craftable_only:bool=false
+var crafting_category:String="All"
+var crafting_ready_first:bool=false
+var crafting_restore_focus:bool=false
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1062,57 +1069,74 @@ func _build_ui() -> void:
  menu_panel.visible=false
  pause_screen=menu_panel
  var frame:=PanelContainer.new()
- frame.position=Vector2(48,115)
- frame.size=Vector2(1090,550)
+ frame.position=Vector2(48,95)
+ frame.size=Vector2(1090,590)
  menu_panel.add_child(frame)
  var layout:=VBoxContainer.new()
- layout.add_theme_constant_override("separation",8)
+ layout.add_theme_constant_override("separation",5)
  frame.add_child(layout)
+ var tab_scroll:=ScrollContainer.new()
+ tab_scroll.custom_minimum_size=Vector2(0,40)
+ tab_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tab_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+ tab_scroll.follow_focus=true
+ layout.add_child(tab_scroll)
  var tabs:=HBoxContainer.new()
- tabs.add_theme_constant_override("separation",7)
- layout.add_child(tabs)
+ tabs.add_theme_constant_override("separation",3)
+ tab_scroll.add_child(tabs)
  for tab in ["Character","World","Wallet","Inventory","Materials","Hero Skills","Tamer","Professions","Hunter","Bestiary","System"]:
   var tab_button:=Button.new()
   tab_button.text=tab
-  tab_button.custom_minimum_size=Vector2(86,43)
+  tab_button.custom_minimum_size=Vector2(82,34)
   tab_button.add_theme_font_size_override("font_size",12)
+  tab_button.tooltip_text="Open "+tab
   tab_button.pressed.connect(_menu_tab.bind(tab))
   tabs.add_child(tab_button)
   if not is_instance_valid(atlas_first_tab):atlas_first_tab=tab_button
  var contents:=HBoxContainer.new()
- contents.add_theme_constant_override("separation",14)
+ contents.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ contents.add_theme_constant_override("separation",8)
  layout.add_child(contents)
  var guide_column:=VBoxContainer.new()
- guide_column.custom_minimum_size=Vector2(300,450)
+ guide_column.custom_minimum_size=Vector2(270,400)
+ guide_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
  contents.add_child(guide_column)
  beast_guide=TextureRect.new()
- beast_guide.custom_minimum_size=Vector2(295,200)
+ beast_guide.custom_minimum_size=Vector2(268,165)
  beast_guide.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
  beast_guide.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
  guide_column.add_child(beast_guide)
  inventory_search_input=LineEdit.new()
  inventory_search_input.placeholder_text="Search equipment or materials..."
- inventory_search_input.custom_minimum_size=Vector2(295,34)
+ inventory_search_input.custom_minimum_size=Vector2(268,32)
  inventory_search_input.max_length=80
+ inventory_search_input.clear_button_enabled=true
+ inventory_search_input.tooltip_text="Click to search bag or materials. Use the clear icon to reset."
  inventory_search_input.visible=false
  inventory_search_input.text_changed.connect(_on_inventory_query_changed)
  guide_column.add_child(inventory_search_input)
  var action_scroll:=ScrollContainer.new()
- action_scroll.custom_minimum_size=Vector2(295,175)
+ action_scroll.custom_minimum_size=Vector2(268,195)
+ action_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ action_scroll.follow_focus=true
+ action_scroll.tooltip_text="Scroll the action list with your mouse wheel."
  guide_column.add_child(action_scroll)
  menu_buttons=VBoxContainer.new()
- menu_buttons.add_theme_constant_override("separation",6)
+ menu_buttons.add_theme_constant_override("separation",3)
  action_scroll.add_child(menu_buttons)
  var scroller:=ScrollContainer.new()
- scroller.custom_minimum_size=Vector2(735,452)
+ scroller.custom_minimum_size=Vector2(735,420)
+ scroller.size_flags_vertical=Control.SIZE_EXPAND_FILL
  scroller.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ scroller.follow_focus=true
+ scroller.tooltip_text="Scroll character details, inventory details, and settings with your mouse wheel."
  contents.add_child(scroller)
  menu_body=RichTextLabel.new()
  menu_body.bbcode_enabled=true
  menu_body.fit_content=true
  menu_body.scroll_active=true
  menu_body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
- menu_body.add_theme_font_size_override("normal_font_size",17)
+ menu_body.add_theme_font_size_override("normal_font_size",15)
  scroller.add_child(menu_body)
  _menu_tab("Character")
  if is_instance_valid(hero_start_button):hero_start_button.call_deferred("grab_focus")
@@ -1127,6 +1151,8 @@ func _inventory_action(action:String)->void:
  match action:
   "inventory_toggle":
    inventory_show_vault=not inventory_show_vault
+   inventory_selected_index=-1
+   inventory_restore_focus=false
    inventory_page=0
   "inventory_filter":
    var filters: Array[String]=["All","Common","Uncommon","Rare","Epic","Legendary","Mythic","Crafted"]
@@ -1138,6 +1164,47 @@ func _inventory_action(action:String)->void:
    inventory_page=0
   "inventory_page_next":inventory_page+=1
   "inventory_page_prev":inventory_page=maxi(0,inventory_page-1)
+  "inventory_select_best":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    _show_message("No matching equipment to inspect.",2)
+    return
+   var best_index:int=matching[0]
+   for index in matching:
+    if int(gear_items[index].get("power",0))>int(gear_items[best_index].get("power",0)):
+     best_index=index
+   inventory_selected_index=best_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(best_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
+  "inventory_select_upgrade":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   var equipped_power:int=_equipment_power()
+   var upgrade_index:int=-1
+   for index in matching:
+    var candidate_power:int=int(gear_items[index].get("power",0))
+    if candidate_power<=equipped_power:continue
+    if upgrade_index<0 or candidate_power>int(gear_items[upgrade_index].get("power",0)):
+     upgrade_index=index
+   if upgrade_index<0:
+    _show_message("No matching power upgrades found.",2)
+    return
+   inventory_selected_index=upgrade_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(upgrade_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
+  "inventory_select_next","inventory_select_prev":
+   var source:Array=vault_items if inventory_show_vault else gear_items
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    inventory_selected_index=-1
+    return
+   var selected_at:int=matching.find(inventory_selected_index)
+   if selected_at<0:selected_at=0 if action=="inventory_select_next" else matching.size()-1
+   else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
+   inventory_selected_index=matching[selected_at]
+   inventory_restore_focus=true
+   inventory_page=floori(float(selected_at)/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_upgrade":
    var cost:int=INVENTORY_RULES.upgrade_cost(bag_capacity)
    if cost<=0 or not _wallet_can_afford(cost*MONEY_RULES.COPPER_PER_GOLD):
@@ -1150,12 +1217,21 @@ func _inventory_action(action:String)->void:
   _:
    if action.begins_with("inventory_deposit:"):
     var idx:int=int(action.get_slice(":",1))
+    if idx<0 or idx>=gear_items.size():
+     _show_message("Item unavailable.",2)
+     return
+    # Prevent equipped gear from leaving the bag while still active.
+    if not equipped.is_empty() and equipped==gear_items[idx]:
+     _show_message("Unequip that item before depositing it.",2)
+     return
     if INVENTORY_RULES.transfer_gear(gear_items,vault_items,idx,INVENTORY_RULES.VAULT_LIMIT):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Vault full or item unavailable.",2)
    elif action.begins_with("inventory_withdraw:"):
     var idx:int=int(action.get_slice(":",1))
     if INVENTORY_RULES.transfer_gear(vault_items,gear_items,idx,bag_capacity):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Bag full or item unavailable.",2)
 
@@ -1174,8 +1250,11 @@ func _menu_tab(which: String) -> void:
  if not is_instance_valid(menu_body):return
  if is_instance_valid(inventory_search_input):
   inventory_search_input.visible=which in ["Inventory","Materials"]
- for child in menu_buttons.get_children():child.queue_free()
+ for child in menu_buttons.get_children():
+  menu_buttons.remove_child(child)
+  child.queue_free()
  beast_guide.texture=null
+ beast_guide.visible=which in ["Character","Bestiary"]
  match which:
   "Character":
    beast_guide.texture=NYRA_ART if hero=="nyra" else Z_ART
@@ -1236,19 +1315,75 @@ func _menu_tab(which: String) -> void:
    var matches:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
    var pages:int=INVENTORY_RULES.page_count(matches.size())
    inventory_page=clampi(inventory_page,0,pages-1)
-   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\n\n"
-   for n in range(inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE,mini((inventory_page+1)*INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())):
+   var start:int=inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE
+   var end:int=mini(start+INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())
+   # Never keep a hidden or stale selection when the filter or page changes.
+   if end>start and not (inventory_selected_index in matches.slice(start,end)):
+    inventory_selected_index=matches[start]
+   elif matches.is_empty():inventory_selected_index=-1
+   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nClick a tile to inspect • Right-click a bag tile to equip.\n"
+   var item_grid:=GridContainer.new()
+   item_grid.columns=2
+   item_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+   item_grid.add_theme_constant_override("h_separation",5)
+   item_grid.add_theme_constant_override("v_separation",5)
+   menu_buttons.add_child(item_grid)
+   for n in range(start,end):
     var index:int=matches[n]
     var gear:Dictionary=source[index]
-    text+=str(index+1)+". "+str(gear.get("rarity","Common"))+" "+str(gear.get("name","Gear"))+" • Power "+str(gear.get("power",0))+"\n"
-    if inventory_show_vault:
-     _atlas_action("WITHDRAW: "+str(gear.get("name","Gear")),"inventory_withdraw:"+str(index))
-    else:
-     _atlas_action("EQUIP: "+str(gear.get("name","Gear")),"equip:"+str(index))
-     _atlas_action("DEPOSIT: "+str(gear.get("name","Gear")),"inventory_deposit:"+str(index))
+    _inventory_tile(item_grid,gear,index)
+   inventory_restore_focus=false
    if matches.is_empty():text+="No matching equipment. Defeat enemies or change your search.\n"
+   if end>start:
+    var selected_item:Dictionary=source[inventory_selected_index]
+    if inventory_show_vault:
+     _atlas_action("WITHDRAW SELECTED: "+str(selected_item.get("name","Gear")),"inventory_withdraw:"+str(inventory_selected_index))
+    else:
+     if not equipped.is_empty() and equipped==selected_item:
+      _atlas_action("EQUIPPED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     else:
+      _atlas_action("EQUIP SELECTED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     _atlas_action("DEPOSIT SELECTED","inventory_deposit:"+str(inventory_selected_index))
+    if matches.size()>1:
+     _atlas_action("PREVIOUS ITEM","inventory_select_prev")
+     _atlas_action("NEXT ITEM","inventory_select_next")
+    if not inventory_show_vault and not matches.is_empty():
+     _atlas_action("FIND BEST POWER","inventory_select_best","Select the strongest matching item without equipping it.")
+     _atlas_action("FIND UPGRADE","inventory_select_upgrade","Select the strongest matching item above your current equipment power. Does not equip.")
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
+   if inventory_selected_index>=0 and inventory_selected_index<source.size():
+    var selected:Dictionary=source[inventory_selected_index]
+    var chosen_rarity:String=str(selected.get("rarity","Common"))
+    var selected_power:int=int(selected.get("power",0))
+    text+="\n\n[b]ITEM INSPECTION[/b]\n[color="+_inventory_rarity_color(chosen_rarity)+"][b]"+str(selected.get("name","Gear"))+"[/b][/color]"
+    text+="\n"+chosen_rarity+" • Item Power "+str(selected_power)
+    if not inventory_show_vault and not equipped.is_empty() and equipped==selected:
+     text+="\n[color=#57dc91][b]CURRENTLY EQUIPPED[/b][/color]"
+    if selected.has("affix") and str(selected.get("affix",""))!="":
+     text+="\nBonus: "+str(selected.get("affix","")).capitalize()+" • "+str(selected.get("affix_value",0))
+    if not inventory_show_vault:
+     var equipped_power:int=_equipment_power()
+     var difference:int=selected_power-equipped_power
+     text+="\n[b]COMPARE WITH EQUIPPED[/b]"
+     if not equipped.is_empty() and equipped==selected:text+="\nYou are already wearing this item."
+     text+="\nCurrent: "+str(equipped.get("name","None"))+" • Power "+str(equipped_power)
+     text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
+     var current_affix:String=str(equipped.get("affix",""))
+     var chosen_affix:String=str(selected.get("affix",""))
+     if chosen_affix!="" or current_affix!="":
+      text+="\n[b]BONUS COMPARISON[/b]"
+      text+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+      text+="\nSelected bonus: "+_inventory_bonus_label(selected)
+      if chosen_affix!="" and chosen_affix==current_affix:
+       var bonus_delta:float=float(selected.get("affix_value",0))-float(equipped.get("affix_value",0))
+       text+="\nSame bonus difference: [color="+("#57dc91" if bonus_delta>0.0 else "#ed8391" if bonus_delta<0.0 else "#c8d4e6")+"]"+("+" if bonus_delta>0.0 else "")+str(snappedf(bonus_delta,0.001))+"[/color]"
+      elif chosen_affix=="" or current_affix=="":text+="\nOne item has no bonus; review its overall power and effects."
+      else:text+="\nDifferent bonus types; compare their effects before equipping."
+    else:text+="\nIn vault • Withdraw to compare or equip."
+    if inventory_show_vault:text+="\nWithdraw before equipping."
+    elif not equipped.is_empty() and equipped==selected:text+="\nThis equipment is already active."
+    else:text+="\nRight-click its tile to equip or use Equip Selected."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
    menu_body.text=text
   "Materials":
@@ -1261,7 +1396,8 @@ func _menu_tab(which: String) -> void:
     var amount:int=int(materials[key])
     if amount<=0:continue
     var stacks:Array[int]=INVENTORY_RULES.material_stack_counts(amount)
-    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks)\n"
+    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks) • Crafting storage\n"
+    _material_hover_row(str(key),amount,stacks.size())
     found+=1
    if found==0:text+="No matching materials.\n"
    text+="\nCraft items in the Professions tab."
@@ -1279,24 +1415,67 @@ func _menu_tab(which: String) -> void:
    if not companion.is_empty():text+="\nCompanion health: "+str(int(companion.get("hp",0)))+" / "+str(int(companion.get("max",80)))
    menu_body.text=text
   "Professions":
-   var text:="[b]PROFESSIONS / CRAFTING[/b]\nSkinning "+str(skinning_skill)+" / 300\nLeatherworking "+str(crafting_skill)+" / 300\n\n[b]Materials:[/b]\n"
-   for k in materials.keys():text+=str(k)+": "+str(materials[k])+"\n"
-   text+="\n[b]Recipes[/b]\n"
+   var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300 • "+_craft_skill_rank(skinning_skill)
+   text+="\nLeatherworking "+str(crafting_skill)+" / 300 • "+_craft_skill_rank(crafting_skill)
+   text+="\n"+_craft_skill_progress(skinning_skill,"Skinning")
+   text+="\n"+_craft_skill_progress(crafting_skill,"Leatherworking")+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
+   _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
+   _atlas_action("CATEGORY: "+crafting_category.to_upper(),"recipe_category","Browse all recipes, equipment, or consumables.")
+   _atlas_action("ORDER: "+("READY FIRST" if crafting_ready_first else "RECIPE LIST"),"recipe_order","Show craftable recipes first or restore the original recipe order.")
+   var available:Array[int]=[]
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
-    text+=str(i+1)+". "+str(recipe["name"])+" • "+str(recipe["cost"])+"\n"
-    _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i))
+    var issue:String=INVENTORY_RULES.craft_issue(recipe,materials,gear_items.size(),bag_capacity)
+    if crafting_craftable_only and issue!="":continue
+    var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
+    if crafting_category!="All" and category!=crafting_category:continue
+    available.append(i)
+   # Apply ordering before building the clickable recipe list.
+   if crafting_ready_first:
+    var ready:Array[int]=[]
+    var blocked:Array[int]=[]
+    for recipe_index in available:
+     if INVENTORY_RULES.craft_issue(RECIPES[recipe_index],materials,gear_items.size(),bag_capacity)=="":ready.append(recipe_index)
+     else:blocked.append(recipe_index)
+    available=ready+blocked
+   # Reconcile selection before creating list buttons, so the visible marker is correct.
+   if not available.is_empty() and not (crafting_selected_index in available):
+    crafting_selected_index=available[0]
+   var ready_count:int=0
+   for recipe_index in available:
+    var entry:Dictionary=RECIPES[recipe_index]
+    var issue:String=INVENTORY_RULES.craft_issue(entry,materials,gear_items.size(),bag_capacity)
+    if issue=="":ready_count+=1
+    var kind:String="Consumable" if int(entry.get("power",0))==0 else "Equipment"
+    var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else _recipe_blocker_summary(entry))
+    _atlas_action(title,"recipe_select:"+str(recipe_index),"Select this recipe to see all ingredients and crafting information.")
+   crafting_restore_focus=false
+   text+="\nRecipes: "+str(available.size())+" • Ready: "+str(ready_count)+" • Missing: "+str(available.size()-ready_count)
+   if available.is_empty():
+    text+="\nNo recipes match these filters. Change category or show all recipes.\n"
+   else:
+    var chosen:Dictionary=RECIPES[crafting_selected_index]
+    var chosen_issue:String=INVENTORY_RULES.craft_issue(chosen,materials,gear_items.size(),bag_capacity)
+    text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
+    text+="\n"+_recipe_hover_details(chosen)
+    text+="\n[b]CAN CRAFT:[/b] "+str(_recipe_possible_count(chosen))+" with current materials and bag space."
+    text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else _recipe_blocker_summary(chosen)+" • "+chosen_issue)
+    if _combat_threat():text+="\nCrafting blocked while enemies are attacking."
+    _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
    menu_body.text=text
   "Hunter":
    var text:="[b]HUNTER'S PATH[/b]\n\nHunter Senses: "+("ACTIVE" if senses_on else "INACTIVE")+"\nContracts completed: "+str(contracts_done.size())+"/6\nHunter Oil: "+str(int(hunter_oil_time))+"s\n"
    if contract_zone>=0:text+="\nACTIVE CONTRACT: "+str(REGIONS[contract_zone]["name"])+" · "+str(contract_kills)+" / 3 hostile beasts.\n"
    else:text+="\nAccept one regional monster contract; hunt three hostile beasts in that region.\n"
+   text+="\n\n[b]CONSUMABLES[/b]"
+   text+="\nHunter\'s Oil: "+str(materials.get("Hunter\'s Oil",0))+" owned • Temporary hunting effect (25 seconds). Dismount before use."
+   text+="\nHealing Draught: "+str(materials.get("Healing Draught",0))+" owned • Restores 35% maximum health. Dismount before use."
    menu_body.text=text
    _atlas_action("TOGGLE HUNTER SENSES","senses")
    for i in range(REGIONS.size()):
     if not (i in contracts_done):_atlas_action("ACCEPT: "+str(REGIONS[i]["name"]),"contract:"+str(i))
-   _atlas_action("USE HUNTER'S OIL","oil")
-   _atlas_action("USE HEALING DRAUGHT","heal")
+   _atlas_action("USE HUNTER'S OIL","oil","Hunter's Oil\nOwned: "+str(materials.get("Hunter's Oil",0))+"\nApplies a temporary hunting effect for 25 seconds. Dismount before use.")
+   _atlas_action("USE HEALING DRAUGHT","heal","Healing Draught\nOwned: "+str(materials.get("Healing Draught",0))+"\nRestores 35% of maximum health, up to full health. Dismount before use.")
   "Bestiary":
    var text:="[b]MOONFALL BESTIARY[/b]\nEight native beast families. Normal, Moon-Touched, Duskborn, and Elder variants may appear.\n\n"
    for k in BEASTS.keys():
@@ -1317,13 +1496,203 @@ func _menu_tab(which: String) -> void:
    _atlas_action("RESUME GAME","resume")
    _atlas_action("RETURN TO HERO SELECT","title")
 
+func _material_hover_row(name:String,amount:int,stack_count:int)->void:
+ var row:=Label.new()
+ row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"
+ row.tooltip_text=name+"\nOwned: "+str(amount)+"\nStorage: Materials (separate from gear bag)\nStacks: "+str(stack_count)+" • 999 per stack\nUsed for crafting when required by recipes."
+ row.mouse_filter=Control.MOUSE_FILTER_STOP
+ row.custom_minimum_size=Vector2(270,30)
+ row.add_theme_font_size_override("font_size",15)
+ menu_buttons.add_child(row)
+
+func _craft_skill_rank(level:int)->String:
+ if level>=300:return "Master"
+ if level>=225:return "Artisan"
+ if level>=150:return "Expert"
+ if level>=75:return "Journeyman"
+ return "Apprentice"
+
+func _craft_skill_progress(level:int,profession:String="Leatherworking")->String:
+ var current:int=clampi(level,1,300)
+ if current>=300:return profession+": MASTER • MAX 300/300 ["+"■".repeat(10)+"]"
+ var milestone:int=75 if current<75 else 150 if current<150 else 225 if current<225 else 300
+ var start:int=1 if current<75 else 75 if current<150 else 150 if current<225 else 225
+ var range_size:int=milestone-start
+ var gained:int=current-start
+ var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
+ var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
+ return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+
+func _recipe_blocker_summary(recipe:Dictionary)->String:
+ var costs:Dictionary=recipe.get("cost",{})
+ var missing:PackedStringArray=PackedStringArray()
+ for material in costs.keys():
+  var needed:int=int(costs[material])-int(materials.get(str(material),0))
+  if needed>0:missing.append(str(needed)+" "+str(material))
+ if not missing.is_empty():
+  return "NEED "+", ".join(missing)
+ if int(recipe.get("power",0))>0 and gear_items.size()>=bag_capacity:
+  return "BAG FULL"
+ return "BLOCKED"
+
+func _recipe_possible_count(recipe:Dictionary)->int:
+ var costs:Dictionary=recipe.get("cost",{})
+ if costs.is_empty():return 0
+ var possible:int=999
+ for material in costs.keys():
+  var required:int=int(costs[material])
+  if required<=0:return 0
+  possible=mini(possible,floori(float(materials.get(str(material),0))/float(required)))
+ if int(recipe.get("power",0))>0:
+  possible=mini(possible,maxi(0,bag_capacity-gear_items.size()))
+ return maxi(0,possible)
+
+func _recipe_hover_details(recipe:Dictionary)->String:
+ var info:String=str(recipe.get("name","Recipe"))
+ var costs_value:Variant=recipe.get("cost",{})
+ if costs_value is Dictionary:
+  var costs:Dictionary=costs_value
+  for material in costs.keys():
+   var required:int=int(costs[material])
+   var owned:int=int(materials.get(str(material),0))
+   info+="\n"+str(material)+": "+str(owned)+" / "+str(required)+(" • READY" if owned>=required else " • NEED "+str(required-owned))
+ var power:int=int(recipe.get("power",0))
+ if power>0:info+="\nCrafted equipment power: "+str(power)
+ info+="\nSelect Craft to attempt this recipe."
+ return info
+
+func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
+ var tile:=Button.new()
+ var rarity:String=str(gear.get("rarity","Common"))
+ var name:String=str(gear.get("name","Gear"))
+ var selected:bool=inventory_selected_index==index
+ tile.name="ItemTile_%d"%index
+ var is_equipped:bool=not inventory_show_vault and not equipped.is_empty() and equipped==gear
+ var difference:int=int(gear.get("power",0))-_equipment_power()
+ var comparison:String=""
+ if not inventory_show_vault:
+  if is_equipped:comparison="EQUIPPED"
+  elif difference>0:comparison="▲ +"+str(difference)+" power"
+  elif difference<0:comparison="▼ "+str(difference)+" power"
+  else:comparison="= same power"
+ tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+("\n"+comparison if comparison!="" else "")
+ tile.clip_text=true
+ tile.custom_minimum_size=Vector2(124,92)
+ tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tile.focus_mode=Control.FOCUS_ALL
+ tile.add_theme_font_size_override("font_size",14)
+ tile.add_theme_color_override("font_color",Color(_inventory_rarity_color(rarity)))
+ tile.add_theme_color_override("font_hover_color",Color(_inventory_rarity_color(rarity)))
+ tile.add_theme_color_override("font_focus_color",Color(_inventory_rarity_color(rarity)))
+ var normal_style:=StyleBoxFlat.new()
+ normal_style.bg_color=Color("#20232f") if not selected else Color("#373047")
+ normal_style.border_color=Color(_inventory_rarity_color(rarity))
+ normal_style.set_border_width_all(3 if selected else 1)
+ normal_style.set_corner_radius_all(6)
+ normal_style.set_content_margin_all(5)
+ tile.add_theme_stylebox_override("normal",normal_style)
+ var hover_style:StyleBoxFlat=normal_style.duplicate() as StyleBoxFlat
+ hover_style.bg_color=Color("#3b3b56")
+ hover_style.set_border_width_all(3)
+ tile.add_theme_stylebox_override("hover",hover_style)
+ tile.add_theme_stylebox_override("focus",hover_style)
+ # Every bag and vault item has a complete mouse-hover summary.
+ tile.tooltip_text=_inventory_hover_details(gear,inventory_show_vault,is_equipped)
+ tile.tooltip_text+="\nLeft-click to inspect"+(" • Already equipped" if is_equipped else " • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
+ tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
+ tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
+ grid.add_child(tile)
+ if selected and inventory_restore_focus:tile.call_deferred("grab_focus")
+
+func _inventory_hover_details(item:Dictionary,in_vault:bool,is_equipped:bool)->String:
+ var name:String=str(item.get("name","Gear"))
+ var rarity:String=str(item.get("rarity","Common"))
+ var power:int=int(item.get("power",0))
+ var detail:String=name+"\n"+rarity+" • Item Power "+str(power)
+ detail+="\nBonus: "+_inventory_bonus_label(item)
+ if in_vault:
+  detail+="\nLocation: Personal Vault"
+  detail+="\nWithdraw this item to equip it."
+ else:
+  detail+="\nLocation: Equipment Bag"
+  if is_equipped:detail+="\nCURRENTLY EQUIPPED"
+  else:
+   var current_power:int=_equipment_power()
+   var difference:int=power-current_power
+   detail+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(current_power)
+   detail+="\nPower change: "+("+" if difference>0 else "")+str(difference)
+   var current_bonus:String=str(equipped.get("affix",""))
+   var candidate_bonus:String=str(item.get("affix",""))
+   if candidate_bonus!="" and candidate_bonus==current_bonus:
+    var bonus_difference:float=float(item.get("affix_value",0))-float(equipped.get("affix_value",0))
+    detail+="\nSame bonus change: "+("+" if bonus_difference>0.0 else "")+str(snappedf(bonus_difference,0.001))
+   elif current_bonus!="" or candidate_bonus!="":
+    detail+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+ return detail
+
+func _inventory_bonus_label(item:Dictionary)->String:
+ var affix:String=str(item.get("affix",""))
+ if affix=="":return "None"
+ return affix.capitalize()+" ("+str(item.get("affix_value",0))+")"
+
+func _inventory_rarity_color(rarity:String)->String:
+ match rarity:
+  "Uncommon":return "#62d77e"
+  "Rare":return "#5a9bf8"
+  "Epic":return "#b980ef"
+  "Legendary":return "#f7ac54"
+  "Mythic":return "#f7799a"
+  "Crafted":return "#62d8d3"
+  _:return "#dee5ee"
+
 func _atlas_action(label: String, action: String, tip: String="") -> void:
  var button:=Button.new()
  button.text=label
  if tip!="":button.tooltip_text=tip
- button.custom_minimum_size=Vector2(270,32)
+ button.custom_minimum_size=Vector2(260,32)
+ button.add_theme_font_size_override("font_size",13)
+ button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+ button.clip_text=true
+ button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ button.focus_mode=Control.FOCUS_ALL
+ if current_tab=="Professions" and action=="craft_selected":
+  if crafting_selected_index<0 or crafting_selected_index>=RECIPES.size():button.disabled=true
+  else:
+   var issue:String=INVENTORY_RULES.craft_issue(RECIPES[crafting_selected_index],materials,gear_items.size(),bag_capacity)
+   if _combat_threat():issue="Cannot craft while enemies are attacking."
+   if issue!="":
+    button.disabled=true
+    button.tooltip_text=issue
+ if current_tab=="Inventory" and not inventory_show_vault and (action.begins_with("equip:") or action.begins_with("inventory_deposit:")):
+  var gear_index:int=int(action.get_slice(":",1))
+  if gear_index>=0 and gear_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[gear_index]:
+   button.disabled=true
+   button.tooltip_text="Already equipped." if action.begins_with("equip:") else "Cannot deposit equipped gear. Equip another item first."
+ if action.begins_with("equip:") or action.begins_with("inventory_select:"):
+  if not button.disabled:
+   if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+   elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
+   else:button.tooltip_text="Left-click to inspect; right-click to equip."
+   button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
+ if current_tab=="Professions" and crafting_restore_focus and action=="recipe_select:"+str(crafting_selected_index):
+  button.call_deferred("grab_focus")
+
+func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
+ if not menu_open or current_tab!="Inventory":return
+ if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
+  if action.begins_with("inventory_select:"):
+   if inventory_show_vault:
+    get_viewport().set_input_as_handled()
+    return
+   var item_index:int=int(action.get_slice(":",1))
+   if item_index>=0 and item_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[item_index]:
+    get_viewport().set_input_as_handled()
+    return
+   _atlas_execute("equip:"+action.get_slice(":",1))
+  else:_atlas_execute(action)
+  get_viewport().set_input_as_handled()
 
 func _branch_hex(branch: String) -> String:
  if branch=="Bond":return "#d783ee"
@@ -1331,6 +1700,44 @@ func _branch_hex(branch: String) -> String:
  return "#7fcce9"
 
 func _atlas_execute(action: String) -> void:
+ if action.begins_with("recipe_select:"):
+  if not menu_open or current_tab!="Professions":return
+  var recipe_index:int=int(action.get_slice(":",1))
+  if recipe_index<0 or recipe_index>=RECIPES.size():return
+  crafting_selected_index=recipe_index
+  crafting_restore_focus=true
+  _menu_tab("Professions")
+  return
+ if action=="recipe_filter":
+  if not menu_open or current_tab!="Professions":return
+  crafting_craftable_only=not crafting_craftable_only
+  _menu_tab("Professions")
+  return
+ if action=="recipe_category":
+  if not menu_open or current_tab!="Professions":return
+  var categories:Array[String]=["All","Equipment","Consumable"]
+  crafting_category=categories[(categories.find(crafting_category)+1)%categories.size()]
+  _menu_tab("Professions")
+  return
+ if action=="recipe_order":
+  if not menu_open or current_tab!="Professions":return
+  crafting_ready_first=not crafting_ready_first
+  _menu_tab("Professions")
+  return
+ if action=="craft_selected":
+  if not menu_open or current_tab!="Professions":return
+  _craft(crafting_selected_index)
+  _menu_tab("Professions")
+  return
+ if action.begins_with("inventory_select:"):
+  if not menu_open or current_tab!="Inventory":return
+  var selected_index:int=int(action.get_slice(":",1))
+  var inventory_source:Array=vault_items if inventory_show_vault else gear_items
+  if selected_index<0 or selected_index>=inventory_source.size():return
+  inventory_selected_index=selected_index
+  inventory_restore_focus=true
+  _menu_tab("Inventory")
+  return
  if action.begins_with("inventory_"):
   _inventory_action(action)
   _menu_tab("Inventory")
@@ -1418,8 +1825,12 @@ func _reset_new_adventure() -> void:
  bag_capacity=INVENTORY_RULES.BAG_START_CAPACITY
  vault_items.clear()
  inventory_query=""
+ inventory_selected_index=-1
+ inventory_restore_focus=false
  inventory_page=0
  inventory_show_vault=false
+ crafting_selected_index=0
+ crafting_craftable_only=false
  if is_instance_valid(inventory_search_input):inventory_search_input.text=""
  equipped={}
  learned_talents={}
@@ -2786,8 +3197,15 @@ func _craft(index: int) -> void:
  var result:Dictionary=INVENTORY_RULES.craft_commit(recipe,materials)
  if not result["gear"].is_empty():gear_items.append(result["gear"])
  else:_gain_material(str(result["material"]),1)
+ var skill_before:int=crafting_skill
+ var previous_rank:String=_craft_skill_rank(skill_before)
  crafting_skill=mini(300,crafting_skill+1)
- _show_message("Crafted "+str(recipe["name"])+"!",2)
+ var new_rank:String=_craft_skill_rank(crafting_skill)
+ var feedback:String="Crafted "+str(recipe["name"])+"! Leatherworking "+str(skill_before)+" → "+str(crafting_skill)+"/300"
+ if crafting_skill==skill_before:feedback+=" • Skill cap reached."
+ elif new_rank!=previous_rank:feedback+=" • "+new_rank.to_upper()+" RANK REACHED!"
+ else:feedback+=" • "+_craft_skill_progress(crafting_skill,"Next milestone")
+ _show_message(feedback,3)
  _save_game()
 
 func _use_consumable(item: String) -> void:
@@ -2800,6 +3218,7 @@ func _use_consumable(item: String) -> void:
 
 func _equip(index: int) -> void:
  if index<0 or index>=gear_items.size():return
+ inventory_selected_index=index
  equipped=INVENTORY_RULES.equip_copy(gear_items,index)
  _show_message("Equipped "+str(equipped["name"]),2)
  _save_game()
@@ -2911,6 +3330,11 @@ func _normalize_saved_world_clock(data:Dictionary) -> float:
  return fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
 
 func _restore_data(data: Dictionary) -> void:
+ # UI-only selection never follows the previous hero into a loaded save.
+ inventory_selected_index=-1
+ inventory_restore_focus=false
+ inventory_page=0
+ inventory_show_vault=false
  hero=str(data.get("hero","z"))
  custom_hero_name=str(data.get("custom_hero_name","Wanderer")).substr(0,24)
  custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
@@ -3191,6 +3615,8 @@ func _wallet_action(action:String)->void:
   var price:int=MONEY_RULES.sell_value(item)
   var item_name:String=str(item.get("name","Gear"))
   gear_items.remove_at(idx)
+  inventory_selected_index=-1
+  inventory_restore_focus=false
   _add_coins(price)
   _show_message("Sold "+item_name+" for "+MONEY_RULES.format_total(price),2)
   _save_game()
