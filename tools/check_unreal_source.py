@@ -3670,13 +3670,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", hazard)
         self.assertIn("!FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f", hazard)
         self.assertIn("!FMath::IsFinite(HazardCooldownSeconds)", hazard)
-        self.assertIn("const bool bClockRewound", hazard)
+        self.assertIn("!FMath::IsFinite(Now) || Now < 0.f", hazard)
         self.assertIn("float LastHazardObservedTime = -1.f;", layout_h)
-        self.assertIn("Now < LastHazardObservedTime", hazard)
+        self.assertIn("const bool bClockRewound = FMath::IsFinite(LastHazardObservedTime)", hazard)
+        self.assertIn("Now < LastHazardObservedTime;", hazard)
         self.assertIn("LastHazardObservedTime = Now;", hazard)
+        self.assertIn("const float Remaining = NextHazardDamageAt - Now;", hazard)
         self.assertIn("!bClockRewound && FMath::IsFinite(Remaining)", hazard)
         self.assertIn("Remaining > 0.f && Remaining <= 20.f", hazard)
+        self.assertLess(hazard.index("Now < LastHazardObservedTime;"),
+                        hazard.index("LastHazardObservedTime = Now;"))
+        self.assertLess(hazard.index("LastHazardObservedTime = Now;"),
+                        hazard.index("if (!bClockRewound &&"))
         self.assertIn("if (!FMath::IsFinite(Next) || Next <= Now) return;", hazard)
+        self.assertLess(hazard.index("const float Remaining ="), hazard.index("NextHazardDamageAt = Next;"))
+        self.assertLess(hazard.index("NextHazardDamageAt = Next;"), hazard.index("Hero->ApplyMoonfallDamage("))
         self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
         self.assertIn("Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));", hazard)
         self.assertLess(hazard.index("Hero->DiscoverDungeonEntrance("),
