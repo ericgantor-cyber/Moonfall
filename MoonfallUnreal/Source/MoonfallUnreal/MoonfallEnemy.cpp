@@ -672,8 +672,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
   PerceptionParams.AddIgnoredActor(this);
   FHitResult PerceptionHit;
+  // Trace between upper-body points rather than floor-level actor origins.
+  // This prevents small steps and raised dungeon floors from falsely
+  // hiding a visible hero without adding another perception trace.
+  const FVector EnemySightPoint = EnemyPosition + FVector(0.f, 0.f, 60.f);
+  const FVector HeroSightPoint = HeroPosition + FVector(0.f, 0.f, 60.f);
   const bool bSightBlocked = GetWorld()->LineTraceSingleByChannel(
-    PerceptionHit, EnemyPosition, HeroPosition, ECC_Visibility, PerceptionParams)
+    PerceptionHit, EnemySightPoint, HeroSightPoint, ECC_Visibility, PerceptionParams)
     && PerceptionHit.GetActor() != Hero;
   bCanSeeHero = !bSightBlocked;
   // The old waypoint may lead toward the hero's now-hidden live position.
