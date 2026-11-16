@@ -39,6 +39,10 @@ namespace
   UTextBlock* Text = Tree->ConstructWidget<UTextBlock>();
   Text->SetText(FText::FromString(Name));
   Button->SetBackgroundColor(FLinearColor(0.23f, 0.19f, 0.12f, 1.f));
+  Button->SetContentPadding(FMargin(12.f, 9.f));
+  FSlateFontInfo Font = Text->GetFont();
+  Font.Size = 19;
+  Text->SetFont(Font);
   Button->AddChild(Text);
   Panel->AddChildToVerticalBox(Button);
   return Button;
@@ -87,6 +91,10 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  LeftSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  CenterSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  RightSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+ // Preview needs more space than either navigation rail, especially at 1080p.
+ LeftSlot->SetPadding(FMargin(0.f, 0.f, 12.f, 0.f));
+ CenterSlot->SetPadding(FMargin(8.f, 0.f));
+ RightSlot->SetPadding(FMargin(12.f, 0.f, 0.f, 0.f));
 
  AddLabel(WidgetTree, Left, TEXT("CHOOSE YOUR RACE"), 24);
  RaceList = WidgetTree->ConstructWidget<UScrollBox>();
@@ -101,6 +109,7 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  UVerticalBoxSlot* PortraitSlot = Center->AddChildToVerticalBox(PreviewImage);
  PortraitSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  PreviewCaption = AddLabel(WidgetTree, Center, TEXT("Original Moonfall preview supplied by game"), 16);
+ AddLabel(WidgetTree, Center, TEXT("Drag to rotate | Mouse wheel to zoom | R to reset"), 15);
  UButton* PreviousRace = AddAction(WidgetTree, Center, TEXT("Previous Race"));
  UButton* NextRace = AddAction(WidgetTree, Center, TEXT("Next Race"));
  PreviousRace->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandlePreviousRace);
@@ -111,6 +120,8 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  ResetView->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleResetPreview);
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
+ AddLabel(WidgetTree, Right, TEXT("Arrows / D-pad: race and family | Enter / A: continue"), 15);
+ AddLabel(WidgetTree, Right, TEXT("Q/E or shoulder buttons: family | Page Up/Down: zoom"), 15);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
  FamilyTitle = AddLabel(WidgetTree, Right, TEXT(""), 17);
  StatDetails = AddLabel(WidgetTree, Right, TEXT(""), 17);
@@ -287,6 +298,10 @@ void UMoonfallCharacterCreationWidget::RefreshRaceList()
    Choice->InitializeChoice(Profile.RaceId);
    Choice->OnRaceActivated.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleRaceChoice);
    UTextBlock* Label = WidgetTree->ConstructWidget<UTextBlock>();
+   FSlateFontInfo ChoiceFont = Label->GetFont();
+   ChoiceFont.Size = 20;
+   Label->SetFont(ChoiceFont);
+   Choice->SetContentPadding(FMargin(12.f, 12.f));
    Choice->AddChild(Label);
    RaceList->AddChild(Choice);
    RaceChoiceLabels.Add(Profile.RaceId, Label);
@@ -298,8 +313,12 @@ void UMoonfallCharacterCreationWidget::RefreshRaceList()
  {
   if (const TObjectPtr<UTextBlock>* Label = RaceChoiceLabels.Find(Profile.RaceId))
   {
-   const FString Prefix = Profile.RaceId == Selection.RaceId ? TEXT("> ") : TEXT("  ");
+   const bool bSelected = Profile.RaceId == Selection.RaceId;
+   const FString Prefix = bSelected ? TEXT("[SELECTED] ") : TEXT("  ");
    (*Label)->SetText(FText::FromString(Prefix + Profile.DisplayName.ToString()));
+   (*Label)->SetColorAndOpacity(FSlateColor(bSelected
+      ? FLinearColor(1.f, 0.91f, 0.62f, 1.f)
+      : FLinearColor(0.87f, 0.86f, 0.81f, 1.f)));
   }
  }
  LastRenderedFamily = CurrentFamily;
@@ -326,7 +345,7 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
                     Next.RacePosition, Next.RaceTotal)));
  if (StatDetails)
   StatDetails->SetText(FText::FromString(FString::Printf(
-   TEXT("Vitality: %.1f\nPower: %.1f\nSpeed: %.2f\n\nUse arrows / D-pad to navigate."),
+   TEXT("Vitality: %.1f\nPower: %.1f\nSpeed: %.2f\n\nChoose a race, then CONTINUE."),
    Next.Stats.Vitality, Next.Stats.Power, Next.Stats.Speed)));
 }
 
@@ -448,7 +467,7 @@ FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
  const FKey Key = InKeyEvent.GetKey();
- if (Key == EKeys::Enter || Key == EKeys::Gamepad_FaceButton_Bottom)
+ if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == EKeys::Gamepad_FaceButton_Bottom)
  { HandleConfirmRace(); return FReply::Handled(); }
  if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
  { AdvanceRace(false); return FReply::Handled(); }
@@ -458,5 +477,15 @@ FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  { AdvanceFamily(false); return FReply::Handled(); }
  if (Key == EKeys::Down || Key == EKeys::Gamepad_DPad_Down)
  { AdvanceFamily(true); return FReply::Handled(); }
+ if (Key == EKeys::Q || Key == EKeys::Gamepad_LeftShoulder)
+ { AdvanceFamily(false); return FReply::Handled(); }
+ if (Key == EKeys::E || Key == EKeys::Gamepad_RightShoulder)
+ { AdvanceFamily(true); return FReply::Handled(); }
+ if (Key == EKeys::PageUp || Key == EKeys::Gamepad_RightTrigger)
+ { ZoomPreview(1.f); return FReply::Handled(); }
+ if (Key == EKeys::PageDown || Key == EKeys::Gamepad_LeftTrigger)
+ { ZoomPreview(-1.f); return FReply::Handled(); }
+ if (Key == EKeys::R || Key == EKeys::Home || Key == EKeys::Gamepad_FaceButton_Top)
+ { ResetPreviewView(); return FReply::Handled(); }
  return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
