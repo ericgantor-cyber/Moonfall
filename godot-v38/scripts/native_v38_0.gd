@@ -842,11 +842,15 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
       attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
-    if map_time<float(beast.get("v404_tell_until",0.0)):
+    if bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
      # Shape names remain readable even when the danger colors are hard to distinguish.
      var shape_hint:String="CONE" if boss_name.begins_with("Z ") else "CIRCLE"
-     var warning_text:String=boss_name+"  •  "+warning+"  •  "+shape_hint+"  •  DODGE!"
+     # Show a quantized countdown; label updates only when the tenth changes.
+     var strike_left:float=maxf(0.0,float(beast.get("v404_tell_until",0.0))-map_time)
+     var strike_tenths:int=clampi(ceili(strike_left*10.0),0,14)
+     var urgency:String="STRIKE NOW" if strike_tenths<=3 else "STRIKE IN "+str(float(strike_tenths)/10.0)+"s"
+     var warning_text:String=boss_name+"  •  "+warning+"  •  "+shape_hint+"  •  "+urgency
      if boss_plate.text!=warning_text:boss_plate.text=warning_text
      boss_plate.modulate=Color(1.0,0.35,0.3) if boss_name.begins_with("Z ") else Color(0.75,0.4,1.0)
     else:
