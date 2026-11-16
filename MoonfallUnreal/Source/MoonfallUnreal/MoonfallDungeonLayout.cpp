@@ -308,7 +308,9 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
   if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  // Invalid health cannot represent a living enemy and must not exhaust
+  // the global encounter budget for every dungeon chamber.
+  if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;
   if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
  }
  FRandomStream EncounterRandom(

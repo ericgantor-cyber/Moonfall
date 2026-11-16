@@ -2952,6 +2952,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("++ConsideredAllies;"))
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
 
+    def test_dungeon_population_cap_ignores_invalid_health(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;", combat)
+        self.assertIn("if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;", combat)
+        self.assertNotIn("if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;", combat)
+        self.assertLess(combat.index("!FMath::IsFinite(Other->Health)"),
+                        combat.index("++AliveWorldEnemies"))
+        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+
     def test_dungeon_attack_coordination_does_not_cross_chambers(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
