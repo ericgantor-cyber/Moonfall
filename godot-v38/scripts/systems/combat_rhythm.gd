@@ -14,7 +14,8 @@ static func next_chain(current:int, seconds_since_hit:float) -> int:
  return current + 1
 
 static func chain_expired(chain:int, elapsed:float) -> bool:
- return chain > 0 and is_finite(elapsed) and elapsed > CHAIN_WINDOW
+ # Fail closed if the encounter clock resets, overflows, or turns invalid.
+ return chain > 0 and (not is_finite(elapsed) or elapsed < 0.0 or elapsed > CHAIN_WINDOW)
 
 ## A blocked input keeps the chain; a valid miss breaks it; a landed hit advances it.
 ## Confirm only actual HP loss on a hostile, previously alive combat target.
