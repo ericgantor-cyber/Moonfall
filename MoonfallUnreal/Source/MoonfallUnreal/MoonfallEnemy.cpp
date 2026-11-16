@@ -819,7 +819,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      const bool bOtherDungeonMember = Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
      if (bDungeonMember || bOtherDungeonMember) {
       if (!bDungeonMember || !bOtherDungeonMember
-          || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()) continue;
+          || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()
+          || DungeonChamberIndex < 0 || Other->DungeonChamberIndex != DungeonChamberIndex) continue;
      }
      ++ConsideredAllies;
      // A corrupt infinite windup must not reserve an attack slot forever.

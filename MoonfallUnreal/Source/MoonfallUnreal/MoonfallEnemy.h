@@ -17,6 +17,9 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
+ // -1 means no known chamber and must not join dungeon coordination.
+ int32 DungeonChamberIndex = -1;
  // Generic dungeon-boss presentation only. Never replaces divine boss IDs.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
  FName DungeonBossFamily = NAME_None;
