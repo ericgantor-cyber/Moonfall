@@ -4,12 +4,14 @@ on:
     paths:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
+      - 'tools/test_unreal_*.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
+      - 'tools/test_unreal_*.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
 jobs:
@@ -90,6 +92,16 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+
+      # Guard the safety invariants that protect equipment ownership and pickups.
+      # These are source contracts, not a native Unreal Engine compile or runtime test.
+      - name: Run Unreal equipment and loot safety regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            tools.test_unreal_equipment_stat_validation \
+            tools.test_unreal_loot_collection_safety
 
       - name: Parse Windows build scripts
         shell: pwsh
