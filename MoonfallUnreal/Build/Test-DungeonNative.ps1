@@ -42,7 +42,8 @@ $logText = Get-Content -LiteralPath $log -Raw
 $required = @(
     'Moonfall.Dungeons.All30EntranceLocations',
     'Moonfall.Dungeons.SeededRoomArchetypes',
-    'Moonfall.Dungeons.BossVictoryLedgerDefaults'
+    'Moonfall.Dungeons.BossVictoryLedgerDefaults',
+    'Moonfall.Dungeons.BossVictorySaveRoundTrip'
 )
 # Fail closed. A test being discovered or started does not count as success.
 $results = @{}
@@ -65,4 +66,4 @@ $summary | ForEach-Object { Write-Host $_ }
 if ($editorExit -ne 0 -or $failedMarker -or ($results.Values -contains $false)) {
     throw "Native dungeon tests NOT verified as passed. Inspect $log and $report."
 }
-Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all three native tests explicitly passed in UE5.4.'
+Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all four native tests explicitly passed in UE5.4.'
