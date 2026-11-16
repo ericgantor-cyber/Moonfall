@@ -17,6 +17,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallDungeonLayout.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -2168,8 +2169,21 @@ int32 AMoonfallHeroPawn::GetClearedDungeonZoneCount() const
  return Cleared;
 }
 
-bool AMoonfallHeroPawn::MarkDungeonBossDefeated(int32 Zone, int32 Dungeon)
+bool AMoonfallHeroPawn::MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss)
 {
+ // A raw dungeon ID is not proof of victory. The actual dead, tagged boss
+ // must belong to a live dungeon layout in this world.
+ if (!IsValid(DefeatedBoss) || DefeatedBoss->GetWorld() != GetWorld()
+     || !DefeatedBoss->bBoss || !FMath::IsFinite(DefeatedBoss->Health)
+     || DefeatedBoss->Health > 0.f
+     || !DefeatedBoss->Tags.Contains(FName(TEXT("MoonfallDungeonBoss"))))
+  return false;
+ const AMoonfallDungeonLayout* DungeonLayout =
+   Cast<AMoonfallDungeonLayout>(DefeatedBoss->GetOwner());
+ if (!IsValid(DungeonLayout) || DungeonLayout->GetWorld() != GetWorld())
+  return false;
+ const int32 Zone = DungeonLayout->ZoneIndex;
+ const int32 Dungeon = DungeonLayout->DungeonIndex;
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked || !GetWorld()
