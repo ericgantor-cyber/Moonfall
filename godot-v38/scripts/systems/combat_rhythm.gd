@@ -16,6 +16,12 @@ static func next_chain(current:int, seconds_since_hit:float) -> int:
 static func chain_expired(chain:int, elapsed:float) -> bool:
  return chain > 0 and is_finite(elapsed) and elapsed > CHAIN_WINDOW
 
+## A blocked input keeps the chain; a valid miss breaks it; a landed hit advances it.
+static func resolved_chain(current:int, pending:int, accepted:bool, landed:bool) -> int:
+ if not accepted:return clampi(current,0,MAX_CHAIN)
+ if not landed:return 0
+ return clampi(pending,1,MAX_CHAIN)
+
 static func posture_impact(chain_stage:int) -> float:
  return 12.0 + 4.0 * float(clampi(chain_stage, 1, MAX_CHAIN) - 1)
 
