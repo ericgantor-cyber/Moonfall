@@ -2964,6 +2964,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("++ScannedActors;"),
                         scope.index("Other->IsActorBeingDestroyed()"))
 
+    def test_attack_coordination_rejects_nonfinite_ally_windup_times(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        scope = tick.split("// Small-pack coordination:", 1)[1].split(
+            "// Alternate quick strikes", 1)[0]
+        self.assertIn("FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now", scope)
+        self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation())", scope)
+        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
+                        scope.index("if (++NearbyWindingAllies >= 2) break;"))
+
+    def test_enemy_recovers_own_corrupt_windup_without_instant_hit(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        guard = tick.split("if (!FMath::IsFinite(WindupEndsAt)) {", 1)[1].split("\n }", 1)[0]
+        for reset in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                      "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
+                      "bComboSecondHitActive = false;",
+                      "LockedAttackDirection = FVector::ZeroVector;",
+                      "CachedWaypoint = FVector::ZeroVector;",
+                      "NextPathRefreshAt = 0.f;",
+                      "Now + 0.35f"):
+            self.assertIn(reset, guard)
+        self.assertLess(tick.index("if (!FMath::IsFinite(WindupEndsAt)) {"),
+                        tick.index("const bool Staggered = Now < HitReactionEndsAt;"))
+        self.assertNotIn("ApplyMoonfallDamageFrom(", guard)
+
     def test_wounded_elite_retreat_is_brief_cooldown_gated_and_collision_safe(self):
         self.assertIn("float TacticalRetreatUntil = -1.f;", self.enemy_h)
         self.assertIn("float NextTacticalRetreatAt = 0.f;", self.enemy_h)
@@ -3047,7 +3073,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
         self.assertLess(helper.index("ActiveDivineMoveId = NAME_None;"),
                         helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
-        self.assertEqual(cpp.count("CancelDivineSignature();"), 6)
+        # Six existing cancellation paths plus recovery from a corrupt windup.
+        self.assertEqual(cpp.count("CancelDivineSignature();"), 7)
         impact = cpp.split("const FName ResolvedMove = ActiveDivineMoveId;", 1)[1]
         self.assertLess(impact.index("bDivineSignatureActive = false;"),
                         impact.index("OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);"))
