@@ -2961,7 +2961,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;", combat)
         self.assertLess(combat.index("!FMath::IsFinite(Other->Health)"),
                         combat.index("++AliveWorldEnemies"))
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);", combat)
+
+    def test_dungeon_population_cap_ramps_69_to_111_with_level(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        cap = "const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);"
+        self.assertIn(cap, combat)
+        self.assertIn(cap, boss)
+        for level, expected in ((1, 69), (2, 70), (22, 90), (43, 111), (99, 111)):
+            self.assertEqual(69 + min(max(level - 1, 0), 42), expected)
+        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
+        self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", boss)
+        self.assertIn("if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;", boss)
 
     def test_dungeon_attack_coordination_does_not_cross_chambers(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
@@ -3912,7 +3926,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
         self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);", combat)
         self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
         self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
         self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
@@ -4193,7 +4207,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         final.index("bFinalChamberNotified = true;"))
         self.assertLess(final.index("bFinalChamberNotified = true;"),
                         final.index("OnFinalChamberEntered(Hero);"))
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", boss)
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);", boss)
         self.assertIn("TActorIterator<AMoonfallEnemy>", boss)
         self.assertLess(boss.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;"),
                         boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
