@@ -100,11 +100,11 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  if item.is_empty():return {}
  # Validate all mutable reward fields before granting the item. A malformed
  # legacy save must not grant an item and then fail while recording its roll.
- var pity_value:Variant=state.get("loot_pity",0)
  var rolls_value:Variant=state.get("loot_rolls",[])
  if not rolls_value is Array:return {}
- var pity:int=_safe_roll_number(pity_value,80)
- var rarity:Dictionary=RNG.roll(item,seed+pity*9973,0,pity)
+ # Each item rarity depends on the provided seed, never drop history.
+ var luck:int=clampi(int(totals(state).get("luck",0)),0,40)
+ var rarity:Dictionary=RNG.roll(item,seed,luck)
  if rarity.is_empty() or not rarity.has("rarity_index"):return {}
  if not add_item(state,str(item["id"])):return {}
  # Bound even corrupted in-memory histories before recording the new drop.
@@ -112,7 +112,6 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var rolls:Array=rolls_value.slice(-249)
  rolls.append(rarity)
  state["loot_rolls"]=rolls
- state["loot_pity"]=RNG.next_pity(pity,int(rarity["rarity_index"]))
  var drop:Dictionary=item.duplicate(true)
  drop["roll"]=rarity
  return drop
@@ -149,7 +148,7 @@ static func _roll_strength(roll:Dictionary)->int:
  return strength
 
 static func totals(state:Dictionary)->Dictionary:
- var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
+ var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0,"luck":0}
  var slots_value:Variant=state.get("equipped",{})
  var owned_value:Variant=state.get("items",{})
  var rolls_value:Variant=state.get("loot_rolls",[])
@@ -208,6 +207,7 @@ static func totals(state:Dictionary)->Dictionary:
     "Crit":stats["crit"]+=value
     "Ward":stats["ward"]+=value
     "Elemental":stats["elemental"]+=value
+    "Luck":stats["luck"]+=value
  return stats
 
 static func normalize(saved:Dictionary)->Dictionary:
@@ -223,6 +223,7 @@ static func normalize(saved:Dictionary)->Dictionary:
    if str(material)!="" and _safe_roll_number(prior_materials[material],999999)>0:
     state["materials"][str(material)]=_safe_roll_number(prior_materials[material],999999)
  state["gold"]=_safe_gold_number(saved.get("gold",0))
+ # Retain legacy save metadata, but never use it for loot odds.
  state["loot_pity"]=_safe_roll_number(saved.get("loot_pity",0),80)
  var prior_rolls:Variant=saved.get("loot_rolls",[])
  if prior_rolls is Array:

@@ -1196,6 +1196,15 @@ func _process(delta:float)->void:
    if bool(creature.get("alive",false)) and bool(creature.get("hostile",false)):hostile_count+=1
  v383_peak_hostiles=maxi(v383_peak_hostiles,hostile_count)
  v380_status_text.text=V380_RULES.safe_label(region,hp,max_hp,v372_oxygen,underwater,v373_depth,current_threat)
+ # The equipment state is owned by a later gameplay subclass; resolve it
+ # dynamically so this base script can parse independently in Windows builds.
+ var equipment_luck:int=0
+ var equipped_state:Variant=get("gear_state")
+ if equipped_state is Dictionary:
+  equipment_luck=clampi(int(preload("res://scripts/systems/equipment_inventory.gd").totals(equipped_state).get("luck",0)),0,40)
+ var luck_odds:Dictionary=preload("res://scripts/systems/equipment_rng.gd").rarity_odds_per_thousand(equipment_luck)
+ var rare_or_better:int=int(luck_odds["Rare"])+int(luck_odds["Epic"])+int(luck_odds["Legendary"])
+ v380_status_text.text+="\nLUCK "+str(equipment_luck)+"  •  Enemy Rare+ "+str(rare_or_better/10.0)+"%  •  Legendary "+str(float(luck_odds["Legendary"])/10.0)+"% (RNG, no guarantees)"
  v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
   v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])

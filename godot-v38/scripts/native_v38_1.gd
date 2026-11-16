@@ -165,7 +165,7 @@ func _refresh_realm_choices() -> void:
   key_ring_details.text = KEY_RING.display_lines(key_ring_state)
  if is_instance_valid(gear_status):
   var stats:Dictionary=EQUIPMENT.totals(gear_state)
-  gear_status.text="GOLD "+str(gear_state.get("gold",0))+" | GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
+  gear_status.text="GOLD "+str(gear_state.get("gold",0))+" | GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" • Luck "+str(stats["luck"])+" | Owned types "+str(gear_state.get("items",{}).size())
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
@@ -241,3 +241,14 @@ func _award_key(key_id:String)->void:
   key_ring_expanded = true
   _show_message("Key collected: "+str(KEY_RING.KEY_NAMES[key_id]),3.0)
   _refresh_realm_choices()
+
+## Show the actual equipped Luck stat in Character information, not only
+## the optional performance/status overlay. Refresh uses live equipped gear.
+func _menu_tab(which:String)->void:
+ super._menu_tab(which)
+ if which!="Character" or not is_instance_valid(menu_body):return
+ var equipped_stats:Dictionary=EQUIPMENT.totals(gear_state)
+ var luck:int=clampi(int(equipped_stats.get("luck",0)),0,40)
+ var odds:Dictionary=EQUIPMENT.RNG.rarity_odds_per_thousand(luck)
+ var rare_plus:int=int(odds["Rare"])+int(odds["Epic"])+int(odds["Legendary"])
+ menu_body.text+="\n\n[b]LUCK & RANDOM LOOT[/b]\nEquipped Luck: "+str(luck)+"/40  •  Enemy Rare+: "+str(float(rare_plus)/10.0)+"%  •  Legendary: "+str(float(odds["Legendary"])/10.0)+"%\nEvery drop is independent RNG. No pity counters or guaranteed rarity."

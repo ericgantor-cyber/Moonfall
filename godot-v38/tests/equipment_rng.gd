@@ -34,8 +34,75 @@ func _run()->void:
  for seed in range(100):
   var result:Dictionary=RNG.roll(item,seed)
   check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
- check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
- check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
+ check(RNG.roll(item,3,0,80)==RNG.roll(item,3,0,0),"legacy pity argument never changes rarity")
+ # Every rarity boundary is independently testable, with no drop history.
+ check(RNG.rarity_from_chance(0)==4 and RNG.rarity_from_chance(9)==4,"legendary only below 1% boundary")
+ check(RNG.rarity_from_chance(10)==3 and RNG.rarity_from_chance(49)==3,"epic 1%-5% boundary")
+ check(RNG.rarity_from_chance(50)==2 and RNG.rarity_from_chance(169)==2,"rare 5%-17% boundary")
+ check(RNG.rarity_from_chance(170)==1 and RNG.rarity_from_chance(409)==1,"uncommon 17%-41% boundary")
+ check(RNG.rarity_from_chance(410)==0 and RNG.rarity_from_chance(999)==0,"common remains possible on every independent roll")
+ check(RNG.rarity_from_chance(999,40)==0,"maximum luck does not guarantee rarity")
+ check(RNG.rarity_from_chance(999,999999)==0,"excessive luck clamps to bounded odds")
+ check(RNG.rarity_from_chance(29,0)==3 and RNG.rarity_from_chance(29,40)==4,"luck changes odds but not past-roll memory")
+ check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
+ check(RNG.AFFIXES.has("Luck"),"Luck rolls as an equipment affix")
+ var no_luck_odds:Dictionary=RNG.rarity_odds_per_thousand(0)
+ var max_luck_odds:Dictionary=RNG.rarity_odds_per_thousand(40)
+ check(no_luck_odds=={"Common":590,"Uncommon":240,"Rare":120,"Epic":40,"Legendary":10},"zero Luck exact per-thousand odds")
+ check(max_luck_odds=={"Common":470,"Uncommon":280,"Rare":160,"Epic":60,"Legendary":30},"maximum Luck exact per-thousand odds")
+ check(RNG.rarity_odds_per_thousand(-100)==no_luck_odds and RNG.rarity_odds_per_thousand(100000)==max_luck_odds,"extreme Luck odds clamp")
+ var lucky_total:int=0
+ for count in max_luck_odds.values():lucky_total+=int(count)
+ check(lucky_total==1000 and max_luck_odds["Common"]>0,"Luck preserves Common and totals 1000")
+ for luck_level in [0,1,5,20,40]:
+  var counted:Dictionary={"Common":0,"Uncommon":0,"Rare":0,"Epic":0,"Legendary":0}
+  for outcome in range(1000):
+   var outcome_tier:int=RNG.rarity_from_chance(outcome,luck_level)
+   counted[RNG.RARITIES[outcome_tier]]+=1
+  check(counted==RNG.rarity_odds_per_thousand(luck_level),"displayed odds match all possible rarity rolls "+str(luck_level))
+
+ # World loot uses the same stat but independent zone-weighted RNG.
+ check(RNG.world_rarity_from_roll(0.005,0,0)==4,"world base legendary boundary")
+ check(RNG.world_rarity_from_roll(0.01,0,0)==3,"world strict legendary cutoff")
+ check(RNG.world_rarity_from_roll(0.05,0,0)==2,"world base Rare tier")
+ check(RNG.world_rarity_from_roll(0.5,0,0)==0,"world base Common tier")
+ check(RNG.world_rarity_from_roll(0.5,0,40)==1,"equipped Luck raises world Uncommon odds")
+ check(RNG.world_rarity_from_roll(0.99,0,40)==0,"max Luck still allows world Common")
+ check(RNG.world_rarity_from_roll(0.99,0,99999)==0,"corrupt Luck cannot guarantee drops")
+ check(RNG.world_rarity_from_roll(0.05,0,-99)==RNG.world_rarity_from_roll(0.05,0,0),"negative world Luck clamps")
+ check(RNG.world_rarity_from_roll(0.5,0,0)==RNG.world_rarity_from_roll(0.5,0,0),"world roll remains stable and deterministic")
+
+ var no_history:Dictionary=RNG.roll(item,2345,0,0)
+ check(no_history==RNG.roll(item,2345,0,1000000),"even extreme legacy pity cannot change a roll")
+ var generated_affixes:Dictionary={}
+ for seed in range(1000):
+  var candidate_roll:Dictionary=RNG.roll(item,seed)
+  var unique:Dictionary={}
+  for affix in candidate_roll["affixes"]:
+   unique[str(affix["stat"])]=true
+   generated_affixes[str(affix["stat"])]=true
+  if unique.size()!=candidate_roll["affixes"].size():
+   check(false,"random affixes never repeat within an item")
+   break
+ check(generated_affixes.size()>=4,"multiple independent affix varieties appear")
+
+ var observed:Dictionary={}
+ for seed in range(2000):
+  var rolled:Dictionary=RNG.roll(item,seed)
+  observed[int(rolled["rarity_index"])]=true
+ check(observed.size()>=3,"many seeds produce varied random rarities")
+ var lucky:Dictionary=INVENTORY.new_state()
+ check(INVENTORY.add_item(lucky,"ashwood_sword"),"Luck item owned")
+ check(INVENTORY.equip(lucky,"ashwood_sword",99),"Luck item equipped")
+ lucky["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":0,"affixes":[{"stat":"Luck","value":30}]})
+ check(int(INVENTORY.totals(lucky)["luck"])==30,"equipped Luck bonus enters character stats")
+ var lucky_seed:int=42
+ var lucky_item:Dictionary=CATALOG.loot_for_level(12,lucky_seed)
+ check(INVENTORY.loot_enemy(lucky,12,lucky_seed).get("roll",{})==RNG.roll(lucky_item,lucky_seed,30),"enemy drops use equipped Luck")
+ var unowned_luck:Dictionary=INVENTORY.new_state()
+ unowned_luck["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"affixes":[{"stat":"Luck","value":30}]})
+ check(int(INVENTORY.totals(unowned_luck)["luck"])==0,"unowned gear cannot grant Luck")
+ check(INVENTORY.loot_enemy(unowned_luck,12,lucky_seed).get("roll",{})==RNG.roll(lucky_item,lucky_seed),"unowned gear cannot alter rarity")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
@@ -110,14 +177,18 @@ func _run()->void:
  blocked_craft["materials"][craft_material]=craft_cost+5
  check(not INVENTORY.craft(blocked_craft,"ashwood_sword",99),"full-stack craft is rejected")
  check(int(blocked_craft["materials"][craft_material])==craft_cost+5,"rejected craft does not charge materials")
- # Failed enemy loot must not consume pity or append a phantom roll.
+ # Failed enemy loot must not change legacy metadata or append a phantom roll.
  var candidate:Dictionary=CATALOG.loot_for_level(12,42)
  if not candidate.is_empty():
   var refused:Dictionary=INVENTORY.new_state()
   refused["items"][str(candidate["id"])]=9999
   refused["loot_pity"]=17
   check(INVENTORY.loot_enemy(refused,12,42).is_empty(),"full stack rejects enemy loot")
-  check(int(refused["loot_pity"])==17 and refused["loot_rolls"].is_empty(),"failed loot preserves pity and roll history")
+  check(int(refused["loot_pity"])==17 and refused["loot_rolls"].is_empty(),"failed loot preserves legacy metadata and roll history")
+  var state_a:Dictionary=INVENTORY.new_state()
+  var state_b:Dictionary=INVENTORY.new_state()
+  state_b["loot_pity"]=80
+  check(INVENTORY.loot_enemy(state_a,12,42).get("roll",{})==INVENTORY.loot_enemy(state_b,12,42).get("roll",{}),"identical seeds yield identical RNG regardless of old pity values")
  # Extra unrelated history must not alter equipped stats.
  var noisy:Dictionary=empowered.duplicate(true)
  for i in range(200):

@@ -1,22 +1,16 @@
 extends RefCounted
-## Deterministic rarity rolls that never change global randomness.
+## Seeded independent rarity rolls with no pity or guaranteed rarity thresholds.
 const RARITIES:Array[String]=["Common","Uncommon","Rare","Epic","Legendary"]
-const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental"]
-static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
+const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental","Luck"]
+static func roll(item:Dictionary,seed:int,luck:int=0,_legacy_pity:int=0)->Dictionary:
+ # Legacy fourth argument is accepted for compatibility but never affects odds.
  if item.is_empty() or str(item.get("id","")).is_empty():return {}
  # Clamp imported or corrupted tiers before generating combat affixes.
  var tier:int=clampi(int(item.get("tier",1)),1,100)
  var rng:RandomNumberGenerator=RandomNumberGenerator.new()
  rng.seed=seed
- var boost:int=clampi(luck,0,40)
  var chance:int=rng.randi_range(0,999)
- var rarity:int=0
- if chance<10+boost/2:rarity=4
- elif chance<50+boost:rarity=3
- elif chance<170+boost*2:rarity=2
- elif chance<410+boost*3:rarity=1
- if pity>=30:rarity=maxi(rarity,2)
- if pity>=80:rarity=maxi(rarity,3)
+ var rarity:int=rarity_from_chance(chance,luck)
  var affixes:Array[Dictionary]=[]
  var pool:Array[String]=AFFIXES.duplicate()
  for i in range(mini(rarity,3)):
@@ -25,5 +19,41 @@ static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
   pool.remove_at(index)
   affixes.append({"stat":kind,"value":1+tier+rng.randi_range(0,rarity+1)})
  return {"item_id":str(item.get("id","")),"rarity":RARITIES[rarity],"rarity_index":rarity,"affixes":affixes,"power_bonus":rarity*2+rng.randi_range(0,2),"roll_seed":seed}
-static func next_pity(current:int,rarity_index:int)->int:
- return 0 if rarity_index>=2 else mini(80,maxi(0,current)+1)
+
+## Maps one independent 0..999 roll to rarity; no previous-drop state.
+## At zero luck: 1% Legendary, 4% Epic, 12% Rare, 24% Uncommon.
+## Luck only moves the thresholds, capped to preserve a Common chance.
+static func rarity_from_chance(chance:int,luck:int=0)->int:
+ var boost:int=clampi(luck,0,40)
+ var value:int=clampi(chance,0,999)
+ if value<10+boost/2:return 4
+ if value<50+boost:return 3
+ if value<170+boost*2:return 2
+ if value<410+boost*3:return 1
+ return 0
+
+## Independent world-loot rarity, with the original zone-weighted base odds.
+## A valid roll remains a chance rather than a guarantee, even at max Luck.
+static func world_rarity_from_roll(roll:float,zone:int,luck:int=0)->int:
+ if not is_finite(roll):return 0
+ var value:float=clampf(roll,0.0,1.0)
+ var safe_zone:int=clampi(zone,0,100)
+ var boost:int=clampi(luck,0,40)
+ if value<clampf(0.01+float(safe_zone)*0.004+float(boost)*0.0005,0.01,0.07):return 4
+ if value<clampf(0.045+float(safe_zone)*0.008+float(boost)*0.001,0.045,0.15):return 3
+ if value<clampf(0.16+float(safe_zone)*0.016+float(boost)*0.002,0.16,0.42):return 2
+ if value<clampf(0.48+float(safe_zone)*0.020+float(boost)*0.003,0.48,0.82):return 1
+ return 0
+
+## Exact enemy-drop odds per 1000 rolls. No pity or drop-history state.
+static func rarity_odds_per_thousand(luck:int=0)->Dictionary:
+ var boost:int=clampi(luck,0,40)
+ var legendary:int=10+boost/2
+ var epic_plus:int=50+boost
+ var rare_plus:int=170+boost*2
+ var uncommon_plus:int=410+boost*3
+ return {"Common":1000-uncommon_plus,
+  "Uncommon":uncommon_plus-rare_plus,
+  "Rare":rare_plus-epic_plus,
+  "Epic":epic_plus-legendary,
+  "Legendary":legendary}
