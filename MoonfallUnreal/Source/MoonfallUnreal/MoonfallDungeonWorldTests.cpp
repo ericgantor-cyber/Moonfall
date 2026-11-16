@@ -159,15 +159,15 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   Original->DefeatedDungeonBossMask = static_cast<int32>(VictoryBit);
   Bytes.Reset();
   const FString Label = FString::Printf(TEXT("Dungeon boss slot %d"), Slot);
-  if (!TestTrue(Label + TEXT(" saves to memory"),
+  if (!TestTrue(*(Label + TEXT(" saves to memory")),
         UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
   UMoonfallPersistentSave* OneVictory = Cast<UMoonfallPersistentSave>(
     UGameplayStatics::LoadGameFromMemory(Bytes));
   if (!TestNotNull(*FString::Printf(TEXT("%s restores"), *Label), OneVictory))
    return false;
-  TestEqual(Label + TEXT(" discovery remains isolated"),
+  TestEqual(*(Label + TEXT(" discovery remains isolated")),
     OneVictory->DiscoveredDungeonMask, static_cast<int32>(VictoryBit));
-  TestEqual(Label + TEXT(" victory remains isolated"),
+  TestEqual(*(Label + TEXT(" victory remains isolated")),
     OneVictory->DefeatedDungeonBossMask, static_cast<int32>(VictoryBit));
  }
  return !HasAnyErrors();
