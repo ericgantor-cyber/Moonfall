@@ -7,6 +7,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Verify Unreal 5.4 installation
         shell: pwsh
         run: |
@@ -17,12 +19,14 @@ jobs:
           $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
           if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
           & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $env:UE54_ROOT
+          if (-not $?) { throw 'Unreal Engine version validation failed.' }
           # The project-owned .umap is generated after the Editor target compiles.
           # Do not require it before we have invoked Unreal Editor.
           $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
-          $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vsInstallation = & $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if ($LASTEXITCODE -ne 0 -or -not $vsInstallation) { throw 'Visual Studio 2022 C++ build tools are missing. Install Desktop development with C++ and Windows SDK.' }
+          Write-Host "Verified Visual Studio 2022 C++ installation: $vsInstallation"
           if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnreal.Target.cs')) { throw 'Missing Win64 Game target' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs')) { throw 'Missing Win64 Editor target' }
@@ -41,6 +45,15 @@ jobs:
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
           if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Compile standalone Unreal Game Win64 Development
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\\Build\\BatchFiles\\Build.bat'
+          $uproject = (Resolve-Path 'MoonfallUnreal\\MoonfallUnreal.uproject').Path
+          & $buildTool MoonfallUnreal Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
+          if ($LASTEXITCODE -ne 0) { throw "Standalone Unreal Game compilation failed with exit code $LASTEXITCODE" }
+          'UE5 standalone Game Win64 Development compilation passed. Packaging is still pending.' >> $env:GITHUB_STEP_SUMMARY
       - name: Generate and validate Moonfall startup level
         shell: pwsh
         run: |
@@ -145,6 +158,57 @@ jobs:
           "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$installer.sha256"
           "Installer size: $($details.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
           "Installer SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+      - name: Smoke-test UE5 Windows installer and installed game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path 'MoonfallUnreal-Setup.exe').Path
+          # NSIS creates shortcuts and an HKCU uninstall entry; avoid changing an
+          # existing installation on a persistent self-hosted Windows runner.
+          $uninstallKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MoonfallUnreal'
+          $desktopLink = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Unreal.lnk'
+          $startMenuLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Unreal\\Moonfall Unreal.lnk'
+          if ((Test-Path -LiteralPath $uninstallKey) -or
+              (Test-Path -LiteralPath $desktopLink) -or
+              (Test-Path -LiteralPath $startMenuLink)) {
+            throw 'Refusing installer smoke test: an existing Moonfall Unreal installation or shortcut was detected.'
+          }
+          $directory = Join-Path $env:RUNNER_TEMP ("MoonfallUE5-InstallerTest-" + [guid]::NewGuid().ToString('N'))
+          if ((Test-Path -LiteralPath $directory) -or $directory.Contains('"')) {
+            throw 'Smoke-test installation directory is unsafe.'
+          }
+          $setupSucceeded = $false
+          try {
+            # NSIS /D= sets a temporary path and must be the final argument.
+            $install = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$directory") -PassThru -Wait
+            if ($install.ExitCode -ne 0) { throw "NSIS installer failed: $($install.ExitCode)" }
+            $setupSucceeded = $true
+            $game = Join-Path $directory 'MoonfallUnreal.exe'
+            $launcher = Join-Path $directory 'MoonfallLauncher.exe'
+            $uninstaller = Join-Path $directory 'Uninstall.exe'
+            foreach ($file in @($game, $launcher, $uninstaller)) {
+              if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Installed file missing: $file" }
+            }
+            $check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $directory -PassThru -Wait
+            if ($check.ExitCode -ne 0) { throw "Installed launcher failed integrity check: $($check.ExitCode)" }
+            & .\\MoonfallUnreal\\Build\\Test-PackagedGame.ps1 -GameExecutable $game -ObservationSeconds 8
+            if (-not $?) { throw 'Installed Unreal game launch test failed.' }
+            Write-Host 'UE5 installed game and launcher smoke tests passed; checking uninstall next.'
+          }
+          finally {
+            $uninstaller = Join-Path $directory 'Uninstall.exe'
+            if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
+              $remove = Start-Process -FilePath $uninstaller -ArgumentList @('/S', "_?=$directory") -PassThru -Wait
+              if ($remove.ExitCode -ne 0) { throw "NSIS uninstall failed with code $($remove.ExitCode)" }
+              foreach ($leftover in @($uninstallKey, $desktopLink, $startMenuLink)) {
+                if (Test-Path -LiteralPath $leftover) { throw "Uninstall left an integration behind: $leftover" }
+              }
+            }
+            elseif ($setupSucceeded) {
+              throw 'Installer completed but Uninstall.exe was missing.'
+            }
+          }
+          'UE5 NSIS install, installed game launch, and uninstall smoke checks passed.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:

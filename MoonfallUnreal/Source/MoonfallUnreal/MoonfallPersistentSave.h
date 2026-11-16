@@ -1,0 +1,50 @@
+#pragma once
+#include "CoreMinimal.h"
+#include "GameFramework/SaveGame.h"
+#include "MoonfallPersistentSave.generated.h"
+
+USTRUCT()
+struct FMoonfallWorldLootRecord {
+ GENERATED_BODY()
+ UPROPERTY() FGuid DropId;
+ UPROPERTY() int32 ItemCode = 0;
+ UPROPERTY() FVector Location = FVector::ZeroVector;
+ UPROPERTY() FName LevelId = NAME_None;
+};
+// One persistent character, not a disposable match/run. Version before changing layout.
+UCLASS()
+class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
+ GENERATED_BODY()
+public:
+ // Version 10: 30 persistent dungeon boss defeats, preserving V9 treasure.
+ UPROPERTY() int32 Version = 11;
+ // V11 stores uncollected enemy loot in the same world-save transaction.
+ UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
+ // One permanent defeat bit per dungeon; older saves default to no victories.
+ UPROPERTY() int32 DefeatedDungeonBossMask = 0;
+ // 30 dungeons * 14 rooms. 0: ungenerated, positive: pending, -1: collected.
+ UPROPERTY() TArray<int32> DungeonTreasureStates;
+ UPROPERTY() int32 DiscoveredDungeonMask = 0;
+ UPROPERTY() TMap<FName, int32> ResidentQuestStates;
+ UPROPERTY() TMap<FName, int32> ResidentBonds;
+ UPROPERTY() TMap<FName, int32> FactionReputation;
+ // UTC expiration retains cooldown across quit/relaunch; no wall-clock-dependent buff duration.
+ UPROPERTY() int64 RacePowerReadyUtc = 0;
+ UPROPERTY() int32 RaceId = 0;
+ UPROPERTY() bool bRaceChosen = false;
+ // For V7 this location changes on shrine discovery, not during autosave.
+ // V1-V6 retain their last saved location as a legacy checkpoint.
+ UPROPERTY() FVector CheckpointLocation = FVector::ZeroVector;
+ UPROPERTY() FName ActiveShrineId = NAME_None;
+ UPROPERTY() TArray<FName> DiscoveredShrineIds;
+ UPROPERTY() int32 Level = 1;
+ UPROPERTY() int32 Experience = 0;
+ UPROPERTY() int32 Salvage = 0;
+ UPROPERTY() float MaxHealth = 100.f;
+ UPROPERTY() TArray<int32> InventoryItemCodes;
+ UPROPERTY() int32 EquippedWeaponCode = 0;
+ UPROPERTY() int32 EquippedArmorCode = 0;
+ UPROPERTY() int32 EquippedAccessoryCode = 0;
+ UPROPERTY() int32 LeftSpell = 0;
+ UPROPERTY() int32 RightSpell = 1;
+};

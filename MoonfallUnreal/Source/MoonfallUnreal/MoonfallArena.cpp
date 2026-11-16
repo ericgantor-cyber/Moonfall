@@ -1,13 +1,27 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallWorldNPC.h"
+#include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/ConstructorHelpers.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
+ DungeonRoad = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonRoad"));
+ DungeonRoad->SetupAttachment(GetRootComponent());
+ DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);
+ // Cull distant road tiles visually while their physical collision and
+ // NavMesh geometry remain intact for uninterrupted travel across zones.
+ DungeonRoad->SetCullDistances(24000, 34000);
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
@@ -25,8 +39,59 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
- CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ // Southern gate: a 400-unit opening aligns with the walkable dungeon road.
+ // Split only this boundary; retain divine encounters, NPCs and shrine layout.
+ CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));
+ CreateBlock(FVector(850,-1500,200),FVector(13,1,5));
+ // Ground bridge between arena Y=-1500 and first dungeon floor edge Y=-2500.
+ // Same top surface (Z=0) as the dungeon; no teleport or level load.
+ CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));
+ // Instanced, flat east/west road. Every one of the 30 entrances overlaps
+ // the road by 200 units; the south arena bridge joins it at the center.
+ // Only 30 mesh instances, not 30 extra actors or dynamic pathfinding ticks.
+ DungeonRoad->ClearInstances();
+ for (int32 Slot = 0; Slot < 30; ++Slot) {
+  const float X = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+  DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
+ }
+ // One readable sign for each five-dungeon zone. UI/map code can also obtain
+ // exact entrance positions from the game mode without scanning actors.
+ // Noncolliding components cost no Tick and do not obstruct the road.
+ for (int32 Zone = 0; Zone < 6; ++Zone) {
+  UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(
+    this, FName(*FString::Printf(TEXT("DungeonZoneSign_%d"), Zone + 1)));
+  if (!IsValid(Sign)) continue;
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS 1-5"), Zone + 1)));
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(65.f);
+  Sign->SetTextRenderColor(FColor(114, 210, 236));
+  Sign->RegisterComponent();
+  const float ZoneCenterX = (static_cast<float>(Zone * 5 + 2) - 14.5f) * 1350.f;
+  Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));
+  DungeonZoneSigns.Add(Sign);
+ }
  if (!GetWorld()) return;
+ // World shrines are discovered by walking into their proximity, not by
+ // defeating a boss or using an attack key. Stable IDs persist between saves.
+ struct FShrinePlacement { const TCHAR* Id; FVector Offset; };
+ const FShrinePlacement Shrines[] = {
+  {TEXT("crossroads_west"), FVector(-1120.f, -720.f, 0.f)},
+  {TEXT("crimson_path"), FVector(1080.f, -750.f, 0.f)},
+  {TEXT("moonlit_path"), FVector(1040.f, 800.f, 0.f)}
+ };
+ for (const FShrinePlacement& Placement : Shrines) {
+  const FTransform SpawnTransform(FRotator::ZeroRotator, GetActorLocation() + Placement.Offset);
+  AMoonfallCheckpointShrine* Shrine = Cast<AMoonfallCheckpointShrine>(
+      UGameplayStatics::BeginDeferredActorSpawnFromClass(
+          this, AMoonfallCheckpointShrine::StaticClass(), SpawnTransform));
+  if (Shrine) {
+   Shrine->ShrineId = FName(Placement.Id);
+   UGameplayStatics::FinishSpawningActor(Shrine, SpawnTransform);
+  }
+ }
  const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
  const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
  const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter;
@@ -41,6 +106,48 @@ void AMoonfallArena::BeginPlay() {
   CreateBlock(FVector(CoverOffset,-CoverOffset, 160.f), CoverScale);
   CreateBlock(FVector(-CoverOffset,-CoverOffset,160.f), CoverScale);
  }
+ // Fixed showcase NPC in the existing world. No separate gameplay mode.
+ // The player or an interaction UI calls TryTalk; the actor never ticks.
+ if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
+     AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
+  Guide->RaceId = 2; // Wood Elf
+  Guide->SettlementId = FName(TEXT("Crossroads"));
+  Guide->ResidentId = FName(TEXT("CrossroadsGuide"));
+  Guide->FactionId = FName(TEXT("Wanderers"));
+  Guide->SocialRole = FName(TEXT("Guide"));
+  Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
+  Guide->Greeting = FText::FromString(TEXT("Every road belongs to the same world. Stay alert beyond the gate."));
+ }
+ // Twelve fixed representatives from every playable ancestry, coexisting
+ // in one Crossroads settlement. No NPC tick, random spawn or new game mode.
+ // Gameplay identity is data-driven; appearance art is left untouched.
+ struct FResident { const TCHAR* Name; int32 Race; const TCHAR* Faction;
+   const TCHAR* Role; FVector Offset; };
+ const FResident Residents[] = {
+  {TEXT("Alden"), 0, TEXT("Wanderers"), TEXT("Guard"), FVector(-1100.f,-1050.f,60.f)},
+  {TEXT("Starweaver"), 1, TEXT("MoonCoven"), TEXT("Scholar"), FVector(-850.f,-1050.f,60.f)},
+  {TEXT("Leafwhisper"), 2, TEXT("VerdantCircle"), TEXT("Scout"), FVector(-600.f,-1050.f,60.f)},
+  {TEXT("Anvilkeeper"), 3, TEXT("StoneHearth"), TEXT("Merchant"), FVector(-1100.f,-350.f,60.f)},
+  {TEXT("Pip Hearthfoot"), 4, TEXT("Wanderers"), TEXT("Merchant"), FVector(-850.f,-350.f,60.f)},
+  {TEXT("Ember Scout"), 5, TEXT("AshenClans"), TEXT("Scout"), FVector(-600.f,-350.f,60.f)},
+  {TEXT("Geargrin"), 6, TEXT("Wanderers"), TEXT("Tinker"), FVector(-1100.f,350.f,60.f)},
+  {TEXT("Mossfang"), 7, TEXT("AshenClans"), TEXT("Guard"), FVector(-850.f,350.f,60.f)},
+  {TEXT("Birchroot"), 8, TEXT("VerdantCircle"), TEXT("Elder"), FVector(-600.f,350.f,60.f)},
+  {TEXT("Duskveil"), 9, TEXT("MoonCoven"), TEXT("Scholar"), FVector(-1100.f,1050.f,60.f)},
+  {TEXT("Silverwatch"), 10, TEXT("MoonCoven"), TEXT("Guard"), FVector(-850.f,1050.f,60.f)},
+  {TEXT("Ashscale"), 11, TEXT("AshenClans"), TEXT("Elder"), FVector(-600.f,1050.f,60.f)}
+ };
+ for (const FResident& Resident : Residents) {
+  if (AMoonfallWorldNPC* Person = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(), GetActorLocation() + Resident.Offset, FRotator::ZeroRotator)) {
+   Person->DisplayName = FText::FromString(Resident.Name);
+   Person->ResidentId = FName(FString(Resident.Name).Replace(TEXT(" "), TEXT("")));
+   Person->RaceId = Resident.Race;
+   Person->FactionId = FName(Resident.Faction);
+   Person->SettlementId = FName(TEXT("Crossroads"));
+   Person->SocialRole = FName(Resident.Role);
+  }
+ }
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
@@ -50,6 +157,8 @@ void AMoonfallArena::BeginPlay() {
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
     this, AMoonfallEnemy::StaticClass(), SpawnTransform));
   if (!Enemy) continue;
+  // Each ordinary combatant has a stable racial origin; boss IDs/art are unaffected.
+  Enemy->RaceId = i % 12;
   // The selected preset spawns only the corresponding divine boss in
   // the final slot. NAME_None retains the previous two-god test showcase.
   // Actual regional encounter placement is deferred to world migration.

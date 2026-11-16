@@ -39,9 +39,9 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 
 void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
 {
- // A repeated initialization must never replace an existing, valid drop.
+ // Never overwrite an existing or collected drop.
  if (ItemCode != 0 || bCollected) return;
- // Failed initialization must not leave an unusable world actor behind.
+ // Reject malformed spawned loot instead of leaving an uncollectable actor.
  if (InItemCode <= 0) { Destroy(); return; }
  const int32 Affix = InItemCode / 100000;
  const int32 Slot = (InItemCode / 10000) % 10;
@@ -50,7 +50,8 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
-     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {
+     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+ {
   Destroy();
   return;
  }
@@ -70,6 +71,15 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   BeaconMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
  if (UMaterialInstanceDynamic* PickupMaterial = PickupMesh->CreateAndSetMaterialInstanceDynamic(0))
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+}
+
+void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || ItemCode <= 0) return;
+ RewardZone = Zone;
+ RewardDungeon = Dungeon;
+ RewardChamber = Chamber;
 }
 
 bool AMoonfallGroundLoot::TryCollect()
@@ -97,7 +107,13 @@ bool AMoonfallGroundLoot::TryCollect()
      HeroPosition + FVector(0.f, 0.f, 40.f),
      LootPosition + FVector(0.f, 0.f, 40.f),
      ECC_Visibility, SightParams)) return false;
- if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ const bool bDungeonTreasure = RewardZone != INDEX_NONE;
+ const bool bSaved = bDungeonTreasure
+   ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
+   : (PersistentDropId.IsValid()
+      ? Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)
+      : Hero->CollectGroundEquipmentCode(ItemCode));
+ if (!bSaved) return false;
  bCollected = true;
  Destroy();
  return true;
