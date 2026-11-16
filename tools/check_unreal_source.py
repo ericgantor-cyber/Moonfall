@@ -3578,7 +3578,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 13.f", page)
+        self.assertIn("(PanelHeight - 145.f) / 14.f", page)
+        self.assertIn("Equipment power: %d", page)
 
 
     def test_main_based_dungeon_layout_has_connected_colliding_rooms(self):
