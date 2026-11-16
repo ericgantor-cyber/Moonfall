@@ -913,6 +913,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
         self.assertIn("const float EquipY = Top + 87.f;", self.hud)
 
+    def test_autoloot_preference_is_user_configurable_and_persisted(self):
+        self.assertIn("void SetAutoLootEnabled(bool bEnabled);", self.hero_h)
+        method = self.hero_cpp.split("void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("bAutoLootEnabled = bEnabled;", method)
+        self.assertIn("AutoLootElapsed = 0.f;", method)
+        self.assertIn('TEXT("AutoLootEnabled")', method)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni)", method)
+        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", (
+            ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8"))
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]

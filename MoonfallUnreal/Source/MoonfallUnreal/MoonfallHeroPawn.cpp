@@ -1943,6 +1943,16 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  }
 }
 
+void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
+{
+ bAutoLootEnabled = bEnabled;
+ AutoLootElapsed = 0.f;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
+ }
+}
+
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
