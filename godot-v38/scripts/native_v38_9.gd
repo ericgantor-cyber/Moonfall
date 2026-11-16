@@ -47,15 +47,17 @@ func _attack()->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Only an actual melee hit consumes a counter reward; spells retain base damage.
  var before:float=float(target.get("hp",0.0))
- var counter_ready:bool=rhythm_strike_active and map_time<=rhythm_counter_until and bool(target.get("hostile",false))
+ var was_alive:bool=bool(target.get("alive",false))
+ var hostile:bool=bool(target.get("hostile",false))
+ var counter_ready:bool=rhythm_strike_active and was_alive and hostile and map_time<=rhythm_counter_until
  super._apply_player_hit(target,base_damage*(RHYTHM_COUNTER_MULTIPLIER if counter_ready else 1.0),stagger_strength)
- if rhythm_strike_active and float(target.get("hp",0.0))<before:
+ var confirmed:bool=RHYTHM.confirmed_hostile_hit(was_alive,hostile,before,float(target.get("hp",0.0)))
+ if rhythm_strike_active and confirmed:
   rhythm_strike_landed=true
- if counter_ready and float(target.get("hp",0.0))<before:
+ if counter_ready and confirmed:
   rhythm_counter_until=-999.0
   _show_message("DODGE COUNTER!",0.75)
- if not rhythm_strike_active or not bool(target.get("hostile",false)) or not bool(target.get("alive",false)):return
- if float(target.get("hp",0.0))>=before:return
+ if not rhythm_strike_active or not confirmed or not bool(target.get("alive",false)):return
  var maximum:float=100.0 if bool(target.get("boss",false)) else 60.0
  var last_pressure_at:float=float(target.get("rhythm_last_pressure_at",map_time))
  var current:float=RHYTHM.recovered_posture(float(target.get("rhythm_posture",0.0)),maxf(0.0,map_time-last_pressure_at))
