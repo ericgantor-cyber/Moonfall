@@ -35,6 +35,30 @@ func _run()->void:
   var result:Dictionary=RNG.roll(item,seed)
   check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
  check(RNG.roll(item,3,0,80)==RNG.roll(item,3,0,0),"legacy pity argument never changes rarity")
+ # Every rarity boundary is independently testable, with no drop history.
+ check(RNG.rarity_from_chance(0)==4 and RNG.rarity_from_chance(9)==4,"legendary only below 1% boundary")
+ check(RNG.rarity_from_chance(10)==3 and RNG.rarity_from_chance(49)==3,"epic 1%-5% boundary")
+ check(RNG.rarity_from_chance(50)==2 and RNG.rarity_from_chance(169)==2,"rare 5%-17% boundary")
+ check(RNG.rarity_from_chance(170)==1 and RNG.rarity_from_chance(409)==1,"uncommon 17%-41% boundary")
+ check(RNG.rarity_from_chance(410)==0 and RNG.rarity_from_chance(999)==0,"common remains possible on every independent roll")
+ check(RNG.rarity_from_chance(999,40)==0,"maximum luck does not guarantee rarity")
+ check(RNG.rarity_from_chance(999,999999)==0,"excessive luck clamps to bounded odds")
+ check(RNG.rarity_from_chance(30,0)==3 and RNG.rarity_from_chance(30,40)==4,"luck changes odds but not past-roll memory")
+ check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
+ var no_history:Dictionary=RNG.roll(item,2345,0,0)
+ check(no_history==RNG.roll(item,2345,0,1000000),"even extreme legacy pity cannot change a roll")
+ var generated_affixes:Dictionary={}
+ for seed in range(1000):
+  var candidate_roll:Dictionary=RNG.roll(item,seed)
+  var unique:Dictionary={}
+  for affix in candidate_roll["affixes"]:
+   unique[str(affix["stat"])]=true
+   generated_affixes[str(affix["stat"])]=true
+  if unique.size()!=candidate_roll["affixes"].size():
+   check(false,"random affixes never repeat within an item")
+   break
+ check(generated_affixes.size()>=4,"multiple independent affix varieties appear")
+
  var observed:Dictionary={}
  for seed in range(2000):
   var rolled:Dictionary=RNG.roll(item,seed)
