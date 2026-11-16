@@ -3060,7 +3060,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);", tick)
         self.assertIn("bool bReverseCombatWallSlide = false;", self.enemy_h)
         self.assertIn("if (bReverseCombatWallSlide) Side *= -1.f;", tick)
-        self.assertIn("bReverseCombatWallSlide = EscapeHit.bBlockingHit;", tick)
+        self.assertIn("bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;", tick)
         self.assertIn("else if (!Hit.bBlockingHit)", tick)
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
