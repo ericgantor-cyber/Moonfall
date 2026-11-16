@@ -896,30 +896,40 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             else:
                 self.assertEqual(up, 3)
 
+    def test_explicit_mouse_equip_button_preserves_selection_only_rows(self):
+        self.assertIn("bool HitTestInventoryEquipButton() const;", self.hero_h)
+        helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
+        self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("const float EquipY = Top + 87.f;", helper)
+        self.assertIn("MouseX <= EquipX + 172.f", helper)
+        self.assertIn("MouseY <= EquipY + 30.f", helper)
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
+        self.assertIn("if (HitTestInventoryEquipButton())", click)
+        self.assertIn("EquipSelectedInventoryItem();", click)
+        self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", click)
+        self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
+        self.assertIn("const float EquipY = Top + 87.f;", self.hud)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        # Check the new nearest-first bounded candidate pool, not the removed global scan cap.
-        self.assertIn("constexpr int32 MaxLootCandidates = 24;", pickup)
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It", pickup)
-        self.assertNotIn("MaxLootScanned", pickup)
-        self.assertIn("if (InsertAt >= MaxLootCandidates) continue;", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
-        # The actor validates range and line of sight at the mutation boundary.
-        # Candidate selection must not duplicate the expensive cover trace.
-        self.assertNotIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
+        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertNotIn("MaxLootCandidates", pickup)
+        self.assertNotIn("MaxLootPerPress", pickup)
         self.assertNotIn("LineTraceSingleByChannel(", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootCandidates);", pickup)
-        self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
-        self.assertIn("if (!IsValid(Loot)) continue;", pickup)
-        self.assertIn("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;", pickup)
-        self.assertLess(pickup.index("if (!IsValid(Loot)) continue;"), pickup.index("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;"))
         self.assertNotIn("EquipInventoryItem(", pickup)
-        self.assertNotIn("SalvageInventoryItem(", pickup)
-        self.assertNotIn("PrimaryActorTick", pickup)
+        self.assertIn("AutoLootElapsed >= 0.35f", tick)
+        self.assertIn("bAutoLootEnabled &&", tick)
+        self.assertIn("bool bAutoLootEnabled = true;", self.hero_h)
+        self.assertIn('TEXT("AutoLootEnabled"), bAutoLootEnabled', self.hero_cpp)
 
     def test_unified_v11_world_loot_persistence_is_atomic(self):
         from pathlib import Path
