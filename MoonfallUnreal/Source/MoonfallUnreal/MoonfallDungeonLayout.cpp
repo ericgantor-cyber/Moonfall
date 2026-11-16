@@ -297,33 +297,45 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 1) return false;
 
- // Hard lifetime budget. Visiting other chambers cannot raise it above six;
- // excess chambers still count as visited rather than retrying forever.
- const int32 Remaining = FMath::Max(0, 6 - SpawnedEncounterCount);
+ // Raise each dungeon's lifetime spawn budget gradually from 30 at level 1
+ // to 66 at level 43, allowing several five-to-six enemy chamber encounters.
+ // Exhausted chambers still count as visited, without retry loops.
+ const int32 SafeHeroLevel = FMath::Clamp(Hero->Level, 1, 43);
+ const int32 DungeonEncounterBudget = 30 + 6 * ((SafeHeroLevel - 1) / 7);
+ const int32 Remaining = FMath::Max(0, DungeonEncounterBudget - SpawnedEncounterCount);
  if (Remaining == 0) return true;
  // Check global live population only on chamber entry, never every Tick.
  // This protects slower Windows PCs when multiple dungeons remain visited.
- constexpr int32 MaxLiveWorldEnemies = 60;
+ // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
+ // This is a population ceiling, not a forced spawn wave.
+ const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
   if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  // Invalid health cannot represent a living enemy and must not exhaust
+  // the global encounter budget for every dungeon chamber.
+  if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;
   if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
  }
  FRandomStream EncounterRandom(
    GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
+ // Regular rooms spawn five or six mobs; elite solo encounters stay special.
  const int32 Requested = bEliteEncounter ? 1
-   : FMath::Clamp(EnemiesPerCombatChamber, 1, 2);
+   : EncounterRandom.RandRange(5, FMath::Clamp(EnemiesPerCombatChamber, 5, 6));
  const int32 Count = FMath::Min(Remaining,
    FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies));
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
-  const float Side = Index == 0 ? -200.f : 200.f;
-  const float OffsetX = EncounterRandom.FRandRange(-150.f, 150.f);
+  // Spread up to six mobs across a 3x2 chamber grid rather than stacking
+  // four on the same side. Small seeded jitter prevents rigid formations.
+  const float Side = (Index % 3 - 1) * 245.f;
+  const float RowX = (Index / 3 == 0 ? -220.f : 220.f);
+  const float OffsetX = RowX + EncounterRandom.FRandRange(-45.f, 45.f);
+  const float OffsetY = Side + EncounterRandom.FRandRange(-30.f, 30.f);
   const FVector Position = GetActorTransform().TransformPosition(
-    FVector(ChamberIndex * ChamberLength + OffsetX, Side, 100.f));
+    FVector(ChamberIndex * ChamberLength + OffsetX, OffsetY, 100.f));
   const FTransform SpawnTransform(GetActorRotation(), Position);
   AMoonfallEnemy* Enemy = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
     AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
@@ -338,7 +350,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Record chamber before BeginPlay to isolate attack slots across rooms.
   Enemy->DungeonChamberIndex = ChamberIndex;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
-  // The first surviving regular spawn in a two-mob chamber is the scout.
+  // The first surviving regular spawn in a multi-mob chamber is the scout.
   // A rejected first spawn must not leave the chamber without a scout.
   // Elite encounters retain their original behavior.
   if (!bEliteEncounter && Spawned == 0 && Count > 1)
@@ -412,12 +424,14 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
  // Count all living world enemies once, on first final-room entry only.
  // Bosses cannot bypass the same global cap imposed on combat chambers.
- constexpr int32 MaxLiveWorldEnemies = 60;
+ // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
+ // This is a population ceiling, not a forced spawn wave.
+ const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
   if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;
   if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
  }
  // Position the boss away from the centerline where the player enters.

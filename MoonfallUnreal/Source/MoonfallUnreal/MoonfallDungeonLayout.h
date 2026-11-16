@@ -56,10 +56,11 @@ public:
  UInstancedStaticMeshComponent* HazardPlates;
 
  // Spawn only upon entering combat chambers, never in startup waves.
- // Runtime budget is six dungeon enemies maximum, two per room.
+ // Spawn five to six regular enemies per combat room; elite rooms stay solo.
+ // Lifetime spawn budget scales from 30 to 66, with the global 69-111 cap.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Combat",
-   meta=(ClampMin="1", ClampMax="2"))
- int32 EnemiesPerCombatChamber = 2;
+   meta=(ClampMin="5", ClampMax="6"))
+ int32 EnemiesPerCombatChamber = 6;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Combat")
  void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,
    int32 SpawnedCount, bool bEliteEncounter);

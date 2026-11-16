@@ -2952,6 +2952,50 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("++ConsideredAllies;"))
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
 
+    def test_dungeon_population_cap_ignores_invalid_health(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;", combat)
+        self.assertIn("if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;", combat)
+        self.assertNotIn("if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;", combat)
+        self.assertLess(combat.index("!FMath::IsFinite(Other->Health)"),
+                        combat.index("++AliveWorldEnemies"))
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);", combat)
+
+    def test_dungeon_regular_rooms_spawn_five_or_six_spread_mobs(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn('meta=(ClampMin="5", ClampMax="6")', layout_h)
+        self.assertIn("int32 EnemiesPerCombatChamber = 6;", layout_h)
+        self.assertIn("bEliteEncounter ? 1", combat)
+        self.assertIn("EncounterRandom.RandRange(5, FMath::Clamp(EnemiesPerCombatChamber, 5, 6))", combat)
+        self.assertIn("const float Side = (Index % 3 - 1) * 245.f;", combat)
+        self.assertIn("const float RowX = (Index / 3 == 0 ? -220.f : 220.f);", combat)
+        self.assertIn("const float OffsetY = Side + EncounterRandom.FRandRange(-30.f, 30.f);", combat)
+        positions = {(i % 3 - 1, i // 3) for i in range(6)}
+        self.assertEqual(len(positions), 6)
+        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
+        self.assertIn("FMath::Max(0, DungeonEncounterBudget - SpawnedEncounterCount)", combat)
+
+    def test_dungeon_population_cap_ramps_69_to_111_with_level(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        cap = "const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);"
+        self.assertIn(cap, combat)
+        self.assertIn(cap, boss)
+        for level, expected in ((1, 69), (2, 70), (22, 90), (43, 111), (99, 111)):
+            self.assertEqual(69 + (min(max(level, 1), 43) - 1), expected)
+        self.assertNotIn("Hero->Level - 1", combat)
+        self.assertNotIn("Hero->Level - 1", boss)
+        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
+        self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", boss)
+        self.assertIn("if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;", boss)
+
     def test_dungeon_attack_coordination_does_not_cross_chambers(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
@@ -3888,7 +3932,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
-        self.assertIn("int32 EnemiesPerCombatChamber = 2;", layout_h)
+        self.assertIn("int32 EnemiesPerCombatChamber = 6;", layout_h)
         self.assertIn("int32 SpawnedEncounterCount = 0;", layout_h)
         self.assertIn("bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);", layout_h)
         self.assertIn("void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,", layout_h)
@@ -3900,15 +3944,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
-        self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertIn("FMath::Max(0, DungeonEncounterBudget - SpawnedEncounterCount)", combat)
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);", combat)
         self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
         self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
         self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
         self.assertLess(combat.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies)"),
                         combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("const int32 SafeHeroLevel = FMath::Clamp(Hero->Level, 1, 43);", combat)
+        self.assertIn("const int32 DungeonEncounterBudget = 30 + 6 * ((SafeHeroLevel - 1) / 7);", combat)
+        for level, expected in ((1, 30), (7, 30), (8, 36), (22, 48), (43, 66), (999, 66), (-999, 30)):
+            safe_level = min(max(level, 1), 43)
+            self.assertEqual(30 + 6 * ((safe_level - 1) // 7), expected)
         self.assertIn("if (Remaining == 0) return true;", combat)
-        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", combat)
+        self.assertIn("EncounterRandom.RandRange(5, FMath::Clamp(EnemiesPerCombatChamber, 5, 6))", combat)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
         self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", combat)
         self.assertIn("Enemy->bElite = bEliteEncounter;", combat)
@@ -4182,7 +4231,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         final.index("bFinalChamberNotified = true;"))
         self.assertLess(final.index("bFinalChamberNotified = true;"),
                         final.index("OnFinalChamberEntered(Hero);"))
-        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", boss)
+        self.assertIn("const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);", boss)
         self.assertIn("TActorIterator<AMoonfallEnemy>", boss)
         self.assertLess(boss.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;"),
                         boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
