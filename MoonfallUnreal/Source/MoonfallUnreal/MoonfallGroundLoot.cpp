@@ -7,6 +7,8 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
 
 AMoonfallGroundLoot::AMoonfallGroundLoot()
 {
@@ -65,11 +67,47 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
+void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || ItemCode <= 0) return;
+ RewardZone = Zone;
+ RewardDungeon = Dungeon;
+ RewardChamber = Chamber;
+}
+
 bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)) return false;
+ if (!IsValid(Hero) || !GetWorld()) return false;
+ // Enforce pickup reachability at the item boundary as well as in the hero's
+ // candidate search. Blueprint or future callers must not collect distant loot.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector LootPosition = GetActorLocation();
+ // Extreme finite positions can still overflow the squared-distance result.
+ // Never allow a nonfinite distance to bypass the pickup boundary.
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()) return false;
+ const float DistanceSq = FVector::DistSquared2D(HeroPosition, LootPosition);
+ if (!FMath::IsFinite(DistanceSq) ||
+     FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f ||
+     DistanceSq > FMath::Square(250.f))
+  return false;
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGroundLootCollectSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult SightHit;
+ if (GetWorld()->LineTraceSingleByChannel(SightHit,
+     HeroPosition + FVector(0.f, 0.f, 40.f),
+     LootPosition + FVector(0.f, 0.f, 40.f),
+     ECC_Visibility, SightParams)) return false;
+ const bool bDungeonTreasure = RewardZone != INDEX_NONE;
+ const bool bSaved = bDungeonTreasure
+   ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
+   : (PersistentDropId.IsValid()
+      ? Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)
+      : Hero->CollectGroundEquipmentCode(ItemCode));
+ if (!bSaved) return false;
  bCollected = true;
  Destroy();
  return true;
