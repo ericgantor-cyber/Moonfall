@@ -169,7 +169,7 @@ class TestSocialWorld(unittest.TestCase):
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
-  self.assertIn("Version = 9",self.save)
+  self.assertIn("Version = 10",self.save)
   self.assertIn("Save->FactionReputation = FactionReputation;",self.hero)
   self.assertIn("if (Save->Version >= 4)",self.hero)
   self.assertIn("FMath::Clamp(*Value, -100, 100)",self.hero)

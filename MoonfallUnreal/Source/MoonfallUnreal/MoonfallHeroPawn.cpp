@@ -17,6 +17,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallDungeonLayout.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -950,6 +951,15 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  return true;
 }
 
+bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation) {
+ // Invulnerability from timed dodges still wins; only blocking and parrying
+ // are bypassed. Restore the scoped state before returning to the caller.
+ bIncomingDamageDodgeOnly = true;
+ const bool bParried = ApplyMoonfallDamageFrom(Amount, SourceLocation);
+ bIncomingDamageDodgeOnly = false;
+ return bParried;
+}
+
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
  bLastIncomingHitParried = false;
  IncomingDamageSource = SourceLocation;
@@ -997,11 +1007,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // still costs stamina while held, and normal blocks retain heavy-hit pressure.
  // Perfect parries are deliberate responses to a known, front-facing
  // attacker. Environmental damage without a source may still be blocked.
- const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+ const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack
      && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
- if (bGuarding && bFrontAttack && !bOptionsOpen
+ if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
      && Stamina >= RequiredGuardCost) {
@@ -1033,7 +1043,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
- } else if (bGuarding && bFrontAttack) {
+ } else if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack) {
   // Insufficient stamina breaks guard without granting free damage reduction.
   BreakGuard();
  }
@@ -2127,6 +2137,87 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  return Code;
 }
 
+bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
+ return (static_cast<uint32>(DefeatedDungeonBossMask)
+     & (1u << (Zone * 5 + Dungeon))) != 0u;
+}
+
+int32 AMoonfallHeroPawn::GetDefeatedDungeonBossCount(int32 Zone) const
+{
+ if (Zone < 0 || Zone >= 6) return 0;
+ int32 Count = 0;
+ for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)
+  if (HasDefeatedDungeonBoss(Zone, Dungeon)) ++Count;
+ return Count;
+}
+
+int32 AMoonfallHeroPawn::GetTotalDefeatedDungeonBosses() const
+{
+ int32 Total = 0;
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  Total += GetDefeatedDungeonBossCount(Zone);
+ return Total;
+}
+
+int32 AMoonfallHeroPawn::GetClearedDungeonZoneCount() const
+{
+ int32 Cleared = 0;
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  if (GetDefeatedDungeonBossCount(Zone) == 5) ++Cleared;
+ return Cleared;
+}
+
+bool AMoonfallHeroPawn::MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss)
+{
+ // A raw dungeon ID is not proof of victory. The actual dead, tagged boss
+ // must belong to a live dungeon layout in this world.
+ if (!IsValid(DefeatedBoss) || DefeatedBoss->GetWorld() != GetWorld()
+     || !DefeatedBoss->bBoss || !FMath::IsFinite(DefeatedBoss->Health)
+     || DefeatedBoss->Health > 0.f
+     || !DefeatedBoss->Tags.Contains(FName(TEXT("MoonfallDungeonBoss"))))
+  return false;
+ const AMoonfallDungeonLayout* DungeonLayout =
+   Cast<AMoonfallDungeonLayout>(DefeatedBoss->GetOwner());
+ if (!IsValid(DungeonLayout) || DungeonLayout->GetWorld() != GetWorld())
+  return false;
+ const int32 Zone = DungeonLayout->ZoneIndex;
+ const int32 Dungeon = DungeonLayout->DungeonIndex;
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || !GetWorld()
+     || !HasDiscoveredDungeon(Zone, Dungeon)
+     || HasDefeatedDungeonBoss(Zone, Dungeon)) return false;
+ // The 30-bit permanent victory ledger doubles as the idempotency key for
+ // completion salvage. No extra save schema or one-shot reward flags needed.
+ const int32 PreviousMask = DefeatedDungeonBossMask;
+ const int32 PreviousSalvage = Salvage;
+ const bool bCompletesZone = GetDefeatedDungeonBossCount(Zone) == 4;
+ const bool bCompletesWorld = GetTotalDefeatedDungeonBosses() == 29;
+ // Base reward grows by region, not framerate or RNG; one final-boss
+ // completion pays 20-57 salvage, fifth boss +100 and last world boss +500.
+ const int32 BaseReward = 20 + Zone * 5 + Dungeon * 2;
+ const int32 CompletionReward = BaseReward + (bCompletesZone ? 100 : 0)
+   + (bCompletesWorld ? 500 : 0);
+ constexpr int32 MaxSalvage = 100000000;
+ const int32 SafeSalvage = FMath::Clamp(Salvage, 0, MaxSalvage);
+ const int32 SalvageEarned = FMath::Min(CompletionReward, MaxSalvage - SafeSalvage);
+ DefeatedDungeonBossMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
+ Salvage = SafeSalvage + SalvageEarned;
+ // Save BOTH new ledger and salvage in a single world-save write. A failing
+ // save rolls both fields back. Do not notify Blueprint before persistence.
+ if (!SaveWorldProgress()) {
+  DefeatedDungeonBossMask = PreviousMask;
+  Salvage = PreviousSalvage;
+  return false;
+ }
+ OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);
+ if (bCompletesZone) OnDungeonZoneCleared(Zone);
+ if (bCompletesWorld) OnAllDungeonsCleared();
+ return true;
+}
+
 bool AMoonfallHeroPawn::HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
@@ -2195,7 +2286,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64
      || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
-     || DungeonTreasureStates.Num() > 420) return false;
+     || DungeonTreasureStates.Num() > 420
+     || (static_cast<uint32>(DefeatedDungeonBossMask) & ~((1u << 30) - 1u)) != 0u
+     || (static_cast<uint32>(DefeatedDungeonBossMask)
+         & ~static_cast<uint32>(DiscoveredDungeonMask)) != 0u) return false;
  for (int32 Index = 0; Index < DungeonTreasureStates.Num(); ++Index) {
   const int32 Code = DungeonTreasureStates[Index];
   if (Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code)) return false;
@@ -2264,6 +2358,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->ActiveShrineId = ActiveShrineId;
  Save->DiscoveredShrineIds = DiscoveredShrineIds;
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
+ Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;
  Save->DungeonTreasureStates = DungeonTreasureStates;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
@@ -2290,7 +2385,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 9) {
+ if (!Save || Save->Version < 1 || Save->Version > 10) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2405,6 +2500,15 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   return false;
  }
+ // V10: Reject invalid/unexplored boss bits rather than silently
+ // overwriting the original save through the two-second autosave.
+ if (Save->Version >= 10 &&
+     ((static_cast<uint32>(Save->DefeatedDungeonBossMask) & ~((1u << 30) - 1u)) != 0u
+      || (static_cast<uint32>(Save->DefeatedDungeonBossMask)
+          & ~static_cast<uint32>(Save->DiscoveredDungeonMask)) != 0u)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
  // Validate pending/claimed rewards before applying loaded progress.
  if (Save->Version >= 9) {
   if (Save->DungeonTreasureStates.Num() > 420) {
@@ -2453,6 +2557,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
  DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
+ DefeatedDungeonBossMask = Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;
  DungeonTreasureStates = Save->Version >= 9
    ? Save->DungeonTreasureStates : TArray<int32>();
  // Refresh any shrines that began play before the save was loaded.

@@ -96,6 +96,27 @@ public:
  // Version 8: 30 stable dungeon entrances, six zones x five per zone.
  // Discovery is permanent, independent of shrine respawn progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon") int32 DiscoveredDungeonMask = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DefeatedDungeonBossMask = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
+ // Internal kill-path API only: never allow a generic Blueprint event
+ // to persist a victory without the real dungeon boss death callback.
+ bool MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss);
+ // Permanent WoW-style zone/campaign completion counters (not discovery).
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetDefeatedDungeonBossCount(int32 Zone) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetTotalDefeatedDungeonBosses() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetClearedDungeonZoneCount() const;
+ // These fire only AFTER victory + its one-time salvage reward are saved.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossVictory(int32 Zone, int32 Dungeon, int32 SalvageEarned);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonZoneCleared(int32 Zone);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnAllDungeonsCleared();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Treasure") TArray<int32> DungeonTreasureStates;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") bool HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetDiscoveredDungeonCount(int32 Zone) const;
@@ -130,6 +151,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
+ // Explicit dodge-only boss hit, preserving the normal attack API.
+ bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  // Returns true only when this specific attack consumed the perfect-dodge window.
  bool TryRewardPerfectDodge();
@@ -318,6 +341,7 @@ private:
  float NextDodgeAt = 0.f;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
+ bool bIncomingDamageDodgeOnly = false;
  bool bLastIncomingHitParried = false;
  float ParryWindowEndsAt = -1.f;
  float NextParryAt = 0.f;

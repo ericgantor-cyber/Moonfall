@@ -1818,7 +1818,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_normal_blocks_also_refresh_combat_recovery(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+        guard = damage.split("if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "if (bPerfectParry) {", 1)[0]
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", guard)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
@@ -1925,7 +1925,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_guard_impact_preserves_stamina_delay_and_resets_stale_counter(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+        guard = damage.split("if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "OnGuardImpact(", 1)[0]
         self.assertIn("StaminaRegenStartsAt = FMath::Max(", guard)
         self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", guard)
@@ -2647,7 +2647,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bLastIncomingHitParried = false;", self.hero_cpp)
         self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
         self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
-        self.assertIn("const bool bParried = Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
+        self.assertIn("const bool bParried = bDodgeOnlyStrike", self.enemy_cpp)
         self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", self.enemy_cpp)
         self.assertIn("bComboSecondHitPending = false;", self.enemy_cpp)
@@ -2683,7 +2683,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ParryWindowEndsAt = -1.f;", guard)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        self.assertIn("const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
+        self.assertIn("const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("const bool bFrontAttack = !bHasIncomingDamageSource", damage)
         self.assertLess(damage.index("const bool bFrontAttack ="), damage.index("const bool bPerfectParry ="))
@@ -2701,7 +2701,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("Stamina >= RequiredGuardCost", damage)
         self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
-        self.assertIn("const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
+        self.assertIn("const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
         self.assertIn("FMath::IsFinite(GuardImpactStaminaScale)", damage)
@@ -3529,9 +3529,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 9;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 9", self.hero_cpp)
+        self.assertIn("Version > 10", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -3573,11 +3573,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_character_page_shows_30_dungeon_exploration_progress(self):
         page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
             "// Identical button rectangle", 1)[0]
-        self.assertIn("DUNGEON EXPLORATION", page)
-        self.assertIn("ALL 6 ZONES CHARTED", page)
-        self.assertIn("Zone %d: %d / 5  |  Total: %d / 30", page)
+        self.assertIn("DUNGEON CAMPAIGN", page)
+        self.assertIn("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30", page)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
+        self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("Hero->GetNextUnchartedDungeonZone()", page)
         self.assertIn("(PanelHeight - 145.f) / 13.f", page)
 
 
@@ -3704,7 +3704,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)", chamber)
         self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
                         chamber.index("EnteredChambersMask |= Bit;"))
-        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
         self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
         self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
@@ -3904,6 +3905,301 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
         for text in (layout, arena):
             self.assertNotIn("SetActorEnableCollision(false);", text)
+
+
+    def test_final_dungeon_room_spawns_one_generic_boss_after_durable_discovery(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        self.assertIn("bool StartFinalBossChamber(AMoonfallHeroPawn* Hero);", layout_h)
+        self.assertIn("void OnDungeonBossSpawned(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);", layout_h)
+        self.assertIn("if (bFinalChamberNotified", final)
+        self.assertLess(final.index("Hero->DiscoverDungeonEntrance("),
+                        final.index("&& !StartFinalBossChamber(Hero)) return;"))
+        self.assertLess(final.index("&& !StartFinalBossChamber(Hero)) return;"),
+                        final.index("bFinalChamberNotified = true;"))
+        self.assertLess(final.index("bFinalChamberNotified = true;"),
+                        final.index("OnFinalChamberEntered(Hero);"))
+        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", boss)
+        self.assertIn("TActorIterator<AMoonfallEnemy>", boss)
+        self.assertLess(boss.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;"),
+                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding", boss)
+        self.assertIn("Boss->bElite = true;", boss)
+        self.assertIn("Boss->bBoss = true;", boss)
+        self.assertIn("Boss->Health = Style.Health * RankScale;", boss)
+        self.assertIn("Boss->AttackDamage = Style.Damage * (1.f + 0.07f * DungeonIndex);", boss)
+        self.assertIn("Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;", boss)
+        self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));', boss)
+        self.assertLess(boss.index("Boss->bBoss = true;"),
+                        boss.index("Boss->FinishSpawning(SpawnTransform);"))
+        self.assertLess(boss.index("Boss->FinishSpawning(SpawnTransform);"),
+                        boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);"))
+        self.assertNotIn("z_void_reaper", boss)
+        self.assertNotIn("nyra_eclipse_queen", boss)
+        self.assertNotIn("SaveWorldProgress(", boss)
+
+
+    def test_v10_boss_victory_is_saved_on_kill_and_preserves_legacy_saves(self):
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
+        self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
+        self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
+        self.assertIn("MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss);", self.hero_h)
+        # Permanent victories must only be committed by native kill handling.
+        marker = self.hero_h.split("bool MarkDungeonBossDefeated(", 1)[0]
+        declaration_prefix = marker.splitlines()[-3:]
+        self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
+        self.assertIn("Internal kill-path API only", self.hero_h)
+        self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
+        self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
+        self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
+        self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
+        self.assertIn("~static_cast<uint32>(DiscoveredDungeonMask)", self.hero_cpp)
+        marker = self.hero_cpp.split("bool AMoonfallHeroPawn::MarkDungeonBossDefeated(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
+        self.assertIn("!HasDiscoveredDungeon(Zone, Dungeon)", marker)
+        self.assertIn("HasDefeatedDungeonBoss(Zone, Dungeon)", marker)
+        self.assertIn("IsValid(DefeatedBoss)", marker)
+        self.assertIn("DefeatedBoss->GetWorld() != GetWorld()", marker)
+        self.assertIn("DefeatedBoss->Health > 0.f", marker)
+        self.assertIn("DefeatedBoss->Tags.Contains(FName(TEXT(", marker)
+        self.assertIn("Cast<AMoonfallDungeonLayout>(DefeatedBoss->GetOwner())", marker)
+        self.assertLess(marker.index("IsValid(DefeatedBoss)"),
+                        marker.index("DefeatedDungeonBossMask |="))
+        self.assertIn("bWorldProgressLoadInProgress", marker)
+        self.assertIn("bPersistentSaveWritesBlocked", marker)
+        self.assertLess(marker.index("DefeatedDungeonBossMask |="),
+                        marker.index("if (!SaveWorldProgress())"))
+        self.assertLess(marker.index("if (!SaveWorldProgress())"),
+                        marker.index("DefeatedDungeonBossMask = PreviousMask;"))
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        self.assertIn("Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)", final)
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        self.assertLess(boss.index("Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)"),
+                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        death = enemy.split("if (Health <= 0.0f) {", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))', death)
+        self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
+        self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
+        self.assertNotIn("MarkDungeonBossDefeated(", final)
+        self.assertNotIn("MarkDungeonBossDefeated(", boss)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
+        # Blueprint spawn callbacks can destroy their actor synchronously.
+        # The final room must stay retryable when that happens.
+        self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
+        self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
+        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        self.assertLess(
+            boss.index("Boss->OnDungeonBossIdentityReady("),
+            boss.index("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;",
+                       boss.index("Boss->OnDungeonBossIdentityReady("))
+        )
+        self.assertLess(
+            boss.index("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;",
+                       boss.index("Boss->OnDungeonBossIdentityReady(")),
+            boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);")
+        )
+        self.assertIn("&& !StartFinalBossChamber(Hero)) return;", final)
+        self.assertLess(final.index("&& !StartFinalBossChamber(Hero)) return;"),
+                        final.index("bFinalChamberNotified = true;"))
+
+
+    def test_v10_native_dungeon_runner_requires_boss_ledger_check(self):
+        # CI source contracts ensure the real Editor test runner cannot
+        # silently omit the native V10 boss ledger scenario.
+        source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
+        self.assertIn(name, source)
+        self.assertIn(name, runner)
+        self.assertIn('Save->Version, 10', source)
+        self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
+        self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(6, 0)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(0, -1)', source)
+        self.assertIn('Hero->HasDefeatedDungeonBoss(0, 5)', source)
+
+    def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        cpp = self.hero_cpp
+        for token in ("GetDefeatedDungeonBossCount(int32 Zone) const;",
+                      "GetTotalDefeatedDungeonBosses() const;",
+                      "GetClearedDungeonZoneCount() const;",
+                      "OnDungeonBossVictory(int32 Zone, int32 Dungeon, int32 SalvageEarned);",
+                      "OnDungeonZoneCleared(int32 Zone);", "OnAllDungeonsCleared();"):
+            self.assertIn(token, header)
+        block = cpp.split("bool AMoonfallHeroPawn::MarkDungeonBossDefeated(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
+        for token in ("HasDefeatedDungeonBoss(Zone, Dungeon)", "GetDefeatedDungeonBossCount(Zone) == 4",
+                      "GetTotalDefeatedDungeonBosses() == 29",
+                      "20 + Zone * 5 + Dungeon * 2", "bCompletesZone ? 100 : 0",
+                      "bCompletesWorld ? 500 : 0", "MaxSalvage = 100000000",
+                      "const int32 PreviousSalvage = Salvage;", "Salvage = PreviousSalvage;",
+                      "DefeatedDungeonBossMask = PreviousMask;", "OnDungeonZoneCleared(Zone);",
+                      "OnAllDungeonsCleared();"):
+            self.assertIn(token, block)
+        self.assertLess(block.index("DefeatedDungeonBossMask |="), block.index("if (!SaveWorldProgress())"))
+        self.assertLess(block.index("Salvage = SafeSalvage + SalvageEarned;"),
+                        block.index("if (!SaveWorldProgress())"))
+        self.assertLess(block.index("if (!SaveWorldProgress())"),
+                        block.index("OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);"))
+        self.assertLess(block.index("OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);"),
+                        block.index("if (bCompletesZone) OnDungeonZoneCleared(Zone);"))
+        self.assertNotIn("AwardExperience(", block)
+        self.assertNotIn("SpawnGroundEquipmentDrop(", block)
+
+
+    def test_thirty_ranked_bosses_have_six_distinct_combat_styles(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        for name in ("Ashen Warden", "Thorn Sentinel", "Frostbound Colossus",
+                     "Tempest Stalker", "Forged Juggernaut", "Eclipse Harbinger"):
+            self.assertIn('TEXT("' + name + '")', boss)
+        for family in ("Ashen", "Verdant", "Glacial", "Storm", "Foundry", "Eclipse"):
+            self.assertIn('TEXT("' + family + '")', boss)
+        self.assertIn("static const FDungeonBossStyle Styles[6]", boss)
+        self.assertIn("const FDungeonBossStyle& Style = Styles[ZoneIndex];", boss)
+        self.assertIn("const int32 Rank = DungeonIndex + 1;", boss)
+        self.assertIn("1.f + 0.12f * DungeonIndex", boss)
+        self.assertIn("Boss->Health = Style.Health * RankScale;", boss)
+        self.assertIn("Boss->AttackDamage = Style.Damage * (1.f + 0.07f * DungeonIndex);", boss)
+        self.assertIn("Boss->AttackRange = Style.AttackRange;", boss)
+        self.assertIn("Boss->AttackCooldown = Style.AttackCooldown;", boss)
+        self.assertIn("Boss->MaxPosture = Style.Posture * RankScale;", boss)
+        self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
+        self.assertIn("Boss->DungeonBossTitle = FText::FromString(", boss)
+        self.assertIn("Boss->DungeonBossRank = Rank;", boss)
+        self.assertIn("OnDungeonBossIdentityReady(", boss)
+        self.assertLess(boss.index("Boss->DungeonBossRank = Rank;"),
+                        boss.index("Boss->FinishSpawning(SpawnTransform);"))
+        self.assertLess(boss.index("Boss->FinishSpawning(SpawnTransform);"),
+                        boss.index("Boss->OnDungeonBossIdentityReady("))
+        for field in ("FName DungeonBossFamily", "FText DungeonBossTitle",
+                      "int32 DungeonBossRank"):
+            self.assertIn(field, enemy_h)
+        self.assertNotIn("DivineBossId =", boss)
+        self.assertNotIn("DivineBossTitle =", boss)
+
+
+    def test_six_regional_dungeon_bosses_prioritize_distinct_existing_specials(self):
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        attack = enemy.split("   BossSpecialMove = bBoss && BossPhase >= 2", 1)[1].split(
+            "   // Later-phase bosses alternate fast opener", 1)[0]
+        self.assertIn('bBoss && !DungeonBossFamily.IsNone()', attack)
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))', attack)
+        self.assertIn("bRegionalBoss && BossPhase >= 2", attack)
+        self.assertIn("AttackSequence % (BossPhase >= 3 ? 3 : 4) == 0", attack)
+        for family in ("Ashen", "Verdant", "Glacial", "Storm", "Foundry", "Eclipse"):
+            self.assertIn('DungeonBossFamily == FName(TEXT("' + family + '"))', attack)
+        for code in ("BossSpecialMove = 1;", "BossSpecialMove = 2;",
+                     "BossSpecialMove = 3;", "BossSpecialMove = 4;", "BossSpecialMove = 5;"):
+            self.assertIn(code, attack)
+        self.assertIn("void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);", header)
+        telegraph = enemy.split("   if (bDivineSignatureActive) {\n    OnDivineAttackTelegraphed(", 1)[1]
+        self.assertIn("} else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5)", telegraph)
+        self.assertIn("OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);", telegraph)
+        for move in ("MoonCleave", "EclipseSlam", "DashStrike", "SpinningSweep", "SkyfallSlam"):
+            self.assertIn('FName(TEXT("' + move + '"))', telegraph)
+        self.assertLess(enemy.index("WindupEndsAt = Now + CurrentWindup;"),
+                        enemy.index("OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);"))
+        self.assertNotIn("DivineBossId =", attack)
+        self.assertNotIn("DivineBossTitle =", attack)
+
+
+    def test_native_hud_shows_ranked_boss_name_phase_countdown_and_saved_campaign(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("Boss->DungeonBossTitle.ToString()", hud)
+        self.assertIn("Boss->DungeonBossRank >= 1", hud)
+        self.assertIn("Boss->DungeonBossRank <= 5", hud)
+        self.assertIn("Boss->DungeonBossFamily.IsNone()", hud)
+        self.assertIn("REGIONAL BOSS  |  RANK %d / 5", hud)
+        self.assertIn("PHASE %d / 3", hud)
+        self.assertIn("Boss->BossMaxHealth", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+        self.assertIn("FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f", hud)
+        self.assertIn('TEXT("%s  |  %.1fs  |  %s")', hud)
+        self.assertIn("RED - DODGE ONLY", hud)
+        self.assertIn("BLUE - PARRY / DODGE", hud)
+        self.assertIn("GUARD / PARRY / DODGE", hud)
+        self.assertIn("Boss->DungeonBossAttackLabel.ToString()", hud)
+        self.assertIn("Boss->DungeonBossAttackWarningDuration", hud)
+        self.assertIn("Seconds / Boss->DungeonBossAttackWarningDuration", hud)
+        self.assertIn("Hero->BossWarningScale", hud)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", hud)
+        self.assertIn("Hero->GetClearedDungeonZoneCount()", hud)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()", hud)
+        self.assertLess(hud.index("if (Hero->bInventoryOpen)"),
+                        hud.index("const bool bRegionalBoss = Boss->bBoss"))
+        self.assertNotIn("SetHealth(", hud)
+        self.assertNotIn("MarkDungeonBossDefeated(", hud)
+
+
+    def test_regional_attack_labels_match_actual_warning_and_combo_windups(self):
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("FText DungeonBossAttackLabel;", enemy_h)
+        self.assertIn("float DungeonBossAttackWarningDuration = 0.f;", enemy_h)
+        for label in ("MOON CLEAVE", "HEAVY SLAM", "DASH STRIKE",
+                      "SPINNING SWEEP", "SKYFALL SLAM", "QUICK STRIKE",
+                      "POWER STRIKE", "WIDE SWEEP", "CRUSH ATTACK",
+                      "COMBO FOLLOW-UP"):
+            self.assertIn('TEXT("' + label + '")', enemy)
+        self.assertIn("DungeonBossAttackLabel = FText::FromString(AttackLabel);", enemy)
+        self.assertIn('DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));', enemy)
+        self.assertIn("DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);", enemy)
+        self.assertIn("Seconds / Boss->DungeonBossAttackWarningDuration", hud)
+        self.assertIn("FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)", hud)
+        self.assertIn("FMath::Clamp(WarningRemaining, 0.f, 10.f)", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+        self.assertNotIn("TakeSpellDamage(", hud)
+        self.assertNotIn("MarkDungeonBossDefeated(", hud)
+
+
+    def test_phantom_blade_and_wukong_style_cues_obey_real_combat_rules(self):
+        hero = self.hero_cpp
+        hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);", hero_h)
+        self.assertIn("bool bIncomingDamageDodgeOnly = false;", hero_h)
+        dodge = hero.split("bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertLess(dodge.index("bIncomingDamageDodgeOnly = true;"),
+                        dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"))
+        self.assertLess(dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"),
+                        dodge.index("bIncomingDamageDodgeOnly = false;"))
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("!bIncomingDamageDodgeOnly && bGuarding", damage)
+        self.assertIn("!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack", damage)
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
+        self.assertIn("bool bDungeonBossAttackDodgeOnly = false;", enemy_h)
+        self.assertIn("bDungeonBossAttackDodgeOnly = BossSpecialMove == 2", enemy)
+        self.assertIn("BossSpecialMove == 3 || BossSpecialMove == 5;", enemy)
+        self.assertIn("bDungeonBossAttackDodgeOnly = false;", enemy)
+        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("const bool bRedDodge = bRegionalBoss && Boss->bDungeonBossAttackDodgeOnly;", hud)
+        self.assertIn("const bool bBlueParry =", hud)
+        for cue in ("RED - DODGE ONLY", "BLUE - PARRY / DODGE",
+                    "GUARD / PARRY / DODGE", "IMPACT SOON"):
+            self.assertIn(cue, hud)
+        self.assertIn("if (Seconds <= 0.3f)", hud)
+        self.assertIn("Hero->bReduceMotion", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,8 @@
 #include "Misc/AutomationTest.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallDungeonLayout.h"
+#include "MoonfallHeroPawn.h"
+#include "MoonfallPersistentSave.h"
 #include "UObject/UObjectGlobals.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonPlacementTest,
@@ -69,4 +71,43 @@ bool FMoonfallDungeonRoomSeedTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Exactly three unique hazardous chambers"), Hazards, 3);
  return !HasAnyErrors();
 }
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonBossVictoryLedgerTest,
+  "Moonfall.Dungeons.BossVictoryLedgerDefaults",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
+{
+ // Native test of the persistent V10 schema and all 30 victory-index
+ // boundaries. Combat, disk save round-trips and spawn AI need separate
+ // in-world smoke verification.
+ const UMoonfallPersistentSave* Save = GetDefault<UMoonfallPersistentSave>();
+ const AMoonfallHeroPawn* Hero = GetDefault<AMoonfallHeroPawn>();
+ if (!TestNotNull(TEXT("Persistent save default"), Save)
+     || !TestNotNull(TEXT("Hero default"), Hero)) return false;
+ TestEqual(TEXT("Boss ledger save schema is V10"), Save->Version, 10);
+ TestEqual(TEXT("Fresh save has no boss victories"),
+   Save->DefeatedDungeonBossMask, 0);
+ TestEqual(TEXT("Fresh hero has no boss victories"),
+   Hero->DefeatedDungeonBossMask, 0);
+ for (int32 Zone = 0; Zone < 6; ++Zone) {
+  TestEqual(TEXT("Fresh zone victory count is zero"),
+    Hero->GetDefeatedDungeonBossCount(Zone), 0);
+  for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)
+   TestFalse(TEXT("Unbeaten dungeon has no saved boss victory"),
+     Hero->HasDefeatedDungeonBoss(Zone, Dungeon));
+ }
+ TestEqual(TEXT("Fresh campaign victory count"),
+   Hero->GetTotalDefeatedDungeonBosses(), 0);
+ TestEqual(TEXT("Fresh cleared-zone count"),
+   Hero->GetClearedDungeonZoneCount(), 0);
+ TestFalse(TEXT("Negative zone rejected"), Hero->HasDefeatedDungeonBoss(-1, 0));
+ TestFalse(TEXT("Zone beyond six rejected"), Hero->HasDefeatedDungeonBoss(6, 0));
+ TestFalse(TEXT("Negative dungeon rejected"), Hero->HasDefeatedDungeonBoss(0, -1));
+ TestFalse(TEXT("Dungeon beyond five rejected"), Hero->HasDefeatedDungeonBoss(0, 5));
+ TestEqual(TEXT("Invalid zone cannot yield victories"),
+   Hero->GetDefeatedDungeonBossCount(6), 0);
+ return !HasAnyErrors();
+}
+
 #endif

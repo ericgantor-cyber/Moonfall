@@ -224,6 +224,10 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ // A failed spawn must not consume the final chamber event. Player can
+ // retreat and retry when collision or the global population cap clears.
+ if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)
+     && !StartFinalBossChamber(Hero)) return;
  bFinalChamberNotified = true;
  FinalChamberTrigger->SetGenerateOverlapEvents(false);
  OnFinalChamberEntered(Hero);
@@ -273,8 +277,7 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < 0.f) return;
- // A corrupted/infinite cooldown or a reset world clock must not disable
- // the trap permanently. Valid pending cooldowns remain bounded to 20 seconds.
+ // A corrupt cooldown or world-time reset must not disable the trap.
  const bool bClockRewound = FMath::IsFinite(LastHazardObservedTime)
    && LastHazardObservedTime >= 0.f && Now < LastHazardObservedTime;
  LastHazardObservedTime = Now;
@@ -376,4 +379,84 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  SpawnedTreasure[ChamberIndex] = Loot;
  OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
  return true;
+}
+
+bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
+{
+ if (bFinalChamberNotified || !GetWorld() || !IsValid(Hero)
+     || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f
+     || ZoneIndex < 0 || ZoneIndex >= 6
+     || DungeonIndex < 0 || DungeonIndex >= 5) return false;
+ // Existing saves must not respawn permanently defeated bosses.
+ if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
+ // Count all living world enemies once, on first final-room entry only.
+ // Bosses cannot bypass the same global cap imposed on combat chambers.
+ constexpr int32 MaxLiveWorldEnemies = 60;
+ int32 AliveWorldEnemies = 0;
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* Other = *It;
+  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
+  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
+ }
+ // Position the boss away from the centerline where the player enters.
+ const FVector Position = GetActorTransform().TransformPosition(
+   FVector((ChamberCount - 1) * ChamberLength + 270.f, 190.f, 100.f));
+ const FTransform SpawnTransform(GetActorRotation(), Position);
+ AMoonfallEnemy* Boss = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+   AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+   ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+ if (!IsValid(Boss)) return false;
+ // Keep the original Z and Nyra divine identifiers/art completely untouched.
+ // The generic existing boss logic supplies phases, combat, XP and gear drops.
+ // Six distinct regional styles use the existing melee, combo, parry,
+ // posture and boss-phase implementation. Each of the five dungeons in a
+ // region also rises in rank. No new effects or untested attack timers.
+ struct FDungeonBossStyle {
+  const TCHAR* Family;
+  const TCHAR* Title;
+  float Health;
+  float Damage;
+  float ChaseSpeed;
+  float AttackRange;
+  float AttackCooldown;
+  float Posture;
+ };
+ static const FDungeonBossStyle Styles[6] = {
+  {TEXT("Ashen"), TEXT("Ashen Warden"), 480.f, 17.f, 145.f, 170.f, 1.65f, 155.f},
+  {TEXT("Verdant"), TEXT("Thorn Sentinel"), 420.f, 16.f, 190.f, 155.f, 1.15f, 115.f},
+  {TEXT("Glacial"), TEXT("Frostbound Colossus"), 575.f, 22.f, 120.f, 190.f, 1.9f, 185.f},
+  {TEXT("Storm"), TEXT("Tempest Stalker"), 375.f, 15.f, 225.f, 145.f, 1.0f, 105.f},
+  {TEXT("Foundry"), TEXT("Forged Juggernaut"), 625.f, 21.f, 135.f, 175.f, 1.75f, 200.f},
+  {TEXT("Eclipse"), TEXT("Eclipse Harbinger"), 510.f, 20.f, 195.f, 180.f, 1.3f, 165.f}
+ };
+ const FDungeonBossStyle& Style = Styles[ZoneIndex];
+ const int32 Rank = DungeonIndex + 1;
+ const float RankScale = 1.f + 0.12f * DungeonIndex;
+ Boss->bElite = true;
+ Boss->bBoss = true;
+ Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;
+ Boss->DungeonBossFamily = FName(Style.Family);
+ Boss->DungeonBossRank = Rank;
+ Boss->DungeonBossTitle = FText::FromString(
+   FString::Printf(TEXT("%s | Rank %d"), Style.Title, Rank));
+ Boss->Health = Style.Health * RankScale;
+ Boss->AttackDamage = Style.Damage * (1.f + 0.07f * DungeonIndex);
+ Boss->ChaseSpeed = Style.ChaseSpeed;
+ Boss->AttackRange = Style.AttackRange;
+ Boss->AttackCooldown = Style.AttackCooldown;
+ Boss->MaxPosture = Style.Posture * RankScale;
+ Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));
+ Boss->FinishSpawning(SpawnTransform);
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ Boss->OnDungeonBossIdentityReady(
+   Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
+ // Blueprint identity events are synchronous and may destroy the actor.
+ // Do not consume the room trigger or announce a nonexistent boss.
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
+ // Blueprint encounter events can also reject/destroy the spawn.
+ // Keep the final-chamber overlap retryable in that case.
+ return IsValid(Boss) && !Boss->IsActorBeingDestroyed();
 }
