@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonPlacementTest,
@@ -107,6 +108,48 @@ bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Dungeon beyond five rejected"), Hero->HasDefeatedDungeonBoss(0, 5));
  TestEqual(TEXT("Invalid zone cannot yield victories"),
    Hero->GetDefeatedDungeonBossCount(6), 0);
+ return !HasAnyErrors();
+}
+
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonBossSaveRoundTripTest,
+  "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
+{
+ // Serialize to memory only. Never touch the player's on-disk world slot.
+ UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!TestNotNull(TEXT("Create V10 save object"), Original)) return false;
+ constexpr uint32 FirstDungeon = 1u;
+ constexpr uint32 LastDungeon = 1u << 29;
+ constexpr uint32 MidDungeon = 1u << 14;
+ Original->DiscoveredDungeonMask = static_cast<int32>(
+   FirstDungeon | MidDungeon | LastDungeon);
+ Original->DefeatedDungeonBossMask = static_cast<int32>(
+   FirstDungeon | LastDungeon);
+ Original->Salvage = 4321;
+ Original->Level = 17;
+ TArray<uint8> Bytes;
+ if (!TestTrue(TEXT("Serialize boss ledger in memory"),
+       UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+ if (!TestTrue(TEXT("Serialized bytes are present"), Bytes.Num() > 0))
+  return false;
+ UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("Restore V10 save from bytes"), Restored)) return false;
+ TestEqual(TEXT("Save format still V10"), Restored->Version, 10);
+ TestEqual(TEXT("Discovered first, middle and final dungeons survive"),
+   Restored->DiscoveredDungeonMask, Original->DiscoveredDungeonMask);
+ TestEqual(TEXT("First and 30th dungeon victories survive"),
+   Restored->DefeatedDungeonBossMask, Original->DefeatedDungeonBossMask);
+ TestTrue(TEXT("Final victory uses bit 29"),
+   (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & LastDungeon) != 0u);
+ TestFalse(TEXT("Undefeated middle dungeon stays unbeaten"),
+   (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & MidDungeon) != 0u);
+ TestEqual(TEXT("Reward balance survives"), Restored->Salvage, 4321);
+ TestEqual(TEXT("Character level survives"), Restored->Level, 17);
  return !HasAnyErrors();
 }
 
