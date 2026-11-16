@@ -316,8 +316,13 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   const float Side = (Index % 2 == 0) ? -200.f : 200.f;
   const float OffsetX = (Index / 2 - 1) * 275.f
     + EncounterRandom.FRandRange(-40.f, 40.f);
-  const FVector Position = GetActorTransform().TransformPosition(
-    FVector(ChamberIndex * ChamberLength + OffsetX, Side, 100.f));
+  // Retry only slots blocked by collision, using bounded alternate points.
+  // Keep the same seed, per-room target, and maximum total enemy count.
+  for (int32 Attempt = 0; Attempt < 3; ++Attempt) {
+   const float RetryX = Attempt == 0 ? 0.f : (Attempt == 1 ? 70.f : -70.f);
+   const float RetrySide = Attempt == 0 ? 0.f : (Attempt == 1 ? -70.f : 70.f);
+   const FVector Position = GetActorTransform().TransformPosition(
+     FVector(ChamberIndex * ChamberLength + OffsetX + RetryX, Side + RetrySide, 100.f));
   const FTransform SpawnTransform(GetActorRotation(), Position);
   AMoonfallEnemy* Enemy = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
     AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
@@ -346,6 +351,8 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
    continue;
   }
   ++Spawned;
+  break; // Successful slot: never produce more than Count enemies.
+  }
  }
  if (Spawned == 0) return false;
  SpawnedEncounterCount += Spawned;
