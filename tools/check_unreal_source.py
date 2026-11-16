@@ -3244,12 +3244,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PerceptionParams.AddIgnoredActor(this);", tick)
         self.assertIn("PerceptionHit.GetActor() != Hero", tick)
         self.assertIn("LastKnownHeroPosition = HeroPosition;", tick)
-        self.assertIn("Now - LastSawHeroAt <= 2.5f", tick)
+        self.assertIn('ActorHasTag(FName(TEXT("DungeonScout")))', tick)
+        self.assertIn('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))', tick)
+        self.assertIn("const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;", tick)
+        self.assertIn("Now - LastSawHeroAt <= LastSeenGrace", tick)
         self.assertIn("if (!bHasRecentSight)", tick)
         self.assertIn("(!bBoss && !bCanSeeHero)", tick)
         self.assertIn("(!bBoss && !bCanSeeHero) ? LastKnownHeroPosition", tick)
         self.assertIn("if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
+    def test_dungeon_scout_only_marks_regular_chamber_member_and_retains_last_seen(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("if (!bEliteEncounter && Index == 0 && Count > 1)", combat)
+        self.assertIn('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));', combat)
+        self.assertLess(combat.index('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));'),
+                        combat.index("Enemy->FinishSpawning(SpawnTransform);"))
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("LastKnownHeroPosition = HeroPosition;", tick)
+        self.assertIn("const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]

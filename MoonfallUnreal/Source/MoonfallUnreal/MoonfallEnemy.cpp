@@ -619,8 +619,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LastKnownHeroPosition = HeroPosition;
   }
  }
+ // Scouts remember only the last visible position, never the hero behind walls.
+ // Their extra search window adds no additional line traces or path requests.
+ const bool bDungeonScout = ActorHasTag(FName(TEXT("DungeonScout")))
+   && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+ const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= 2.5f);
+   && Now - LastSawHeroAt <= LastSeenGrace);
  if (!bHasRecentSight) {
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
