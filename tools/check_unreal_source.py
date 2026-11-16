@@ -3888,7 +3888,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
-        self.assertIn("int32 EnemiesPerCombatChamber = 2;", layout_h)
+        self.assertIn("int32 EnemiesPerCombatChamber = 6;", layout_h)
+        self.assertIn('meta=(ClampMin="1", ClampMax="6")', layout_h)
         self.assertIn("int32 SpawnedEncounterCount = 0;", layout_h)
         self.assertIn("bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);", layout_h)
         self.assertIn("void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,", layout_h)
@@ -3900,7 +3901,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
-        self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
+        self.assertIn("const int32 MaxDungeonEncounterSpawns = (ChamberCount - 2) * 6;", combat)
+        self.assertIn("MaxDungeonEncounterSpawns - SpawnedEncounterCount", combat)
         self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
         self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
         self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
@@ -3908,7 +3910,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(combat.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies)"),
                         combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertIn("if (Remaining == 0) return true;", combat)
-        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", combat)
+        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 6)", combat)
+        self.assertIn("const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;", combat)
+        self.assertIn("const int32 Requested = bEliteEncounter ? 1", combat)
+        self.assertIn("const float Side = (Index % 2 == 0) ? -200.f : 200.f;", combat)
+        self.assertIn("const float OffsetX = (Index / 2 - 1) * 275.f", combat)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
         self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", combat)
         self.assertIn("Enemy->bElite = bEliteEncounter;", combat)
