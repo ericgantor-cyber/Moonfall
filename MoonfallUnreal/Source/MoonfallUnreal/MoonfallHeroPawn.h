@@ -4,8 +4,11 @@
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
+class UNavigationInvokerComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
+class AMoonfallWorldNPC;
+class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -14,13 +17,74 @@ class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
  GENERATED_BODY()
 public:
  AMoonfallHeroPawn();
+ // Runtime navigation generated near the player, not over the full 30-dungeon
+ // world at startup. Requires Dynamic Recast and level NavMeshBoundsVolumes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Navigation")
+ UNavigationInvokerComponent* DungeonNavigationInvoker;
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
- virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
+ // Twelve persistent fantasy ancestries. Choice locks on first selection.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") int32 RaceId = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bRaceChosen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ChooseRace(int32 NewRaceId);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRaceName() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceMightBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceInsightBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Each ancestry receives a distinct on-demand combat power; no artwork changes.
+ // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
+ // Choice buttons are implemented by UI using ChooseResidentContextAction.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void OpenFocusedResidentContext();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CastRightMouse();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool ChooseResidentContextAction(int32 Choice);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CloseResidentContext();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextOpened(AMoonfallWorldNPC* Resident, FText ResidentName, int32 QuestState, int32 SalvageCost);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextClosed();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void TalkToNearestNPC();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") void InteractWithNearestResidentQuest();
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") AMoonfallWorldNPC* GetNearestResidentNPC() const;
+ UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
+ bool bResidentContextOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
+ float ResidentTurnInConfirmAfter = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString ResidentFeedbackMessage;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentFeedbackUntil = 0.f;
+ // Mouse click is context-sensitive: inventory/menus first, otherwise combat.
+ void ResidentContextMouseClick();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Quest") void OnResidentQuestFeedback(FText Message, bool bSuccess);
+
+ // Reputation is a permanent value for recognized world factions.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") TMap<FName, int32> FactionReputation;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Faction") int32 GetFactionReputation(FName Faction) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") bool ChangeFactionReputation(FName Faction, int32 Delta);
+ // One save-slot relationship per authored resident ID, never per spawned actor instance.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+ // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
+
+
+
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
+ void TriggerRacePower() { ActivateRacePower(); }
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Race") void OnRacePowerActivated(FName PowerName);
+
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
  // Derived primary attributes, no additional persistent save schema.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetInsight() const;
@@ -29,34 +93,66 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
- // WoW Forever-inspired character breakdown. These are Moonfall-derived values,
- // never a copy of another game's class/race formulas or an editable save schema.
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetStrength() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetAgility() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetStaminaAttribute() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetIntellect() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetSpirit() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetArmorRating() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetDefenseRating() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetMeleeAttackPower() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetRangedAttackPower() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellDamagePower() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellHealingPower() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPenetration() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPierce() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetExpertiseRating() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetManaRegenPerFive() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetHealthRegenPerFive() const;
- // School index 0 Fire, 1 Frost, 2 Nature, 3 Shadow, 4 Arcane.
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetResistance(int32 School) const;
+ // Version 8: 30 stable dungeon entrances, six zones x five per zone.
+ // Discovery is permanent, independent of shrine respawn progression.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon") int32 DiscoveredDungeonMask = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DefeatedDungeonBossMask = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
+ // Internal kill-path API only: never allow a generic Blueprint event
+ // to persist a victory without the real dungeon boss death callback.
+ bool MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss);
+ // Permanent WoW-style zone/campaign completion counters (not discovery).
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetDefeatedDungeonBossCount(int32 Zone) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetTotalDefeatedDungeonBosses() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetClearedDungeonZoneCount() const;
+ // These fire only AFTER victory + its one-time salvage reward are saved.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossVictory(int32 Zone, int32 Dungeon, int32 SalvageEarned);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonZoneCleared(int32 Zone);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnAllDungeonsCleared();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Treasure") TArray<int32> DungeonTreasureStates;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") bool HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetDiscoveredDungeonCount(int32 Zone) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetNextUnchartedDungeonZone() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetTotalDiscoveredDungeons() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Treasure")
+ int32 GetOrCreateDungeonTreasureCode(int32 Zone, int32 Dungeon, int32 Chamber, int32 LayoutSeed);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Treasure")
+ bool CollectDungeonTreasureCode(int32 ItemCode, int32 Zone, int32 Dungeon, int32 Chamber);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Treasure")
+ int32 GetDungeonTreasureState(int32 Zone, int32 Dungeon, int32 Chamber) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon") bool DiscoverDungeonEntrance(int32 Zone, int32 Dungeon);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
+ void OnDungeonDiscovered(int32 Zone, int32 Dungeon);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
+ void OnDungeonZoneCharted(int32 Zone);
 
+ // Shrine discovery controls respawn. Regular two-second saves keep progress
+ // without moving the active checkpoint to every room crossed.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") FName ActiveShrineId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") TArray<FName> DiscoveredShrineIds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Shrines") bool HasDiscoveredShrine(FName ShrineId) const;
+ // A previously discovered shrine is not the active respawn point when the
+ // saved shrine was blocked and recovery moved the checkpoint to PlayerStart.
+ bool IsCurrentRespawnLocation(const FVector& Location) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Shrines") bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Shrines") void OnShrineDiscovered(FName ShrineId);
+ // A single permanent world checkpoint. Death never erases experience or items.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") void RespawnAtCheckpoint();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
- // Explicit magical attack pipeline. Physical callers retain the original
- // entry point. School: Fire=0, Frost=1, Nature=2, Shadow=3, Arcane=4.
- bool ApplyMoonfallElementalDamageFrom(float Amount,
-   const FVector& SourceLocation, int32 School);
+ // Explicit dodge-only boss hit, preserving the normal attack API.
+ bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  // Returns true only when this specific attack consumed the perfect-dodge window.
  bool TryRewardPerfectDodge();
@@ -130,140 +226,32 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootSlot = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootUpgrade = 0;
- // UE5 individual-item bag capacity, shared by rewards, pickups and HUD.
- static constexpr int32 MaxInventoryItems = 9999;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
- // Stable item identities preserve original pickup order across every sort.
- // IDs are kept in lockstep with InventoryItemCodes, including duplicate gear.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") TArray<int32> InventoryPickupIds;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 NextInventoryPickupId = 1;
- void EnsureInventoryPickupIds();
- void ApplyInventorySortPreservingSelection();
- // Key ring uses its own dynamically growing array, never a bag slot.
- // World loot uses reserved code 9000000 + KeyId (1..9999).
- static constexpr int32 KeyLootBase = 9000000;
- static constexpr int32 MaxKeyId = 9999;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Keys") TArray<int32> KeyRingIds;
- // The last newly acquired distinct key, for immediate HUD feedback.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Keys") int32 LastCollectedKeyId = 0;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Keys") bool AddKeyToRing(int32 KeyId);
- UFUNCTION(BlueprintPure, Category="Moonfall|Keys") bool HasKey(int32 KeyId) const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Keys") bool SpawnGroundKeyDrop(int32 KeyId, FVector DropLocation);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
- // M toggles the map; K switches to a separate read-only talents overview.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bAtlasOpen = false;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentsOpen = false;
- // Zoom only the constellation, not the gameplay camera or world map.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") float TalentZoom = 1.f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentSelectedNode = 0;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalents();
- // One shared player talent tree. Bosses Z and Nyra are not player classes.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentForceRank = 0;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentFocusRank = 0;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWardRank = 0;
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetUnspentTalentPoints() const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(int32 Branch);
- void SpendForceTalent();
- void SpendFocusTalent();
- void SpendWardTalent();
- // Tier II keystones and Tier III cross-branch constellations.
- // Each unlock costs one point; graph prerequisites are server-side checked.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentForceKeystone = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentFocusKeystone = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWardKeystone = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentBattleWeave = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentArcaneAegis = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentIronWill = false;
- // Fourth tier: three apex constellations requiring two adjacent hybrid talents.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentStarbreaker = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAstralSurge = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentEternalSentinel = false;
- // Tier V: specialized crown talents shared by every playable hero.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentVoidCrown = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentCelestialWell = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAdamantOath = false;
- // Sixth-tier mythic stars require a crown pair and a deep specialization.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentEclipseHeart = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentInfiniteCurrent = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWorldguard = false;
- // Seventh-tier celestial ascendants: invest through two converging mythic paths.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentDuskSovereign = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentSoulConduit = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentUnbrokenBastion = false;
- // Eighth-tier transcendent nodes: require two adjacent ascendant paths.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentNightfallAscension = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRadiantNexus = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentTitanSoul = false;
- // Ninth-tier convergence: choose the final powers by linking transcendents.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentCrimsonNova = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAetherCovenant = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentLastCitadel = false;
- // 111 additional Astral stars across three branches and 37 ranks.
- // Entries are boolean unlocks, not editable point or power values.
- static constexpr int32 AstralTalentCount = 111;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents")
- TArray<uint8> AstralTalentUnlocked;
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool IsAstralTalentUnlocked(int32 Index) const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockAstralTalent(int32 Index) const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockAstralTalent(int32 Index);
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetAstralTalentCount(int32 Branch) const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") FString GetAstralTalentName(int32 Index) const;
- void SelectNextTalentPage();
- void SelectPreviousTalentPage();
- UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
- // Indexed player-side API shared by mouse, keyboard and controller navigation.
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool ActivateTalentNode(int32 Node);
- void ActivateSelectedTalentNode();
- void SelectNextTalentNode();
- void SelectPreviousTalentNode();
- void UnlockForceKeystone();
- void UnlockFocusKeystone();
- void UnlockWardKeystone();
- void UnlockBattleWeave();
- void UnlockArcaneAegis();
- void UnlockIronWill();
- UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecTalents();
- // Respec is armed on first press and confirmed on a second explicit press.
- // Leaving the talent menu cancels it, protecting invested points.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
- // Confirmation dialog stays open until the player explicitly selects Yes or No.
- // 0 = Yes, 1 = No (safe initial selection).
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentRespecChoice = 1;
- void RespecTalentAction();
- void ResolveTalentRespecConfirmation(bool bConfirm);
- // One-use authorization; public/Blueprint calls cannot bypass Yes/No.
- bool bTalentRespecCommitAuthorized = false;
- void CancelTalentRespecDialog();
-
- // B and C are independent panels; bInventoryOpen is their shared gameplay lock.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bBagPanelOpen = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bMenuFocusCharacter = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
- // C-page tabs: overview, offensive/primary, defenses and resistances.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Stats") int32 CharacterStatsPage = 0;
- void NextCharacterStatsPage();
- void PreviousCharacterStatsPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
- // Controller A switches existing inventory pages, never closes the menu.
- // Controller menu focus. D-pad up/down moves through visible buttons;
- // gamepad A activates one focused action without requiring a mouse.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|UI") int32 MenuActionFocus = -1;
- void ActivateFocusedMenuAction();
- void SwitchInventoryPage();
- // On compact displays, switches the visible pane; on wide layouts switches controller focus.
- void SwitchOpenInventoryPane();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
- // Transient top visible row; wheel scrolls the bag without selecting/equipping.
- int32 InventoryViewStart = 0;
- // 0 pickup order, 1 rarity/tier descending, 2 equipment slot then rarity.
- // Sorting reorders codes only; it never equips, salvages or destroys anything.
+ // Transient visible row offset; wheel scrolling never changes selection or equipment.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
+ // Transient display mode: original order, rarity, then equipment slot.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void CycleInventorySort();
+ TArray<int32> GetInventoryDisplayOrder() const;
+ bool HitTestInventorySortButton() const;
+ // Wide inventory: explicit left-click equip control, never triggered by row selection.
+ bool HitTestInventoryEquipButton() const;
+ // Pointer close button is independent of gear and sort hit regions.
+ bool HitTestInventoryCloseButton() const;
+ // Clickable scrollbar track changes only the transient display window.
+ bool ScrollInventoryToMouseTrack();
+ // Mouse drag is transient and cannot mutate inventory or equipped items.
+ bool bInventoryScrollbarDragging = false;
+ void ReleaseInventoryPointer();
+ // Matches the Canvas inventory row capacity on the active viewport.
+ int32 GetInventoryVisibleRows() const;
+ void KeepInventorySelectionVisible();
+ // Read-only pointer hit test sharing the inventory Canvas row geometry.
+ int32 HitTestInventoryRow() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
- // Preserve right-click combat outside inventory while enabling pointer-driven loot management.
- void UpdateInventoryMouseMode();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") bool SalvageInventoryItem(int32 InventoryIndex);
@@ -287,16 +275,11 @@ public:
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
  // Explicit inventory action, never automatic on loot pickup.
- // Lightweight local gear advisor: evaluates worn gear, item quality and
- // Force/Ward/Focus set synergy. It never equips, salvages or changes saves.
- // Returns -1 if there is no strictly better inventory choice.
- UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetRecommendedEquipmentIndex() const;
- // A positive score means the specified bag item improves its own worn slot.
- // Zero or negative means keep the current gear; invalid indices return 0.
- UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
+ // Read-only advisor from #899. Never equips, sorts, saves or mutates the bag.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetRecommendedEquipmentIndex() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
-
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedWeaponCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedArmorCode = 0;
@@ -308,11 +291,27 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
- // All talent writes and XP changes share a bounded, versioned snapshot.
- bool SaveProgress();
- bool LoadProgress();
- bool bProgressDirty = false;
- float LastProgressSaveAt = -1000.f;
+ // Fallback for levels without a usable PlayerStart. Capture the actual
+ // authored spawn before the saved checkpoint is applied during BeginPlay.
+ FTransform InitialSpawnTransform = FTransform::Identity;
+ bool bHasInitialSpawnTransform = false;
+ bool RestoreSafeSpawnLocation();
+ FVector RespawnCheckpointLocation = FVector::ZeroVector;
+ bool bHasRespawnCheckpointLocation = false;
+ // Never write a shrine save before the initial persistent slot has loaded.
+ bool bWorldProgressInitialized = false;
+ // Collision-aware teleport during load can fire shrine overlaps before all
+ // progress has been restored. Never allow nested discovery saves in this phase.
+ bool bWorldProgressLoadInProgress = false;
+ // Protect an existing unsupported or unreadable slot from routine autosaves.
+ // Cleared only after a supported save has been loaded successfully.
+ bool bPersistentSaveWritesBlocked = false;
+ float SecondsSinceLastWorldSave = 0.f;
+ float DefeatElapsedSeconds = 0.f;
+ // Delay routine checkpoint overwrites after respawning into danger.
+ float NextSafeCheckpointAt = 0.f;
+ float RacePowerReadyAt = 0.f;
+ float RacePowerActiveUntil = 0.f;
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastFinisherKillAt = -100.f;
@@ -344,8 +343,7 @@ private:
  float NextDodgeAt = 0.f;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
- // Transient per-hit school, reset after damage. Never persisted to a save.
- int32 IncomingDamageSchool = -1;
+ bool bIncomingDamageDodgeOnly = false;
  bool bLastIncomingHitParried = false;
  float ParryWindowEndsAt = -1.f;
  float NextParryAt = 0.f;
@@ -399,19 +397,8 @@ private:
  void ZoomCameraIn();
  void ZoomCameraOut();
  void CastLeft();
- // Left mouse selects pointed gear in inventory, casts during combat.
- void LeftClickContextAction();
- void ReleaseLeftClickContext();
  void CastRight();
- // Mouse-specific context action: equip inventory row or cast outside menus.
- void RightClickContextAction();
- void ReleaseRightClickContext();
  void CastBoth();
- // Transient mouse chord state, never serialized to saves.
- bool bLeftMouseHeld = false;
- bool bRightMouseHeld = false;
- bool bMouseChordConsumed = false;
- void ResetMouseCastChord();
  void Dodge();
  void BeginSprint();
  void EndSprint();
@@ -428,5 +415,6 @@ private:
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
- bool TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged = false);
+ bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
+ bool TryCast(int32 School, int32 Hand, float Multiplier);
 };

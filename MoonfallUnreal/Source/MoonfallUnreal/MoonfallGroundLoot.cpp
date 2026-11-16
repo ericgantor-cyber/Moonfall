@@ -39,22 +39,7 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 
 void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
 {
- // A repeated initialization must never replace an existing, valid drop.
- if (ItemCode != 0 || bCollected) return;
- // Failed initialization must not leave an unusable world actor behind.
- if (InItemCode <= 0) { Destroy(); return; }
- if (InItemCode > AMoonfallHeroPawn::KeyLootBase &&
-     InItemCode <= AMoonfallHeroPawn::KeyLootBase + AMoonfallHeroPawn::MaxKeyId) {
-  ItemCode = InItemCode;
-  const int32 KeyId=ItemCode-AMoonfallHeroPawn::KeyLootBase;
-  ItemLabel->SetText(FText::FromString(FString::Printf(
-     TEXT("KEY %d  [F / X]"),KeyId)));
-  ItemLabel->SetTextRenderColor(FColor(245,201,63));
-  // Key drops are gold and use the same reach and line-of-sight checks.
-  if (UMaterialInstanceDynamic* Beacon=RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
-   Beacon->SetVectorParameterValue(TEXT("Color"),FLinearColor(FColor(245,201,63)));
-  return;
- }
+ if (ItemCode != 0 || InItemCode <= 0) return;
  const int32 Affix = InItemCode / 100000;
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
@@ -62,10 +47,8 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
-     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {
-  Destroy();
+     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
   return;
- }
  ItemCode = InItemCode;
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
@@ -82,6 +65,15 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   BeaconMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
  if (UMaterialInstanceDynamic* PickupMaterial = PickupMesh->CreateAndSetMaterialInstanceDynamic(0))
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+}
+
+void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || ItemCode <= 0) return;
+ RewardZone = Zone;
+ RewardDungeon = Dungeon;
+ RewardChamber = Chamber;
 }
 
 bool AMoonfallGroundLoot::TryCollect()
@@ -109,7 +101,11 @@ bool AMoonfallGroundLoot::TryCollect()
      HeroPosition + FVector(0.f, 0.f, 40.f),
      LootPosition + FVector(0.f, 0.f, 40.f),
      ECC_Visibility, SightParams)) return false;
- if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ const bool bDungeonTreasure = RewardZone != INDEX_NONE;
+ const bool bSaved = bDungeonTreasure
+   ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
+   : Hero->CollectGroundEquipmentCode(ItemCode);
+ if (!bSaved) return false;
  bCollected = true;
  Destroy();
  return true;

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "description": "Moonfall-original classless stat foundation inspired by Enshrouded attributes and Assassin's Creed Valhalla gear power. Not yet wired into live gameplay.",
+  "base": {
+    "health": 100,
+    "mana": 100,
+    "stamina": 100,
+    "melee_damage": 10,
+    "ranged_damage": 10,
+    "magic_damage": 10
+  },
+  "attributes": {
+    "might": {
+      "label": "Might",
+      "stat": "melee_damage",
+      "bonus_per_point": 0.025,
+      "kind": "damage_multiplier"
+    },
+    "agility": {
+      "label": "Agility",
+      "stat": "ranged_damage",
+      "bonus_per_point": 0.025,
+      "kind": "damage_multiplier"
+    },
+    "arcana": {
+      "label": "Arcana",
+      "stat": "magic_damage",
+      "bonus_per_point": 0.025,
+      "kind": "damage_multiplier"
+    },
+    "vitality": {
+      "label": "Vitality",
+      "stat": "health",
+      "bonus_per_point": 12,
+      "kind": "flat"
+    },
+    "resolve": {
+      "label": "Resolve",
+      "stat": "mana",
+      "bonus_per_point": 5,
+      "kind": "flat"
+    },
+    "endurance": {
+      "label": "Endurance",
+      "stat": "stamina",
+      "bonus_per_point": 4,
+      "kind": "flat"
+    }
+  },
+  "auto_growth_per_level": {
+    "might": 1,
+    "agility": 1,
+    "arcana": 1,
+    "vitality": 1,
+    "resolve": 1,
+    "endurance": 1
+  },
+  "power": {
+    "level_weight": 2,
+    "gear_score_weight": 0.25,
+    "rounding": "floor"
+  },
+  "limits": {
+    "min_level": 1,
+    "max_level": 100,
+    "min_gear_score": 0,
+    "max_gear_score": 5000
+  },
+  "rules": [
+    "No classes or class locks",
+    "No upgrade cards, choices or rerolls",
+    "All six attributes grow automatically per level",
+    "Gear modifiers are applied separately from innate stats",
+    "Races affect character identity, not predetermined combat roles",
+    "Stat calculation is deterministic and does not save or modify equipment"
+  ]
+}

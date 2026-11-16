@@ -47,6 +47,24 @@ func _run()->void:
  selected["name"]="Changed"
  check(gear[0]["name"]=="Original" and STOCK.equipment_power(selected)==250,"equipping copies gear and clamps power")
  check(STOCK.equip_copy(gear,999).is_empty(),"invalid equipment selection is safe")
+ var source_gear:Array=[{"name":"Guarded","affixes":[{"stat":"Power","value":4}]},{"name":"Second"}]
+ var destination_gear:Array=[]
+ check(not STOCK.transfer_gear(source_gear,source_gear,0,100),"same-container transfers are rejected without deleting gear")
+ check(source_gear.size()==2,"rejected self-transfer preserves all gear")
+ check(not STOCK.transfer_gear(source_gear,destination_gear,0,0),"zero-capacity transfer is rejected")
+ check(not STOCK.transfer_gear(source_gear,destination_gear,0,1001),"oversized capacity cannot bypass vault limit")
+ check(not STOCK.transfer_gear(source_gear,destination_gear,-1,100),"negative index cannot transfer gear")
+ check(source_gear.size()==2 and destination_gear.is_empty(),"invalid transfers preserve both containers")
+ check(STOCK.transfer_gear(source_gear,destination_gear,0,100),"valid gear transfer succeeds")
+ check(source_gear.size()==1 and destination_gear.size()==1,"successful transfer moves exactly one item")
+ destination_gear[0]["affixes"][0]["value"]=99
+ check(source_gear[0]["name"]=="Second","transferred gear retains independent nested data")
+ var full_gear:Array=[{"name":"Already stored"}]
+ check(not STOCK.transfer_gear(source_gear,full_gear,0,1),"full destination rejects transfer")
+ check(source_gear.size()==1 and full_gear.size()==1,"full destination does not lose gear")
+ var bad_gear:Array=[{}]
+ check(not STOCK.transfer_gear(bad_gear,destination_gear,0,100),"empty gear record is rejected")
+ check(bad_gear.size()==1,"invalid gear is not removed from source")
  var loot:Array=[{"data":{"rarity":"Legendary"}},{"data":{"rarity":"Uncommon"}},{"data":{"rarity":"Common"}}]
  check(STOCK.first_discardable_drop(loot)==1,"lowest eligible ground drop evicted first")
  check(STOCK.first_discardable_drop([{"data":{"rarity":"Legendary"}}])==-1,"legendary-only ground loot is protected")
