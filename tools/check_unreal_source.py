@@ -5031,5 +5031,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGameToSlot(", widget)
 
 
+    def test_late_bound_character_preview_requests_selected_race(self):
+        widget = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        bind = widget.split("void UMoonfallCharacterCreationWidget::BindPreviewActor(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::BindPreviewRig(", 1
+        )[0]
+        self.assertIn("if (!IsValid(PreviewActor))", bind)
+        self.assertIn("BoundPreviewActor = PreviewActor;", bind)
+        self.assertIn("if (!Selection.RaceId.IsNone())", bind)
+        self.assertIn("OnRacePreviewRequested(Selection.RaceId);", bind)
+        self.assertLess(
+            bind.index("SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());"),
+            bind.index("OnRacePreviewRequested(Selection.RaceId);"),
+        )
+
 if __name__ == "__main__":
     unittest.main()
