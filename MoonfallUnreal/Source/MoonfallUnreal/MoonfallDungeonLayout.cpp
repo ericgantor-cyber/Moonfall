@@ -297,15 +297,18 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 1) return false;
 
- // Hard lifetime budget. Visiting other chambers cannot raise it above six;
- // excess chambers still count as visited rather than retrying forever.
- const int32 Remaining = FMath::Max(0, 6 - SpawnedEncounterCount);
+ // Raise each dungeon's total encounter budget gradually from 6 at level 1
+ // to 12 at level 43. Spawn only on room entry, at most two per chamber.
+ // Exhausted chambers still count as visited, without retry loops.
+ const int32 SafeHeroLevel = FMath::Clamp(Hero->Level, 1, 43);
+ const int32 DungeonEncounterBudget = 6 + (SafeHeroLevel - 1) / 7;
+ const int32 Remaining = FMath::Max(0, DungeonEncounterBudget - SpawnedEncounterCount);
  if (Remaining == 0) return true;
  // Check global live population only on chamber entry, never every Tick.
  // This protects slower Windows PCs when multiple dungeons remain visited.
  // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
  // This is a population ceiling, not a forced spawn wave.
- const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);
+ const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
@@ -418,7 +421,7 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  // Bosses cannot bypass the same global cap imposed on combat chambers.
  // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
  // This is a population ceiling, not a forced spawn wave.
- const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);
+ const int32 MaxLiveWorldEnemies = 69 + (FMath::Clamp(Hero->Level, 1, 43) - 1);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
