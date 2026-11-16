@@ -856,7 +856,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
    FHitResult EscapeHit;
    AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
-   bReverseCombatWallSlide = EscapeHit.bBlockingHit;
+   // Each failed escape alternates direction; a successful slide resets it.
+   bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;
   } else if (!Hit.bBlockingHit) {
    bReverseCombatWallSlide = false;
   }
