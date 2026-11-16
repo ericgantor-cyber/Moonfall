@@ -3558,9 +3558,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 10", self.hero_cpp)
+        self.assertIn("Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -4042,7 +4042,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4052,7 +4052,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
