@@ -40,7 +40,7 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
 {
  // Never overwrite an existing or collected drop.
- if (ItemCode != 0 || bCollected) return;
+ if (ItemCode != 0 || bCollected || IsActorBeingDestroyed()) return;
  // Reject malformed spawned loot instead of leaving an uncollectable actor.
  if (InItemCode <= 0) { Destroy(); return; }
  const int32 Affix = InItemCode / 100000;
@@ -84,7 +84,7 @@ void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int
 
 bool AMoonfallGroundLoot::TryCollect()
 {
- if (bCollected || ItemCode <= 0) return false;
+ if (bCollected || ItemCode <= 0 || IsActorBeingDestroyed()) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !GetWorld()) return false;
  // Enforce pickup reachability at the item boundary as well as in the hero's
