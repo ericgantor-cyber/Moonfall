@@ -809,7 +809,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
           || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()) continue;
      }
      ++ConsideredAllies;
-     if (Other->WindupEndsAt > Now
+     // A corrupt infinite windup must not reserve an attack slot forever.
+     // Failed/NaN timers also cannot represent a real active warning.
+     if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now
          && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
       if (++NearbyWindingAllies >= 2) break;
      }

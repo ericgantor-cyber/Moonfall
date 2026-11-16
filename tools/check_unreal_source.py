@@ -2964,6 +2964,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("++ScannedActors;"),
                         scope.index("Other->IsActorBeingDestroyed()"))
 
+    def test_attack_coordination_rejects_nonfinite_ally_windup_times(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        scope = tick.split("// Small-pack coordination:", 1)[1].split(
+            "// Alternate quick strikes", 1)[0]
+        self.assertIn("FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now", scope)
+        self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation())", scope)
+        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
+                        scope.index("if (++NearbyWindingAllies >= 2) break;"))
+
     def test_wounded_elite_retreat_is_brief_cooldown_gated_and_collision_safe(self):
         self.assertIn("float TacticalRetreatUntil = -1.f;", self.enemy_h)
         self.assertIn("float NextTacticalRetreatAt = 0.f;", self.enemy_h)
