@@ -474,6 +474,8 @@ func _run()->void:
  check('var shape_hint:String="CONE" if boss_name.begins_with("Z ") else "CIRCLE"' in boss_combat_source,"boss warnings include shape labels independent of color")
  check('var strike_tenths:int=clampi(ceili(strike_left*10.0),0,14)' in boss_combat_source,"strike countdown uses bounded tenth-second steps")
  check('var urgency:String="STRIKE NOW" if strike_tenths<=3' in boss_combat_source,"final strike warning remains readable without flashing")
+ check('var escape_hint:String="SIDESTEP" if boss_name.begins_with("Z ") else "EXIT CIRCLE"' in boss_combat_source,"boss telegraphs recommend dodging Z's cone or leaving Nyra's circle")
+ check('if boss_plate.modulate!=danger_color:boss_plate.modulate=danger_color' in boss_combat_source and 'if boss_plate.modulate!=Color.WHITE:boss_plate.modulate=Color.WHITE' in boss_combat_source,"boss nameplate colors update only on state changes")
  check('if bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0)):' in boss_combat_source,"boss warning text only appears while the attack remains pending")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
