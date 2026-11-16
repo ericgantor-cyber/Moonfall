@@ -3882,7 +3882,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # might occur in comments, unrelated strings or example commands.
         required_array = runner.split("$required = @(", 1)[1].split("\n)", 1)[0]
         runner_names = [
-            value.strip().strip("'").strip('"')
+            value.strip().rstrip(",").strip("'").strip('"')
             for value in required_array.splitlines()
             if value.strip() and not value.strip().startswith("#")
         ]
