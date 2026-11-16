@@ -416,7 +416,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bInCombatArea = Distance < 2200.f;
  const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
    && WindupEndsAt - Now <= 0.25f;
- // Skyrim/Dragon's Dogma-style simulation LOD: retain authored enemies,
+ // Dawnwalker/Assassin's Creed/Skyrim-style simulation LOD: retain authored enemies,
  // but wake nearby combat immediately and check distant dungeon mobs less often.
  // No enemy is removed, respawned, or granted free attacks by this optimization.
  // Bosses and elite encounters keep their existing responsiveness.
@@ -428,7 +428,35 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
+ // Returning guards retain their world presence instead of disappearing.
+ // Use swept, bounded movement and no extra perception traces or path queries.
+ // The longer out-of-combat tick interval must not slow return travel to a crawl.
+ const auto ReturnToDungeonPost = [&]() {
+  if (bBoss || bElite
+      || !ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
+      || DungeonHomePosition.ContainsNaN()) return;
+  FVector ToHome = DungeonHomePosition - GetActorLocation();
+  ToHome.Z = 0.f;
+  const float HomeDistance = ToHome.Size();
+  if (!FMath::IsFinite(HomeDistance) || HomeDistance <= 85.f) return;
+  const float SafeReturnSpeed = FMath::Clamp(
+    FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
+  const float ReturnDelta = FMath::IsFinite(DeltaSeconds)
+    ? FMath::Clamp(DeltaSeconds, 0.f, 2.f) : 0.f;
+  const float Step = FMath::Min(HomeDistance,
+    SafeReturnSpeed * 0.6f * ReturnDelta);
+  if (Step > 0.f) {
+   FHitResult ReturnHit;
+   AddActorWorldOffset(ToHome.GetSafeNormal() * Step, true, &ReturnHit);
+  }
+ };
  if (!bInCombatArea) {
+  // Drop stale aggro once out of range; otherwise guards can stay stranded.
+  if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
+   LastSawHeroAt = -100.f;
+   bCanSeeHero = false;
+   ReturnToDungeonPost();
+  }
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   bComboSecondHitPending = false;
@@ -645,25 +673,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (!bHasRecentSight) {
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
-  // Persistent dungeon enemies return to their spawn post after losing sight.
-  // Swept movement avoids teleporting through nearby walls.
-  if (!bBoss && !bElite
-      && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
-      && !DungeonHomePosition.ContainsNaN()) {
-   FVector ToHome = DungeonHomePosition - EnemyPosition;
-   ToHome.Z = 0.f;
-   const float HomeDistance = ToHome.Size();
-   if (FMath::IsFinite(HomeDistance) && HomeDistance > 85.f) {
-    const float SafeReturnSpeed = FMath::Clamp(
-      FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
-    const float Step = FMath::Min(HomeDistance,
-      SafeReturnSpeed * 0.6f * SafeAIDelta);
-    if (Step > 0.f) {
-     FHitResult ReturnHit;
-     AddActorWorldOffset(ToHome.GetSafeNormal() * Step, true, &ReturnHit);
-    }
-   }
-  }
+  ReturnToDungeonPost();
   return;
  }
  // Search terminates when an ordinary enemy actually reaches the last
