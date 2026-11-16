@@ -36,13 +36,16 @@ func _run()->void:
   var tips:GDScript=load("res://scripts/systems/tips_codex_v376.gd") as GDScript
   check(tips!=null and "Alt and right-drag" in tips.source_code,"in-game controls describe separate orbit and guard inputs")
   check("if aim_locked_id>=0 and locked.is_empty():aim_locked_id=-1" in source,"invalid lock-on targets are released")
+  check("body.get_instance_id()==aim_locked_id" in source,"target lock compares actor identity without scanning the beast catalog")
+  check("aim_locked_id=target_body.get_instance_id()" in source,"target lock captures stable actor instance ID")
+  check(not ("beasts.find(target)" in source or "beasts.find(beast)" in source),"aiming avoids dictionary equality scans")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
  if ui!=null:
   var source:String=ui.source_code
   check("AIM_PREFS_PATH" in source and "config.save(AIM_PREFS_PATH)" in source,"aim assist setting persisted")
   check("aim_input_source==\"mouse\"" in source,"mouse aiming restored with connected controller")
-  check("beasts.find(target)==aim_locked_id" in source,"locked marker matches actual target")
+  check("body.get_instance_id()==aim_locked_id" in source,"locked marker uses stable actor identity")
   check("aim_options.visible=hero_playing and not menu_open and not death_active" in source,"aim controls hidden outside gameplay")
  # Divine final-phase attack telegraphs have a bounded, visible second strike.
  var divine:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
@@ -77,5 +80,19 @@ func _run()->void:
   for i in range(keys.size()):
    check(str(combo_game.call("_wow_keyboard_action",keys[i]))==key_actions[i],"Alt+number shortcut "+str(i+1))
   check(str(combo_game.call("_wow_keyboard_action",KEY_SPACE)).is_empty(),"spacebar is not remapped as an attack")
+  # Regression: persistent boss IDs are identifiers, not array offsets.
+  # Verify each divine actor resolves through the new lookup and that
+  # absent IDs never accidentally select an unrelated beast.
+  var divine_ids:Dictionary=combo_game.get("divine_boss_ids")
+  for divine_id in divine_ids:
+   var boss_id:int=int(divine_ids[divine_id])
+   var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",boss_id)
+   check(not actor.is_empty() and str(actor.get("divine_id",""))==str(divine_id),"divine boss ID resolves to correct actor: "+str(divine_id))
+  var absent:Dictionary=combo_game.call("_divine_actor_by_boss_id",-999999)
+  check(absent.is_empty(),"missing divine boss ID never resolves to another actor")
+  combo_game.call("_clear_all_divine_warnings")
+  for divine_id in divine_ids:
+   var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",int(divine_ids[divine_id]))
+   check(float(actor.get("divine_warn_until",-1.0))==0.0 and not bool(actor.get("divine_chain_pending",true)),"warning cleanup cancels queued divine strikes: "+str(divine_id))
   combo_game.queue_free()
  quit(1 if failures>0 else 0)

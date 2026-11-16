@@ -193,7 +193,7 @@ func _process(delta:float)->void:
  var body:CharacterBody3D=target.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
  aim_marker.global_position=body.global_position+Vector3(0,2.2,0)
- aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and beasts.find(target)==aim_locked_id else "◎ TARGET"
+ aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and body.get_instance_id()==aim_locked_id else "◎ TARGET"
  aim_marker.visible=true
 
 func _start_game(selected_hero:String)->void:
@@ -374,6 +374,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     # A timed dodge through the danger area earns a small, bounded stamina return.
     v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+5.0)
     _show_message("PERFECT EVADE! +5 stamina",0.9)
+    _rhythm_confirmed_enemy_dodge()
    else:
     _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
     _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
@@ -445,10 +446,18 @@ func _clear_divine_warning(actor:Dictionary)->void:
  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
  if is_instance_valid(disk):disk.hide()
 
+# boss_id is a persistent encounter identifier, not a guaranteed array index.
+# Resolve it against the small divine roster only when clearing telegraphs.
+func _divine_actor_by_boss_id(boss_id:int)->Dictionary:
+ for actor in beasts:
+  if actor.has("divine_id") and int(actor.get("boss_id",-1))==boss_id:
+   return actor
+ return {}
+
 func _clear_all_divine_warnings()->void:
  for id in divine_boss_ids.values():
-  var slot:int=int(id)
-  if slot>=0 and slot<beasts.size():_clear_divine_warning(beasts[slot])
+  var actor:Dictionary=_divine_actor_by_boss_id(int(id))
+  if not actor.is_empty():_clear_divine_warning(actor)
 
 func _update_region_visibility()->void:
  super._update_region_visibility()
@@ -457,9 +466,8 @@ func _update_region_visibility()->void:
  if divine_last_visible_zone==region_index:return
  divine_last_visible_zone=region_index
  for id in divine_boss_ids.values():
-  var slot:int=int(id)
-  if slot<0 or slot>=beasts.size():continue
-  var actor:Dictionary=beasts[slot]
+  var actor:Dictionary=_divine_actor_by_boss_id(int(id))
+  if actor.is_empty():continue
   if int(actor.get("zone",-1))!=region_index or not bool(actor.get("alive",false)):
    _clear_divine_warning(actor)
 
@@ -470,3 +478,7 @@ func _update_hud()->void:
  if _divine_blessing_earned("z"):buffs+="  | Z: +15% DMG / +3 KILL HP"
  if _divine_blessing_earned("nyra"):buffs+="  | NYRA: +30 HP / 8% GUARD"
  if not buffs.is_empty():world_hud.text+=buffs
+
+# Optional gameplay extension; overridden by the combat rhythm layer.
+func _rhythm_confirmed_enemy_dodge()->void:
+ pass
