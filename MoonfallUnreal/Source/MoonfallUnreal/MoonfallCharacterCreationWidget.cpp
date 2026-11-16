@@ -215,6 +215,10 @@ void UMoonfallCharacterCreationWidget::BindPreviewActor(
  BoundPreviewActor = PreviewActor;
  PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
  SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
+ // The rig can arrive after the race selection has already been initialized.
+ // Re-request the selected race so the game can populate this new preview.
+ if (!Selection.RaceId.IsNone())
+  OnRacePreviewRequested(Selection.RaceId);
 }
 
 void UMoonfallCharacterCreationWidget::BindPreviewRig(
