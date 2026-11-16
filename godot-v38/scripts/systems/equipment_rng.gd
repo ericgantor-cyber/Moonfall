@@ -1,8 +1,9 @@
 extends RefCounted
-## Deterministic rarity rolls that never change global randomness.
+## Seeded independent rarity rolls with no pity or guaranteed rarity thresholds.
 const RARITIES:Array[String]=["Common","Uncommon","Rare","Epic","Legendary"]
 const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental"]
-static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
+static func roll(item:Dictionary,seed:int,luck:int=0,_legacy_pity:int=0)->Dictionary:
+ # Legacy fourth argument is accepted for compatibility but never affects odds.
  if item.is_empty() or str(item.get("id","")).is_empty():return {}
  # Clamp imported or corrupted tiers before generating combat affixes.
  var tier:int=clampi(int(item.get("tier",1)),1,100)
@@ -15,8 +16,6 @@ static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
  elif chance<50+boost:rarity=3
  elif chance<170+boost*2:rarity=2
  elif chance<410+boost*3:rarity=1
- if pity>=30:rarity=maxi(rarity,2)
- if pity>=80:rarity=maxi(rarity,3)
  var affixes:Array[Dictionary]=[]
  var pool:Array[String]=AFFIXES.duplicate()
  for i in range(mini(rarity,3)):
@@ -25,5 +24,3 @@ static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
   pool.remove_at(index)
   affixes.append({"stat":kind,"value":1+tier+rng.randi_range(0,rarity+1)})
  return {"item_id":str(item.get("id","")),"rarity":RARITIES[rarity],"rarity_index":rarity,"affixes":affixes,"power_bonus":rarity*2+rng.randi_range(0,2),"roll_seed":seed}
-static func next_pity(current:int,rarity_index:int)->int:
- return 0 if rarity_index>=2 else mini(80,maxi(0,current)+1)

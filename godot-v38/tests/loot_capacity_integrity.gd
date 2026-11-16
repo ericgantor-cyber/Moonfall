@@ -17,7 +17,7 @@ func _initialize() -> void:
  var history:int=state["loot_rolls"].size()
  var dropped:Dictionary=INV.loot_enemy(state,1,12345)
  assert(dropped.is_empty(), "Full stack must not announce phantom loot")
- assert(int(state["loot_pity"])==pity, "Rejected loot must not change pity")
+ assert(int(state["loot_pity"])==pity, "Rejected loot must not change legacy metadata")
  assert(state["loot_rolls"].size()==history, "Rejected loot must not add roll history")
  assert(int(state["items"][id])==9999, "Rejected loot must not change stack")
  state["items"][id]=9998

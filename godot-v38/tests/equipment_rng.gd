@@ -34,8 +34,12 @@ func _run()->void:
  for seed in range(100):
   var result:Dictionary=RNG.roll(item,seed)
   check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
- check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
- check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
+ check(RNG.roll(item,3,0,80)==RNG.roll(item,3,0,0),"legacy pity argument never changes rarity")
+ var observed:Dictionary={}
+ for seed in range(2000):
+  var rolled:Dictionary=RNG.roll(item,seed)
+  observed[int(rolled["rarity_index"])]=true
+ check(observed.size()>=3,"many seeds produce varied random rarities")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
@@ -110,14 +114,18 @@ func _run()->void:
  blocked_craft["materials"][craft_material]=craft_cost+5
  check(not INVENTORY.craft(blocked_craft,"ashwood_sword",99),"full-stack craft is rejected")
  check(int(blocked_craft["materials"][craft_material])==craft_cost+5,"rejected craft does not charge materials")
- # Failed enemy loot must not consume pity or append a phantom roll.
+ # Failed enemy loot must not change legacy metadata or append a phantom roll.
  var candidate:Dictionary=CATALOG.loot_for_level(12,42)
  if not candidate.is_empty():
   var refused:Dictionary=INVENTORY.new_state()
   refused["items"][str(candidate["id"])]=9999
   refused["loot_pity"]=17
   check(INVENTORY.loot_enemy(refused,12,42).is_empty(),"full stack rejects enemy loot")
-  check(int(refused["loot_pity"])==17 and refused["loot_rolls"].is_empty(),"failed loot preserves pity and roll history")
+  check(int(refused["loot_pity"])==17 and refused["loot_rolls"].is_empty(),"failed loot preserves legacy metadata and roll history")
+  var state_a:Dictionary=INVENTORY.new_state()
+  var state_b:Dictionary=INVENTORY.new_state()
+  state_b["loot_pity"]=80
+  check(INVENTORY.loot_enemy(state_a,12,42).get("roll",{})==INVENTORY.loot_enemy(state_b,12,42).get("roll",{}),"identical seeds yield identical RNG regardless of old pity values")
  # Extra unrelated history must not alter equipped stats.
  var noisy:Dictionary=empowered.duplicate(true)
  for i in range(200):
