@@ -103,7 +103,8 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var rolls_value:Variant=state.get("loot_rolls",[])
  if not rolls_value is Array:return {}
  # Each item rarity depends on the provided seed, never drop history.
- var rarity:Dictionary=RNG.roll(item,seed)
+ var luck:int=clampi(int(totals(state).get("luck",0)),0,40)
+ var rarity:Dictionary=RNG.roll(item,seed,luck)
  if rarity.is_empty() or not rarity.has("rarity_index"):return {}
  if not add_item(state,str(item["id"])):return {}
  # Bound even corrupted in-memory histories before recording the new drop.
@@ -147,7 +148,7 @@ static func _roll_strength(roll:Dictionary)->int:
  return strength
 
 static func totals(state:Dictionary)->Dictionary:
- var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
+ var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0,"luck":0}
  var slots_value:Variant=state.get("equipped",{})
  var owned_value:Variant=state.get("items",{})
  var rolls_value:Variant=state.get("loot_rolls",[])
@@ -206,6 +207,7 @@ static func totals(state:Dictionary)->Dictionary:
     "Crit":stats["crit"]+=value
     "Ward":stats["ward"]+=value
     "Elemental":stats["elemental"]+=value
+    "Luck":stats["luck"]+=value
  return stats
 
 static func normalize(saved:Dictionary)->Dictionary:

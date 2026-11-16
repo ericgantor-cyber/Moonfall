@@ -45,6 +45,7 @@ func _run()->void:
  check(RNG.rarity_from_chance(999,999999)==0,"excessive luck clamps to bounded odds")
  check(RNG.rarity_from_chance(29,0)==3 and RNG.rarity_from_chance(29,40)==4,"luck changes odds but not past-roll memory")
  check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
+ check(RNG.AFFIXES.has("Luck"),"Luck rolls as an equipment affix")
  var no_history:Dictionary=RNG.roll(item,2345,0,0)
  check(no_history==RNG.roll(item,2345,0,1000000),"even extreme legacy pity cannot change a roll")
  var generated_affixes:Dictionary={}
@@ -64,6 +65,18 @@ func _run()->void:
   var rolled:Dictionary=RNG.roll(item,seed)
   observed[int(rolled["rarity_index"])]=true
  check(observed.size()>=3,"many seeds produce varied random rarities")
+ var lucky:Dictionary=INVENTORY.new_state()
+ check(INVENTORY.add_item(lucky,"ashwood_sword"),"Luck item owned")
+ check(INVENTORY.equip(lucky,"ashwood_sword",99),"Luck item equipped")
+ lucky["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":0,"affixes":[{"stat":"Luck","value":30}]})
+ check(int(INVENTORY.totals(lucky)["luck"])==30,"equipped Luck bonus enters character stats")
+ var lucky_seed:int=42
+ var lucky_item:Dictionary=CATALOG.loot_for_level(12,lucky_seed)
+ check(INVENTORY.loot_enemy(lucky,12,lucky_seed).get("roll",{})==RNG.roll(lucky_item,lucky_seed,30),"enemy drops use equipped Luck")
+ var unowned_luck:Dictionary=INVENTORY.new_state()
+ unowned_luck["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"affixes":[{"stat":"Luck","value":30}]})
+ check(int(INVENTORY.totals(unowned_luck)["luck"])==0,"unowned gear cannot grant Luck")
+ check(INVENTORY.loot_enemy(unowned_luck,12,lucky_seed).get("roll",{})==RNG.roll(lucky_item,lucky_seed),"unowned gear cannot alter rarity")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")

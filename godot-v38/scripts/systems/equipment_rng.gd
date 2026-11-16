@@ -1,7 +1,7 @@
 extends RefCounted
 ## Seeded independent rarity rolls with no pity or guaranteed rarity thresholds.
 const RARITIES:Array[String]=["Common","Uncommon","Rare","Epic","Legendary"]
-const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental"]
+const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental","Luck"]
 static func roll(item:Dictionary,seed:int,luck:int=0,_legacy_pity:int=0)->Dictionary:
  # Legacy fourth argument is accepted for compatibility but never affects odds.
  if item.is_empty() or str(item.get("id","")).is_empty():return {}
