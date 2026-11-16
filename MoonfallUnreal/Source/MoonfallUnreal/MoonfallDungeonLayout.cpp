@@ -452,6 +452,11 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
  Boss->OnDungeonBossIdentityReady(
    Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
+ // Blueprint identity events are synchronous and may destroy the actor.
+ // Do not consume the room trigger or announce a nonexistent boss.
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
  OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
- return true;
+ // Blueprint encounter events can also reject/destroy the spawn.
+ // Keep the final-chamber overlap retryable in that case.
+ return IsValid(Boss) && !Boss->IsActorBeingDestroyed();
 }
