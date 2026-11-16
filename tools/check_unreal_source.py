@@ -894,6 +894,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             else:
                 self.assertEqual(up, 3)
 
+    def test_explicit_mouse_equip_button_preserves_selection_only_rows(self):
+        self.assertIn("bool HitTestInventoryEquipButton() const;", self.hero_h)
+        helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
+        self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("const float EquipY = Top + 87.f;", helper)
+        self.assertIn("MouseX <= EquipX + 172.f", helper)
+        self.assertIn("MouseY <= EquipY + 30.f", helper)
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
+        self.assertIn("if (HitTestInventoryEquipButton())", click)
+        self.assertIn("EquipSelectedInventoryItem();", click)
+        self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", click)
+        self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
+        self.assertIn("const float EquipY = Top + 87.f;", self.hud)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]

@@ -237,6 +237,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
+ // Wide inventory: explicit left-click equip control, never triggered by row selection.
+ bool HitTestInventoryEquipButton() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.
