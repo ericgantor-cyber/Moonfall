@@ -11,6 +11,8 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Build/**'
+      - 'MoonfallUnreal/Source/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/windows-unreal-preflight.yml'
 
 jobs:
