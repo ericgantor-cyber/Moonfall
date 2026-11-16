@@ -3864,6 +3864,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
+    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+        readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
+        section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
+            "The **new startup map generator**", 1)[0]
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        self.assertIn("Test-DungeonNative.ps1", section)
+        self.assertIn("compile", section.lower())
+        self.assertIn("There is no `-SkipBuild` option.", section)
+        expected = [
+            "Moonfall.Dungeons.All30EntranceLocations",
+            "Moonfall.Dungeons.SeededRoomArchetypes",
+            "Moonfall.Dungeons.BossVictoryLedgerDefaults",
+            "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+        ]
+        # Check the actual PowerShell $required array, not merely names that
+        # might occur in comments, unrelated strings or example commands.
+        required_array = runner.split("$required = @(", 1)[1].split("\n)", 1)[0]
+        runner_names = [
+            value.strip().rstrip(",").strip("'").strip('"')
+            for value in required_array.splitlines()
+            if value.strip() and not value.strip().startswith("#")
+        ]
+        readme_names = [
+            line.split("`", 2)[1]
+            for line in section.splitlines()
+            if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
+                                         "2. `Moonfall.Dungeons.",
+                                         "3. `Moonfall.Dungeons.",
+                                         "4. `Moonfall.Dungeons."))
+        ]
+        self.assertEqual(runner_names, expected)
+        self.assertEqual(readme_names, expected)
+        self.assertIn("EditorExitCode=0", section)
+        self.assertIn("AnyNativeTestFailed=False", section)
+        self.assertIn("compile_on_self_hosted=true", section)
+        self.assertIn("moonfall-unreal-native-dungeon-test-evidence", section)
+        self.assertNotIn("Use `-SkipBuild`", section)
+        self.assertNotIn("$SkipBuild", runner)
+
     def test_windows_native_unreal_runner_fails_closed_on_missing_results(self):
         script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
         self.assertIn("Test-UnrealEngineVersion.ps1", script)

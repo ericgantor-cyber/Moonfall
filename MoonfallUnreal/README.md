@@ -105,44 +105,47 @@ The prototype currently defaults to the generic engine Entry map. Before packagi
 Packaging deliberately stops with an actionable error if the project-owned startup level is missing. The map and a verified Unreal Windows build have not yet been created by this change.
 
 
-## Native UE5.4 dungeon stability verification (PR #948)
+## Native UE5.4 dungeon verification
 
-To run both tests with a single Windows command (including real Editor
-compilation), use:
+The repository's source and PowerShell checks are **not** native compilation
+or gameplay verification. On a Windows 10/11 machine with Unreal Engine
+**5.4**, Visual Studio 2022 C++ build tools and a checkout of the intended
+commit, run this command from the repository root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNative.ps1 -UnrealRoot "C:\Program Files\Epic Games\UE_5.4"
 ```
 
-The runner records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
-and `Moonfall-Dungeon-TestResult.txt`. It refuses to report a pass when either
-of the two required native tests is absent or failed, when the UE executable
-does not run, or when the test log is missing. Use `-SkipBuild` only if the
-exact PR head has already compiled successfully on that Windows computer.
-Run physical Play In Editor tests separately, since the unit tests do not
-verify walkability, FPS, AI pathfinding, or save/reload gameplay.
+The runner **always compiles the checked-out Unreal C++ source** first.
+There is no `-SkipBuild` option. It then runs these four real Unreal Editor
+automation tests:
 
+1. `Moonfall.Dungeons.All30EntranceLocations`
+2. `Moonfall.Dungeons.SeededRoomArchetypes`
+3. `Moonfall.Dungeons.BossVictoryLedgerDefaults`
+4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
 
-The GitHub source checks do not compile C++, build navmesh geometry, or execute
-runtime collision. The dungeon C++ automation tests are in
-`Source/MoonfallUnreal/MoonfallDungeonWorldTests.cpp`. They verify 30 distinct
-six-zone world coordinates, invalid IDs, the entrance/boss endpoints, seeded
-room determinism, and three unique hazard room assignments **only when run in
-a real UE5.4 Editor build**.
+It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
+and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
+A passing source workflow does not count: verify all **four** native test
+results are explicitly `True`, `EditorExitCode=0`, and
+`AnyNativeTestFailed=False`. If compilation, Editor execution or any test
+fails, the native runner must not report success.
 
-On Windows with Unreal Engine **5.4**, Visual Studio 2022 C++ build tools and
-a checked-out copy of this branch, run from the repository root:
+For an authorized self-hosted GitHub Actions runner, select the
+`Windows Unreal build prerequisites` workflow, choose the **PR branch**,
+and dispatch with `compile_on_self_hosted=true`. That job requires a
+Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
+environment variable. It compiles, runs all four tests, and uploads
+`moonfall-unreal-native-dungeon-test-evidence` containing the log and
+result report. Normal hosted GitHub preflight checks do **not** run these tests.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot "C:\Program Files\Epic Games\UE_5.4" -CompileOnly
-& "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" ".\MoonfallUnreal\MoonfallUnreal.uproject" -unattended -NullRHI '-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit' -log
-```
+Even four passing Editor automation tests do not prove the runtime gameplay
+loop. In Play In Editor, separately check physical dungeon connections,
+enemy navigation and hazards, boss spawn/death, rewards and exactly-once
+victory persistence after saving and relaunching. Also test the packaged
+Windows installer and accessibility controls before release.
 
-Check the Unreal test log and **verify both tests passed**, not merely the
-process exit code. The game must still be launched in Play In Editor to check
-that the 30 physical dungeon lanes connect to the public road, that enemies
-navigate through the doors, that hazard overlap volumes are avoidable, and that
-treasure remains correctly claimed across restarting the game.
 
 The **new startup map generator** now places a second, broad NavMeshBoundsVolume
 covering the six-zone road and 30 dungeon interiors. The project is configured
