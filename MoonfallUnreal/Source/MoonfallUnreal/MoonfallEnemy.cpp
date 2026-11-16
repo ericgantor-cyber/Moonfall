@@ -343,6 +343,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
   return;
  }
+ // A corrupt nonfinite windup must never trap an enemy in a permanent tell.
+ // Cancel the full chain without dealing damage, then apply a brief recovery.
+ if (!FMath::IsFinite(WindupEndsAt)) {
+  CancelDivineSignature();
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  LockedAttackDirection = FVector::ZeroVector;
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+ }
  // A shatter follow-up expires with its break window. Never carry it into
  // another posture cycle or let an expired flag affect later spells.
  if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
