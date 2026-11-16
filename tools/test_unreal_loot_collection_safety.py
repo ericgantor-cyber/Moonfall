@@ -10,7 +10,7 @@ class GroundLootCollectionSafety(unittest.TestCase):
     def test_reject_invalid_uncollectable_actors(self):
         body = self.source.split("void AMoonfallGroundLoot::InitializeLoot(", 1)[1].split(
             "void AMoonfallGroundLoot::InitializeDungeonReward(", 1)[0]
-        for token in ("ItemCode != 0 || bCollected",
+        for token in ("ItemCode != 0 || bCollected || IsActorBeingDestroyed()",
                       "if (InItemCode <= 0) { Destroy(); return; }",
                       "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25", "Destroy();"):
             self.assertIn(token, body)
@@ -20,7 +20,8 @@ class GroundLootCollectionSafety(unittest.TestCase):
                       "!FMath::IsFinite(DistanceSq)", "DistanceSq > FMath::Square(250.f)",
                       "LineTraceSingleByChannel", "ECC_Visibility",
                       "CollectPersistedGroundEquipmentCode", "CollectDungeonTreasureCode",
-                      "if (!bSaved) return false;", "bCollected = true"):
+                      "if (!bSaved) return false;", "bCollected = true",
+                      "bCollected || ItemCode <= 0 || IsActorBeingDestroyed()"):
             self.assertIn(token, body)
         self.assertLess(body.index("LineTraceSingleByChannel"), body.index("if (!bSaved)"))
         self.assertLess(body.index("if (!bSaved)"), body.index("bCollected = true"))
