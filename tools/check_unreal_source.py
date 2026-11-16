@@ -2409,9 +2409,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)", 1)[1].split(
             "void AMoonfallEnemy::TickDefeatAnimation(", 1)[0]
         self.assertIn("DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);", begin)
-        self.assertIn("DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();", begin)
+        self.assertIn("const float Now = GetWorld()->GetTimeSeconds();", begin)
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", begin)
+        self.assertIn("DefeatAnimationStartedAt = Now;", begin)
+        self.assertIn("SetActorTickInterval(0.f);", begin)
+        self.assertIn("SetActorTickEnabled(true);", begin)
         self.assertIn("SetLifeSpan(1.25f);", begin)
         self.assertIn("DefeatAnimationStartedAt < 0.f", self.enemy_cpp)
+        # Idle defeated enemies have no per-frame work until their queued
+        # finisher plays, without disabling the existing fallback lifespan.
+        self.assertIn("SetActorTickEnabled(false);", damage)
+        self.assertLess(damage.index("SetActorTickEnabled(false);"),
+                        damage.index("SetLifeSpan(9.5f);"))
+        self.assertLess(begin.index("DefeatAnimationStartedAt = Now;"),
+                        begin.index("SetActorTickEnabled(true);"))
         self.assertNotIn("SHATTER KO", self.hud)
 
     def test_finishers_have_no_shockwave_or_area_posture_pulse(self):
