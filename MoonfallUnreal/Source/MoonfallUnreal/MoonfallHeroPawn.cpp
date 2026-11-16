@@ -203,6 +203,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -236,6 +237,15 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
+     && !bOptionsOpen && !bInventoryOpen) {
+  AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
+  if (AutoLootElapsed >= 0.35f) {
+   AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
+   PickupNearestGroundLoot();
+  }
+ } else AutoLootElapsed = 0.f;
  // Only track pointer motion while dragging the inventory scrollbar.
  if (bInventoryScrollbarDragging) {
   if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
@@ -1827,41 +1837,25 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // Scan all loot actors so distant old drops cannot starve nearby pickups.
- // Only the closest candidates are subjected to expensive visibility traces.
- constexpr int32 MaxLootCandidates = 24;
- constexpr int32 MaxLootPerPress = 6;
- TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootCandidates);
- TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootCandidates);
+ // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
+ // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN()) return;
  const float PickupRangeSq = FMath::Square(250.f);
+ TArray<AMoonfallGroundLoot*> NearbyLoot;
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
-  if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
+  if (LootPosition.ContainsNaN() || FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  if (InsertAt >= MaxLootCandidates) continue;
-  NearbyLoot.Insert(Candidate, InsertAt);
-  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootCandidates) {
-   NearbyLoot.RemoveAt(MaxLootCandidates);
-   NearbyDistanceSq.RemoveAt(MaxLootCandidates);
-  }
+  NearbyLoot.Add(Candidate);
  }
- int32 Collected = 0;
+ // The loot actor performs the authoritative distance, cover and inventory checks.
+ // Rejected or blocked loot stays in the world; auto-equip is never triggered.
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
-  if (!IsValid(Loot)) continue;
-  // TryCollect performs the authoritative reach and visibility checks before
-  // mutating inventory. Avoid repeating the same expensive line trace here.
-  // Rejected/obstructed drops do not count toward successful pickup limits.
-  if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
+  if (IsValid(Loot)) Loot->TryCollect();
  }
 }
 
