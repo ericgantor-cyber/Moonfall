@@ -24,6 +24,7 @@ AMoonfallEnemy::AMoonfallEnemy() {
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
+ DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
@@ -644,6 +645,25 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (!bHasRecentSight) {
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
+  // Persistent dungeon enemies return to their spawn post after losing sight.
+  // Swept movement avoids teleporting through nearby walls.
+  if (!bBoss && !bElite
+      && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
+      && !DungeonHomePosition.ContainsNaN()) {
+   FVector ToHome = DungeonHomePosition - EnemyPosition;
+   ToHome.Z = 0.f;
+   const float HomeDistance = ToHome.Size();
+   if (FMath::IsFinite(HomeDistance) && HomeDistance > 85.f) {
+    const float SafeReturnSpeed = FMath::Clamp(
+      FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
+    const float Step = FMath::Min(HomeDistance,
+      SafeReturnSpeed * 0.6f * SafeAIDelta);
+    if (Step > 0.f) {
+     FHitResult ReturnHit;
+     AddActorWorldOffset(ToHome.GetSafeNormal() * Step, true, &ReturnHit);
+    }
+   }
+  }
   return;
  }
  // Search terminates when an ordinary enemy actually reaches the last
