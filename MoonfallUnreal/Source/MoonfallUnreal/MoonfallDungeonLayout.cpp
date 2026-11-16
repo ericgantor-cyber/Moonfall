@@ -303,7 +303,9 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  if (Remaining == 0) return true;
  // Check global live population only on chamber entry, never every Tick.
  // This protects slower Windows PCs when multiple dungeons remain visited.
- constexpr int32 MaxLiveWorldEnemies = 60;
+ // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
+ // This is a population ceiling, not a forced spawn wave.
+ const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
@@ -414,12 +416,14 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
  // Count all living world enemies once, on first final-room entry only.
  // Bosses cannot bypass the same global cap imposed on combat chambers.
- constexpr int32 MaxLiveWorldEnemies = 60;
+ // Grow the live-world ceiling from 69 at hero level 1 to 111 by level 43.
+ // This is a population ceiling, not a forced spawn wave.
+ const int32 MaxLiveWorldEnemies = 69 + FMath::Clamp(Hero->Level - 1, 0, 42);
  int32 AliveWorldEnemies = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Other = *It;
   if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
-  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  if (!FMath::IsFinite(Other->Health) || Other->Health <= 0.f) continue;
   if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
  }
  // Position the boss away from the centerline where the player enters.
