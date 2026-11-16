@@ -46,6 +46,17 @@ func _run()->void:
  check(RNG.rarity_from_chance(29,0)==3 and RNG.rarity_from_chance(29,40)==4,"luck changes odds but not past-roll memory")
  check(RNG.rarity_from_chance(30,-99)==RNG.rarity_from_chance(30,0),"negative luck clamps safely")
  check(RNG.AFFIXES.has("Luck"),"Luck rolls as an equipment affix")
+ # World loot uses the same stat but independent zone-weighted RNG.
+ check(RNG.world_rarity_from_roll(0.005,0,0)==4,"world base legendary boundary")
+ check(RNG.world_rarity_from_roll(0.01,0,0)==3,"world strict legendary cutoff")
+ check(RNG.world_rarity_from_roll(0.05,0,0)==2,"world base Rare tier")
+ check(RNG.world_rarity_from_roll(0.5,0,0)==0,"world base Common tier")
+ check(RNG.world_rarity_from_roll(0.5,0,40)==1,"equipped Luck raises world Uncommon odds")
+ check(RNG.world_rarity_from_roll(0.99,0,40)==0,"max Luck still allows world Common")
+ check(RNG.world_rarity_from_roll(0.99,0,99999)==0,"corrupt Luck cannot guarantee drops")
+ check(RNG.world_rarity_from_roll(0.05,0,-99)==RNG.world_rarity_from_roll(0.05,0,0),"negative world Luck clamps")
+ check(RNG.world_rarity_from_roll(0.5,0,0)==RNG.world_rarity_from_roll(0.5,0,0),"world roll remains stable and deterministic")
+
  var no_history:Dictionary=RNG.roll(item,2345,0,0)
  check(no_history==RNG.roll(item,2345,0,1000000),"even extreme legacy pity cannot change a roll")
  var generated_affixes:Dictionary={}

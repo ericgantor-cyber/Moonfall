@@ -31,3 +31,16 @@ static func rarity_from_chance(chance:int,luck:int=0)->int:
  if value<170+boost*2:return 2
  if value<410+boost*3:return 1
  return 0
+
+## Independent world-loot rarity, with the original zone-weighted base odds.
+## A valid roll remains a chance rather than a guarantee, even at max Luck.
+static func world_rarity_from_roll(roll:float,zone:int,luck:int=0)->int:
+ if not is_finite(roll):return 0
+ var value:float=clampf(roll,0.0,1.0)
+ var safe_zone:int=clampi(zone,0,100)
+ var boost:int=clampi(luck,0,40)
+ if value<clampf(0.01+float(safe_zone)*0.004+float(boost)*0.0005,0.01,0.07):return 4
+ if value<clampf(0.045+float(safe_zone)*0.008+float(boost)*0.001,0.045,0.15):return 3
+ if value<clampf(0.16+float(safe_zone)*0.016+float(boost)*0.002,0.16,0.42):return 2
+ if value<clampf(0.48+float(safe_zone)*0.020+float(boost)*0.003,0.48,0.82):return 1
+ return 0
