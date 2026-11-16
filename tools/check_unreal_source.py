@@ -428,7 +428,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
         self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
-        self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
+        self.assertIn("RegisterPersistentEquipmentDrops(Drops)", spawn)
+        self.assertIn("Loot->InitializeLoot(Record.ItemCode);", spawn)
+        self.assertIn("FGuid::NewGuid()", spawn)
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
@@ -894,30 +896,78 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             else:
                 self.assertEqual(up, 3)
 
+    def test_explicit_mouse_equip_button_preserves_selection_only_rows(self):
+        self.assertIn("bool HitTestInventoryEquipButton() const;", self.hero_h)
+        helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
+        self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("const float EquipY = Top + 87.f;", helper)
+        self.assertIn("MouseX <= EquipX + 172.f", helper)
+        self.assertIn("MouseY <= EquipY + 30.f", helper)
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
+        self.assertIn("if (HitTestInventoryEquipButton())", click)
+        self.assertIn("EquipSelectedInventoryItem();", click)
+        self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", click)
+        self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
+        self.assertIn("const float EquipY = Top + 87.f;", self.hud)
+
+    def test_autoloot_preference_is_user_configurable_and_persisted(self):
+        self.assertIn("void SetAutoLootEnabled(bool bEnabled);", self.hero_h)
+        method = self.hero_cpp.split("void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("bAutoLootEnabled = bEnabled;", method)
+        self.assertIn("AutoLootElapsed = 0.f;", method)
+        self.assertIn('TEXT("AutoLootEnabled")', method)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni)", method)
+        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", (
+            ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8"))
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        # Check the new nearest-first bounded candidate pool, not the removed global scan cap.
-        self.assertIn("constexpr int32 MaxLootCandidates = 24;", pickup)
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It", pickup)
-        self.assertNotIn("MaxLootScanned", pickup)
-        self.assertIn("if (InsertAt >= MaxLootCandidates) continue;", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
-        # The actor validates range and line of sight at the mutation boundary.
-        # Candidate selection must not duplicate the expensive cover trace.
-        self.assertNotIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
+        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertNotIn("MaxLootCandidates", pickup)
+        self.assertNotIn("MaxLootPerPress", pickup)
         self.assertNotIn("LineTraceSingleByChannel(", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootCandidates);", pickup)
-        self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
-        self.assertIn("if (!IsValid(Loot)) continue;", pickup)
-        self.assertIn("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;", pickup)
-        self.assertLess(pickup.index("if (!IsValid(Loot)) continue;"), pickup.index("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;"))
         self.assertNotIn("EquipInventoryItem(", pickup)
-        self.assertNotIn("SalvageInventoryItem(", pickup)
-        self.assertNotIn("PrimaryActorTick", pickup)
+        self.assertIn("AutoLootElapsed >= 0.35f", tick)
+        self.assertIn("bAutoLootEnabled &&", tick)
+        self.assertIn("bool bAutoLootEnabled = true;", self.hero_h)
+        self.assertIn('TEXT("AutoLootEnabled"), bAutoLootEnabled', self.hero_cpp)
+
+    def test_unified_v11_world_loot_persistence_is_atomic(self):
+        from pathlib import Path
+        persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
+        ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
+        ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
+        self.assertIn("int32 Version = 11;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
+        self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
+        self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
+        self.assertIn("Save->Version > 11", self.hero_cpp)
+        self.assertIn("Save->Version >= 11", self.hero_cpp)
+        self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
+        self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
+        self.assertIn("if (!SaveWorldProgress()) { PendingWorldLoot.SetNum(Before); return false; }", self.hero_cpp)
+        collect = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode",1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl",1)[0]
+        self.assertIn("PendingWorldLoot.RemoveAt(Index);", collect)
+        self.assertIn("PendingWorldLoot.Insert(Previous, Index);", collect)
+        self.assertIn("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)", collect)
+        self.assertLess(collect.index("PendingWorldLoot.RemoveAt(Index);"),
+                        collect.index("CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)"))
+        self.assertIn("GetPersistentDropId()", ground_h)
+        self.assertIn("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+        self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
+        self.assertNotIn("UMoonfallRewardSaveGame", self.hero_cpp)
 
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
@@ -1041,7 +1091,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
-        self.assertIn("bCriticalSpell ? 1.5f : 1.f", cast)
+        self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("GetVersatilityBonus() * 0.5f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1)", hud)
@@ -2359,9 +2409,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)", 1)[1].split(
             "void AMoonfallEnemy::TickDefeatAnimation(", 1)[0]
         self.assertIn("DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);", begin)
-        self.assertIn("DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();", begin)
+        self.assertIn("const float Now = GetWorld()->GetTimeSeconds();", begin)
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", begin)
+        self.assertIn("DefeatAnimationStartedAt = Now;", begin)
+        self.assertIn("SetActorTickInterval(0.f);", begin)
+        self.assertIn("SetActorTickEnabled(true);", begin)
         self.assertIn("SetLifeSpan(1.25f);", begin)
         self.assertIn("DefeatAnimationStartedAt < 0.f", self.enemy_cpp)
+        # Idle defeated enemies have no per-frame work until their queued
+        # finisher plays, without disabling the existing fallback lifespan.
+        self.assertIn("SetActorTickEnabled(false);", damage)
+        self.assertLess(damage.index("SetActorTickEnabled(false);"),
+                        damage.index("SetLifeSpan(9.5f);"))
+        self.assertLess(begin.index("DefeatAnimationStartedAt = Now;"),
+                        begin.index("SetActorTickEnabled(true);"))
         self.assertNotIn("SHATTER KO", self.hud)
 
     def test_finishers_have_no_shockwave_or_area_posture_pulse(self):
@@ -2928,6 +2989,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_enemy_hit_wakes_distant_ai_without_extra_nav_queries(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        nearby = damage.split("FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation())", 1)[1].split(
+            "\n   }", 1)[0]
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", nearby)
+        self.assertIn("NextPathRefreshAt = 0.f;", nearby)
+        self.assertIn("if (PrimaryActorTick.TickInterval > 0.1f)", nearby)
+        self.assertIn("SetActorTickInterval(0.1f);", nearby)
+        self.assertNotIn("FindPathToLocationSynchronously(", nearby)
 
     def test_lost_sight_investigation_repaths_once_and_stops_at_last_seen_location(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3529,9 +3601,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 10", self.hero_cpp)
+        self.assertIn("Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -3578,7 +3650,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 13.f", page)
+        self.assertIn("(PanelHeight - 145.f) / 18.f", page)
+        self.assertIn("Equipment power: %d", page)
 
 
     def test_main_based_dungeon_layout_has_connected_colliding_rooms(self):
@@ -4013,7 +4086,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4023,7 +4096,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 11", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -4300,6 +4373,70 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Seconds <= 0.3f)", hud)
         self.assertIn("Hero->bReduceMotion", hud)
         self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+
+    def test_equipment_power_on_character_sheet_is_safe_and_read_only(self):
+        # The source contract is not a native Unreal Editor runtime test.
+        for declaration in ("GetItemPower(int32 ItemCode) const",
+                            "GetEquipmentPower() const"):
+            self.assertIn(declaration, self.hero_h)
+            self.assertIn(declaration, self.hero_cpp)
+        item = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[0]
+        score = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        for expression in ("DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)",
+                           "Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0)",
+                           "if (Slot < 0 || Slot > 2) return 0;"):
+            self.assertIn(expression, item)
+        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
+        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
+        self.assertIn("Hero->GetEquipmentPower()", self.hud)
+        self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
+        self.assertNotIn("SaveWorldProgress()", item + score)
+
+
+    def test_inventory_power_and_projected_set_preview_are_read_only(self):
+        for declaration in ("GetItemPowerDelta(int32 ItemCode) const",
+                            "GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const"):
+            self.assertIn(declaration, self.hero_h)
+            self.assertIn(declaration, self.hero_cpp)
+        delta = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
+        projected = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        for code in (delta, projected):
+            self.assertIn("InventoryItemCodes.Contains(", code)
+            self.assertIn("DecodeEquippedItem(", code)
+            self.assertNotIn("EquipInventoryItem(", code)
+            self.assertNotIn("SaveWorldProgress(", code)
+        self.assertIn("GetSetPieceCount(Affix)", projected)
+        self.assertIn("PreviousRarity >= 1", projected)
+        self.assertIn("CandidateRarity >= 1", projected)
+        self.assertIn("Hero->GetItemPowerDelta(SelectedCode)", self.hud)
+        self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", self.hud)
+        self.assertIn("SET PREVIEW:", self.hud)
+        self.assertIn("PowerCompareLine", self.hud)
+
+
+    def test_legendary_perks_require_owned_canonical_gear_and_respect_caps(self):
+        self.assertIn("HasLegendaryPerk(int32 Slot) const", self.hero_h)
+        fn = self.hero_cpp.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        self.assertIn("Slot < 0 || Slot > 2", fn)
+        self.assertIn("InventoryItemCodes.Contains(Code)", fn)
+        self.assertIn("DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier)", fn)
+        self.assertIn("Rarity == 5", fn)
+        self.assertNotIn("SaveWorldProgress(", fn)
+        self.assertIn("HasLegendaryPerk(0) ? 1.65f : 1.5f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(2) ? 0.025f : 0.f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(1) ? 0.015f : 0.f", self.hero_cpp)
+        self.assertIn("FMath::Min(0.34f", self.hero_cpp)
+        self.assertIn("0.f, 0.20f", self.hero_cpp)
+        self.assertIn("LEGENDARY EQUIPMENT PERKS", self.hud)
+        for slot in range(3):
+            self.assertIn(f"Hero->HasLegendaryPerk({slot})", self.hud)
 
     def test_race_profile_lists_keep_playable_and_family_filters(self):
         import re
@@ -4869,7 +5006,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         listing.index("RaceChoiceLabels.Find(Profile.RaceId)"))
         self.assertNotIn("SaveGame", listing)
         self.assertNotIn("SpawnActor", listing)
-
 
 if __name__ == "__main__":
     unittest.main()

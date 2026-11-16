@@ -224,6 +224,9 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v404_tell_until"]=0.0
  creature["v404_attack_pending"]=false
  creature["v405_cleave_facing"]=Vector3.FORWARD
+ creature["v407_release_until"]=0.0
+ creature["v407_precision_rewarded"]=false
+ creature["v407_counter_open_until"]=0.0
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -780,6 +783,11 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
  super._apply_player_hit(target,base_damage*(V396_MATCHED_GUARD_REDUCTION if matched_guard and not guard_break else V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
  if hp_before<=float(target.get("hp",0.0)):return
+ # A riposte briefly interrupts the matching boss once, without extra damage.
+ if bool(target.get("boss",false)) and v393_riposte_active and bool(target.get("v400_bloodline",false)):
+  if map_time<float(target.get("v407_counter_open_until",0.0)) and bool(target.get("alive",false)):
+   target["v407_counter_open_until"]=0.0
+   target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.45)
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
  target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.22)
@@ -804,6 +812,8 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    if map_time>=float(beast.get("v404_tell_next",0.0)):
     beast["v404_tell_until"]=map_time+1.35
     beast["v404_attack_pending"]=true
+    beast["v407_precision_rewarded"]=false
+    beast["v407_counter_open_until"]=0.0
     if boss_name.begins_with("Z ") and is_instance_valid(player):
      var origin:Node3D=beast.get("body") as Node3D
      if is_instance_valid(origin):
@@ -813,6 +823,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     beast["v404_tell_next"]=map_time+maxf(4.0,8.0-float(clampi(int(beast.get("boss_phase",1)),1,3)))
    if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
     beast["v404_attack_pending"]=false
+    beast["v407_release_until"]=map_time+0.42
     var boss_body:Node3D=beast.get("body") as Node3D
     if hero_playing and not death_active and not menu_open and is_instance_valid(player) and is_instance_valid(boss_body):
      var hit_radius:float=4.0 if boss_name.begins_with("Z ") else 7.0
@@ -824,12 +835,34 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       in_arc=forward.dot(offset.normalized())>=0.5
      if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
+   # Anticipation -> impact -> recovery: reusable boss aura, no art or collision changes.
+   var combat_aura:OmniLight3D=beast.get("v403_aura") as OmniLight3D
+   if is_instance_valid(combat_aura):
+    var phase_light:float=0.75+float(clampi(int(beast.get("boss_phase",1)),1,3))*0.45
+    var light_goal:float=phase_light
+    if bool(beast.get("v404_attack_pending",false)):
+     var tell_left:float=maxf(0.0,float(beast.get("v404_tell_until",0.0))-map_time)
+     light_goal=phase_light+0.85*(1.0-clampf(tell_left/1.35,0.0,1.0))
+    elif map_time<float(beast.get("v407_release_until",0.0)):
+     light_goal=phase_light+0.55*clampf((float(beast.get("v407_release_until",0.0))-map_time)/0.42,0.0,1.0)
+    if absf(combat_aura.light_energy-light_goal)>0.035:combat_aura.light_energy=light_goal
    var attack_zone:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
    if is_instance_valid(attack_zone):
     attack_zone.visible=bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0))
-    if attack_zone.visible and boss_name.begins_with("Z "):
-     var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
-     attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
+    if attack_zone.visible:
+     # Progressively strengthen the existing ground cue without flashing or changing its hitbox.
+     var warning_remaining:float=maxf(0.0,float(beast.get("v404_tell_until",0.0))-map_time)
+     var warning_progress:float=clampf(1.0-warning_remaining/1.35,0.0,1.0)
+     var danger_material:StandardMaterial3D=attack_zone.material_override as StandardMaterial3D
+     if is_instance_valid(danger_material):
+      var target_alpha:float=lerpf(0.36,0.62,warning_progress)
+      if absf(danger_material.albedo_color.a-target_alpha)>0.025:
+       var next_color:Color=danger_material.albedo_color
+       next_color.a=target_alpha
+       danger_material.albedo_color=next_color
+     if boss_name.begins_with("Z "):
+      var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+      attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
@@ -969,6 +1002,27 @@ func _spell(which:String)->void:
  super._spell(which)
  v406_damage_context=""
 
+func _v407_precision_dodge_target()->Dictionary:
+ # Snapshot the threatening attack BEFORE dodge movement; award only on a real eligible dodge.
+ if not is_instance_valid(player):return {}
+ for beast in beasts:
+  if not bool(beast.get("alive",false)) or not bool(beast.get("boss",false)):continue
+  if not bool(beast.get("v404_attack_pending",false)) or bool(beast.get("v407_precision_rewarded",false)):continue
+  var boss_name:String=str(beast.get("v400_family_name",""))
+  if not (boss_name.begins_with("Z ") or boss_name.begins_with("Nyra ")):continue
+  var remaining:float=float(beast.get("v404_tell_until",0.0))-map_time
+  if remaining<=0.0 or remaining>0.24:continue
+  var boss_body:Node3D=beast.get("body") as Node3D
+  if not is_instance_valid(boss_body):continue
+  var offset:Vector3=player.global_position-boss_body.global_position
+  offset.y=0.0
+  if offset.length()>(4.0 if boss_name.begins_with("Z ") else 7.0):continue
+  if boss_name.begins_with("Z ") and offset.length_squared()>0.01:
+   var forward:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+   if forward.dot(offset.normalized())<0.5:continue
+  return beast
+ return {}
+
 func _dodge()->void:
  # Inactive gameplay must not trigger dodge actions or resource warnings.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
@@ -980,9 +1034,21 @@ func _dodge()->void:
   _show_message("Not enough stamina to dodge.",1.0)
   return
  # Charge stamina only when the dodge is eligible to start.
+ var precision_target:Dictionary=_v407_precision_dodge_target()
+ var dodge_before:float=dodge_time
  v387_stamina-=dodge_cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
+ # Only award the counter when inherited dodge mechanics actually start.
+ var dodge_started:bool=dodge_time>dodge_before and dodge_time>0.0
+ if not dodge_started:return
+ if not precision_target.is_empty() and bool(precision_target.get("alive",false)):
+  precision_target["v407_precision_rewarded"]=true
+  precision_target["v407_counter_open_until"]=map_time+1.0
+  v393_riposte_until=maxf(v393_riposte_until,map_time+1.0)
+  _show_message("PERFECT DODGE!",0.65)
+ else:
+  _show_message("DODGE!",0.45)
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.

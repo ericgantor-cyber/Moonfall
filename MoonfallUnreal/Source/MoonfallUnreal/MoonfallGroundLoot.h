@@ -17,6 +17,8 @@ public:
  // Validated dungeon coordinates bind pickup to the persisted V9 claim.
  void InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber);
  int32 GetItemCode() const { return ItemCode; }
+ void SetPersistentDropId(const FGuid& InId) { PersistentDropId = InId; }
+ const FGuid& GetPersistentDropId() const { return PersistentDropId; }
  bool TryCollect();
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
@@ -27,5 +29,6 @@ private:
  int32 RewardZone = INDEX_NONE;
  int32 RewardDungeon = INDEX_NONE;
  int32 RewardChamber = INDEX_NONE;
+ FGuid PersistentDropId;
  bool bCollected = false;
 };

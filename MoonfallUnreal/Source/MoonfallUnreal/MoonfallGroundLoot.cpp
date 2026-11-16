@@ -104,7 +104,9 @@ bool AMoonfallGroundLoot::TryCollect()
  const bool bDungeonTreasure = RewardZone != INDEX_NONE;
  const bool bSaved = bDungeonTreasure
    ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
-   : Hero->CollectGroundEquipmentCode(ItemCode);
+   : (PersistentDropId.IsValid()
+      ? Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)
+      : Hero->CollectGroundEquipmentCode(ItemCode));
  if (!bSaved) return false;
  bCollected = true;
  Destroy();

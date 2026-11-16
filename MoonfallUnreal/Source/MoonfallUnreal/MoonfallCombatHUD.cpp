@@ -215,9 +215,13 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 13.f, 11.f, 31.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
+     FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
+       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
+       Hero->GetItemPower(Hero->EquippedArmorCode),
+       Hero->GetItemPower(Hero->EquippedAccessoryCode)),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -230,6 +234,13 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetCriticalChance() * 100.f, Hero->GetHasteBonus() * 100.f),
      FString::Printf(TEXT("Mastery: %.1f%%  |  Versatility: %.1f%%"),
        Hero->GetMasteryBonus() * 100.f, Hero->GetVersatilityBonus() * 100.f),
+     TEXT("LEGENDARY EQUIPMENT PERKS"),
+     FString::Printf(TEXT("Weapon: %s  |  critical spell damage x1.65"),
+       Hero->HasLegendaryPerk(0) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+     FString::Printf(TEXT("Armor: %s  |  +1.5%% protection (34%% cap)"),
+       Hero->HasLegendaryPerk(1) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+     FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste (20%% cap)"),
+       Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
      FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
        Hero->GetSetPieceCount(1)),
@@ -244,7 +255,7 @@ void AMoonfallCombatHUD::DrawHUD()
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 0 || Row == 4 || Row == 7 || Row == 11 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
@@ -263,6 +274,15 @@ void AMoonfallCombatHUD::DrawHUD()
        : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
           Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
      FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+  // Match HitTestInventoryEquipButton exactly: wide panels only.
+  // Row clicks remain selection-only; this is a separate explicit action.
+  if (PanelWidth >= 550.f && Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) {
+   const float EquipX = Left + PanelWidth - 186.f;
+   const float EquipY = Top + 87.f;
+   DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
+   DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
+     EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+  }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
@@ -353,7 +373,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
     + (ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f) + ArmorRarity * 0.005f
     + Hero->GetVersatilityBonus() * 0.5f
-    + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
+    + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+    + (Hero->HasLegendaryPerk(1) ? 0.015f : 0.f));
   const float ManaRegenBonusPct = 100.f * (FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f)
     + (AccessoryTrait == 3 && AccessoryRarity > 0 ? 0.08f : 0.f) + AccessoryRarity * 0.02f
     + (Hero->GetSetPieceCount(3) >= 3 ? 0.06f : 0.f));
@@ -435,8 +456,10 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
     const FString SetLine = bValidDetail && SelectedAffix > 0
-      ? FString::Printf(TEXT("EQUIPPED SET: %s %d/3  |  %s"),
-          DetailTraits[SelectedAffix], SetPieces, SetEffects[SelectedAffix])
+      ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
+          DetailTraits[SelectedAffix], SetPieces,
+          Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
+          SetEffects[SelectedAffix])
       : TEXT("EQUIPPED SET: no set bonus from this item");
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
@@ -483,7 +506,9 @@ void AMoonfallCombatHUD::DrawHUD()
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   DrawText(CompareLine,
+   const FString PowerCompareLine = CompareLine +
+     FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
+   DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),

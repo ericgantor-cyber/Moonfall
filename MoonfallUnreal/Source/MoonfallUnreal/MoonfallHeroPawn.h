@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "MoonfallPersistentSave.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -85,6 +86,14 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Display-only comparison score, never used for combat or save data.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
+ // Perks activate only on owned, correctly slotted legendary gear.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Perks") bool HasLegendaryPerk(int32 Slot) const;
+ // Read-only owned-item comparison and projected set totals.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPowerDelta(int32 ItemCode) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const;
  // Derived primary attributes, no additional persistent save schema.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetInsight() const;
@@ -214,7 +223,11 @@ public:
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") bool CollectGroundEquipmentCode(int32 ItemCode);
+ bool CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SetAutoLootEnabled(bool bEnabled);
+ float AutoLootElapsed = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootRarity = 0;
@@ -237,6 +250,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
+ bool HitTestInventoryEquipButton() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.
@@ -414,5 +428,8 @@ private:
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
  bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
+ TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
+ bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
+ void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };

@@ -159,6 +159,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     LastKnownHeroPosition = Attacker->GetActorLocation();
     CachedWaypoint = FVector::ZeroVector;
     NextPathRefreshAt = 0.f;
+    // A distant mob may be ticking only once a second. A nearby hit should
+    // wake its AI for responsive combat without an extra pathfinding scan.
+    if (PrimaryActorTick.TickInterval > 0.1f)
+     SetActorTickInterval(0.1f);
    }
   }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
@@ -247,8 +251,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    DefeatAnimationOrigin = GetActorLocation();
    bDefeatAnimationShatter = bLastHitWasShatter;
    DefeatAnimationStyle = 1;
-   SetActorTickEnabled(true);
-   SetActorTickInterval(0.f);
+   // Queued corpses have no animation to update yet. A zero-interval tick
+   // would otherwise run every frame for up to 9.5 seconds per corpse.
+   // Lifespan timers and finisher callbacks work without actor Tick.
+   SetActorTickEnabled(false);
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
@@ -275,16 +281,25 @@ void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
 {
  if (Health > 0.f || !GetWorld() || DefeatAnimationStartedAt >= 0.f) return;
  DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
  DefeatAnimationOrigin = GetActorLocation();
- DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();
+ DefeatAnimationStartedAt = Now;
+ // Only active defeat choreography needs every-frame mesh updates.
+ SetActorTickInterval(0.f);
+ SetActorTickEnabled(true);
  // Keep the defeated actor only as long as its choreography needs.
  SetLifeSpan(1.25f);
 }
 
 void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 {
- if (!Body || !GetWorld() || DefeatAnimationStartedAt < 0.f) return;
- const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
+ if (!Body || !GetWorld() || !FMath::IsFinite(DefeatAnimationStartedAt)
+     || DefeatAnimationStartedAt < 0.f) return;
+ const float WorldTime = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(WorldTime)) return;
+ const float Age = WorldTime - DefeatAnimationStartedAt;
+ if (!FMath::IsFinite(Age)) return;
  const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
  const float Ease = T * T * (3.f - 2.f * T);
  const float Direction = DefeatAnimationStyle % 2 == 0 ? -1.f : 1.f;

@@ -100,5 +100,28 @@ func _run()->void:
  check(not INVENTORY.add_item(full_stacks,"ashwood_sword",1),"full item stacks reject rewards")
  full_stacks["materials"]["Ashwood"]=999999
  check(not INVENTORY.add_material(full_stacks,"Ashwood",1),"full material stacks reject rewards")
+ # PR #901 reconciliation: retain current strict stack rejection and 64-bit gold.
+ # Crafting failure must never spend materials or mutate a full stack.
+ var craft_item:Dictionary=CATALOG.get_item("ashwood_sword")
+ var craft_material:String=str(craft_item["name"]).split(" ")[0]
+ var craft_cost:int=2+int(craft_item["tier"])*3
+ var blocked_craft:Dictionary=INVENTORY.new_state()
+ blocked_craft["items"]["ashwood_sword"]=9999
+ blocked_craft["materials"][craft_material]=craft_cost+5
+ check(not INVENTORY.craft(blocked_craft,"ashwood_sword",99),"full-stack craft is rejected")
+ check(int(blocked_craft["materials"][craft_material])==craft_cost+5,"rejected craft does not charge materials")
+ # Failed enemy loot must not consume pity or append a phantom roll.
+ var candidate:Dictionary=CATALOG.loot_for_level(12,42)
+ if not candidate.is_empty():
+  var refused:Dictionary=INVENTORY.new_state()
+  refused["items"][str(candidate["id"])]=9999
+  refused["loot_pity"]=17
+  check(INVENTORY.loot_enemy(refused,12,42).is_empty(),"full stack rejects enemy loot")
+  check(int(refused["loot_pity"])==17 and refused["loot_rolls"].is_empty(),"failed loot preserves pity and roll history")
+ # Extra unrelated history must not alter equipped stats.
+ var noisy:Dictionary=empowered.duplicate(true)
+ for i in range(200):
+  noisy["loot_rolls"].append({"item_id":"missing_item_"+str(i),"rarity_index":4,"power_bonus":12})
+ check(INVENTORY.totals(noisy)==legendary,"unrelated rolls do not modify equipped stats")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)

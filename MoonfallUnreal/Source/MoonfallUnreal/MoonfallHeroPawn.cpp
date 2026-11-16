@@ -82,6 +82,74 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
+int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
+{
+ // Use the same strict decoder as equipped combat stats. No save mutations.
+ if (ItemCode <= 0) return 0;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
+ return Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0);
+}
+
+int32 AMoonfallHeroPawn::GetEquipmentPower() const
+{
+ const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 Total = 0;
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (InventoryItemCodes.Contains(Codes[Slot])
+      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
+   Total += GetItemPower(Codes[Slot]);
+ }
+ return Total;
+}
+
+int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
+{
+ if (!InventoryItemCodes.Contains(ItemCode)) return 0;
+ const int32 CandidatePower = GetItemPower(ItemCode);
+ if (CandidatePower <= 0) return 0;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ const bool bCurrentOwnedAndValid = InventoryItemCodes.Contains(CurrentCode)
+     && DecodeEquippedItem(CurrentCode, Slot, Trait, Rarity, Tier);
+ return CandidatePower - (bCurrentOwnedAndValid ? GetItemPower(CurrentCode) : 0);
+}
+
+int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
+{
+ if (Affix < 1 || Affix > 3 || !InventoryItemCodes.Contains(CandidateCode)
+     || GetItemPower(CandidateCode) <= 0) return 0;
+ const int32 Slot = (CandidateCode / 10000) % 10;
+ if (Slot < 0 || Slot > 2) return 0;
+ int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
+ if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
+  return 0;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
+ const bool bCurrentValid = InventoryItemCodes.Contains(CurrentCode)
+     && DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
+ return FMath::Clamp(GetSetPieceCount(Affix)
+     - (bCurrentValid && PreviousRarity >= 1 && PreviousTrait == Affix ? 1 : 0)
+     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, 3);
+}
+
+bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return false;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ if (!InventoryItemCodes.Contains(Code)) return false;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Rarity == 5;
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
@@ -130,7 +198,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 {
  const float TraitHaste = InventoryItemCodes.Contains(EquippedAccessoryCode)
    ? ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) * 0.006f : 0.f;
- return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
+   + (HasLegendaryPerk(2) ? 0.025f : 0.f),
    0.f, 0.20f);
 }
 
@@ -203,6 +272,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -225,6 +295,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  }
  LoadWorldProgress();
  bWorldProgressInitialized = true;
+ if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // When a shrine spawned before this pawn, BeginPlay overlap notifications
  // may have happened before save load was complete. A one-time scan after
  // the saved position and shrine ledger are restored closes that gap.
@@ -236,6 +307,19 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // A nonfinite frame delta must not poison the persistent autosave or
+ // defeat/respawn timers, leaving the hero unable to save or respawn.
+ const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
+     ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
+     && !bOptionsOpen && !bInventoryOpen) {
+  AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
+  if (AutoLootElapsed >= 0.35f) {
+   AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
+   PickupNearestGroundLoot();
+  }
+ } else AutoLootElapsed = 0.f;
  // Only track pointer motion while dragging the inventory scrollbar.
  if (bInventoryScrollbarDragging) {
   if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
@@ -259,13 +343,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
   DefeatElapsedSeconds = 0.f;
-  SecondsSinceLastWorldSave += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  SecondsSinceLastWorldSave += SafeTimerDelta;
   if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
       && GetWorld()->GetTimeSeconds() >= NextSafeCheckpointAt) {
    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
   }
  } else {
-  DefeatElapsedSeconds += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  DefeatElapsedSeconds += SafeTimerDelta;
   if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
  }
  UpdateNativeFinisher(DeltaSeconds);
@@ -567,6 +651,28 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
         MouseY >= SortY && MouseY <= SortY + 28.f;
 }
 
+bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+     FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ if (PanelWidth < 550.f) return false; // compact layout leaves this button hidden
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float EquipX = Left + PanelWidth - 186.f;
+ const float EquipY = Top + 87.f;
+ return MouseX >= EquipX && MouseX <= EquipX + 172.f &&
+        MouseY >= EquipY && MouseY <= EquipY + 30.f;
+}
+
 int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
 {
  int32 ViewWidth = 0;
@@ -736,7 +842,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -984,7 +1090,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (bOwnedArmor && ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f)
    + (bOwnedArmor ? FMath::Clamp(ValidEquippedRarity(EquippedArmorCode, 1) * 0.005f, 0.f, 0.025f) : 0.f)
    + GetVersatilityBonus() * 0.5f
-   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
+   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+   + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
    && Now < RacePowerActiveUntil;
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
@@ -1724,6 +1831,22 @@ bool AMoonfallHeroPawn::CollectDungeonTreasureCode(
  return CollectGroundEquipmentCodeImpl(ItemCode, Key);
 }
 
+bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId)
+{
+ if (!DropId.IsValid() || bPersistentSaveWritesBlocked) return false;
+ const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ const int32 Index = PendingWorldLoot.IndexOfByPredicate(
+  [&](const FMoonfallWorldLootRecord& Record) {
+   return Record.DropId == DropId && Record.ItemCode == ItemCode && Record.LevelId == LevelId;
+  });
+ if (Index == INDEX_NONE) return false;
+ const FMoonfallWorldLootRecord Previous = PendingWorldLoot[Index];
+ PendingWorldLoot.RemoveAt(Index);
+ if (CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE)) return true;
+ PendingWorldLoot.Insert(Previous, Index);
+ return false;
+}
+
 bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey)
 {
  if (Health <= 0.f || ItemCode <= 0) return false;
@@ -1780,66 +1903,127 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  return true;
 }
 
+bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops)
+{
+ if (!GetWorld() || !bWorldProgressInitialized || bPersistentSaveWritesBlocked
+     || Drops.IsEmpty() || Drops.Num() > 3 || PendingWorldLoot.Num() + Drops.Num() > 512) return false;
+ const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ if (LevelId.IsNone()) return false;
+ TSet<FGuid> Batch;
+ for (const FMoonfallWorldLootRecord& Record : Drops) {
+  if (!Record.DropId.IsValid() || Batch.Contains(Record.DropId)
+      || Record.LevelId != LevelId || !ValidMoonfallItemCode(Record.ItemCode)
+      || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f
+      || PendingWorldLoot.ContainsByPredicate([&](const FMoonfallWorldLootRecord& Existing)
+         { return Existing.DropId == Record.DropId; })) return false;
+  Batch.Add(Record.DropId);
+ }
+ const int32 Before = PendingWorldLoot.Num();
+ PendingWorldLoot.Append(Drops);
+ if (!SaveWorldProgress()) { PendingWorldLoot.SetNum(Before); return false; }
+ for (const FMoonfallWorldLootRecord& Record : Drops) {
+  FActorSpawnParameters Params;
+  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+  if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+      AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
+   Loot->SetPersistentDropId(Record.DropId);
+   Loot->InitializeLoot(Record.ItemCode);
+  }
+ }
+ return true;
+}
+
+void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
+{
+ if (!GetWorld() || bPersistentSaveWritesBlocked) return;
+ const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ TSet<FGuid> Expected, Present;
+ for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+  if (Record.LevelId == LevelId) Expected.Add(Record.DropId);
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
+  AMoonfallGroundLoot* Loot = *It;
+  if (!IsValid(Loot) || !Loot->GetPersistentDropId().IsValid()) continue;
+  const FGuid Id = Loot->GetPersistentDropId();
+  if (!Expected.Contains(Id) || Present.Contains(Id)) { Loot->Destroy(); continue; }
+  Present.Add(Id);
+ }
+ for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
+  if (Record.LevelId != LevelId || Present.Contains(Record.DropId)) continue;
+  FActorSpawnParameters Params;
+  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+  if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+      AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
+   Loot->SetPersistentDropId(Record.DropId);
+   Loot->InitializeLoot(Record.ItemCode);
+   Present.Add(Record.DropId);
+  }
+ }
+}
+
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
- // Bosses scatter three rewards, elites two, regular enemies one.
- // All remain on the ground until individually collected; never auto-salvage.
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ TArray<FMoonfallWorldLootRecord> Drops;
  for (int32 Drop = 0; Drop < DropCount; ++Drop) {
   const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
   if (ItemCode <= 0) continue;
   const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
   const float Spread = DropCount == 1 ? 0.f : 105.f;
-  const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
-    Spread * FMath::Sin(Angle), 45.f);
+  FMoonfallWorldLootRecord Record;
+  Record.DropId = FGuid::NewGuid();
+  Record.ItemCode = ItemCode;
+  Record.LevelId = LevelId;
+  Record.Location = Origin + FVector(Spread * FMath::Cos(Angle),
+   Spread * FMath::Sin(Angle), 45.f);
+  Drops.Add(Record);
+ }
+ if (Drops.IsEmpty() || RegisterPersistentEquipmentDrops(Drops)) return;
+ // Failed disk writes retain temporary drops in the current session.
+ UE_LOG(LogTemp, Warning, TEXT("Moonfall durable loot save failed; spawning temporary loot."));
+ for (const FMoonfallWorldLootRecord& Record : Drops) {
   FActorSpawnParameters Params;
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
-      AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
-   Loot->InitializeLoot(ItemCode);
+      AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params))
+   Loot->InitializeLoot(Record.ItemCode);
  }
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // Scan all loot actors so distant old drops cannot starve nearby pickups.
- // Only the closest candidates are subjected to expensive visibility traces.
- constexpr int32 MaxLootCandidates = 24;
- constexpr int32 MaxLootPerPress = 6;
- TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootCandidates);
- TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootCandidates);
+ // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
+ // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN()) return;
  const float PickupRangeSq = FMath::Square(250.f);
+ TArray<AMoonfallGroundLoot*> NearbyLoot;
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
-  if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
+  if (LootPosition.ContainsNaN() || FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  if (InsertAt >= MaxLootCandidates) continue;
-  NearbyLoot.Insert(Candidate, InsertAt);
-  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootCandidates) {
-   NearbyLoot.RemoveAt(MaxLootCandidates);
-   NearbyDistanceSq.RemoveAt(MaxLootCandidates);
-  }
+  NearbyLoot.Add(Candidate);
  }
- int32 Collected = 0;
+ // The loot actor performs the authoritative distance, cover and inventory checks.
+ // Rejected or blocked loot stays in the world; auto-equip is never triggered.
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
-  if (!IsValid(Loot)) continue;
-  // TryCollect performs the authoritative reach and visibility checks before
-  // mutating inventory. Avoid repeating the same expensive line trace here.
-  // Rejected/obstructed drops do not count toward successful pickup limits.
-  if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
+  if (IsValid(Loot)) Loot->TryCollect();
+ }
+}
+
+void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
+{
+ bAutoLootEnabled = bEnabled;
+ AutoLootElapsed = 0.f;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
  }
 }
 
@@ -2286,6 +2470,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64
      || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
+     || PendingWorldLoot.Num() > 512
      || DungeonTreasureStates.Num() > 420
      || (static_cast<uint32>(DefeatedDungeonBossMask) & ~((1u << 30) - 1u)) != 0u
      || (static_cast<uint32>(DefeatedDungeonBossMask)
@@ -2325,6 +2510,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
   if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
  }
+ TSet<FGuid> UniqueWorldDrops;
+ for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
+  if (!Record.DropId.IsValid() || UniqueWorldDrops.Contains(Record.DropId)
+      || !ValidMoonfallItemCode(Record.ItemCode) || Record.LevelId.IsNone()
+      || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) return false;
+  UniqueWorldDrops.Add(Record.DropId);
+ }
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
@@ -2360,6 +2552,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
  Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;
  Save->DungeonTreasureStates = DungeonTreasureStates;
+ Save->PendingWorldLoot = PendingWorldLoot;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
@@ -2385,7 +2578,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 10) {
+ if (!Save || Save->Version < 1 || Save->Version > 11) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2524,6 +2717,20 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // V11 rejects corrupted or duplicated drops before mutating live progress.
+ if (Save->Version >= 11) {
+  if (Save->PendingWorldLoot.Num() > 512) { bPersistentSaveWritesBlocked = true; return false; }
+  TSet<FGuid> Seen;
+  for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot) {
+   if (!Record.DropId.IsValid() || Seen.Contains(Record.DropId)
+       || !ValidMoonfallItemCode(Record.ItemCode) || Record.LevelId.IsNone()
+       || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+   Seen.Add(Record.DropId);
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -2560,6 +2767,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  DefeatedDungeonBossMask = Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;
  DungeonTreasureStates = Save->Version >= 9
    ? Save->DungeonTreasureStates : TArray<int32>();
+ PendingWorldLoot = Save->Version >= 11
+   ? Save->PendingWorldLoot : TArray<FMoonfallWorldLootRecord>();
  // Refresh any shrines that began play before the save was loaded.
  // This also fixes stale ACTIVE labels when death reloads an earlier save.
  // A shrine spawned later refreshes itself in its own BeginPlay.
@@ -2684,6 +2893,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   Stamina = FMath::Max(0.f, MaxStamina);
   OnHealthChanged(Health, MaxHealth);
  }
+ if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  if (GetWorld()) {
   const float Now = GetWorld()->GetTimeSeconds();
@@ -2912,6 +3122,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
 void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
   if (HitTestInventorySortButton()) return;
+  if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
@@ -3015,6 +3226,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
+   return;
+  }
+  if (HitTestInventoryEquipButton()) {
+   EquipSelectedInventoryItem();
    return;
   }
   if (ScrollInventoryToMouseTrack()) return;
