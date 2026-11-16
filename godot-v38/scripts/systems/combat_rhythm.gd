@@ -14,7 +14,21 @@ static func next_chain(current:int, seconds_since_hit:float) -> int:
  return current + 1
 
 static func chain_expired(chain:int, elapsed:float) -> bool:
- return chain > 0 and is_finite(elapsed) and elapsed > CHAIN_WINDOW
+ # Fail closed if the encounter clock resets, overflows, or turns invalid.
+ return chain > 0 and (not is_finite(elapsed) or elapsed < 0.0 or elapsed > CHAIN_WINDOW)
+
+## A blocked input keeps the chain; a valid miss breaks it; a landed hit advances it.
+## Confirm only actual HP loss on a hostile, previously alive combat target.
+static func confirmed_hostile_hit(was_alive:bool, hostile:bool, hp_before:float, hp_after:float) -> bool:
+ return was_alive and hostile and is_finite(hp_before) and is_finite(hp_after) and hp_after<hp_before
+
+static func resolved_chain(current:int, pending:int, accepted:bool, landed:bool) -> int:
+ if not accepted:return clampi(current,0,MAX_CHAIN)
+ if not landed:return 0
+ return clampi(pending,1,MAX_CHAIN)
+
+static func posture_impact(chain_stage:int) -> float:
+ return 12.0 + 4.0 * float(clampi(chain_stage, 1, MAX_CHAIN) - 1)
 
 static func chain_damage_multiplier(chain:int, heavy_finisher:bool = false) -> float:
  var stage:int = clampi(chain, 1, MAX_CHAIN)

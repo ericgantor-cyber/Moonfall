@@ -5,6 +5,7 @@ var rhythm_chain:int=0
 var rhythm_last_strike_at:float=-999.0
 var rhythm_strike_active:bool=false
 var rhythm_strike_landed:bool=false
+var rhythm_pending_stage:int=1
 var rhythm_last_posture_message_at:float=-999.0
 var rhythm_dodge_started_at:float=-999.0
 var rhythm_dodge_rewarded:bool=false
@@ -26,11 +27,15 @@ func _attack()->void:
  var stage:int=RHYTHM.next_chain(rhythm_chain,map_time-rhythm_last_strike_at) if eligible else rhythm_chain
  var before_cooldown:float=attack_cooldown
  rhythm_strike_landed=false
+ rhythm_pending_stage=stage
  rhythm_strike_active=eligible
  super._attack()
  rhythm_strike_active=false
- if not eligible or attack_cooldown<=before_cooldown or not rhythm_strike_landed:return
- rhythm_chain=stage
+ rhythm_pending_stage=1
+ var accepted:bool=eligible and attack_cooldown>before_cooldown
+ # A rejected input preserves the combo; an accepted miss ends it.
+ rhythm_chain=RHYTHM.resolved_chain(rhythm_chain,stage,accepted,rhythm_strike_landed)
+ if not accepted or not rhythm_strike_landed:return
  rhythm_last_strike_at=map_time
  if rhythm_chain==3:
   _show_message("TRIPLE STRIKE!",0.65)
@@ -42,20 +47,22 @@ func _attack()->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Only an actual melee hit consumes a counter reward; spells retain base damage.
  var before:float=float(target.get("hp",0.0))
- var counter_ready:bool=rhythm_strike_active and map_time<=rhythm_counter_until and bool(target.get("hostile",false))
+ var was_alive:bool=bool(target.get("alive",false))
+ var hostile:bool=bool(target.get("hostile",false))
+ var counter_ready:bool=rhythm_strike_active and was_alive and hostile and map_time<=rhythm_counter_until
  super._apply_player_hit(target,base_damage*(RHYTHM_COUNTER_MULTIPLIER if counter_ready else 1.0),stagger_strength)
- if rhythm_strike_active and float(target.get("hp",0.0))<before:
+ var confirmed:bool=RHYTHM.confirmed_hostile_hit(was_alive,hostile,before,float(target.get("hp",0.0)))
+ if rhythm_strike_active and confirmed:
   rhythm_strike_landed=true
- if counter_ready and float(target.get("hp",0.0))<before:
+ if counter_ready and confirmed:
   rhythm_counter_until=-999.0
   _show_message("DODGE COUNTER!",0.75)
- if not rhythm_strike_active or not bool(target.get("hostile",false)) or not bool(target.get("alive",false)):return
- if float(target.get("hp",0.0))>=before:return
+ if not rhythm_strike_active or not confirmed or not bool(target.get("alive",false)):return
  var maximum:float=100.0 if bool(target.get("boss",false)) else 60.0
  var last_pressure_at:float=float(target.get("rhythm_last_pressure_at",map_time))
  var current:float=RHYTHM.recovered_posture(float(target.get("rhythm_posture",0.0)),maxf(0.0,map_time-last_pressure_at))
  target["rhythm_last_pressure_at"]=map_time
- var impact:float=12.0+4.0*float(clampi(RHYTHM.next_chain(rhythm_chain,map_time-rhythm_last_strike_at),1,RHYTHM.MAX_CHAIN)-1)
+ var impact:float=RHYTHM.posture_impact(rhythm_pending_stage)
  var next_posture:float=RHYTHM.posture_after_hit(current,maximum,impact,v393_riposte_active)
  target["rhythm_posture"]=next_posture
  if RHYTHM.posture_broken(next_posture,maximum):
@@ -103,6 +110,7 @@ func _rhythm_reset_transient_combat()->void:
  rhythm_last_strike_at=-999.0
  rhythm_strike_active=false
  rhythm_strike_landed=false
+ rhythm_pending_stage=1
  rhythm_last_posture_message_at=-999.0
  rhythm_dodge_started_at=-999.0
  rhythm_dodge_rewarded=false
