@@ -13,6 +13,9 @@ static func next_chain(current:int, seconds_since_hit:float) -> int:
   return 1
  return current + 1
 
+static func chain_expired(chain:int, elapsed:float) -> bool:
+ return chain > 0 and is_finite(elapsed) and elapsed > CHAIN_WINDOW
+
 static func chain_damage_multiplier(chain:int, heavy_finisher:bool = false) -> float:
  var stage:int = clampi(chain, 1, MAX_CHAIN)
  var multiplier:float = 1.0 + 0.12 * float(stage - 1)
