@@ -3992,6 +3992,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
+        # Blueprint spawn callbacks can destroy their actor synchronously.
+        # The final room must stay retryable when that happens.
+        self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
+        self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
+        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        self.assertLess(
+            boss.index("Boss->OnDungeonBossIdentityReady("),
+            boss.index("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;",
+                       boss.index("Boss->OnDungeonBossIdentityReady("))
+        )
+        self.assertLess(
+            boss.index("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;",
+                       boss.index("Boss->OnDungeonBossIdentityReady(")),
+            boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);")
+        )
+        self.assertIn("&& !StartFinalBossChamber(Hero)) return;", final)
+        self.assertLess(final.index("&& !StartFinalBossChamber(Hero)) return;"),
+                        final.index("bFinalChamberNotified = true;"))
 
 
     def test_v10_native_dungeon_runner_requires_boss_ledger_check(self):
