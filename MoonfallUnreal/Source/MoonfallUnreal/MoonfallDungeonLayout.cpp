@@ -275,8 +275,12 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
  if (!FMath::IsFinite(Now) || Now < 0.f) return;
  // A corrupted/infinite cooldown or a reset world clock must not disable
  // the trap permanently. Valid pending cooldowns remain bounded to 20 seconds.
+ const bool bClockRewound = FMath::IsFinite(LastHazardObservedTime)
+   && LastHazardObservedTime >= 0.f && Now < LastHazardObservedTime;
+ LastHazardObservedTime = Now;
  const float Remaining = NextHazardDamageAt - Now;
- if (FMath::IsFinite(Remaining) && Remaining > 0.f && Remaining <= 20.f) return;
+ if (!bClockRewound && FMath::IsFinite(Remaining)
+     && Remaining > 0.f && Remaining <= 20.f) return;
  const float Next = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
  if (!FMath::IsFinite(Next) || Next <= Now) return;
  NextHazardDamageAt = Next;
