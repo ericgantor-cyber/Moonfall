@@ -45,6 +45,15 @@ jobs:
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
           if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Compile standalone Unreal Game Win64 Development
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\\Build\\BatchFiles\\Build.bat'
+          $uproject = (Resolve-Path 'MoonfallUnreal\\MoonfallUnreal.uproject').Path
+          & $buildTool MoonfallUnreal Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
+          if ($LASTEXITCODE -ne 0) { throw "Standalone Unreal Game compilation failed with exit code $LASTEXITCODE" }
+          'UE5 standalone Game Win64 Development compilation passed. Packaging is still pending.' >> $env:GITHUB_STEP_SUMMARY
       - name: Generate and validate Moonfall startup level
         shell: pwsh
         run: |
