@@ -849,10 +849,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     Side *= SideSign;
    }
    ++ObstacleSidestepCount;
+   // A second blocked slide means the surface route failed. Try its
+   // opposite direction on the next cooldown, not on this AI tick.
+   if (bReverseCombatWallSlide) Side *= -1.f;
    const float EscapeDistance = FMath::Min(80.f,
      FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
    FHitResult EscapeHit;
    AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
+   bReverseCombatWallSlide = EscapeHit.bBlockingHit;
+  } else if (!Hit.bBlockingHit) {
+   bReverseCombatWallSlide = false;
   }
   // A blocked route is invalidated only on its original repath cooldown.
   // The existing single navigation solve then selects a fresh waypoint.
