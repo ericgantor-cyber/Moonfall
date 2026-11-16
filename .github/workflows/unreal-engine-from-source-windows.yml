@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   source-build:
-    if: ${{ inputs.confirm_build }}
+    if: ${{ inputs.confirm_build && github.ref == 'refs/heads/main' }}
     runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 360
     steps:
@@ -48,10 +48,10 @@ jobs:
           ref: ${{ github.sha }}
           path: build-tools
           persist-credentials: false
-      - name: Checkout pinned Moonfall Unreal PR 690 source
+      - name: Checkout current reviewed Moonfall main commit
         uses: actions/checkout@v4
         with:
-          ref: 8151ec565bfc78446b30eab5428d0285a3360849
+          ref: ${{ github.sha }}
           path: game-source
           persist-credentials: false
       - name: Confirm Epic source token secret is configured
@@ -76,11 +76,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $sha = (& git -C game-source rev-parse HEAD).Trim()
-          if ($sha -ne '8151ec565bfc78446b30eab5428d0285a3360849') { throw 'Unexpected Moonfall game commit' }
+          if ($sha -ne '${{ github.sha }}') { throw 'Unexpected Moonfall game commit; refusing to compile or package an unreviewed revision' }
           $file = '.\ue-source\Engine\Build\Build.version'
           if (-not (Test-Path $file)) { throw 'Unreal source Build.version missing' }
           $version = Get-Content $file -Raw | ConvertFrom-Json
           if ($version.MajorVersion -ne 5 -or $version.MinorVersion -ne 4) { throw 'Epic source is not UE 5.4' }
+          "Moonfall build source: reviewed main commit $sha" >> $env:GITHUB_STEP_SUMMARY
       - name: Fetch Unreal engine dependencies
         shell: pwsh
         working-directory: ue-source

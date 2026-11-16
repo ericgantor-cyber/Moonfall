@@ -6,6 +6,9 @@ var realm_follower_visual:MeshInstance3D
 var realm_follower_last_ethic:String = ""
 const FOLLOW_DISTANCE:float = 2.7
 const FOLLOW_SPEED:float = 5.0
+const FOLLOW_CATCHUP_SPEED:float = 14.0
+const FOLLOW_CATCHUP_START:float = 5.0
+const FOLLOW_TELEPORT_DISTANCE:float = 35.0
 
 func _ready()->void:
  super._ready()
@@ -44,7 +47,12 @@ func _process(delta:float)->void:
   var mat:StandardMaterial3D = realm_follower_visual.material_override as StandardMaterial3D
   if is_instance_valid(mat):mat.albedo_color = Color(0.95,0.35,0.55) if realm_companion_ethic=="Evil" else Color(0.35,0.8,1.0)
  var target:Vector3 = player.global_position + Vector3(1.7, 1.1, 1.7)
- if realm_follower.global_position.distance_to(target)>35.0:
+ var distance:float = realm_follower.global_position.distance_to(target)
+ if distance>FOLLOW_TELEPORT_DISTANCE:
   realm_follower.global_position = target
  else:
-  realm_follower.global_position = realm_follower.global_position.move_toward(target,FOLLOW_SPEED*minf(delta,0.1))
+  # Catch up with a moving player instead of falling permanently behind.
+  # Keep normal following speed close to the player and cap catch-up velocity.
+  var catchup:float = maxf(0.0,distance-FOLLOW_CATCHUP_START)
+  var speed:float = minf(FOLLOW_CATCHUP_SPEED,FOLLOW_SPEED+catchup)
+  realm_follower.global_position = realm_follower.global_position.move_toward(target,speed*maxf(0.0,delta))

@@ -29,7 +29,11 @@ func _run()->void:
   var restored:Dictionary=equipment.call("normalize",state)
   check(int(restored.get("loot_pity",-1))==57,"pity survives save normalization")
   check(int(restored.get("world_epic_pity",-1))==79,"epic pity survives save normalization")
+  check(int(equipment.call("normalize",{}).get("world_epic_pity",-1))==0,"older saves default to zero epic pity")
   state["loot_pity"]=9999
   restored=equipment.call("normalize",state)
   check(int(restored.get("loot_pity",-1))==80,"corrupt pity is clamped")
+  state["world_epic_pity"]=9999
+  restored=equipment.call("normalize",state)
+  check(int(restored.get("world_epic_pity",-1))==80,"corrupt epic pity is clamped")
  quit(1 if failures>0 else 0)

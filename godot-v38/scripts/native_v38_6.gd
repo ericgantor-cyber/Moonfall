@@ -24,9 +24,8 @@ func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:D
  elif roll<clampf(0.48+float(zone)*0.020,0.48,0.70):tier=1
  var original_tier:int=LOOT_RARITIES.find(str(item.get("rarity","Common")))
  tier=maxi(tier,maxi(0,original_tier))
- # Shared, checkpoint-persisted pity prevents long dry streaks in ordinary
- # world loot. Special and guaranteed drops never consume the pity counter.
- # Separate rare/epic streaks ensure the 80-roll Epic guarantee is reachable.
+ # Preserve an independent Epic streak: Rare drops reset the Rare pity only.
+ # Guaranteed and special drops return above without advancing either counter.
  var pity:int=clampi(int(gear_state.get("loot_pity",0)),0,30)
  var epic_pity:int=clampi(int(gear_state.get("world_epic_pity",0)),0,80)
  if epic_pity>=80:tier=maxi(tier,3)
