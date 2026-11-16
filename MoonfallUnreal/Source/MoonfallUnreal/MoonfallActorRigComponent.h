@@ -37,8 +37,23 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rig")
  void RefreshRig();
 
+ // These helpers expose available cues to Blueprint UI/AI without Tick.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rig")
+ bool HasRigCue(FName CueId) const;
+
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rig")
+ TArray<FName> GetRigCueIds() const;
+
+ // Report actual montage playback for AI transitions and UI without polling.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rig")
+ bool IsRigCuePlaying(FName CueId) const;
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rig")
  bool PlayRigCue(FName CueId);
+
+ // Stop only the requested montage, never unrelated hero/NPC animations.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rig")
+ bool StopRigCue(FName CueId, float BlendOutSeconds = 0.2f);
 
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Rig")
  void OnRigCue(FName CueId, bool bPlayed);

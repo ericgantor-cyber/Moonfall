@@ -7,6 +7,7 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
 #include "Engine/World.h"
 
 AMoonfallGroundLoot::AMoonfallGroundLoot()
@@ -56,7 +57,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
    FColor(245,201,63), FColor(183,89,244), FColor(58,214,107),
    FColor(255,132,32)};
  const FColor QualityColor = Colors[Rarity];
- ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d"),
+ ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
    QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
  ItemLabel->SetTextRenderColor(QualityColor);
  // Colored beacon and object communicate rarity without transient effects or tick.
@@ -66,24 +67,33 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
-bool AMoonfallGroundLoot::TryCollect(bool bManualInteraction)
+void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || ItemCode <= 0) return;
+ RewardZone = Zone;
+ RewardDungeon = Dungeon;
+ RewardChamber = Chamber;
+}
+
+bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- // Auto pickups obey the toggle. An explicit F interaction is allowed even
- // when automatic collection is disabled, but all reach and save checks apply.
- if (!IsValid(Hero) || !GetWorld() || (!bManualInteraction && !Hero->bAutoLootEnabled)
-     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen) return false;
- // Enforce reachability here as well as in the auto-loot sweep; a direct
- // Blueprint caller cannot bypass the range, height or cover checks.
+ if (!IsValid(Hero) || !GetWorld()) return false;
+ // Enforce pickup reachability at the item boundary as well as in the hero's
+ // candidate search. Blueprint or future callers must not collect distant loot.
  const FVector HeroPosition = Hero->GetActorLocation();
  const FVector LootPosition = GetActorLocation();
- if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()
-     || FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f
-     || FVector::DistSquared2D(HeroPosition, LootPosition) > FMath::Square(250.f))
+ // Extreme finite positions can still overflow the squared-distance result.
+ // Never allow a nonfinite distance to bypass the pickup boundary.
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()) return false;
+ const float DistanceSq = FVector::DistSquared2D(HeroPosition, LootPosition);
+ if (!FMath::IsFinite(DistanceSq) ||
+     FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f ||
+     DistanceSq > FMath::Square(250.f))
   return false;
- FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallPersistedLootSight), false);
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGroundLootCollectSight), false);
  SightParams.AddIgnoredActor(Hero);
  SightParams.AddIgnoredActor(this);
  FHitResult SightHit;
@@ -91,7 +101,13 @@ bool AMoonfallGroundLoot::TryCollect(bool bManualInteraction)
      HeroPosition + FVector(0.f, 0.f, 40.f),
      LootPosition + FVector(0.f, 0.f, 40.f),
      ECC_Visibility, SightParams)) return false;
- if (!Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)) return false;
+ const bool bDungeonTreasure = RewardZone != INDEX_NONE;
+ const bool bSaved = bDungeonTreasure
+   ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
+   : (PersistentDropId.IsValid()
+      ? Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)
+      : Hero->CollectGroundEquipmentCode(ItemCode));
+ if (!bSaved) return false;
  bCollected = true;
  Destroy();
  return true;

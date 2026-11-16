@@ -1,11 +1,9 @@
 #include "MoonfallEnemy.h"
-#include "MoonfallRaceLibrary.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "Animation/AnimInstance.h"
-#include "Animation/AnimMontage.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallDungeonLayout.h"
+#include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
@@ -16,19 +14,6 @@
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
-  CharacterRig = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterRig"));
-  CharacterRig->SetupAttachment(Body);
-  // The original collision sphere is non-uniformly scaled for navigation.
-  // Do not stretch authored skeletons by inheriting its X/Y/Z scale.
-  CharacterRig->SetAbsolute(false, false, true);
-  // Large mob groups should not update full skeletal poses while offscreen.
-  // Combat AI and damage still tick on their separate actor, unaffected.
-  CharacterRig->VisibilityBasedAnimTickOption =
-    EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
-  CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-  CharacterRig->SetGenerateOverlapEvents(false);
-  CharacterRig->SetHiddenInGame(true);
-  CharacterRig->SetCanEverAffectNavigation(false);
   static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
@@ -36,9 +21,9 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
+FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
- RefreshCharacterRig();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
@@ -48,23 +33,12 @@ void AMoonfallEnemy::BeginPlay() {
  // Blueprint tuning must not overflow enemy vitality or damage at spawn.
  const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
- // Race traits apply once when an enemy spawns. Unknown/unassigned race IDs
- // retain legacy behavior; never overwrite manually authored visual assets.
- FMoonfallRaceProfile RaceProfile;
- const bool bKnownRace = UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile);
- ResolvedRaceFamily = bKnownRace ? RaceProfile.Family : NAME_None;
- RaceMovementMultiplier = bKnownRace && FMath::IsFinite(RaceProfile.SpeedMultiplier)
-   ? FMath::Clamp(RaceProfile.SpeedMultiplier, 0.65f, 1.35f) : 1.f;
- const float RaceHealthScale = bKnownRace ? FMath::Clamp(RaceProfile.VitalityMultiplier, 0.5f, 2.f) : 1.f;
- const float RaceDamageScale = bKnownRace ? FMath::Clamp(RaceProfile.PowerMultiplier, 0.5f, 2.f) : 1.f;
- // Preserve the exact legacy level-scaling path for unassigned races.
- Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
- AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
- if (bKnownRace)
- {
-  Health = FMath::Clamp(Health * RaceHealthScale, 1.f, 100000.f);
-  AttackDamage = FMath::Clamp(AttackDamage * RaceDamageScale, 1.f, 10000.f);
- }
+ // Apply modest race identity to ordinary and elite foes only.
+ // Preserve unique Z/Nyra and other authored boss tuning exactly.
+ const float RaceHealth = bBoss ? 1.f : MoonfallRaces::HealthScale(RaceId);
+ const float RaceDamage = bBoss ? 1.f : MoonfallRaces::DamageScale(RaceId);
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale * RaceHealth;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale * RaceDamage;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
@@ -75,41 +49,6 @@ void AMoonfallEnemy::BeginPlay() {
  BasePostureAtSpawn = MaxPosture;
 }
 
-void AMoonfallEnemy::RefreshCharacterRig()
-{
- if (!IsValid(Body) || !IsValid(CharacterRig)) return;
- // Existing sphere enemies keep their appearance and collision. Subclasses
- // with a skeletal mesh can use it without changing the native AI root.
- bCharacterRigActive = IsValid(CharacterRig->GetSkeletalMeshAsset());
- ObservedCharacterRigAsset = CharacterRig->GetSkeletalMeshAsset();
- CharacterRig->SetHiddenInGame(!bCharacterRigActive);
- Body->SetVisibility(!bCharacterRigActive, false);
- CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
- CharacterRig->SetGenerateOverlapEvents(false);
- CharacterRig->SetCanEverAffectNavigation(false);
- bLastRigMontagePlayed = false;
-}
-void AMoonfallEnemy::PlayCharacterRigCue(FName CueId, UAnimMontage* Montage)
-{
- // Pick up a changed or cleared skeletal asset on the next actual
- // combat cue, not on every enemy AI tick.
- if (IsValid(CharacterRig)
-     && CharacterRig->GetSkeletalMeshAsset() != ObservedCharacterRigAsset.Get())
-  RefreshCharacterRig();
- bLastRigMontagePlayed = false;
- if (bCharacterRigActive && IsValid(CharacterRig) && IsValid(Montage))
- {
-  UAnimInstance* Anim = CharacterRig->GetAnimInstance();
-  if (IsValid(Anim))
-  {
-   const float Played = Anim->Montage_Play(Montage, 1.f);
-   bLastRigMontagePlayed = FMath::IsFinite(Played) && Played > 0.f;
-  }
- }
- // An absent rig or montage leaves all AI combat and native feedback intact.
- OnCharacterRigCue(CueId, bLastRigMontagePlayed);
-}
-
 void AMoonfallEnemy::CancelDivineSignature() {
  if (!bDivineSignatureActive) return;
  // Blueprint events are synchronous and may inspect this actor. Publish
@@ -118,24 +57,6 @@ void AMoonfallEnemy::CancelDivineSignature() {
  bDivineSignatureActive = false;
  ActiveDivineMoveId = NAME_None;
  OnDivineAttackInterrupted(InterruptedMove);
-}
-
-void AMoonfallEnemy::ApplyDualCastImpact()
-{
- if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f) return;
- const float Now = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDualCastImpactAt)
-     || !FMath::IsFinite(PostureBrokenUntil) || Now < NextDualCastImpactAt
-     || Now < PostureBrokenUntil) return;
- // Bosses resist chain control; elites have a shorter flinch than mobs.
- const float ReactionSeconds = bBoss ? 0.12f : (bElite ? 0.20f : 0.32f);
- const float CooldownSeconds = bBoss ? 3.0f : (bElite ? 1.8f : 1.0f);
- NextDualCastImpactAt = Now + CooldownSeconds;
- HitReactionEndsAt = FMath::Max(
-   FMath::IsFinite(HitReactionEndsAt) ? HitReactionEndsAt : Now,
-   Now + ReactionSeconds);
- // Existing stagger handling interrupts attack windups on the next tick.
- OnDualCastImpact(ReactionSeconds);
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
@@ -227,6 +148,19 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // A struck ordinary enemy investigates its attacker briefly. This does not
+  // reveal the hero forever or share omniscient positions with other enemies.
+  if (!bBoss && ActualDamage > 0.f && GetWorld()) {
+   const AMoonfallHeroPawn* Attacker = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+   if (IsValid(Attacker) && Attacker->Health > 0.f
+       && !Attacker->GetActorLocation().ContainsNaN()
+       && FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation()) < FMath::Square(1800.f)) {
+    LastSawHeroAt = Now;
+    LastKnownHeroPosition = Attacker->GetActorLocation();
+    CachedWaypoint = FVector::ZeroVector;
+    NextPathRefreshAt = 0.f;
+   }
+  }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
   // Bosses, dead enemies and enemies with broken posture never enter retreat.
   if (bElite && !bBoss && ActualDamage > 0.f && Health > 0.f
@@ -280,8 +214,6 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
    }
   }
-  if (Health > 0.f && ActualDamage > 0.f)
-   PlayCharacterRigCue(FName(TEXT("Hit")), HitRigMontage.Get());
   OnHitFeedback(ActualDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
@@ -320,13 +252,19 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
-   PlayCharacterRigCue(FName(TEXT("Defeat")), DeathRigMontage.Get());
+   // This is the actual killing blow, not room entry or a corpse expiration.
+   // Only enemies tagged by our own dungeon layout may affect its boss ledger.
+   if (bBoss && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
+        UGameplayStatics::GetPlayerPawn(this, 0))) {
+     LivingHero->MarkDungeonBossDefeated(this);
+    }
+   }
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
-    Hero->AwardEnemyCurrency(bElite, bBoss, GetActorLocation());
     Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
    }
    // Visible until the queued finisher plays or the finite fallback expires.
@@ -449,7 +387,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bInCombatArea = Distance < 2200.f;
  const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
    && WindupEndsAt - Now <= 0.25f;
- const float DesiredTickInterval = bDashing ? 0.03f : (bInCombatArea ? 0.1f : 0.4f);
+ // Dungeon trash mobs are spread across 30 long lanes. They do not need
+ // to poll the player multiple times per second while several kilometers away.
+ // Keep divine bosses, authored arena enemies and all nearby combat unchanged.
+ const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea
+   && Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")));
+ const float DesiredTickInterval = bDashing ? 0.03f
+   : (bInCombatArea ? 0.1f : (bDistantDungeonMob ? 1.0f : 0.4f));
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
@@ -545,8 +489,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
-    const bool bParried = Hero->ApplyMoonfallDamageFrom(
-      IncomingAttackDamage, GetActorLocation());
+    const bool bDodgeOnlyStrike = bBoss
+      && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))
+      && bDungeonBossAttackDodgeOnly;
+    const bool bParried = bDodgeOnlyStrike
+      ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())
+      : Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation());
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -566,7 +514,6 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      BossWarningEndTime = -1.f;
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
-     PlayCharacterRigCue(FName(TEXT("Attack")), AttackRigMontage.Get());
      OnEnemyAttack();
     }
    }
@@ -581,6 +528,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    BossWarningEndTime = WindupEndsAt;
+   if (bBoss && !DungeonBossFamily.IsNone()
+       && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    bDungeonBossAttackDodgeOnly = false;
+   }
   } else {
    bComboSecondHitActive = false;
   }
@@ -763,8 +716,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     && Now >= TacticalRetreatUntil && Now < TacticalReengageUntil;
   const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
   const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * RaceMovementMultiplier
-    * ChaseMultiplier * SafeAIDelta, true, &Hit);
+  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
   // Collision can trap packs at tight doorways. First try one short
   // sideways swept step, alternating sides on successive collisions.
   // Rate-limit attempts so wall contact never triggers an extra movement
@@ -852,6 +804,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
    if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
    if (bBoss && BossPhase >= 3 && AttackSequence % 11 == 0) BossSpecialMove = 5;
+   // Region-specific priorities reuse the five existing dodgeable special
+   // moves. Avoid changing native gods or adding extra per-frame AI work.
+   const bool bRegionalBoss = bBoss && !DungeonBossFamily.IsNone()
+     && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")));
+   if (bRegionalBoss && BossPhase >= 2
+       && AttackSequence % (BossPhase >= 3 ? 3 : 4) == 0) {
+    if (DungeonBossFamily == FName(TEXT("Ashen"))
+        || DungeonBossFamily == FName(TEXT("Foundry"))) BossSpecialMove = 2;
+    else if (DungeonBossFamily == FName(TEXT("Verdant"))) BossSpecialMove = 4;
+    else if (DungeonBossFamily == FName(TEXT("Glacial"))) BossSpecialMove = 5;
+    else if (DungeonBossFamily == FName(TEXT("Storm"))) BossSpecialMove = 3;
+    else if (DungeonBossFamily == FName(TEXT("Eclipse"))) BossSpecialMove = 1;
+   }
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
@@ -914,10 +879,35 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
+   if (bRegionalBoss) {
+    // Stable readable move labels published only at warning startup.
+    const TCHAR* AttackLabel = BossSpecialMove == 1 ? TEXT("MOON CLEAVE")
+      : BossSpecialMove == 2 ? TEXT("HEAVY SLAM")
+      : BossSpecialMove == 3 ? TEXT("DASH STRIKE")
+      : BossSpecialMove == 4 ? TEXT("SPINNING SWEEP")
+      : BossSpecialMove == 5 ? TEXT("SKYFALL SLAM")
+      : Pattern == 0 ? TEXT("QUICK STRIKE")
+      : Pattern == 1 ? TEXT("POWER STRIKE")
+      : Pattern == 2 ? TEXT("WIDE SWEEP")
+      : TEXT("CRUSH ATTACK");
+    DungeonBossAttackLabel = FText::FromString(AttackLabel);
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    // Red is dodge-only. Blue sweeps are parryable; ordinary strikes
+    // preserve the existing neutral guard and parry mechanics.
+    bDungeonBossAttackDodgeOnly = BossSpecialMove == 2
+      || BossSpecialMove == 3 || BossSpecialMove == 5;
+   }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
+   } else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5) {
+    const FName SpecialId = BossSpecialMove == 1 ? FName(TEXT("MoonCleave"))
+      : BossSpecialMove == 2 ? FName(TEXT("EclipseSlam"))
+      : BossSpecialMove == 3 ? FName(TEXT("DashStrike"))
+      : BossSpecialMove == 4 ? FName(TEXT("SpinningSweep"))
+      : FName(TEXT("SkyfallSlam"));
+    OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);
    }
   }
  }

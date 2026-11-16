@@ -3,13 +3,15 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/unreal-source-checks.yml'
-      - 'tools/test_ue5_reward_parity.py'
+      - '.github/workflows/unreal-hosted-windows.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/unreal-source-checks.yml'
-      - 'tools/test_ue5_reward_parity.py'
+      - '.github/workflows/unreal-hosted-windows.yml'
 jobs:
   source-check:
     runs-on: ubuntu-latest
@@ -49,8 +51,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
@@ -69,20 +71,25 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="MouseCastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="MouseCastRight",Key=RightMouseButton' in inputs
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' not in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' not in inputs
-          assert 'bMouseLeftHeld && bMouseRightHeld' in hero
-          assert 'CastBoth();' in hero
+          # Context-aware mouse handlers preserve combat when not on an NPC.
+          assert 'ActionName="ResidentMouseClick",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=Z' in inputs
+          assert 'ActionName="CastRight",Key=X' in inputs
+          assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
+          assert 'ActionName="TalkNPC"' not in inputs
+          assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
-      - name: Test UE5 automatic rewards and save parity
-        run: python3 -m unittest discover -s tools -p 'test_ue5_reward_parity.py' -v
+      # Check the actual game integration contracts on every Unreal source change.
+      # This is not a native UE5 build; use the dedicated Windows engine runner for that.
+      - name: Run complete Unreal integration regression tests
+        shell: bash
+        run: python3 tools/check_unreal_source.py
 
       - name: Parse Windows build scripts
         shell: pwsh
@@ -97,6 +104,39 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error in $($script.FullName): $($errors -join '; ')" }
             Write-Host "Parsed $($script.Name)"
           }
+
+      - name: Parse GitHub-hosted Unreal inline PowerShell
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(Get-Content -LiteralPath '.github/workflows/unreal-hosted-windows.yml')
+          $parsed = 0
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -notmatch '^\s{8}run:\s*\|\s*$') { continue }
+            $body = [System.Collections.Generic.List[string]]::new()
+            for ($j = $i + 1; $j -lt $lines.Count; $j++) {
+              $line = $lines[$j]
+              if ($line.Trim().Length -gt 0 -and $line -notmatch '^\s{10,}') { break }
+              if ($line -match '^\s{10}') {
+                $body.Add($line.Substring(10))
+              } else {
+                $body.Add('')
+              }
+            }
+            if ($body.Count -eq 0) { throw "Empty inline script at workflow line $($i + 1)" }
+            # Github replaces expression tokens before executing run blocks.
+            # Parse a neutral stand-in to catch genuine PowerShell syntax mistakes.
+            $source = [regex]::Replace(($body -join [Environment]::NewLine), '\$\{\{.*?\}\}', '0')
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              throw "Hosted Unreal inline PowerShell parse error at workflow line $($i + 1): $($errors -join '; ')"
+            }
+            $parsed++
+          }
+          if ($parsed -lt 6) { throw "Expected at least six hosted PowerShell run blocks, parsed $parsed" }
+          Write-Host "Parsed $parsed hosted Unreal PowerShell blocks. Native UE5 compilation NOT performed."
 
       - name: Test Unreal 5.4 engine guard with synthetic installations
         shell: pwsh

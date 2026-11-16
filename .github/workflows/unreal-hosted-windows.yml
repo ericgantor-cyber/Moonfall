@@ -182,6 +182,46 @@ jobs:
           & .\game-source\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
           if ($LASTEXITCODE -ne 0) { throw "Unreal compiler failed with exit code $LASTEXITCODE" }
           "Real Unreal Editor C++ compilation succeeded for source snapshot ${{ inputs.source_snapshot }}." >> $env:GITHUB_STEP_SUMMARY
+      - name: Create and validate Moonfall startup level for packaging
+        if: ${{ inputs.package_game }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'game-source\MoonfallUnreal'
+          $project = Join-Path $root 'MoonfallUnreal.uproject'
+          $generator = Join-Path $root 'Build\Create-StartupLevel.py'
+          $map = Join-Path $root 'Content\Maps\MoonfallStart.umap'
+          $config = Join-Path $root 'Config\DefaultEngine.ini'
+          $editor = Join-Path $env:UE54_ROOT 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+          foreach ($file in @($project, $generator, $config, $editor)) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Cannot prepare Moonfall startup map, missing: $file"
+            }
+          }
+          # The repository starts on Unreal's generic Entry map; generate a
+          # project-owned map on the temporary build machine before cooking.
+          & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4 -nosplash
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall startup map generation failed: $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath $map -PathType Leaf) -or
+              (Get-Item -LiteralPath $map).Length -le 0) {
+            throw 'Unreal Editor did not save a valid MoonfallStart.umap.'
+          }
+          $ini = Get-Content -LiteralPath $config -Raw
+          # Require exactly one maps section with exactly one entry for each map.
+          # A stray duplicate in another section must not make a broken package pass.
+          $sections = @([regex]::Matches($ini, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+          if ($sections.Count -ne 1) {
+            throw "Expected one GameMapsSettings section, got $($sections.Count)"
+          }
+          $mapSection = ($ini -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+          $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+          foreach ($key in @('GameDefaultMap', 'EditorStartupMap')) {
+            $entries = @([regex]::Matches($mapSection, "(?m)^\s*$key\s*=\s*(.*?)\s*$"))
+            if ($entries.Count -ne 1 -or $entries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+              throw "Expected exactly one $key=/Game/Maps/MoonfallStart in GameMapsSettings."
+            }
+          }
+          "Prepared project-owned /Game/Maps/MoonfallStart for Win64 cooking." >> $env:GITHUB_STEP_SUMMARY
       - name: Package actual Win64 Development game after successful Unreal C++ compile
         if: ${{ inputs.package_game }}
         shell: pwsh
@@ -196,7 +236,7 @@ jobs:
           if (Test-Path -LiteralPath $out) {
             throw "Refusing to overwrite pre-existing packaged game directory: $out"
           }
-          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$out" -utf8output
+          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$out" -utf8output
           if ($LASTEXITCODE -ne 0) {
             throw "Real Unreal Win64 packaging failed: $LASTEXITCODE"
           }
@@ -210,8 +250,52 @@ jobs:
               throw "Packaged Unreal game missing $folder"
             }
           }
-          $content = Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1
-          if (-not $content) { throw 'Packaged game content is empty.' }
+          if ($games[0].Length -lt 512) {
+            throw 'Packaged MoonfallUnreal.exe is too small to be a valid Windows executable.'
+          }
+          # Reject text, placeholder, or non-Win64 files mislabeled as .exe.
+          $stream = [IO.File]::OpenRead($games[0].FullName)
+          $reader = [IO.BinaryReader]::new($stream)
+          try {
+            if ($reader.ReadUInt16() -ne 0x5A4D) {
+              throw 'Packaged game is missing the Windows MZ header.'
+            }
+            $stream.Position = 0x3C
+            $peOffset = $reader.ReadInt32()
+            if ($peOffset -lt 0x40 -or $peOffset -gt $stream.Length - 26) {
+              throw 'Packaged game has an invalid PE header offset.'
+            }
+            $stream.Position = $peOffset
+            if ($reader.ReadUInt32() -ne 0x00004550 -or $reader.ReadUInt16() -ne 0x8664) {
+              throw 'Packaged game is not a Windows x64 PE executable.'
+            }
+            $stream.Position = $peOffset + 24
+            if ($reader.ReadUInt16() -ne 0x20B) {
+              throw 'Packaged game is not a PE32+ executable.'
+            }
+          } finally {
+            $reader.Dispose()
+            $stream.Dispose()
+          }
+          # A random config or log file does not prove that Unreal cooked assets.
+          # UE 5.4 may emit legacy .pak archives or paired IoStore .utoc/.ucas.
+          $gameFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -Recurse -File)
+          $pakFiles = @($gameFiles | Where-Object { $_.Extension -eq '.pak' -and $_.Length -gt 0 })
+          $utocFiles = @($gameFiles | Where-Object { $_.Extension -eq '.utoc' -and $_.Length -gt 0 })
+          $hasIoStorePair = $false
+          foreach ($utoc in $utocFiles) {
+            # Two unrelated files are not an IoStore container. The .ucas data
+            # archive must sit beside the .utoc index and share its basename.
+            $ucasPath = [IO.Path]::ChangeExtension($utoc.FullName, '.ucas')
+            if ((Test-Path -LiteralPath $ucasPath -PathType Leaf) -and
+                (Get-Item -LiteralPath $ucasPath).Length -gt 0) {
+              $hasIoStorePair = $true
+              break
+            }
+          }
+          if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+            throw 'Packaged game has no nonempty cooked .pak or matching .utoc/.ucas content archive pair.'
+          }
           "Real UE Win64 Development game packaged for source snapshot ${{ inputs.source_snapshot }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
       - name: Upload actual packaged game only after full engine build
         if: ${{ inputs.package_game && success() }}
@@ -221,6 +305,31 @@ jobs:
           path: MoonfallUnrealPackaged/
           if-no-files-found: error
           retention-days: 7
+      - name: Collect Unreal AutomationTool failure logs
+        if: failure()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $logRoot = Join-Path $env:APPDATA 'Unreal Engine\AutomationTool\Logs'
+          if (-not (Test-Path -LiteralPath $logRoot -PathType Container)) {
+            Write-Host 'No AutomationTool logs exist on this runner.'
+            exit 0
+          }
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'UE-AutomationLogs'
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          $logs = @(Get-ChildItem -LiteralPath $logRoot -File -Recurse -Include '*.txt','*.log' |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 15)
+          foreach ($log in $logs) {
+            if ($log.Length -gt 20MB) {
+              Write-Warning "Skipping oversized AutomationTool log $($log.Name)"
+              continue
+            }
+            # Use indexed names to avoid collisions and do not copy the engine.
+            $target = Join-Path $destination ("uat-" + [array]::IndexOf($logs, $log) + $log.Extension)
+            Copy-Item -LiteralPath $log.FullName -Destination $target -ErrorAction Stop
+          }
+          Write-Host "Collected $(@(Get-ChildItem -LiteralPath $destination -File).Count) AutomationTool log files."
       - name: Upload Unreal diagnostics on failure
         if: failure()
         continue-on-error: true
@@ -228,7 +337,8 @@ jobs:
         with:
           name: Moonfall-Hosted-Windows-UE-Compile-Logs
           path: |
-            MoonfallUnreal/Saved/Logs/
-            MoonfallUnreal/Intermediate/Build/Win64/*.log
+            game-source/MoonfallUnreal/Saved/Logs/
+            game-source/MoonfallUnreal/Intermediate/Build/Win64/*.log
+            UE-AutomationLogs/
           if-no-files-found: warn
           retention-days: 7

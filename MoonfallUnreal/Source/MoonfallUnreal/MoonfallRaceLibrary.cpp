@@ -58,6 +58,48 @@ TArray<FName> UMoonfallRaceLibrary::GetRaceIds()
  return Result;
 }
 
+TArray<FName> UMoonfallRaceLibrary::GetPlayableRaceIds()
+{
+ TArray<FName> Result;
+ for (const FRaceRow& Row : RaceRows)
+  if (Row.bPlayable) Result.Add(FName(Row.Id));
+ return Result;
+}
+
+TArray<FName> UMoonfallRaceLibrary::GetRaceIdsByFamily(FName Family)
+{
+ TArray<FName> Result;
+ if (Family.IsNone()) return Result;
+ for (const FRaceRow& Row : RaceRows)
+  if (Family == FName(Row.Family)) Result.Add(FName(Row.Id));
+ return Result;
+}
+
+TArray<FMoonfallRaceProfile> UMoonfallRaceLibrary::GetPlayableRaceProfiles()
+{
+ TArray<FMoonfallRaceProfile> Result;
+ for (const FName RaceId : GetPlayableRaceIds())
+ {
+  FMoonfallRaceProfile Profile;
+  if (FindRaceProfile(RaceId, Profile) && Profile.bPlayableCandidate)
+   Result.Add(Profile);
+ }
+ return Result;
+}
+
+TArray<FMoonfallRaceProfile> UMoonfallRaceLibrary::GetRaceProfilesByFamily(FName Family)
+{
+ TArray<FMoonfallRaceProfile> Result;
+ if (Family.IsNone()) return Result;
+ for (const FName RaceId : GetRaceIdsByFamily(Family))
+ {
+  FMoonfallRaceProfile Profile;
+  if (FindRaceProfile(RaceId, Profile) && Profile.Family == Family)
+   Result.Add(Profile);
+ }
+ return Result;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();

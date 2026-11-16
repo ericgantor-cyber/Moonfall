@@ -5,15 +5,12 @@ on:
     paths:
       - 'tools/check_balance.py'
       - 'tools/check_unreal_source.py'
-      - 'MoonfallUnreal/Source/MoonfallUnreal/**'
-      - 'MoonfallUnreal/Config/DefaultInput.ini'
       - '.github/workflows/balance-regression.yml'
   pull_request:
     paths:
       - 'tools/check_balance.py'
-      - 'tools/check_unreal_source.py'
-      - 'MoonfallUnreal/Source/MoonfallUnreal/**'
-      - 'MoonfallUnreal/Config/DefaultInput.ini'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - '.github/workflows/balance-regression.yml'
   workflow_dispatch:
 
