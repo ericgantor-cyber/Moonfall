@@ -121,7 +121,7 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
  AddLabel(WidgetTree, Right, TEXT("Arrows / D-pad: race and family | Enter / A: continue"), 15);
- AddLabel(WidgetTree, Right, TEXT("Q/E or shoulder buttons: family | Page Up/Down: zoom"), 15);
+ AddLabel(WidgetTree, Right, TEXT("Q/E or shoulder buttons: family | Mouse wheel: character zoom"), 15);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
  FamilyTitle = AddLabel(WidgetTree, Right, TEXT(""), 17);
  StatDetails = AddLabel(WidgetTree, Right, TEXT(""), 17);
@@ -485,9 +485,9 @@ FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  { AdvanceFamily(false); return FReply::Handled(); }
  if (Key == EKeys::E || Key == EKeys::Gamepad_RightShoulder)
  { AdvanceFamily(true); return FReply::Handled(); }
- if (Key == EKeys::PageUp || Key == EKeys::Gamepad_RightTrigger)
+ if (Key == EKeys::Gamepad_RightTrigger)
  { ZoomPreview(1.f); return FReply::Handled(); }
- if (Key == EKeys::PageDown || Key == EKeys::Gamepad_LeftTrigger)
+ if (Key == EKeys::Gamepad_LeftTrigger)
  { ZoomPreview(-1.f); return FReply::Handled(); }
  if (Key == EKeys::R || Key == EKeys::Home || Key == EKeys::Gamepad_FaceButton_Top)
  { ResetPreviewView(); return FReply::Handled(); }
