@@ -469,7 +469,9 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  // exhaust the dungeon budget before later rooms. Elites still spawn alone.
  const int32 MaxDungeonEncounterSpawns = (ChamberCount - 2) * 6;
  const int32 Remaining = FMath::Max(0, MaxDungeonEncounterSpawns - SpawnedEncounterCount);
- if (Remaining == 0) return true;
+ // An exhausted encounter budget is not a completed combat room.
+ // Preserve the overlap retry path rather than consuming its one-shot bit.
+ if (Remaining == 0) return false;
  // Encounter size is authored, not reduced by momentary frame rate.
  // Distant dungeon enemies already use lower-frequency AI simulation.
  FRandomStream EncounterRandom(
