@@ -34,7 +34,7 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  if (Cube) Block->SetStaticMesh(Cube);
 }
 FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
- return GetActorLocation() + FVector(0.f, 3500.f, 120.f);
+ return GetActorTransform().TransformPosition(FVector(0.f, 3500.f, 120.f));
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
@@ -159,7 +159,13 @@ void AMoonfallArena::BeginPlay() {
  for (const FShrinePlacement& Placement : Shrines) {
   if (!bEnableStartingSanctuary && FCString::Strcmp(Placement.Id, TEXT("sanctuary_firstlight")) == 0)
    continue;
-  const FTransform SpawnTransform(FRotator::ZeroRotator, GetActorLocation() + Placement.Offset);
+  // Only the new sanctuary shrine uses the arena's local coordinates.
+  // Keep the legacy region shrine positions exactly as before.
+  const bool bFirstlight = FCString::Strcmp(Placement.Id, TEXT("sanctuary_firstlight")) == 0;
+  const FVector ShrinePosition = bFirstlight
+    ? GetActorTransform().TransformPosition(Placement.Offset)
+    : GetActorLocation() + Placement.Offset;
+  const FTransform SpawnTransform(FRotator::ZeroRotator, ShrinePosition);
   AMoonfallCheckpointShrine* Shrine = Cast<AMoonfallCheckpointShrine>(
       UGameplayStatics::BeginDeferredActorSpawnFromClass(
           this, AMoonfallCheckpointShrine::StaticClass(), SpawnTransform));
@@ -184,9 +190,11 @@ void AMoonfallArena::BeginPlay() {
  }
  // Fixed showcase NPC in the existing world. No separate gameplay mode.
  // The player or an interaction UI calls TryTalk; the actor never ticks.
+ const FVector GuidePosition = bEnableStartingSanctuary
+   ? GetActorTransform().TransformPosition(FVector(260.f, 3320.f, 60.f))
+   : GetActorLocation() + FVector(-350.f, 650.f, 60.f);
  if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
-     AMoonfallWorldNPC::StaticClass(), GetActorLocation() + (bEnableStartingSanctuary
-       ? FVector(260.f, 3320.f, 60.f) : FVector(-350.f, 650.f, 60.f)), FRotator::ZeroRotator)) {
+     AMoonfallWorldNPC::StaticClass(), GuidePosition, FRotator::ZeroRotator)) {
   Guide->RaceId = 2; // Wood Elf
   Guide->SettlementId = FName(TEXT("Crossroads"));
   Guide->ResidentId = FName(TEXT("CrossroadsGuide"));
