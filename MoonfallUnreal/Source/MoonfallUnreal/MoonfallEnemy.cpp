@@ -28,6 +28,10 @@ void AMoonfallEnemy::BeginPlay() {
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  CachedHero = Player;
+ // Spread one-second possession refreshes across a crowd instead of making
+ // every freshly spawned enemy query the player controller on the same frame.
+ NextHeroCacheRefreshAt = GetWorld()->GetTimeSeconds() + 1.f
+   + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  // Practice sentries stay predictable for every character level, while
  // all ordinary dungeon mobs and bosses retain the existing level scaling.
  const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
@@ -349,13 +353,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Immediately reacquire after destruction or before the first player spawn.
   Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
   CachedHero = Hero;
-  NextHeroCacheRefreshAt = Now + 1.f;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  } else if (Now >= NextHeroCacheRefreshAt) {
   // The previous pawn may still exist after possession changes. Refresh at
   // most once per second instead of targeting a stale but valid hero forever.
   Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
   CachedHero = Hero;
-  NextHeroCacheRefreshAt = Now + 1.f;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen
