@@ -32,6 +32,14 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("CachedHero = Hero;", tick)
         self.assertIn("const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;", tick)
 
+    def test_hero_cache_refreshes_after_possession_switch(self):
+        header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        self.assertIn("float NextHeroCacheRefreshAt = 0.f;", header)
+        tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("else if (Now >= NextHeroCacheRefreshAt)", tick)
+        self.assertEqual(tick.count("NextHeroCacheRefreshAt = Now + 1.f;"), 2)
+        self.assertEqual(tick.count("UGameplayStatics::GetPlayerPawn(this, 0)"), 1)
+
     def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
         self.assertIn('const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));', self.source)
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
