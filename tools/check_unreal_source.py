@@ -5613,5 +5613,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("UGameplayStatics::OpenLevel", arena)
         self.assertNotIn("UGameplayStatics::OpenLevel", begin)
 
+
+    def test_packaged_unreal_executable_requires_win64_pe_header(self):
+        script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        start = script.index("$gameExe = $games[0].FullName")
+        end = script.index("$gameRoot = $games[0].Directory.FullName", start)
+        validation = script[start:end]
+        for expected in (
+            "[System.IO.File]::OpenRead($gameExe)",
+            "$stream.Length -lt 128",
+            "$reader.ReadUInt16() -ne 0x5A4D",
+            "$stream.Position = 0x3C",
+            "$peOffset -lt 64",
+            "$peOffset -gt $stream.Length - 26",
+            "$reader.ReadUInt32() -ne 0x00004550",
+            "$reader.ReadUInt16() -ne 0x8664",
+            "$stream.Position = $peOffset + 24",
+            "$reader.ReadUInt16() -ne 0x20B",
+            "$stream.Dispose()",
+        ):
+            self.assertIn(expected, validation)
+        self.assertLess(script.index("$games.Count -ne 1"), start)
+        self.assertLess(end, script.index("Building self-contained Windows launcher"))
+
 if __name__ == "__main__":
     unittest.main()

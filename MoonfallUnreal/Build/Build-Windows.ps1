@@ -171,6 +171,28 @@ if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
 
 $games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
 if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+# The packaging tool can exit successfully while leaving behind a corrupt or
+# wrong-architecture executable. Validate its PE32+ AMD64 file header before
+# publishing a launcher or installer. This is not a replacement for launching it.
+$gameExe = $games[0].FullName
+$stream = [System.IO.File]::OpenRead($gameExe)
+try {
+    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
+    $reader = [System.IO.BinaryReader]::new($stream)
+    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
+    $stream.Position = 0x3C
+    $peOffset = $reader.ReadInt32()
+    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
+        throw 'Packaged game executable has an invalid PE header offset.'
+    }
+    $stream.Position = $peOffset
+    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
+    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
+    $stream.Position = $peOffset + 24
+    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
+} finally {
+    $stream.Dispose()
+}
 $gameRoot = $games[0].Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
