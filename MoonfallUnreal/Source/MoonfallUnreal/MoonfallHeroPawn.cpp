@@ -260,6 +260,14 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
+ if (!bStartingSanctuaryPlaced || !bHasInitialSpawnTransform
+     || GetActorLocation().ContainsNaN()) return false;
+ const FVector Center = InitialSpawnTransform.GetLocation();
+ return !Center.ContainsNaN()
+   && FVector::DistSquared2D(GetActorLocation(), Center) <= FMath::Square(1450.f);
+}
+
 void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
  if (bStartingSanctuaryPlaced || !GetWorld() || bPersistentSaveWritesBlocked
      || UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return;
