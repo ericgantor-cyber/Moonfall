@@ -26,7 +26,7 @@ void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
- const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  CachedHero = Player;
  // Practice sentries stay predictable for every character level, while
  // all ordinary dungeon mobs and bosses retain the existing level scaling.
