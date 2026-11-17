@@ -3890,7 +3890,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
         self.assertIn("Hero->IsPlayerControlled()", overlap)
         self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", overlap)
-        self.assertIn("if ((EnteredChambersMask & Bit) != 0u) return;", overlap)
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u) {", overlap)
         self.assertLess(overlap.index("&& !Hero->DiscoverDungeonEntrance("),
                         overlap.index("EnteredChambersMask |= Bit;"))
         self.assertLess(overlap.index("EnteredChambersMask |= Bit;"),
@@ -4019,8 +4019,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(bonus.index("GroupActors.Num() != GroupSize"),
                         bonus.index("SpawnedBonusGroupsMask |= GroupBit;"))
         self.assertIn("OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);", bonus)
-        self.assertLess(chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"),
-                        chamber.index("if ((EnteredChambersMask & Bit) != 0u) return;"))
+        self.assertLess(chamber.index("if ((EnteredChambersMask & Bit) != 0u) {"),
+                        chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
         self.assertNotIn("MaxLiveWorldEnemies", bonus)
 
     def test_dungeon_first_entry_level_lock_is_isolated_from_world_mobs(self):
@@ -5764,11 +5764,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, final)
             self.assertLess(chamber.index(guard), chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
             self.assertLess(final.index(guard), final.index("StartFinalBossChamber(Hero)"))
-        self.assertLess(chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"),
-                        chamber.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(chamber.index("EnteredChambersMask |= Bit;"),
+                        chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
         self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
         self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", chamber)
         self.assertIn("if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)", final)
+
+
+    def test_dungeon_primary_room_spawns_before_bonus_pack_on_first_entry(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        chamber = dungeon.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u) {", chamber)
+        self.assertEqual(chamber.count("TrySpawnBonusGroup(Hero, ChamberIndex);"), 2)
+        self.assertLess(chamber.index("if ((EnteredChambersMask & Bit) != 0u) {"),
+                        chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
+        self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(chamber.index("SpawnTreasureChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"),
+                        chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
 
 if __name__ == "__main__":
     unittest.main()
