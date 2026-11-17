@@ -5786,5 +5786,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
 
+
+    def test_dungeon_final_boss_uses_first_entry_level_before_beginplay(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::PlanBonusEncounter(", 1)[0]
+        enemy_begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::", 1)[0]
+        self.assertIn("const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);", boss)
+        self.assertIn("if (EncounterLevel <= 0) return false;", boss)
+        self.assertIn("Boss->EncounterLevelOverride = EncounterLevel;", boss)
+        self.assertLess(boss.index("Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)"),
+                        boss.index("const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);"))
+        self.assertLess(boss.index("Boss->EncounterLevelOverride = EncounterLevel;"),
+                        boss.index("Boss->FinishSpawning(SpawnTransform);"))
+        self.assertIn("EncounterLevelOverride > 0", enemy_begin)
+        self.assertIn("FMath::Clamp(EncounterLevelOverride, 1, 100)", enemy_begin)
+        self.assertIn("Boss->bBoss = true;", boss)
+        self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
+
 if __name__ == "__main__":
     unittest.main()
