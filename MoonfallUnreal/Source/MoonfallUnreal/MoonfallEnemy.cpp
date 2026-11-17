@@ -721,7 +721,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Elites and dungeon scouts retain their existing faster perception rate.
  if (!bBoss && Now >= NextSightCheckAt) {
   const bool bWasVisible = bCanSeeHero;
-  const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));
+  const bool bFastPerception = bElite ||
+    (ActorHasTag(FName(TEXT("DungeonScout")))
+     && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter"))));
   const float SightInterval = !bFastPerception && Distance > 1200.f ? 0.7f : 0.45f;
   NextSightCheckAt = Now + SightInterval
     + 0.05f * static_cast<float>(GetUniqueID() % 3u);
