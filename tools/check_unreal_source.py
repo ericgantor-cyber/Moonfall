@@ -3063,7 +3063,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
         self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
-        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : 70.f;", tick)
+        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);", tick)
         self.assertIn("StrafeSpeed * SafeAIDelta;", tick)
         self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
         self.assertLess(tick.index("AddActorWorldOffset(StrafeStep, true, &StrafeHit);"),
@@ -5723,6 +5723,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(build.index("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)"),
                         build.index("Write-Host 'Building NSIS Windows installer...'"))
         self.assertNotIn("Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File", build)
+
+
+    def test_dungeon_bonus_elite_leader_uses_existing_spawn_slot_and_swept_strafe(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        spawn = dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel", 1)[0]
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("Enemy->bElite = Group > 0 && Member == GroupSize - 1;", spawn)
+        self.assertIn('if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));', spawn)
+        self.assertLess(spawn.index('Tags.AddUnique(FName(TEXT("DungeonPackLeader")))'),
+                        spawn.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn('ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))', tick)
+        self.assertIn('ActorHasTag(FName(TEXT("DungeonPackLeader")))', tick)
+        self.assertIn("const bool bDungeonPackLeader = bElite", tick)
+        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);", tick)
+        self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
+        self.assertIn("if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero())", tick)
+        self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", spawn)
+        self.assertIn("SpawnedBonusGroupsMask |= GroupBit;", spawn)
+        self.assertLess(spawn.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
+                        spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 if __name__ == "__main__":
     unittest.main()
