@@ -3004,6 +3004,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
                         scope.index("if (++NearbyWindingAllies >= 2) break;"))
 
+    def test_attack_coordination_filters_distant_allies_before_budget(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        scope = tick.split("// Small-pack coordination:", 1)[1].split(
+            "// Alternate quick strikes", 1)[0]
+        self.assertIn("const float AllyDistanceSquared = FVector::DistSquared2D(", scope)
+        self.assertIn("!FMath::IsFinite(AllyDistanceSquared)", scope)
+        self.assertIn("AllyDistanceSquared >= FMath::Square(550.f)", scope)
+        self.assertLess(scope.index("AllyDistanceSquared >= FMath::Square(550.f)"),
+                        scope.index("++ConsideredAllies;"))
+        self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
+                        scope.index("AllyDistanceSquared >= FMath::Square(550.f)"))
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
+
     def test_enemy_recovers_own_corrupt_windup_without_instant_hit(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         guard = tick.split("if (!FMath::IsFinite(WindupEndsAt)) {", 1)[1].split("\n }", 1)[0]
