@@ -3969,6 +3969,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(It->Health) && It->Health > 0.f", bonus)
         self.assertLess(bonus.index("It->GetOwner() == this && It->bBoss"),
                         bonus.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("const int32 Column = Member / 2;", bonus)
+        self.assertIn("(static_cast<float>(Column) - 2.5f) * 120.f", bonus)
+        self.assertIn("(Member % 2 == 0) ? -240.f : 240.f", bonus)
+        self.assertNotIn("const int32 Row = Member / 4;", bonus)
         self.assertIn("OverlapBlockingTestByChannel", bonus)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", bonus)
         self.assertIn("Enemy->EncounterLevelOverride = Level;", bonus)
