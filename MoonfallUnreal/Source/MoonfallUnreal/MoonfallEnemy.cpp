@@ -349,8 +349,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Pause hostile behavior during both gameplay menus and after hero defeat.
  // Cancel winding attacks so closing a menu never delivers an instant hit.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
- if (!IsValid(Hero)) {
-  // Immediately reacquire after destruction or before the first player spawn.
+ // An unpossessed old pawn may remain valid after respawn or hero switching.
+ // Never allow it to receive another cached-target attack.
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()) {
+  // Reacquire immediately when the previous hero is destroyed or unpossessed.
   Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
   CachedHero = Hero;
   NextHeroCacheRefreshAt = Now + 1.f
