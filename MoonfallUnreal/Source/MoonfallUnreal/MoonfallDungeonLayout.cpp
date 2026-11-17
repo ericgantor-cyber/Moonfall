@@ -271,6 +271,13 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
      || GetChamberType(ChamberIndex) == 5) return false;
 
  UWorld* World = GetWorld();
+ // Never add bonus crowds while a live boss encounter is underway.
+ // The room remains retryable after the boss has been defeated.
+ for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
+  if (IsValid(*It) && !It->IsActorBeingDestroyed()
+      && It->bBoss && FMath::IsFinite(It->Health) && It->Health > 0.f)
+   return false;
+ }
  TArray<AMoonfallEnemy*> GroupActors;
  GroupActors.Reserve(GroupSize);
  FCollisionQueryParams CollisionParams(SCENE_QUERY_STAT(MoonfallDungeonBonusSpawn), false);
