@@ -11,6 +11,9 @@ public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
+ // Dungeon encounter level captured on first entry. Zero preserves ordinary world scaling.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Encounter")
+ int32 EncounterLevelOverride = 0;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
