@@ -3928,6 +3928,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         combat.index("if (Enemy->IsActorBeingDestroyed()) {"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
+    def test_dungeon_first_entry_level_lock_is_isolated_from_world_mobs(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 LockedEncounterLevel = 0;", layout_h)
+        self.assertIn("int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);", layout_h)
+        helper = layout.split("int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleEntrance(", 1)[0]
+        self.assertIn("if (LockedEncounterLevel <= 0", helper)
+        self.assertIn("Hero->IsPlayerControlled()", helper)
+        self.assertIn("LockedEncounterLevel = FMath::Clamp(Hero->Level, 1, 100);", helper)
+        entrance = layout.split("void AMoonfallDungeonLayout::HandleEntrance(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[0]
+        self.assertIn("GetOrLockEncounterLevel(Hero);", entrance)
+        chamber = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);", chamber)
+        self.assertIn("Enemy->EncounterLevelOverride = EncounterLevel;", chamber)
+        self.assertLess(chamber.index("Enemy->EncounterLevelOverride = EncounterLevel;"),
+                        chamber.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn("int32 EncounterLevelOverride = 0;", self.enemy_h)
+        self.assertIn("EncounterLevelOverride > 0 ? FMath::Clamp(EncounterLevelOverride, 1, 100)", self.enemy_cpp)
+        self.assertIn("bSanctuaryPracticeAtSpawn ? 1", self.enemy_cpp)
+
     def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
