@@ -3946,11 +3946,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         for guard in ("Enemy->FinishSpawning(SpawnTransform);",
                       "if (!IsValid(Enemy)) continue;",
-                      "if (Enemy->IsActorBeingDestroyed()) {",
+                      "Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f",
                       "Enemy->Destroy();", "++Spawned;"):
             self.assertIn(guard, combat)
         self.assertLess(combat.index("Enemy->FinishSpawning(SpawnTransform);"),
-                        combat.index("if (Enemy->IsActorBeingDestroyed()) {"))
+                        combat.index("Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
     def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
