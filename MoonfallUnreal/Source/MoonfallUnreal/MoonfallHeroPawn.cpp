@@ -18,6 +18,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallDungeonLayout.h"
+#include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -293,7 +294,26 @@ void AMoonfallHeroPawn::BeginPlay() {
   RespawnCheckpointLocation = SpawnLocation;
   bHasRespawnCheckpointLocation = true;
  }
- LoadWorldProgress();
+ const bool bLoadedWorldProgress = LoadWorldProgress();
+ // Only a genuinely new save begins at the Sanctuary. Existing checkpoint
+ // saves, including unreadable saves protected against writes, are untouched.
+ if (!bLoadedWorldProgress
+     && !UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)
+     && !bPersistentSaveWritesBlocked && GetWorld()) {
+  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+   const AMoonfallArena* Arena = *It;
+   if (!IsValid(Arena) || !Arena->bEnableStartingSanctuary) continue;
+   const FVector Start = Arena->GetStartingSanctuaryLocation();
+   if (!Start.ContainsNaN()
+       && TeleportTo(Start, GetActorRotation(), false, false)) {
+    InitialSpawnTransform = GetActorTransform();
+    bHasInitialSpawnTransform = true;
+    RespawnCheckpointLocation = GetActorLocation();
+    bHasRespawnCheckpointLocation = true;
+   }
+   break; // Never relocate between multiple authored arenas.
+  }
+ }
  bWorldProgressInitialized = true;
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // When a shrine spawned before this pawn, BeginPlay overlap notifications
