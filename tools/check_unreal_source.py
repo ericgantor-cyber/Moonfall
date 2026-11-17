@@ -5339,9 +5339,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Canvas->SizeY >= 520.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
         self.assertIn("VisibleDamageNumbers < 32", draw_damage)
-        self.assertIn("FMath::Square(6000.f)", draw_damage)
-        self.assertLess(draw_damage.index("FMath::Square(6000.f)"),
-                        draw_damage.index("Enemy->DamageHistory[Slot]"))
+        # Distance culling happens in the shared enemy pass, before any
+        # nearby damage candidates are rendered. This saves a second world scan.
+        scan = hud.split("TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;", 1)[1].split(
+            "if (Boss && BossDistanceSq", 1
+        )[0]
+        self.assertIn("DistSq <= FMath::Square(6000.f)", scan)
+        self.assertLess(scan.index("DistSq <= FMath::Square(6000.f)"),
+                        scan.index("NearbyDamageEnemies.Add(E)"))
+        self.assertIn("for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies)", draw_damage)
         self.assertNotIn("GetAllActorsOfClass", guide)
 
     def test_sanctuary_training_rewards_and_level_scaling_are_isolated(self):
