@@ -100,7 +100,8 @@ void AMoonfallArena::BeginPlay() {
   if (!IsValid(Sign)) continue;
   Sign->SetupAttachment(GetRootComponent());
   Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS 1-5"), Zone + 1)));
+  static const TCHAR* RegionNames[6] = {TEXT("ASHEN WILDS"), TEXT("MOONVEIL FOREST"), TEXT("HOLLOW DEPTHS"), TEXT("IRON FOUNDRY"), TEXT("FROSTBOUND REACH"), TEXT("ECLIPSE WASTES")};
+  Sign->SetText(FText::FromString(FString::Printf(TEXT("%s | DUNGEONS %d-%d"), RegionNames[Zone], Zone * 5 + 1, Zone * 5 + 5)));
   Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
   Sign->SetWorldSize(65.f);
   Sign->SetTextRenderColor(FColor(114, 210, 236));
