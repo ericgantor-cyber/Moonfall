@@ -388,7 +388,9 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
 {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (bFinalChamberNotified || !IsValid(Hero) || !Hero->IsPlayerControlled()
-     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -407,8 +409,12 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
  const FHitResult& SweepResult)
 {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
+ // Normal rooms and final-room encounters must honor the same menu gate
+ // already used for bonus packs. Do not consume the one-shot room bit.
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
-     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
  // Require a durable entrance discovery before announcing room events.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
