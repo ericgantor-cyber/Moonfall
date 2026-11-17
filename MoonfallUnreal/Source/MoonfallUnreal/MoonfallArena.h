@@ -15,6 +15,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  UInstancedStaticMeshComponent* DungeonRoad;
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
+ // Nonblocking starter directions share the same no-Tick text approach as zone signs.
+ UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> SanctuaryGuideSigns;
  // Keeps the new-player sanctuary on the same continuous world map.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
  bool bEnableStartingSanctuary = true;
