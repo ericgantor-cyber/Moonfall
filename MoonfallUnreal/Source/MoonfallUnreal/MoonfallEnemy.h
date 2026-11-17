@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class AMoonfallHeroPawn;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
