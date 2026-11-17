@@ -957,7 +957,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
-   if (!bBoss && !bElite) {
+   const bool bDungeonRole = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+   if (!bBoss && (!bElite || bDungeonRole)) {
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
@@ -971,10 +972,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // candidate budget or delaying another enemy's attack.
      if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
          || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
-         || Other->bBoss || Other->bElite) continue;
+         || Other->bBoss || (Other->bElite && !bDungeonRole)) continue;
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
-     const bool bDungeonMember = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+     const bool bDungeonMember = bDungeonRole;
      const bool bOtherDungeonMember = Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
      if (bDungeonMember || bOtherDungeonMember) {
       if (!bDungeonMember || !bOtherDungeonMember
