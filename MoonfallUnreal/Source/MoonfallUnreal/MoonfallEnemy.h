@@ -93,6 +93,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
+ // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
+ TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
  float MaxHealthAtSpawn = 0.f;
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
