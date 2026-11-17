@@ -346,8 +346,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Cancel winding attacks so closing a menu never delivers an instant hit.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  if (!IsValid(Hero)) {
+  // Immediately reacquire after destruction or before the first player spawn.
   Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
   CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f;
+ } else if (Now >= NextHeroCacheRefreshAt) {
+  // The previous pawn may still exist after possession changes. Refresh at
+  // most once per second instead of targeting a stale but valid hero forever.
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f;
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) {
