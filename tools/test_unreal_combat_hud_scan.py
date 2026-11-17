@@ -21,6 +21,9 @@ class CombatHudScanTests(unittest.TestCase):
         self.assertLess(hud.index("NearbyDamageEnemies.Add(E)"),
                         hud.index("if (E->Health <= 0.f) continue;"))
         self.assertIn("DistSq <= FMath::Square(6000.f)", hud)
+        self.assertIn("if (bHasRecentDamage) NearbyDamageEnemies.Add(E);", hud)
+        self.assertIn("const float Age = WorldTime - Hit.Time;", hud)
+        self.assertIn("Age >= 0.f && Age <= 0.8f", hud)
         self.assertIn("if (VisibleDamageNumbers >= 32) break;", hud)
         self.assertIn("AMoonfallEnemy::DamageHistorySize", hud)
 
