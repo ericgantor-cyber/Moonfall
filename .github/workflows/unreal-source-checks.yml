@@ -103,6 +103,10 @@ jobs:
             tools.test_unreal_equipment_stat_validation \
             tools.test_unreal_loot_collection_safety
 
+      - name: Verify enemy navigation budget regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_enemy_path_budget
+
       - name: Parse Windows build scripts
         shell: pwsh
         run: |
