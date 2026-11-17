@@ -566,19 +566,30 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }
- // Nearest living boss, displayed without creating additional widget actors.
+ // Reuse a single world scan for boss/posture HUD and nearby combat text.
+ // This avoids iterating the entire enemy population twice every rendered frame.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
  float PostureDistanceSq = FMath::Square(1200.f);
+ TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;
+ const FVector HeroLocation = Hero->GetActorLocation();
+ const bool bHeroLocationValid = !HeroLocation.ContainsNaN();
+ const float WorldTime = GetWorld()->GetTimeSeconds();
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* E = *It;
-  if (!IsValid(E) || E->Health <= 0.f) continue;
-  const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
+  if (!IsValid(E) || !bHeroLocationValid) continue;
+  const FVector EnemyLocation = E->GetActorLocation();
+  if (EnemyLocation.ContainsNaN()) continue;
+  const float DistSq = FVector::DistSquared(EnemyLocation, HeroLocation);
+  if (!FMath::IsFinite(DistSq)) continue;
+  // Keep defeated enemies here: their final damage labels remain visible.
+  if (DistSq <= FMath::Square(6000.f)) NearbyDamageEnemies.Add(E);
+  if (E->Health <= 0.f) continue;
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
   } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
-      || E->PostureBrokenUntil > GetWorld()->GetTimeSeconds())) {
+      || E->PostureBrokenUntil > WorldTime)) {
    PostureTarget = E;
    PostureDistanceSq = DistSq;
   }
@@ -874,12 +885,9 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  int32 VisibleDamageNumbers = 0;
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && VisibleDamageNumbers < 32; ++It) {
-  const AMoonfallEnemy* Enemy = *It;
-  if (!IsValid(Enemy) || Enemy->GetActorLocation().ContainsNaN()
-      || Hero->GetActorLocation().ContainsNaN()
-      || FVector::DistSquared(Enemy->GetActorLocation(), Hero->GetActorLocation())
-         > FMath::Square(6000.f)) continue;
+ for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
+  if (VisibleDamageNumbers >= 32) break;
+  if (!IsValid(Enemy)) continue;
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
    const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
