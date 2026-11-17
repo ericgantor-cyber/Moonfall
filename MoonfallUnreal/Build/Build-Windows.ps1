@@ -197,8 +197,28 @@ $gameRoot = $games[0].Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
 }
-if (-not (Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File | Select-Object -First 1)) {
-    throw 'Cooked Moonfall game content is empty; refusing incomplete installer.'
+# The project directory may contain executable/config files even when cooking
+# silently produced no game content. Require an actual non-empty cooked archive.
+# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
+$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
+if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
+    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
+}
+$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
+    Where-Object { $_.Length -gt 0 })
+$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
+    Where-Object { $_.Length -gt 0 })
+$hasIoStorePair = $false
+foreach ($indexFile in $ioStoreIndexes) {
+    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
+    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
+        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
+        $hasIoStorePair = $true
+        break
+    }
+}
+if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
 }
 if ($LaunchSmokeTest) {
     & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName
