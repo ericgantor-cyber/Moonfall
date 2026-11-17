@@ -1635,7 +1635,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
         self.assertLess(tick.index("// Pause hostile behavior during both gameplay menus"),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 1)
+        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
+        self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 1)
+        self.assertLess(tick.index("if (!IsValid(Hero))"),
+                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
 
     def test_batch_guard_validates_timers_before_stance(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
