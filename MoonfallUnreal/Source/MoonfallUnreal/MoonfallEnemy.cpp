@@ -27,6 +27,7 @@ void AMoonfallEnemy::BeginPlay() {
  DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ CachedHero = Player;
  // Practice sentries stay predictable for every character level, while
  // all ordinary dungeon mobs and bosses retain the existing level scaling.
  const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
@@ -343,7 +344,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  // Pause hostile behavior during both gameplay menus and after hero defeat.
  // Cancel winding attacks so closing a menu never delivers an instant hit.
- AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ AMoonfallHeroPawn* Hero = CachedHero.Get();
+ if (!IsValid(Hero)) {
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+ }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) {
   CancelDivineSignature();
@@ -665,7 +670,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
-  const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
+  const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;
   const float WarningScale = IsValid(Viewer) ? Viewer->BossWarningScale : 1.f;
   const bool bBossCrush = bBoss && CurrentAttackMultiplier > 2.f;
   const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
