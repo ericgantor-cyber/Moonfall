@@ -3275,7 +3275,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bLegacyGodSlot = !bSingleDivineEncounter && Count >= 5", arena)
         self.assertIn("const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;", arena)
         self.assertIn("else if (!bSingleDivineEncounter && Count == 4", arena)
-        self.assertEqual(arena.count("CreateBlock(FVector("), 11)  # south gate and road add two blocks
+        # Sanctuary architecture is separate from the four divine cover blocks.
+        divine_cover = arena.split("if (bSingleDivineEncounter) {", 1)[1].split(
+            "// Fixed showcase NPC", 1
+        )[0]
+        self.assertEqual(divine_cover.count("CreateBlock(FVector("), 4)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true", arena)
         self.assertLess(arena.index("Enemy->DivineBossId ="), arena.index("FinishSpawningActor(Enemy, SpawnTransform)"))
 
