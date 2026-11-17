@@ -442,8 +442,10 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  const int32 Rank = DungeonIndex + 1;
  const float RankScale = 1.f + 0.12f * DungeonIndex;
  for (int32 Attempt = 0; Attempt < 3; ++Attempt) {
-  const float BossOffsetX = Attempt == 0 ? 0.f : (Attempt == 1 ? -160.f : 160.f);
-  const float BossOffsetY = Attempt == 0 ? 0.f : (Attempt == 1 ? -160.f : 160.f);
+  // Probe independent axes, not two points on the same diagonal.
+  // A blocked doorway edge should not invalidate every fallback.
+  const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;
+  const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;
   const FVector Position = GetActorTransform().TransformPosition(
     FVector((ChamberCount - 1) * ChamberLength + 270.f + BossOffsetX,
       190.f + BossOffsetY, 100.f));
