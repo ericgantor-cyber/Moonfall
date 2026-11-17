@@ -394,7 +394,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
-  Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
+  const FVector DesiredScale(0.85f * Scale / FMath::Max(0.75f,Squash),
+    0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
+  // In large worlds, idle enemies otherwise send the same mesh transform
+  // every AI tick. Preserve all attack tells and hit reactions.
+  if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
+   Body->SetRelativeScale3D(DesiredScale);
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
