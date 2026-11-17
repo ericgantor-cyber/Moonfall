@@ -28,6 +28,16 @@ public:
  int32 ZoneIndex = 0;
  UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon")
  int32 DungeonIndex = 0;
+ // Per-dungeon difficulty bounds; defaults keep the current level scaling.
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty",
+   meta=(ClampMin="1", ClampMax="100"))
+ int32 MinimumDungeonLevel = 1;
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty",
+   meta=(ClampMin="1", ClampMax="100"))
+ int32 MaximumDungeonLevel = 100;
+ // Readable from the dungeon HUD. Zero means nobody has entered yet.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty")
+ int32 LockedEncounterLevel = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  UInstancedStaticMeshComponent* Floors;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
@@ -90,7 +100,6 @@ public:
 private:
  // One runtime snapshot per physical dungeon: later chambers keep first-entry difficulty.
  // This is session-local; it does not change the existing save format.
- int32 LockedEncounterLevel = 0;
  int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);
  float NextHazardDamageAt = -1.f;
  // Last valid overlap clock tracks backward time jumps.
