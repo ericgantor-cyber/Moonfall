@@ -326,6 +326,9 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
    Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonBonus")));
    if (Member == 0) Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+   // Later bonus packs already include one elite. Give that existing elite
+   // a distinct movement role without spawning additional enemies.
+   if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
    Enemy->FinishSpawning(SpawnTransform);
    if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
     if (IsValid(Enemy)) Enemy->Destroy();
