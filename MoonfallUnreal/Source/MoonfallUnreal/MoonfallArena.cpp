@@ -25,7 +25,10 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
- CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ // Break the southern perimeter into two solid segments with a 400-unit
+ // unobstructed player passage to the generated dungeon.
+ CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));
+ CreateBlock(FVector(850,-1500,200),FVector(13,1,5));
  if (!GetWorld()) return;
  const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
  const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
