@@ -5252,12 +5252,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bLoadedWorldProgress = LoadWorldProgress();", begin)
         self.assertIn("!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)", begin)
         self.assertIn("!bPersistentSaveWritesBlocked", begin)
-        self.assertIn("Arena->bEnableStartingSanctuary", begin)
-        self.assertIn("Arena->GetStartingSanctuaryLocation()", begin)
-        self.assertIn("TeleportTo(Start, GetActorRotation(), false, false)", begin)
-        self.assertIn("RespawnCheckpointLocation = GetActorLocation();", begin)
+        self.assertIn("TryPlaceNewCharacterAtSanctuary();", begin)
+        self.assertIn("SetTimerForNextTick(", begin)
+        self.assertIn("&AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary", begin)
+        helper = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {", 1
+        )[1].split("void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertIn("bStartingSanctuaryPlaced", self.hero_h)
+        self.assertIn("if (bStartingSanctuaryPlaced", helper)
+        self.assertIn("UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)", helper)
+        self.assertIn("bPersistentSaveWritesBlocked", helper)
+        self.assertIn("Arena->bEnableStartingSanctuary", helper)
+        self.assertIn("Arena->GetStartingSanctuaryLocation()", helper)
+        self.assertIn("TeleportTo(Start, GetActorRotation(), false, false)", helper)
+        self.assertIn("RespawnCheckpointLocation = GetActorLocation();", helper)
+        self.assertIn("bStartingSanctuaryPlaced = true;", helper)
         self.assertLess(begin.index("LoadWorldProgress();"),
-                        begin.index("TeleportTo(Start, GetActorRotation(), false, false)"))
+                        begin.index("TryPlaceNewCharacterAtSanctuary();"))
         self.assertNotIn("UGameplayStatics::OpenLevel", arena)
         self.assertNotIn("UGameplayStatics::OpenLevel", begin)
 
