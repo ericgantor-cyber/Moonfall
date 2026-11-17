@@ -200,6 +200,15 @@ void AMoonfallDungeonLayout::BeginPlay()
      this, &AMoonfallDungeonLayout::HandleChamberOverlap);
 }
 
+int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero)
+{
+ if (LockedEncounterLevel <= 0 && IsValid(Hero) && Hero->IsPlayerControlled()
+     && FMath::IsFinite(Hero->Health) && Hero->Health > 0.f) {
+  LockedEncounterLevel = FMath::Clamp(Hero->Level, 1, 100);
+ }
+ return LockedEncounterLevel;
+}
+
 void AMoonfallDungeonLayout::HandleEntrance(
  UPrimitiveComponent* Overlapped, AActor* OtherActor,
  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
@@ -209,8 +218,9 @@ void AMoonfallDungeonLayout::HandleEntrance(
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
  // First visit saves through the V8 ledger; later visits are already known.
- if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex))
-  Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex);
+ if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
+     && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ GetOrLockEncounterLevel(Hero);
 }
 
 void AMoonfallDungeonLayout::HandleFinalChamber(
@@ -310,6 +320,8 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  const int32 Requested = bEliteEncounter ? 1
    : FMath::Clamp(EnemiesPerCombatChamber, 1, 6);
  const int32 Count = FMath::Min(Remaining, Requested);
+ const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
+ if (EncounterLevel <= 0) return false;
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   // Two lanes of three enemies, spaced to fit within the chamber floor.
@@ -331,6 +343,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Set difficulty BEFORE BeginPlay performs the standard player-level scaling.
   Enemy->bElite = bEliteEncounter;
   Enemy->bBoss = false;
+  Enemy->EncounterLevelOverride = EncounterLevel;
   Enemy->Health = bEliteEncounter ? 145.f : 75.f;
   Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
   Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
