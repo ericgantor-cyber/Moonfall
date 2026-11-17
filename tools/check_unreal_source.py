@@ -5255,6 +5255,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SanctuaryGuideSigns.Add(Sign);", arena)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", arena)
 
+    def test_global_world_quest_tracker_shows_real_dungeon_progress(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        tracker = hud.split("// World-wide quest tracker,", 1)[1].split(
+            "// Compact circular resource HUD", 1
+        )[0]
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()", tracker)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", tracker)
+        self.assertIn("Hero->GetClearedDungeonZoneCount()", tracker)
+        self.assertIn("Hero->GetNextUnchartedDungeonZone()", tracker)
+        self.assertIn("bSanctuaryObjective", tracker)
+        self.assertIn("bCanShowQuestTracker", tracker)
+        self.assertIn("Canvas->SizeY >= 520.f", tracker)
+        self.assertIn("WORLD QUEST TRACKER", tracker)
+        self.assertIn("All 30 dungeon bosses defeated", tracker)
+        self.assertIn("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6", tracker)
+        self.assertIn("static_cast<float>(Discovered) / 30.f", tracker)
+        self.assertIn("static_cast<float>(Cleared) / 30.f", tracker)
+        self.assertIn("Use J for the atlas", tracker)
+        self.assertNotIn("GetAllActorsOfClass", tracker)
+        self.assertNotIn("TActorIterator", tracker)
+        self.assertNotIn("OpenLevel", tracker)
+
     def test_sanctuary_hud_objectives_and_global_damage_culling(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -5279,7 +5301,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("bStartingSanctuaryPlaced", helper)
         self.assertIn("FVector::DistSquared2D(", helper)
         self.assertIn("FMath::Square(1450.f)", helper)
-        guide = hud.split("// Contextual onboarding:", 1)[1].split(
+        guide = hud.split("// World-wide quest tracker,", 1)[1].split(
             "// Compact circular resource HUD", 1
         )[0]
         self.assertIn("Hero->IsNearStartingSanctuary()", guide)
@@ -5294,7 +5316,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("Train to the north; then turn in", guide)
 
         self.assertIn("Canvas->SizeX >= 760.f", guide)
-        self.assertIn("Canvas->SizeY >= 480.f", guide)
+        self.assertIn("Canvas->SizeY >= 520.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
         self.assertIn("VisibleDamageNumbers < 32", draw_damage)
         self.assertIn("FMath::Square(6000.f)", draw_damage)
