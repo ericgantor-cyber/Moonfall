@@ -96,6 +96,7 @@ public:
 private:
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
  TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
+ float NextHeroCacheRefreshAt = 0.f;
  float MaxHealthAtSpawn = 0.f;
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
