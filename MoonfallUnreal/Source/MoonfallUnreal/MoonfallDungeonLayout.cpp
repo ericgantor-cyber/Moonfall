@@ -608,6 +608,11 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
      || DungeonIndex < 0 || DungeonIndex >= 5) return false;
  // Existing saves must not respawn permanently defeated bosses.
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
+ // Final bosses use the level captured at dungeon entry, just like regular
+ // chamber enemies and optional bonus packs. Leveling up between rooms
+ // must not change this dungeon's authored boss difficulty.
+ const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
+ if (EncounterLevel <= 0) return false;
  // Bosses are not withheld by the regular-room performance spawn budget.
  // Their existing collision and save guards remain in force.
  // Final-room collision can reject a single authored spawn point.
@@ -653,6 +658,7 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
   if (!IsValid(Boss)) continue;
  Boss->bElite = true;
  Boss->bBoss = true;
+ Boss->EncounterLevelOverride = EncounterLevel;
  Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;
  Boss->DungeonBossFamily = FName(Style.Family);
  Boss->DungeonBossRank = Rank;
