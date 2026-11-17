@@ -5357,7 +5357,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CreateBlock(FVector(0,3500,-60),FVector(24,23,1));", arena)
         self.assertIn("CreateBlock(FVector(-850,1500,200),FVector(13,1,5));", arena)
         self.assertIn("CreateBlock(FVector(850,1500,200),FVector(13,1,5));", arena)
-        self.assertNotIn("CreateBlock(FVector(0,1500,200),FVector(30,1,5));", arena)
+        # Enabled: split gate to sanctuary. Disabled: restore the original
+        # full north wall so no player can walk into unloaded terrain.
+        enabled = arena.split("if (bEnableStartingSanctuary) {", 1)[1].split(
+            "} else {", 1
+        )[0]
+        self.assertIn("CreateBlock(FVector(-850,1500,200),FVector(13,1,5));", enabled)
+        self.assertIn("CreateBlock(FVector(850,1500,200),FVector(13,1,5));", enabled)
+        self.assertNotIn("CreateBlock(FVector(0,1500,200),FVector(30,1,5));", enabled)
+        self.assertIn(
+            "} else {\\n  // Avoid an exit into empty world space when the sanctuary is disabled.\\n"
+            "  CreateBlock(FVector(0,1500,200),FVector(30,1,5));",
+            arena,
+        )
         self.assertIn('TEXT("sanctuary_firstlight")', arena)
         self.assertIn('TEXT("CrossroadsGuide")', arena)
         self.assertIn("const bool bLoadedWorldProgress = LoadWorldProgress();", begin)
