@@ -4308,6 +4308,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
         self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
         self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", boss)
+        self.assertIn("const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;", boss)
+        self.assertIn("const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;", boss)
+        self.assertIn("if (!IsValid(Boss)) continue;", boss)
+        self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) continue;", boss)
+        self.assertIn("return false; // All collision-safe spawn positions were unavailable.", boss)
+        self.assertLess(boss.index("for (int32 Attempt = 0; Attempt < 3; ++Attempt)"),
+                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertLess(
             boss.index("Boss->OnDungeonBossIdentityReady("),
             boss.index("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;",

@@ -413,14 +413,8 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
  // Bosses are not withheld by the regular-room performance spawn budget.
  // Their existing collision and save guards remain in force.
- // Position the boss away from the centerline where the player enters.
- const FVector Position = GetActorTransform().TransformPosition(
-   FVector((ChamberCount - 1) * ChamberLength + 270.f, 190.f, 100.f));
- const FTransform SpawnTransform(GetActorRotation(), Position);
- AMoonfallEnemy* Boss = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
-   AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
-   ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
- if (!IsValid(Boss)) return false;
+ // Final-room collision can reject a single authored spawn point.
+ // Try at most two other nearby positions without moving the entry gate.
  // Keep the original Z and Nyra divine identifiers/art completely untouched.
  // The generic existing boss logic supplies phases, combat, XP and gear drops.
  // Six distinct regional styles use the existing melee, combo, parry,
@@ -447,6 +441,19 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  const FDungeonBossStyle& Style = Styles[ZoneIndex];
  const int32 Rank = DungeonIndex + 1;
  const float RankScale = 1.f + 0.12f * DungeonIndex;
+ for (int32 Attempt = 0; Attempt < 3; ++Attempt) {
+  // Probe independent axes, not two points on the same diagonal.
+  // A blocked doorway edge should not invalidate every fallback.
+  const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;
+  const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;
+  const FVector Position = GetActorTransform().TransformPosition(
+    FVector((ChamberCount - 1) * ChamberLength + 270.f + BossOffsetX,
+      190.f + BossOffsetY, 100.f));
+  const FTransform SpawnTransform(GetActorRotation(), Position);
+  AMoonfallEnemy* Boss = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+  if (!IsValid(Boss)) continue;
  Boss->bElite = true;
  Boss->bBoss = true;
  Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;
@@ -462,7 +469,7 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  Boss->MaxPosture = Style.Posture * RankScale;
  Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));
  Boss->FinishSpawning(SpawnTransform);
- if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) continue;
  Boss->OnDungeonBossIdentityReady(
    Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
  // Blueprint identity events are synchronous and may destroy the actor.
@@ -472,4 +479,6 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  // Blueprint encounter events can also reject/destroy the spawn.
  // Keep the final-chamber overlap retryable in that case.
  return IsValid(Boss) && !Boss->IsActorBeingDestroyed();
+ }
+ return false; // All collision-safe spawn positions were unavailable.
 }
