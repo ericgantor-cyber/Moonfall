@@ -22,6 +22,16 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
         self.assertIn("GetUniqueID() % 5u", self.source)
 
+    def test_enemy_ai_reuses_weak_player_reference(self):
+        header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        self.assertIn("TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;", header)
+        self.assertIn("class AMoonfallHeroPawn;", header)
+        tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("AMoonfallHeroPawn* Hero = CachedHero.Get();", tick)
+        self.assertIn("if (!IsValid(Hero))", tick)
+        self.assertIn("CachedHero = Hero;", tick)
+        self.assertIn("const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;", tick)
+
     def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
         self.assertIn('const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));', self.source)
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
