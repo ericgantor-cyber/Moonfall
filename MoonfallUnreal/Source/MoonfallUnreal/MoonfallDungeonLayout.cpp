@@ -536,7 +536,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Do not count or retain actors whose deferred spawn was rejected.
   // A valid but rejected actor must be cleaned up before another attempt.
   if (!IsValid(Enemy)) continue;
-  if (Enemy->IsActorBeingDestroyed()) {
+  if (Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
    Enemy->Destroy();
    continue;
   }
@@ -673,6 +673,10 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));
  Boss->FinishSpawning(SpawnTransform);
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) continue;
+ if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
+  Boss->Destroy();
+  continue;
+ }
  Boss->OnDungeonBossIdentityReady(
    Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
  // Blueprint identity events are synchronous and may destroy the actor.
