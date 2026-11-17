@@ -229,11 +229,22 @@ void AMoonfallDungeonLayout::PlanBonusEncounter()
   // normal six-enemy chamber formation. Never replace hazards or bosses.
   // Every 14-chamber dungeon has twelve interior rooms, only three hazards.
   int32 Assigned = 0;
+  // Shuffle eligible rooms with a separate seeded stream. Preserve chamber
+  // generation and reward RNG, and prefer non-combat rooms before combat.
+  FRandomStream PlacementRandom(GetEffectiveLayoutSeed() ^ 0x6D92F1);
   for (const int32 PreferredType : {4, 3, 2, 1}) {
-   for (int32 Chamber = 1; Chamber < ChamberCount - 1 && Assigned < 3; ++Chamber) {
-    if (GetChamberType(Chamber) == PreferredType)
-     BonusGroupChambers[Assigned++] = Chamber;
+   TArray<int32> Candidates;
+   for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber)
+    if (GetChamberType(Chamber) == PreferredType) Candidates.Add(Chamber);
+   for (int32 Index = 0; Index < Candidates.Num(); ++Index) {
+    const int32 SwapWith = PlacementRandom.RandRange(Index, Candidates.Num() - 1);
+    Candidates.Swap(Index, SwapWith);
    }
+   for (const int32 Chamber : Candidates) {
+    if (Assigned >= 3) break;
+    BonusGroupChambers[Assigned++] = Chamber;
+   }
+   if (Assigned >= 3) break;
   }
   if (Assigned < 3) {
    // Fail closed rather than selecting a hazard or final boss chamber.
