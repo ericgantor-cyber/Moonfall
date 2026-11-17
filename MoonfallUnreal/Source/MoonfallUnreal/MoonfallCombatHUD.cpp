@@ -678,6 +678,20 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
   const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
   const int32 RegionsCleared = FMath::Clamp(Hero->GetClearedDungeonZoneCount(), 0, 6);
+  // Progress already lives in two persistent 30-bit masks. Find one
+  // discovered, unbeaten dungeon without searching world actors or paths.
+  int32 NextBossZone = INDEX_NONE;
+  int32 NextBossDungeon = INDEX_NONE;
+  for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone) {
+   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+    if (Hero->HasDiscoveredDungeon(Zone, Dungeon)
+        && !Hero->HasDefeatedDungeonBoss(Zone, Dungeon)) {
+     NextBossZone = Zone;
+     NextBossDungeon = Dungeon;
+     break;
+    }
+   }
+  }
   FString Objective;
   FString Context;
   if (bSanctuaryObjective) {
@@ -710,12 +724,18 @@ void AMoonfallCombatHUD::DrawHUD()
   } else if (Discovered < 30) {
    const int32 NextZone = Hero->GetNextUnchartedDungeonZone();
    Objective = NextZone >= 0 && NextZone < 6
-     ? FString::Printf(TEXT("Explore region %d: discover more dungeon entrances"), NextZone + 1)
+     ? FString::Printf(TEXT("Explore region %d: discover dungeon entrances"), NextZone + 1)
      : TEXT("Discover more dungeon entrances");
-   Context = TEXT("Use J for the atlas; follow the connected dungeon road");
+   Context = NextBossZone != INDEX_NONE
+     ? FString::Printf(TEXT("Next boss: Region %d, Dungeon %d  |  J: atlas"),
+         NextBossZone + 1, NextBossDungeon + 1)
+     : TEXT("J: atlas  |  Follow the connected dungeon road");
   } else {
-   Objective = TEXT("Defeat the remaining dungeon bosses");
-   Context = TEXT("Use J for the atlas; revisit unfinished dungeons");
+   Objective = NextBossZone != INDEX_NONE
+     ? FString::Printf(TEXT("Defeat boss: Region %d, Dungeon %d"),
+         NextBossZone + 1, NextBossDungeon + 1)
+     : TEXT("Defeat remaining dungeon bosses");
+   Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
