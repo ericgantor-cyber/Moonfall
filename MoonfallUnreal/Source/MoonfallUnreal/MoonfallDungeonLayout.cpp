@@ -1,6 +1,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallEnemy.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -283,6 +284,8 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   const int32 ChamberType = GetChamberType(ChamberIndex);
   // A failed loot spawn must remain retryable, not permanently consume a room.
   if (!ResolveChamberReward(Hero, ChamberIndex, ChamberType)) return;
+  // Spawn only on entry to a combat-designated room. No periodic wave timer.
+  if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
   return;
@@ -394,4 +397,44 @@ void AMoonfallDungeonLayout::MarkTreasureCollected(
  PendingTreasureCodes[ChamberIndex] = 0;
  SpawnedTreasureMask &= static_cast<uint16>(~Bit);
  SaveRewardClaims();
+}
+
+bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex)
+{
+ if (!GetWorld() || !IsValid(Hero) || Hero->Health <= 0.f
+     || !Hero->IsPlayerControlled() || ChamberIndex <= 0
+     || ChamberIndex >= ChamberCount - 1 || GetChamberType(ChamberIndex) != 1)
+  return false;
+ const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+ if ((EnteredChambersMask & Bit) != 0u) return true;
+ // Independent seeded mix of ordinary and elite encounters.
+ // Bounds guarantee at most 2 active new enemies per combat chamber and
+ // 6 per 14-room dungeon; nothing spawns in the untouched 29 dungeons.
+ FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
+ const bool bEliteEncounter = Stream.RandRange(0, 4) == 0;
+ const int32 Count = bEliteEncounter ? 1 : FMath::Clamp(EnemiesPerCombatChamber, 1, 2);
+ int32 Spawned = 0;
+ for (int32 Index = 0; Index < Count; ++Index) {
+  const float Side = Index == 0 ? -200.f : 200.f;
+  const float OffsetX = Stream.FRandRange(-150.f, 150.f);
+  const FVector Position = GetActorTransform().TransformPosition(
+      FVector(ChamberIndex * ChamberLength + OffsetX, Side, 100.f));
+  const FTransform SpawnTransform(GetActorRotation(), Position);
+  AMoonfallEnemy* Enemy = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+      AMoonfallEnemy::StaticClass(), SpawnTransform);
+  if (!IsValid(Enemy)) continue;
+  Enemy->bElite = bEliteEncounter;
+  Enemy->bBoss = false;
+  Enemy->Tags.Add(FName(TEXT("MoonfallDungeonEncounter")));
+  // A limited seeded variation, further scaled by the existing enemy
+  // BeginPlay level balancing; no explosion of per-frame AI instances.
+  Enemy->Health = bEliteEncounter ? 145.f : 75.f;
+  Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
+  Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
+  Enemy->FinishSpawning(SpawnTransform);
+  ++Spawned;
+ }
+ if (Spawned == 0) return false; // Allow retry on a later entry event.
+ OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
+ return true;
 }
