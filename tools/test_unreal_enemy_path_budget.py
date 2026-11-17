@@ -61,9 +61,13 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertEqual(tick.count("UGameplayStatics::GetPlayerPawn(this, 0)"), 2)
 
     def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
-        self.assertIn('const bool bFastPerception = bElite ||', self.source)
-        self.assertIn('ActorHasTag(FName(TEXT("DungeonScout")))', self.source)
-        self.assertIn('&& ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))', self.source)
+        perception = self.source.split("const bool bFastPerception =", 1)[1].split(";", 1)[0]
+        self.assertIn("bElite ||", perception)
+        self.assertIn('ActorHasTag(FName(TEXT("DungeonScout")))', perception)
+        self.assertIn('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))', perception)
+        self.assertIn("&&", perception)
+        self.assertLess(perception.index('ActorHasTag(FName(TEXT("DungeonScout")))'),
+                        perception.index('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))'))
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
         self.assertIn("NextSightCheckAt = Now + SightInterval", self.source)
 
