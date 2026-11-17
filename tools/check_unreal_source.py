@@ -5745,5 +5745,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(spawn.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
+
+    def test_dungeon_standard_and_final_room_triggers_wait_for_closed_menus(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel", 1)[0]
+        chamber = dungeon.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        final = dungeon.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        menu_guards = (
+            "Hero->bOptionsOpen", "Hero->bInventoryOpen",
+            "Hero->bCharacterStatsOpen", "Hero->bResidentContextOpen"
+        )
+        for guard in menu_guards:
+            self.assertIn(guard, bonus)
+            self.assertIn(guard, chamber)
+            self.assertIn(guard, final)
+            self.assertLess(chamber.index(guard), chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
+            self.assertLess(final.index(guard), final.index("StartFinalBossChamber(Hero)"))
+        self.assertLess(chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)", final)
+
 if __name__ == "__main__":
     unittest.main()
