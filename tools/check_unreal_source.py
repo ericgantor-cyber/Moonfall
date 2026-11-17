@@ -5342,6 +5342,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )
         self.assertIn("Sign->SetRelativeLocation(Entry.Position)", arena)
 
+    def test_arena_blocks_reuse_loaded_mesh_and_register_once(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        block = arena.split("void AMoonfallArena::CreateBlock(", 1)[1].split(
+            "FVector AMoonfallArena::GetStartingSanctuaryLocation()", 1
+        )[0]
+        self.assertIn("DungeonRoad->GetStaticMesh()", block)
+        self.assertIn("if (!Cube)", block)
+        self.assertIn("Block->SetStaticMesh(Cube);", block)
+        self.assertIn("Block->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", block)
+        self.assertIn("Block->SetCollisionResponseToAllChannels(ECR_Block);", block)
+        self.assertEqual(block.count("Block->RegisterComponent();"), 1)
+        self.assertLess(block.index("Block->SetStaticMesh(Cube);"),
+                        block.index("Block->RegisterComponent();"))
+        self.assertLess(block.index("Block->SetRelativeScale3D(Scale);"),
+                        block.index("Block->RegisterComponent();"))
+        self.assertLess(block.index("Block->SetCollisionEnabled("),
+                        block.index("Block->RegisterComponent();"))
+        self.assertNotIn("LoadObject<UStaticMesh>", block)
+
     def test_starting_sanctuary_is_continuous_and_new_save_only(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
