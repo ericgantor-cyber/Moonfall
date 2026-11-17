@@ -260,12 +260,24 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {
+ if (bHasStartingSanctuaryAnchor || !GetWorld()) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  const AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena) || !Arena->bEnableStartingSanctuary) continue;
+  const FVector Anchor = Arena->GetStartingSanctuaryLocation();
+  if (!Anchor.ContainsNaN() && Anchor.SizeSquared() < 1.0e14f) {
+   StartingSanctuaryAnchor = Anchor;
+   bHasStartingSanctuaryAnchor = true;
+  }
+  break; // Never follow a different authored arena on later HUD frames.
+ }
+}
+
 bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
- if (!bStartingSanctuaryPlaced || !bHasInitialSpawnTransform
-     || GetActorLocation().ContainsNaN()) return false;
- const FVector Center = InitialSpawnTransform.GetLocation();
- return !Center.ContainsNaN()
-   && FVector::DistSquared2D(GetActorLocation(), Center) <= FMath::Square(1450.f);
+ if (!bHasStartingSanctuaryAnchor || GetActorLocation().ContainsNaN()) return false;
+ return FVector::DistSquared2D(GetActorLocation(), StartingSanctuaryAnchor)
+   <= FMath::Square(1450.f);
 }
 
 void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
@@ -282,6 +294,8 @@ void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
    RespawnCheckpointLocation = GetActorLocation();
    bHasRespawnCheckpointLocation = true;
    bStartingSanctuaryPlaced = true;
+   StartingSanctuaryAnchor = Start;
+   bHasStartingSanctuaryAnchor = true;
    // Shrine discovery remains in the shrine's own overlap/spawn checks.
    for (TActorIterator<AMoonfallCheckpointShrine> ShrineIt(GetWorld()); ShrineIt; ++ShrineIt)
     if (IsValid(*ShrineIt)) ShrineIt->CheckHeroAtSpawn(this);
@@ -336,6 +350,13 @@ void AMoonfallHeroPawn::BeginPlay() {
     this, &AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary);
  }
  bWorldProgressInitialized = true;
+ // Returning saves also need the Sanctuary location for contextual guidance.
+ // Find it once now and retry once next tick if the GameMode spawns the arena later.
+ CacheStartingSanctuaryAnchor();
+ if (!bHasStartingSanctuaryAnchor && GetWorld()) {
+  GetWorldTimerManager().SetTimerForNextTick(
+    this, &AMoonfallHeroPawn::CacheStartingSanctuaryAnchor);
+ }
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // When a shrine spawned before this pawn, BeginPlay overlap notifications
  // may have happened before save load was complete. A one-time scan after
