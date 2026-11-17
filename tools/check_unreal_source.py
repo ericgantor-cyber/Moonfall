@@ -5684,5 +5684,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("$script:seenOut = [long]0", center)
         self.assertIn("$script:seenErr = [long]0", center)
 
+
+    def test_trusted_unreal_compile_workflow_proves_both_native_targets(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "unreal-compile-windows.yml").read_text(encoding="utf-8")
+        build = (ROOT.parents[1] / "Build" /
+                 "Build-Windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("on:\\n  workflow_dispatch:", workflow)
+        self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-4]", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("Compile Unreal Editor and Game Win64 Development targets", workflow)
+        self.assertIn("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly", workflow)
+        self.assertIn('& $build MoonfallUnrealEditor Win64 Development', build)
+        self.assertIn('& $build MoonfallUnreal Win64 Development', build)
+        self.assertIn('if ($LASTEXITCODE -ne 0)', build)
+        self.assertIn("NativeCompile-Evidence.txt", workflow)
+        self.assertIn('Commit: $env:GITHUB_SHA', workflow)
+        self.assertIn('Runner: $env:RUNNER_NAME', workflow)
+        self.assertIn('Targets: MoonfallUnrealEditor Win64 Development; MoonfallUnreal Win64 Development', workflow)
+        self.assertIn('Scope: compile only; packaging, game launch and gameplay NOT tested', workflow)
+        self.assertIn('name: MoonfallUnreal-Native-Compile-Evidence', workflow)
+        self.assertIn('if-no-files-found: error', workflow)
+        self.assertLess(workflow.index("if ($LASTEXITCODE -ne 0) { throw"),
+                        workflow.index("Set-Content -LiteralPath $evidence"))
+        self.assertLess(workflow.index("Set-Content -LiteralPath $evidence"),
+                        workflow.index("Preserve native Editor and Game compile proof"))
+
 if __name__ == "__main__":
     unittest.main()
