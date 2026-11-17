@@ -670,37 +670,83 @@ void AMoonfallCombatHUD::DrawHUD()
      Screen.X,Screen.Y+7.f,nullptr,0.75f);
   }
  }
- // Contextual onboarding: a readable objective in the sanctuary only.
- // The quest state and shrine discovery come from existing saved progression;
- // no new autosave fields, input modes, per-frame actor scans or timers.
- if (Hero->IsNearStartingSanctuary()
-     && Canvas->SizeX >= 760.f && Canvas->SizeY >= 480.f) {
-  FString Objective = TEXT("Find the Firstlight Shrine");
-  if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
-   const int32 GuideQuest = Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")));
-   if (GuideQuest == 0) {
-    Objective = TEXT("Talk to the Wandering Guide (right-click)");
-   } else if (GuideQuest == 1) {
-    // Practice sentries award XP, not salvage. Real gear from world combat
-    // can be dismantled in the inventory to meet this quest requirement.
-    constexpr int32 GuideSalvageCost = 10;
-    Objective = Hero->Salvage >= GuideSalvageCost
-      ? TEXT("Return to the Guide with 10 salvage (right-click)")
-      : FString::Printf(TEXT("Find gear; salvage it in B (%d / 10)"),
-          FMath::Clamp(Hero->Salvage, 0, GuideSalvageCost));
-   } else {
-    Objective = TEXT("Practice north, then take the south gate to six regions");
+ // World-wide quest tracker, driven only by existing persistent progression.
+ // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
+ const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
+ const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
+ if (bCanShowQuestTracker) {
+  const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
+  const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
+  const int32 RegionsCleared = FMath::Clamp(Hero->GetClearedDungeonZoneCount(), 0, 6);
+  FString Objective;
+  FString Context;
+  if (bSanctuaryObjective) {
+   Objective = TEXT("Find the Firstlight Shrine");
+   Context = TEXT("Explore the sanctuary and its northern practice area");
+   if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
+    const int32 GuideQuest = Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")));
+    if (GuideQuest == 0) {
+     Objective = TEXT("Talk to the Wandering Guide (right-click)");
+     Context = TEXT("Accept the Guide's salvage contract");
+    } else if (GuideQuest == 1) {
+     // Practice sentries award XP, not salvage. Obtain world gear and dismantle
+     // it in the inventory to complete this existing quest.
+     constexpr int32 GuideSalvageCost = 10;
+     Objective = Hero->Salvage >= GuideSalvageCost
+       ? TEXT("Return to the Guide with 10 salvage (right-click)")
+       : FString::Printf(TEXT("Find gear; salvage it in B (%d / 10)"),
+           FMath::Clamp(Hero->Salvage, 0, GuideSalvageCost));
+     Context = Hero->Salvage >= GuideSalvageCost
+       ? TEXT("Quest ready for turn-in")
+       : TEXT("Practice gives XP; dungeon equipment can be salvaged");
+    } else {
+     Objective = TEXT("Practice north, then take the south gate to six regions");
+     Context = TEXT("Discover dungeon entrances and defeat their bosses");
+    }
    }
+  } else if (Cleared >= 30) {
+   Objective = TEXT("All 30 dungeon bosses defeated");
+   Context = TEXT("Explore remaining secrets and settlements");
+  } else if (Discovered < 30) {
+   const int32 NextZone = Hero->GetNextUnchartedDungeonZone();
+   Objective = NextZone >= 0 && NextZone < 6
+     ? FString::Printf(TEXT("Explore region %d: discover more dungeon entrances"), NextZone + 1)
+     : TEXT("Discover more dungeon entrances");
+   Context = TEXT("Use J for the atlas; follow the connected dungeon road");
+  } else {
+   Objective = TEXT("Defeat the remaining dungeon bosses");
+   Context = TEXT("Use J for the atlas; revisit unfinished dungeons");
   }
-  const float ObjectiveWidth = FMath::Min(530.f, Canvas->SizeX - 40.f);
+  const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
+  const float Left = 20.f;
+  const float Top = 78.f;
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
-    20.f, 78.f, ObjectiveWidth, 56.f);
+    Left, Top, Width, 124.f);
   DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
-    20.f, 78.f, 4.f, 56.f);
-  DrawText(TEXT("SHATTERED SANCTUARY  |  FIRST STEPS"),
-    FLinearColor(0.72f, 0.92f, 1.f), 34.f, 84.f, nullptr, 0.86f);
+    Left, Top, 4.f, 124.f);
+  DrawText(bSanctuaryObjective
+      ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
+      : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
+    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
   DrawText(Objective, FLinearColor::White,
-    34.f, 109.f, nullptr, Canvas->SizeX < 1050.f ? 0.72f : 0.86f);
+    Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
+  DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
+    Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
+  // Two stable progress bars: discovering all 30 entrances, then clearing
+  // all 30 bosses. Never conflate visited regions with defeated bosses.
+  const float TrackWidth = FMath::Max(20.f, Width - 28.f);
+  DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
+    Left + 14.f, Top + 81.f, TrackWidth, 5.f);
+  DrawRect(FLinearColor(0.27f, 0.74f, 0.90f),
+    Left + 14.f, Top + 81.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
+  DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
+    Left + 14.f, Top + 92.f, TrackWidth, 5.f);
+  DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
+    Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
+  DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
+       Discovered, Cleared, RegionsCleared),
+    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
