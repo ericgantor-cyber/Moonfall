@@ -225,6 +225,13 @@ $timer.Add_Tick({
         }
     }
     if ($script:process -and $script:process.HasExited) {
+        # A fast build can write more than one polling chunk. Drain the saved
+        # logs before stopping the timer or reporting the final exit status.
+        $outPending = (Test-Path -LiteralPath $script:outLog -PathType Leaf) -and
+            ((Get-Item -LiteralPath $script:outLog).Length -gt $script:seenOut)
+        $errPending = (Test-Path -LiteralPath $script:errLog -PathType Leaf) -and
+            ((Get-Item -LiteralPath $script:errLog).Length -gt $script:seenErr)
+        if ($outPending -or $errPending) { return }
         $timer.Stop()
         $check.Enabled = $true
         $install.Enabled = $true
