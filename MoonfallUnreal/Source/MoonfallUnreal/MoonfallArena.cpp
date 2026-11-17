@@ -100,10 +100,10 @@ void AMoonfallArena::BeginPlay() {
   // Static text never ticks, does not block combat, and requires no new input.
   struct FStarterSign { const TCHAR* Name; const TCHAR* Message; FVector Position; };
   const FStarterSign Signs[] = {
-   {TEXT("SanctuaryWelcome"), TEXT("SHATTERED SANCTUARY\\nFIRSTLIGHT SHRINE"), FVector(0.f, 3900.f, 140.f)},
-   {TEXT("SanctuaryGuide"), TEXT("MEET THE GUIDE\\nRIGHT-CLICK TO TALK"), FVector(100.f, 3290.f, 140.f)},
-   {TEXT("SanctuaryControls"), TEXT("LEFT CLICK: ATTACK   RIGHT CLICK: TALK / SPELL\\nB: INVENTORY   C: CHARACTER   J: ATLAS   ESC: SETTINGS"), FVector(-520.f, 3000.f, 150.f)},
-   {TEXT("SanctuaryExit"), TEXT("SOUTH GATE: CROSSROADS\\nFOLLOW THE ROAD TO ALL SIX REGIONS"), FVector(0.f, 2430.f, 140.f)}
+   {TEXT("SanctuaryWelcome"), TEXT("SHATTERED SANCTUARY\nFIRSTLIGHT SHRINE"), FVector(0.f, 3900.f, 140.f)},
+   {TEXT("SanctuaryGuide"), TEXT("MEET THE GUIDE\nRIGHT-CLICK TO TALK"), FVector(100.f, 3290.f, 140.f)},
+   {TEXT("SanctuaryControls"), TEXT("LEFT CLICK: ATTACK   RIGHT CLICK: TALK / SPELL\nB: INVENTORY   C: CHARACTER   J: ATLAS   ESC: SETTINGS"), FVector(-520.f, 3000.f, 150.f)},
+   {TEXT("SanctuaryExit"), TEXT("SOUTH GATE: CROSSROADS\nFOLLOW THE ROAD TO ALL SIX REGIONS"), FVector(0.f, 2430.f, 140.f)}
   };
   for (const FStarterSign& Entry : Signs) {
    UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(this, FName(Entry.Name));
