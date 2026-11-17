@@ -411,6 +411,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
  if (!FMath::IsFinite(Distance)) return;
+ // Sanctuary practice sentries never pursue players through the safe village.
+ // Only deliberate close-range approaches activate their forgiving attacks.
+ const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ if (bSanctuaryPractice && Distance > 450.f) {
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
  // Far-away enemies use a slower think rate. Return to responsive combat
  // polling when the hero approaches, without per-frame work on idle mobs.
  const bool bInCombatArea = Distance < 2200.f;
@@ -887,7 +899,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const float StrafeSpeed = bBoss ? 95.f : 70.f;
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
-   if (!StrafeStep.IsNearlyZero()) {
+   if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero()) {
     FHitResult StrafeHit;
     AddActorWorldOffset(StrafeStep, true, &StrafeHit);
    }
