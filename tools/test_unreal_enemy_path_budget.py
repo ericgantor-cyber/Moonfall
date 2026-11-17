@@ -28,7 +28,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("class AMoonfallHeroPawn;", header)
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("AMoonfallHeroPawn* Hero = CachedHero.Get();", tick)
-        self.assertIn("if (!IsValid(Hero))", tick)
+        self.assertIn("if (!IsValid(Hero) || !Hero->IsPlayerControlled())", tick)
         self.assertIn("CachedHero = Hero;", tick)
         self.assertIn("const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;", tick)
 
@@ -43,6 +43,12 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("WindupEndsAt = -1.f;", menu_guard)
         self.assertIn("bComboSecondHitPending = false;", menu_guard)
         self.assertIn("NextAttackAt = FMath::Max(", menu_guard)
+
+    def test_unpossessed_old_pawn_is_not_retained_as_target(self):
+        tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if (!IsValid(Hero) || !Hero->IsPlayerControlled())", tick)
+        self.assertLess(tick.index("!Hero->IsPlayerControlled()"),
+                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
 
     def test_hero_cache_refreshes_after_possession_switch(self):
         header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
