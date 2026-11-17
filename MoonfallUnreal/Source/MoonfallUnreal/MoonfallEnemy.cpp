@@ -26,7 +26,12 @@ void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
- const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ CachedHero = Player;
+ // Spread one-second possession refreshes across a crowd instead of making
+ // every freshly spawned enemy query the player controller on the same frame.
+ NextHeroCacheRefreshAt = GetWorld()->GetTimeSeconds() + 1.f
+   + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  // Practice sentries stay predictable for every character level, while
  // all ordinary dungeon mobs and bosses retain the existing level scaling.
  const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
@@ -343,9 +348,26 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  // Pause hostile behavior during both gameplay menus and after hero defeat.
  // Cancel winding attacks so closing a menu never delivers an instant hit.
- AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ AMoonfallHeroPawn* Hero = CachedHero.Get();
+ // An unpossessed old pawn may remain valid after respawn or hero switching.
+ // Never allow it to receive another cached-target attack.
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()) {
+  // Reacquire immediately when the previous hero is destroyed or unpossessed.
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
+ } else if (Now >= NextHeroCacheRefreshAt) {
+  // The previous pawn may still exist after possession changes. Refresh at
+  // most once per second instead of targeting a stale but valid hero forever.
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
+ }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+     || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
@@ -394,7 +416,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
-  Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
+  const FVector DesiredScale(0.85f * Scale / FMath::Max(0.75f,Squash),
+    0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
+  // In large worlds, idle enemies otherwise send the same mesh transform
+  // every AI tick. Preserve all attack tells and hit reactions.
+  if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
+   Body->SetRelativeScale3D(DesiredScale);
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
@@ -551,7 +578,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const bool bWithinDivineMarker = bDivineSignatureActive
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
   const bool bWithinBasicAttack = !bDivineSignatureActive
-    && bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;
+    && bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
@@ -660,7 +687,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
-  const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
+  const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;
   const float WarningScale = IsValid(Viewer) ? Viewer->BossWarningScale : 1.f;
   const bool bBossCrush = bBoss && CurrentAttackMultiplier > 2.f;
   const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
@@ -688,10 +715,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  // Ordinary enemies investigate a recently seen hero rather than tracking
  // the player through solid walls. Boss encounters retain full arena awareness.
- // Visibility traces run at most once per 0.45 seconds per ordinary enemy.
+ // Keep close-range awareness responsive, while reducing costly
+ // visibility traces from distant ordinary enemies in crowded encounters.
+ // Elites and dungeon scouts retain their existing faster perception rate.
  if (!bBoss && Now >= NextSightCheckAt) {
   const bool bWasVisible = bCanSeeHero;
-  NextSightCheckAt = Now + 0.45f + 0.05f * static_cast<float>(GetUniqueID() % 3u);
+  const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));
+  const float SightInterval = !bFastPerception && Distance > 1200.f ? 0.7f : 0.45f;
+  NextSightCheckAt = Now + SightInterval
+    + 0.05f * static_cast<float>(GetUniqueID() % 3u);
   FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
   PerceptionParams.AddIgnoredActor(this);
   FHitResult PerceptionHit;
@@ -825,7 +857,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt) {
-    NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+    // Spread pack path queries predictably without reducing close combat
+    // responsiveness. Ordinary distant pursuers refresh less frequently;
+    // bosses and elites keep their existing half-second navigation budget.
+    const float PathRefreshBase = (!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f;
+    NextPathRefreshAt = Now + PathRefreshBase
+      + 0.05f * static_cast<float>(GetUniqueID() % 5u);
     FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);

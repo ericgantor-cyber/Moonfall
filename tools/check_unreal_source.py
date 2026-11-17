@@ -1626,6 +1626,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         menu = tick.split("// Pause hostile behavior during both gameplay menus", 1)[1].split(
             "// A shatter follow-up expires", 1)[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
+        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
+        self.assertIn("CancelDivineSignature();", menu)
         for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
                        "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
                        "LockedAttackDirection = FVector::ZeroVector;"):
@@ -1635,7 +1637,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
         self.assertLess(tick.index("// Pause hostile behavior during both gameplay menus"),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 1)
+        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
+        self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
+        self.assertLess(tick.index("if (!IsValid(Hero) || !Hero->IsPlayerControlled())"),
+                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
 
     def test_batch_guard_validates_timers_before_stance(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
@@ -2625,7 +2630,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;", damage)
         self.assertIn("Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32", self.hud)
         self.assertIn("const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];", self.hud)
-        self.assertIn("const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;", self.hud)
+        self.assertIn("const float Age = WorldTime - Hit.Time;", self.hud)
         self.assertIn("!FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f", self.hud)
         self.assertIn("Screen.X + HorizontalOffset", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
@@ -3307,7 +3312,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float LastSawHeroAt = -100.f;", self.enemy_h)
         self.assertIn("FVector LastKnownHeroPosition = FVector::ZeroVector;", self.enemy_h)
         self.assertIn("if (!bBoss && Now >= NextSightCheckAt)", tick)
-        self.assertIn("NextSightCheckAt = Now + 0.45f", tick)
+        self.assertIn("NextSightCheckAt = Now + SightInterval", tick)
+        self.assertIn("const float SightInterval = !bFastPerception && Distance > 1200.f ? 0.7f : 0.45f;", tick)
         self.assertIn("SCENE_QUERY_STAT(MoonfallEnemyPerception)", tick)
         self.assertIn("PerceptionParams.AddIgnoredActor(this);", tick)
         self.assertIn("const FVector EnemySightPoint = EnemyPosition + FVector(0.f, 0.f, 60.f);", tick)
@@ -3572,7 +3578,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(self.enemy_cpp.count("LockedAttackDirection = Difference.GetSafeNormal2D();"), 2)
         self.assertIn("const bool bSpinningSweep = bBoss && BossSpecialMove == 4;", self.enemy_cpp)
         self.assertIn("const bool bWithinAttackArc", self.enemy_cpp)
-        self.assertIn("bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;", self.enemy_cpp)
+        self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;", self.enemy_cpp)
         self.assertIn("if (bWithinDivineMarker || bWithinBasicAttack)", self.enemy_cpp)
 
     def test_enemy_attacks_cannot_go_through_cover(self):

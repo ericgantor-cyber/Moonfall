@@ -21,8 +21,23 @@ class CombatHudScanTests(unittest.TestCase):
         self.assertLess(hud.index("NearbyDamageEnemies.Add(E)"),
                         hud.index("if (E->Health <= 0.f) continue;"))
         self.assertIn("DistSq <= FMath::Square(6000.f)", hud)
+        self.assertIn("if (bHasRecentDamage) NearbyDamageEnemies.Add(E);", hud)
+        self.assertIn("const float Age = WorldTime - Hit.Time;", hud)
+        self.assertIn("Age >= 0.f && Age <= 0.8f", hud)
         self.assertIn("if (VisibleDamageNumbers >= 32) break;", hud)
         self.assertIn("AMoonfallEnemy::DamageHistorySize", hud)
+
+    def test_damage_projection_reuses_controller(self):
+        self.assertIn("const APlayerController* DamageProjectionPC = GetOwningPlayerController();", self.source)
+        self.assertIn("DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition, Screen)", self.source)
+        damage_loop = self.source.split("int32 VisibleDamageNumbers = 0;", 1)[1]
+        self.assertNotIn("GetOwningPlayerController()", damage_loop)
+
+    def test_damage_labels_reuse_enemy_position(self):
+        self.assertIn("const FVector EnemyDamageLocation = Enemy->GetActorLocation();", self.source)
+        self.assertIn("const FVector WorldTextPosition = EnemyDamageLocation +", self.source)
+        damage_loop = self.source.split("int32 VisibleDamageNumbers = 0;", 1)[1]
+        self.assertEqual(damage_loop.count("Enemy->GetActorLocation()"), 1)
 
     def test_boss_and_posture_targets_remain_nearest(self):
         hud = self.source

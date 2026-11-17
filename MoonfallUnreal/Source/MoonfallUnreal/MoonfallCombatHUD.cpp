@@ -583,8 +583,21 @@ void AMoonfallCombatHUD::DrawHUD()
   if (EnemyLocation.ContainsNaN()) continue;
   const float DistSq = FVector::DistSquared(EnemyLocation, HeroLocation);
   if (!FMath::IsFinite(DistSq)) continue;
-  // Keep defeated enemies here: their final damage labels remain visible.
-  if (DistSq <= FMath::Square(6000.f)) NearbyDamageEnemies.Add(E);
+  // Keep defeated enemies eligible for final-hit feedback, but only retain
+  // actors that have a recent visible damage entry. Most idle world enemies
+  // never enter the per-frame damage-label projection pass.
+  if (DistSq <= FMath::Square(6000.f)) {
+   bool bHasRecentDamage = false;
+   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
+    const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
+    const float Age = WorldTime - Hit.Time;
+    if (Age >= 0.f && Age <= 0.8f && FMath::IsFinite(Hit.Amount) && Hit.Amount > 0.f) {
+     bHasRecentDamage = true;
+     break;
+    }
+   }
+   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
+  }
   if (E->Health <= 0.f) continue;
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
@@ -884,19 +897,23 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
+ // Reuse one controller lookup for every projected damage label this frame.
+ const APlayerController* DamageProjectionPC = GetOwningPlayerController();
  int32 VisibleDamageNumbers = 0;
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
   if (VisibleDamageNumbers >= 32) break;
   if (!IsValid(Enemy)) continue;
+  // Capture position once per target; a rapid combo can draw several labels.
+  const FVector EnemyDamageLocation = Enemy->GetActorLocation();
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
-   const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
+   const float Age = WorldTime - Hit.Time;
    if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
    FVector2D Screen;
    // Offset entries so consecutive attacks on the same target remain readable.
    const float HorizontalOffset = static_cast<float>(Slot - 1) * 24.f;
-   const FVector WorldTextPosition = Enemy->GetActorLocation() + FVector(0.f, 0.f, 175.f + Age * 65.f);
-   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
+   const FVector WorldTextPosition = EnemyDamageLocation + FVector(0.f, 0.f, 175.f + Age * 65.f);
+   if (DamageProjectionPC && DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
        && Screen.X + HorizontalOffset >= 0.f && Screen.X + HorizontalOffset < Canvas->SizeX
        && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
     ++VisibleDamageNumbers;
