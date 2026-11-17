@@ -271,11 +271,12 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
      || GetChamberType(ChamberIndex) == 5) return false;
 
  UWorld* World = GetWorld();
- // Never add bonus crowds while a live boss encounter is underway.
- // The room remains retryable after the boss has been defeated.
+ // Never add a bonus crowd during this dungeon's boss fight.
+ // Other dungeons in the shared six-zone world remain independent.
  for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
   if (IsValid(*It) && !It->IsActorBeingDestroyed()
-      && It->bBoss && FMath::IsFinite(It->Health) && It->Health > 0.f)
+      && It->GetOwner() == this && It->bBoss
+      && FMath::IsFinite(It->Health) && It->Health > 0.f)
    return false;
  }
  TArray<AMoonfallEnemy*> GroupActors;
