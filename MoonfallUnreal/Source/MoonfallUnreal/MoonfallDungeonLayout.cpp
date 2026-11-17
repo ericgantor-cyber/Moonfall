@@ -302,34 +302,43 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
   const int32 Column = Member / 2;
   const float X = (static_cast<float>(Column) - 2.5f) * 120.f;
   const float Y = (Member % 2 == 0) ? -240.f : 240.f;
-  const FVector Position = GetActorTransform().TransformPosition(
-    FVector(ChamberIndex * ChamberLength + X, Y, 110.f));
-  if (World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
-        ECC_Pawn, FCollisionShape::MakeSphere(55.f), CollisionParams)) {
+  bool bSpawnedMember = false;
+  // Bounded offsets stay inside the room's side lanes, away from Y=0.
+  // Successful attempts stop immediately; never exceed GroupSize actors.
+  for (int32 Attempt = 0; Attempt < 3; ++Attempt) {
+   const float RetryX = Attempt == 0 ? 0.f : (Attempt == 1 ? 45.f : -45.f);
+   const FVector Position = GetActorTransform().TransformPosition(
+     FVector(ChamberIndex * ChamberLength + X + RetryX, Y, 110.f));
+   if (World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
+         ECC_Pawn, FCollisionShape::MakeSphere(55.f), CollisionParams))
+    continue;
+   const FTransform SpawnTransform(GetActorRotation(), Position);
+   AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
+     AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+   if (!IsValid(Enemy)) continue;
+   Enemy->bBoss = false;
+   Enemy->bElite = Group > 0 && Member == GroupSize - 1;
+   Enemy->EncounterLevelOverride = Level;
+   Enemy->DungeonChamberIndex = ChamberIndex;
+   Enemy->Health = Enemy->bElite ? 145.f : 75.f;
+   Enemy->AttackDamage = Enemy->bElite ? 11.f : 7.f;
+   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
+   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonBonus")));
+   if (Member == 0) Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+   Enemy->FinishSpawning(SpawnTransform);
+   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
+    if (IsValid(Enemy)) Enemy->Destroy();
+    continue;
+   }
+   GroupActors.Add(Enemy);
+   bSpawnedMember = true;
+   break;
+  }
+  if (!bSpawnedMember) {
    bAllSpawned = false;
    break;
   }
-  const FTransform SpawnTransform(GetActorRotation(), Position);
-  AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
-    AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
-    ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
-  if (!IsValid(Enemy)) { bAllSpawned = false; break; }
-  Enemy->bBoss = false;
-  Enemy->bElite = Group > 0 && Member == GroupSize - 1;
-  Enemy->EncounterLevelOverride = Level;
-  Enemy->DungeonChamberIndex = ChamberIndex;
-  Enemy->Health = Enemy->bElite ? 145.f : 75.f;
-  Enemy->AttackDamage = Enemy->bElite ? 11.f : 7.f;
-  Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
-  Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonBonus")));
-  if (Member == 0) Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
-  Enemy->FinishSpawning(SpawnTransform);
-  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
-   if (IsValid(Enemy)) Enemy->Destroy();
-   bAllSpawned = false;
-   break;
-  }
-  GroupActors.Add(Enemy);
  }
  if (!bAllSpawned || GroupActors.Num() != GroupSize) {
   // A rejected member must never leave a partial 5..11 pack or consume
