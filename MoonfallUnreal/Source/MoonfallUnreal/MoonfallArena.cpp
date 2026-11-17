@@ -104,9 +104,10 @@ void AMoonfallArena::BeginPlay() {
   Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
   Sign->SetWorldSize(65.f);
   Sign->SetTextRenderColor(FColor(114, 210, 236));
-  Sign->RegisterComponent();
   const float ZoneCenterX = (static_cast<float>(Zone * 5 + 2) - 14.5f) * 1350.f;
   Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));
+  // Initialize before registration to avoid a post-register transform update.
+  Sign->RegisterComponent();
   DungeonZoneSigns.Add(Sign);
  }
  if (bEnableStartingSanctuary) {
@@ -155,8 +156,8 @@ void AMoonfallArena::BeginPlay() {
    Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
    Sign->SetWorldSize(36.f);
    Sign->SetTextRenderColor(FColor(180, 225, 245));
-   Sign->RegisterComponent();
    Sign->SetRelativeLocation(Entry.Position);
+   Sign->RegisterComponent();
    SanctuaryGuideSigns.Add(Sign);
   }
  }
