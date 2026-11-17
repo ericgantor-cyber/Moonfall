@@ -33,12 +33,34 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube) Block->SetStaticMesh(Cube);
 }
+FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
+ return GetActorLocation() + FVector(0.f, 3500.f, 120.f);
+}
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
- CreateBlock(FVector(0,1500,200),FVector(30,1,5));
+ // North gate opens toward the new-player sanctuary, opposite the dungeon road.
+ // Two wall segments leave the same 400-unit walking corridor as the south gate.
+ CreateBlock(FVector(-850,1500,200),FVector(13,1,5));
+ CreateBlock(FVector(850,1500,200),FVector(13,1,5));
+ if (bEnableStartingSanctuary) {
+  // One continuous walkable surface, with no level transition or loading door.
+  CreateBlock(FVector(0,1850,-20),FVector(5,8,0.4f));
+  CreateBlock(FVector(0,3500,-60),FVector(24,23,1));
+  // Ruined outer walls stop before the central exit toward the old Crossroads.
+  CreateBlock(FVector(-1200,3500,130),FVector(1,23,3.6f));
+  CreateBlock(FVector(1200,3500,130),FVector(1,23,3.6f));
+  CreateBlock(FVector(-650,4600,130),FVector(10,1,3.6f));
+  CreateBlock(FVector(650,4600,130),FVector(10,1,3.6f));
+  // Four moonstone relic plinths frame the initial shrine without collision
+  // near the new-player spawn. Geometry is static and never ticks.
+  CreateBlock(FVector(-900,3850,60),FVector(1.3f,1.3f,2.4f));
+  CreateBlock(FVector(900,3850,60),FVector(1.3f,1.3f,2.4f));
+  CreateBlock(FVector(-900,2800,60),FVector(1.3f,1.3f,2.4f));
+  CreateBlock(FVector(900,2800,60),FVector(1.3f,1.3f,2.4f));
+ }
  // Southern gate: a 400-unit opening aligns with the walkable dungeon road.
  // Split only this boundary; retain divine encounters, NPCs and shrine layout.
  CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));
@@ -80,9 +102,12 @@ void AMoonfallArena::BeginPlay() {
  const FShrinePlacement Shrines[] = {
   {TEXT("crossroads_west"), FVector(-1120.f, -720.f, 0.f)},
   {TEXT("crimson_path"), FVector(1080.f, -750.f, 0.f)},
-  {TEXT("moonlit_path"), FVector(1040.f, 800.f, 0.f)}
+  {TEXT("moonlit_path"), FVector(1040.f, 800.f, 0.f)},
+  {TEXT("sanctuary_firstlight"), FVector(0.f, 3650.f, 0.f)}
  };
  for (const FShrinePlacement& Placement : Shrines) {
+  if (!bEnableStartingSanctuary && FCString::Strcmp(Placement.Id, TEXT("sanctuary_firstlight")) == 0)
+   continue;
   const FTransform SpawnTransform(FRotator::ZeroRotator, GetActorLocation() + Placement.Offset);
   AMoonfallCheckpointShrine* Shrine = Cast<AMoonfallCheckpointShrine>(
       UGameplayStatics::BeginDeferredActorSpawnFromClass(
@@ -109,14 +134,15 @@ void AMoonfallArena::BeginPlay() {
  // Fixed showcase NPC in the existing world. No separate gameplay mode.
  // The player or an interaction UI calls TryTalk; the actor never ticks.
  if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
-     AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
+     AMoonfallWorldNPC::StaticClass(), GetActorLocation() + (bEnableStartingSanctuary
+       ? FVector(260.f, 3320.f, 60.f) : FVector(-350.f, 650.f, 60.f)), FRotator::ZeroRotator)) {
   Guide->RaceId = 2; // Wood Elf
   Guide->SettlementId = FName(TEXT("Crossroads"));
   Guide->ResidentId = FName(TEXT("CrossroadsGuide"));
   Guide->FactionId = FName(TEXT("Wanderers"));
   Guide->SocialRole = FName(TEXT("Guide"));
   Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
-  Guide->Greeting = FText::FromString(TEXT("Every road belongs to the same world. Stay alert beyond the gate."));
+  Guide->Greeting = FText::FromString(TEXT("The Sanctuary is safe. Follow the southern gate to the Crossroads, then the road to all six regions."));
  }
  // Twelve fixed representatives from every playable ancestry, coexisting
  // in one Crossroads settlement. No NPC tick, random spawn or new game mode.
