@@ -100,7 +100,7 @@ void AMoonfallArena::BeginPlay() {
   if (!IsValid(Sign)) continue;
   Sign->SetupAttachment(GetRootComponent());
   Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS 1-5"), Zone + 1)));
+  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS %d-%d"), Zone + 1, Zone * 5 + 1, Zone * 5 + 5)));
   Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
   Sign->SetWorldSize(65.f);
   Sign->SetTextRenderColor(FColor(114, 210, 236));
