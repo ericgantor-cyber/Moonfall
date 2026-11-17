@@ -678,11 +678,19 @@ void AMoonfallCombatHUD::DrawHUD()
   FString Objective = TEXT("Find the Firstlight Shrine");
   if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
    const int32 GuideQuest = Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")));
-   Objective = GuideQuest == 0
-     ? TEXT("Talk to the Wandering Guide (right-click)")
-     : GuideQuest == 1
-       ? TEXT("Train to the north; then turn in the Guide's salvage contract")
-       : TEXT("Practice combat, then follow the south gate to six regions");
+   if (GuideQuest == 0) {
+    Objective = TEXT("Talk to the Wandering Guide (right-click)");
+   } else if (GuideQuest == 1) {
+    // Practice sentries award XP, not salvage. Real gear from world combat
+    // can be dismantled in the inventory to meet this quest requirement.
+    constexpr int32 GuideSalvageCost = 10;
+    Objective = Hero->Salvage >= GuideSalvageCost
+      ? TEXT("Return to the Guide with 10 salvage (right-click)")
+      : FString::Printf(TEXT("Find gear; salvage it in B (%d / 10)"),
+          FMath::Clamp(Hero->Salvage, 0, GuideSalvageCost));
+   } else {
+    Objective = TEXT("Practice north, then take the south gate to six regions");
+   }
   }
   const float ObjectiveWidth = FMath::Min(530.f, Canvas->SizeX - 40.f);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
