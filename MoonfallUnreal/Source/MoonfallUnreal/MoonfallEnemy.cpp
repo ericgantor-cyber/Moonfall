@@ -36,7 +36,8 @@ void AMoonfallEnemy::BeginPlay() {
  // all ordinary dungeon mobs and bosses retain the existing level scaling.
  const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
  SpawnBalanceLevel = bSanctuaryPracticeAtSpawn ? 1
-   : (IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1);
+   : (EncounterLevelOverride > 0 ? FMath::Clamp(EncounterLevelOverride, 1, 100)
+   : (IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1));
  const float Levels = static_cast<float>(SpawnBalanceLevel - 1);
  const float HPScale = 1.f + 0.035f * FMath::Min(Levels, 30.f) + 0.018f * FMath::Max(0.f, Levels - 30.f);
  const float DamageScale = 1.f + 0.012f * FMath::Min(Levels, 30.f) + 0.006f * FMath::Max(0.f, Levels - 30.f);

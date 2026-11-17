@@ -3934,6 +3934,92 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         combat.index("if (Enemy->IsActorBeingDestroyed()) {"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
+    def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        plan = layout.split("void AMoonfallDungeonLayout::PlanBonusEncounter()", 1)[1].split(
+            "bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[0]
+        self.assertIn("if (bBonusEncounterRolled) return;", plan)
+        self.assertIn("FRandomStream BonusRandom(GetEffectiveLayoutSeed() ^ 0x237B51);", plan)
+        self.assertIn("BonusRandom.FRand() < 0.25f", plan)
+        self.assertIn("Group < 3", plan)
+        self.assertIn("BonusRandom.RandRange(5, 11)", plan)
+        self.assertNotIn("SpawnActor", plan)
+        self.assertIn("PlanBonusEncounter();", layout)
+        self.assertIn("int32 GetBonusGroupSize(int32 GroupIndex) const;", layout_h)
+        self.assertIn("int32 GetBonusGroupChamber(int32 GroupIndex) const;", layout_h)
+        self.assertIn("int32 BonusGroupChambers[3] = {INDEX_NONE, INDEX_NONE, INDEX_NONE};", layout_h)
+        self.assertIn("for (const int32 PreferredType : {4, 3, 2, 1})", plan)
+        self.assertIn("GetChamberType(Chamber) == PreferredType", plan)
+        self.assertIn("BonusGroupChambers[Assigned++] = Chamber;", plan)
+        self.assertIn("Assigned < 3", plan)
+        self.assertIn("return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3", layout)
+        self.assertNotIn("SpawnActor", plan)
+        self.assertIn("OnBonusEncounterPlanned(bool bTriggered", layout_h)
+        self.assertIn("return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3", layout)
+
+    def test_bonus_groups_spawn_only_in_assigned_rooms_with_atomic_rollback(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("uint8 SpawnedBonusGroupsMask = 0;", layout_h)
+        self.assertIn("const int32 GroupSize = BonusGroupSizes[Group];", bonus)
+        self.assertIn("GroupSize < 5 || GroupSize > 11", bonus)
+        self.assertIn("BonusGroupChambers[Candidate] == ChamberIndex", bonus)
+        self.assertIn("(SpawnedBonusGroupsMask & GroupBit) != 0u", bonus)
+        self.assertIn("for (TActorIterator<AMoonfallEnemy> It(World); It; ++It)", bonus)
+        self.assertIn("It->GetOwner() == this && It->bBoss", bonus)
+        self.assertIn("FMath::IsFinite(It->Health) && It->Health > 0.f", bonus)
+        self.assertLess(bonus.index("It->GetOwner() == this && It->bBoss"),
+                        bonus.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("const int32 Column = Member / 2;", bonus)
+        self.assertIn("(static_cast<float>(Column) - 2.5f) * 120.f", bonus)
+        self.assertIn("(Member % 2 == 0) ? -240.f : 240.f", bonus)
+        self.assertNotIn("const int32 Row = Member / 4;", bonus)
+        self.assertIn("OverlapBlockingTestByChannel", bonus)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", bonus)
+        self.assertIn("Enemy->EncounterLevelOverride = Level;", bonus)
+        self.assertIn("Enemy->DungeonChamberIndex = ChamberIndex;", bonus)
+        self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", bonus)
+        self.assertIn("if (IsValid(Enemy)) Enemy->Destroy();", bonus)
+        self.assertLess(bonus.index("GroupActors.Num() != GroupSize"),
+                        bonus.index("SpawnedBonusGroupsMask |= GroupBit;"))
+        self.assertIn("OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);", bonus)
+        self.assertLess(chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"),
+                        chamber.index("if ((EnteredChambersMask & Bit) != 0u) return;"))
+        self.assertNotIn("MaxLiveWorldEnemies", bonus)
+
+    def test_dungeon_first_entry_level_lock_is_isolated_from_world_mobs(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 LockedEncounterLevel = 0;", layout_h)
+        self.assertIn("int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);", layout_h)
+        helper = layout.split("int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleEntrance(", 1)[0]
+        self.assertIn("if (LockedEncounterLevel <= 0", helper)
+        self.assertIn("Hero->IsPlayerControlled()", helper)
+        self.assertIn('int32 MinimumDungeonLevel = 1;', layout_h)
+        self.assertIn('int32 MaximumDungeonLevel = 100;', layout_h)
+        self.assertIn('UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty")', layout_h)
+        self.assertIn("const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);", helper)
+        self.assertIn("const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);", helper)
+        self.assertIn("LockedEncounterLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);", helper)
+        entrance = layout.split("void AMoonfallDungeonLayout::HandleEntrance(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[0]
+        self.assertIn("GetOrLockEncounterLevel(Hero);", entrance)
+        chamber = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);", chamber)
+        self.assertIn("Enemy->EncounterLevelOverride = EncounterLevel;", chamber)
+        self.assertLess(chamber.index("Enemy->EncounterLevelOverride = EncounterLevel;"),
+                        chamber.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn("int32 EncounterLevelOverride = 0;", self.enemy_h)
+        self.assertIn("EncounterLevelOverride > 0 ? FMath::Clamp(EncounterLevelOverride, 1, 100)", self.enemy_cpp)
+        self.assertIn("bSanctuaryPracticeAtSpawn ? 1", self.enemy_cpp)
+
     def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")

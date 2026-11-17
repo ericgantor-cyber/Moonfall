@@ -200,6 +200,150 @@ void AMoonfallDungeonLayout::BeginPlay()
      this, &AMoonfallDungeonLayout::HandleChamberOverlap);
 }
 
+int32 AMoonfallDungeonLayout::GetBonusGroupSize(int32 GroupIndex) const
+{
+ return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3
+   ? BonusGroupSizes[GroupIndex] : 0;
+}
+
+int32 AMoonfallDungeonLayout::GetBonusGroupChamber(int32 GroupIndex) const
+{
+ return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3
+   ? BonusGroupChambers[GroupIndex] : INDEX_NONE;
+}
+
+void AMoonfallDungeonLayout::PlanBonusEncounter()
+{
+ if (bBonusEncounterRolled) return;
+ bBonusEncounterRolled = true;
+ // Isolate the encounter roll from chamber RNG so treasure/elite outcomes
+ // cannot be changed by bonus group planning.
+ FRandomStream BonusRandom(GetEffectiveLayoutSeed() ^ 0x237B51);
+ bBonusEncounterActive = BonusRandom.FRand() < 0.25f;
+ if (bBonusEncounterActive) {
+  for (int32 Group = 0; Group < 3; ++Group)
+   BonusGroupSizes[Group] = BonusRandom.RandRange(5, 11);
+  // Assign exactly three distinct interior targets without changing the
+  // original chamber types, hazards, loot rolls, or boss encounter.
+  // Prefer non-combat rooms so a bonus pack cannot collide with the
+  // normal six-enemy chamber formation. Never replace hazards or bosses.
+  // Every 14-chamber dungeon has twelve interior rooms, only three hazards.
+  int32 Assigned = 0;
+  for (const int32 PreferredType : {4, 3, 2, 1}) {
+   for (int32 Chamber = 1; Chamber < ChamberCount - 1 && Assigned < 3; ++Chamber) {
+    if (GetChamberType(Chamber) == PreferredType)
+     BonusGroupChambers[Assigned++] = Chamber;
+   }
+  }
+  if (Assigned < 3) {
+   // Fail closed rather than selecting a hazard or final boss chamber.
+   bBonusEncounterActive = false;
+   for (int32 Group = 0; Group < 3; ++Group) BonusGroupSizes[Group] = 0;
+  }
+ }
+ // Planning never spawns an enemy or changes the existing chamber budget.
+ OnBonusEncounterPlanned(bBonusEncounterActive,
+   BonusGroupSizes[0], BonusGroupSizes[1], BonusGroupSizes[2]);
+}
+
+bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
+ AMoonfallHeroPawn* Hero, int32 ChamberIndex)
+{
+ if (!bBonusEncounterActive || !GetWorld() || !IsValid(Hero)
+     || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen)
+  return false;
+ int32 Group = INDEX_NONE;
+ for (int32 Candidate = 0; Candidate < 3; ++Candidate) {
+  if (BonusGroupChambers[Candidate] == ChamberIndex) {
+   Group = Candidate;
+   break;
+  }
+ }
+ if (Group == INDEX_NONE) return false;
+ const uint8 GroupBit = static_cast<uint8>(1u << Group);
+ if ((SpawnedBonusGroupsMask & GroupBit) != 0u) return true;
+ const int32 GroupSize = BonusGroupSizes[Group];
+ const int32 Level = GetOrLockEncounterLevel(Hero);
+ if (GroupSize < 5 || GroupSize > 11 || Level <= 0
+     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
+     || GetChamberType(ChamberIndex) == 5) return false;
+
+ UWorld* World = GetWorld();
+ // Never add a bonus crowd during this dungeon's boss fight.
+ // Other dungeons in the shared six-zone world remain independent.
+ for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
+  if (IsValid(*It) && !It->IsActorBeingDestroyed()
+      && It->GetOwner() == this && It->bBoss
+      && FMath::IsFinite(It->Health) && It->Health > 0.f)
+   return false;
+ }
+ TArray<AMoonfallEnemy*> GroupActors;
+ GroupActors.Reserve(GroupSize);
+ FCollisionQueryParams CollisionParams(SCENE_QUERY_STAT(MoonfallDungeonBonusSpawn), false);
+ // Keep dungeon walls and floors in collision checks, not ignored.
+ bool bAllSpawned = true;
+ // Two side lanes of up to six, all within the existing 1200 x 900
+ // room. Never place a mob on the central doorway/overlap path (Y=0):
+ // the entering hero otherwise blocks an entire pack on every retry.
+ for (int32 Member = 0; Member < GroupSize; ++Member) {
+  const int32 Column = Member / 2;
+  const float X = (static_cast<float>(Column) - 2.5f) * 120.f;
+  const float Y = (Member % 2 == 0) ? -240.f : 240.f;
+  const FVector Position = GetActorTransform().TransformPosition(
+    FVector(ChamberIndex * ChamberLength + X, Y, 110.f));
+  if (World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
+        ECC_Pawn, FCollisionShape::MakeSphere(55.f), CollisionParams)) {
+   bAllSpawned = false;
+   break;
+  }
+  const FTransform SpawnTransform(GetActorRotation(), Position);
+  AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+  if (!IsValid(Enemy)) { bAllSpawned = false; break; }
+  Enemy->bBoss = false;
+  Enemy->bElite = Group > 0 && Member == GroupSize - 1;
+  Enemy->EncounterLevelOverride = Level;
+  Enemy->DungeonChamberIndex = ChamberIndex;
+  Enemy->Health = Enemy->bElite ? 145.f : 75.f;
+  Enemy->AttackDamage = Enemy->bElite ? 11.f : 7.f;
+  Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
+  Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonBonus")));
+  if (Member == 0) Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+  Enemy->FinishSpawning(SpawnTransform);
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
+   if (IsValid(Enemy)) Enemy->Destroy();
+   bAllSpawned = false;
+   break;
+  }
+  GroupActors.Add(Enemy);
+ }
+ if (!bAllSpawned || GroupActors.Num() != GroupSize) {
+  // A rejected member must never leave a partial 5..11 pack or consume
+  // the one-shot token; re-entering this room can retry once space clears.
+  for (AMoonfallEnemy* Enemy : GroupActors)
+   if (IsValid(Enemy)) Enemy->Destroy();
+  return false;
+ }
+ SpawnedBonusGroupsMask |= GroupBit;
+ OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);
+ return true;
+}
+
+int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero)
+{
+ if (LockedEncounterLevel <= 0 && IsValid(Hero) && Hero->IsPlayerControlled()
+     && FMath::IsFinite(Hero->Health) && Hero->Health > 0.f) {
+  const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);
+  const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);
+  LockedEncounterLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);
+  PlanBonusEncounter();
+ }
+ return LockedEncounterLevel;
+}
+
 void AMoonfallDungeonLayout::HandleEntrance(
  UPrimitiveComponent* Overlapped, AActor* OtherActor,
  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
@@ -209,8 +353,9 @@ void AMoonfallDungeonLayout::HandleEntrance(
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
  // First visit saves through the V8 ledger; later visits are already known.
- if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex))
-  Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex);
+ if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
+     && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ GetOrLockEncounterLevel(Hero);
 }
 
 void AMoonfallDungeonLayout::HandleFinalChamber(
@@ -248,6 +393,9 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberTriggers[Index] != Overlapped) continue;
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+  // Bonus encounters retry on re-entry if any formation slot was blocked.
+  // Normal chamber encounters keep their original one-shot completion mask.
+  TrySpawnBonusGroup(Hero, ChamberIndex);
   if ((EnteredChambersMask & Bit) != 0u) return;
   const int32 ChamberType = GetChamberType(ChamberIndex);
   // Failed spawn leaves the chamber retryable on a later overlap.
@@ -310,6 +458,8 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  const int32 Requested = bEliteEncounter ? 1
    : FMath::Clamp(EnemiesPerCombatChamber, 1, 6);
  const int32 Count = FMath::Min(Remaining, Requested);
+ const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
+ if (EncounterLevel <= 0) return false;
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   // Two lanes of three enemies, spaced to fit within the chamber floor.
@@ -331,6 +481,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Set difficulty BEFORE BeginPlay performs the standard player-level scaling.
   Enemy->bElite = bEliteEncounter;
   Enemy->bBoss = false;
+  Enemy->EncounterLevelOverride = EncounterLevel;
   Enemy->Health = bEliteEncounter ? 145.f : 75.f;
   Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
   Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;

@@ -28,6 +28,30 @@ public:
  int32 ZoneIndex = 0;
  UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon")
  int32 DungeonIndex = 0;
+ // Per-dungeon difficulty bounds; defaults keep the current level scaling.
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty",
+   meta=(ClampMin="1", ClampMax="100"))
+ int32 MinimumDungeonLevel = 1;
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty",
+   meta=(ClampMin="1", ClampMax="100"))
+ int32 MaximumDungeonLevel = 100;
+ // Readable from the dungeon HUD. Zero means nobody has entered yet.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty")
+ int32 LockedEncounterLevel = 0;
+ // Dungeon-only deterministic 25% bonus encounter roll. Exactly three
+ // group sizes (5..11) are planned on success; no open-world bonus spawns.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Bonus")
+ bool bBonusEncounterRolled = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Bonus")
+ bool bBonusEncounterActive = false;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Bonus")
+ int32 GetBonusGroupSize(int32 GroupIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Bonus")
+ int32 GetBonusGroupChamber(int32 GroupIndex) const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Bonus")
+ void OnBonusEncounterPlanned(bool bTriggered, int32 Group1Size, int32 Group2Size, int32 Group3Size);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Bonus")
+ void OnBonusGroupSpawned(int32 GroupIndex, int32 ChamberIndex, int32 EnemyCount);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  UInstancedStaticMeshComponent* Floors;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
@@ -88,6 +112,16 @@ public:
  void OnFinalChamberEntered(AMoonfallHeroPawn* Hero);
 
 private:
+ // One runtime snapshot per physical dungeon: later chambers keep first-entry difficulty.
+ // This is session-local; it does not change the existing save format.
+ int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);
+ void PlanBonusEncounter();
+ int32 BonusGroupSizes[3] = {0, 0, 0};
+ int32 BonusGroupChambers[3] = {INDEX_NONE, INDEX_NONE, INDEX_NONE};
+ // Each of the three one-shot groups can retry on a later room overlap if
+ // collision blocks the full pack; retries never double-spawn a completed group.
+ uint8 SpawnedBonusGroupsMask = 0;
+ bool TrySpawnBonusGroup(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  float NextHazardDamageAt = -1.f;
  // Last valid overlap clock tracks backward time jumps.
  float LastHazardObservedTime = -1.f;
