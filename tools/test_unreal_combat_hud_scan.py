@@ -33,6 +33,12 @@ class CombatHudScanTests(unittest.TestCase):
         damage_loop = self.source.split("int32 VisibleDamageNumbers = 0;", 1)[1]
         self.assertNotIn("GetOwningPlayerController()", damage_loop)
 
+    def test_damage_labels_reuse_enemy_position(self):
+        self.assertIn("const FVector EnemyDamageLocation = Enemy->GetActorLocation();", self.source)
+        self.assertIn("const FVector WorldTextPosition = EnemyDamageLocation +", self.source)
+        damage_loop = self.source.split("int32 VisibleDamageNumbers = 0;", 1)[1]
+        self.assertEqual(damage_loop.count("Enemy->GetActorLocation()"), 1)
+
     def test_boss_and_posture_targets_remain_nearest(self):
         hud = self.source
         self.assertIn("if (DistSq < BossDistanceSq)", hud)
