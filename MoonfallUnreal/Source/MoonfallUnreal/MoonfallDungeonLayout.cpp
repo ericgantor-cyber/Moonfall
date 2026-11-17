@@ -456,7 +456,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
    GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
  const int32 Requested = bEliteEncounter ? 1
-   : FMath::Clamp(EnemiesPerCombatChamber, 1, 6);
+   : EncounterRandom.RandRange(5, FMath::Clamp(EnemiesPerCombatChamber, 5, 6));
  const int32 Count = FMath::Min(Remaining, Requested);
  const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
  if (EncounterLevel <= 0) return false;
