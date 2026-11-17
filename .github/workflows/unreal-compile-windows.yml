@@ -38,23 +38,43 @@ jobs:
           if (-not (Test-Path -LiteralPath $project -PathType Leaf)) { throw 'Unreal project is missing.' }
           Write-Host "Unreal build tool found. Running a real C++ build, not a source-only check."
 
-      - name: Compile MoonfallUnrealEditor Win64 Development
+      - name: Compile Unreal Editor and Game Win64 Development targets
         run: |
           $ErrorActionPreference = 'Stop'
           $logDir = Join-Path $env:RUNNER_TEMP 'MoonfallUnrealCompile'
           New-Item -Path $logDir -ItemType Directory -Force | Out-Null
           $transcript = Join-Path $logDir 'EditorBuild-Transcript.txt'
+          $evidence = Join-Path $logDir 'NativeCompile-Evidence.txt'
+          if (Test-Path -LiteralPath $evidence) { Remove-Item -LiteralPath $evidence -Force }
           Start-Transcript -LiteralPath $transcript -Force | Out-Null
           try {
+            # -CompileOnly invokes BOTH MoonfallUnrealEditor and MoonfallUnreal
+            # Win64 Development builds and throws on a failed engine exit code.
             & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
-            if (-not $?) { throw 'Moonfall Unreal Editor compile script failed.' }
-            if ($LASTEXITCODE -ne 0) { throw "Moonfall editor build returned $LASTEXITCODE" }
-            "### Unreal C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
-            "Commit: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
-            "UE 5.4 Editor Win64 Development target compiled. This does not package or test the game." >> $env:GITHUB_STEP_SUMMARY
+            if (-not $?) { throw 'Moonfall Unreal Editor/Game compile script failed.' }
+            if ($LASTEXITCODE -ne 0) { throw "Moonfall Unreal build returned $LASTEXITCODE" }
+            @(
+              'Native Unreal 5.4 Editor and Game Win64 Development compilation: SUCCEEDED'
+              "Commit: $env:GITHUB_SHA"
+              "Git ref: $env:GITHUB_REF"
+              "Runner: $env:RUNNER_NAME"
+              "Verified at: $([DateTime]::UtcNow.ToString('o'))"
+              'Build script: MoonfallUnreal/Build/Build-Windows.ps1 -CompileOnly'
+              'Targets: MoonfallUnrealEditor Win64 Development; MoonfallUnreal Win64 Development'
+              'Scope: compile only; packaging, game launch and gameplay NOT tested'
+            ) | Set-Content -LiteralPath $evidence -Encoding UTF8
+            Get-Content -LiteralPath $evidence | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
           } finally {
             Stop-Transcript | Out-Null
           }
+
+      - name: Preserve native Editor and Game compile proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Native-Compile-Evidence
+          path: ${{ runner.temp }}/MoonfallUnrealCompile/NativeCompile-Evidence.txt
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload compiler diagnostics
         if: always()
