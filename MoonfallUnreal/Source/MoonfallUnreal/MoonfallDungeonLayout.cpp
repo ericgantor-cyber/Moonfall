@@ -206,6 +206,12 @@ int32 AMoonfallDungeonLayout::GetBonusGroupSize(int32 GroupIndex) const
    ? BonusGroupSizes[GroupIndex] : 0;
 }
 
+int32 AMoonfallDungeonLayout::GetBonusGroupChamber(int32 GroupIndex) const
+{
+ return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3
+   ? BonusGroupChambers[GroupIndex] : INDEX_NONE;
+}
+
 void AMoonfallDungeonLayout::PlanBonusEncounter()
 {
  if (bBonusEncounterRolled) return;
@@ -217,6 +223,22 @@ void AMoonfallDungeonLayout::PlanBonusEncounter()
  if (bBonusEncounterActive) {
   for (int32 Group = 0; Group < 3; ++Group)
    BonusGroupSizes[Group] = BonusRandom.RandRange(5, 11);
+  // Assign exactly three distinct interior targets without changing the
+  // original chamber types, hazards, loot rolls, or boss encounter.
+  // Combat rooms take priority, then puzzle rooms, then shrine and treasure.
+  // Every 14-chamber dungeon has twelve interior rooms, only three hazards.
+  int32 Assigned = 0;
+  for (const int32 PreferredType : {1, 4, 3, 2}) {
+   for (int32 Chamber = 1; Chamber < ChamberCount - 1 && Assigned < 3; ++Chamber) {
+    if (GetChamberType(Chamber) == PreferredType)
+     BonusGroupChambers[Assigned++] = Chamber;
+   }
+  }
+  if (Assigned < 3) {
+   // Fail closed rather than selecting a hazard or final boss chamber.
+   bBonusEncounterActive = false;
+   for (int32 Group = 0; Group < 3; ++Group) BonusGroupSizes[Group] = 0;
+  }
  }
  // Planning never spawns an enemy or changes the existing chamber budget.
  OnBonusEncounterPlanned(bBonusEncounterActive,
