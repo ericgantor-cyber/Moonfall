@@ -551,7 +551,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const bool bWithinDivineMarker = bDivineSignatureActive
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
   const bool bWithinBasicAttack = !bDivineSignatureActive
-    && bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;
+    && bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
