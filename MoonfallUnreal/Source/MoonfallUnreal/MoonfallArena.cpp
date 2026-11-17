@@ -47,7 +47,7 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(850,1500,200),FVector(13,1,5));
  if (bEnableStartingSanctuary) {
   // One continuous walkable surface, with no level transition or loading door.
-  CreateBlock(FVector(0,1850,-20),FVector(5,8,0.4f));
+  CreateBlock(FVector(0,1850,-20),FVector(5,10,0.4f));
   CreateBlock(FVector(0,3500,-60),FVector(24,23,1));
   // Ruined outer walls stop before the central exit toward the old Crossroads.
   CreateBlock(FVector(-1200,3500,130),FVector(1,23,3.6f));
