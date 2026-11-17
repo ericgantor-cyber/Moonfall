@@ -5316,6 +5316,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bSanctuaryPractice && Distance > 450.f)", enemy)
         self.assertIn("if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero())", enemy)
 
+    def test_sanctuary_placements_follow_rotated_authored_arena(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn(
+            "GetActorTransform().TransformPosition(FVector(0.f, 3500.f, 120.f))", arena
+        )
+        self.assertIn(
+            "GetActorTransform().TransformPosition(Placement.Offset)", arena
+        )
+        self.assertIn(
+            'FCString::Strcmp(Placement.Id, TEXT("sanctuary_firstlight")) == 0',
+            arena,
+        )
+        self.assertIn("GetActorLocation() + Placement.Offset;", arena)
+        self.assertIn(
+            "GetActorTransform().TransformPosition(FVector(260.f, 3320.f, 60.f))",
+            arena,
+        )
+        self.assertIn(
+            "GetActorLocation() + FVector(-350.f, 650.f, 60.f)", arena
+        )
+        self.assertIn(
+            "GetActorTransform().TransformPosition(StarterPracticeOffsets[PracticeIndex])",
+            arena,
+        )
+        self.assertIn("Sign->SetRelativeLocation(Entry.Position)", arena)
+
     def test_starting_sanctuary_is_continuous_and_new_save_only(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
