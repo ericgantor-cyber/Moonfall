@@ -3932,7 +3932,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         plan = layout.split("void AMoonfallDungeonLayout::PlanBonusEncounter()", 1)[1].split(
-            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+            "bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[0]
         self.assertIn("if (bBonusEncounterRolled) return;", plan)
         self.assertIn("FRandomStream BonusRandom(GetEffectiveLayoutSeed() ^ 0x237B51);", plan)
         self.assertIn("BonusRandom.FRand() < 0.25f", plan)
