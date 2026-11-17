@@ -3964,6 +3964,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GroupSize < 5 || GroupSize > 11", bonus)
         self.assertIn("BonusGroupChambers[Candidate] == ChamberIndex", bonus)
         self.assertIn("(SpawnedBonusGroupsMask & GroupBit) != 0u", bonus)
+        self.assertIn("for (TActorIterator<AMoonfallEnemy> It(World); It; ++It)", bonus)
+        self.assertIn("It->GetOwner() == this && It->bBoss", bonus)
+        self.assertIn("FMath::IsFinite(It->Health) && It->Health > 0.f", bonus)
+        self.assertLess(bonus.index("It->GetOwner() == this && It->bBoss"),
+                        bonus.index("SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertIn("OverlapBlockingTestByChannel", bonus)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", bonus)
         self.assertIn("Enemy->EncounterLevelOverride = Level;", bonus)
