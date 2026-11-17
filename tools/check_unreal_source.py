@@ -5294,6 +5294,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         draw_damage.index("Enemy->DamageHistory[Slot]"))
         self.assertNotIn("GetAllActorsOfClass", guide)
 
+    def test_sanctuary_training_rewards_and_level_scaling_are_isolated(self):
+        enemy = self.enemy_cpp
+        begin = enemy.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1
+        )[0]
+        self.assertIn('const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', begin)
+        self.assertIn("SpawnBalanceLevel = bSanctuaryPracticeAtSpawn ? 1", begin)
+        self.assertIn("(bBoss || bSanctuaryPracticeAtSpawn) ? 1.f", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth", begin)
+        defeated = enemy.split("Hero->RegisterFinisherKill(", 1)[1].split(
+            "// Visible until the queued finisher", 1
+        )[0]
+        self.assertIn('const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', defeated)
+        self.assertIn("Hero->AwardExperience(5);", defeated)
+        self.assertIn("} else {", defeated)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", defeated)
+        self.assertLess(defeated.index("if (bSanctuaryPracticeReward)"),
+                        defeated.index("Hero->SpawnGroundEquipmentDrop("))
+
     def test_sanctuary_training_sentries_are_low_threat_and_range_gated(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         enemy = self.enemy_cpp
