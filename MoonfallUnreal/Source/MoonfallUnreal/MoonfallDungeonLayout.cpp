@@ -204,7 +204,9 @@ int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(const AMoonfallHeroPawn* H
 {
  if (LockedEncounterLevel <= 0 && IsValid(Hero) && Hero->IsPlayerControlled()
      && FMath::IsFinite(Hero->Health) && Hero->Health > 0.f) {
-  LockedEncounterLevel = FMath::Clamp(Hero->Level, 1, 100);
+  const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);
+  const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);
+  LockedEncounterLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);
  }
  return LockedEncounterLevel;
 }
