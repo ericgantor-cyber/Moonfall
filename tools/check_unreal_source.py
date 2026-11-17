@@ -5789,8 +5789,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_dungeon_final_boss_uses_first_entry_level_before_beginplay(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
-        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1].split(
-            "void AMoonfallDungeonLayout::PlanBonusEncounter(", 1)[0]
+        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
         enemy_begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
             "void AMoonfallEnemy::", 1)[0]
         self.assertIn("const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);", boss)
