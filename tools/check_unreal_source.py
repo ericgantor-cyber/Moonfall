@@ -1639,7 +1639,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
-        self.assertLess(tick.index("if (!IsValid(Hero))"),
+        self.assertLess(tick.index("if (!IsValid(Hero) || !Hero->IsPlayerControlled())"),
                         tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
 
     def test_batch_guard_validates_timers_before_stance(self):
