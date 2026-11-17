@@ -1780,7 +1780,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
         self.assertIn("if (Health > 0.f && !bSprinting && !bGuarding && GetWorld()", tick)
-        self.assertNotIn("!bOptionsOpen && !bInventoryOpen\\n     && !bSprinting", tick)
+        self.assertNotIn("!bOptionsOpen && !bInventoryOpen\n     && !bSprinting", tick)
         self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
@@ -5366,7 +5366,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CreateBlock(FVector(850,1500,200),FVector(13,1,5));", enabled)
         self.assertNotIn("CreateBlock(FVector(0,1500,200),FVector(30,1,5));", enabled)
         self.assertIn(
-            "} else {\\n  // Avoid an exit into empty world space when the sanctuary is disabled.\\n"
+            "} else {\n  // Avoid an exit into empty world space when the sanctuary is disabled.\n"
             "  CreateBlock(FVector(0,1500,200),FVector(30,1,5));",
             arena,
         )
