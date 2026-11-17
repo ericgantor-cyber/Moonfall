@@ -49,7 +49,9 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("float NextHeroCacheRefreshAt = 0.f;", header)
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("else if (Now >= NextHeroCacheRefreshAt)", tick)
-        self.assertEqual(tick.count("NextHeroCacheRefreshAt = Now + 1.f;"), 2)
+        self.assertEqual(tick.count("NextHeroCacheRefreshAt = Now + 1.f"), 2)
+        self.assertIn("NextHeroCacheRefreshAt = GetWorld()->GetTimeSeconds() + 1.f", self.source)
+        self.assertEqual(self.source.count("0.05f * static_cast<float>(GetUniqueID() % 7u)"), 3)
         self.assertEqual(tick.count("UGameplayStatics::GetPlayerPawn(this, 0)"), 2)
 
     def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
