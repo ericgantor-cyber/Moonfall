@@ -903,6 +903,8 @@ void AMoonfallCombatHUD::DrawHUD()
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
   if (VisibleDamageNumbers >= 32) break;
   if (!IsValid(Enemy)) continue;
+  // Capture position once per target; a rapid combo can draw several labels.
+  const FVector EnemyDamageLocation = Enemy->GetActorLocation();
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
    const float Age = WorldTime - Hit.Time;
@@ -910,7 +912,7 @@ void AMoonfallCombatHUD::DrawHUD()
    FVector2D Screen;
    // Offset entries so consecutive attacks on the same target remain readable.
    const float HorizontalOffset = static_cast<float>(Slot - 1) * 24.f;
-   const FVector WorldTextPosition = Enemy->GetActorLocation() + FVector(0.f, 0.f, 175.f + Age * 65.f);
+   const FVector WorldTextPosition = EnemyDamageLocation + FVector(0.f, 0.f, 175.f + Age * 65.f);
    if (DamageProjectionPC && DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
        && Screen.X + HorizontalOffset >= 0.f && Screen.X + HorizontalOffset < Canvas->SizeX
        && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
