@@ -92,16 +92,20 @@ $folder.AccessibleName = 'Open Moonfall build output'
 $timer = New-Object Windows.Forms.Timer
 $timer.Interval = 350
 $script:process = $null
-$script:seenOut = 0
-$script:seenErr = 0
+$script:seenOut = [long]0
+$script:seenErr = [long]0
+$script:outDecoder = [System.Text.Encoding]::UTF8.GetDecoder()
+$script:errDecoder = [System.Text.Encoding]::UTF8.GetDecoder()
 $script:outLog = ''
 $script:errLog = ''
 $script:logDir = Join-Path $env:LOCALAPPDATA 'MoonfallBuildCenter\Logs'
 New-Item -ItemType Directory -Force -Path $script:logDir | Out-Null
 function Begin-Job([string]$scriptName,[bool]$installMissing,[bool]$compileOnly = $false,[bool]$preflightOnly = $false) {
     if ($script:process -and -not $script:process.HasExited) { return }
-    $script:seenOut = 0
-    $script:seenErr = 0
+    $script:seenOut = [long]0
+    $script:seenErr = [long]0
+    $script:outDecoder.Reset()
+    $script:errDecoder.Reset()
     $logs.Clear()
     $script:outLog = Join-Path $script:logDir ('build-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8) + '.log')
     $script:errLog = "$script:outLog.err"
@@ -176,20 +180,58 @@ $exportLog.Add_Click({
 })
 $folder.Add_Click({ New-Item -ItemType Directory -Path $out -Force | Out-Null; Start-Process explorer.exe -ArgumentList ('"' + $out + '"') })
 $timer.Add_Tick({
+    # Read only newly appended bytes, not an ever-growing compiler log
+    # every 350 ms. Keep UTF-8 decoder state across reads for split characters.
     foreach ($item in @(@($script:outLog,'seenOut'),@($script:errLog,'seenErr'))) {
         $path = $item[0]
         $key = $item[1]
         if (-not (Test-Path -LiteralPath $path)) { continue }
+        $stream = $null
         try {
-            $value = [IO.File]::ReadAllText($path)
+            $stream = [IO.File]::Open($path, [IO.FileMode]::Open,
+                [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
             $offset = if ($key -eq 'seenOut') { $script:seenOut } else { $script:seenErr }
-            if ($value.Length -gt $offset) {
-                $logs.AppendText($value.Substring($offset))
-                if ($key -eq 'seenOut') { $script:seenOut = $value.Length } else { $script:seenErr = $value.Length }
+            $decoder = if ($key -eq 'seenOut') { $script:outDecoder } else { $script:errDecoder }
+            if ($stream.Length -lt $offset) {
+                # The log was truncated or rotated; do not retain a stale offset.
+                $offset = [long]0
+                $decoder.Reset()
+                $logs.AppendText('[Build log restarted]' + [Environment]::NewLine)
             }
-        } catch [IO.IOException] { }
+            $stream.Position = $offset
+            $buffer = [byte[]]::new(65536)
+            $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
+            if ($bytesRead -gt 0) {
+                $characters = [char[]]::new($bytesRead)
+                $characterCount = $decoder.GetChars($buffer, 0, $bytesRead,
+                    $characters, 0, $false)
+                if ($characterCount -gt 0) {
+                    $logs.AppendText([string]::new($characters, 0, $characterCount))
+                }
+            }
+            $offset += $bytesRead
+            if ($key -eq 'seenOut') { $script:seenOut = $offset } else { $script:seenErr = $offset }
+            # Full details stay in the saved logs; bound the visible textbox
+            # so hours of compiler output cannot degrade WinForms responsiveness.
+            if ($logs.TextLength -gt 240000) {
+                $logs.Text = $logs.Text.Substring($logs.TextLength - 160000)
+                $logs.SelectionStart = $logs.TextLength
+                $logs.ScrollToCaret()
+            }
+        } catch [IO.IOException] {
+            # The writer may temporarily lock or rotate a log between polls.
+        } finally {
+            if ($null -ne $stream) { $stream.Dispose() }
+        }
     }
     if ($script:process -and $script:process.HasExited) {
+        # A fast build can write more than one polling chunk. Drain the saved
+        # logs before stopping the timer or reporting the final exit status.
+        $outPending = (Test-Path -LiteralPath $script:outLog -PathType Leaf) -and
+            ((Get-Item -LiteralPath $script:outLog).Length -gt $script:seenOut)
+        $errPending = (Test-Path -LiteralPath $script:errLog -PathType Leaf) -and
+            ((Get-Item -LiteralPath $script:errLog).Length -gt $script:seenErr)
+        if ($outPending -or $errPending) { return }
         $timer.Stop()
         $check.Enabled = $true
         $install.Enabled = $true

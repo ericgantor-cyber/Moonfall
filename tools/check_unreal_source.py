@@ -5663,5 +5663,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(script.index("$games.Count -ne 1"), start)
         self.assertLess(end, script.index("Building self-contained Windows launcher"))
 
+
+    def test_build_center_streams_incremental_logs_without_unbounded_poll_reads(self):
+        center = (ROOT.parents[1] / "Build" / "Build-Center.ps1").read_text(encoding="utf-8")
+        poll = center.split("$timer.Add_Tick({", 1)[1].split("$form.Add_FormClosing({", 1)[0]
+        self.assertIn("$stream.Position = $offset", poll)
+        self.assertIn("$buffer = [byte[]]::new(65536)", poll)
+        self.assertIn("$bytesRead = $stream.Read($buffer, 0, $buffer.Length)", poll)
+        self.assertIn("$decoder.GetChars($buffer, 0, $bytesRead", poll)
+        self.assertIn("[IO.FileShare]::ReadWrite", poll)
+        self.assertIn("if ($stream.Length -lt $offset)", poll)
+        self.assertIn("$decoder.Reset()", poll)
+        self.assertIn("if ($logs.TextLength -gt 240000)", poll)
+        self.assertIn("if ($outPending -or $errPending) { return }", poll)
+        self.assertLess(poll.index("if ($outPending -or $errPending) { return }"),
+                        poll.index("$timer.Stop()"))
+        self.assertNotIn("[IO.File]::ReadAllText($path)", poll)
+        self.assertIn("$script:outDecoder.Reset()", center)
+        self.assertIn("$script:errDecoder.Reset()", center)
+        self.assertIn("$script:seenOut = [long]0", center)
+        self.assertIn("$script:seenErr = [long]0", center)
+
 if __name__ == "__main__":
     unittest.main()
