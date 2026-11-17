@@ -5235,13 +5235,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
         markers = arena.split("const FStarterSign Signs[] = {", 1)[1].split(
-            "for (const FStarterSign& Entry : Signs)", 1
+            "// Two forgiving practice opponents", 1
         )[0]
         self.assertIn("SanctuaryGuideSigns", arena_h)
         self.assertIn("if (bEnableStartingSanctuary) {", arena)
-        for sign in ("SanctuaryWelcome", "SanctuaryGuide", "SanctuaryControls", "SanctuaryExit"):
+        for sign in ("SanctuaryWelcome", "SanctuaryGuide", "SanctuaryControls", "SanctuaryPractice", "SanctuaryExit"):
             self.assertIn('TEXT("' + sign + '")', markers)
-        self.assertEqual(markers.count("FVector("), 4)
+        self.assertEqual(markers.count("FVector("), 5)
         self.assertIn("RIGHT-CLICK TO TALK", markers)
         self.assertIn("LEFT CLICK: ATTACK", markers)
         self.assertIn("B: INVENTORY", markers)
@@ -5253,6 +5253,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Sign->SetGenerateOverlapEvents(false);", arena)
         self.assertIn("SanctuaryGuideSigns.Add(Sign);", arena)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", arena)
+
+    def test_sanctuary_training_sentries_are_low_threat_and_range_gated(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        enemy = self.enemy_cpp
+        section = arena.split("// Two forgiving practice opponents", 1)[1].split(
+            "for (const FStarterSign& Entry : Signs)", 1
+        )[0]
+        self.assertIn("PracticeIndex < 2", section)
+        self.assertIn("FVector(-790.f, 4380.f, 60.f)", section)
+        self.assertIn("FVector(790.f, 4380.f, 60.f)", section)
+        self.assertIn("PracticeEnemy->bBoss = false;", section)
+        self.assertIn("PracticeEnemy->bElite = false;", section)
+        self.assertIn("PracticeEnemy->Health = 35.f;", section)
+        self.assertIn("PracticeEnemy->AttackDamage = 2.f;", section)
+        self.assertIn("PracticeEnemy->ChaseSpeed = 0.f;", section)
+        self.assertIn('FName(TEXT("MoonfallSanctuaryPractice"))', section)
+        self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", section)
+        self.assertLess(section.index("PracticeEnemy->AttackDamage = 2.f;"),
+                        section.index("PracticeEnemy->FinishSpawning(PracticeTransform);"))
+        self.assertIn('const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', enemy)
+        self.assertIn("if (bSanctuaryPractice && Distance > 450.f)", enemy)
+        self.assertIn("if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero())", enemy)
 
     def test_starting_sanctuary_is_continuous_and_new_save_only(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
