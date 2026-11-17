@@ -4081,8 +4081,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Enemy->bBoss = false;", combat)
         self.assertLess(combat.index("Enemy->bElite = bEliteEncounter;"),
                         combat.index("Enemy->FinishSpawning(SpawnTransform);"))
-        self.assertIn("if (Spawned == 0) return false;", combat)
+        self.assertIn("if (Remaining < Requested) return false;", combat)
+        self.assertIn("const int32 Count = Requested;", combat)
+        self.assertIn("TArray<AMoonfallEnemy*> SpawnedActors;", combat)
+        self.assertIn("SpawnedActors.Reserve(Count);", combat)
+        self.assertIn("SpawnedActors.Add(Enemy);", combat)
+        self.assertIn("if (Spawned != Count) {", combat)
+        self.assertIn("if (IsValid(Enemy)) Enemy->Destroy();", combat)
         self.assertIn("SpawnedEncounterCount += Spawned;", combat)
+        self.assertLess(combat.index("if (Spawned != Count) {"),
+                        combat.index("SpawnedEncounterCount += Spawned;"))
+        self.assertLess(combat.index("for (AMoonfallEnemy* Enemy : SpawnedActors)"),
+                        combat.index("return false;", combat.index("if (Spawned != Count) {")))
+        self.assertNotIn("const int32 Count = FMath::Min(Remaining, Requested);", combat)
         self.assertNotIn("UGameplayStatics::OpenLevel", combat)
 
 
