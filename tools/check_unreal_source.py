@@ -2930,7 +2930,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
-        self.assertIn("if (!bBoss && !bElite) {", tick)
+        self.assertIn("if (!bBoss && (!bElite || bDungeonRole)) {", tick)
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
@@ -2941,7 +2941,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
         self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
         self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
-        self.assertLess(tick.index("if (!bBoss && !bElite) {"),
+        self.assertLess(tick.index("if (!bBoss && (!bElite || bDungeonRole)) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
@@ -2957,6 +2957,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
                         scope.index("++ConsideredAllies;"))
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("if (!bBoss && (!bElite || bDungeonRole))", scope)
+        self.assertIn("(Other->bElite && !bDungeonRole)", scope)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex", scope)
 
     def test_dungeon_attack_coordination_does_not_cross_chambers(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
