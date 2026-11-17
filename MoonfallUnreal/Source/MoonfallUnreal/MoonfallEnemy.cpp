@@ -27,7 +27,11 @@ void AMoonfallEnemy::BeginPlay() {
  DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
+ // Practice sentries stay predictable for every character level, while
+ // all ordinary dungeon mobs and bosses retain the existing level scaling.
+ const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ SpawnBalanceLevel = bSanctuaryPracticeAtSpawn ? 1
+   : (IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1);
  const float Levels = static_cast<float>(SpawnBalanceLevel - 1);
  const float HPScale = 1.f + 0.035f * FMath::Min(Levels, 30.f) + 0.018f * FMath::Max(0.f, Levels - 30.f);
  const float DamageScale = 1.f + 0.012f * FMath::Min(Levels, 30.f) + 0.006f * FMath::Max(0.f, Levels - 30.f);
@@ -36,8 +40,8 @@ void AMoonfallEnemy::BeginPlay() {
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
  // Apply modest race identity to ordinary and elite foes only.
  // Preserve unique Z/Nyra and other authored boss tuning exactly.
- const float RaceHealth = bBoss ? 1.f : MoonfallRaces::HealthScale(RaceId);
- const float RaceDamage = bBoss ? 1.f : MoonfallRaces::DamageScale(RaceId);
+ const float RaceHealth = (bBoss || bSanctuaryPracticeAtSpawn) ? 1.f : MoonfallRaces::HealthScale(RaceId);
+ const float RaceDamage = (bBoss || bSanctuaryPracticeAtSpawn) ? 1.f : MoonfallRaces::DamageScale(RaceId);
  Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale * RaceHealth;
  AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale * RaceDamage;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
@@ -270,9 +274,16 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
-    const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
-    Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
-    Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+    const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+    if (bSanctuaryPracticeReward) {
+     // Practice grants a small one-time-kill reward per actor, not a full
+     // regular-monster equipment drop on every level reload.
+     Hero->AwardExperience(5);
+    } else {
+     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
+     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+     Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+    }
    }
    // Visible until the queued finisher plays or the finite fallback expires.
   }
