@@ -985,8 +985,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // Distant allies must not exhaust our small decision-time candidate
      // budget before nearby windups can be considered. Reject corrupt
      // positions too, while preserving the outer 64-actor scan limit.
-     const float AllyDistanceSquared = FVector::DistSquared2D(
-       Other->GetActorLocation(), GetActorLocation());
+     const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation());
      if (!FMath::IsFinite(AllyDistanceSquared)
          || AllyDistanceSquared >= FMath::Square(550.f)) continue;
      ++ConsideredAllies;
