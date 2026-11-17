@@ -46,6 +46,8 @@ public:
  bool bBonusEncounterActive = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Bonus")
  int32 GetBonusGroupSize(int32 GroupIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Bonus")
+ int32 GetBonusGroupChamber(int32 GroupIndex) const;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Bonus")
  void OnBonusEncounterPlanned(bool bTriggered, int32 Group1Size, int32 Group2Size, int32 Group3Size);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
@@ -113,6 +115,7 @@ private:
  int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);
  void PlanBonusEncounter();
  int32 BonusGroupSizes[3] = {0, 0, 0};
+ int32 BonusGroupChambers[3] = {INDEX_NONE, INDEX_NONE, INDEX_NONE};
  float NextHazardDamageAt = -1.f;
  // Last valid overlap clock tracks backward time jumps.
  float LastHazardObservedTime = -1.f;
