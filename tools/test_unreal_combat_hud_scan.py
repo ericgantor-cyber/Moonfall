@@ -27,6 +27,12 @@ class CombatHudScanTests(unittest.TestCase):
         self.assertIn("if (VisibleDamageNumbers >= 32) break;", hud)
         self.assertIn("AMoonfallEnemy::DamageHistorySize", hud)
 
+    def test_damage_projection_reuses_controller(self):
+        self.assertIn("const APlayerController* DamageProjectionPC = GetOwningPlayerController();", self.source)
+        self.assertIn("DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition, Screen)", self.source)
+        damage_loop = self.source.split("int32 VisibleDamageNumbers = 0;", 1)[1]
+        self.assertNotIn("GetOwningPlayerController()", damage_loop)
+
     def test_boss_and_posture_targets_remain_nearest(self):
         hud = self.source
         self.assertIn("if (DistSq < BossDistanceSq)", hud)
