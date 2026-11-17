@@ -7,6 +7,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Math/RandomStream.h"
+#include "Misc/ConfigCacheIni.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -120,11 +121,29 @@ int32 AMoonfallDungeonLayout::GetChamberType(int32 ChamberIndex) const
  if (ChamberIndex == ChamberCount - 1) return 6;
  for (int32 HazardIndex = 0; HazardIndex < 3; ++HazardIndex)
   if (GetRandomizedHazardChamber(HazardIndex) == ChamberIndex) return 5;
- if (!bRandomizeChambers) return 1 + ((ChamberIndex - 1) % 4);
- // Independent per-room seed. Adding a new type doesn't perturb the existing
- // trap and pillar RNG sequence or scramble already-authored layout geometry.
- FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 7919 + 0x41CD));
- return Stream.RandRange(1, 4);
+ // Nine non-hazard rooms always include two treasure rooms, two shrines,
+ // two puzzles, and three combat rooms. Shuffle types, not geometry or hazards,
+ // with an independent deterministic stream to keep rewards obtainable.
+ int32 Eligible[9];
+ int32 EligibleCount = 0;
+ for (int32 Candidate = 1; Candidate < ChamberCount - 1; ++Candidate) {
+  bool bHazard = false;
+  for (int32 HazardIndex = 0; HazardIndex < 3; ++HazardIndex)
+   if (GetRandomizedHazardChamber(HazardIndex) == Candidate) bHazard = true;
+  if (!bHazard && EligibleCount < 9) Eligible[EligibleCount++] = Candidate;
+ }
+ if (EligibleCount != 9) return -1;
+ int32 Types[9] = {1, 2, 3, 4, 1, 2, 3, 4, 1};
+ if (bRandomizeChambers) {
+  FRandomStream Stream(GetEffectiveLayoutSeed() ^ 0x41CD);
+  for (int32 Index = 8; Index > 0; --Index) {
+   const int32 Choice = Stream.RandRange(0, Index);
+   Swap(Types[Index], Types[Choice]);
+  }
+ }
+ for (int32 Index = 0; Index < 9; ++Index)
+  if (Eligible[Index] == ChamberIndex) return Types[Index];
+ return -1;
 }
 
 void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
@@ -194,6 +213,7 @@ void AMoonfallDungeonLayout::BeginPlay()
    if (IsValid(Trigger)) Trigger->SetGenerateOverlapEvents(false);
   return;
  }
+ LoadRewardClaims();
  EntranceTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleEntrance);
  FinalChamberTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleFinalChamber);
  HazardTriggerA->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
@@ -256,30 +276,61 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
   if ((EnteredChambersMask & Bit) != 0u) return;
-  EnteredChambersMask |= Bit;
   const int32 ChamberType = GetChamberType(ChamberIndex);
-  ResolveChamberReward(Hero, ChamberIndex, ChamberType);
+  // A failed loot spawn must remain retryable, not permanently consume a room.
+  if (!ResolveChamberReward(Hero, ChamberIndex, ChamberType)) return;
+  EnteredChambersMask |= Bit;
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
   return;
  }
 }
 
-void AMoonfallDungeonLayout::ResolveChamberReward(
+void AMoonfallDungeonLayout::LoadRewardClaims()
+{
+ if (!GConfig) return;
+ const FString Section = FString::Printf(TEXT("Moonfall.DungeonRewards.V1.Z%dD%d"),
+                                          ZoneIndex, DungeonIndex);
+ int32 Version = 0, RawMask = -1;
+ if (!GConfig->GetInt(*Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1
+     || !GConfig->GetInt(*Section, TEXT("ClaimedMask"), RawMask, GGameUserSettingsIni)
+     || RawMask < 0 || (RawMask >> ChamberCount) != 0)
+  return;
+ ClaimedRewardMask = static_cast<uint16>(RawMask);
+}
+
+void AMoonfallDungeonLayout::SaveRewardClaims() const
+{
+ if (!GConfig || (ClaimedRewardMask >> ChamberCount) != 0u) return;
+ const FString Section = FString::Printf(TEXT("Moonfall.DungeonRewards.V1.Z%dD%d"),
+                                          ZoneIndex, DungeonIndex);
+ GConfig->SetInt(*Section, TEXT("ClaimedMask"), static_cast<int32>(ClaimedRewardMask),
+                 GGameUserSettingsIni);
+ GConfig->SetInt(*Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+bool AMoonfallDungeonLayout::ResolveChamberReward(
  AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType)
 {
  if (!IsValid(Hero) || Hero->Health <= 0.f || !Hero->IsPlayerControlled()
-     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1) return;
+     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1) return false;
+ if (ChamberType != 2 && ChamberType != 3) return true;
+ const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+ if ((ClaimedRewardMask & Bit) != 0u) return true;
  if (ChamberType == 3) {
   // Shrine: restore mana only. Do not reintroduce kill-healing mechanics.
   if (!FMath::IsFinite(ShrineManaRestore) || ShrineManaRestore <= 0.f
       || !FMath::IsFinite(Hero->Mana) || !FMath::IsFinite(Hero->MaxMana)
-      || Hero->MaxMana <= 0.f) return;
+      || Hero->MaxMana <= 0.f) return false;
   Hero->Mana = FMath::Clamp(Hero->Mana + FMath::Clamp(ShrineManaRestore, 0.f, 100.f),
                             0.f, Hero->MaxMana);
+  ClaimedRewardMask |= Bit;
+  SaveRewardClaims();
   OnShrineActivated(Hero, ChamberIndex);
-  return;
+  return true;
  }
- if (ChamberType != 2 || !GetWorld()) return;
+ if (!GetWorld()) return false;
  // Deterministic loot quality, affix and slot. No global RNG dependency.
  FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 11003 + 0x2F17));
  const int32 Slot = Stream.RandRange(0, 8);
@@ -294,7 +345,10 @@ void AMoonfallDungeonLayout::ResolveChamberReward(
  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
  AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
      AMoonfallGroundLoot::StaticClass(), DropLocation, GetActorRotation(), Params);
- if (!IsValid(Loot)) return;
+ if (!IsValid(Loot)) return false;
  Loot->InitializeLoot(ItemCode);
+ ClaimedRewardMask |= Bit;
+ SaveRewardClaims();
  OnTreasureDropped(Hero, ChamberIndex);
+ return true;
 }
