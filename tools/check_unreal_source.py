@@ -5254,6 +5254,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SanctuaryGuideSigns.Add(Sign);", arena)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", arena)
 
+    def test_sanctuary_hud_objectives_and_global_damage_culling(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        helper = self.hero_cpp.split("bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {", 1)[1].split(
+            "void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary()", 1
+        )[0]
+        self.assertIn("bool IsNearStartingSanctuary() const;", hero_h)
+        self.assertIn("!bStartingSanctuaryPlaced", helper)
+        self.assertIn("!bHasInitialSpawnTransform", helper)
+        self.assertIn("FVector::DistSquared2D(", helper)
+        self.assertIn("FMath::Square(1450.f)", helper)
+        guide = hud.split("// Contextual onboarding:", 1)[1].split(
+            "// Compact circular resource HUD", 1
+        )[0]
+        self.assertIn("Hero->IsNearStartingSanctuary()", guide)
+        self.assertIn('Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))', guide)
+        self.assertIn('Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")))', guide)
+        self.assertIn("FIRST STEPS", guide)
+        self.assertIn("Canvas->SizeX >= 760.f", guide)
+        self.assertIn("Canvas->SizeY >= 480.f", guide)
+        draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
+        self.assertIn("VisibleDamageNumbers < 32", draw_damage)
+        self.assertIn("FMath::Square(6000.f)", draw_damage)
+        self.assertLess(draw_damage.index("FMath::Square(6000.f)"),
+                        draw_damage.index("Enemy->DamageHistory[Slot]"))
+        self.assertNotIn("GetAllActorsOfClass", guide)
+
     def test_sanctuary_training_sentries_are_low_threat_and_range_gated(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         enemy = self.enemy_cpp
