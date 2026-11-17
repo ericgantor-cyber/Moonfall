@@ -2625,7 +2625,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;", damage)
         self.assertIn("Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32", self.hud)
         self.assertIn("const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];", self.hud)
-        self.assertIn("const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;", self.hud)
+        self.assertIn("const float Age = WorldTime - Hit.Time;", self.hud)
         self.assertIn("!FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f", self.hud)
         self.assertIn("Screen.X + HorizontalOffset", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
