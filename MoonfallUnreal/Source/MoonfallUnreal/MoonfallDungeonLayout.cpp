@@ -274,7 +274,7 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
  TArray<AMoonfallEnemy*> GroupActors;
  GroupActors.Reserve(GroupSize);
  FCollisionQueryParams CollisionParams(SCENE_QUERY_STAT(MoonfallDungeonBonusSpawn), false);
- CollisionParams.AddIgnoredActor(this);
+ // Keep dungeon walls and floors in collision checks, not ignored.
  bool bAllSpawned = true;
  // Three rows of up to four, all within the existing 1200 x 900 room.
  // Keep the central doorway and wall margins clear.
