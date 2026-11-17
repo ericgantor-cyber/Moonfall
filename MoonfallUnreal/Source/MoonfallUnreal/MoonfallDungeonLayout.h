@@ -8,6 +8,7 @@ class USceneComponent;
 class UBoxComponent;
 class UPrimitiveComponent;
 class AMoonfallHeroPawn;
+class AMoonfallGroundLoot;
 
 // One world-placeable, continuous 14-chamber dungeon. No separate game mode,
 // enemy waves, teleports, or individual actors for each wall/floor piece.
@@ -85,6 +86,7 @@ public:
  void OnShrineActivated(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
  void OnTreasureDropped(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
+ void MarkTreasureCollected(int32 ChamberIndex, const AMoonfallGroundLoot* Loot);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
 
@@ -95,6 +97,9 @@ private:
  // Saved independently of actor lifetime so revisiting or reloading cannot
  // create the same treasure twice or repeatedly consume a shrine.
  uint16 ClaimedRewardMask = 0;
+ uint16 SpawnedTreasureMask = 0;
+ int32 PendingTreasureCodes[ChamberCount] = {};
+ bool SpawnTreasureAtChamber(int32 ChamberIndex, int32 ItemCode);
  void LoadRewardClaims();
  void SaveRewardClaims() const;
  UFUNCTION()
