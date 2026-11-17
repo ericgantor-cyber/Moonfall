@@ -28,7 +28,10 @@ public:
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
- // Cheap local-area hint for HUD; not save data or a fast-travel system.
+ // Cache the authored sanctuary world position once on load, not per HUD frame.
+ void CacheStartingSanctuaryAnchor();
+ bool bHasStartingSanctuaryAnchor = false;
+ FVector StartingSanctuaryAnchor = FVector::ZeroVector;
  bool IsNearStartingSanctuary() const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.

@@ -5261,8 +5261,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary()", 1
         )[0]
         self.assertIn("bool IsNearStartingSanctuary() const;", hero_h)
-        self.assertIn("!bStartingSanctuaryPlaced", helper)
-        self.assertIn("!bHasInitialSpawnTransform", helper)
+        self.assertIn("void CacheStartingSanctuaryAnchor();", hero_h)
+        self.assertIn("FVector StartingSanctuaryAnchor = FVector::ZeroVector;", hero_h)
+        cache = self.hero_cpp.split("void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {", 1)[1].split(
+            "bool AMoonfallHeroPawn::IsNearStartingSanctuary()", 1
+        )[0]
+        self.assertIn("Arena->GetStartingSanctuaryLocation()", cache)
+        self.assertIn("bHasStartingSanctuaryAnchor = true;", cache)
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay() {", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1
+        )[0]
+        self.assertIn("CacheStartingSanctuaryAnchor();", begin)
+        self.assertIn("&AMoonfallHeroPawn::CacheStartingSanctuaryAnchor", begin)
+
+        self.assertIn("!bHasStartingSanctuaryAnchor", helper)
+        self.assertNotIn("bStartingSanctuaryPlaced", helper)
         self.assertIn("FVector::DistSquared2D(", helper)
         self.assertIn("FMath::Square(1450.f)", helper)
         guide = hud.split("// Contextual onboarding:", 1)[1].split(
