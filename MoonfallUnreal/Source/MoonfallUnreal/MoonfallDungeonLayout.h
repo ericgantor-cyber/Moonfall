@@ -82,7 +82,7 @@ public:
  // Spawn only upon entering combat chambers, never in startup waves.
  // Up to six regular enemies per combat room; elite encounters remain special.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Combat",
-   meta=(ClampMin="1", ClampMax="6"))
+   meta=(ClampMin="5", ClampMax="6"))
  int32 EnemiesPerCombatChamber = 6;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Combat")
  void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,
