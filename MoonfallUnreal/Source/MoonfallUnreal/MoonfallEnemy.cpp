@@ -982,11 +982,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
           || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()
           || DungeonChamberIndex < 0 || Other->DungeonChamberIndex != DungeonChamberIndex) continue;
      }
+     // Distant allies must not exhaust our small decision-time candidate
+     // budget before nearby windups can be considered. Reject corrupt
+     // positions too, while preserving the outer 64-actor scan limit.
+     const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation());
+     if (!FMath::IsFinite(AllyDistanceSquared)
+         || AllyDistanceSquared >= FMath::Square(550.f)) continue;
      ++ConsideredAllies;
      // A corrupt infinite windup must not reserve an attack slot forever.
      // Failed/NaN timers also cannot represent a real active warning.
-     if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now
-         && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
+     if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now) {
       if (++NearbyWindingAllies >= 2) break;
      }
     }
