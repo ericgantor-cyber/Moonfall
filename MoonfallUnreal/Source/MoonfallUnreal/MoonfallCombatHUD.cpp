@@ -670,6 +670,30 @@ void AMoonfallCombatHUD::DrawHUD()
      Screen.X,Screen.Y+7.f,nullptr,0.75f);
   }
  }
+ // Contextual onboarding: a readable objective in the sanctuary only.
+ // The quest state and shrine discovery come from existing saved progression;
+ // no new autosave fields, input modes, per-frame actor scans or timers.
+ if (Hero->IsNearStartingSanctuary()
+     && Canvas->SizeX >= 760.f && Canvas->SizeY >= 480.f) {
+  FString Objective = TEXT("Find the Firstlight Shrine");
+  if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
+   const int32 GuideQuest = Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")));
+   Objective = GuideQuest == 0
+     ? TEXT("Talk to the Wandering Guide (right-click)")
+     : GuideQuest == 1
+       ? TEXT("Train to the north; then turn in the Guide's salvage contract")
+       : TEXT("Practice combat, then follow the south gate to six regions");
+  }
+  const float ObjectiveWidth = FMath::Min(530.f, Canvas->SizeX - 40.f);
+  DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
+    20.f, 78.f, ObjectiveWidth, 56.f);
+  DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
+    20.f, 78.f, 4.f, 56.f);
+  DrawText(TEXT("SHATTERED SANCTUARY  |  FIRST STEPS"),
+    FLinearColor(0.72f, 0.92f, 1.f), 34.f, 84.f, nullptr, 0.86f);
+  DrawText(Objective, FLinearColor::White,
+    34.f, 109.f, nullptr, Canvas->SizeX < 1050.f ? 0.72f : 0.86f);
+ }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
  const float CX = Radius + 25.f;
@@ -778,6 +802,10 @@ void AMoonfallCombatHUD::DrawHUD()
  int32 VisibleDamageNumbers = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && VisibleDamageNumbers < 32; ++It) {
   const AMoonfallEnemy* Enemy = *It;
+  if (!IsValid(Enemy) || Enemy->GetActorLocation().ContainsNaN()
+      || Hero->GetActorLocation().ContainsNaN()
+      || FVector::DistSquared(Enemy->GetActorLocation(), Hero->GetActorLocation())
+         > FMath::Square(6000.f)) continue;
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
    const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
