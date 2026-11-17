@@ -25,6 +25,9 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
+ // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
+ void TryPlaceNewCharacterAtSanctuary();
+ bool bStartingSanctuaryPlaced = false;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // Twelve persistent fantasy ancestries. Choice locks on first selection.

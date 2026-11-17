@@ -10,6 +10,7 @@
 #include "Components/InputComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
@@ -18,6 +19,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallDungeonLayout.h"
+#include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -258,6 +260,28 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
+ if (bStartingSanctuaryPlaced || !GetWorld() || bPersistentSaveWritesBlocked
+     || UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  const AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena) || !Arena->bEnableStartingSanctuary) continue;
+  const FVector Start = Arena->GetStartingSanctuaryLocation();
+  if (!Start.ContainsNaN()
+      && TeleportTo(Start, GetActorRotation(), false, false)) {
+   InitialSpawnTransform = GetActorTransform();
+   bHasInitialSpawnTransform = true;
+   RespawnCheckpointLocation = GetActorLocation();
+   bHasRespawnCheckpointLocation = true;
+   bStartingSanctuaryPlaced = true;
+   // Shrine discovery remains in the shrine's own overlap/spawn checks.
+   for (TActorIterator<AMoonfallCheckpointShrine> ShrineIt(GetWorld()); ShrineIt; ++ShrineIt)
+    if (IsValid(*ShrineIt)) ShrineIt->CheckHeroAtSpawn(this);
+  }
+  break; // Never move between multiple authored arenas.
+ }
+}
+
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
  // Blueprint defaults are applied after the native constructor. Capture the
@@ -293,7 +317,16 @@ void AMoonfallHeroPawn::BeginPlay() {
   RespawnCheckpointLocation = SpawnLocation;
   bHasRespawnCheckpointLocation = true;
  }
- LoadWorldProgress();
+ const bool bLoadedWorldProgress = LoadWorldProgress();
+ // Recheck once on the next game tick: GameMode may create the arena after
+ // this hero's BeginPlay. Neither pass can override a returning player's save.
+ if (!bLoadedWorldProgress
+     && !UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)
+     && !bPersistentSaveWritesBlocked && GetWorld()) {
+  TryPlaceNewCharacterAtSanctuary();
+  GetWorldTimerManager().SetTimerForNextTick(
+    this, &AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary);
+ }
  bWorldProgressInitialized = true;
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // When a shrine spawned before this pawn, BeginPlay overlap notifications

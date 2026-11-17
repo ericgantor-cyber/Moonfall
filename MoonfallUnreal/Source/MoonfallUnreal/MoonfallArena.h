@@ -15,6 +15,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  UInstancedStaticMeshComponent* DungeonRoad;
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
+ // Keeps the new-player sanctuary on the same continuous world map.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
+ bool bEnableStartingSanctuary = true;
+ FVector GetStartingSanctuaryLocation() const;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  // NAME_None keeps the previous combined showcase. Select one god per arena
  // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.

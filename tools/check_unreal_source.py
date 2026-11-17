@@ -3275,7 +3275,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bLegacyGodSlot = !bSingleDivineEncounter && Count >= 5", arena)
         self.assertIn("const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;", arena)
         self.assertIn("else if (!bSingleDivineEncounter && Count == 4", arena)
-        self.assertEqual(arena.count("CreateBlock(FVector("), 11)  # south gate and road add two blocks
+        # Sanctuary architecture is separate from the four divine cover blocks.
+        divine_cover = arena.split("if (bSingleDivineEncounter) {", 1)[1].split(
+            "// Fixed showcase NPC", 1
+        )[0]
+        self.assertEqual(divine_cover.count("CreateBlock(FVector("), 4)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true", arena)
         self.assertLess(arena.index("Enemy->DivineBossId ="), arena.index("FinishSpawningActor(Enemy, SpawnTransform)"))
 
@@ -5225,6 +5229,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             bind.index("SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());"),
             bind.index("OnRacePreviewRequested(Selection.RaceId);"),
         )
+
+
+    def test_starting_sanctuary_is_continuous_and_new_save_only(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay() {", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1
+        )[0]
+        self.assertIn("bool bEnableStartingSanctuary = true;", arena_h)
+        self.assertIn("GetStartingSanctuaryLocation() const", arena_h)
+        self.assertIn("FVector(0.f, 3500.f, 120.f)", arena)
+        # Every walkable floor connects: old arena ends at Y=1500, bridge
+        # spans Y=1350..2350, Sanctuary begins at Y=2350.
+        self.assertIn("CreateBlock(FVector(0,1850,-20),FVector(5,10,0.4f));", arena)
+        self.assertIn("CreateBlock(FVector(0,3500,-60),FVector(24,23,1));", arena)
+        self.assertIn("CreateBlock(FVector(-850,1500,200),FVector(13,1,5));", arena)
+        self.assertIn("CreateBlock(FVector(850,1500,200),FVector(13,1,5));", arena)
+        self.assertNotIn("CreateBlock(FVector(0,1500,200),FVector(30,1,5));", arena)
+        self.assertIn('TEXT("sanctuary_firstlight")', arena)
+        self.assertIn('TEXT("CrossroadsGuide")', arena)
+        self.assertIn("const bool bLoadedWorldProgress = LoadWorldProgress();", begin)
+        self.assertIn("!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)", begin)
+        self.assertIn("!bPersistentSaveWritesBlocked", begin)
+        self.assertIn("TryPlaceNewCharacterAtSanctuary();", begin)
+        self.assertIn("SetTimerForNextTick(", begin)
+        self.assertIn("&AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary", begin)
+        helper = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {", 1
+        )[1].split("void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertIn("bStartingSanctuaryPlaced", self.hero_h)
+        self.assertIn("if (bStartingSanctuaryPlaced", helper)
+        self.assertIn("UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)", helper)
+        self.assertIn("bPersistentSaveWritesBlocked", helper)
+        self.assertIn("Arena->bEnableStartingSanctuary", helper)
+        self.assertIn("Arena->GetStartingSanctuaryLocation()", helper)
+        self.assertIn("TeleportTo(Start, GetActorRotation(), false, false)", helper)
+        self.assertIn("RespawnCheckpointLocation = GetActorLocation();", helper)
+        self.assertIn("bStartingSanctuaryPlaced = true;", helper)
+        self.assertLess(begin.index("LoadWorldProgress();"),
+                        begin.index("TryPlaceNewCharacterAtSanctuary();"))
+        self.assertNotIn("UGameplayStatics::OpenLevel", arena)
+        self.assertNotIn("UGameplayStatics::OpenLevel", begin)
 
 if __name__ == "__main__":
     unittest.main()
