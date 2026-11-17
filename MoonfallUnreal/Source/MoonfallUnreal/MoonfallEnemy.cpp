@@ -825,7 +825,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt) {
-    NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+    // Spread pack path queries predictably without reducing close combat
+    // responsiveness. Ordinary distant pursuers refresh less frequently;
+    // bosses and elites keep their existing half-second navigation budget.
+    const float PathRefreshBase = (!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f;
+    NextPathRefreshAt = Now + PathRefreshBase
+      + 0.05f * static_cast<float>(GetUniqueID() % 5u);
     FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
