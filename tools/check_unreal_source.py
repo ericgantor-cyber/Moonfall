@@ -5292,7 +5292,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6", tracker)
         self.assertIn("static_cast<float>(Discovered) / 30.f", tracker)
         self.assertIn("static_cast<float>(Cleared) / 30.f", tracker)
-        self.assertIn("Use J for the atlas", tracker)
+        self.assertIn("J: atlas", tracker)
         self.assertNotIn("GetAllActorsOfClass", tracker)
         self.assertNotIn("TActorIterator", tracker)
         self.assertNotIn("OpenLevel", tracker)
