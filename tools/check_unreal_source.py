@@ -5231,6 +5231,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )
 
 
+    def test_starting_sanctuary_has_nonticking_control_and_route_guides(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
+        markers = arena.split("const FStarterSign Signs[] = {", 1)[1].split(
+            "for (const FStarterSign& Entry : Signs)", 1
+        )[0]
+        self.assertIn("SanctuaryGuideSigns", arena_h)
+        self.assertIn("if (bEnableStartingSanctuary) {", arena)
+        for sign in ("SanctuaryWelcome", "SanctuaryGuide", "SanctuaryControls", "SanctuaryExit"):
+            self.assertIn('TEXT("' + sign + '")', markers)
+        self.assertEqual(markers.count("FVector("), 4)
+        self.assertIn("RIGHT-CLICK TO TALK", markers)
+        self.assertIn("LEFT CLICK: ATTACK", markers)
+        self.assertIn("B: INVENTORY", markers)
+        self.assertIn("C: CHARACTER", markers)
+        self.assertIn("J: ATLAS", markers)
+        self.assertIn("ESC: SETTINGS", markers)
+        self.assertIn("ALL SIX REGIONS", markers)
+        self.assertIn("Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);", arena)
+        self.assertIn("Sign->SetGenerateOverlapEvents(false);", arena)
+        self.assertIn("SanctuaryGuideSigns.Add(Sign);", arena)
+        self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", arena)
+
     def test_starting_sanctuary_is_continuous_and_new_save_only(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
