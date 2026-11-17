@@ -284,13 +284,13 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
  FCollisionQueryParams CollisionParams(SCENE_QUERY_STAT(MoonfallDungeonBonusSpawn), false);
  // Keep dungeon walls and floors in collision checks, not ignored.
  bool bAllSpawned = true;
- // Three rows of up to four, all within the existing 1200 x 900 room.
- // Keep the central doorway and wall margins clear.
+ // Two side lanes of up to six, all within the existing 1200 x 900
+ // room. Never place a mob on the central doorway/overlap path (Y=0):
+ // the entering hero otherwise blocks an entire pack on every retry.
  for (int32 Member = 0; Member < GroupSize; ++Member) {
-  const int32 Column = Member % 4;
-  const int32 Row = Member / 4;
-  const float X = (static_cast<float>(Column) - 1.5f) * 240.f;
-  const float Y = (static_cast<float>(Row) - 1.f) * 205.f;
+  const int32 Column = Member / 2;
+  const float X = (static_cast<float>(Column) - 2.5f) * 120.f;
+  const float Y = (Member % 2 == 0) ? -240.f : 240.f;
   const FVector Position = GetActorTransform().TransformPosition(
     FVector(ChamberIndex * ChamberLength + X, Y, 110.f));
   if (World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
