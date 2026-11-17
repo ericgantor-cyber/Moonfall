@@ -477,9 +477,13 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
  const int32 Requested = bEliteEncounter ? 1
    : EncounterRandom.RandRange(5, FMath::Clamp(EnemiesPerCombatChamber, 5, 6));
- const int32 Count = FMath::Min(Remaining, Requested);
+ // Never silently downgrade a regular 5-6-mob chamber to a smaller group.
+ if (Remaining < Requested) return false;
+ const int32 Count = Requested;
  const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
  if (EncounterLevel <= 0) return false;
+ TArray<AMoonfallEnemy*> SpawnedActors;
+ SpawnedActors.Reserve(Count);
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   // Two lanes of three enemies, spaced to fit within the chamber floor.
@@ -521,11 +525,18 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
    Enemy->Destroy();
    continue;
   }
+  SpawnedActors.Add(Enemy);
   ++Spawned;
   break; // Successful slot: never produce more than Count enemies.
   }
  }
- if (Spawned == 0) return false;
+ // Commit the chamber only when every requested actor survived spawning.
+ // A blocked slot must not permanently turn a 5-6-mob room into a partial room.
+ if (Spawned != Count) {
+  for (AMoonfallEnemy* Enemy : SpawnedActors)
+   if (IsValid(Enemy)) Enemy->Destroy();
+  return false;
+ }
  SpawnedEncounterCount += Spawned;
  OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
  return true;
