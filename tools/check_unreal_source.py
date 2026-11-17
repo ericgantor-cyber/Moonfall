@@ -3592,7 +3592,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_enemy_level_scaling_is_spawn_only(self):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("SpawnBalanceLevel = IsValid(Player)", begin)
+        self.assertIn("SpawnBalanceLevel = bSanctuaryPracticeAtSpawn ? 1", begin)
+        self.assertIn("IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1", begin)
         self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
         self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
 
