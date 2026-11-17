@@ -5710,5 +5710,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(workflow.index("Set-Content -LiteralPath $evidence"),
                         workflow.index("Preserve native Editor and Game compile proof"))
 
+
+    def test_windows_installer_requires_real_nonempty_cooked_content_archives(self):
+        build = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("MoonfallUnreal\\Content\\Paks", build)
+        self.assertIn("Test-Path -LiteralPath $pakDirectory -PathType Container", build)
+        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak'", build)
+        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc'", build)
+        self.assertIn("[IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')", build)
+        self.assertIn("Where-Object { $_.Length -gt 0 }", build)
+        self.assertIn("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)", build)
+        self.assertLess(build.index("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)"),
+                        build.index("Write-Host 'Building NSIS Windows installer...'"))
+        self.assertNotIn("Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File", build)
+
 if __name__ == "__main__":
     unittest.main()
