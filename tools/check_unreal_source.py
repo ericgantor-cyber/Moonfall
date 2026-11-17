@@ -5255,6 +5255,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SanctuaryGuideSigns.Add(Sign);", arena)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", arena)
 
+    def test_quest_tracker_targets_only_discovered_unbeaten_bosses(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        tracker = hud.split("// World-wide quest tracker,", 1)[1].split(
+            "// Compact circular resource HUD", 1
+        )[0]
+        self.assertIn("int32 NextBossZone = INDEX_NONE;", tracker)
+        self.assertIn("int32 NextBossDungeon = INDEX_NONE;", tracker)
+        self.assertIn("Zone < 6 && NextBossZone == INDEX_NONE", tracker)
+        self.assertIn("Dungeon < 5", tracker)
+        self.assertIn("Hero->HasDiscoveredDungeon(Zone, Dungeon)", tracker)
+        self.assertIn("!Hero->HasDefeatedDungeonBoss(Zone, Dungeon)", tracker)
+        self.assertIn("NextBossZone = Zone;", tracker)
+        self.assertIn("NextBossDungeon = Dungeon;", tracker)
+        self.assertIn("Next boss: Region %d, Dungeon %d", tracker)
+        self.assertIn("Defeat boss: Region %d, Dungeon %d", tracker)
+        self.assertIn("NextBossZone != INDEX_NONE", tracker)
+        self.assertIn("Hero->GetNextUnchartedDungeonZone()", tracker)
+        self.assertNotIn("TActorIterator", tracker)
+        self.assertNotIn("GetAllActorsOfClass", tracker)
+
     def test_global_world_quest_tracker_shows_real_dungeon_progress(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         tracker = hud.split("// World-wide quest tracker,", 1)[1].split(
@@ -5272,7 +5292,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6", tracker)
         self.assertIn("static_cast<float>(Discovered) / 30.f", tracker)
         self.assertIn("static_cast<float>(Cleared) / 30.f", tracker)
-        self.assertIn("Use J for the atlas", tracker)
+        self.assertIn("J: atlas", tracker)
         self.assertNotIn("GetAllActorsOfClass", tracker)
         self.assertNotIn("TActorIterator", tracker)
         self.assertNotIn("OpenLevel", tracker)
