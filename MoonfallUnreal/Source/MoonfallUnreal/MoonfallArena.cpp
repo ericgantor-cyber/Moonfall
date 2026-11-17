@@ -41,11 +41,12 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
- // North gate opens toward the new-player sanctuary, opposite the dungeon road.
- // Two wall segments leave the same 400-unit walking corridor as the south gate.
- CreateBlock(FVector(-850,1500,200),FVector(13,1,5));
- CreateBlock(FVector(850,1500,200),FVector(13,1,5));
+ // The northern gate only opens if there is actual sanctuary terrain.
+ // Opted-out authored arenas must retain their original solid northern wall.
  if (bEnableStartingSanctuary) {
+  // Two wall segments leave the same 400-unit walking corridor as the south gate.
+  CreateBlock(FVector(-850,1500,200),FVector(13,1,5));
+  CreateBlock(FVector(850,1500,200),FVector(13,1,5));
   // One continuous walkable surface, with no level transition or loading door.
   CreateBlock(FVector(0,1850,-20),FVector(5,10,0.4f));
   CreateBlock(FVector(0,3500,-60),FVector(24,23,1));
@@ -60,6 +61,9 @@ void AMoonfallArena::BeginPlay() {
   CreateBlock(FVector(900,3850,60),FVector(1.3f,1.3f,2.4f));
   CreateBlock(FVector(-900,2800,60),FVector(1.3f,1.3f,2.4f));
   CreateBlock(FVector(900,2800,60),FVector(1.3f,1.3f,2.4f));
+ } else {
+  // Avoid an exit into empty world space when the sanctuary is disabled.
+  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  }
  // Southern gate: a 400-unit opening aligns with the walkable dungeon road.
  // Split only this boundary; retain divine encounters, NPCs and shrine layout.
