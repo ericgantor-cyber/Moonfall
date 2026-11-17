@@ -422,16 +422,20 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberTriggers[Index] != Overlapped) continue;
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
-  // Bonus encounters retry on re-entry if any formation slot was blocked.
-  // Normal chamber encounters keep their original one-shot completion mask.
-  TrySpawnBonusGroup(Hero, ChamberIndex);
-  if ((EnteredChambersMask & Bit) != 0u) return;
+  // Bonus packs retry on re-entry, even after the primary room event.
+  // On first entry, spawn the authored combat/treasure encounter BEFORE a
+  // bonus pack: the bonus group must not occupy primary formation slots.
+  if ((EnteredChambersMask & Bit) != 0u) {
+   TrySpawnBonusGroup(Hero, ChamberIndex);
+   return;
+  }
   const int32 ChamberType = GetChamberType(ChamberIndex);
-  // Failed spawn leaves the chamber retryable on a later overlap.
+  // Failed primary spawns remain retryable with no bonus mob interference.
   if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;
   if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
+  TrySpawnBonusGroup(Hero, ChamberIndex);
   return;
  }
 }
