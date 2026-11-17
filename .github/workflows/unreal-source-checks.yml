@@ -103,6 +103,10 @@ jobs:
             tools.test_unreal_equipment_stat_validation \
             tools.test_unreal_loot_collection_safety
 
+      - name: Verify combat HUD scan regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_hud_scan
+
       - name: Parse Windows build scripts
         shell: pwsh
         run: |
