@@ -103,13 +103,13 @@ void AMoonfallArena::BeginPlay() {
    {TEXT("SanctuaryWelcome"), TEXT("SHATTERED SANCTUARY\nFIRSTLIGHT SHRINE"), FVector(0.f, 3900.f, 140.f)},
    {TEXT("SanctuaryGuide"), TEXT("MEET THE GUIDE\nRIGHT-CLICK TO TALK"), FVector(100.f, 3290.f, 140.f)},
    {TEXT("SanctuaryControls"), TEXT("LEFT CLICK: ATTACK   RIGHT CLICK: TALK / SPELL\nB: INVENTORY   C: CHARACTER   J: ATLAS   ESC: SETTINGS"), FVector(-520.f, 3000.f, 150.f)},
-   {TEXT("SanctuaryPractice"), TEXT("PRACTICE SENTRIES: NORTH CORNERS\\nAPPROACH TO TRAIN DODGE AND ATTACK"), FVector(0.f, 4180.f, 140.f)},
+   {TEXT("SanctuaryPractice"), TEXT("PRACTICE SENTRIES: NORTH CORNERS\nAPPROACH TO TRAIN DODGE AND ATTACK"), FVector(0.f, 4180.f, 140.f)},
    {TEXT("SanctuaryExit"), TEXT("SOUTH GATE: CROSSROADS\nFOLLOW THE ROAD TO ALL SIX REGIONS"), FVector(0.f, 2430.f, 140.f)}
   };
   // Two forgiving practice opponents at the far northern corners.
   // They cannot approach the spawn or shrine: their AI only activates when
   // the hero voluntarily comes close, and they have no pursuit speed.
-  constexpr FVector StarterPracticeOffsets[] = {
+  const FVector StarterPracticeOffsets[] = {
    FVector(-790.f, 4380.f, 60.f), FVector(790.f, 4380.f, 60.f)
   };
   for (int32 PracticeIndex = 0; PracticeIndex < 2; ++PracticeIndex) {
