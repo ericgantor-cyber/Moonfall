@@ -50,6 +50,8 @@ public:
  int32 GetBonusGroupChamber(int32 GroupIndex) const;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Bonus")
  void OnBonusEncounterPlanned(bool bTriggered, int32 Group1Size, int32 Group2Size, int32 Group3Size);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Bonus")
+ void OnBonusGroupSpawned(int32 GroupIndex, int32 ChamberIndex, int32 EnemyCount);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  UInstancedStaticMeshComponent* Floors;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
@@ -116,6 +118,10 @@ private:
  void PlanBonusEncounter();
  int32 BonusGroupSizes[3] = {0, 0, 0};
  int32 BonusGroupChambers[3] = {INDEX_NONE, INDEX_NONE, INDEX_NONE};
+ // Each of the three one-shot groups can retry on a later room overlap if
+ // collision blocks the full pack; retries never double-spawn a completed group.
+ uint8 SpawnedBonusGroupsMask = 0;
+ bool TrySpawnBonusGroup(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  float NextHazardDamageAt = -1.f;
  // Last valid overlap clock tracks backward time jumps.
  float LastHazardObservedTime = -1.f;
