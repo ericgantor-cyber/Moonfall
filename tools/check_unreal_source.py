@@ -5690,7 +5690,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                     "unreal-compile-windows.yml").read_text(encoding="utf-8")
         build = (ROOT.parents[1] / "Build" /
                  "Build-Windows.ps1").read_text(encoding="utf-8")
-        self.assertIn("on:\\n  workflow_dispatch:", workflow)
+        self.assertIn("on:\n  workflow_dispatch:", workflow)
         self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-4]", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("Compile Unreal Editor and Game Win64 Development targets", workflow)
