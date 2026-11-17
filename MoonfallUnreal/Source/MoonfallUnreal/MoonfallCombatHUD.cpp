@@ -583,8 +583,21 @@ void AMoonfallCombatHUD::DrawHUD()
   if (EnemyLocation.ContainsNaN()) continue;
   const float DistSq = FVector::DistSquared(EnemyLocation, HeroLocation);
   if (!FMath::IsFinite(DistSq)) continue;
-  // Keep defeated enemies here: their final damage labels remain visible.
-  if (DistSq <= FMath::Square(6000.f)) NearbyDamageEnemies.Add(E);
+  // Keep defeated enemies eligible for final-hit feedback, but only retain
+  // actors that have a recent visible damage entry. Most idle world enemies
+  // never enter the per-frame damage-label projection pass.
+  if (DistSq <= FMath::Square(6000.f)) {
+   bool bHasRecentDamage = false;
+   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
+    const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
+    const float Age = WorldTime - Hit.Time;
+    if (Age >= 0.f && Age <= 0.8f && FMath::IsFinite(Hit.Amount) && Hit.Amount > 0.f) {
+     bHasRecentDamage = true;
+     break;
+    }
+   }
+   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
+  }
   if (E->Health <= 0.f) continue;
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
@@ -890,7 +903,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!IsValid(Enemy)) continue;
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
-   const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
+   const float Age = WorldTime - Hit.Time;
    if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
    FVector2D Screen;
    // Offset entries so consecutive attacks on the same target remain readable.
