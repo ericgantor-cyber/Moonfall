@@ -3937,7 +3937,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::HandleEntrance(", 1)[0]
         self.assertIn("if (LockedEncounterLevel <= 0", helper)
         self.assertIn("Hero->IsPlayerControlled()", helper)
-        self.assertIn("LockedEncounterLevel = FMath::Clamp(Hero->Level, 1, 100);", helper)
+        self.assertIn('int32 MinimumDungeonLevel = 1;', layout_h)
+        self.assertIn('int32 MaximumDungeonLevel = 100;', layout_h)
+        self.assertIn('UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Difficulty")', layout_h)
+        self.assertIn("const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);", helper)
+        self.assertIn("const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);", helper)
+        self.assertIn("LockedEncounterLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);", helper)
         entrance = layout.split("void AMoonfallDungeonLayout::HandleEntrance(", 1)[1].split(
             "void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[0]
         self.assertIn("GetOrLockEncounterLevel(Hero);", entrance)
