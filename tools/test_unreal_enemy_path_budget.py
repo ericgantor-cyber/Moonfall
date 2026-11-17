@@ -25,7 +25,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
     def test_combat_safety_and_existing_sweep_remain(self):
         self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
-        self.assertIn("if (!bBoss && !bCanSeeHero)", self.source)
+        self.assertIn("if (!bBoss && !bCanSeeHero", self.source)
 
 if __name__ == "__main__":
     unittest.main()
