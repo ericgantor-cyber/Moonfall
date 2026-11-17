@@ -3928,6 +3928,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         combat.index("if (Enemy->IsActorBeingDestroyed()) {"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
+    def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        plan = layout.split("void AMoonfallDungeonLayout::PlanBonusEncounter()", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        self.assertIn("if (bBonusEncounterRolled) return;", plan)
+        self.assertIn("FRandomStream BonusRandom(GetEffectiveLayoutSeed() ^ 0x237B51);", plan)
+        self.assertIn("BonusRandom.FRand() < 0.25f", plan)
+        self.assertIn("Group < 3", plan)
+        self.assertIn("BonusRandom.RandRange(5, 11)", plan)
+        self.assertNotIn("SpawnActor", plan)
+        self.assertIn("PlanBonusEncounter();", layout)
+        self.assertIn("int32 GetBonusGroupSize(int32 GroupIndex) const;", layout_h)
+        self.assertIn("OnBonusEncounterPlanned(bool bTriggered", layout_h)
+        self.assertIn("return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3", layout)
+
     def test_dungeon_first_entry_level_lock_is_isolated_from_world_mobs(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
