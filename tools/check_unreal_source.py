@@ -1626,6 +1626,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         menu = tick.split("// Pause hostile behavior during both gameplay menus", 1)[1].split(
             "// A shatter follow-up expires", 1)[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
+        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
+        self.assertIn("CancelDivineSignature();", menu)
         for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
                        "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
                        "LockedAttackDirection = FVector::ZeroVector;"):
