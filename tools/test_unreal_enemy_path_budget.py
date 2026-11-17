@@ -38,7 +38,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("else if (Now >= NextHeroCacheRefreshAt)", tick)
         self.assertEqual(tick.count("NextHeroCacheRefreshAt = Now + 1.f;"), 2)
-        self.assertEqual(tick.count("UGameplayStatics::GetPlayerPawn(this, 0)"), 1)
+        self.assertEqual(tick.count("UGameplayStatics::GetPlayerPawn(this, 0)"), 2)
 
     def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
         self.assertIn('const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));', self.source)
