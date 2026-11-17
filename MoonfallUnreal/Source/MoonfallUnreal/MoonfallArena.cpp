@@ -95,6 +95,31 @@ void AMoonfallArena::BeginPlay() {
   Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));
   DungeonZoneSigns.Add(Sign);
  }
+ if (bEnableStartingSanctuary) {
+  // Clear, readable world-space directions instead of forced modal tutorials.
+  // Static text never ticks, does not block combat, and requires no new input.
+  struct FStarterSign { const TCHAR* Name; const TCHAR* Message; FVector Position; };
+  const FStarterSign Signs[] = {
+   {TEXT("SanctuaryWelcome"), TEXT("SHATTERED SANCTUARY\nFIRSTLIGHT SHRINE"), FVector(0.f, 3900.f, 140.f)},
+   {TEXT("SanctuaryGuide"), TEXT("MEET THE GUIDE\nRIGHT-CLICK TO TALK"), FVector(100.f, 3290.f, 140.f)},
+   {TEXT("SanctuaryControls"), TEXT("LEFT CLICK: ATTACK   RIGHT CLICK: TALK / SPELL\nB: INVENTORY   C: CHARACTER   J: ATLAS   ESC: SETTINGS"), FVector(-520.f, 3000.f, 150.f)},
+   {TEXT("SanctuaryExit"), TEXT("SOUTH GATE: CROSSROADS\nFOLLOW THE ROAD TO ALL SIX REGIONS"), FVector(0.f, 2430.f, 140.f)}
+  };
+  for (const FStarterSign& Entry : Signs) {
+   UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(this, FName(Entry.Name));
+   if (!IsValid(Sign)) continue;
+   Sign->SetupAttachment(GetRootComponent());
+   Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+   Sign->SetGenerateOverlapEvents(false);
+   Sign->SetText(FText::FromString(Entry.Message));
+   Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+   Sign->SetWorldSize(36.f);
+   Sign->SetTextRenderColor(FColor(180, 225, 245));
+   Sign->RegisterComponent();
+   Sign->SetRelativeLocation(Entry.Position);
+   SanctuaryGuideSigns.Add(Sign);
+  }
+ }
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
  // defeating a boss or using an attack key. Stable IDs persist between saves.
