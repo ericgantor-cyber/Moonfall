@@ -200,6 +200,29 @@ void AMoonfallDungeonLayout::BeginPlay()
      this, &AMoonfallDungeonLayout::HandleChamberOverlap);
 }
 
+int32 AMoonfallDungeonLayout::GetBonusGroupSize(int32 GroupIndex) const
+{
+ return bBonusEncounterActive && GroupIndex >= 0 && GroupIndex < 3
+   ? BonusGroupSizes[GroupIndex] : 0;
+}
+
+void AMoonfallDungeonLayout::PlanBonusEncounter()
+{
+ if (bBonusEncounterRolled) return;
+ bBonusEncounterRolled = true;
+ // Isolate the encounter roll from chamber RNG so treasure/elite outcomes
+ // cannot be changed by bonus group planning.
+ FRandomStream BonusRandom(GetEffectiveLayoutSeed() ^ 0x237B51);
+ bBonusEncounterActive = BonusRandom.FRand() < 0.25f;
+ if (bBonusEncounterActive) {
+  for (int32 Group = 0; Group < 3; ++Group)
+   BonusGroupSizes[Group] = BonusRandom.RandRange(5, 11);
+ }
+ // Planning never spawns an enemy or changes the existing chamber budget.
+ OnBonusEncounterPlanned(bBonusEncounterActive,
+   BonusGroupSizes[0], BonusGroupSizes[1], BonusGroupSizes[2]);
+}
+
 int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero)
 {
  if (LockedEncounterLevel <= 0 && IsValid(Hero) && Hero->IsPlayerControlled()
@@ -207,6 +230,7 @@ int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(const AMoonfallHeroPawn* H
   const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);
   const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);
   LockedEncounterLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);
+  PlanBonusEncounter();
  }
  return LockedEncounterLevel;
 }
