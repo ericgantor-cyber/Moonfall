@@ -5286,6 +5286,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))', guide)
         self.assertIn('Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")))', guide)
         self.assertIn("FIRST STEPS", guide)
+        self.assertIn("constexpr int32 GuideSalvageCost = 10;", guide)
+        self.assertIn("Hero->Salvage >= GuideSalvageCost", guide)
+        self.assertIn("Find gear; salvage it in B", guide)
+        self.assertIn("Return to the Guide with 10 salvage", guide)
+        self.assertIn("Practice north, then take the south gate", guide)
+        self.assertNotIn("Train to the north; then turn in", guide)
+
         self.assertIn("Canvas->SizeX >= 760.f", guide)
         self.assertIn("Canvas->SizeY >= 480.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
