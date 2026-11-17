@@ -88,6 +88,10 @@ public:
  void OnFinalChamberEntered(AMoonfallHeroPawn* Hero);
 
 private:
+ // One runtime snapshot per physical dungeon: later chambers keep first-entry difficulty.
+ // This is session-local; it does not change the existing save format.
+ int32 LockedEncounterLevel = 0;
+ int32 GetOrLockEncounterLevel(const AMoonfallHeroPawn* Hero);
  float NextHazardDamageAt = -1.f;
  // Last valid overlap clock tracks backward time jumps.
  float LastHazardObservedTime = -1.f;
