@@ -358,7 +358,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextHeroCacheRefreshAt = Now + 1.f;
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+     || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
