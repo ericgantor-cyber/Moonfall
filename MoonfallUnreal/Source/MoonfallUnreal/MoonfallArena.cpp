@@ -24,14 +24,24 @@ AMoonfallArena::AMoonfallArena() {
  if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
+ // Reuse the mesh already loaded for the instanced dungeon road rather
+ // than issuing a second asset lookup for every sanctuary wall and plinth.
+ UStaticMesh* Cube = DungeonRoad ? DungeonRoad->GetStaticMesh() : nullptr;
+ if (!Cube) {
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall arena block skipped: cube mesh unavailable"));
+  return;
+ }
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
+ if (!IsValid(Block)) return;
  Block->SetupAttachment(GetRootComponent());
- Block->RegisterComponent();
+ Block->SetStaticMesh(Cube);
  Block->SetRelativeLocation(Position);
  Block->SetRelativeScale3D(Scale);
  Block->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
- UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
- if (Cube) Block->SetStaticMesh(Cube);
+ Block->SetCollisionResponseToAllChannels(ECR_Block);
+ // Register once after setting the initial transform, mesh and collision.
+ // This avoids repeated render/physics rebuilds during world generation.
+ Block->RegisterComponent();
 }
 FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
  return GetActorTransform().TransformPosition(FVector(0.f, 3500.f, 120.f));
