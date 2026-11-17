@@ -22,6 +22,11 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
         self.assertIn("GetUniqueID() % 5u", self.source)
 
+    def test_distant_sight_traces_keep_scouts_and_elites_responsive(self):
+        self.assertIn('const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));', self.source)
+        self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
+        self.assertIn("NextSightCheckAt = Now + SightInterval", self.source)
+
     def test_combat_safety_and_existing_sweep_remain(self):
         self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
