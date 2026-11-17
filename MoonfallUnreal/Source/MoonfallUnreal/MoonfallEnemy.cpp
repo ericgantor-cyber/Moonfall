@@ -693,10 +693,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  // Ordinary enemies investigate a recently seen hero rather than tracking
  // the player through solid walls. Boss encounters retain full arena awareness.
- // Visibility traces run at most once per 0.45 seconds per ordinary enemy.
+ // Keep close-range awareness responsive, while reducing costly
+ // visibility traces from distant ordinary enemies in crowded encounters.
+ // Elites and dungeon scouts retain their existing faster perception rate.
  if (!bBoss && Now >= NextSightCheckAt) {
   const bool bWasVisible = bCanSeeHero;
-  NextSightCheckAt = Now + 0.45f + 0.05f * static_cast<float>(GetUniqueID() % 3u);
+  const bool bFastPerception = bElite || ActorHasTag(FName(TEXT("DungeonScout")));
+  const float SightInterval = !bFastPerception && Distance > 1200.f ? 0.7f : 0.45f;
+  NextSightCheckAt = Now + SightInterval
+    + 0.05f * static_cast<float>(GetUniqueID() % 3u);
   FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
   PerceptionParams.AddIgnoredActor(this);
   FHitResult PerceptionHit;
