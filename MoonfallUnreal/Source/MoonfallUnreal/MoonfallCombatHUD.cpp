@@ -704,6 +704,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 RegionsCleared = FMath::Clamp(Hero->GetClearedDungeonZoneCount(), 0, 6);
   // Progress already lives in two persistent 30-bit masks. Find one
   // discovered, unbeaten dungeon without searching world actors or paths.
+  static const TCHAR* RegionNames[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
   int32 NextBossZone = INDEX_NONE;
   int32 NextBossDungeon = INDEX_NONE;
   for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone) {
@@ -748,16 +749,16 @@ void AMoonfallCombatHUD::DrawHUD()
   } else if (Discovered < 30) {
    const int32 NextZone = Hero->GetNextUnchartedDungeonZone();
    Objective = NextZone >= 0 && NextZone < 6
-     ? FString::Printf(TEXT("Explore region %d: discover dungeon entrances"), NextZone + 1)
+     ? FString::Printf(TEXT("Explore %s: discover dungeon entrances"), RegionNames[NextZone])
      : TEXT("Discover more dungeon entrances");
    Context = NextBossZone != INDEX_NONE
-     ? FString::Printf(TEXT("Next boss: Region %d, Dungeon %d  |  J: atlas"),
-         NextBossZone + 1, NextBossDungeon + 1)
+     ? FString::Printf(TEXT("Next boss: %s, Dungeon %d  |  J: atlas"),
+         RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
      : TEXT("J: atlas  |  Follow the connected dungeon road");
   } else {
    Objective = NextBossZone != INDEX_NONE
-     ? FString::Printf(TEXT("Defeat boss: Region %d, Dungeon %d"),
-         NextBossZone + 1, NextBossDungeon + 1)
+     ? FString::Printf(TEXT("Defeat boss: %s, Dungeon %d"),
+         RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
