@@ -945,7 +945,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && Distance > AttackRange * 0.45f && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
-   const float StrafeSpeed = bBoss ? 95.f : 70.f;
+   // Bonus-pack leaders can pressure a flank faster without changing
+   // boss movement, ordinary elites, attack timing, or the sweep collision.
+   const bool bDungeonPackLeader = bElite
+     && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
+     && ActorHasTag(FName(TEXT("DungeonPackLeader")));
+   const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
    if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero()) {
