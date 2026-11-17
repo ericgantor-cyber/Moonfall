@@ -897,6 +897,8 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
+ // Reuse one controller lookup for every projected damage label this frame.
+ const APlayerController* DamageProjectionPC = GetOwningPlayerController();
  int32 VisibleDamageNumbers = 0;
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
   if (VisibleDamageNumbers >= 32) break;
@@ -909,7 +911,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // Offset entries so consecutive attacks on the same target remain readable.
    const float HorizontalOffset = static_cast<float>(Slot - 1) * 24.f;
    const FVector WorldTextPosition = Enemy->GetActorLocation() + FVector(0.f, 0.f, 175.f + Age * 65.f);
-   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
+   if (DamageProjectionPC && DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
        && Screen.X + HorizontalOffset >= 0.f && Screen.X + HorizontalOffset < Canvas->SizeX
        && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
     ++VisibleDamageNumbers;
