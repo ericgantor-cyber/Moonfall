@@ -18,6 +18,7 @@ ATLASES = (
     ("Moonfall_LootVariants_Atlas.png", "T_MoonfallLootVariants", (120, 120)),
     ("Moonfall_LootRelics_Atlas.png", "T_MoonfallLootRelics", (120, 120)),
     ("Moonfall_LootMasterworks_Atlas.png", "T_MoonfallLootMasterworks", (120, 120)),
+    ("Moonfall_LootAscendants_Atlas.png", "T_MoonfallLootAscendants", (120, 120)),
 )
 PNG_SIGNATURE = bytes.fromhex("89504e470d0a1a0a")
 MAX_PNG_BYTES = 512 * 1024
