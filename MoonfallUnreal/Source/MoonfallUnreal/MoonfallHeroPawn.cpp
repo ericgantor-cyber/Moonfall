@@ -3376,8 +3376,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    if (ViewW > 48 && ViewH > 48 && PC->bShowMouseCursor && PC->GetMousePosition(MouseX, MouseY)
        && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
     // Keep hit tests in sync with MoonfallCombatHUD's Atlas panel.
-    const float PanelW = FMath::Min(680.f, float(ViewW) - 24.f);
-    const float PanelH = FMath::Min(610.f, float(ViewH) - 24.f);
+    const float PanelW = FMath::Min(900.f, float(ViewW) - 24.f);
+    const float PanelH = FMath::Min(650.f, float(ViewH) - 24.f);
     const float PanelL = (float(ViewW) - PanelW) * 0.5f;
     const float PanelT = (float(ViewH) - PanelH) * 0.5f;
     const float CloseX = PanelL + PanelW - 42.f;
@@ -3386,21 +3386,23 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      ToggleAtlas();
      return;
     }
-    const float RowGap = FMath::Max(0.f, PanelH - 220.f) / 6.f;
-    if (RowGap >= 20.f && MouseX >= PanelL + 10.f && MouseX <= PanelL + PanelW - 10.f) {
+    const float SidebarWidth = FMath::Clamp(PanelW * 0.27f, 132.f, 238.f);
+    const float RowGap = FMath::Clamp((PanelH - 145.f) / 6.f, 24.f, 78.f);
+    // Region selections are confined to the sidebar, never the painted map.
+    if (MouseX >= PanelL + 13.f && MouseX <= PanelL + SidebarWidth - 9.f) {
      for (int32 Zone = 0; Zone < 6; ++Zone) {
-      const float RowY = PanelT + 86.f + Zone * RowGap;
-      if (MouseY >= RowY - 5.f && MouseY < RowY + FMath::Min(61.f, RowGap - 2.f)) {
+      const float RowY = PanelT + 110.f + Zone * RowGap;
+      if (MouseY >= RowY - 4.f && MouseY < RowY - 4.f + FMath::Max(20.f, RowGap - 4.f)) {
        AtlasSelectedRegion = Zone;
        return;
       }
      }
     }
-    // Clicking the overview pans toward the chosen XY world coordinate.
-    const float MapL = PanelL + 18.f;
-    const float MapW = FMath::Max(40.f, PanelW - 36.f);
-    const float MapT = PanelT + PanelH - 102.f;
-    const float MapH = 84.f;
+    // Clicking the parchment chart pans toward the chosen XY world coordinate.
+    const float MapL = PanelL + SidebarWidth + 19.f;
+    const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
+    const float MapT = PanelT + 105.f;
+    const float MapH = FMath::Max(74.f, PanelH - 141.f);
     if (MouseX >= MapL && MouseX <= MapL + MapW
         && MouseY >= MapT && MouseY <= MapT + MapH) {
      const float Zoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
