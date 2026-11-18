@@ -88,7 +88,8 @@ assert.equal(script.includes("innerHTML"),false,"Do not inject user-authored row
 assert.equal(script.includes("fetch("),false,"Offline editor must not contact servers");
 assert.equal(script.includes("eval("),false,"Do not evaluate CSV content as code");
 for(const id of ["export","import","add","reset","undo","redo","bulk-factor","bulk-apply",
- "filter-zone","slots","traits","row-odds","unsaved","preview-source","preview-zone","preview-level","rows"]){
+ "filter-zone","page-size","page-prev","page-next","page-status",
+ "slots","traits","row-odds","unsaved","preview-source","preview-zone","preview-level","rows"]){
  assert.ok(html.includes('id="'+id+'"'),"Missing accessible UI control: "+id);
 }
 assert.ok(script.includes("rememberEdit();rows.splice(index,1)"),"Deletion must support undo");
@@ -96,4 +97,59 @@ assert.ok(script.includes("rememberEdit();rows=defaultRows()"),"Reset must suppo
 assert.ok(script.includes("rows=undoHistory.pop()"),"Undo must restore previous table");
 assert.ok(script.includes("rows=redoHistory.pop()"),"Redo must restore next table");
 assert.ok(script.includes("window.addEventListener(\"beforeunload\""),"Warn before losing unexported edits");
-console.log("Moonfall loot editor: syntax, 41 rows, rarity/slot/trait odds, bulk editing, undo/redo, validation, CSV roundtrip OK");
+
+// Exercise real editor event handlers with a minimal dependency-free DOM shim.
+// Does not replace a graphical browser/Unreal integration test.
+class FakeElement {
+ constructor(){this.value="";this.disabled=false;this.className="";this.textContent="";
+   this.children=[];this.handlers={};this.style={};}
+ append(...children){this.children.push(...children);}
+ replaceChildren(...children){this.children=[...children];}
+ setAttribute(){}
+ addEventListener(event,handler){this.handlers[event]=handler;}
+ click(){if(this.handlers.click)this.handlers.click();}
+}
+const nodes=new Map(),get=id=>{
+ if(!nodes.has(id))nodes.set(id,new FakeElement());
+ return nodes.get(id);
+};
+get("filter").value="All";
+get("filter-zone").value="all";
+get("page-size").value="80";
+get("bulk-factor").value="150";
+get("preview-source").value="Boss";
+get("preview-zone").value="0";
+get("preview-level").value="60";
+get("search").value="";
+const browser=vm.createContext({
+ document:{getElementById:get,createElement:()=>new FakeElement(),addEventListener(){}},
+ window:{addEventListener(){}}, console
+});
+vm.runInContext(script,browser);
+const liveRows=()=>vm.runInContext("rows.map(row=>({...row}))",browser);
+assert.equal(liveRows().length,41);
+get("add").click();
+assert.equal(liveRows().length,42,"Add button should insert a new row");
+assert.equal(get("undo").disabled,false,"Undo is available after editing");
+get("undo").click();
+assert.equal(liveRows().length,41,"Undo restores a prior table");
+get("redo").click();
+assert.equal(liveRows().length,42,"Redo restores the later table");
+get("undo").click();
+const bossBefore=liveRows().find(row=>row.Name==="Boss_R3").Weight;
+get("filter").value="Boss";
+get("filter").handlers.change();
+get("bulk-apply").click();
+assert.equal(liveRows().find(row=>row.Name==="Boss_R3").Weight,Math.round(bossBefore*1.5));
+assert.equal(liveRows().find(row=>row.Name==="Regular_R0").Weight,44,
+ "Bulk edit must honor reward source filters");
+get("undo").click();
+assert.equal(liveRows().find(row=>row.Name==="Boss_R3").Weight,bossBefore);
+get("filter").value="All";get("filter").handlers.change();
+get("page-size").value="40";get("page-size").handlers.change();
+assert.equal(get("page-next").disabled,false,"Forty-one default rows span two pages");
+get("page-next").click();
+assert.ok(get("page-status").textContent.includes("page 2/2"));
+get("page-prev").click();
+assert.ok(get("page-status").textContent.includes("page 1/2"));
+console.log("Moonfall loot editor: syntax, 41 rows, exact odds, safe edit history, bulk changes, pagination and offline event-handler smoke OK");
