@@ -87,6 +87,23 @@ void AMoonfallCombatHUD::DrawHUD()
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
   // Artwork is procedural and schematic, never a claim of surveyed terrain.
   static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
+  // Original Moonfall place names: one stable title for each of 30 dungeons.
+  // Titles identify discovered destinations only; never reveal unknown markers.
+  static const TCHAR* AtlasDungeonTitles[30] = {
+   TEXT("Emberfall Crypt"), TEXT("Cinderwatch Bastion"), TEXT("Ashen Reliquary"),
+   TEXT("Pyreborn Hollow"), TEXT("Sable Furnace"),
+   TEXT("Briarshade Grotto"), TEXT("Moonpetal Ruins"), TEXT("Weepingroot Sanctum"),
+   TEXT("Veilwood Depths"), TEXT("Thornbound Chapel"),
+   TEXT("Blackwater Ossuary"), TEXT("Echoing Chasm"), TEXT("Buried Choir"),
+   TEXT("Gloamstone Vault"), TEXT("Abyssal Watch"),
+   TEXT("Rustglass Foundry"), TEXT("Brassfang Works"), TEXT("Broken Crucible"),
+   TEXT("Furnaceheart Keep"), TEXT("Ironwake Vault"),
+   TEXT("Shiverpeak Cairn"), TEXT("Winterglass Tomb"), TEXT("Frostmourn Hollows"),
+   TEXT("Glacierwatch Ruins"), TEXT("Coldstar Bastion"),
+   TEXT("Umbral Scar"), TEXT("Nightfall Reliquary"), TEXT("Duskspire Ruins"),
+   TEXT("Black Sun Sanctuary"), TEXT("Eclipse Throne")
+  };
+  static_assert(UE_ARRAY_COUNT(AtlasDungeonTitles) == 30, "Each Moonfall dungeon must have a name");
   static const FLinearColor AtlasZoneInk[6] = {
    FLinearColor(0.43f, 0.34f, 0.28f), FLinearColor(0.28f, 0.38f, 0.32f),
    FLinearColor(0.35f, 0.33f, 0.43f), FLinearColor(0.48f, 0.33f, 0.25f),
@@ -194,6 +211,9 @@ void AMoonfallCombatHUD::DrawHUD()
     }
    }
   }
+  // Named region caption is public knowledge; geographic details stay fogged.
+  DrawText(FString(AtlasRegions[Selected]), FLinearColor(0.90f, 0.81f, 0.66f),
+      MapLeft + 10.f, MapTop + 10.f, nullptr, Scale * 0.82f);
   // Do not reveal the complete road through unexplored territory.
   // Show only road segments around previously discovered dungeons.
   const float RoadY = ProjectY(-2500.f);
@@ -222,6 +242,7 @@ void AMoonfallCombatHUD::DrawHUD()
   int32 HoveredDungeonSlot = INDEX_NONE;
   bool bHoveredShrine = false;
   bool bHoveredActiveRespawn = false;
+  FString HoveredShrineTitle;
   // Map wayfinding: mark only the nearest known, unfinished dungeon in the
   // selected region. Distances are straight-line estimates, NOT traversable routes.
   const FVector HeroPosition = Hero->GetActorLocation();
@@ -266,7 +287,11 @@ void AMoonfallCombatHUD::DrawHUD()
   // World-space shrine icons are cached when J opens the Atlas.
   // Only discovered shrine actors appear. The active respawn is violet,
   // while other permanently discovered shrines remain cyan.
+  int32 AtlasShrineIndex = 0;
   for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations) {
+   const FString ShrineTitle = Hero->AtlasDiscoveredShrineNames.IsValidIndex(AtlasShrineIndex)
+       ? Hero->AtlasDiscoveredShrineNames[AtlasShrineIndex] : FString(TEXT("Discovered Shrine"));
+   ++AtlasShrineIndex;
    if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
    const float ShrineX = ProjectX(ShrinePos.X);
    const float ShrineY = ProjectY(ShrinePos.Y);
@@ -278,6 +303,7 @@ void AMoonfallCombatHUD::DrawHUD()
        && FMath::Abs(AtlasPointerY - ShrineY) <= 11.f) {
     bHoveredShrine = true;
     bHoveredActiveRespawn = bActiveRespawn;
+    HoveredShrineTitle = ShrineTitle;
    }
    DrawRect(bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f) : FLinearColor(0.32f, 0.91f, 0.91f),
        ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
@@ -294,8 +320,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Only known markers qualify, and cards remain inside the chart bounds.
   if (bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f
       && (bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)) {
-   const float TooltipW = FMath::Min(220.f, MapWidth - 12.f);
-   const float TooltipH = 38.f;
+   const float TooltipW = FMath::Min(260.f, MapWidth - 12.f);
+   const float TooltipH = 53.f;
    const float TooltipX = FMath::Clamp(AtlasPointerX + 12.f,
        MapLeft + 4.f, MapLeft + MapWidth - TooltipW - 4.f);
    const float TooltipY = FMath::Clamp(AtlasPointerY - TooltipH - 12.f,
@@ -305,20 +331,27 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.58f, 0.48f, 0.33f),
        TooltipX, TooltipY, TooltipW, 2.f);
    if (bHoveredShrine) {
-    DrawText(bHoveredActiveRespawn ? TEXT("ACTIVE RESPAWN SHRINE") : TEXT("DISCOVERED SHRINE"),
+    DrawText(HoveredShrineTitle.Left(36),
         FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
         nullptr, Scale * 0.77f);
+    DrawText(bHoveredActiveRespawn ? TEXT("Active respawn shrine") : TEXT("Discovered Shrine"),
+        FLinearColor(0.82f, 0.80f, 0.75f), TooltipX + 7.f, TooltipY + 22.f,
+        nullptr, Scale * 0.68f);
     DrawText(TEXT("Permanent discovery"), FLinearColor(0.76f, 0.76f, 0.72f),
-        TooltipX + 7.f, TooltipY + 22.f, nullptr, Scale * 0.66f);
+        TooltipX + 7.f, TooltipY + 37.f, nullptr, Scale * 0.60f);
    } else {
     const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
         HoveredDungeonSlot / 5, HoveredDungeonSlot % 5);
-    DrawText(FString::Printf(TEXT("DUNGEON %02d"), HoveredDungeonSlot + 1),
+    DrawText(FString(AtlasDungeonTitles[HoveredDungeonSlot]),
         FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
         nullptr, Scale * 0.77f);
+    DrawText(FString::Printf(TEXT("%s | Dungeon %02d"),
+        AtlasRegions[HoveredDungeonSlot / 5], HoveredDungeonSlot + 1).Left(42),
+        FLinearColor(0.82f, 0.80f, 0.75f), TooltipX + 7.f, TooltipY + 22.f,
+        nullptr, Scale * 0.65f);
     DrawText(bDungeonCleared ? TEXT("Boss defeated") : TEXT("Discovered | boss not defeated"),
-        FLinearColor(0.76f, 0.76f, 0.72f), TooltipX + 7.f, TooltipY + 22.f,
-        nullptr, Scale * 0.66f);
+        FLinearColor(0.76f, 0.76f, 0.72f), TooltipX + 7.f, TooltipY + 37.f,
+        nullptr, Scale * 0.60f);
    }
   }
   // Fixed compass: Unreal's +Y world axis points up on this XY projection.
@@ -333,7 +366,8 @@ void AMoonfallCombatHUD::DrawHUD()
   if (NearestKnownDungeonSlot != INDEX_NONE) {
    const int32 Meters = FMath::Clamp(
        FMath::RoundToInt(FMath::Sqrt(NearestKnownDungeonDistanceSq) * 0.01f), 0, 999999);
-   DrawText(FString::Printf(TEXT("KNOWN DUNGEON %02d | %d m straight line"),
+   DrawText(FString::Printf(TEXT("%s | Dungeon %02d | %d m straight line"),
+       AtlasDungeonTitles[NearestKnownDungeonSlot],
        NearestKnownDungeonSlot + 1, Meters), FLinearColor(0.97f, 0.81f, 0.57f),
        MapLeft, MapTop + MapHeight + 20.f, nullptr, Scale * 0.66f);
   } else {
