@@ -375,7 +375,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
-     && !bOptionsOpen && !bInventoryOpen) {
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
@@ -423,7 +423,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -446,7 +446,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+ const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
      ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
  // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
  const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
@@ -464,8 +464,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
- // Recovery in either menu is bounded and never revives a defeated hero.
- if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
+ // Recovery in any menu, including the Atlas, is bounded and never revives a defeated hero.
+ if ((bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
      && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
@@ -475,7 +475,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       * SafeRecoveryDelta);
   if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
  }
- // Sprint drains only while moving, and never drains while paused in Options.
+ // Sprint drains only while moving, and never drains while a menu is open.
  const float StaminaDelta = SafeRecoveryDelta;
  // Exhaustion requires releasing sprint before another burst; guard and dodge
  // immediately cancel sprint speed so defense cannot inherit a free boost.
@@ -486,7 +486,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -1252,7 +1252,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
   bOptionsOpen = false;
+  bAtlasOpen = false;
   bInventoryScrollbarDragging = false;
+  AtlasDiscoveredShrineLocations.Reset();
+  AtlasDiscoveredShrineNames.Reset();
+  bAtlasHasActiveRespawnShrineLocation = false;
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
  }
