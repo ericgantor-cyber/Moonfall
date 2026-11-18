@@ -165,6 +165,12 @@ class LootArtTests(unittest.TestCase):
         self.assertIn("PickupDetailA->SetHiddenInGame(!IsValid(",self.pickup)
         self.assertIn("PickupDetailB->SetHiddenInGame(!IsValid(",self.pickup)
         self.assertIn("RarityBeacon->SetRelativeScale3D(",self.pickup)
+        self.assertIn("PickupDetailA->SetMaterial(0, PickupMaterial)",self.pickup)
+        self.assertIn("PickupDetailB->SetMaterial(0, PickupMaterial)",self.pickup)
+        self.assertEqual(self.pickup.count('PickupMesh->CreateAndSetMaterialInstanceDynamic(0)'),1,
+                         "Rarity geometry must share one material instance")
+        self.assertNotIn("PickupDetailA->CreateAndSetMaterialInstanceDynamic",self.pickup)
+        self.assertNotIn("PickupDetailB->CreateAndSetMaterialInstanceDynamic",self.pickup)
         self.assertEqual(self.pickup.count('PrimaryActorTick.bCanEverTick = false'),1)
         for property_name in ('PickupDetailA','PickupDetailB'):
             self.assertIn('UStaticMeshComponent* '+property_name,self.pickup_h)
