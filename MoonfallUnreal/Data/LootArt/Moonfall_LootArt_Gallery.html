@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moonfall | Loot Art Gallery</title>
+<style>
+:root{color-scheme:dark;--bg:#090a10;--panel:#171422;--edge:#64516f;--ink:#fff7ff;--muted:#d5c8de;--focus:#ffacbd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,Segoe UI,sans-serif}
+header,main,footer{max-width:1380px;margin:auto;padding:20px}
+h1{margin:8px 0 5px;font-size:clamp(28px,4vw,44px)}
+h2{font-size:23px;margin:0 0 10px}
+p{color:var(--muted);margin:7px 0 14px}
+.card{padding:18px;background:var(--panel);border:1px solid var(--edge);border-radius:14px;margin-bottom:18px}
+.toolbar{display:flex;flex-wrap:wrap;gap:13px;align-items:end}
+.control{display:grid;gap:4px;min-width:140px;flex:0 1 210px}
+.control label{font-weight:650}
+select,input,button{background:#2c2235;color:var(--ink);border:1px solid #a07f9b;border-radius:8px;padding:9px 11px;min-height:44px;font:inherit}
+input[type=range]{padding:10px;width:100%}
+input[type=checkbox]{min-height:22px;width:22px;accent-color:#b43a66}
+button{background:#7f2b49;cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+.picker{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.hero-icon{position:relative;background:#0c0b11;border:4px solid #fff;border-radius:12px;width:132px;height:132px;flex:none;padding:4px}
+.sprite{display:block;flex:none;background-repeat:no-repeat;background-color:transparent;image-rendering:auto}
+.hero-icon .sprite{width:116px;height:116px}
+.pips{position:absolute;display:flex;gap:3px;bottom:6px;left:7px;right:7px}
+.pip{height:5px;flex:1;background:#35313c;border:1px solid #15121b}
+.pip.lit{background:#fff}
+.pick-info{max-width:650px}
+.pick-info strong{font-size:23px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;margin:12px 0}
+.item{background:#241d2e;border:1px solid #6c5875;border-radius:10px;min-height:195px;padding:12px;text-align:center}
+.item .sprite{width:100px;height:100px;margin:auto}
+.item strong{display:block;margin:7px 0 3px;font-size:15px}
+.item small{color:var(--muted);display:block}
+.tag{display:inline-block;border-radius:40px;padding:3px 10px;border:1px solid #9a7589;font-size:13px;color:#e7d4e4}
+.check{display:flex;align-items:center;gap:8px;padding:6px 2px}
+#status{color:#fff2a6;font-weight:650}
+.hint{font-size:14px}
+footer{color:var(--muted);font-size:14px}
+@media(max-width:600px){.card{padding:13px}.hero-icon{width:110px;height:110px}.hero-icon .sprite{width:94px;height:94px}}
+</style>
+</head>
+<body>
+<header>
+<h1>MOONFALL <span style="color:#f4a4d0">LOOT ATELIER</span></h1>
+<p>Explore 24 original Moonfall icons, preview how gear art changes by rarity, trait and tier, and test missing-texture fallbacks. Entirely offline.</p>
+</header>
+<main>
+<section class="card" aria-labelledby="picker-title">
+<h2 id="picker-title">In-game inventory art preview</h2>
+<div class="toolbar">
+<div class="control"><label for="slot">Equipment slot</label><select id="slot"><option value="0">Weapon</option><option value="1">Armor</option><option value="2">Accessory</option></select></div>
+<div class="control"><label for="rarity">Rarity</label><select id="rarity"><option value="0">Common</option><option value="1">Uncommon</option><option value="2">Rare</option><option value="3" selected>Epic</option><option value="4">Emerald</option><option value="5">Legendary</option></select></div>
+<div class="control"><label for="trait">Trait</label><select id="trait"><option value="0">None</option><option value="1" selected>Force</option><option value="2">Ward</option><option value="3">Focus</option></select></div>
+<div class="control"><label for="tier">Item tier: <output id="tier-value" for="tier">12</output></label><input id="tier" type="range" min="1" max="25" value="12"></div>
+</div>
+<div class="toolbar" style="margin:13px 0">
+<label class="check"><input type="checkbox" id="base" checked> Base atlas</label>
+<label class="check"><input type="checkbox" id="variant" checked> Trait atlas</label>
+<label class="check"><input type="checkbox" id="relic" checked> Relic atlas</label>
+<label class="check"><input type="checkbox" id="high-visibility" checked> Six rarity marks</label>
+</div>
+<div class="picker">
+<div class="hero-icon" id="item-icon" aria-label="Selected loot illustration">
+<span id="picked-sprite" class="sprite"></span><span id="pips" class="pips" aria-hidden="true"></span>
+</div>
+<div class="pick-info" aria-live="polite">
+<strong id="picked-name">Loading…</strong>
+<p id="picked-description"></p><p id="status"></p>
+</div>
+</div>
+<p class="hint">This mirrors the same deterministic C++ art-selection rules used by Moonfall. Rare or lower items use their normal or trait atlas; Epic-or-higher items at tier 8+ use the relic atlas when present. The artwork is decorative, not additional character stats.</p>
+</section>
+<section class="card" aria-labelledby="gallery-title">
+<h2 id="gallery-title">Complete loot illustration library</h2>
+<div class="toolbar"><div class="control"><label for="search">Find artwork</label><input id="search" placeholder="e.g. shield, crown, coin" type="search"></div><div class="control"><label for="collection">Collection</label><select id="collection"><option value="all">All 24 icons</option><option value="0">Original six</option><option value="1">Trait variants</option><option value="2">Relic variants</option></select></div></div>
+<div id="gallery" class="grid" aria-live="polite"></div>
+<p class="hint">Chest, crystal, coins, and potion are illustration sources only. They do not create playable consumables, money or new loot slots.</p>
+</section>
+</main>
+<footer>Offline prototype gallery, not an Unreal Engine build. Open the adjacent README.md for Unreal Editor import instructions. Original Z and Nyra character artwork is unchanged.</footer>
+<script>
+"use strict";
+const ATLAS=[
+ {file:"Moonfall_LootAtlas.png",cols:3,rows:2,collection:"Original six",
+  names:["Rune Sword","Lunar Cuirass","Crescent Amulet","Treasure Chest","Emerald Shard","Moon Coins"]},
+ {file:"Moonfall_LootVariants_Atlas.png",cols:3,rows:3,collection:"Trait variants",
+  names:["Moon Axe","Eclipse Spellblade","Moonstar Staff","Eclipse Shield","Moonwarden Helm","Starforged Gauntlets","Emerald Ring","Crimson Potion","Moon Grimoire"]},
+ {file:"Moonfall_LootRelics_Atlas.png",cols:3,rows:3,collection:"Relic variants",
+  names:["Twin Moon Daggers","Celestial Glaive","Meteor Warhammer","Nightveil Cloak","Starforged Boots","Eclipse Crown","Moon Lantern","Astral Key","Starlit Locket"]}
+];
+const QUALITY=["#e6e6e6","#42afff","#f5c93f","#b759f4","#3ad66b","#ff8420"];
+function choose(slot,rarity,trait,tier,base,variant,relic){
+ if(!Number.isInteger(slot)||slot<0||slot>2||!Number.isInteger(rarity)
+    ||rarity<0||rarity>5||!Number.isInteger(trait)||trait<0||trait>3
+    ||!Number.isInteger(tier)||tier<1||tier>25||(rarity===0&&trait!==0))
+  return null;
+ if(relic&&rarity>=3&&tier>=8)
+  return {atlas:2,col:(tier+rarity+trait)%3,row:slot};
+ if(variant&&trait>0){
+  if(slot===0)return {atlas:1,col:trait-1,row:0};
+  if(slot===1)return {atlas:1,col:trait===1?2:(trait===2?0:1),row:1};
+  return {atlas:1,col:trait===3?2:0,row:2};
+ }
+ if(base)return {atlas:0,col:slot,row:0};
+ return null;
+}
+const el=id=>document.getElementById(id);
+function placeSprite(sprite,atlas,col,row,size){
+ sprite.style.backgroundImage="url('"+atlas.file+"')";
+ sprite.style.backgroundSize=(atlas.cols*size)+"px "+(atlas.rows*size)+"px";
+ sprite.style.backgroundPosition=(-col*size)+"px "+(-row*size)+"px";
+ sprite.style.width=size+"px";sprite.style.height=size+"px";
+}
+function refresh(){
+ const slot=Number(el("slot").value),rarity=Number(el("rarity").value);
+ const trait=Number(el("trait").value),tier=Number(el("tier").value);
+ el("tier-value").textContent=String(tier);
+ const choice=choose(slot,rarity,trait,tier,
+   el("base").checked,el("variant").checked,el("relic").checked);
+ const sprite=el("picked-sprite"),frame=el("item-icon"),marks=el("pips");
+ const size=window.matchMedia&&window.matchMedia("(max-width:600px)").matches?94:116;
+ marks.replaceChildren();
+ frame.style.borderColor=QUALITY[rarity];
+ if(choice){
+  const atlas=ATLAS[choice.atlas],name=atlas.names[choice.row*3+choice.col];
+  placeSprite(sprite,atlas,choice.col,choice.row,size);
+  el("picked-name").textContent=name;
+  el("picked-description").textContent="Tier "+tier+" • "+["Weapon","Armor","Accessory"][slot]+
+    " • "+["None","Force","Ward","Focus"][trait]+" • "+["Common","Uncommon","Rare","Epic","Emerald","Legendary"][rarity];
+  el("status").textContent="Using "+atlas.collection+" (cell "+(choice.row+1)+","+(choice.col+1)+").";
+ }else{
+  sprite.style.backgroundImage="none";
+  sprite.style.width=size+"px";sprite.style.height=size+"px";
+  sprite.textContent=slot===0?"⚔":slot===1?"▣":"◇";
+  sprite.style.fontSize="60px";sprite.style.textAlign="center";sprite.style.lineHeight=size+"px";
+  el("picked-name").textContent="Procedural fallback";
+  el("picked-description").textContent="Artwork disabled or invalid item combination. The Unreal game displays a matching geometric silhouette.";
+  el("status").textContent="No source artwork is required for fallback.";
+ }
+ if(choice){sprite.textContent="";sprite.style.fontSize="";}
+ if(el("high-visibility").checked)for(let i=0;i<6;i++){
+  const pip=document.createElement("span");pip.className=i<=rarity?"pip lit":"pip";
+  marks.append(pip);
+ }
+}
+function renderGallery(){
+ const term=el("search").value.trim().toLowerCase();
+ const collection=el("collection").value;
+ const root=el("gallery");root.replaceChildren();
+ let shown=0;
+ ATLAS.forEach((atlas,k)=>{
+  if(collection!=="all"&&collection!==String(k))return;
+  atlas.names.forEach((name,index)=>{
+   if(term&&!name.toLowerCase().includes(term))return;
+   const node=document.createElement("article");node.className="item";
+   const image=document.createElement("div");image.className="sprite";
+   placeSprite(image,atlas,index%atlas.cols,Math.floor(index/atlas.cols),100);
+   const label=document.createElement("strong");label.textContent=name;
+   const category=document.createElement("small");category.textContent=atlas.collection;
+   node.append(image,label,category);root.append(node);shown++;
+  });
+ });
+ if(!shown){const no=document.createElement("p");no.textContent="No artwork matches your search.";root.append(no);}
+}
+for(const id of ["slot","rarity","trait","tier","base","variant","relic","high-visibility"])
+ el(id).addEventListener("input",refresh);
+el("search").addEventListener("input",renderGallery);
+el("collection").addEventListener("change",renderGallery);
+window.addEventListener("resize",refresh);
+renderGallery();refresh();
+</script>
+</body>
+</html>
