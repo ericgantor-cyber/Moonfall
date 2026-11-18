@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class USoundBase;
 class AMoonfallHeroPawn;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
@@ -74,6 +75,13 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ // Asset-authoring hooks: Blueprint may play attack anticipation animations,
+ // voice, and readable cues after a *real* committed windup begins.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphCommitted(FName MoveId, float WarningSeconds);
+ // Optional audio asset. Unassigned by default; elite-only once at commitment.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> EliteAttackTellSound = nullptr;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -113,6 +121,10 @@ private:
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
+ // Only a successful hero parry can arm one tactical sweep. No extra AI ticks.
+ float AdaptiveSweepReadyUntil = -1.f;
+ float NextAdaptiveSweepAllowedAt = 0.f;
+ bool bAdaptiveSweepCommitted = false;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
  // Ordinary enemies remember the last visible hero location for a short time.
