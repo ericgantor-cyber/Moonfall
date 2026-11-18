@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -789,6 +790,18 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
+   if (PanelHeight >= 500.f) {
+    const MoonfallForgeForecast::FPlan Plan =
+      MoonfallForgeForecast::Preview(SelectedCode, Hero->Salvage, 5);
+    const FString Forecast = !Plan.Valid ? TEXT("FORGE 5: INVALID GEAR")
+      : Plan.NextTierCost == 0 ? TEXT("FORGE 5: MAX TIER")
+      : FString::Printf(TEXT("FORGE 5: +%d tiers -> T%d  |  %d salvage total"),
+          Plan.Upgrades, Plan.FinalTier, Plan.TotalCost);
+    DrawText(Forecast, Plan.Valid && Plan.Upgrades > 0
+      ? FLinearColor(0.58f,0.91f,0.83f) : FLinearColor(0.93f,0.72f,0.50f),
+      Left + 18.f, Top + PanelHeight - 182.f, nullptr,
+      PanelWidth < 550.f ? 0.61f : 0.75f);
+   }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
@@ -838,7 +851,7 @@ void AMoonfallCombatHUD::DrawHUD()
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),
      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
-   const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
+   const int32 NextCost = MoonfallForgeForecast::Cost(SelectedTier, SelectedRarity);
    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
        NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
@@ -890,6 +903,19 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
+ }
+ // Text-only feedback on verified combat success. No loud flash, screen
+ // shake or additional actor tick; reduced-motion mode remains fully readable.
+ if (Hero->Health > 0.f && !Hero->CombatCueMessage.IsEmpty()
+     && GetWorld() && FMath::IsFinite(Hero->CombatCueUntil)
+     && GetWorld()->GetTimeSeconds() <= Hero->CombatCueUntil
+     && Canvas->SizeX >= 540.f && Canvas->SizeY >= 350.f) {
+  const float CueX = FMath::Max(12.f, (Canvas->SizeX - 330.f) * 0.5f);
+  const float CueY = FMath::Min(115.f, Canvas->SizeY * 0.19f);
+  DrawRect(FLinearColor(0.05f,0.06f,0.12f,0.90f), CueX - 12.f, CueY - 7.f, 350.f, 30.f);
+  DrawText(Hero->CombatCueMessage,
+      FLinearColor(1.f,0.88f,0.56f), CueX, CueY, nullptr,
+      FMath::Clamp(Hero->CombatTextScale,0.65f,1.2f) * 0.8f);
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
