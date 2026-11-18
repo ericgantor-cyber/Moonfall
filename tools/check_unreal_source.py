@@ -745,6 +745,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bResidentContextOpen = false;", close)
         self.assertIn("OnResidentContextClosed();", close)
 
+    def test_resident_interaction_respects_all_modal_and_vitality_guards(self):
+        npc = (ROOT / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        can = npc.split("bool AMoonfallWorldNPC::CanHeroInteract(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetRaceName()", 1)[0]
+        for token in ("!IsValid(Hero)", "!Hero->IsPlayerControlled()",
+                      "!FMath::IsFinite(Hero->Health)", "Hero->Health <= 0.f",
+                      "Hero->bInventoryOpen", "Hero->bOptionsOpen",
+                      "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen"):
+            self.assertIn(token, can)
+            self.assertLess(can.index(token), can.index("LineTraceSingleByChannel"))
+        # The resident context remains interactive for intentional Accept/Turn In.
+        self.assertNotIn("Hero->bResidentContextOpen", can)
+        for action in ("RewardResidentTrust", "TryTalk", "OfferResidentQuest",
+                       "TurnInResidentQuest"):
+            body = npc.split("AMoonfallWorldNPC::" + action + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("CanHeroInteract(Hero)", body)
+        self.assertIn("Params.AddIgnoredActor(Hero);", can)
+        self.assertIn("ECC_Visibility, Params", can)
+
     def test_npc_close_restores_cursor_and_defeat_clears_menu_transients(self):
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
