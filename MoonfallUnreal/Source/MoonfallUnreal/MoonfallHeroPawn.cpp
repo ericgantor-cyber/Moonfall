@@ -226,6 +226,45 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = true;
+ // Built-in pools work without an external asset. Designers can tune these
+ // rows on a Hero Blueprint's class defaults. No inventory migration needed.
+ const auto AddLoot = [this](EMoonfallLootSource Source, int32 Rarity,
+    int32 Weight, int32 MinimumLevel = 1, int32 ZoneIndex = -1,
+    int32 SlotMask = 7, int32 ForcedTrait = 0) {
+  FMoonfallLootTableEntry Entry;
+  Entry.Source = Source;
+  Entry.Rarity = Rarity;
+  Entry.Weight = Weight;
+  Entry.MinimumLevel = MinimumLevel;
+  Entry.ZoneIndex = ZoneIndex;
+  Entry.SlotMask = SlotMask;
+  Entry.ForcedTrait = ForcedTrait;
+  LootTableEntries.Add(Entry);
+ };
+ AddLoot(EMoonfallLootSource::Regular, 0, 44);
+ AddLoot(EMoonfallLootSource::Regular, 1, 34);
+ AddLoot(EMoonfallLootSource::Regular, 2, 18);
+ AddLoot(EMoonfallLootSource::Regular, 3, 4);
+ AddLoot(EMoonfallLootSource::Regular, 4, 2, 40);
+ AddLoot(EMoonfallLootSource::Regular, 5, 1, 60);
+ // Elite and boss reward floors are enforced in selection too, so a
+ // misconfigured Blueprint row cannot grant low-rarity boss equipment.
+ AddLoot(EMoonfallLootSource::Elite, 2, 70);
+ AddLoot(EMoonfallLootSource::Elite, 3, 25);
+ AddLoot(EMoonfallLootSource::Elite, 4, 5, 20);
+ AddLoot(EMoonfallLootSource::Elite, 5, 1, 50);
+ AddLoot(EMoonfallLootSource::Boss, 3, 75);
+ AddLoot(EMoonfallLootSource::Boss, 4, 20, 30);
+ AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);
+ // Six regional bonus pools. Three equipment slots and three existing
+ // traits combine into six zone-distinct outcomes without changing IDs.
+ for (int32 Zone = 0; Zone < 6; ++Zone) {
+  const int32 SlotMask = 1 << (Zone % 3);
+  const int32 Trait = 1 + ((Zone + Zone / 3) % 3);
+  AddLoot(EMoonfallLootSource::Regular, 2, 8, 1, Zone, SlotMask, Trait);
+  AddLoot(EMoonfallLootSource::Elite, 3, 8, 1, Zone, SlotMask, Trait);
+  AddLoot(EMoonfallLootSource::Boss, 3, 8, 1, Zone, SlotMask, Trait);
+ }
  DungeonNavigationInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(
    TEXT("DungeonNavigationInvoker"));
  // Small active navmesh radius helps keep 30 long dungeon lanes affordable.
@@ -1880,43 +1919,64 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level >= 100) Experience = 0;
 }
 
-int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
+int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex)
 {
- if (Health <= 0.f) return 0;
- // Roll randomized item stats once at death; pickup is handled separately.
- // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
- // for elites. Regular enemies use weighted chances with a modest level bias.
- const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
- const int32 LootRoll = FMath::RandRange(0, 99);
- const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
- // Existing rarity codes 0-3 are stable for compatibility.
- // 4 Emerald and 5 Legendary add special high-end reward targets.
- // Bosses always roll at least Epic; max-level bosses can yield Legendary.
- LastLootRarity = bBossEnemy
-   ? (Level >= 60 && LootRoll < 12 ? 5 : (Level >= 30 && LootRoll < 40 ? 4 : 3))
-   : (bEliteEnemy
-     ? (Level >= 50 && LootRoll < 3 ? 5 : (Level >= 20 && LootRoll < 12 ? 4
-       : (LootRoll < 27 ? 3 : 2)))
-     : (Level >= 60 && LootRoll < 1 ? 5 : (Level >= 40 && LootRoll < 3 ? 4
-       : (LootRoll < 3 + RarityBias / 3 ? 3
-       : (LootRoll < 18 + RarityBias ? 2
-       : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ const EMoonfallLootSource Source = bBossEnemy ? EMoonfallLootSource::Boss
+   : (bEliteEnemy ? EMoonfallLootSource::Elite : EMoonfallLootSource::Regular);
+ const int32 Zone = SourceZoneIndex >= 0 && SourceZoneIndex < 6 ? SourceZoneIndex : -1;
+ const int32 SafeLevel = FMath::Clamp(Level, 1, 100);
+ const auto WeightFor = [Source, Zone, SafeLevel](const FMoonfallLootTableEntry& Entry) {
+  if (Entry.Source != Source || Entry.MinimumLevel < 1
+      || Entry.MinimumLevel > SafeLevel || Entry.Rarity < 0 || Entry.Rarity > 5
+      || Entry.Weight <= 0 || Entry.Weight > 10000
+      || Entry.SlotMask < 1 || Entry.SlotMask > 7
+      || Entry.ForcedTrait < 0 || Entry.ForcedTrait > 3
+      || (Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone)
+      || (Source == EMoonfallLootSource::Boss && Entry.Rarity < 3)
+      || (Source == EMoonfallLootSource::Elite && Entry.Rarity < 2)) return 0;
+  return Entry.Weight;
+ };
+ // Both passes admit the same bounded sequence of rows, even if a Blueprint
+ // sets extreme weights. No overflow or out-of-range item code on bad input.
+ constexpr int32 MaxTotalLootWeight = 1000000;
+ int32 TotalWeight = 0;
+ for (const FMoonfallLootTableEntry& Entry : LootTableEntries) {
+  const int32 Weight = WeightFor(Entry);
+  if (Weight > 0 && TotalWeight <= MaxTotalLootWeight - Weight)
+   TotalWeight += Weight;
+ }
+ if (TotalWeight <= 0) return 0;
+ const int32 Ticket = FMath::RandRange(1, TotalWeight);
+ int32 Accumulated = 0;
+ const FMoonfallLootTableEntry* Selected = nullptr;
+ for (const FMoonfallLootTableEntry& Entry : LootTableEntries) {
+  const int32 Weight = WeightFor(Entry);
+  if (Weight <= 0 || Accumulated > MaxTotalLootWeight - Weight) continue;
+  Accumulated += Weight;
+  if (Ticket <= Accumulated) { Selected = &Entry; break; }
+ }
+ if (!Selected) return 0;
+ // This compact equipment ID format is unchanged: trait/slot/rarity/tier.
+ const int32 NewTier = FMath::Clamp(Level / 5
+   + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ int32 ValidSlots[3];
+ int32 SlotCount = 0;
+ for (int32 Slot = 0; Slot < 3; ++Slot)
+  if ((Selected->SlotMask & (1 << Slot)) != 0)
+   ValidSlots[SlotCount++] = Slot;
+ if (SlotCount == 0) return 0;
+ LastLootRarity = Selected->Rarity;
  LastLootTier = NewTier;
- // Enemy rank influences quality, not gear slot: any enemy can drop
- // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
- // Rare and better drops carry one randomized trait. Lower rarities may
- // roll a trait, but common items never do. These are encoded in item IDs.
+ LastLootSlot = ValidSlots[FMath::RandRange(0, SlotCount - 1)];
  LastLootAffix = LastLootRarity == 0 ? 0
    : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
-     ? 0 : FMath::RandRange(1, 3));
- const int32 PreviousTier = GetValidatedEquippedTier(LastLootSlot);
- LastLootUpgrade = NewTier - PreviousTier;
- // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
- // tier (units). Distinct drops persist until the player salvages them.
- const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
+      ? 0 : FMath::RandRange(1, 3));
+ if (LastLootRarity > 0 && Selected->ForcedTrait > 0)
+  LastLootAffix = Selected->ForcedTrait;
+ LastLootUpgrade = NewTier - GetValidatedEquippedTier(LastLootSlot);
+ return LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
- return ItemCode;
 }
 
 // Legacy direct grant remains available for scripted rewards. Enemy deaths
@@ -2109,7 +2169,7 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
  }
 }
 
-void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
+void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation, int32 SourceZoneIndex)
 {
  if (!GetWorld() || Health <= 0.f) return;
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
@@ -2117,7 +2177,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  TArray<FMoonfallWorldLootRecord> Drops;
  for (int32 Drop = 0; Drop < DropCount; ++Drop) {
-  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy, SourceZoneIndex);
   if (ItemCode <= 0) continue;
   const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
   const float Spread = DropCount == 1 ? 0.f : 105.f;
