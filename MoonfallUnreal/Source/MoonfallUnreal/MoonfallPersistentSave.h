@@ -16,8 +16,10 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // Version 10: 30 persistent dungeon boss defeats, preserving V9 treasure.
- UPROPERTY() int32 Version = 11;
+ // V12: geographic Atlas exploration. Older V1-V11 saves remain readable.
+ UPROPERTY() int32 Version = 12;
+ // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
+ UPROPERTY() TArray<int64> ExploredZoneFogMasks;
  // V11 stores uncollected enemy loot in the same world-save transaction.
  UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  // One permanent defeat bit per dungeon; older saves default to no victories.
