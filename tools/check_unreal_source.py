@@ -3944,6 +3944,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_dungeon_treasure_callback_keeps_reward_retryable_and_claims_exactly_once(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        self.assertIn("if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())", treasure)
+        self.assertIn("!Existing->IsActorBeingDestroyed()", treasure)
+        self.assertIn("Existing->GetItemCode() == Code", treasure)
+        self.assertIn("Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)",
+                      treasure)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", treasure)
+        event = "OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);"
+        after = treasure.split(event, 1)[1]
+        self.assertIn("Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1",
+                      after)
+        self.assertIn("if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()", after)
+        self.assertIn("Loot->GetItemCode() != Code", after)
+        self.assertIn("!Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)",
+                      after)
+        self.assertLess(after.index("== -1"), after.index("return true;"))
+        self.assertLess(after.index("if (!IsValid(Loot)"), after.index("return false;"))
+        self.assertLess(treasure.index("SpawnedTreasure[ChamberIndex] = Loot;"),
+                        treasure.index(event))
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", loot)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;",
+                      chamber)
+        self.assertLess(chamber.index("!SpawnTreasureChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+
     def test_dungeon_overlap_reentry_guards_scope_all_sync_callbacks(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
