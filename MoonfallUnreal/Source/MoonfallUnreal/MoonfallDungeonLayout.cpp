@@ -9,6 +9,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Math/RandomStream.h"
+#include "Templates/UnrealTemplate.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -414,6 +415,10 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ // Blueprint boss notifications can synchronously trigger this overlap again.
+ // Restore the guard even when collision or a Blueprint rejects the spawn.
+ if (bFinalChamberSpawnInProgress) return;
+ TGuardValue<bool> FinalChamberGuard(bFinalChamberSpawnInProgress, true);
  // A failed spawn must not consume the final chamber event. Player can
  // retreat and retry when collision or the global population cap clears.
  if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)
@@ -442,6 +447,12 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberTriggers[Index] != Overlapped) continue;
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+  // Spawn and Blueprint events may synchronously re-enter this chamber.
+  // A scoped, per-room bit prevents duplicate mobs, loot, and bonus packs;
+  // the original bitmask is restored on all return paths and failures.
+  if ((ActiveChamberOverlapsMask & Bit) != 0u) return;
+  TGuardValue<uint16> ChamberOverlapGuard(ActiveChamberOverlapsMask,
+    static_cast<uint16>(ActiveChamberOverlapsMask | Bit));
   // Bonus packs retry on re-entry, even after the primary room event.
   // On first entry, spawn the authored combat/treasure encounter BEFORE a
   // bonus pack: the bonus group must not occupy primary formation slots.
