@@ -93,9 +93,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.025f,0.035f,0.085f,0.96f), Left, Top, Width, Height);
   const float Scale = FMath::Clamp(Width / 680.f, 0.52f, 1.f);
   DrawText(TEXT("MOONFALL | ATLAS"), FLinearColor::White, Left + 18.f, Top + 12.f, nullptr, Scale * 1.35f);
-  DrawText(TEXT("J / ESC: close    Arrows: region    Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
+  DrawText(TEXT("J / ESC: close    Up/Down: region    Left/Right: pan Y    Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
   for (int32 Zone = 0; Zone < 6; ++Zone) {
-   const float Y = Top + 86.f + Zone * ((Height - 110.f) / 6.f);
+   // Reserve the lower 102 px for the XY overview; do not draw rows over it.
+   const float Y = Top + 86.f + Zone * (FMath::Max(0.f, Height - 220.f) / 6.f);
    if (Zone == Hero->AtlasSelectedRegion) DrawRect(FLinearColor(0.17f,0.24f,0.36f,0.95f), Left + 10.f, Y - 5.f, Width - 20.f, 61.f);
    DrawText(FString::Printf(TEXT("%s  |  %d-%d"), AtlasRegions[Zone], Zone * 5 + 1, Zone * 5 + 5), FLinearColor(0.96f,0.83f,0.53f), Left + 18.f, Y, nullptr, Scale * 0.95f);
    FString Status;
