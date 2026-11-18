@@ -103,8 +103,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", valid)
         self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
         self.assertIn("(Rarity == 0 && Affix != 0)", equip)
-        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
-        self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
+        encoded = self.cpp.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encoded)
+        self.assertIn("Entry.Rarity == 1 && MoonfallLootRandRange(Stream, 0, 99) < 60", encoded)
+        self.assertIn("LastLootAffix = Trait;", rolls)
         self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", load)
         self.assertIn("ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot", load)
 
