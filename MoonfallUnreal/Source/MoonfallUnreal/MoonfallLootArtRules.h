@@ -3,7 +3,7 @@
 // cells. This header deliberately has no Unreal dependencies so CI can test
 // every combination without claiming an Unreal Engine compilation.
 namespace MoonfallLootArt {
-enum class EAtlas : unsigned char { None, Base, Trait, Relic, Masterwork, Ascendant };
+enum class EAtlas : unsigned char { None, Base, Trait, Relic, Masterwork, Ascendant, Wayfarer };
 struct FCell {
  EAtlas Atlas;
  int Column;
@@ -18,7 +18,8 @@ constexpr bool ValidEquipment(int Slot, int Rarity, int Trait, int Tier) {
 }
 constexpr FCell Select(int Slot, int Rarity, int Trait, int Tier,
  bool bBaseLoaded, bool bTraitLoaded, bool bRelicLoaded,
- bool bMasterworkLoaded = false, bool bAscendantLoaded = false) {
+ bool bMasterworkLoaded = false, bool bAscendantLoaded = false,
+ bool bWayfarerLoaded = false) {
  if (!ValidEquipment(Slot, Rarity, Trait, Tier))
   return {EAtlas::None, 0, 0, 0, 0};
  // Existing Legendary tier-22+ equipment can wear an Ascendant motif.
@@ -34,6 +35,11 @@ constexpr FCell Select(int Slot, int Rarity, int Trait, int Tier,
  // This does not change its stats, ownership, rarity, equipment slot or roll.
  if (bRelicLoaded && Rarity >= 3 && Tier >= 8)
   return {EAtlas::Relic, (Tier + Rarity + Trait) % 3, Slot, 3, 3};
+ // Common/Uncommon/Rare gear now receives varied starter art as well.
+ // The optional sixth atlas never changes quality or items; fallback keeps
+ // trait/base art available when this texture is missing.
+ if (bWayfarerLoaded && Rarity <= 2 && Tier <= 7)
+  return {EAtlas::Wayfarer, (Tier + Rarity + Trait) % 3, Slot, 3, 3};
  if (bTraitLoaded && Trait > 0) {
   if (Slot == 0) return {EAtlas::Trait, Trait - 1, 0, 3, 3};
   if (Slot == 1) return {EAtlas::Trait,
