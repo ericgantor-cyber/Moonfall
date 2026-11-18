@@ -19,6 +19,55 @@ This plan is based on a source inspection of the current `main` Unreal prototype
 
 **What this verifies:** source regression assertions and Windows PowerShell parser/UI checks (when GitHub Actions runs them). **What it does not verify:** an actual Unreal 5.4 Editor/Game C++ compile, performance on the user's PC, a produced installer, or in-game behavior.
 
+## Current cross-system hardening stream: draft PR #1051
+
+This section reports **changes committed to a draft integration branch**, not changes
+already merged into `main` or proved to work in a native Unreal build.
+PR: https://github.com/ericgantor-cyber/Moonfall/pull/1051
+
+The work is organized against the five Moonfall categories, with deliberately
+separate source-level and engine-level claims:
+
+| Category | Implemented in draft branch | Still needs native/runtime proof |
+| --- | --- | --- |
+| World | Bounded retry attempts for failed generated dungeon layouts; retries separated across timer ticks; no permanent slot consumption by destroying authored layouts | Real UE5.4 construction failure injection, all 30 distinct layouts, road/sanctuary navigation, streaming and startup frame times |
+| Combat | Rejects invalid/dead boss and mob spawns, atomically rolls back damaged combat/bonus groups after Blueprint callbacks, and guards against synchronous overlap re-entry | Combo/parry/dodge feel, boss callback destruction, collision-blocked 5–6 and 5–11 mob formations, native AI and GPU profiling |
+| Progression | Rechecks dungeon treasure pickups and restores pending reward records on room re-entry; indexes persisted world loot by GUID into an item-code map once per restoration, rather than repeating a saved-array scan per actor | In-world loot duplication/collection, large 512-drop stress, exact inventory and persistent-save round-trips, 30-dungeon reward recovery |
+| Characters | Guards NPC conversations and quest actions against invalid vitality/player ownership and conflicting Atlas/character overlays, while permitting intentional actions inside resident context | Mouse-only, keyboard and controller conversations; quests, reputation, relationship persistence; original Z/Nyra visual inspection |
+| Interface & systems | Native dungeon test source now expects V12 and covers map-fog masks, 420 treasure states and pending loot; source tests cover updated safety contracts | Compiled Editor automation, packaged Windows builds and installer, readable 4K HUD/menu focus, accessible inputs |
+
+### Release checks (do these in order)
+
+1. **Source gate:** Record the exact PR head SHA. All repository source tests,
+   equipment/loot safety tests, racial/balance tests and Windows prerequisite
+   checks must pass on that same SHA, not on a previous commit.
+2. **Native gate:** On an authorized isolated Windows computer with UE5.4 and
+   Visual Studio C++ tools, compile the Editor target, then run
+   `MoonfallUnreal/Build/Test-DungeonNative.ps1`. Keep the complete Editor
+   log and per-test PASS evidence. The normal pull-request Windows workflow
+   **skips** the self-hosted native compile.
+3. **Dungeon smoke gate:** Start in the sanctuary, enter all six regions,
+   confirm 30 unique layouts, blocked-slot retry, boss phase/kill save, collision
+   fallback, room re-entry, three bounded bonus packs, no duplicate loot,
+   and no frame spikes during staged spawning. Include Blueprint callbacks
+   that remove enemies, invalidate health, or re-enter overlaps.
+4. **Persistence gate:** Test V12 saves across quit/relaunch/respawn including
+   56-bit-per-zone Atlas fog, 420 treasure states, world drops and boss victories.
+   Verify an actual historical V9 file with a backup; the synthetic memory
+   fixture is **not** equivalent to a real historical save migration.
+5. **Interaction/performance gate:** Exercise C/B/J/Escape, right-click
+   equipment, NPC quest context, mouse-only and controller focus at 1080p
+   and 4K. Benchmark item restoration at low and high drop counts and
+   collect CPU/GPU frame-time percentiles on Windows 10/11.
+6. **Packaging gate:** Build and install the actual Win64 game with NSIS,
+   launch via shortcut, verify save location and uninstall, then review PR
+   conflicts/dependencies before considering any merge.
+
+Do not mark **UE compilation**, actual in-game behavior, stable 4K FPS,
+or an installable Windows `.exe` as done merely because source CI is green.
+No Z/Nyra artwork, Godot assets, save schema or engine priority is altered by
+this source-level reliability work.
+
 ## Merge rules
 
 Do not overwrite the original Z/Nyra art. Never merge stale PRs wholesale when their changes overlap with `main`. Check the exact PR head SHA, compile/source checks, conflict state and regression results before merging; explicitly report native-test gaps. Do not claim native UE5 build success from a Windows prerequisite or source-structure check.
