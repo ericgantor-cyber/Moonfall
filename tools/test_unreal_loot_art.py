@@ -120,6 +120,31 @@ class LootArtTests(unittest.TestCase):
                     ValueError,expected):
                     validate(path,(120,120))
 
+    def test_crc_repaired_png_still_rejects_damaged_pixels(self):
+        """An attacker or bad encoder can rewrite CRC over corrupt IDAT."""
+        validate=self.importer_validator()
+        raw=bytearray(WAYFARERS.read_bytes())
+        start=8
+        found=False
+        while start+12<=len(raw):
+            length=struct.unpack_from(">I",raw,start)[0]
+            name=bytes(raw[start+4:start+8])
+            if name==b"IDAT" and length>3:
+                # Break the zlib header but recompute its PNG CRC.
+                raw[start+8]^=1
+                struct.pack_into(">I",raw,start+8+length,
+                    zlib.crc32(bytes(raw[start+4:start+8+length])) & 0xFFFFFFFF)
+                found=True
+                break
+            start+=length+12
+        self.assertTrue(found,"Wayfarer atlas must have IDAT pixels")
+        with TemporaryDirectory() as folder:
+            damaged=Path(folder)/"damaged-but-valid-crc.png"
+            damaged.write_bytes(raw)
+            with self.assertRaisesRegex(ValueError,
+                "compressed pixel stream|pixel stream|scanline"):
+                validate(damaged,(120,120))
+
     def test_trait_art_mapping_never_changes_item_codes(self):
         rules=(SRC/"MoonfallLootArtRules.h").read_text(encoding="utf-8")
         self.assertIn("constexpr FCell Select(",rules)
