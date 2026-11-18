@@ -5926,5 +5926,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
+    def test_atlas_shrine_markers_are_discovery_gated_and_cached_at_open(self):
+        atlas_toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
+        atlas_draw = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        self.assertIn("TArray<FVector> AtlasDiscoveredShrineLocations;", self.hero_h)
+        self.assertIn("FVector AtlasActiveRespawnShrineLocation", self.hero_h)
+        self.assertIn("bool bAtlasHasActiveRespawnShrineLocation", self.hero_h)
+        self.assertIn("AtlasDiscoveredShrineLocations.Reset();", atlas_toggle)
+        self.assertIn("bAtlasHasActiveRespawnShrineLocation = false;", atlas_toggle)
+        self.assertIn("TActorIterator<AMoonfallCheckpointShrine> It(GetWorld())", atlas_toggle)
+        self.assertIn("!HasDiscoveredShrine(Shrine->ShrineId)", atlas_toggle)
+        self.assertIn("SeenShrineIds.Contains(Shrine->ShrineId)", atlas_toggle)
+        self.assertIn("AtlasDiscoveredShrineLocations.Num() >= 64", atlas_toggle)
+        self.assertIn("ActiveShrineId == Shrine->ShrineId", atlas_toggle)
+        self.assertIn("IsCurrentRespawnLocation(Shrine->GetRespawnLocation())", atlas_toggle)
+        self.assertLess(atlas_toggle.index("if (!bAtlasOpen) {"),
+                        atlas_toggle.index("TActorIterator<AMoonfallCheckpointShrine>"))
+        self.assertIn("for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations)", atlas_draw)
+        self.assertIn("Hero->bAtlasHasActiveRespawnShrineLocation", atlas_draw)
+        self.assertIn("Hero->AtlasActiveRespawnShrineLocation", atlas_draw)
+        self.assertIn("ProjectX(ShrinePos.X)", atlas_draw)
+        self.assertIn("ProjectY(ShrinePos.Y)", atlas_draw)
+        self.assertIn("ShrineX < MapLeft", atlas_draw)
+        self.assertIn("ShrineY < MapTop", atlas_draw)
+        self.assertNotIn("TActorIterator<AMoonfallCheckpointShrine>", atlas_draw)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas_draw)
+
+
 if __name__ == "__main__":
     unittest.main()
