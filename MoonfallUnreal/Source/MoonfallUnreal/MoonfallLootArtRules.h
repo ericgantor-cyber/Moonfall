@@ -3,7 +3,7 @@
 // cells. This header deliberately has no Unreal dependencies so CI can test
 // every combination without claiming an Unreal Engine compilation.
 namespace MoonfallLootArt {
-enum class EAtlas : unsigned char { None, Base, Trait, Relic };
+enum class EAtlas : unsigned char { None, Base, Trait, Relic, Masterwork };
 struct FCell {
  EAtlas Atlas;
  int Column;
@@ -17,9 +17,15 @@ constexpr bool ValidEquipment(int Slot, int Rarity, int Trait, int Tier) {
      && (Rarity != 0 || Trait == 0);
 }
 constexpr FCell Select(int Slot, int Rarity, int Trait, int Tier,
- bool bBaseLoaded, bool bTraitLoaded, bool bRelicLoaded) {
+ bool bBaseLoaded, bool bTraitLoaded, bool bRelicLoaded,
+ bool bMasterworkLoaded = false) {
  if (!ValidEquipment(Slot, Rarity, Trait, Tier))
   return {EAtlas::None, 0, 0, 0, 0};
+ // Emerald and Legendary tier-16+ equipment may use an optional fourth
+ // original art atlas. The item is still Emerald/Legendary, not a new rarity.
+ // Keep this deterministic and never change the underlying loot roll.
+ if (bMasterworkLoaded && Rarity >= 4 && Tier >= 16)
+  return {EAtlas::Masterwork, (Tier + Rarity + Trait) % 3, Slot, 3, 3};
  // An epic-or-higher tier-eight item earns additional visual variety.
  // This does not change its stats, ownership, rarity, equipment slot or roll.
  if (bRelicLoaded && Rarity >= 3 && Tier >= 8)
@@ -33,5 +39,13 @@ constexpr FCell Select(int Slot, int Rarity, int Trait, int Tier,
  }
  if (bBaseLoaded) return {EAtlas::Base, Slot, 0, 3, 2};
  return {EAtlas::None, 0, 0, 0, 0}; // Caller paints fallback silhouettes
+}
+// Defense in depth for future galleries and any damaged art metadata.
+constexpr bool ValidCell(const FCell& Cell) {
+ return Cell.Atlas == EAtlas::None
+   ? Cell.Columns == 0 && Cell.Rows == 0
+   : Cell.Columns > 0 && Cell.Rows > 0 && Cell.Column >= 0 && Cell.Row >= 0
+     && Cell.Column < Cell.Columns && Cell.Row < Cell.Rows
+     && Cell.Columns <= 4 && Cell.Rows <= 4;
 }
 } // namespace MoonfallLootArt
