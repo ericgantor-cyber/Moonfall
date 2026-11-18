@@ -972,7 +972,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         method = actor.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
-        self.assertIn("if (!IsValid(Hero) || !GetWorld()) return false;", method)
+        self.assertIn("if (!IsValid(Hero) || !GetWorld() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", method)
         self.assertIn("HeroPosition.ContainsNaN()", method)
         self.assertIn("LootPosition.ContainsNaN()", method)
         self.assertIn("FMath::IsFinite(DistanceSq)", method)
@@ -1827,7 +1827,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("const bool bInCombatRecoveryWindow = GetWorld()", tick)
-        health_gate = tick.split("// Recovery in either menu is bounded and never revives a defeated hero.", 1)[1].split(
+        health_gate = tick.split("// Recovery in any menu, including the Atlas, is bounded and never revives a defeated hero.", 1)[1].split(
             "const float BeforeRegen = Health;", 1)[0]
         self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", health_gate)
         self.assertIn("&& !bInCombatRecoveryWindow) {", health_gate)
@@ -2069,7 +2069,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
         self.assertIn("Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina)", tick)
         self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
-        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && Health > 0.f", tick)
+        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("GetLastMovementInputVector().SizeSquared2D() > 0.01f", tick)
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
