@@ -6,6 +6,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
