@@ -1,4 +1,4 @@
-# Moonfall loot art: six painted icons + live UE5 fallback
+# Moonfall loot art: 15 painted icons + live UE5 fallback
 
 **Status:** Original art and source integration are present on a draft PR.
 Native Unreal Engine 5.4 compilation, import, Win64 cooking and gameplay
@@ -15,9 +15,40 @@ The new original Moonfall-painted 120×80 PNG atlas uses **six square 40×40 cel
 | Emerald shard | row 1, column 1 | Source art for future materials UI |
 | Moon coins | row 1, column 2 | Source art for future currency UI |
 
-The **top three** are used by the Unreal inventory once the asset is
+The **top three** are used by the Unreal inventory once the base asset is
 imported. The remaining three are supplied artwork, not new obtainable item
 types or claims of implemented currency/crystal/chest gameplay.
+
+## Expanded 9-icon atlas
+
+`Moonfall_LootVariants_Atlas.png` is a transparent 120×120 PNG with
+**nine square 40×40 cells**. An offline high-resolution edition and nine
+separate original 256px illustrations are distributed in the expanded
+Moonfall loot art pack. The checked-in atlas is optimized for the existing
+16–30px inventory icon display.
+
+| Cell (row, column) | Original artwork | Current integration |
+| --- | --- | --- |
+| (0,0) | Moon Axe | Force weapon illustration |
+| (0,1) | Eclipse Spellblade | Ward weapon illustration |
+| (0,2) | Moonstar Staff | Focus weapon illustration |
+| (1,0) | Eclipse Shield | Ward armor illustration |
+| (1,1) | Moonwarden Helm | Focus armor illustration |
+| (1,2) | Starforged Gauntlets | Force armor illustration |
+| (2,0) | Emerald Ring | Force or Ward accessory illustration |
+| (2,1) | Crimson Potion | Source art only; consumables not added |
+| (2,2) | Moon Grimoire | Focus accessory illustration |
+
+The 3 canonical equipment slots are still weapon, armor and accessory.
+**These are visual motifs selected by the existing encoded Force/Ward/Focus
+trait**, not additional equipment slot classes, spells, consumables or
+mechanics. No loot table weights, item IDs, equipment ownership, stats or
+save structures changed.
+
+If the expanded atlas is absent, the HUD uses the original six-cell atlas.
+If neither atlas is available, native Canvas geometry still shows a sword,
+breastplate or amulet, with rarity-colored borders and readable text labels.
+The existing non-colliding ground-drop silhouettes remain unchanged.
 
 ## Import the painted image into Unreal Engine 5.4
 
@@ -32,10 +63,13 @@ exec(open(r"<YOUR-MOONFALL-REPO>/MoonfallUnreal/Build/Import-Loot-Art.py", encod
 Replace the placeholder with your local checkout path, or run the script
 from a controlled UnrealEditor-Cmd.exe Python session. The script uses the
 existing PythonScriptPlugin and EditorScriptingUtilities to import the PNG
-as `/Game/Moonfall/LootArt/T_MoonfallLootAtlas`, checking the result
-and saving a real `Texture2D` asset. Close and reopen the editor after
-the first import so the native HUD constructor can resolve the asset.
-Include that saved imported texture in the cooked Windows game.
+as **two** saved `Texture2D` assets:
+`/Game/Moonfall/LootArt/T_MoonfallLootAtlas` and
+`/Game/Moonfall/LootArt/T_MoonfallLootVariants`. It validates the PNG
+signature and expected 120×80 / 120×120 dimensions **before importing
+either file**. Close and reopen the editor after the first import so the
+native HUD constructor can resolve both assets.
+Include both saved imported textures in the cooked Windows game.
 
 If the texture is missing, the inventory **still displays visible geometric
 sword/armor/amulet fallback art**. No inventory rows, item slots, sorting,
@@ -51,16 +85,19 @@ no embedded item stats or new player save fields.
 
 - Source artwork is under `Data/LootArt`, not a change to Z or Nyra
   character designs. Godot art and maps are unchanged.
-- Inventory icon rendering uses one atlas with UV subdivisions; the
-  texture is loaded only from a native-class default asset reference.
+- Inventory icon rendering uses two compact optional atlases with UV
+  subdivisions; textures load from native-class default asset references,
+  not during per-frame gameplay. Each illustration remains identifiable
+  with a rarity border and accompanying text.
 - Ground pickup shapes are configured during `InitializeLoot`, after the
   original canonical item-code validation, with no tick and no collision.
   This does not affect drop spawn identity, V12 save schema or pickups.
 - No remote resources are fetched during gameplay, and there is a fallback
   when an artist's texture has not yet been imported.
 - Verify that source CI passes, then **separately** compile UE5.4 on Windows,
-  import and cook the asset, inspect icons at 720p/1080p/4K, test all
-  weapon/armor/accessory slot codes and all rarities, collect items, reopen
-  saves, and confirm no inventory pointer-row hit-test changes.
+  import and cook both assets, inspect icons at 720p/1080p/4K, test all
+  weapon/armor/accessory slots × all four traits × all six rarities,
+  test with neither/one/both textures present, collect items, reopen saves,
+  and confirm no inventory pointer-row hit-test changes.
 - Do not merge or advertise a working Windows installer until native
   validation is complete.
