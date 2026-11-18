@@ -58,6 +58,23 @@ class LootTableEditorContracts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "header and order"):
                 loot.load_rows(file)
 
+    def test_rejects_extra_or_missing_csv_fields(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "malformed.csv"
+            header = ",".join(loot.FIELDS)
+            row = "Boss_R3,Boss,-1,1,3,75,7,0"
+            for bad in (row + ",unexpected", "Boss_R3,Boss,-1,1,3,75,7"):
+                target.write_text(header + "\\n" + bad + "\\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "number of columns"):
+                    loot.load_rows(target)
+
+    def test_rejects_ambiguous_numeric_syntax(self):
+        for invalid in ("+7", "1_0", "1.0", "1e1", "１２", "", " 1 2 "):
+            rows = [dict(row) for row in self.rows]
+            rows[0]["Weight"] = invalid
+            with self.subTest(value=invalid), self.assertRaisesRegex(ValueError, "plain integer"):
+                loot.validate_rows(rows)
+
     def test_cap_and_sorted_row_ties(self):
         # Sorting determines deterministic seeded dungeon treasure.
         rows = [dict(row) for row in self.rows]
