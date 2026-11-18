@@ -4,6 +4,33 @@ This branch begins the **combat, world/dungeon presentation, RPG progression,
 and engineering polish** priorities. It is a coherent **source implementation**,
 not a complete AAA-quality game or a verified Windows build.
 
+## Continued combat upgrade: truthful warnings for ordinary enemies
+
+- Every ordinary/elite enemy now exposes read-only `GetAttackWarningRemaining`,
+  `GetAttackWarningDuration` and `GetAttackWarningLabel` methods. The
+  countdown reads existing committed attack timers and returns nothing for
+  invalid numbers, dead actors, interrupted/expired windups or bosses.
+- The **existing single world-enemy HUD scan** chooses the earliest
+  approaching non-boss hit within 1050 units, breaking ties by distance.
+  A compact warning tells the player the actual move label, tenths of a
+  second remaining, and the supported **GUARD / PARRY / DODGE** choices.
+  It includes a static `IMPACT SOON` indication during the final 0.3 s.
+- When a boss is nearby, the existing boss telegraph takes priority.
+  Regional boss dodge-only moves retain their red `DODGE ONLY` text and
+  exact existing damage logic. We do not incorrectly claim that ordinary
+  attacks are dodge-only.
+- This is **presentation only**: no extra actor tick, navigation query,
+  player damage, stagger, attack frequency, chance, quest, save field or
+  controller binding was changed. Warnings do not flash and have text
+  independent of color.
+- On screens under 480×400 the compact warning stays hidden to avoid
+  occlusion; boss alerts are unchanged. Test those window sizes natively.
+- New six-test regression suite checks invalid/expired timing,
+  no extra world-actor iterator, boss priority, menu cancellation, the
+  text/visual budget and attack-type correctness.
+- The warning UI is source-implemented and **not yet visually verified
+  through a native UE5.4 build**.
+
 ## 2. Combat feel
 
 - Original **12-hit same-target combat, guard, parry, dodge and posture**
