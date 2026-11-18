@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallForgeForecast.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -944,6 +945,13 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       Anim->Montage_Play(Montage, 1.f);
     }
    }
+   if (bNewPostureMilestone) {
+    // Only connected, health-damaging attacks announce a milestone.
+    CombatCueMessage = HitComboStage == 12 ? TEXT("CHAIN 12  |  FINAL PRESSURE")
+       : HitComboStage == 8 ? TEXT("CHAIN 8  |  BREAKER")
+       : TEXT("CHAIN 4  |  PRESSURE");
+    CombatCueUntil = Time + 1.2f;
+   }
    OnSuccessfulHitCombo(HitComboStage, Hand == 0);
   }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
@@ -1120,6 +1128,8 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
      && FMath::IsFinite(PerfectDodgeStaminaReward) && PerfectDodgeStaminaReward > 0.f) {
   Stamina = FMath::Clamp(Stamina + FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f), 0.f, MaxStamina);
  }
+ CombatCueMessage = TEXT("PERFECT DODGE  |  RESOURCES RESTORED");
+ CombatCueUntil = Now + 1.2f;
  return true;
 }
 
@@ -1211,6 +1221,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
     ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f);
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
+   CombatCueMessage = TEXT("PERFECT PARRY  |  COUNTER READY");
+   CombatCueUntil = Now + 1.2f;
   } else {
    DamageAfterGuard *= 0.4f;
   }
@@ -1241,6 +1253,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  CombatCueMessage.Empty();
+  CombatCueUntil = -1.f;
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
@@ -1534,8 +1548,11 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
  const int32 Limit = FMath::Clamp(MaxLevels, 0, 5);
+ const MoonfallForgeForecast::FPlan Plan = MoonfallForgeForecast::Preview(
+   InventoryItemCodes[InventoryIndex], Salvage, Limit);
+ if (!Plan.Valid) return 0;
  int32 Upgraded = 0;
- for (int32 Step = 0; Step < Limit; ++Step) {
+ for (int32 Step = 0; Step < Limit && Step < Plan.Upgrades; ++Step) {
   if (!UpgradeInventoryItem(InventoryIndex)) break;
   ++Upgraded;
  }
