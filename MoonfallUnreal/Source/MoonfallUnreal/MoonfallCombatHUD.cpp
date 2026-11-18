@@ -6,9 +6,76 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+AMoonfallCombatHUD::AMoonfallCombatHUD()
+{
+ // The source PNG must be imported once as a UE Texture2D. A cooked asset
+ // loads here with no disk I/O or texture creation during gameplay.
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Atlas(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas"));
+ if (Atlas.Succeeded()) LootIconAtlas = Atlas.Object;
+}
+
+void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, float X, float Y, float Side)
+{
+ if (!Canvas || Slot < 0 || Slot > 2 || Rarity < 0 || Rarity > 5
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
+     || !FMath::IsFinite(Side) || Side < 10.f) return;
+ static const FLinearColor QualityColors[6] = {
+  FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
+  FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
+  FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
+ };
+ const FLinearColor Accent = QualityColors[Rarity];
+ DrawRect(FLinearColor(0.075f,0.07f,0.13f,0.96f),X,Y,Side,Side);
+ DrawRect(Accent,X,Y,Side,1.8f);
+ DrawRect(Accent,X,Y+Side-1.8f,Side,1.8f);
+ DrawRect(Accent,X,Y,1.8f,Side);
+ DrawRect(Accent,X+Side-1.8f,Y,1.8f,Side);
+ if (IsValid(LootIconAtlas)) {
+  // Atlas cells: weapon, armor, accessory / chest, crystal, coins.
+  // UV coordinates stay in the top row for equipment. 3 columns x 2 rows.
+  Canvas->K2_DrawTexture(LootIconAtlas,
+    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
+    FVector2D(float(Slot)/3.f,0.f), FVector2D(1.f/3.f,0.5f),
+    FLinearColor::White,BLEND_Translucent);
+  return;
+ }
+ // No asset dependency: geometric silhouettes remain legible before import.
+ const float S = Side;
+ const FLinearColor Metal(0.87f,0.88f,0.95f);
+ const auto L=[this](float AX,float AY,float BX,float BY,float Thick,
+                      const FLinearColor& C) {
+  Canvas->K2_DrawLine(FVector2D(AX,AY),FVector2D(BX,BY),Thick,C);
+ };
+ if (Slot == 0) {
+  // Sword blade, crossguard and pommel.
+  L(X+S*.24f,Y+S*.75f,X+S*.78f,Y+S*.17f,3.f,Metal);
+  L(X+S*.30f,Y+S*.78f,X+S*.81f,Y+S*.20f,1.f,Accent);
+  L(X+S*.22f,Y+S*.56f,X+S*.46f,Y+S*.76f,3.f,Accent);
+  DrawRect(Metal,X+S*.11f,Y+S*.80f,S*.17f,S*.09f);
+ } else if (Slot == 1) {
+  // Shoulders, plated chest and a central enchantment.
+  DrawRect(Metal,X+S*.20f,Y+S*.34f,S*.60f,S*.45f);
+  DrawRect(Accent,X+S*.33f,Y+S*.40f,S*.34f,S*.33f);
+  DrawRect(Metal,X+S*.08f,Y+S*.24f,S*.28f,S*.23f);
+  DrawRect(Metal,X+S*.64f,Y+S*.24f,S*.28f,S*.23f);
+  L(X+S*.37f,Y+S*.55f,X+S*.63f,Y+S*.55f,2.f,Metal);
+ } else {
+  // Linked chain and gem in a crescent-shaped frame.
+  L(X+S*.19f,Y+S*.19f,X+S*.41f,Y+S*.37f,2.f,Metal);
+  L(X+S*.81f,Y+S*.19f,X+S*.59f,Y+S*.37f,2.f,Metal);
+  L(X+S*.42f,Y+S*.36f,X+S*.22f,Y+S*.63f,3.f,Accent);
+  L(X+S*.22f,Y+S*.63f,X+S*.48f,Y+S*.85f,3.f,Accent);
+  L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
+  DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
+ }
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -653,9 +720,16 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
      FLinearColor(1.f,0.52f,0.12f)};
-   DrawText(Row, Index == Selected ? FLinearColor::Yellow
+   const float IconSide = FMath::Clamp(RowSpacing - 5.f, 16.f, 30.f);
+   if (bValid)
+    DrawLootIcon(Slot, Rarity, Left + 17.f, Y - 1.f, IconSide);
+   const FString CompactRow = bValid && PanelWidth < 420.f
+     ? FString::Printf(TEXT("%02d %s T%d %s"), DisplayPosition + 1,
+        Slots[Slot], Tier, Rarities[Rarity]) : Row;
+   DrawText(CompactRow, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
-     Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+     Left + (bValid ? IconSide + 26.f : 20.f), Y, nullptr,
+     Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Proportional scroll indicator. Clicking its track jumps the visible
   // bag window without selecting, equipping or modifying saved gear.
