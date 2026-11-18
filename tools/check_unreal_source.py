@@ -1622,7 +1622,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return FMath::Max(0, DungeonTreasureStates[Key]);", method)
         self.assertLess(method.index("DungeonTreasureStates[Key] != 0"),
                         method.index("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));"))
-        self.assertIn("LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream", method)
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", method)
         self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", method)
         self.assertIn("const int32 Tier = FMath::Clamp(Level, 1, 25);", method)
         self.assertIn("if (Code <= 0) return 0;", method)
@@ -1636,6 +1636,52 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Do not overwrite the HUD's last enemy reward when opening a chest.
         self.assertNotIn("LastLootRarity", method)
         self.assertNotIn("LastLootAffix", method)
+
+    def test_mouse_editable_loot_data_table_and_preview_are_safe(self):
+        hero = self.hero_cpp
+        header = self.hero_h
+        self.assertIn('#include "Engine/DataTable.h"', header)
+        self.assertIn("struct FMoonfallLootTableEntry : public FTableRowBase", header)
+        for prop in ("TObjectPtr<UDataTable> LootDataTable = nullptr;",
+                     "bool bLootDataTableActive = false;",
+                     "bool ReloadLootDataTable();",
+                     "GetLootRarityChancePercent(EMoonfallLootSource Source, int32 ZoneIndex,",
+                     "GetLootPoolTotalWeight(EMoonfallLootSource Source, int32 ZoneIndex,"):
+            self.assertIn(prop, header)
+        begin = hero.split("void AMoonfallHeroPawn::BeginPlay() {", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("ReloadLootDataTable();", begin)
+        reload = hero.split("bool AMoonfallHeroPawn::ReloadLootDataTable()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetLootPoolTotalWeight(", 1)[0]
+        for token in ("ImportedLootTableEntries.Reset();", "bLootDataTableActive = false;",
+                      "LootDataTable->GetRowStruct() != FMoonfallLootTableEntry::StaticStruct()",
+                      "RowNames.Sort(", "A.ToString() < B.ToString()",
+                      "LootDataTable->FindRow<FMoonfallLootTableEntry>(",
+                      "RowNames.IsEmpty() || RowNames.Num() > 2048",
+                      "Row->Weight < 0 || Row->Weight > 10000",
+                      "Row->ZoneIndex < -1 || Row->ZoneIndex > 5",
+                      "Row->Source == EMoonfallLootSource::Boss && Row->Rarity < 3",
+                      "Row->Source == EMoonfallLootSource::Elite && Row->Rarity < 2",
+                      "Row->Source == EMoonfallLootSource::Treasure && Row->Rarity < 2",
+                      "Row->ZoneIndex == -1 && Row->MinimumLevel == 1 && Row->Weight > 0",
+                      "GenericSourceMask != 15", "ImportedLootTableEntries = MoveTemp(Imported);",
+                      "bLootDataTableActive = true;"):
+            self.assertIn(token, reload)
+        self.assertLess(reload.index("GenericSourceMask != 15"),
+                        reload.index("ImportedLootTableEntries = MoveTemp(Imported);"))
+        self.assertLess(reload.index("ImportedLootTableEntries = MoveTemp(Imported);"),
+                        reload.index("bLootDataTableActive = true;"))
+        active = hero.split("GetActiveLootTableEntries() const", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReloadLootDataTable()", 1)[0]
+        self.assertIn("bLootDataTableActive ? ImportedLootTableEntries : LootTableEntries", active)
+        chance = hero.split("float AMoonfallHeroPawn::GetLootRarityChancePercent(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel)", chance)
+        self.assertIn("Matching += Weight;", chance)
+        self.assertIn("100.f * static_cast<float>(Matching) / Total", chance)
+        self.assertIn("GetActiveLootTableEntries(), Source, SourceZoneIndex, Level", hero)
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", hero)
+        self.assertNotIn("SaveWorldProgress()", reload)
 
     def test_rank_and_region_loot_pool_defaults_are_valid(self):
         import re
@@ -1682,6 +1728,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
         hero = self.hero_cpp
         hero_h = self.hero_h
+        validator = hero.split("int32 MoonfallLootRowWeight(", 1)[1].split(
+            "const FMoonfallLootTableEntry* SelectMoonfallLootEntry(", 1)[0]
         picker = hero.split("const FMoonfallLootTableEntry* SelectMoonfallLootEntry(", 1)[1].split(
             "int32 EncodeMoonfallLootEntry(", 1)[0]
         encode = hero.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
@@ -1707,11 +1755,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Entry.SlotMask < 1 || Entry.SlotMask > 7", "Entry.Rarity < 0 || Entry.Rarity > 5",
             "Source == EMoonfallLootSource::Boss && Entry.Rarity < 3",
             "Source == EMoonfallLootSource::Elite && Entry.Rarity < 2",
-            "Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2",
-            "constexpr int32 MaxTotalLootWeight = 1000000;",
-            "MoonfallLootRandRange(Stream, 1, TotalWeight)"
+            "Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2"
         ):
-            self.assertIn(token, picker)
+            self.assertIn(token, validator)
+        self.assertIn("constexpr int32 MaxTotalLootWeight = 1000000;", picker)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, TotalWeight)", picker)
+        self.assertIn("MoonfallLootRowWeight(Entry, Source, Zone, SafeLevel)", picker)
         self.assertIn("MoonfallLootRandRange(Stream, 0, SlotCount - 1)", encode)
         self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encode)
         self.assertIn("MoonfallLootRandRange(Stream, 1, 3)", encode)
