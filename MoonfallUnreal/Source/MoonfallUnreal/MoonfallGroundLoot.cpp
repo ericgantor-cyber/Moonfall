@@ -101,7 +101,11 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0 || IsActorBeingDestroyed()) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !GetWorld()) return false;
+ // Direct Blueprint/actor calls must respect the same modal and defeat
+ // restrictions as the manual/automatic pickup search.
+ if (!IsValid(Hero) || !GetWorld() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return false;
  // Enforce pickup reachability at the item boundary as well as in the hero's
  // candidate search. Blueprint or future callers must not collect distant loot.
  const FVector HeroPosition = Hero->GetActorLocation();
