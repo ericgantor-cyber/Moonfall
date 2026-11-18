@@ -3944,6 +3944,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_reentering_announced_treasure_room_restores_pending_pickup(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        entered = chamber.split("if ((EnteredChambersMask & Bit) != 0u) {", 1)[1].split(
+            "const int32 ChamberType = GetChamberType(ChamberIndex);", 1)[0]
+        self.assertIn("GetChamberType(ChamberIndex) == 2", entered)
+        self.assertIn("!SpawnTreasureChamber(Hero, ChamberIndex)", entered)
+        self.assertLess(entered.index("!SpawnTreasureChamber(Hero, ChamberIndex)"),
+                        entered.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
+        self.assertNotIn("OnChamberEntered(", entered)
+        self.assertEqual(chamber.count("OnChamberEntered(Hero, ChamberIndex, ChamberType);"), 1)
+        self.assertEqual(chamber.count("TrySpawnBonusGroup(Hero, ChamberIndex);"), 2)
+        treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        self.assertIn("if (Code <= 0)", treasure)
+        self.assertIn("return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;", treasure)
+        claim = treasure.split("OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);", 1)[1].split(
+            "if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()", 1)[0]
+        self.assertIn("GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", claim)
+        self.assertIn("if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", claim)
+        self.assertLess(claim.index("Loot->Destroy();"), claim.index("return true;"))
+
     def test_dungeon_treasure_callback_keeps_reward_retryable_and_claims_exactly_once(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
