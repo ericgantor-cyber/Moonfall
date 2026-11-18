@@ -457,6 +457,11 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   // On first entry, spawn the authored combat/treasure encounter BEFORE a
   // bonus pack: the bonus group must not occupy primary formation slots.
   if ((EnteredChambersMask & Bit) != 0u) {
+   // Re-entering an already announced treasure room must recover a pending
+   // pickup lost after first entry. Claimed rewards remain permanently claimed.
+   // Do not replay OnChamberEntered or create another reward record.
+   if (GetChamberType(ChamberIndex) == 2
+       && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
    TrySpawnBonusGroup(Hero, ChamberIndex);
    return;
   }
@@ -658,6 +663,9 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  // A Blueprint callback may collect the reward legitimately or destroy the
  // actor without saving a claim. Those outcomes must not be conflated.
  if (Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1) {
+  // A Blueprint may persist the claim without removing the pickup actor.
+  // Delete the now-uncollectable ghost without ever granting another item.
+  if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();
   SpawnedTreasure[ChamberIndex].Reset();
   return true;
  }
