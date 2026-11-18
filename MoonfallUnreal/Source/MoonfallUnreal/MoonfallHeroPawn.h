@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Engine/DataTable.h"
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallHeroPawn.generated.h"
@@ -25,7 +26,7 @@ enum class EMoonfallLootSource : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FMoonfallLootTableEntry
+struct FMoonfallLootTableEntry : public FTableRowBase
 {
  GENERATED_BODY()
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables")
@@ -267,6 +268,22 @@ public:
  // class defaults without changing loot identity or savegame schema.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
  TArray<FMoonfallLootTableEntry> LootTableEntries;
+ // Optional visual CSV/DataTable asset. Valid rows replace the built-in
+ // defaults as a complete table; invalid/missing assets keep safe defaults.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
+ TObjectPtr<UDataTable> LootDataTable = nullptr;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
+ bool bLootDataTableActive = false;
+ // Reimport in Unreal Editor and reload without restarting PIE. The game
+ // never writes an asset or alters an existing V12 save.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Loot|Tables")
+ bool ReloadLootDataTable();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Loot|Tables")
+ float GetLootRarityChancePercent(EMoonfallLootSource Source, int32 ZoneIndex,
+   int32 HeroLevel, int32 Rarity) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Loot|Tables")
+ int32 GetLootPoolTotalWeight(EMoonfallLootSource Source, int32 ZoneIndex,
+   int32 HeroLevel) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation, int32 SourceZoneIndex = -1);
@@ -491,6 +508,10 @@ private:
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
+ // Imported sorted snapshot is populated only once at BeginPlay or explicit
+ // reload, keeping death rewards allocation-free even with large DataTables.
+ TArray<FMoonfallLootTableEntry> ImportedLootTableEntries;
+ const TArray<FMoonfallLootTableEntry>& GetActiveLootTableEntries() const;
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex = -1);
  bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
  TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
