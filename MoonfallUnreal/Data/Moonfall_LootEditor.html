@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moonfall Loot Foundry | Visual Table Editor</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0b10;--panel:#19151e;--edge:#504450;--text:#fbf6fa;--muted:#d0c5d1;--accent:#a32945;--focus:#ff9cab}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header,main,footer{max-width:1500px;margin:auto;padding:20px}
+header{padding-top:30px}
+h1{font-size:clamp(27px,4vw,43px);margin:0 0 8px;letter-spacing:.02em}
+h2{margin:0 0 12px;font-size:22px}
+p{margin:6px 0 15px;color:var(--muted)}
+.small{font-size:14px}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:13px;padding:18px;margin-bottom:16px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+.control{display:grid;gap:5px;min-width:130px;flex:0 1 190px}
+.control label{font-weight:650;font-size:15px}
+button,select,input{font:inherit;color:var(--text);background:#28202c;border:1px solid #806775;border-radius:8px;padding:10px 12px;min-height:45px}
+input[type=number]{width:100px}
+input[type=text]{min-width:130px;width:100%}
+button{cursor:pointer;background:#49202b;font-weight:700}
+button:hover{background:#70283b}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#9c2f49;border-color:#ee829e}
+button.primary:hover{background:#b93c59}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--focus)}
+.statline{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}
+.stat{background:#281c29;border:1px solid #655464;border-radius:9px;padding:8px 12px;min-width:130px}
+.stat strong{display:block;font-size:22px}
+#message{padding:12px 14px;border-radius:9px;background:#243026;color:#eaffed;margin-bottom:12px}
+#message.bad{background:#4d2029;color:#ffe3ea}
+.chances{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+.chance{background:#281e2a;border:1px solid #635463;border-radius:9px;padding:10px}
+.chance-head{display:flex;justify-content:space-between;gap:8px}
+.track{height:14px;background:#100e14;border-radius:99px;overflow:hidden;margin-top:10px}
+.fill{height:100%;background:linear-gradient(90deg,#922640,#f19ab3);width:0}
+.scroller{max-height:550px;overflow:auto;border:1px solid var(--edge);border-radius:9px}
+table{width:100%;border-collapse:collapse;min-width:1140px}
+thead{position:sticky;top:0;z-index:1;background:#29202e}
+th,td{text-align:left;padding:8px;border-bottom:1px solid #463946}
+th{font-size:15px}
+td input,td select{padding:7px;min-height:40px;width:100%;min-width:80px}
+td:first-child{min-width:170px}
+td:nth-child(2){min-width:130px}
+td:last-child{width:85px}
+.delete{background:#54202a}
+.hint{font-size:14px;margin:12px 0 0}
+code{color:#ffd0da}
+footer{color:var(--muted);font-size:14px;padding-bottom:30px}
+</style>
+</head>
+<body>
+<header>
+<h1>MOONFALL <span style="color:#f49bb3">LOOT FOUNDRY</span></h1>
+<p>Mouse-first weighted loot table editor. Change rarity, enemy type, region, equipment slot and trait, then export a CSV for Unreal Engine 5.4.</p>
+</header>
+<main>
+<section class="card" aria-label="File and editing controls">
+<div class="toolbar">
+<button id="reset">Load default 41 rows</button>
+<button id="import">Import CSV</button>
+<input id="file" type="file" accept=".csv,text/csv" hidden aria-label="Choose Moonfall loot CSV">
+<button id="add">Add loot row</button>
+<button id="export" class="primary">Export CSV for Unreal</button>
+</div>
+<p class="hint">Nothing is uploaded online. Export the CSV to keep your edits. Unreal imports the CSV as an <code>FMoonfallLootTableEntry</code> Data Table.</p>
+</section>
+<section class="card" aria-labelledby="preview-title">
+<h2 id="preview-title">Drop probability preview</h2>
+<div class="toolbar">
+<div class="control"><label for="preview-source">Reward source</label><select id="preview-source"><option>Regular</option><option>Elite</option><option>Boss</option><option>Treasure</option></select></div>
+<div class="control"><label for="preview-zone">Region</label><select id="preview-zone"><option value="-1">Overworld / generic</option><option value="0">Region 1</option><option value="1">Region 2</option><option value="2">Region 3</option><option value="3">Region 4</option><option value="4">Region 5</option><option value="5">Region 6</option></select></div>
+<div class="control"><label for="preview-level">Hero level</label><input id="preview-level" type="number" min="1" max="100" value="60"></div>
+</div>
+<div id="stats" class="statline" aria-live="polite"></div>
+<div id="chances" class="chances" aria-live="polite"></div>
+</section>
+<section class="card" aria-labelledby="editor-title">
+<h2 id="editor-title">Editable loot table</h2>
+<div id="message" role="status" aria-live="polite">Loading default table…</div>
+<div class="toolbar">
+<div class="control"><label for="filter">Show reward source</label><select id="filter"><option>All</option><option>Regular</option><option>Elite</option><option>Boss</option><option>Treasure</option></select></div>
+<div class="control"><label for="search">Find row</label><input id="search" type="text" placeholder="e.g. Boss_Zone6"></div>
+</div>
+<p class="hint">Slots: 1 weapon, 2 armor, 4 accessory, 7 any. Traits: 0 random, 1 Force, 2 Ward, 3 Focus. Weight 0 disables a row. Scroll sideways to see all columns on smaller screens.</p>
+<div class="scroller" tabindex="0" aria-label="Scrollable editable loot table">
+<table><thead><tr>
+<th scope="col">Row name</th><th scope="col">Source</th><th scope="col">Region</th>
+<th scope="col">Min level</th><th scope="col">Rarity 0–5</th><th scope="col">Weight</th>
+<th scope="col">Slot mask</th><th scope="col">Trait 0–3</th><th scope="col">Remove</th>
+</tr></thead><tbody id="rows"></tbody></table>
+</div>
+</section>
+</main>
+<footer>Editor-only tuning tool. No in-game loot editor or Unreal native gameplay build is claimed. Saved items and character art are untouched.</footer>
+<script>
+"use strict";
+const FIELDS=["Name","Source","ZoneIndex","MinimumLevel","Rarity","Weight","SlotMask","ForcedTrait"];
+const SOURCES=["Regular","Elite","Boss","Treasure"];
+const RARITIES=["Common","Uncommon","Rare","Epic","Emerald","Legendary"];
+const FLOORS={Regular:0,Elite:2,Boss:3,Treasure:2};
+const CAP=1000000;
+const byId=id=>document.getElementById(id);
+let rows=[];
+
+function defaultRows(){
+ const out=[];
+ const global=[
+ ["Regular",[[0,44,1],[1,34,1],[2,18,1],[3,4,1],[4,2,40],[5,1,60]]],
+ ["Elite",[[2,70,1],[3,25,1],[4,5,20],[5,1,50]]],
+ ["Boss",[[3,75,1],[4,20,30],[5,5,60]]],
+ ["Treasure",[[2,60,1],[3,30,1],[4,8,20],[5,2,50]]]
+ ];
+ const add=(Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask=7,ForcedTrait=0)=>
+    out.push({Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask,ForcedTrait});
+ for(const [src,list] of global)for(const [rarity,weight,minLevel] of list)
+   add(src+"_R"+rarity,src,-1,minLevel,rarity,weight);
+ for(let zone=0;zone<6;zone++){
+  const slot=1<<(zone%3),trait=1+((zone+Math.floor(zone/3))%3);
+  for(const [src,rarity] of [["Regular",2],["Elite",3],["Boss",3],["Treasure",3]])
+   add(src+"_Zone"+(zone+1),src,zone,1,rarity,8,slot,trait);
+ }
+ return out;
+}
+function asInt(x){
+ const text=String(x).trim();
+ return /^-?\d+$/.test(text)?Number(text):NaN;
+}
+function validate(sourceRows){
+ const errors=[],result=[],names=new Set(),coverage=new Set();
+ if(sourceRows.length<1||sourceRows.length>2048)errors.push("Use 1–2048 rows.");
+ for(const raw of sourceRows){
+  const name=String(raw.Name||"").trim(),src=String(raw.Source||"").trim();
+  if(!/^[a-zA-Z0-9_-]{1,80}$/.test(name))errors.push("Invalid row name: "+name);
+  if(names.has(name))errors.push("Duplicate row: "+name);
+  names.add(name);
+  const row={Name:name,Source:src};
+  for(const field of FIELDS.slice(2))row[field]=asInt(raw[field]);
+  if(!SOURCES.includes(src))errors.push(name+": choose a valid source");
+  const ok=Number.isInteger(row.ZoneIndex)&&row.ZoneIndex>=-1&&row.ZoneIndex<=5
+    &&Number.isInteger(row.MinimumLevel)&&row.MinimumLevel>=1&&row.MinimumLevel<=100
+    &&Number.isInteger(row.Rarity)&&row.Rarity>=(FLOORS[src]===undefined?0:FLOORS[src])&&row.Rarity<=5
+    &&Number.isInteger(row.Weight)&&row.Weight>=0&&row.Weight<=10000
+    &&Number.isInteger(row.SlotMask)&&row.SlotMask>=1&&row.SlotMask<=7
+    &&Number.isInteger(row.ForcedTrait)&&row.ForcedTrait>=0&&row.ForcedTrait<=3
+    &&(row.Rarity!==0||row.ForcedTrait===0);
+  if(!ok)errors.push(name+": invalid level, rarity, region, weight, slot or trait");
+  if(ok&&row.ZoneIndex===-1&&row.MinimumLevel===1&&row.Weight>0)coverage.add(src);
+  result.push(row);
+ }
+ for(const src of SOURCES)if(!coverage.has(src))errors.push("Missing generic level-one pool: "+src);
+ return {rows:result.sort((a,b)=>a.Name<b.Name?-1:(a.Name>b.Name?1:0)),errors};
+}
+function summary(data,source,zone,level){
+ const effective=zone>=0&&zone<=5?zone:-1;
+ const currentLevel=Math.max(1,Math.min(100,level));
+ const weights=[0,0,0,0,0,0];
+ let total=0;
+ for(const row of data){
+  if(row.Source!==source||row.MinimumLevel>currentLevel||row.Weight<=0
+      ||(row.ZoneIndex!==-1&&row.ZoneIndex!==effective)
+      ||total>CAP-row.Weight)continue;
+  total+=row.Weight;
+  weights[row.Rarity]+=row.Weight;
+ }
+ return {total,weights};
+}
+function showPreview(){
+ const {rows:data,errors}=validate(rows);
+ const msg=byId("message");
+ msg.className=errors.length?"bad":"";
+ msg.textContent=errors.length?errors.slice(0,4).join(" | ")+(errors.length>4?" | More errors: "+(errors.length-4):""):
+  "Valid table: "+data.length+" rows. Export is enabled.";
+ byId("export").disabled=errors.length>0;
+ const chances=byId("chances"),stats=byId("stats");
+ chances.replaceChildren();stats.replaceChildren();
+ if(errors.length){chances.textContent="Fix the table to see trustworthy probabilities.";return;}
+ const source=byId("preview-source").value,zone=asInt(byId("preview-zone").value);
+ const level=asInt(byId("preview-level").value);
+ const {total,weights}=summary(data,source,zone,Number.isInteger(level)?level:1);
+ for(const [label,value] of [["Rows",data.length],["Active weight",total],["Source",source]]){
+  const tile=document.createElement("div");tile.className="stat";
+  const caption=document.createElement("span");caption.textContent=label;
+  const strong=document.createElement("strong");strong.textContent=String(value);
+  tile.append(caption,strong);stats.append(tile);
+ }
+ RARITIES.forEach((rarity,index)=>{
+  const chance=total>0?100*weights[index]/total:0;
+  const tile=document.createElement("div");tile.className="chance";
+  const heading=document.createElement("div");heading.className="chance-head";
+  const label=document.createElement("strong");label.textContent=rarity;
+  const value=document.createElement("span");value.textContent=chance.toFixed(2)+"%";
+  heading.append(label,value);
+  const track=document.createElement("div");track.className="track";
+  const fill=document.createElement("div");fill.className="fill";
+  fill.style.width=chance.toFixed(3)+"%";
+  track.append(fill);tile.append(heading,track);chances.append(tile);
+ });
+}
+function control(row,index,field){
+ const cell=document.createElement("td");
+ let input;
+ if(field==="Source"){
+  input=document.createElement("select");
+  for(const source of SOURCES){
+   const opt=document.createElement("option");opt.value=source;opt.textContent=source;input.append(opt);
+  }
+  input.value=row[field];
+ }else{
+  input=document.createElement("input");
+  input.type=field==="Name"?"text":"number";
+  input.value=row[field];
+  if(field!=="Name")input.step="1";
+  if(field==="Name")input.maxLength=80;
+ }
+ input.setAttribute("aria-label",field+" for row "+(index+1));
+ input.addEventListener("change",()=>{
+  row[field]=input.value;
+  showPreview();
+  if(field==="Source")renderRows();
+ });
+ cell.append(input);return cell;
+}
+function renderRows(){
+ const tbody=byId("rows");tbody.replaceChildren();
+ const filter=byId("filter").value,term=byId("search").value.trim().toLowerCase();
+ rows.forEach((row,index)=>{
+  if(filter!=="All"&&row.Source!==filter)return;
+  if(term&&!String(row.Name).toLowerCase().includes(term))return;
+  const tr=document.createElement("tr");
+  for(const field of FIELDS)tr.append(control(row,index,field));
+  const td=document.createElement("td"),button=document.createElement("button");
+  button.className="delete";button.textContent="Delete";
+  button.setAttribute("aria-label","Delete "+row.Name);
+  button.addEventListener("click",()=>{rows.splice(index,1);renderRows();showPreview();});
+  td.append(button);tr.append(td);tbody.append(tr);
+ });
+}
+function parseCsv(csv){
+ const all=[];let line=[],value="",quoted=false;
+ for(let i=0;i<csv.length;i++){
+  const ch=csv[i];
+  if(quoted){
+   if(ch==='"'&&csv[i+1]==='"'){value+='"';i++;}
+   else if(ch==='"')quoted=false;
+   else value+=ch;
+  }else if(ch==='"')quoted=true;
+   else if(ch===","){line.push(value);value="";}
+   else if(ch==="\n"){line.push(value.replace(/\r$/,""));if(line.some(x=>x!==""))all.push(line);line=[];value="";}
+   else value+=ch;
+ }
+ if(quoted)throw Error("Unclosed CSV quote.");
+ if(value!==""||line.length){line.push(value.replace(/\r$/,""));all.push(line);}
+ const header=all.shift();
+ if(!header||header.map(x=>x.trim().replace(/^\uFEFF/,"")).join(",")!==FIELDS.join(","))
+   throw Error("The CSV must contain the eight Moonfall column names in their normal order.");
+ return all.map((line,n)=>{
+  if(line.length!==FIELDS.length)throw Error("Wrong number of columns on row "+(n+2));
+  const row={};FIELDS.forEach((key,i)=>row[key]=line[i]);return row;
+ });
+}
+function csvField(x){
+ const value=String(x);
+ return /[",\r\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value;
+}
+byId("reset").addEventListener("click",()=>{rows=defaultRows();renderRows();showPreview();});
+byId("add").addEventListener("click",()=>{
+ let name="Custom_"+(rows.length+1),i=1;
+ while(rows.some(x=>x.Name===name))name="Custom_"+(rows.length+1)+"_"+(i++);
+ rows.push({Name:name,Source:"Regular",ZoneIndex:-1,MinimumLevel:1,Rarity:0,Weight:1,SlotMask:7,ForcedTrait:0});
+ byId("filter").value="All";byId("search").value="";
+ renderRows();showPreview();
+});
+byId("import").addEventListener("click",()=>byId("file").click());
+byId("file").addEventListener("change",async event=>{
+ const file=event.target.files[0];
+ if(!file)return;
+ try{rows=parseCsv(await file.text());renderRows();showPreview();}
+ catch(error){alert("Could not read CSV: "+error.message);}
+ event.target.value="";
+});
+byId("export").addEventListener("click",()=>{
+ const data=validate(rows);if(data.errors.length){showPreview();return;}
+ const csv=[FIELDS.join(","),...data.rows.map(row=>FIELDS.map(field=>csvField(row[field])).join(","))].join("\r\n")+"\r\n";
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob),link=document.createElement("a");
+ link.href=url;link.download="Moonfall_CustomLootTable.csv";
+ document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+for(const id of ["preview-source","preview-zone","preview-level"])byId(id).addEventListener("change",showPreview);
+byId("filter").addEventListener("change",renderRows);
+byId("search").addEventListener("input",renderRows);
+rows=defaultRows();byId("preview-source").value="Boss";renderRows();showPreview();
+</script>
+</body>
+</html>
