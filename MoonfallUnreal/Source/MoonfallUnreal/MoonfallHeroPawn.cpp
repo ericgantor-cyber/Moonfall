@@ -3310,17 +3310,6 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      ToggleAtlas();
      return;
     }
-    const float CenterX = CloseX - 68.f;
-    if (PanelW >= 410.f && MouseX >= CenterX && MouseX <= CenterX + 58.f
-        && MouseY >= PanelT + 12.f && MouseY <= PanelT + 40.f) {
-     const FVector HeroPos = GetActorLocation();
-     if (FMath::IsFinite(HeroPos.X) && FMath::IsFinite(HeroPos.Y)) {
-      const int32 Slot = FMath::Clamp(FMath::RoundToInt(HeroPos.X / 1350.f + 14.5f), 0, 29);
-      AtlasSelectedRegion = Slot / 5;
-      AtlasPanY = FMath::Clamp(HeroPos.Y, -12000.f, 12000.f);
-     }
-     return;
-    }
     const float RowGap = FMath::Max(0.f, PanelH - 220.f) / 6.f;
     if (RowGap >= 20.f && MouseX >= PanelL + 10.f && MouseX <= PanelL + PanelW - 10.f) {
      for (int32 Zone = 0; Zone < 6; ++Zone) {
