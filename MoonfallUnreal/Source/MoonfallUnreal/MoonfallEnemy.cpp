@@ -347,8 +347,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Pause hostile behavior during both gameplay menus and after hero defeat.
- // Cancel winding attacks so closing a menu never delivers an instant hit.
+ // Pause hostile behavior during any gameplay modal, including Atlas, and
+ // after defeat. Cancel winding attacks so closing a menu cannot trigger
+ // an instant hit against a player who was unable to attack or dodge.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  // An unpossessed old pawn may remain valid after respawn or hero switching.
  // Never allow it to receive another cached-target attack.
@@ -367,7 +368,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
   WindupEndsAt = -1.f;
