@@ -3957,6 +3957,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         combat.index("Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
+    def test_dungeon_bonus_rejects_invalid_health_and_preserves_atomic_retry(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        self.assertIn("if (!IsValid(Enemy)) continue;", bonus)
+        self.assertIn("!FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f", bonus)
+        self.assertIn("Enemy->IsActorBeingDestroyed()", bonus)
+        self.assertIn("Enemy->Destroy();", bonus)
+        self.assertLess(bonus.index("Enemy->FinishSpawning(SpawnTransform);"),
+                        bonus.index("!FMath::IsFinite(Enemy->Health)"))
+        self.assertLess(bonus.index("!FMath::IsFinite(Enemy->Health)"),
+                        bonus.index("GroupActors.Add(Enemy);"))
+        self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", bonus)
+        self.assertLess(bonus.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
+                        bonus.index("SpawnedBonusGroupsMask |= GroupBit;"))
+
     def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
