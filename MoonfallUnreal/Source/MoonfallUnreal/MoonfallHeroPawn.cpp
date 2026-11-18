@@ -351,6 +351,9 @@ void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // Import the designer's DataTable once; keep the built-in defaults if
+ // the asset is absent or fails complete-table validation.
+ ReloadLootDataTable();
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
@@ -1935,6 +1938,30 @@ int32 MoonfallLootRandRange(FRandomStream* Stream, int32 MinValue, int32 MaxValu
    : FMath::RandRange(MinValue, MaxValue);
 }
 
+// The live roller and editor/Blueprint chance preview must agree exactly
+// about disabled, malformed, region-locked and rank-restricted rows.
+int32 MoonfallLootRowWeight(const FMoonfallLootTableEntry& Entry,
+ EMoonfallLootSource Source, int32 ZoneIndex, int32 HeroLevel)
+{
+ const int32 Zone = ZoneIndex >= 0 && ZoneIndex < 6 ? ZoneIndex : -1;
+ const int32 SafeLevel = FMath::Clamp(HeroLevel, 1, 100);
+ const int32 SourceId = static_cast<int32>(Entry.Source);
+ if (SourceId < 0 || SourceId > 3 || Entry.Source != Source
+     || Entry.MinimumLevel < 1 || Entry.MinimumLevel > SafeLevel
+     || Entry.Rarity < 0 || Entry.Rarity > 5
+     || Entry.Weight <= 0 || Entry.Weight > 10000
+     || Entry.SlotMask < 1 || Entry.SlotMask > 7
+     || Entry.ForcedTrait < 0 || Entry.ForcedTrait > 3
+     || (Entry.Rarity == 0 && Entry.ForcedTrait != 0)
+     || Entry.ZoneIndex < -1 || Entry.ZoneIndex > 5
+     || (Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone)
+     || (Source == EMoonfallLootSource::Boss && Entry.Rarity < 3)
+     || (Source == EMoonfallLootSource::Elite && Entry.Rarity < 2)
+     || (Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2))
+  return 0;
+ return Entry.Weight;
+}
+
 const FMoonfallLootTableEntry* SelectMoonfallLootEntry(
  const TArray<FMoonfallLootTableEntry>& Entries, EMoonfallLootSource Source,
  int32 ZoneIndex, int32 HeroLevel, FRandomStream* Stream)
@@ -1942,17 +1969,7 @@ const FMoonfallLootTableEntry* SelectMoonfallLootEntry(
  const int32 Zone = ZoneIndex >= 0 && ZoneIndex < 6 ? ZoneIndex : -1;
  const int32 SafeLevel = FMath::Clamp(HeroLevel, 1, 100);
  const auto WeightFor = [Source, Zone, SafeLevel](const FMoonfallLootTableEntry& Entry) {
-  if (Entry.Source != Source || Entry.MinimumLevel < 1
-      || Entry.MinimumLevel > SafeLevel || Entry.Rarity < 0 || Entry.Rarity > 5
-      || Entry.Weight <= 0 || Entry.Weight > 10000
-      || Entry.SlotMask < 1 || Entry.SlotMask > 7
-      || Entry.ForcedTrait < 0 || Entry.ForcedTrait > 3
-      || (Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone)
-      || (Source == EMoonfallLootSource::Boss && Entry.Rarity < 3)
-      || (Source == EMoonfallLootSource::Elite && Entry.Rarity < 2)
-      || (Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2))
-   return 0;
-  return Entry.Weight;
+  return MoonfallLootRowWeight(Entry, Source, Zone, SafeLevel);
  };
  // Identical admission in both passes avoids overflow and biased selection,
  // even if Blueprint defaults contain an excessive number of custom rows.
@@ -1994,13 +2011,104 @@ int32 EncodeMoonfallLootEntry(const FMoonfallLootTableEntry& Entry, int32 Tier,
 }
 }
 
+const TArray<FMoonfallLootTableEntry>& AMoonfallHeroPawn::GetActiveLootTableEntries() const
+{
+ return bLootDataTableActive ? ImportedLootTableEntries : LootTableEntries;
+}
+
+bool AMoonfallHeroPawn::ReloadLootDataTable()
+{
+ // Keep class-default tables as the fallback and never mutate serialized
+ // inventory or the save game. An imported table is a complete replacement.
+ ImportedLootTableEntries.Reset();
+ bLootDataTableActive = false;
+ if (!IsValid(LootDataTable)) return false;
+ if (LootDataTable->GetRowStruct() != FMoonfallLootTableEntry::StaticStruct()) {
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall loot: DataTable row type is not FMoonfallLootTableEntry"));
+  return false;
+ }
+ TArray<FName> RowNames = LootDataTable->GetRowNames();
+ // UDataTable's underlying map is unordered. Sorting is essential so
+ // seeded dungeon treasure stays deterministic across runs and machines.
+ RowNames.Sort([](const FName& A, const FName& B) {
+  return A.ToString() < B.ToString();
+ });
+ if (RowNames.IsEmpty() || RowNames.Num() > 2048) {
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall loot: DataTable must have 1-2048 rows"));
+  return false;
+ }
+ TArray<FMoonfallLootTableEntry> Imported;
+ Imported.Reserve(RowNames.Num());
+ int32 GenericSourceMask = 0;
+ for (const FName RowName : RowNames) {
+  const FMoonfallLootTableEntry* Row =
+   LootDataTable->FindRow<FMoonfallLootTableEntry>(RowName, TEXT("MoonfallLoot"), false);
+  if (!Row) return false;
+  const int32 SourceId = static_cast<int32>(Row->Source);
+  if (SourceId < 0 || SourceId > 3 || Row->ZoneIndex < -1 || Row->ZoneIndex > 5
+      || Row->MinimumLevel < 1 || Row->MinimumLevel > 100
+      || Row->Rarity < 0 || Row->Rarity > 5
+      || Row->Weight < 0 || Row->Weight > 10000
+      || Row->SlotMask < 1 || Row->SlotMask > 7
+      || Row->ForcedTrait < 0 || Row->ForcedTrait > 3
+      || (Row->Rarity == 0 && Row->ForcedTrait != 0)
+      || (Row->Source == EMoonfallLootSource::Boss && Row->Rarity < 3)
+      || (Row->Source == EMoonfallLootSource::Elite && Row->Rarity < 2)
+      || (Row->Source == EMoonfallLootSource::Treasure && Row->Rarity < 2)) {
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall loot: invalid row %s; keeping defaults"),
+     *RowName.ToString());
+   return false;
+  }
+  // Require a valid level-one generic base for each source. Region-only or
+  // overlevelled tables cannot accidentally suppress all rewards.
+  if (Row->ZoneIndex == -1 && Row->MinimumLevel == 1 && Row->Weight > 0)
+   GenericSourceMask |= 1 << SourceId;
+  Imported.Add(*Row);
+ }
+ if (GenericSourceMask != 15) {
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall loot: missing enabled level-one generic pool"));
+  return false;
+ }
+ ImportedLootTableEntries = MoveTemp(Imported);
+ bLootDataTableActive = true;
+ return true;
+}
+
+int32 AMoonfallHeroPawn::GetLootPoolTotalWeight(
+ EMoonfallLootSource Source, int32 ZoneIndex, int32 HeroLevel) const
+{
+ constexpr int32 MaxTotalLootWeight = 1000000;
+ int32 Total = 0;
+ for (const FMoonfallLootTableEntry& Row : GetActiveLootTableEntries()) {
+  const int32 Weight = MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel);
+  if (Weight > 0 && Total <= MaxTotalLootWeight - Weight) Total += Weight;
+ }
+ return Total;
+}
+
+float AMoonfallHeroPawn::GetLootRarityChancePercent(
+ EMoonfallLootSource Source, int32 ZoneIndex, int32 HeroLevel, int32 Rarity) const
+{
+ if (Rarity < 0 || Rarity > 5) return 0.f;
+ constexpr int32 MaxTotalLootWeight = 1000000;
+ int32 Total = 0;
+ int32 Matching = 0;
+ for (const FMoonfallLootTableEntry& Row : GetActiveLootTableEntries()) {
+  const int32 Weight = MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel);
+  if (Weight <= 0 || Total > MaxTotalLootWeight - Weight) continue;
+  Total += Weight;
+  if (Row.Rarity == Rarity) Matching += Weight;
+ }
+ return Total > 0 ? 100.f * static_cast<float>(Matching) / Total : 0.f;
+}
+
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex)
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
  const EMoonfallLootSource Source = bBossEnemy ? EMoonfallLootSource::Boss
    : (bEliteEnemy ? EMoonfallLootSource::Elite : EMoonfallLootSource::Regular);
  const FMoonfallLootTableEntry* Selected =
-   SelectMoonfallLootEntry(LootTableEntries, Source, SourceZoneIndex, Level, nullptr);
+   SelectMoonfallLootEntry(GetActiveLootTableEntries(), Source, SourceZoneIndex, Level, nullptr);
  if (!Selected) return 0; // Invalid table: do not create corrupt equipment.
  const int32 NewTier = FMath::Clamp(Level / 5
    + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
@@ -2557,7 +2665,7 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  // above, so table edits cannot reroll items already saved to a character.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
  const FMoonfallLootTableEntry* Selected = SelectMoonfallLootEntry(
-   LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream);
+   GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream);
  if (!Selected) return 0;
  int32 Slot = INDEX_NONE;
  int32 Trait = 0;
