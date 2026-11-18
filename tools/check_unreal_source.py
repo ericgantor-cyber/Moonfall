@@ -3944,6 +3944,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_dungeon_spawn_callbacks_cannot_consume_broken_encounters(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        for body, event, counter, array, marker in (
+            (bonus, "OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);",
+             "SpawnedBonusGroupsMask |= GroupBit;", "GroupActors", "bGroupSurvived"),
+            (combat, "OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);",
+             "SpawnedEncounterCount += Spawned;", "SpawnedActors", "bEncounterSurvived"),
+        ):
+            post_event = body.split(event, 1)[1]
+            self.assertIn("!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()", post_event)
+            self.assertIn("!FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f", post_event)
+            self.assertIn("if (!" + marker + ") {", post_event)
+            self.assertIn("for (AMoonfallEnemy* Enemy : " + array + ")", post_event)
+            self.assertIn("if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();",
+                          post_event)
+            self.assertLess(body.index(event), body.index(counter))
+            self.assertLess(post_event.index("if (!" + marker + ") {"),
+                            post_event.index(counter))
+            self.assertLess(post_event.index("return false;"), post_event.index(counter))
+        # The combat entry bit is only set when StartCombatChamber succeeds.
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;",
+                      chamber)
+        self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+
     def test_rejected_deferred_dungeon_enemy_is_not_counted(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
