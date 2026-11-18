@@ -41,10 +41,14 @@ def validate_rows(rows: list[dict]) -> list[dict]:
         source = str(row["Source"]).strip()
         if source not in SOURCES:
             raise ValueError(f"{name}: invalid source {source!r}")
-        try:
-            values = {key: int(str(row[key]).strip()) for key in FIELDS[2:]}
-        except (ValueError, TypeError) as exc:
-            raise ValueError(f"{name}: all tuning fields must be integers") from exc
+        values = {}
+        for key in FIELDS[2:]:
+            raw_value = str(row[key]).strip()
+            # Match the browser editor exactly: no plus signs, underscores,
+            # decimals, scientific notation, or non-ASCII digits.
+            if re.fullmatch(r"-?[0-9]+", raw_value, flags=re.ASCII) is None:
+                raise ValueError(f"{name}: {key} must be a plain integer")
+            values[key] = int(raw_value)
         zone = values["ZoneIndex"]
         level = values["MinimumLevel"]
         rarity = values["Rarity"]
@@ -70,7 +74,13 @@ def load_rows(path: Path) -> list[dict]:
         reader = csv.DictReader(stream)
         if reader.fieldnames is None or tuple(reader.fieldnames) != FIELDS:
             raise ValueError("CSV header and order must match: " + ",".join(FIELDS))
-        return validate_rows(list(reader))
+        raw_rows = list(reader)
+        # DictReader stores surplus CSV fields under the None key and missing
+        # trailing fields as None. Both must fail, just as in the browser.
+        if any(None in row or any(row.get(key) is None for key in FIELDS)
+               for row in raw_rows):
+            raise ValueError("CSV row has the wrong number of columns")
+        return validate_rows(raw_rows)
 
 
 def rarity_weights(rows: list[dict], source: str, zone: int, level: int) -> tuple[int, list[int]]:
