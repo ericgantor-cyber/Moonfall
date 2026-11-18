@@ -29,6 +29,8 @@ public:
 
  // Set a unique authored ID per shrine. Never derive save identity from actor names.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Shrine") FName ShrineId = NAME_None;
+ // Optional authored name for the Atlas; discovery continues to use ShrineId.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Shrine") FText MapDisplayName;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") USphereComponent* DiscoveryRange = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") UStaticMeshComponent* ShrineBase = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") UStaticMeshComponent* ShrineBeacon = nullptr;
