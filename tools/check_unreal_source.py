@@ -4598,6 +4598,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->Level, 23", source)
         self.assertIn("all four native tests explicitly passed", runner)
 
+    def test_native_v12_world_save_fields_round_trip_with_boss_victories(self):
+        # Source-level coverage only. Real serialization is checked by UE5.4 Editor.
+        native = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        for field in ("ExploredZoneFogMasks", "PendingWorldLoot", "DungeonTreasureStates"):
+            self.assertIn(field, save_h)
+            self.assertIn("Original->" + field, native)
+            self.assertIn("Restored->" + field, native)
+        self.assertIn("Original->ExploredZoneFogMasks.SetNumZeroed(6);", native)
+        self.assertIn("static_cast<int64>(1) << 55", native)
+        self.assertIn("Original->DungeonTreasureStates.SetNumZeroed(30 * 14);", native)
+        self.assertIn("Original->PendingWorldLoot.Add(PendingDrop);", native)
+        self.assertIn("Restored->PendingWorldLoot.Num(), 1", native)
+        self.assertIn("Drop.DropId == PendingDrop.DropId", native)
+        self.assertIn("Drop.Location.Equals(PendingDrop.Location)", native)
+        self.assertIn("Drop.LevelId == PendingDrop.LevelId", native)
+        self.assertIn("Restored->DungeonTreasureStates[30 * 14 - 1], 217", native)
+        for field in ("ExploredZoneFogMasks", "PendingWorldLoot", "DungeonTreasureStates"):
+            self.assertIn("Original->" + field + ".Reset();", native)
+        self.assertLess(native.index("Original->PendingWorldLoot.Reset();"),
+                        native.index("Original->Version = 9;"))
+        self.assertIn("Legacy->Version, 9", native)
+
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         cpp = self.hero_cpp
