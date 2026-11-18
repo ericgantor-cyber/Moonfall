@@ -108,11 +108,17 @@ footer{color:var(--muted);font-size:14px;padding-bottom:30px}
 </div>
 <div class="bulk" aria-label="Bulk weight adjustment">
 <div class="toolbar">
-<div class="control"><label for="bulk-factor">Adjust weights of visible rows</label>
+<div class="control"><label for="bulk-factor">Adjust weights of matching rows</label>
 <select id="bulk-factor"><option value="50">50% (halve)</option><option value="75">75%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200% (double)</option></select></div>
 <button id="bulk-apply">Apply to filtered rows</button>
 </div>
-<p class="hint">Bulk edits affect rows matching both filters and the current search, not other regions or sources. Any invalid result is rejected without changing the table. Undo restores the previous weights.</p>
+<p class="hint">Bulk edits affect all rows matching both filters and the current search, including rows on other pages. They do not affect unmatched regions or sources. Any invalid result is rejected without changing the table. Undo restores the previous weights.</p>
+</div>
+<div class="toolbar" aria-label="Loot table page controls">
+<div class="control"><label for="page-size">Rows per page</label><select id="page-size"><option value="40">40</option><option value="80" selected>80</option><option value="160">160</option></select></div>
+<button id="page-prev">Previous page</button>
+<button id="page-next">Next page</button>
+<span id="page-status" role="status" aria-live="polite">Loading rows…</span>
 </div>
 <p class="hint">Slots: 1 weapon, 2 armor, 4 accessory, 7 any. Traits: 0 random, 1 Force, 2 Ward, 3 Focus. Weight 0 disables a row. Scroll sideways to see all columns on smaller screens.</p>
 <div class="scroller" tabindex="0" aria-label="Scrollable editable loot table">
@@ -134,6 +140,7 @@ const FLOORS={Regular:0,Elite:2,Boss:3,Treasure:2};
 const CAP=1000000;
 const byId=id=>document.getElementById(id);
 let rows=[];
+let page=0;
 const HISTORY_LIMIT=40;
 let undoHistory=[],redoHistory=[],dirty=false;
 const snapshot=()=>rows.map(row=>({...row}));
@@ -343,8 +350,19 @@ function matchesFilter(row){
 }
 function renderRows(){
  const tbody=byId("rows");tbody.replaceChildren();
- rows.forEach((row,index)=>{
-  if(!matchesFilter(row))return;
+ const visible=rows.map((row,index)=>({row,index})).filter(({row})=>matchesFilter(row));
+ const perPage=asInt(byId("page-size").value);
+ const count=Number.isInteger(perPage)&&perPage>=40&&perPage<=160?perPage:80;
+ const pages=Math.max(1,Math.ceil(visible.length/count));
+ page=Math.max(0,Math.min(page,pages-1));
+ const start=page*count;
+ byId("page-prev").disabled=page===0;
+ byId("page-next").disabled=page>=pages-1;
+ byId("page-status").textContent=visible.length
+   ? "Rows "+(start+1)+"-"+Math.min(visible.length,start+count)
+     +" of "+visible.length+" (page "+(page+1)+"/"+pages+")"
+   : "No rows match these filters.";
+ for(const {row,index} of visible.slice(start,start+count)){
   const tr=document.createElement("tr");
   for(const field of FIELDS)tr.append(control(row,index,field));
   const td=document.createElement("td");
@@ -364,7 +382,7 @@ function renderRows(){
    rememberEdit();rows.splice(index,1);renderRows();showPreview();
   });
   td.append(duplicate,button);tr.append(td);tbody.append(tr);
- });
+ }
 }
 function parseCsv(csv){
  const all=[];let line=[],value="",quoted=false;
@@ -431,8 +449,8 @@ byId("add").addEventListener("click",()=>{
  if(rows.length>=2048){byId("message").textContent="2048-row limit reached.";return;}
  rememberEdit();
  rows.push({Name:name,Source:"Regular",ZoneIndex:-1,MinimumLevel:1,Rarity:0,Weight:1,SlotMask:7,ForcedTrait:0});
- byId("filter").value="All";byId("search").value="";
- renderRows();showPreview();
+ byId("filter").value="All";byId("filter-zone").value="all";byId("search").value="";
+ page=0;renderRows();showPreview();
 });
 byId("import").addEventListener("click",()=>byId("file").click());
 byId("file").addEventListener("change",async event=>{
@@ -463,9 +481,13 @@ byId("export").addEventListener("click",()=>{
  dirty=false;updateHistoryButtons();
 });
 for(const id of ["preview-source","preview-zone","preview-level"])byId(id).addEventListener("change",showPreview);
-byId("filter").addEventListener("change",renderRows);
-byId("filter-zone").addEventListener("change",renderRows);
-byId("search").addEventListener("input",renderRows);
+for(const id of ["filter","filter-zone"])byId(id).addEventListener("change",()=>{
+ page=0;renderRows();
+});
+byId("search").addEventListener("input",()=>{page=0;renderRows();});
+byId("page-size").addEventListener("change",()=>{page=0;renderRows();});
+byId("page-prev").addEventListener("click",()=>{page=Math.max(0,page-1);renderRows();});
+byId("page-next").addEventListener("click",()=>{page++;renderRows();});
 document.addEventListener("keydown",event=>{
  if(!(event.ctrlKey||event.metaKey)||event.altKey||event.target?.matches?.("input,textarea,select"))return;
  const key=event.key.toLowerCase();
