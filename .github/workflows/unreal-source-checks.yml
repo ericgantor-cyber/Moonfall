@@ -102,6 +102,9 @@ jobs:
           c++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic \
             tools/test_unreal_loot_art_rules.cpp -o /tmp/moonfall_loot_art_rules
           /tmp/moonfall_loot_art_rules
+      - name: Validate offline loot art gallery controls
+        shell: bash
+        run: node tools/test_moonfall_loot_art_gallery.mjs
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
