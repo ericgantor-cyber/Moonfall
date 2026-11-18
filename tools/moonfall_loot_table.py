@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from pathlib import Path
 
 DEFAULT_CSV = Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Data" / "Moonfall_DefaultLootTable.csv"
@@ -31,9 +32,12 @@ def validate_rows(rows: list[dict]) -> list[dict]:
         if missing:
             raise ValueError(f"Missing columns: {', '.join(missing)}")
         name = str(row["Name"]).strip()
-        if not name or name in names:
-            raise ValueError(f"Missing or duplicate loot row name: {name!r}")
-        names.add(name)
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", name, flags=re.ASCII):
+            raise ValueError(f"Invalid loot row name: {name!r}")
+        canonical_name = name.casefold()
+        if canonical_name in names:
+            raise ValueError(f"Duplicate loot row name (case-insensitive): {name!r}")
+        names.add(canonical_name)
         source = str(row["Source"]).strip()
         if source not in SOURCES:
             raise ValueError(f"{name}: invalid source {source!r}")
@@ -64,8 +68,8 @@ def validate_rows(rows: list[dict]) -> list[dict]:
 def load_rows(path: Path) -> list[dict]:
     with path.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)
-        if reader.fieldnames is None or set(reader.fieldnames) != set(FIELDS):
-            raise ValueError("CSV header must match: " + ",".join(FIELDS))
+        if reader.fieldnames is None or tuple(reader.fieldnames) != FIELDS:
+            raise ValueError("CSV header and order must match: " + ",".join(FIELDS))
         return validate_rows(list(reader))
 
 
@@ -88,6 +92,45 @@ def rarity_weights(rows: list[dict], source: str, zone: int, level: int) -> tupl
     return total, weights
 
 
+def detailed_odds(rows: list[dict], source: str, zone: int, level: int) -> dict:
+    """Theoretical probabilities conditional on a reward, matching UE's picker."""
+    if source not in SOURCES:
+        raise ValueError("Unknown reward source")
+    zone = zone if 0 <= zone <= 5 else -1
+    level = max(1, min(100, level))
+    total = 0
+    rarity = [0] * len(RARITIES)
+    slots = [0.0] * 3
+    traits = [0.0] * 4
+    eligible = []
+    for row in sorted(rows, key=lambda value: value["Name"]):
+        weight = row["Weight"]
+        if (row["Source"] != source or row["ZoneIndex"] not in (-1, zone)
+                or row["MinimumLevel"] > level or weight <= 0
+                or total > MAX_TOTAL_WEIGHT - weight):
+            continue
+        total += weight
+        rarity[row["Rarity"]] += weight
+        allowed = [i for i in range(3) if row["SlotMask"] & (1 << i)]
+        for slot in allowed:
+            slots[slot] += weight / len(allowed)
+        if row["Rarity"] == 0:
+            traits[0] += weight
+        elif row["ForcedTrait"] > 0:
+            traits[row["ForcedTrait"]] += weight
+        elif row["Rarity"] == 1:
+            traits[0] += weight * 0.6
+            for index in range(1, 4):
+                traits[index] += weight * 0.4 / 3
+        else:
+            for index in range(1, 4):
+                traits[index] += weight / 3
+        eligible.append((row["Name"], weight))
+    eligible.sort(key=lambda entry: (-entry[1], entry[0]))
+    return {"total": total, "rarity": rarity, "slots": slots,
+            "traits": traits, "eligible": eligible}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate and preview Moonfall weighted loot tables")
     parser.add_argument("--file", type=Path, default=DEFAULT_CSV,
@@ -96,6 +139,7 @@ def main() -> int:
     parser.add_argument("--zone", type=int, default=0,
                         help="0-5 for dungeon region, -1 for generic overworld")
     parser.add_argument("--level", type=int, default=60)
+    parser.add_argument("--details", action="store_true", help="Include slot/trait odds and the 12 most likely rows")
     args = parser.parse_args()
     try:
         rows = load_rows(args.file)
@@ -107,6 +151,22 @@ def main() -> int:
     for name, weight in zip(RARITIES, chances):
         percent = 100.0 * weight / total if total else 0.0
         print(f"  {name:10} {percent:6.2f}%  (weight {weight})")
+    if args.details:
+        breakdown = detailed_odds(rows, args.source, args.zone, args.level)
+        if (breakdown["total"], breakdown["rarity"]) != (total, chances):
+            parser.exit(1, "Preview disagreement: rarity math differs from detailed odds.\\n")
+        for heading, labels, values in (
+            ("Equipment slot", ("Weapon", "Armor", "Accessory"), breakdown["slots"]),
+            ("Trait", ("None", "Force", "Ward", "Focus"), breakdown["traits"]),
+        ):
+            print(heading + " odds (conditional on an item):")
+            for label, weight in zip(labels, values):
+                percent = 100.0 * weight / total if total else 0.0
+                print(f"  {label:10} {percent:6.2f}%")
+        print("Top eligible rows:")
+        for name, weight in breakdown["eligible"][:12]:
+            percent = 100.0 * weight / total if total else 0.0
+            print(f"  {name:24} {percent:6.2f}%")
     return 0
 
 
