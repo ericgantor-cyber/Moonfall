@@ -23,6 +23,8 @@ private:
  UPROPERTY() TObjectPtr<UTexture2D> LootMasterworkAtlas = nullptr;
  // A fifth optional atlas for already-Legendary tier-22+ item illustrations.
  UPROPERTY() TObjectPtr<UTexture2D> LootAscendantAtlas = nullptr;
+ // Early-game decorative atlas for Common, Uncommon and Rare loot.
+ UPROPERTY() TObjectPtr<UTexture2D> LootWayfarerAtlas = nullptr;
  void DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, int32 Tier,
   float X, float Y, float Side);
 
