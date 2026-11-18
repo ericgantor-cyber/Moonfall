@@ -20,7 +20,8 @@ enum class EMoonfallLootSource : uint8
 {
  Regular UMETA(DisplayName="Regular Enemy"),
  Elite UMETA(DisplayName="Elite Enemy"),
- Boss UMETA(DisplayName="Boss")
+ Boss UMETA(DisplayName="Boss"),
+ Treasure UMETA(DisplayName="Dungeon Treasure")
 };
 
 USTRUCT(BlueprintType)
