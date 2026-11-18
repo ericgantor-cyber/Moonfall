@@ -13,19 +13,33 @@ large mouse-accessible controls and keyboard-focus indicators.
 
 - **Load default 41 rows** starts from the shipped weighted presets.
 - **Import CSV** opens an existing tuning file.
-- **Add loot row** / **Delete** adjusts the table without writing code.
+- **Add loot row**, **Duplicate**, and **Delete** change the table without code.
+- **Undo / Redo** reverses up to 40 in-session editing actions, including
+  row changes, imports, reset and bulk weight updates.
+- **Bulk adjust** scales weights by 50%, 75%, 125%, 150% or 200% across
+  all rows matching the source, region and text filters, even across pages.
+  Invalid edits (including values above 10000 or missing required base pools)
+  are rejected atomically without discarding the original values.
+- **Filter + paginate** tables up to 2048 rows, with 40, 80 or 160
+  editable rows per page; all matching rows participate in bulk edits.
 - Edit source, zone, minimum level, rarity, weight, slot mask or trait in the
   grid; filter by source or name to find specific rows.
-- Select enemy source, region and hero level to preview **exact weighted
-  rarity percentages**. This is a theoretical drop distribution, not a
-  simulated Unreal gameplay test.
+- Select reward source, region and hero level to preview **exact theoretical
+  rarity, equipment-slot and trait percentages**, plus the 12 highest-weight
+  eligible rows. Slots are uniformly selected among a row's allowed slot
+  bits, while traits follow the existing Unreal rarity/forced-trait rule.
+  These are **conditional-on-an-item** odds, not an overall drop rate.
+  The preview is not a simulated Unreal gameplay test.
 - **Export CSV for Unreal** saves a new `Moonfall_CustomLootTable.csv` on
   your computer. Invalid rows or missing generic pools block export.
 
 The page does **not** contact a server, install software or modify the
-repository or the live game. Changes are kept only while the page is open
-until you export the CSV. Import the exported file into Unreal as described
-below to use the changes in the game's source-data asset.
+repository or the live game. Changes and undo history exist only in the
+current browser tab until you export a CSV; closing with unexported edits
+shows a browser warning when supported. Imported files are limited to 1 MB.
+Import validation is atomic, so invalid files preserve the current table.
+The exported CSV is still the source to import into Unreal, not a live
+gameplay configuration file.
 
 ## Create the visual loot editor without writing C++
 
@@ -56,7 +70,7 @@ menus. There is **no custom mouse-accessible in-game loot editor yet**.
 
 | Column | Accepted values | Meaning |
 | --- | --- | --- |
-| Name | Unique text | Editor row name, used for deterministic sort order |
+| Name | 1–80 ASCII letters, digits, `_`, `-` | Unique ignoring case (Unreal `FName` semantics); deterministic sort order |
 | Source | Regular, Elite, Boss, Treasure | Source-specific reward pool |
 | ZoneIndex | -1 or 0..5 | -1 generic world/any dungeon; 0..5 an additional regional pool |
 | MinimumLevel | 1..100 | Character level required before the row participates |
@@ -82,16 +96,22 @@ From the repository directory:
 
 ```powershell
 python tools/moonfall_loot_table.py
-python tools/moonfall_loot_table.py --source Boss --zone 5 --level 60
+python tools/moonfall_loot_table.py --source Boss --zone 5 --level 60 --details
 python tools/moonfall_loot_table.py --source Treasure --zone 2 --level 20
 python tools/moonfall_loot_table.py --file C:\MyLoot\Balance.csv --source Elite --zone -1 --level 30
 ```
 
 The tool validates the table and prints the **effective percentage by
-rarity**. Changing one row's weight changes the denominator too. It uses
+rarity**. With `--details`, it also prints effective slot and trait
+probabilities and the 12 most likely eligible rows. Changing one row's weight changes the denominator too. It uses
 the same one-million cumulative-weight cap and alphabetical row order
 as the Unreal C++ selection code. The helper reports *theoretical odds*;
 actual randomness and equipment drops still require gameplay testing.
+
+Source smoke checks now run through GitHub Actions for the browser editor
+and the Python CLI; they cover default data, 1,000,000-weight capping,
+case-insensitive duplicate names, invalid bulk edits, undo/redo, pagination
+and CSV round trips. These are **not** native UE5 tests.
 
 In Blueprint you can read:
 - `GetLootPoolTotalWeight(Source, ZoneIndex, HeroLevel)`
