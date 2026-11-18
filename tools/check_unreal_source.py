@@ -1592,9 +1592,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("int32 " + field + " = 0;", self.hero_h)
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
-        self.assertIn("FMath::RandRange(1, 3)", loot)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        encode = self.hero_cpp.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encode)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, 3)", encode)
+        self.assertIn("OutTrait * 100000 + OutSlot * 10000", encode)
+        self.assertIn("LastLootAffix = Trait;", loot)
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertNotIn("EquipInventoryItem(", award)
@@ -1611,6 +1614,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_dungeon_treasure_weighted_table_preserves_persisted_claims(self):
+        hero = self.hero_cpp
+        method = hero.split("int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(", 1)[0]
+        self.assertIn("DungeonTreasureStates[Key] != 0", method)
+        self.assertIn("return FMath::Max(0, DungeonTreasureStates[Key]);", method)
+        self.assertLess(method.index("DungeonTreasureStates[Key] != 0"),
+                        method.index("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));"))
+        self.assertIn("LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream", method)
+        self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", method)
+        self.assertIn("const int32 Tier = FMath::Clamp(Level, 1, 25);", method)
+        self.assertIn("if (Code <= 0) return 0;", method)
+        self.assertIn("DungeonTreasureStates[Key] = Code;", method)
+        self.assertIn("if (!SaveWorldProgress())", method)
+        self.assertIn("DungeonTreasureStates = Previous;", method)
+        self.assertIn("return Code;", method)
+        # Rarity table changes cannot alter a previously saved pending/claimed reward.
+        self.assertLess(method.index("DungeonTreasureStates[Key] != 0"),
+                        method.index("DungeonTreasureStates[Key] = Code;"))
+        # Do not overwrite the HUD's last enemy reward when opening a chest.
+        self.assertNotIn("LastLootRarity", method)
+        self.assertNotIn("LastLootAffix", method)
+
     def test_rank_and_region_loot_pool_defaults_are_valid(self):
         import re
         header = self.hero_h
@@ -1619,10 +1645,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         constructor = hero.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
             "void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor()", 1)[0]
         rows = re.findall(
-            r"AddLoot\(EMoonfallLootSource::(Regular|Elite|Boss),\s*(\d+),\s*(\d+)"
+            r"AddLoot\(EMoonfallLootSource::(Regular|Elite|Boss|Treasure),\s*(\d+),\s*(\d+)"
             r"(?:,\s*(\d+))?\);", constructor)
-        self.assertEqual(len(rows), 13)
-        minimum = {"Regular": 0, "Elite": 2, "Boss": 3}
+        self.assertEqual(len(rows), 17)
+        minimum = {"Regular": 0, "Elite": 2, "Boss": 3, "Treasure": 2}
         for source, rarity, weight, min_level in rows:
             rarity, weight, min_level = int(rarity), int(weight), int(min_level or "1")
             self.assertGreaterEqual(rarity, minimum[source])
@@ -1630,7 +1656,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                             and 1 <= min_level <= 100)
         self.assertIn("const int32 SlotMask = 1 << (Zone % 3);", constructor)
         self.assertIn("const int32 Trait = 1 + ((Zone + Zone / 3) % 3);", constructor)
-        for source, rarity in (("Regular", 2), ("Elite", 3), ("Boss", 3)):
+        for source, rarity in (("Regular", 2), ("Elite", 3), ("Boss", 3), ("Treasure", 3)):
             self.assertIn(
                 f"AddLoot(EMoonfallLootSource::{source}, {rarity}, 8, 1, Zone, SlotMask, Trait);",
                 constructor)
@@ -1656,6 +1682,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
         hero = self.hero_cpp
         hero_h = self.hero_h
+        picker = hero.split("const FMoonfallLootTableEntry* SelectMoonfallLootEntry(", 1)[1].split(
+            "int32 EncodeMoonfallLootEntry(", 1)[0]
+        encode = hero.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         roll = hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         for token in ("UENUM(BlueprintType)", "EMoonfallLootSource",
@@ -1669,23 +1699,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AddLoot(EMoonfallLootSource::Elite, 2, 70);", hero)
         self.assertIn("AddLoot(EMoonfallLootSource::Boss, 3, 75);", hero)
         self.assertIn("AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);", hero)
-        self.assertIn("SourceZoneIndex >= 0 && SourceZoneIndex < 6", roll)
-        self.assertIn("Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone", roll)
-        self.assertIn("Entry.MinimumLevel > SafeLevel", roll)
-        self.assertIn("Entry.Weight <= 0 || Entry.Weight > 10000", roll)
-        self.assertIn("Entry.SlotMask < 1 || Entry.SlotMask > 7", roll)
-        self.assertIn("Entry.Rarity < 0 || Entry.Rarity > 5", roll)
-        self.assertIn("Source == EMoonfallLootSource::Boss && Entry.Rarity < 3", roll)
-        self.assertIn("Source == EMoonfallLootSource::Elite && Entry.Rarity < 2", roll)
-        self.assertIn("constexpr int32 MaxTotalLootWeight = 1000000;", roll)
-        self.assertIn("FMath::RandRange(1, TotalWeight)", roll)
-        self.assertIn("LastLootSlot = ValidSlots[FMath::RandRange(0, SlotCount - 1)]", roll)
+        self.assertIn("AddLoot(EMoonfallLootSource::Treasure, 2, 60);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Treasure, 5, 2, 50);", hero)
+        for token in (
+            "ZoneIndex >= 0 && ZoneIndex < 6", "Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone",
+            "Entry.MinimumLevel > SafeLevel", "Entry.Weight <= 0 || Entry.Weight > 10000",
+            "Entry.SlotMask < 1 || Entry.SlotMask > 7", "Entry.Rarity < 0 || Entry.Rarity > 5",
+            "Source == EMoonfallLootSource::Boss && Entry.Rarity < 3",
+            "Source == EMoonfallLootSource::Elite && Entry.Rarity < 2",
+            "Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2",
+            "constexpr int32 MaxTotalLootWeight = 1000000;",
+            "MoonfallLootRandRange(Stream, 1, TotalWeight)"
+        ):
+            self.assertIn(token, picker)
+        self.assertIn("MoonfallLootRandRange(Stream, 0, SlotCount - 1)", encode)
+        self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encode)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, 3)", encode)
+        self.assertIn("OutTrait = Entry.ForcedTrait;", encode)
+        self.assertIn("OutTrait * 100000 + OutSlot * 10000", encode)
         self.assertIn("LastLootRarity = Selected->Rarity;", roll)
-        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", roll)
-        self.assertIn("LastLootAffix = Selected->ForcedTrait;", roll)
+        self.assertIn("LastLootAffix = Trait;", roll)
+        self.assertIn("LastLootUpgrade = NewTier - GetValidatedEquippedTier(LastLootSlot)", roll)
         self.assertIn("FMath::Clamp(Level / 5", roll)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", hero)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", roll)
         self.assertNotIn("FinisherShockwave", hero)
 
     def test_equipment_stats_affect_combat(self):
@@ -4375,7 +4411,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)", layout)
         self.assertIn("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);", layout)
         self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
-        self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
+        self.assertIn("LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream", self.hero_cpp)
+        self.assertIn("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));", self.hero_cpp)
+        self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", self.hero_cpp)
 
 
     def test_full_six_zone_dungeon_network_integrated_in_continuous_world(self):
