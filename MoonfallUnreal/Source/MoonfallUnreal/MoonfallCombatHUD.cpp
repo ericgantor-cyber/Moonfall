@@ -699,6 +699,22 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+   // Larger selected-gear illustration without changing any mouse hit tests.
+   // All data comes from the current saved inventory code; no item mutation.
+   const int32 SelectedCode = Hero->InventoryItemCodes[Hero->InventorySelection];
+   const int32 SelectedTrait = SelectedCode / 100000;
+   const int32 SelectedSlot = (SelectedCode / 10000) % 10;
+   const int32 SelectedRarity = (SelectedCode / 1000) % 10;
+   const int32 SelectedTier = SelectedCode % 1000;
+   if (SelectedCode > 0 && SelectedTrait >= 0 && SelectedTrait <= 3
+       && SelectedSlot >= 0 && SelectedSlot <= 2
+       && SelectedRarity >= 0 && SelectedRarity <= 5
+       && SelectedTier >= 1 && SelectedTier <= 25
+       && (SelectedRarity != 0 || SelectedTrait == 0)
+       && SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000
+          + SelectedRarity * 1000 + SelectedTier)
+    DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait,
+       EquipX - 49.f, EquipY - 7.f, 40.f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
