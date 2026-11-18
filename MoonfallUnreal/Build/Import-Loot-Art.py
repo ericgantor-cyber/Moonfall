@@ -19,6 +19,7 @@ ATLASES = (
     ("Moonfall_LootRelics_Atlas.png", "T_MoonfallLootRelics", (120, 120)),
     ("Moonfall_LootMasterworks_Atlas.png", "T_MoonfallLootMasterworks", (120, 120)),
     ("Moonfall_LootAscendants_Atlas.png", "T_MoonfallLootAscendants", (120, 120)),
+    ("Moonfall_LootWayfarers_Atlas.png", "T_MoonfallLootWayfarers", (120, 120)),
 )
 PNG_SIGNATURE = bytes.fromhex("89504e470d0a1a0a")
 MAX_PNG_BYTES = 512 * 1024
@@ -38,6 +39,7 @@ def validate_atlas(path: Path, expected_size: tuple[int, int]) -> None:
     offset = len(PNG_SIGNATURE)
     count = 0
     found_ihdr = found_idat = found_iend = found_palette = False
+    idat_parts = []
     while offset < len(payload):
         if offset + 12 > len(payload):
             raise ValueError(f"Truncated PNG chunk: {path}")
@@ -74,6 +76,7 @@ def validate_atlas(path: Path, expected_size: tuple[int, int]) -> None:
         elif chunk_type == b"IDAT":
             if not found_ihdr:
                 raise ValueError(f"Missing IHDR before IDAT: {path}")
+            idat_parts.append(chunk_data)
             found_idat = True
         elif chunk_type == b"IEND":
             if size != 0 or not found_idat:
@@ -85,6 +88,28 @@ def validate_atlas(path: Path, expected_size: tuple[int, int]) -> None:
     if (not found_ihdr or not found_idat or not found_iend
             or offset != len(payload) or (indexed and not found_palette)):
         raise ValueError(f"Incomplete PNG atlas: {path}")
+    # CRCs protect encoded chunks, not the compressed pixels themselves:
+    # a corrupt IDAT can have a deliberately repaired CRC. Decode the
+    # bounded image stream before Unreal import to reject those files too.
+    max_pixels = expected_size[0] * expected_size[1]
+    max_raw = max_pixels * 4 + expected_size[1] * 8 + 64
+    inflater = zlib.decompressobj()
+    try:
+        raw = inflater.decompress(b"".join(idat_parts), max_raw + 1)
+        raw += inflater.flush(max_raw + 1 - len(raw))
+    except zlib.error as exc:
+        raise ValueError(f"Corrupt PNG compressed pixel stream: {path}") from exc
+    if (len(raw) > max_raw or not inflater.eof or inflater.unconsumed_tail
+            or inflater.unused_data):
+        raise ValueError(f"Invalid or oversized PNG pixel stream: {path}")
+    if interlace == 0:
+        samples = 4 if color == 6 else (3 if color == 2 else 1)
+        bytes_per_row = (width * depth * samples + 7) // 8
+        expected_raw = height * (bytes_per_row + 1)
+        if len(raw) != expected_raw:
+            raise ValueError(f"Incorrect PNG scanline length: {path}")
+        if any(raw[i] > 4 for i in range(0, len(raw), bytes_per_row + 1)):
+            raise ValueError(f"Invalid PNG scanline filter: {path}")
 
 
 # Validate every file, then check for conflicting Unreal objects before
