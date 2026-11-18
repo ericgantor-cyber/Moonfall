@@ -81,7 +81,7 @@ class LootArtTests(unittest.TestCase):
             tests=(
                 (original[:28]+bytes([original[28]^1])+original[29:],"checksum"),
                 (original[:-8],"Truncated|Incomplete"),
-                (original[:16]+b"\\x00\\x00\\x01\\x00"+original[20:],
+                (original[:16]+bytes((0,0,1,0))+original[20:],
                  "checksum|dimensions"),
                 (original+b"junk","Incomplete"),
             )
@@ -160,6 +160,11 @@ class LootArtTests(unittest.TestCase):
         self.assertIn('CollectPersistedGroundEquipmentCode',self.pickup)
         self.assertIn('CollectDungeonTreasureCode',self.pickup)
         self.assertIn('TryCollect()',self.pickup)
+        self.assertIn("const float SizeAccent",self.pickup)
+        self.assertIn("const float BeaconWidth",self.pickup)
+        self.assertIn("PickupDetailA->SetHiddenInGame(!IsValid(",self.pickup)
+        self.assertIn("PickupDetailB->SetHiddenInGame(!IsValid(",self.pickup)
+        self.assertIn("RarityBeacon->SetRelativeScale3D(",self.pickup)
         self.assertEqual(self.pickup.count('PrimaryActorTick.bCanEverTick = false'),1)
         for property_name in ('PickupDetailA','PickupDetailB'):
             self.assertIn('UStaticMeshComponent* '+property_name,self.pickup_h)
