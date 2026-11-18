@@ -255,6 +255,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasPanY = -2500.f;
  // Runtime-only shrine cache. Refresh once when the Atlas opens, never in DrawHUD.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FVector> AtlasDiscoveredShrineLocations;
+ // Parallel names for the discovered-shrine cache. Never a persisted location leak.
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FString> AtlasDiscoveredShrineNames;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FVector AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasHasActiveRespawnShrineLocation = false;
  // V12 permanent explored-world cells: six 8-by-7 grids, bounded to 56 bits each.
