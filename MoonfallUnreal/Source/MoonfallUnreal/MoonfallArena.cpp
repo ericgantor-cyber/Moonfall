@@ -213,7 +213,7 @@ void AMoonfallArena::BeginPlay() {
     Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Sign->SetGenerateOverlapEvents(false);
     Sign->SetText(FText::FromString(FString::Printf(
-      TEXT("%s\\nSHRINE | RESIDENTS | CONTRACTS"), Site.Name)));
+      TEXT("%s\nSHRINE | RESIDENTS | CONTRACTS"), Site.Name)));
     Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
     Sign->SetWorldSize(44.f);
     Sign->SetTextRenderColor(FColor(180, 225, 245));
