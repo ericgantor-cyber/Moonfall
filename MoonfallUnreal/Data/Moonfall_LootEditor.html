@@ -134,6 +134,43 @@ const FLOORS={Regular:0,Elite:2,Boss:3,Treasure:2};
 const CAP=1000000;
 const byId=id=>document.getElementById(id);
 let rows=[];
+const HISTORY_LIMIT=40;
+let undoHistory=[],redoHistory=[],dirty=false;
+const snapshot=()=>rows.map(row=>({...row}));
+function updateHistoryButtons(){
+ byId("undo").disabled=undoHistory.length===0;
+ byId("redo").disabled=redoHistory.length===0;
+ const unsaved=byId("unsaved");
+ unsaved.className=dirty?"":"clean";
+ unsaved.textContent=dirty?"Unexported changes: export CSV to keep them"
+   :"No pending edits (verify your CSV download after export)";
+}
+function rememberEdit(){
+ undoHistory.push(snapshot());
+ if(undoHistory.length>HISTORY_LIMIT)undoHistory.shift();
+ redoHistory=[];
+ dirty=true;
+ updateHistoryButtons();
+}
+function undoEdit(){
+ if(!undoHistory.length)return;
+ redoHistory.push(snapshot());
+ rows=undoHistory.pop();dirty=true;
+ renderRows();showPreview();updateHistoryButtons();
+}
+function redoEdit(){
+ if(!redoHistory.length)return;
+ undoHistory.push(snapshot());
+ rows=redoHistory.pop();dirty=true;
+ renderRows();showPreview();updateHistoryButtons();
+}
+function uniqueCopyName(name,sourceRows){
+ const base=String(name).replace(/_copy\d*$/i,"").slice(0,67);
+ let candidate=base+"_copy",n=2;
+ while(sourceRows.some(row=>String(row.Name).toLowerCase()===candidate.toLowerCase()))
+   candidate=base+"_copy"+(n++);
+ return candidate;
+}
 
 function defaultRows(){
  const out=[];
@@ -164,8 +201,9 @@ function validate(sourceRows){
  for(const raw of sourceRows){
   const name=String(raw.Name||"").trim(),src=String(raw.Source||"").trim();
   if(!/^[a-zA-Z0-9_-]{1,80}$/.test(name))errors.push("Invalid row name: "+name);
-  if(names.has(name))errors.push("Duplicate row: "+name);
-  names.add(name);
+  const normalizedName=name.toLowerCase();
+  if(names.has(normalizedName))errors.push("Duplicate row: "+name);
+  names.add(normalizedName);
   const row={Name:name,Source:src};
   for(const field of FIELDS.slice(2))row[field]=asInt(raw[field]);
   if(!SOURCES.includes(src))errors.push(name+": choose a valid source");
@@ -186,7 +224,7 @@ function validate(sourceRows){
 function summary(data,source,zone,level){
  const effective=zone>=0&&zone<=5?zone:-1;
  const currentLevel=Math.max(1,Math.min(100,level));
- const weights=[0,0,0,0,0,0];
+ const weights=[0,0,0,0,0,0],slots=[0,0,0],traits=[0,0,0,0],eligible=[];
  let total=0;
  for(const row of data){
   if(row.Source!==source||row.MinimumLevel>currentLevel||row.Weight<=0
@@ -194,9 +232,33 @@ function summary(data,source,zone,level){
       ||total>CAP-row.Weight)continue;
   total+=row.Weight;
   weights[row.Rarity]+=row.Weight;
+  eligible.push({Name:row.Name,Weight:row.Weight});
+  // UE uniformly samples among the allowed slot bits after selecting a row.
+  const allowed=[0,1,2].filter(slot=>(row.SlotMask&(1<<slot))!==0);
+  for(const slot of allowed)slots[slot]+=row.Weight/allowed.length;
+  if(row.Rarity===0)traits[0]+=row.Weight;
+  else if(row.ForcedTrait>0)traits[row.ForcedTrait]+=row.Weight;
+  else if(row.Rarity===1){
+   traits[0]+=row.Weight*0.6;
+   for(let trait=1;trait<=3;trait++)traits[trait]+=row.Weight*0.4/3;
+  }else{
+   for(let trait=1;trait<=3;trait++)traits[trait]+=row.Weight/3;
+  }
  }
- return {total,weights};
+ eligible.sort((a,b)=>b.Weight-a.Weight||(a.Name<b.Name?-1:a.Name>b.Name?1:0));
+ return {total,weights,slots,traits,eligible:eligible.slice(0,12),eligibleCount:eligible.length};
 }
+function oddsList(target,labels,weights,total){
+ const node=byId(target);node.replaceChildren();
+ labels.forEach((label,i)=>{
+  const line=document.createElement("div");line.className="odds-entry";
+  const key=document.createElement("span");key.textContent=label;
+  const percent=document.createElement("strong");
+  percent.textContent=(total>0?100*weights[i]/total:0).toFixed(2)+"%";
+  line.append(key,percent);node.append(line);
+ });
+}
+
 function showPreview(){
  const {rows:data,errors}=validate(rows);
  const msg=byId("message");
@@ -206,11 +268,13 @@ function showPreview(){
  byId("export").disabled=errors.length>0;
  const chances=byId("chances"),stats=byId("stats");
  chances.replaceChildren();stats.replaceChildren();
+ for(const id of ["slots","traits","row-odds"])byId(id).replaceChildren();
  if(errors.length){chances.textContent="Fix the table to see trustworthy probabilities.";return;}
  const source=byId("preview-source").value,zone=asInt(byId("preview-zone").value);
  const level=asInt(byId("preview-level").value);
- const {total,weights}=summary(data,source,zone,Number.isInteger(level)?level:1);
- for(const [label,value] of [["Rows",data.length],["Active weight",total],["Source",source]]){
+ const {total,weights,slots,traits,eligible,eligibleCount}=
+   summary(data,source,zone,Number.isInteger(level)?level:1);
+ for(const [label,value] of [["Rows",data.length],["Eligible rows",eligibleCount],["Active weight",total],["Source",source]]){
   const tile=document.createElement("div");tile.className="stat";
   const caption=document.createElement("span");caption.textContent=label;
   const strong=document.createElement("strong");strong.textContent=String(value);
@@ -228,6 +292,21 @@ function showPreview(){
   fill.style.width=chance.toFixed(3)+"%";
   track.append(fill);tile.append(heading,track);chances.append(tile);
  });
+ oddsList("slots",["Weapon","Armor","Accessory"],slots,total);
+ oddsList("traits",["No trait","Force","Ward","Focus"],traits,total);
+ const top=byId("row-odds");
+ for(const entry of eligible){
+  const line=document.createElement("div");line.className="odds-entry";
+  const name=document.createElement("span");name.textContent=entry.Name;
+  const percent=document.createElement("strong");
+  percent.textContent=(100*entry.Weight/total).toFixed(2)+"%";
+  line.append(name,percent);top.append(line);
+ }
+ if(eligibleCount>eligible.length){
+  const note=document.createElement("p");note.className="hint";
+  note.textContent="Showing top "+eligible.length+" of "+eligibleCount+" eligible rows.";
+  top.append(note);
+ }
 }
 function control(row,index,field){
  const cell=document.createElement("td");
