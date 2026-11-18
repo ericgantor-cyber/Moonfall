@@ -1577,12 +1577,12 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
+ if (bAtlasOpen) { AtlasPanY = FMath::Clamp(AtlasPanY - 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
+ if (bAtlasOpen) { AtlasPanY = FMath::Clamp(AtlasPanY + 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(1);
 }
