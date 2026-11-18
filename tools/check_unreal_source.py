@@ -4343,6 +4343,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("name: Preserve native dungeon test evidence"))
         self.assertIn("if: always()", workflow)
 
+    def test_dungeon_world_ignores_tearing_down_authored_actors(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        startup = mode.split("void AMoonfallUnrealGameMode::BeginPlay()", 1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
+        arena = startup.split("for (TActorIterator<AMoonfallArena>", 1)[1].split(
+            "if (!bHasArena)", 1)[0]
+        self.assertIn("IsValid(*It) && !It->IsActorBeingDestroyed()", arena)
+        dungeon = startup.split("for (TActorIterator<AMoonfallDungeonLayout>", 1)[1].split(
+            "NextDungeonSlot = 0;", 1)[0]
+        self.assertIn("if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;", dungeon)
+        self.assertLess(dungeon.index("It->IsActorBeingDestroyed()"),
+                        dungeon.index("AuthoredDungeonSlots[Slot] = 1;"))
+        self.assertIn("if (!AuthoredDungeonSlots[Slot])", dungeon)
+        # The normal deferred spawning path already avoids counting destroyed layouts.
+        spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;", spawning)
+
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
