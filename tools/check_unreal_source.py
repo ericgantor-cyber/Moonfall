@@ -3944,6 +3944,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_dungeon_overlap_reentry_guards_scope_all_sync_callbacks(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "Templates/UnrealTemplate.h"', layout)
+        self.assertIn("uint16 ActiveChamberOverlapsMask = 0;", layout_h)
+        self.assertIn("bool bFinalChamberSpawnInProgress = false;", layout_h)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        self.assertIn("if ((ActiveChamberOverlapsMask & Bit) != 0u) return;", chamber)
+        self.assertIn("TGuardValue<uint16> ChamberOverlapGuard(ActiveChamberOverlapsMask,", chamber)
+        self.assertIn("static_cast<uint16>(ActiveChamberOverlapsMask | Bit)", chamber)
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("if ((EnteredChambersMask & Bit) != 0u)"))
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("StartCombatChamber(Hero, ChamberIndex)"))
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"))
+        self.assertIn("if (bFinalChamberSpawnInProgress) return;", final)
+        self.assertIn("TGuardValue<bool> FinalChamberGuard(bFinalChamberSpawnInProgress, true);", final)
+        self.assertLess(final.index("TGuardValue<bool> FinalChamberGuard"),
+                        final.index("StartFinalBossChamber(Hero)"))
+        self.assertLess(final.index("TGuardValue<bool> FinalChamberGuard"),
+                        final.index("bFinalChamberNotified = true;"))
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u)", chamber)
+        # No persistent save fields or global enemy cap are introduced.
+        self.assertNotIn("ActiveChamberOverlapsMask", (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8"))
+
     def test_dungeon_spawn_callbacks_cannot_consume_broken_encounters(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
