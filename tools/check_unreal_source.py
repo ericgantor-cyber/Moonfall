@@ -1637,6 +1637,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("LastLootRarity", method)
         self.assertNotIn("LastLootAffix", method)
 
+    def test_offline_mouse_loot_editor_parses_and_roundtrips_csv(self):
+        import shutil
+        import subprocess
+        editor = Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Data" / "Moonfall_LootEditor.html"
+        node_test = Path(__file__).resolve().parent / "test_moonfall_loot_editor.mjs"
+        self.assertTrue(editor.is_file())
+        self.assertTrue(node_test.is_file())
+        text = editor.read_text(encoding="utf-8")
+        for marker in ('id="import"', 'id="export"', 'id="add"',
+                       'id="reset"', 'id="preview-source"', 'id="preview-zone"',
+                       'id="preview-level"', 'id="rows"',
+                       'aria-label="Scrollable editable loot table"'):
+            self.assertIn(marker, text)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node.js unavailable; offline visual editor smoke test requires Node")
+        result = subprocess.run([node, str(node_test)], capture_output=True,
+                                text=True, timeout=20, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("CSV roundtrip OK", result.stdout)
+
     def test_default_loot_csv_and_chance_preview_match_unreal_limits(self):
         import importlib.util
         module_path = Path(__file__).resolve().parent / "moonfall_loot_table.py"
