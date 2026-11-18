@@ -1,4 +1,4 @@
-# Moonfall loot art: 24 original icons + resilient UE5 fallback
+# Moonfall loot art: 33 original icons + resilient UE5 fallback
 
 **Status:** Original art and source integration are present on a draft PR.
 Native Unreal Engine 5.4 compilation, import, Win64 cooking and gameplay
@@ -84,17 +84,50 @@ Every rendered icon retains a rarity-colored frame **and six white/gray
 quality pips** (one through six bright marks), supporting low-color and
 color-blind accessibility. Item names and rarity words remain readable.
 
+## Fourth atlas: nine Eclipse Masterwork illustrations
+
+`Moonfall_LootMasterworks_Atlas.png` adds a **fourth 120×120,
+3×3, transparent, paletted PNG atlas** with nine named illustrations.
+A separate downloadable high-resolution pack contains original 256px
+artwork and a large preview sheet.
+
+| Cell | Original illustration | Cosmetic equipment family |
+| --- | --- | --- |
+| (0,0) | Obsidian Greatsword | Weapon |
+| (0,1) | Crescent Bow | Weapon |
+| (0,2) | Aether Lance | Weapon |
+| (1,0) | Eclipse Cuirass | Armor |
+| (1,1) | Winged Moonhelm | Armor |
+| (1,2) | Ember Greaves | Armor |
+| (2,0) | Starglass Ring | Accessory |
+| (2,1) | Sunless Pendant | Accessory |
+| (2,2) | Astral Hourglass | Accessory |
+
+When this atlas is imported and available, existing **Emerald and
+Legendary equipment at tier 16+** displays a masterwork motif selected
+deterministically by `(tier + rarity + trait) % 3` from its existing
+slot row. **Masterwork is a cosmetic artwork layer, not a seventh rarity
+or an added item property.** The item's gear code, loot tables, owner,
+save data and combat stats remain identical.
+
+With four available layers, the selection priority is **Masterwork
+(eligible tier/rarity) → Relic (Epic+ tier 8+) → Trait → Original → Canvas
+silhouette**. You can preview all combinations in the offline Atelier,
+including missing-art fallbacks. Gold corner highlights indicate a
+selected masterwork motif; rarity pips and text still identify the
+actual item quality.
+
 ## No-code gallery and testing
 
 Open `Moonfall_LootArt_Gallery.html` next to the three PNGs in a modern
 browser. It requires no server, engine, account or build process. The
-mouse- and keyboard-friendly gallery shows all 24 images, offers search,
+mouse- and keyboard-friendly gallery shows all 33 images, offers search,
 collection filters and interactive item slot / quality / trait / tier
-controls. Disable one or more atlas layers to preview exactly which art
+controls. Disable one or more of the four atlas layers to preview exactly which art
 the native Unreal HUD should choose, including the fallback.
 
 The shared `MoonfallLootArtRules.h` is dependency-free C++17 and
-exhaustively tested in GitHub CI for all **12,600 valid combinations** of
+exhaustively tested in GitHub CI for all **25,200 valid combinations** of
 three slots, six rarities, four traits, 25 tiers and atlas-presence flags
 (with Common's invalid trait pairings excluded). Browser gallery logic
 is tested against the same selection contracts. These checks do not
@@ -113,16 +146,17 @@ exec(open(r"<YOUR-MOONFALL-REPO>/MoonfallUnreal/Build/Import-Loot-Art.py", encod
 Replace the placeholder with your local checkout path, or run the script
 from a controlled UnrealEditor-Cmd.exe Python session. The script uses the
 existing PythonScriptPlugin and EditorScriptingUtilities to import the PNG
-as **three** saved `Texture2D` assets:
+as **four** saved `Texture2D` assets:
 `/Game/Moonfall/LootArt/T_MoonfallLootAtlas`,
 `/Game/Moonfall/LootArt/T_MoonfallLootVariants`, and
-`/Game/Moonfall/LootArt/T_MoonfallLootRelics`. It validates **all three**
+`/Game/Moonfall/LootArt/T_MoonfallLootRelics`, and
+`/Game/Moonfall/LootArt/T_MoonfallLootMasterworks`. It validates **all four**
 PNGs' dimensions, bit depths, chunk structure, CRC checksums, presence of
 an image and valid terminators **before importing any file**. It also
 rejects unrelated pre-existing Unreal assets occupying any of the art
 paths, instead of overwriting them. Close and reopen the editor after the first import so the
-native HUD constructor can resolve both assets.
-Include all three imported Texture2D assets in the cooked Windows game.
+native HUD constructor can resolve all available assets.
+Include all four imported Texture2D assets in the cooked Windows game.
 The imported content is a real `.uasset` only after this Unreal Editor
 step; checking in a PNG source file alone does not package a texture.
 A damaged or missing source file stops the batch before touching a
@@ -142,7 +176,7 @@ no embedded item stats or new player save fields.
 
 - Source artwork is under `Data/LootArt`, not a change to Z or Nyra
   character designs. Godot art and maps are unchanged.
-- Inventory icon rendering uses three compact optional atlases with UV
+- Inventory icon rendering uses four compact optional atlases with UV
   subdivisions; textures load from native-class default asset references,
   not during per-frame gameplay. Each illustration remains identifiable
   with a rarity border and accompanying text.
@@ -152,9 +186,9 @@ no embedded item stats or new player save fields.
 - No remote resources are fetched during gameplay, and there is a fallback
   when an artist's texture has not yet been imported.
 - Verify that source CI passes, then **separately** compile UE5.4 on Windows,
-  import and cook all three assets, inspect icons at 720p/1080p/4K, test all
+  import and cook all four assets, inspect icons at 720p/1080p/4K, test all
   weapon/armor/accessory slots × all four traits × all six rarities,
-  test with none/one/two/three textures present, collect items, reopen saves,
+  test with zero to four textures present, collect items, reopen saves,
   and confirm no inventory pointer-row hit-test changes.
 - Do not merge or advertise a working Windows installer until native
   validation is complete.
