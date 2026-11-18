@@ -93,9 +93,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.025f,0.035f,0.085f,0.96f), Left, Top, Width, Height);
   const float Scale = FMath::Clamp(Width / 680.f, 0.52f, 1.f);
   DrawText(TEXT("MOONFALL | ATLAS"), FLinearColor::White, Left + 18.f, Top + 12.f, nullptr, Scale * 1.35f);
-  DrawText(TEXT("J / ESC: close    [X] defeated boss    [O] discovered    [?] unexplored"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
+  DrawText(TEXT("J / ESC: close    Arrows: region    Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
   for (int32 Zone = 0; Zone < 6; ++Zone) {
    const float Y = Top + 86.f + Zone * ((Height - 110.f) / 6.f);
+   if (Zone == Hero->AtlasSelectedRegion) DrawRect(FLinearColor(0.17f,0.24f,0.36f,0.95f), Left + 10.f, Y - 5.f, Width - 20.f, 61.f);
    DrawText(FString::Printf(TEXT("%s  |  %d-%d"), AtlasRegions[Zone], Zone * 5 + 1, Zone * 5 + 5), FLinearColor(0.96f,0.83f,0.53f), Left + 18.f, Y, nullptr, Scale * 0.95f);
    FString Status;
    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
@@ -105,6 +106,17 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
   }
+  // Fogged schematic: only discovered dungeon tiles are illuminated.
+  const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
+  const float Tile = FMath::Clamp(22.f * Hero->AtlasZoom * Scale, 10.f, 35.f);
+  const float StartX = Left + 18.f;
+  const float TileY = Top + Height - 23.f;
+  for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+   const bool bFound = Hero->HasDiscoveredDungeon(Selected, Dungeon);
+   const bool bCleared = Hero->HasDefeatedDungeonBoss(Selected, Dungeon);
+   DrawRect(bCleared ? FLinearColor(0.24f,0.65f,0.46f) : bFound ? FLinearColor(0.33f,0.58f,0.86f) : FLinearColor(0.09f,0.10f,0.14f), StartX + Dungeon * (Tile + 5.f), TileY - Tile, Tile, Tile);
+  }
+  DrawText(TEXT("Selected region: blue discovered / green cleared / dark unexplored"), FLinearColor(0.75f,0.84f,0.92f), Left + 18.f, Top + Height - 49.f, nullptr, Scale * 0.65f);
   return;
  }
  if (Hero->bOptionsOpen) {
