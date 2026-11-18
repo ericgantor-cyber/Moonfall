@@ -2068,19 +2068,20 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 {
  if (!GetWorld() || bPersistentSaveWritesBlocked) return;
  const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
- TSet<FGuid> Expected, Present;
+ // Build one level-scoped lookup for the saved drops. A linear scan for
+ // every live actor would become quadratic in crowded, loot-rich worlds.
+ // The save loader already rejects duplicate or malformed persistent IDs.
+ TMap<FGuid, const FMoonfallWorldLootRecord*> SavedById;
+ SavedById.Reserve(PendingWorldLoot.Num());
+ TSet<FGuid> Present;
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
-  if (Record.LevelId == LevelId) Expected.Add(Record.DropId);
+  if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, &Record);
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Loot = *It;
   if (!IsValid(Loot) || !Loot->GetPersistentDropId().IsValid()) continue;
   const FGuid Id = Loot->GetPersistentDropId();
-  const int32 MatchingRecord = PendingWorldLoot.IndexOfByPredicate(
-   [&](const FMoonfallWorldLootRecord& Record) {
-    return Record.LevelId == LevelId && Record.DropId == Id
-      && Record.ItemCode == Loot->GetItemCode();
-   });
-  if (!Expected.Contains(Id) || Present.Contains(Id) || MatchingRecord == INDEX_NONE
+  const FMoonfallWorldLootRecord* const* Saved = SavedById.Find(Id);
+  if (!Saved || Present.Contains(Id) || (*Saved)->ItemCode != Loot->GetItemCode()
       || Loot->IsActorBeingDestroyed()) { Loot->Destroy(); continue; }
   Present.Add(Id);
  }
