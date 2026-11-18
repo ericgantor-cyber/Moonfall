@@ -51,6 +51,9 @@ class LootArtTests(unittest.TestCase):
         self.assertIn('FVector2D(float(MotifColumn)/3.f,float(MotifRow)/3.f)',self.hud)
         self.assertIn('FVector2D(1.f/3.f,1.f/3.f)',self.hud)
         self.assertIn('DrawLootIcon(Slot, Rarity, Affix,',self.hud)
+        self.assertIn('DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait,',self.hud)
+        self.assertIn('SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000',self.hud)
+        self.assertIn('EquipX - 49.f, EquipY - 7.f, 40.f',self.hud)
         # The source image is purely decorative and cannot add or mutate gear.
         self.assertNotIn('InventoryItemCodes.Add(',self.hud[:self.hud.index('void AMoonfallCombatHUD::DrawHUD()')])
 
