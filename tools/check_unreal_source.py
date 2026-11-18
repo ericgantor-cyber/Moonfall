@@ -4001,7 +4001,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
             "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
         self.assertIn("if (Code <= 0)", treasure)
-        self.assertIn("return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;", treasure)
+        self.assertIn("const bool bClaimed = Hero->GetDungeonTreasureState(", treasure)
+        self.assertIn("ZoneIndex, DungeonIndex, ChamberIndex) == -1;", treasure)
+        self.assertIn("if (bClaimed) {", treasure)
+        self.assertIn("if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())", treasure)
+        self.assertIn("if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();", treasure)
+        self.assertIn("return bClaimed;", treasure)
         claim = treasure.split("OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);", 1)[1].split(
             "if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()", 1)[0]
         self.assertIn("GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", claim)
@@ -6041,6 +6046,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(spawn.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
+
+    def test_dungeon_entrance_respects_all_gameplay_modals(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        entrance = dungeon.split("void AMoonfallDungeonLayout::HandleEntrance(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[0]
+        for guard in ("Hero->bOptionsOpen", "Hero->bInventoryOpen",
+                      "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen",
+                      "Hero->bResidentContextOpen", "!Hero->IsPlayerControlled()",
+                      "!FMath::IsFinite(Hero->Health)", "Hero->Health <= 0.f"):
+            self.assertIn(guard, entrance)
+            self.assertLess(entrance.index(guard),
+                            entrance.index("Hero->DiscoverDungeonEntrance("))
+            self.assertLess(entrance.index(guard),
+                            entrance.index("GetOrLockEncounterLevel(Hero);"))
+        self.assertLess(entrance.index("Hero->DiscoverDungeonEntrance("),
+                        entrance.index("GetOrLockEncounterLevel(Hero);"))
+
+    def test_claimed_dungeon_treasure_cleans_up_ghost_pickup(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        treasure = dungeon.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        claim = treasure.split("if (Code <= 0) {", 1)[1].split(
+            "const FVector Position =", 1)[0]
+        self.assertIn("Hero->GetDungeonTreasureState(", claim)
+        self.assertIn("if (bClaimed) {", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Get()", claim)
+        self.assertIn("!Existing->IsActorBeingDestroyed()", claim)
+        self.assertIn("Existing->Destroy();", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", claim)
+        self.assertIn("return bClaimed;", claim)
+        self.assertLess(claim.index("Existing->Destroy();"), claim.index("return bClaimed;"))
+        self.assertLess(claim.index("SpawnedTreasure[ChamberIndex].Reset();"),
+                        claim.index("return bClaimed;"))
+        # Failed save writes do not become collected rewards or delete pickups.
+        self.assertLess(claim.index("if (bClaimed) {"), claim.index("Existing->Destroy();"))
 
     def test_dungeon_standard_and_final_room_triggers_wait_for_closed_menus(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
