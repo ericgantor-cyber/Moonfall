@@ -9,6 +9,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Math/RandomStream.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -22,6 +23,12 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  Walls->SetupAttachment(Root);
  HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonHazardPlates"));
  HazardPlates->SetupAttachment(Root);
+ RoomLandmarks = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonRoomLandmarks"));
+ RoomLandmarks->SetupAttachment(Root);
+ RoomLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ RoomLandmarks->SetGenerateOverlapEvents(false);
+ RoomLandmarks->SetCastShadow(false);
+ RoomLandmarks->SetCullDistances(9000, 16000);
  HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  // Visual-only instanced-mesh distance fade. Distant chambers do not need
  // rendering from the arena or neighboring zones. Keep collision intact:
@@ -34,6 +41,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
   Floors->SetStaticMesh(Cube.Object);
   Walls->SetStaticMesh(Cube.Object);
   HazardPlates->SetStaticMesh(Cube.Object);
+  RoomLandmarks->SetStaticMesh(Cube.Object);
  }
  // Instanced geometry supports physical collision without one actor per tile.
  Floors->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -133,6 +141,7 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  Floors->ClearInstances();
  Walls->ClearInstances();
  HazardPlates->ClearInstances();
+ RoomLandmarks->ClearInstances();
  int32 HazardChambers[3];
  BuildHazardChambers(HazardChambers);
  FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
@@ -153,6 +162,21 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
   Floors->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(X, 0.f, -20.f),
     FVector(ChamberLength / 100.f, ChamberWidth / 100.f, 0.4f)));
+  // Non-colliding rune columns communicate archetype without blocking the
+  // 360-unit center route or changing any encounter/loot RNG stream.
+  // Two per room, across 14 chambers: 28 instances per dungeon at most.
+  const int32 Kind = FMath::Clamp(GetChamberType(Chamber), 0, 6);
+  const uint32 VisualHash = static_cast<uint32>(GetEffectiveLayoutSeed())
+     ^ (static_cast<uint32>(Chamber + 1) * 2654435761u);
+  const float Height = (Kind == 6 ? 3.8f : Kind == 5 ? 1.4f
+                        : Kind == 2 ? 2.2f : 2.6f)
+                        + static_cast<float>(VisualHash % 3u) * 0.15f;
+  for (const float Side : {-1.f, 1.f}) {
+   RoomLandmarks->AddInstance(FTransform(FRotator::ZeroRotator,
+     FVector(X + (Side < 0.f ? -185.f : 185.f), Side * 385.f,
+             Height * 50.f),
+     FVector(0.74f, 0.74f, Height)));
+  }
   for (const float Side : {-1.f, 1.f}) {
    Walls->AddInstance(FTransform(FRotator::ZeroRotator,
      FVector(X, Side * ChamberWidth * 0.5f, 150.f),
@@ -435,6 +459,11 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;
   if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
+  // One optional spatial cue per successful first entry; sound is silent
+  // until a designer assigns a cooked USoundBase asset in the editor.
+  if (IsValid(ChamberEntrySound) && GetWorld())
+   UGameplayStatics::PlaySoundAtLocation(this, ChamberEntrySound,
+     Hero->GetActorLocation(), 0.7f, 1.f);
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
   TrySpawnBonusGroup(Hero, ChamberIndex);
   return;
