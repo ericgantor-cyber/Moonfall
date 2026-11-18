@@ -18,11 +18,15 @@ AMoonfallCombatHUD::AMoonfallCombatHUD()
  static ConstructorHelpers::FObjectFinder<UTexture2D> Atlas(
    TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas"));
  if (Atlas.Succeeded()) LootIconAtlas = Atlas.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Variants(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootVariants.T_MoonfallLootVariants"));
+ if (Variants.Succeeded()) LootVariantAtlas = Variants.Object;
 }
 
-void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, float X, float Y, float Side)
+void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, float X, float Y, float Side)
 {
  if (!Canvas || Slot < 0 || Slot > 2 || Rarity < 0 || Rarity > 5
+     || Trait < 0 || Trait > 3
      || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
      || !FMath::IsFinite(Side) || Side < 10.f) return;
  static const FLinearColor QualityColors[6] = {
@@ -36,6 +40,27 @@ void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, float X, float Y
  DrawRect(Accent,X,Y+Side-1.8f,Side,1.8f);
  DrawRect(Accent,X,Y,1.8f,Side);
  DrawRect(Accent,X+Side-1.8f,Y,1.8f,Side);
+ // The second atlas changes *art only*: still the exact same three
+ // equipment slots and saved canonical item codes. Traits choose motifs,
+ // not actual additional item classes.
+ int32 MotifColumn = INDEX_NONE, MotifRow = INDEX_NONE;
+ if (Trait > 0 && IsValid(LootVariantAtlas)) {
+  if (Slot == 0) { // Force axe, Ward spellblade, Focus staff
+   MotifColumn = Trait - 1; MotifRow = 0;
+  } else if (Slot == 1) { // Force gauntlets, Ward shield, Focus helm
+   MotifColumn = Trait == 1 ? 2 : (Trait == 2 ? 0 : 1); MotifRow = 1;
+  } else { // Force / Ward ring, Focus grimoire
+   MotifColumn = Trait == 3 ? 2 : 0; MotifRow = 2;
+  }
+ }
+ if (MotifColumn != INDEX_NONE && MotifRow != INDEX_NONE) {
+  Canvas->K2_DrawTexture(LootVariantAtlas,
+    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
+    FVector2D(float(MotifColumn)/3.f,float(MotifRow)/3.f),
+    FVector2D(1.f/3.f,1.f/3.f),
+    FLinearColor::White,BLEND_Translucent);
+  return;
+ }
  if (IsValid(LootIconAtlas)) {
   // Atlas cells: weapon, armor, accessory / chest, crystal, coins.
   // UV coordinates stay in the top row for equipment. 3 columns x 2 rows.
@@ -722,7 +747,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(1.f,0.52f,0.12f)};
    const float IconSide = FMath::Clamp(RowSpacing - 5.f, 16.f, 30.f);
    if (bValid)
-    DrawLootIcon(Slot, Rarity, Left + 17.f, Y - 1.f, IconSide);
+    DrawLootIcon(Slot, Rarity, Affix, Left + 17.f, Y - 1.f, IconSide);
    const FString CompactRow = bValid && PanelWidth < 420.f
      ? FString::Printf(TEXT("%02d %s T%d %s"), DisplayPosition + 1,
         Slots[Slot], Tier, Rarities[Rarity]) : Row;
