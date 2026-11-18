@@ -4513,15 +4513,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         final.index("bFinalChamberNotified = true;"))
 
 
-    def test_v10_native_dungeon_runner_requires_boss_ledger_check(self):
-        # CI source contracts ensure the real Editor test runner cannot
-        # silently omit the native V10 boss ledger scenario.
+    def test_current_save_schema_native_dungeon_runner_requires_boss_ledger_check(self):
+        # Native Editor test expectations must track the actual save schema,
+        # while the older V9 serialization compatibility scenario remains intact.
         source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
         name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
         self.assertIn(name, source)
         self.assertIn(name, runner)
-        self.assertIn('Save->Version, 10', source)
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn('Save->Version, 12', source)
+        self.assertIn('Restored->Version, 12', source)
+        self.assertNotIn('Save->Version, 10', source)
+        self.assertNotIn('Restored->Version, 10', source)
         self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
         self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
