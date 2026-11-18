@@ -31,6 +31,49 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
+## Continued AI upgrade: earned elite counter-sweeps and authored action cues
+
+- **Elite tactical response:** A *successful* player parry can arm one
+  counter-sweep on an eligible, living elite. The enemy must not be a
+  boss, sanctuary practice target, or in a posture-break window, and
+  the response must be off its independent eight-second cooldown.
+  The response expires after **4 seconds** if no legal attack starts.
+- When the next valid attack is committed in time, it replaces that
+  elite's scheduled pattern with the **existing wide sweep**. It gets
+  a readable **0.82-second minimum windup** and a distinct
+  **COUNTER SWEEP** HUD label. Its existing damage, sweep range, guard,
+  parry, dodge and recovery rules remain unchanged. It is not an
+  unavoidable follow-up, extra hit, guaranteed enemy counter, or an
+  alteration to loot, difficulty settings or boss mechanics.
+- Enemy AI does **not** run an additional actor query, trace, timer,
+  pathfinding request, tick, or RNG call. Normal pack strike-slot
+  coordination and the existing cancel-on-menu/interrupt/posture-break
+  protections still apply.
+- A native **`OnAttackTelegraphCommitted(FName,float)`** Blueprint
+  event fires once when an ordinary or elite attack really begins.
+  Its move ID comes from the same source as the on-screen warning,
+  so a designer can hook up an appropriate **attack montage, voice,
+  VFX, or controller cue** without guessing a strike duration.
+- The optional `EliteAttackTellSound` is **null by default**.
+  If a designer assigns a real cooked `USoundBase`, it plays once
+  at each eligible elite attack commitment at low volume (0.55),
+  only within 1000 world units. It never fires for regular mobs,
+  sanctuary targets or boss attacks. **No audio or animation assets
+  are claimed to be included by this change.**
+- Added pure C++17 policies and tests for all eligible state flags,
+  cooldown/memory boundaries, and normal attack patterns. Source
+  regressions separately verify the actual parry branch, finite
+  telemetry, sound gating, single-scan HUD and boss priority.
+
+**Native UE5.4 follow-up:** check attack montage alignment with
+the real `WindupEndsAt` clock and collision resolution. Parry an elite
+twice in quick succession; verify no second adaptation is armed during
+the eight-second cooldown. Check expiration, interruption, posture
+breaks, modal menus, armor and combat saves; test optional authored
+sound mixing with multiple elites in a dungeon. Verify controller
+cues and reduce-motion UI readability. The pure C++/source tests do
+not substitute for those Windows gameplay tests.
+
 ## 2. Combat feel
 
 - Original **12-hit same-target combat, guard, parry, dodge and posture**
