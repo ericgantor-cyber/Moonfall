@@ -3,7 +3,7 @@
 // cells. This header deliberately has no Unreal dependencies so CI can test
 // every combination without claiming an Unreal Engine compilation.
 namespace MoonfallLootArt {
-enum class EAtlas : unsigned char { None, Base, Trait, Relic, Masterwork };
+enum class EAtlas : unsigned char { None, Base, Trait, Relic, Masterwork, Ascendant };
 struct FCell {
  EAtlas Atlas;
  int Column;
@@ -18,9 +18,13 @@ constexpr bool ValidEquipment(int Slot, int Rarity, int Trait, int Tier) {
 }
 constexpr FCell Select(int Slot, int Rarity, int Trait, int Tier,
  bool bBaseLoaded, bool bTraitLoaded, bool bRelicLoaded,
- bool bMasterworkLoaded = false) {
+ bool bMasterworkLoaded = false, bool bAscendantLoaded = false) {
  if (!ValidEquipment(Slot, Rarity, Trait, Tier))
   return {EAtlas::None, 0, 0, 0, 0};
+ // Existing Legendary tier-22+ equipment can wear an Ascendant motif.
+ // This is NOT a new rarity or new item and consumes no gameplay RNG.
+ if (bAscendantLoaded && Rarity == 5 && Tier >= 22)
+  return {EAtlas::Ascendant, (Tier + Trait + Slot) % 3, Slot, 3, 3};
  // Emerald and Legendary tier-16+ equipment may use an optional fourth
  // original art atlas. The item is still Emerald/Legendary, not a new rarity.
  // Keep this deterministic and never change the underlying loot roll.
