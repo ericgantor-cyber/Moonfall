@@ -77,10 +77,15 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  constexpr int32 MaxLayoutsPerBatch = 2;
  constexpr uint8 MaxAttemptsPerDungeon = 3;
  int32 Processed = 0;
- while ((NextDungeonSlot < TotalDungeons || FailedDungeonSlots.Num() > 0)
+ // Only retry entries queued before this batch began. A failed retry cannot
+ // immediately consume its second chance in the same tick while collision
+ // cleanup and pending-destroy actors have not settled yet.
+ int32 RetriesAvailableThisBatch = FailedDungeonSlots.Num();
+ while ((NextDungeonSlot < TotalDungeons || RetriesAvailableThisBatch > 0)
         && Processed < MaxLayoutsPerBatch) {
   const bool bRetry = NextDungeonSlot >= TotalDungeons;
   const int32 Slot = bRetry ? FailedDungeonSlots.Pop() : NextDungeonSlot++;
+  if (bRetry) --RetriesAvailableThisBatch;
   ++Processed;
   if (AuthoredDungeonSlots.IsValidIndex(Slot) && AuthoredDungeonSlots[Slot])
    continue;
