@@ -130,12 +130,15 @@ private:
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
     const FHitResult& SweepResult);
  uint16 EnteredChambersMask = 0;
+ // Session-only re-entry guard, distinct from the one-shot entered mask.
+ uint16 ActiveChamberOverlapsMask = 0;
  int32 SpawnedEncounterCount = 0;
  TWeakObjectPtr<AMoonfallGroundLoot> SpawnedTreasure[ChamberCount];
  bool SpawnTreasureChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartFinalBossChamber(AMoonfallHeroPawn* Hero);
  bool bFinalChamberNotified = false;
+ bool bFinalChamberSpawnInProgress = false;
  void BuildHazardChambers(int32 OutChambers[3]) const;
  UFUNCTION()
  void HandleChamberOverlap(UPrimitiveComponent* Overlapped, AActor* OtherActor,
