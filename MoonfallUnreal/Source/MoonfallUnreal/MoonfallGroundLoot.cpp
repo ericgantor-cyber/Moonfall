@@ -20,14 +20,29 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
  PickupMesh->SetupAttachment(SceneRoot);
  RarityBeacon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RarityBeacon"));
  RarityBeacon->SetupAttachment(SceneRoot);
+ PickupDetailA = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupDetailA"));
+ PickupDetailA->SetupAttachment(SceneRoot);
+ PickupDetailB = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupDetailB"));
+ PickupDetailB->SetupAttachment(SceneRoot);
  ItemLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("ItemLabel"));
  ItemLabel->SetupAttachment(SceneRoot);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Sphere.Succeeded()) PickupMesh->SetStaticMesh(Sphere.Object);
  if (Cylinder.Succeeded()) RarityBeacon->SetStaticMesh(Cylinder.Object);
+ if (Cube.Succeeded()) {
+  PickupDetailA->SetStaticMesh(Cube.Object);
+  PickupDetailB->SetStaticMesh(Cube.Object);
+ }
  PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  RarityBeacon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ PickupDetailA->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ PickupDetailB->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ PickupDetailA->SetCastShadow(false);
+ PickupDetailB->SetCastShadow(false);
+ PickupDetailA->SetHiddenInGame(true);
+ PickupDetailB->SetHiddenInGame(true);
  PickupMesh->SetRelativeScale3D(FVector(0.35f, 0.35f, 0.2f));
  RarityBeacon->SetRelativeLocation(FVector(0.f, 0.f, 170.f));
  RarityBeacon->SetRelativeScale3D(FVector(0.08f, 0.08f, 1.4f));
@@ -56,6 +71,47 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   return;
  }
  ItemCode = InItemCode;
+ // Slot changes silhouette without changing the item's code, drop location,
+ // pickup collision rules, persistent ID, rarity, or seed-dependent roll.
+ // Use engine-supplied primitives so art remains visible before texture import.
+ static const FName CubePath(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ static const FName SpherePath(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+ // Assets are cached across all instances; no synchronous per-drop object load.
+ static UStaticMesh* GearCube = LoadObject<UStaticMesh>(nullptr, *CubePath.ToString());
+ static UStaticMesh* GearSphere = LoadObject<UStaticMesh>(nullptr, *SpherePath.ToString());
+ if (Slot == 0) {
+  // Long blade with a crossguard and a bottom grip.
+  if (GearCube) PickupMesh->SetStaticMesh(GearCube);
+  PickupMesh->SetRelativeLocation(FVector(0.f,0.f,78.f));
+  PickupMesh->SetRelativeScale3D(FVector(0.10f,0.09f,0.67f));
+  PickupMesh->SetRelativeRotation(FRotator(0.f,0.f,-16.f));
+  PickupDetailA->SetRelativeLocation(FVector(0.f,0.f,50.f));
+  PickupDetailA->SetRelativeScale3D(FVector(0.45f,0.10f,0.09f));
+  PickupDetailB->SetRelativeLocation(FVector(0.f,0.f,30.f));
+  PickupDetailB->SetRelativeScale3D(FVector(0.10f,0.10f,0.33f));
+ } else if (Slot == 1) {
+  // Broad breastplate plus offset shoulder pauldrons.
+  if (GearCube) PickupMesh->SetStaticMesh(GearCube);
+  PickupMesh->SetRelativeLocation(FVector(0.f,0.f,49.f));
+  PickupMesh->SetRelativeScale3D(FVector(0.43f,0.28f,0.52f));
+  PickupDetailA->SetRelativeLocation(FVector(-29.f,0.f,70.f));
+  PickupDetailA->SetRelativeScale3D(FVector(0.25f,0.33f,0.19f));
+  PickupDetailB->SetRelativeLocation(FVector(29.f,0.f,70.f));
+  PickupDetailB->SetRelativeScale3D(FVector(0.25f,0.33f,0.19f));
+ } else {
+  // Gem in the center of two angled, suspended chain links.
+  if (GearSphere) PickupMesh->SetStaticMesh(GearSphere);
+  PickupMesh->SetRelativeLocation(FVector(0.f,0.f,63.f));
+  PickupMesh->SetRelativeScale3D(FVector(0.25f,0.13f,0.32f));
+  PickupDetailA->SetRelativeLocation(FVector(-22.f,0.f,89.f));
+  PickupDetailA->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
+  PickupDetailA->SetRelativeRotation(FRotator(0.f,-30.f,0.f));
+  PickupDetailB->SetRelativeLocation(FVector(22.f,0.f,89.f));
+  PickupDetailB->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
+  PickupDetailB->SetRelativeRotation(FRotator(0.f,30.f,0.f));
+ }
+ PickupDetailA->SetHiddenInGame(false);
+ PickupDetailB->SetHiddenInGame(false);
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
