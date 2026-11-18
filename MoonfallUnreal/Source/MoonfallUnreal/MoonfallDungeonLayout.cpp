@@ -354,8 +354,23 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    if (IsValid(Enemy)) Enemy->Destroy();
   return false;
  }
- SpawnedBonusGroupsMask |= GroupBit;
  OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);
+ // Blueprint notification may destroy a member or invalidate its health.
+ // Never consume the one-shot token for a partial post-callback pack.
+ bool bGroupSurvived = true;
+ for (AMoonfallEnemy* Enemy : GroupActors) {
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()
+      || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+   bGroupSurvived = false;
+   break;
+  }
+ }
+ if (!bGroupSurvived) {
+  for (AMoonfallEnemy* Enemy : GroupActors)
+   if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();
+  return false;
+ }
+ SpawnedBonusGroupsMask |= GroupBit;
  return true;
 }
 
@@ -561,8 +576,23 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
    if (IsValid(Enemy)) Enemy->Destroy();
   return false;
  }
- SpawnedEncounterCount += Spawned;
  OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
+ // A synchronous Blueprint callback can remove or invalidate a spawned mob.
+ // Roll back surviving members instead of consuming a half-empty chamber.
+ bool bEncounterSurvived = true;
+ for (AMoonfallEnemy* Enemy : SpawnedActors) {
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()
+      || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+   bEncounterSurvived = false;
+   break;
+  }
+ }
+ if (!bEncounterSurvived) {
+  for (AMoonfallEnemy* Enemy : SpawnedActors)
+   if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();
+  return false;
+ }
+ SpawnedEncounterCount += Spawned;
  return true;
 }
 
