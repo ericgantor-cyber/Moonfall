@@ -35,5 +35,9 @@ private:
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
  TArray<uint8> AuthoredDungeonSlots;
+ // One retry queue and one bounded attempt counter per missing dungeon.
+ // Keep state session-only: no changes to saves or authored layouts.
+ TArray<int32> FailedDungeonSlots;
+ TArray<uint8> DungeonSpawnAttempts;
  void SpawnDungeonBatch();
 };
