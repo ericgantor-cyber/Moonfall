@@ -969,6 +969,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
         self.assertNotIn("UMoonfallRewardSaveGame", self.hero_cpp)
 
+    def test_world_loot_restoration_uses_indexed_level_scoped_matching(self):
+        hero = self.hero_cpp
+        restore = hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("TMap<FGuid, const FMoonfallWorldLootRecord*> SavedById;", restore)
+        self.assertIn("SavedById.Reserve(PendingWorldLoot.Num());", restore)
+        self.assertIn("if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, &Record);", restore)
+        self.assertIn("const FMoonfallWorldLootRecord* const* Saved = SavedById.Find(Id);", restore)
+        self.assertIn("!Saved || Present.Contains(Id)", restore)
+        self.assertIn("(*Saved)->ItemCode != Loot->GetItemCode()", restore)
+        self.assertIn("Loot->IsActorBeingDestroyed()", restore)
+        self.assertIn("Present.Add(Id);", restore)
+        self.assertIn("if (Record.LevelId != LevelId || Present.Contains(Record.DropId)) continue;", restore)
+        self.assertIn("Loot->SetPersistentDropId(Record.DropId);", restore)
+        self.assertIn("Loot->InitializeLoot(Record.ItemCode);", restore)
+        self.assertIn("Loot->GetPersistentDropId() != Record.DropId", restore)
+        self.assertIn("Loot->GetItemCode() != Record.ItemCode", restore)
+        self.assertNotIn("IndexOfByPredicate", restore)
+        # This is a world-spawn optimization, not a schema or loot-ownership change.
+        self.assertIn("UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;",
+                      (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8"))
+
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         method = actor.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
