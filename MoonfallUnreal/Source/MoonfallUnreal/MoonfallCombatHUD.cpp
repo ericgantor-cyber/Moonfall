@@ -111,15 +111,21 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
   const float MapLeft = Left + 18.f;
   const float MapWidth = FMath::Max(40.f, Width - 36.f);
-  const float MapTop = Top + Height - 70.f;
-  const float MapHeight = 54.f;
+  const float MapTop = Top + Height - 102.f;
+  const float MapHeight = 84.f;
   DrawRect(FLinearColor(0.055f, 0.075f, 0.11f, 1.f), MapLeft, MapTop, MapWidth, MapHeight);
   const float MapCenterX = (static_cast<float>(Selected * 5 + 2) - 14.5f) * 1350.f;
   const float VisibleHalfSpan = 21000.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
   const auto ProjectX = [&](float WorldX) {
    return MapLeft + MapWidth * (0.5f + (WorldX - MapCenterX) / (2.f * VisibleHalfSpan));
   };
-  DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), MapLeft, MapTop + 25.f, MapWidth, 4.f);
+  const float VisibleHalfY = 6500.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
+  const auto ProjectY = [&](float WorldY) {
+   return MapTop + MapHeight * (0.5f - (WorldY - Hero->AtlasPanY) / (2.f * VisibleHalfY));
+  };
+  const float RoadY = ProjectY(-2500.f);
+  if (RoadY >= MapTop && RoadY <= MapTop + MapHeight - 4.f)
+   DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), MapLeft, RoadY, MapWidth, 4.f);
   for (int32 Slot = 0; Slot < 30; ++Slot) {
    const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
    const float MarkerX = ProjectX(WorldX);
@@ -128,18 +134,22 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Dungeon = Slot % 5;
    const bool bFound = Hero->HasDiscoveredDungeon(Zone, Dungeon);
    const bool bCleared = Hero->HasDefeatedDungeonBoss(Zone, Dungeon);
+   const float MarkerY = ProjectY(-2500.f);
+   if (MarkerY < MapTop + 5.f || MarkerY > MapTop + MapHeight - 5.f) continue;
    DrawRect(bCleared ? FLinearColor(0.24f, 0.65f, 0.46f)
      : bFound ? FLinearColor(0.33f, 0.58f, 0.86f)
      : FLinearColor(0.10f, 0.12f, 0.16f),
-     MarkerX - 4.f, MapTop + 18.f, 8.f, 18.f);
+     MarkerX - 4.f, MarkerY - 4.f, 8.f, 8.f);
   }
   const FVector HeroPosition = Hero->GetActorLocation();
-  if (FMath::IsFinite(HeroPosition.X)) {
+  if (FMath::IsFinite(HeroPosition.X) && FMath::IsFinite(HeroPosition.Y)) {
    const float HeroX = ProjectX(HeroPosition.X);
-   if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f)
-    DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 3.f, MapTop + 6.f, 6.f, 39.f);
+   const float HeroY = ProjectY(HeroPosition.Y);
+   if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f
+       && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
+    DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
   }
-  DrawText(TEXT("Road overview | yellow: hero | blue: discovered | green: cleared"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
+  DrawText(TEXT("XY world overview | Left/Right: vertical pan | yellow: hero"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
   return;
  }
  if (Hero->bOptionsOpen) {
