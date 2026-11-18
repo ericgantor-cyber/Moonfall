@@ -92,6 +92,13 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+      - name: Check combat, dungeon, forge and performance contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v tools.test_unreal_aaa_polish
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_forge_forecast.cpp -o /tmp/moonfall_forge_forecast
+          /tmp/moonfall_forge_forecast
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
