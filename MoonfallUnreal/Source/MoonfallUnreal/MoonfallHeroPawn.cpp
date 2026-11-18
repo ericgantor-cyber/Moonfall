@@ -579,6 +579,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
+ Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
@@ -1292,7 +1293,21 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bInventoryScrollbarDragging = false;
 }
 
+void AMoonfallHeroPawn::ToggleAtlas() {
+ if (Health <= 0.f || bOptionsOpen) return;
+ if (FocusedResident.IsValid()) CloseResidentContext();
+ if (!bAtlasOpen) {
+  if (bInventoryOpen) ToggleInventory();
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+ }
+ bAtlasOpen = !bAtlasOpen;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
+}
 void AMoonfallHeroPawn::ToggleInventory() {
+ if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
@@ -1503,6 +1518,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
+ if (bAtlasOpen) { ToggleAtlas(); return; }
  if (bInventoryOpen) {
   if (bCharacterStatsOpen) {
    // Esc backs out of character details to the bag without closing the inventory.

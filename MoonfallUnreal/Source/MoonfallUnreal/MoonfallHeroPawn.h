@@ -248,6 +248,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootSlot = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootUpgrade = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Atlas") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();

@@ -83,6 +83,30 @@ void AMoonfallCombatHUD::DrawHUD()
    return;
   }
  }
+ if (Hero->bAtlasOpen) {
+  // Native, read-only atlas: six named regions and thirty persistent dungeon states.
+  static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
+  const float Width = FMath::Min(680.f, Canvas->SizeX - 24.f);
+  const float Height = FMath::Min(610.f, Canvas->SizeY - 24.f);
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  DrawRect(FLinearColor(0.025f,0.035f,0.085f,0.96f), Left, Top, Width, Height);
+  const float Scale = FMath::Clamp(Width / 680.f, 0.52f, 1.f);
+  DrawText(TEXT("MOONFALL | ATLAS"), FLinearColor::White, Left + 18.f, Top + 12.f, nullptr, Scale * 1.35f);
+  DrawText(TEXT("J / ESC: close    [X] defeated boss    [O] discovered    [?] unexplored"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
+  for (int32 Zone = 0; Zone < 6; ++Zone) {
+   const float Y = Top + 86.f + Zone * ((Height - 110.f) / 6.f);
+   DrawText(FString::Printf(TEXT("%s  |  %d-%d"), AtlasRegions[Zone], Zone * 5 + 1, Zone * 5 + 5), FLinearColor(0.96f,0.83f,0.53f), Left + 18.f, Y, nullptr, Scale * 0.95f);
+   FString Status;
+   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+    const int32 Number = Zone * 5 + Dungeon + 1;
+    const TCHAR* Mark = Hero->HasDefeatedDungeonBoss(Zone, Dungeon) ? TEXT("X") : Hero->HasDiscoveredDungeon(Zone, Dungeon) ? TEXT("O") : TEXT("?");
+    Status += FString::Printf(TEXT("[%s] %d   "), Mark, Number);
+   }
+   DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
+  }
+  return;
+ }
  if (Hero->bOptionsOpen) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
