@@ -129,7 +129,7 @@ void AMoonfallCombatHUD::DrawHUD()
    for (int32 FogRow = 0; FogRow < 7; ++FogRow)
     for (int32 FogColumn = 0; FogColumn < 8; ++FogColumn)
      if (Hero->HasExploredAtlasCell(Zone, FogColumn, FogRow)) ++Revealed;
-   DrawText(AtlasRegions[Zone], Zone == Selected ? FLinearColor(1.f, 0.88f, 0.70f)
+   DrawText(FString(AtlasRegions[Zone]), Zone == Selected ? FLinearColor(1.f, 0.88f, 0.70f)
        : FLinearColor(0.75f, 0.73f, 0.66f),
        Left + 23.f, Y, nullptr, Scale * AtlasSideTextScale * 0.91f);
    DrawText(FString::Printf(TEXT("DUNGEONS %d/5 | BOSSES %d/5"), Discovered, Defeated),
