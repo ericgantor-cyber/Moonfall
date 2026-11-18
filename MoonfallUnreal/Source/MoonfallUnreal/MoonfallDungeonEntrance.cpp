@@ -59,7 +59,9 @@ void AMoonfallDungeonEntrance::OnEntranceOverlap(
  if (bVisitedThisSession || !bEntranceEnabled || GetDungeonEntranceKey() == INDEX_NONE) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
-     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
  // Previously saved discoveries must not grant the reward again.
  const bool bAlreadyDiscovered = Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex);
  if (!bAlreadyDiscovered && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex))
