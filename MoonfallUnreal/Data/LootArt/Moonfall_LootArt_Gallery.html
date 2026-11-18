@@ -46,7 +46,7 @@ footer{color:var(--muted);font-size:14px}
 <body>
 <header>
 <h1>MOONFALL <span style="color:#f4a4d0">LOOT ATELIER</span></h1>
-<p>Explore 42 original Moonfall icons, preview how gear art changes by rarity, trait and tier, and test missing-texture fallbacks. Entirely offline.</p>
+<p>Explore 51 original Moonfall icons, preview how gear art changes by rarity, trait and tier, and test missing-texture fallbacks. Entirely offline.</p>
 </header>
 <main>
 <section class="card" aria-labelledby="picker-title">
@@ -63,6 +63,7 @@ footer{color:var(--muted);font-size:14px}
 <label class="check"><input type="checkbox" id="relic" checked> Relic atlas</label>
 <label class="check"><input type="checkbox" id="masterwork" checked> Masterwork atlas</label>
 <label class="check"><input type="checkbox" id="ascendant" checked> Ascendant atlas</label>
+<label class="check"><input type="checkbox" id="wayfarer" checked> Wayfarer atlas (early gear)</label>
 <label class="check"><input type="checkbox" id="high-visibility" checked> Six rarity marks</label>
 </div>
 <div class="picker">
@@ -74,11 +75,11 @@ footer{color:var(--muted);font-size:14px}
 <p id="picked-description"></p><p id="status"></p>
 </div>
 </div>
-<p class="hint">This mirrors the same deterministic C++ art-selection rules used by Moonfall. Rare or lower items use their normal or trait atlas; Epic-or-higher items at tier 8+ use the relic atlas when present; Emerald and Legendary at tier 16+ can display masterwork art; Legendary at tier 22+ may display Ascendant art. These are cosmetic distinctions only. The artwork is decorative, not additional character stats.</p>
+<p class="hint">This mirrors the same deterministic C++ art-selection rules used by Moonfall. Rare or lower items use their normal or trait atlas; Epic-or-higher items at tier 8+ use the relic atlas when present; Emerald and Legendary at tier 16+ can display masterwork art; Legendary at tier 22+ may display Ascendant art; Common to Rare gear at tier 1–7 may display Wayfarer art. These are cosmetic distinctions only. The artwork is decorative, not additional character stats.</p>
 </section>
 <section class="card" aria-labelledby="gallery-title">
 <h2 id="gallery-title">Complete loot illustration library</h2>
-<div class="toolbar"><div class="control"><label for="search">Find artwork</label><input id="search" placeholder="e.g. shield, crown, coin" type="search"></div><div class="control"><label for="collection">Collection</label><select id="collection"><option value="all">All 42 icons</option><option value="0">Original six</option><option value="1">Trait variants</option><option value="2">Relic variants</option><option value="3">Masterwork equipment</option><option value="4">Ascendant equipment</option></select></div></div>
+<div class="toolbar"><div class="control"><label for="search">Find artwork</label><input id="search" placeholder="e.g. shield, crown, coin" type="search"></div><div class="control"><label for="collection">Collection</label><select id="collection"><option value="all">All 51 icons</option><option value="0">Original six</option><option value="1">Trait variants</option><option value="2">Relic variants</option><option value="3">Masterwork equipment</option><option value="4">Ascendant equipment</option><option value="5">Wayfarer equipment</option></select></div></div>
 <div id="gallery" class="grid" aria-live="polite"></div>
 <p class="hint">Chest, crystal, coins, and potion are illustration sources only. They do not create playable consumables, money or new loot slots.</p>
 </section>
@@ -96,10 +97,12 @@ const ATLAS=[
  {file:"Moonfall_LootMasterworks_Atlas.png",cols:3,rows:3,collection:"Masterwork equipment",
   names:["Obsidian Greatsword","Crescent Bow","Aether Lance","Eclipse Cuirass","Winged Moonhelm","Ember Greaves","Starglass Ring","Sunless Pendant","Astral Hourglass"]},
  {file:"Moonfall_LootAscendants_Atlas.png",cols:3,rows:3,collection:"Ascendant equipment",
-  names:["Solar Eclipse Scythe","Starfall Longbow","Twilight Twin Spears","Eclipsed Starplate","Winged Astral Helm","Nightglass Greaves","Ouroboros Crescent Ring","Voidheart Locket","Celestial Astrolabe"]}
+  names:["Solar Eclipse Scythe","Starfall Longbow","Twilight Twin Spears","Eclipsed Starplate","Winged Astral Helm","Nightglass Greaves","Ouroboros Crescent Ring","Voidheart Locket","Celestial Astrolabe"]},
+ {file:"Moonfall_LootWayfarers_Atlas.png",cols:3,rows:3,collection:"Wayfarer equipment",
+  names:["Wayfarer Crescent Sword","Verdant Moon Bow","Sapphire Moon Spear","Wayfarer Mantle","Moonstone Helm","Lunar Trail Boots","Emerald Wayfarer Ring","Indigo Star Pendant","Wayfarer Astrolabe"]}
 ];
 const QUALITY=["#e6e6e6","#42afff","#f5c93f","#b759f4","#3ad66b","#ff8420"];
-function choose(slot,rarity,trait,tier,base,variant,relic,masterwork=false,ascendant=false){
+function choose(slot,rarity,trait,tier,base,variant,relic,masterwork=false,ascendant=false,wayfarer=false){
  if(!Number.isInteger(slot)||slot<0||slot>2||!Number.isInteger(rarity)
     ||rarity<0||rarity>5||!Number.isInteger(trait)||trait<0||trait>3
     ||!Number.isInteger(tier)||tier<1||tier>25||(rarity===0&&trait!==0))
@@ -110,6 +113,8 @@ function choose(slot,rarity,trait,tier,base,variant,relic,masterwork=false,ascen
   return {atlas:3,col:(tier+rarity+trait)%3,row:slot};
  if(relic&&rarity>=3&&tier>=8)
   return {atlas:2,col:(tier+rarity+trait)%3,row:slot};
+ if(wayfarer&&rarity<=2&&tier<=7)
+  return {atlas:5,col:(tier+rarity+trait)%3,row:slot};
  if(variant&&trait>0){
   if(slot===0)return {atlas:1,col:trait-1,row:0};
   if(slot===1)return {atlas:1,col:trait===1?2:(trait===2?0:1),row:1};
@@ -127,11 +132,14 @@ function placeSprite(sprite,atlas,col,row,size){
 }
 function refresh(){
  const slot=Number(el("slot").value),rarity=Number(el("rarity").value);
- const trait=Number(el("trait").value),tier=Number(el("tier").value);
+ let trait=Number(el("trait").value);const tier=Number(el("tier").value);
+ // Canonical Moonfall item codes forbid traits on Common gear. Correct
+ // an invalid previous selection rather than displaying a fake missing icon.
+ if(rarity===0&&trait!==0){el("trait").value="0";trait=0;}
  el("tier-value").textContent=String(tier);
  const choice=choose(slot,rarity,trait,tier,
    el("base").checked,el("variant").checked,el("relic").checked,
-   el("masterwork").checked,el("ascendant").checked);
+   el("masterwork").checked,el("ascendant").checked,el("wayfarer").checked);
  const sprite=el("picked-sprite"),frame=el("item-icon"),marks=el("pips");
  const size=window.matchMedia&&window.matchMedia("(max-width:600px)").matches?94:116;
  marks.replaceChildren();
@@ -177,7 +185,7 @@ function renderGallery(){
  });
  if(!shown){const no=document.createElement("p");no.textContent="No artwork matches your search.";root.append(no);}
 }
-for(const id of ["slot","rarity","trait","tier","base","variant","relic","masterwork","ascendant","high-visibility"])
+for(const id of ["slot","rarity","trait","tier","base","variant","relic","masterwork","ascendant","wayfarer","high-visibility"])
  el(id).addEventListener("input",refresh);
 el("search").addEventListener("input",renderGallery);
 el("collection").addEventListener("change",renderGallery);
