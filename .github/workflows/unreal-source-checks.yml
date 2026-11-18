@@ -95,6 +95,13 @@ jobs:
       - name: Verify painted loot atlas and native pickup integration
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_loot_art
+      - name: Compile and exhaustively test asset-independent loot art rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic \
+            tools/test_unreal_loot_art_rules.cpp -o /tmp/moonfall_loot_art_rules
+          /tmp/moonfall_loot_art_rules
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
