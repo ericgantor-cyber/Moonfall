@@ -133,12 +133,15 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Colored beacon and object communicate rarity without transient effects or tick.
  if (UMaterialInstanceDynamic* BeaconMaterial = RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
   BeaconMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
- // Color all geometry, not only its center primitive. Missing base materials
- // quietly retain their original appearance; art must never block collection.
- for (UStaticMeshComponent* Part : {PickupMesh, PickupDetailA, PickupDetailB}) {
-  if (!IsValid(Part) || !IsValid(Part->GetStaticMesh())) continue;
-  if (UMaterialInstanceDynamic* Material = Part->CreateAndSetMaterialInstanceDynamic(0))
-   Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+ // Reuse one dynamic material per pickup for the primary mesh and both
+ // decorative pieces. Hundreds of drops must not allocate 3 MIDs each.
+ // Missing material parameters simply preserve the base material appearance.
+ if (UMaterialInstanceDynamic* PickupMaterial = PickupMesh->CreateAndSetMaterialInstanceDynamic(0)) {
+  PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+  if (IsValid(PickupDetailA) && IsValid(PickupDetailA->GetStaticMesh()))
+   PickupDetailA->SetMaterial(0, PickupMaterial);
+  if (IsValid(PickupDetailB) && IsValid(PickupDetailB->GetStaticMesh()))
+   PickupDetailB->SetMaterial(0, PickupMaterial);
  }
 }
 
