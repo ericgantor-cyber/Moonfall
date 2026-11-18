@@ -79,14 +79,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallDungeonBossVictoryLedgerTest,
 
 bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
 {
- // Native test of the persistent V10 schema and all 30 victory-index
+ // Native test of the current V12 schema and all 30 victory-index
  // boundaries. Combat, disk save round-trips and spawn AI need separate
  // in-world smoke verification.
  const UMoonfallPersistentSave* Save = GetDefault<UMoonfallPersistentSave>();
  const AMoonfallHeroPawn* Hero = GetDefault<AMoonfallHeroPawn>();
  if (!TestNotNull(TEXT("Persistent save default"), Save)
      || !TestNotNull(TEXT("Hero default"), Hero)) return false;
- TestEqual(TEXT("Boss ledger save schema is V10"), Save->Version, 10);
+ TestEqual(TEXT("Boss ledger save schema is V12"), Save->Version, 12);
  TestEqual(TEXT("Fresh save has no boss victories"),
    Save->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Fresh hero has no boss victories"),
@@ -121,7 +121,7 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  // Serialize to memory only. Never touch the player's on-disk world slot.
  UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
- if (!TestNotNull(TEXT("Create V10 save object"), Original)) return false;
+ if (!TestNotNull(TEXT("Create V12 save object"), Original)) return false;
  constexpr uint32 FirstDungeon = 1u;
  constexpr uint32 LastDungeon = 1u << 29;
  constexpr uint32 MidDungeon = 1u << 14;
@@ -138,8 +138,8 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   return false;
  UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::LoadGameFromMemory(Bytes));
- if (!TestNotNull(TEXT("Restore V10 save from bytes"), Restored)) return false;
- TestEqual(TEXT("Save format still V10"), Restored->Version, 10);
+ if (!TestNotNull(TEXT("Restore V12 save from bytes"), Restored)) return false;
+ TestEqual(TEXT("Save format still V12"), Restored->Version, 12);
  TestEqual(TEXT("Discovered first, middle and final dungeons survive"),
    Restored->DiscoveredDungeonMask, Original->DiscoveredDungeonMask);
  TestEqual(TEXT("First and 30th dungeon victories survive"),
