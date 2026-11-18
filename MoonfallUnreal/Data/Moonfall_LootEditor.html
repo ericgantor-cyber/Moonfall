@@ -326,25 +326,44 @@ function control(row,index,field){
  }
  input.setAttribute("aria-label",field+" for row "+(index+1));
  input.addEventListener("change",()=>{
+  if(String(row[field])===input.value)return;
+  rememberEdit();
   row[field]=input.value;
+  if(["Source","ZoneIndex","Name"].includes(field))renderRows();
   showPreview();
-  if(field==="Source")renderRows();
  });
  cell.append(input);return cell;
 }
+function matchesFilter(row){
+ const source=byId("filter").value,zone=byId("filter-zone").value;
+ const term=byId("search").value.trim().toLowerCase();
+ return (source==="All"||row.Source===source)
+   && (zone==="all"||String(row.ZoneIndex)===zone)
+   && (!term||String(row.Name).toLowerCase().includes(term));
+}
 function renderRows(){
  const tbody=byId("rows");tbody.replaceChildren();
- const filter=byId("filter").value,term=byId("search").value.trim().toLowerCase();
  rows.forEach((row,index)=>{
-  if(filter!=="All"&&row.Source!==filter)return;
-  if(term&&!String(row.Name).toLowerCase().includes(term))return;
+  if(!matchesFilter(row))return;
   const tr=document.createElement("tr");
   for(const field of FIELDS)tr.append(control(row,index,field));
-  const td=document.createElement("td"),button=document.createElement("button");
+  const td=document.createElement("td");
+  const duplicate=document.createElement("button");
+  duplicate.textContent="Duplicate";
+  duplicate.setAttribute("aria-label","Duplicate "+row.Name);
+  duplicate.addEventListener("click",()=>{
+   if(rows.length>=2048){byId("message").textContent="2048-row limit reached.";return;}
+   rememberEdit();
+   const cloned={...row,Name:uniqueCopyName(row.Name,rows)};
+   rows.splice(index+1,0,cloned);renderRows();showPreview();
+  });
+  const button=document.createElement("button");
   button.className="delete";button.textContent="Delete";
   button.setAttribute("aria-label","Delete "+row.Name);
-  button.addEventListener("click",()=>{rows.splice(index,1);renderRows();showPreview();});
-  td.append(button);tr.append(td);tbody.append(tr);
+  button.addEventListener("click",()=>{
+   rememberEdit();rows.splice(index,1);renderRows();showPreview();
+  });
+  td.append(duplicate,button);tr.append(td);tbody.append(tr);
  });
 }
 function parseCsv(csv){
@@ -374,10 +393,43 @@ function csvField(x){
  const value=String(x);
  return /[",\r\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value;
 }
-byId("reset").addEventListener("click",()=>{rows=defaultRows();renderRows();showPreview();});
+function bulkAdjust(candidate,factor,filterFn){
+ if(![50,75,125,150,200].includes(factor))throw Error("Invalid weight adjustment.");
+ let changed=0;
+ for(const row of candidate){
+  if(!filterFn(row))continue;
+  const weight=asInt(row.Weight);
+  const adjusted=Math.round(weight*factor/100);
+  if(!Number.isInteger(weight)||weight<0||adjusted>10000)
+   throw Error("Bulk weight adjustment exceeds the 0-10000 range.");
+  row.Weight=adjusted;
+  changed++;
+ }
+ if(!changed)throw Error("No rows match the current filters.");
+ const checked=validate(candidate);
+ if(checked.errors.length)throw Error(checked.errors.slice(0,3).join(" | "));
+ return checked.rows;
+}
+byId("reset").addEventListener("click",()=>{
+ rememberEdit();rows=defaultRows();renderRows();showPreview();
+});
+byId("undo").addEventListener("click",undoEdit);
+byId("redo").addEventListener("click",redoEdit);
+byId("bulk-apply").addEventListener("click",()=>{
+ try{
+  const candidate=bulkAdjust(snapshot(),asInt(byId("bulk-factor").value),matchesFilter);
+  rememberEdit();rows=candidate;renderRows();showPreview();
+ }catch(error){
+  const message=byId("message");
+  message.className="bad";
+  message.textContent="Bulk edit rejected; no weights changed. "+error.message;
+ }
+});
 byId("add").addEventListener("click",()=>{
  let name="Custom_"+(rows.length+1),i=1;
  while(rows.some(x=>x.Name===name))name="Custom_"+(rows.length+1)+"_"+(i++);
+ if(rows.length>=2048){byId("message").textContent="2048-row limit reached.";return;}
+ rememberEdit();
  rows.push({Name:name,Source:"Regular",ZoneIndex:-1,MinimumLevel:1,Rarity:0,Weight:1,SlotMask:7,ForcedTrait:0});
  byId("filter").value="All";byId("search").value="";
  renderRows();showPreview();
@@ -391,6 +443,7 @@ byId("file").addEventListener("change",async event=>{
   const candidate=parseCsv(await file.text());
   const checked=validate(candidate);
   if(checked.errors.length)throw Error(checked.errors.slice(0,3).join(" | "));
+  rememberEdit();
   rows=checked.rows;
   renderRows();showPreview();
  }catch(error){
@@ -407,11 +460,23 @@ byId("export").addEventListener("click",()=>{
  const url=URL.createObjectURL(blob),link=document.createElement("a");
  link.href=url;link.download="Moonfall_CustomLootTable.csv";
  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ dirty=false;updateHistoryButtons();
 });
 for(const id of ["preview-source","preview-zone","preview-level"])byId(id).addEventListener("change",showPreview);
 byId("filter").addEventListener("change",renderRows);
+byId("filter-zone").addEventListener("change",renderRows);
 byId("search").addEventListener("input",renderRows);
-rows=defaultRows();byId("preview-source").value="Boss";renderRows();showPreview();
+document.addEventListener("keydown",event=>{
+ if(!(event.ctrlKey||event.metaKey)||event.altKey||event.target?.matches?.("input,textarea,select"))return;
+ const key=event.key.toLowerCase();
+ if(key==="z"&&!event.shiftKey){event.preventDefault();undoEdit();}
+ else if(key==="y"||(key==="z"&&event.shiftKey)){event.preventDefault();redoEdit();}
+});
+window.addEventListener("beforeunload",event=>{
+ if(dirty){event.preventDefault();event.returnValue="";}
+});
+rows=defaultRows();byId("preview-source").value="Boss";
+renderRows();showPreview();updateHistoryButtons();
 </script>
 </body>
 </html>
