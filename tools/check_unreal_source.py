@@ -412,7 +412,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
         for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
@@ -422,7 +422,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
-        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", spawn)
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, SourceZoneIndex)", spawn)
         self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
@@ -1205,8 +1205,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity >= 5", self.hero_cpp)
         self.assertIn("SelectedRarity < 5", hud)
         self.assertIn("Rarity <= 5", hud)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);", self.hero_cpp)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 4, 20, 30);", self.hero_cpp)
         self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
@@ -1611,22 +1611,82 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_rank_and_region_loot_pool_defaults_are_valid(self):
+        import re
+        header = self.hero_h
+        hero = self.hero_cpp
+        enemy = self.enemy_cpp
+        constructor = hero.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
+            "void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor()", 1)[0]
+        rows = re.findall(
+            r"AddLoot\(EMoonfallLootSource::(Regular|Elite|Boss),\s*(\d+),\s*(\d+)"
+            r"(?:,\s*(\d+))?\);", constructor)
+        self.assertEqual(len(rows), 13)
+        minimum = {"Regular": 0, "Elite": 2, "Boss": 3}
+        for source, rarity, weight, min_level in rows:
+            rarity, weight, min_level = int(rarity), int(weight), int(min_level or "1")
+            self.assertGreaterEqual(rarity, minimum[source])
+            self.assertTrue(0 <= rarity <= 5 and 1 <= weight <= 10000
+                            and 1 <= min_level <= 100)
+        self.assertIn("const int32 SlotMask = 1 << (Zone % 3);", constructor)
+        self.assertIn("const int32 Trait = 1 + ((Zone + Zone / 3) % 3);", constructor)
+        for source, rarity in (("Regular", 2), ("Elite", 3), ("Boss", 3)):
+            self.assertIn(
+                f"AddLoot(EMoonfallLootSource::{source}, {rarity}, 8, 1, Zone, SlotMask, Trait);",
+                constructor)
+        for zone in range(6):
+            mask = 1 << (zone % 3)
+            trait = 1 + ((zone + zone // 3) % 3)
+            self.assertIn(mask, (1, 2, 4))
+            self.assertIn(trait, (1, 2, 3))
+        self.assertIn("const AMoonfallDungeonLayout* DungeonOwner =", enemy)
+        self.assertIn("Cast<AMoonfallDungeonLayout>(GetOwner())", enemy)
+        self.assertIn("IsValid(DungeonOwner) ? DungeonOwner->ZoneIndex : -1", enemy)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone)", enemy)
+        spawn = hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, SourceZoneIndex)", spawn)
+        # Existing scripted rewards continue through the generic table.
+        direct = hero.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", direct)
+        self.assertNotIn("SpawnGroundEquipmentDrop(", direct)
+        self.assertIn("void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation, int32 SourceZoneIndex = -1);", header)
+
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
-        loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+        hero = self.hero_cpp
+        hero_h = self.hero_h
+        roll = hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
-        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
-        self.assertIn("LastLootRarity = bBossEnemy", loot)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", loot)
-        self.assertIn("LootRoll < 3 + RarityBias / 3 ? 3", loot)
-        self.assertIn("LootRoll < 18 + RarityBias ? 2", loot)
-        self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
-        self.assertIn("FMath::Clamp(Level / 5", loot)
-        self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+        for token in ("UENUM(BlueprintType)", "EMoonfallLootSource",
+                      "USTRUCT(BlueprintType)", "FMoonfallLootTableEntry",
+                      "TArray<FMoonfallLootTableEntry> LootTableEntries;",
+                      "int32 ZoneIndex = -1;", "int32 MinimumLevel = 1;",
+                      "int32 Weight = 0;", "int32 SlotMask = 7;"):
+            self.assertIn(token, hero_h)
+        self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Regular, 0, 44);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Elite, 2, 70);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 3, 75);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);", hero)
+        self.assertIn("SourceZoneIndex >= 0 && SourceZoneIndex < 6", roll)
+        self.assertIn("Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone", roll)
+        self.assertIn("Entry.MinimumLevel > SafeLevel", roll)
+        self.assertIn("Entry.Weight <= 0 || Entry.Weight > 10000", roll)
+        self.assertIn("Entry.SlotMask < 1 || Entry.SlotMask > 7", roll)
+        self.assertIn("Entry.Rarity < 0 || Entry.Rarity > 5", roll)
+        self.assertIn("Source == EMoonfallLootSource::Boss && Entry.Rarity < 3", roll)
+        self.assertIn("Source == EMoonfallLootSource::Elite && Entry.Rarity < 2", roll)
+        self.assertIn("constexpr int32 MaxTotalLootWeight = 1000000;", roll)
+        self.assertIn("FMath::RandRange(1, TotalWeight)", roll)
+        self.assertIn("LastLootSlot = ValidSlots[FMath::RandRange(0, SlotCount - 1)]", roll)
+        self.assertIn("LastLootRarity = Selected->Rarity;", roll)
+        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", roll)
+        self.assertIn("LastLootAffix = Selected->ForcedTrait;", roll)
+        self.assertIn("FMath::Clamp(Level / 5", roll)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", hero)
+        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", roll)
+        self.assertNotIn("FinisherShockwave", hero)
 
     def test_equipment_stats_affect_combat(self):
         for name in ("WeaponTier", "ArmorTier", "AccessoryTier"):
@@ -4683,7 +4743,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", death)
         # Blueprint callbacks can destroy the actor or invalidate its health.
         # Both cases must preserve the final chamber's retry path.
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
@@ -5802,7 +5862,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', defeated)
         self.assertIn("Hero->AwardExperience(5);", defeated)
         self.assertIn("} else {", defeated)
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", defeated)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", defeated)
         self.assertLess(defeated.index("if (bSanctuaryPracticeReward)"),
                         defeated.index("Hero->SpawnGroundEquipmentDrop("))
 
