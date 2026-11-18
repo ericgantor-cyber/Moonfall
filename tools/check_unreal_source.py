@@ -1623,7 +1623,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_batch_menus_cancel_enemy_windups_and_followups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu = tick.split("// Pause hostile behavior during both gameplay menus", 1)[1].split(
+        menu = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
             "// A shatter follow-up expires", 1)[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
         self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
@@ -1635,7 +1635,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextAttackAt = FMath::Max(", menu)
         self.assertIn("Now + 0.35f", menu)
         self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
-        self.assertLess(tick.index("// Pause hostile behavior during both gameplay menus"),
+        self.assertLess(tick.index("// Pause hostile behavior during any gameplay modal, including Atlas, and"),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
@@ -1783,7 +1783,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen) && Health > 0.f", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
         self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
@@ -3584,7 +3584,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bOptionsOpen = false;\n  bInventoryScrollbarDragging = false;\n  if (APlayerController* PC = Cast<APlayerController>(Controller))\n   PC->bShowMouseCursor = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\\n  CloseResidentContext();", self.hero_cpp)
+        self.assertIn("bAtlasOpen = false;", self.hero_cpp)
+        self.assertIn("AtlasDiscoveredShrineLocations.Reset();", self.hero_cpp)
+        self.assertIn("AtlasDiscoveredShrineNames.Reset();", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
@@ -6132,6 +6135,60 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const FString GoalName = FString(AtlasDungeonTitles[NearestKnownDungeonSlot])", atlas)
         self.assertIn('TEXT("D%02d | %d m direct")', atlas)
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
+
+
+    def test_atlas_pause_is_gamewide_and_death_does_not_leave_modal_open(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        enemy_modal = enemy_tick.split(
+            "// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", enemy_modal)
+        for cancel in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                       "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
+                       "bComboSecondHitActive = false;", "NextAttackAt = FMath::Max("):
+            self.assertIn(cancel, enemy_modal)
+        self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
+                        enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
+        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {", tick)
+        self.assertIn("else AutoLootElapsed = 0.f;", tick)
+        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
+        self.assertIn("&& !bSprinting && !bGuarding && GetWorld()", tick)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("bAtlasOpen = false;", damage)
+        self.assertIn("AtlasDiscoveredShrineLocations.Reset();", damage)
+        self.assertIn("AtlasDiscoveredShrineNames.Reset();", damage)
+        self.assertIn("bAtlasHasActiveRespawnShrineLocation = false;", damage)
+        self.assertLess(damage.index("bAtlasOpen = false;"),
+                        damage.index("PC->bShowMouseCursor = false;"))
+        self.assertNotIn("SaveWorldProgress();", enemy_modal)
+
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        for entry, stop in (
+            ("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel"),
+            ("void AMoonfallDungeonLayout::HandleFinalChamber(", "void AMoonfallDungeonLayout::HandleChamberOverlap("),
+            ("void AMoonfallDungeonLayout::HandleChamberOverlap(", "void AMoonfallDungeonLayout::HandleHazardOverlap("),
+            ("void AMoonfallDungeonLayout::HandleHazardOverlap(", "bool AMoonfallDungeonLayout::StartCombatChamber("),
+            ("bool AMoonfallDungeonLayout::StartCombatChamber(", "bool AMoonfallDungeonLayout::SpawnTreasureChamber("),
+            ("bool AMoonfallDungeonLayout::StartFinalBossChamber(", "static const FDungeonBossStyle Styles[6]"),
+        ):
+            with self.subTest(entry=entry):
+                method = dungeon.split(entry, 1)[1].split(stop, 1)[0]
+                self.assertIn("Hero->bAtlasOpen", method)
+        entrance = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        overlap = entrance.split("void AMoonfallDungeonEntrance::OnEntranceOverlap(", 1)[1]
+        self.assertIn("Hero->bAtlasOpen", overlap)
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        collect = loot.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", collect)
+        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", collect)
+        self.assertLess(collect.index("Hero->bAtlasOpen"),
+                        collect.index("const FVector HeroPosition = Hero->GetActorLocation();"))
 
 
 if __name__ == "__main__":
