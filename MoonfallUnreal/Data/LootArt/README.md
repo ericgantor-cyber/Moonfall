@@ -1,4 +1,4 @@
-# Moonfall loot art: 15 painted icons + live UE5 fallback
+# Moonfall loot art: 24 original icons + resilient UE5 fallback
 
 **Status:** Original art and source integration are present on a draft PR.
 Native Unreal Engine 5.4 compilation, import, Win64 cooking and gameplay
@@ -50,6 +50,56 @@ If neither atlas is available, native Canvas geometry still shows a sword,
 breastplate or amulet, with rarity-colored borders and readable text labels.
 The existing non-colliding ground-drop silhouettes remain unchanged.
 
+
+## Third atlas: nine relic illustrations
+
+`Moonfall_LootRelics_Atlas.png` is a compact, transparent 120×120 PNG
+with nine 40×40 cells. The **high-resolution originals** are also delivered
+in `Moonfall_Relic_Loot_Art_Pack.zip` as separate 256px images and enlarged
+atlases. The committed compact PNG is optimized for actual inventory use.
+
+| Cell | Original art | Current cosmetic mapping |
+| --- | --- | --- |
+| (0,0) | Twin Moon Daggers | Weapon relic illustration |
+| (0,1) | Celestial Glaive | Weapon relic illustration |
+| (0,2) | Meteor Warhammer | Weapon relic illustration |
+| (1,0) | Nightveil Cloak | Armor relic illustration |
+| (1,1) | Starforged Boots | Armor relic illustration |
+| (1,2) | Eclipse Crown | Armor relic illustration |
+| (2,0) | Moon Lantern | Accessory relic illustration |
+| (2,1) | Astral Key | Accessory relic illustration |
+| (2,2) | Starlit Locket | Accessory relic illustration |
+
+**Art selection:** When the relic atlas is available, an **Epic, Emerald
+or Legendary item of tier 8+** uses its existing equipment slot as the
+atlas row, with column `(tier + rarity + trait) % 3`. That creates nine
+additional deterministic motifs without new equipment slots, ID formats,
+random number rolls, save fields, item drops or character stats. When the
+relic atlas is missing, trait art is used if available; when the trait atlas
+is missing, base art is used; if both are missing, geometric Canvas
+silhouettes are used. The same item always renders the same image for a
+given installed set of textures.
+
+Every rendered icon retains a rarity-colored frame **and six white/gray
+quality pips** (one through six bright marks), supporting low-color and
+color-blind accessibility. Item names and rarity words remain readable.
+
+## No-code gallery and testing
+
+Open `Moonfall_LootArt_Gallery.html` next to the three PNGs in a modern
+browser. It requires no server, engine, account or build process. The
+mouse- and keyboard-friendly gallery shows all 24 images, offers search,
+collection filters and interactive item slot / quality / trait / tier
+controls. Disable one or more atlas layers to preview exactly which art
+the native Unreal HUD should choose, including the fallback.
+
+The shared `MoonfallLootArtRules.h` is dependency-free C++17 and
+exhaustively tested in GitHub CI for all **12,600 valid combinations** of
+three slots, six rarities, four traits, 25 tiers and atlas-presence flags
+(with Common's invalid trait pairings excluded). Browser gallery logic
+is tested against the same selection contracts. These checks do not
+replace a native UE5.4 render test.
+
 ## Import the painted image into Unreal Engine 5.4
 
 This is a source PNG, **not yet a .uasset**. Unreal must import and cook it.
@@ -63,13 +113,20 @@ exec(open(r"<YOUR-MOONFALL-REPO>/MoonfallUnreal/Build/Import-Loot-Art.py", encod
 Replace the placeholder with your local checkout path, or run the script
 from a controlled UnrealEditor-Cmd.exe Python session. The script uses the
 existing PythonScriptPlugin and EditorScriptingUtilities to import the PNG
-as **two** saved `Texture2D` assets:
-`/Game/Moonfall/LootArt/T_MoonfallLootAtlas` and
-`/Game/Moonfall/LootArt/T_MoonfallLootVariants`. It validates the PNG
-signature and expected 120×80 / 120×120 dimensions **before importing
-either file**. Close and reopen the editor after the first import so the
+as **three** saved `Texture2D` assets:
+`/Game/Moonfall/LootArt/T_MoonfallLootAtlas`,
+`/Game/Moonfall/LootArt/T_MoonfallLootVariants`, and
+`/Game/Moonfall/LootArt/T_MoonfallLootRelics`. It validates **all three**
+PNGs' dimensions, bit depths, chunk structure, CRC checksums, presence of
+an image and valid terminators **before importing any file**. It also
+rejects unrelated pre-existing Unreal assets occupying any of the art
+paths, instead of overwriting them. Close and reopen the editor after the first import so the
 native HUD constructor can resolve both assets.
-Include both saved imported textures in the cooked Windows game.
+Include all three imported Texture2D assets in the cooked Windows game.
+The imported content is a real `.uasset` only after this Unreal Editor
+step; checking in a PNG source file alone does not package a texture.
+A damaged or missing source file stops the batch before touching a
+previously imported asset.
 
 If the texture is missing, the inventory **still displays visible geometric
 sword/armor/amulet fallback art**. No inventory rows, item slots, sorting,
@@ -85,7 +142,7 @@ no embedded item stats or new player save fields.
 
 - Source artwork is under `Data/LootArt`, not a change to Z or Nyra
   character designs. Godot art and maps are unchanged.
-- Inventory icon rendering uses two compact optional atlases with UV
+- Inventory icon rendering uses three compact optional atlases with UV
   subdivisions; textures load from native-class default asset references,
   not during per-frame gameplay. Each illustration remains identifiable
   with a rarity border and accompanying text.
@@ -95,9 +152,9 @@ no embedded item stats or new player save fields.
 - No remote resources are fetched during gameplay, and there is a fallback
   when an artist's texture has not yet been imported.
 - Verify that source CI passes, then **separately** compile UE5.4 on Windows,
-  import and cook both assets, inspect icons at 720p/1080p/4K, test all
+  import and cook all three assets, inspect icons at 720p/1080p/4K, test all
   weapon/armor/accessory slots × all four traits × all six rarities,
-  test with neither/one/both textures present, collect items, reopen saves,
+  test with none/one/two/three textures present, collect items, reopen saves,
   and confirm no inventory pointer-row hit-test changes.
 - Do not merge or advertise a working Windows installer until native
   validation is complete.
