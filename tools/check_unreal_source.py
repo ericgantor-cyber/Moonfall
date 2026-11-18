@@ -6055,5 +6055,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
+    def test_atlas_all_known_places_have_original_names_without_fog_leaks(self):
+        import re
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        catalog = atlas.split("static const TCHAR* AtlasDungeonTitles[30] = {", 1)[1].split("};", 1)[0]
+        names = re.findall(r'TEXT\("([^"]+)"\)', catalog)
+        self.assertEqual(len(names), 30)
+        self.assertEqual(len(set(names)), 30)
+        self.assertIn("Emberfall Crypt", names)
+        self.assertIn("Eclipse Throne", names)
+        self.assertIn("static_assert(UE_ARRAY_COUNT(AtlasDungeonTitles) == 30", atlas)
+        self.assertIn("DrawText(FString(AtlasRegions[Selected])", atlas)
+        self.assertIn("FString(AtlasDungeonTitles[HoveredDungeonSlot])", atlas)
+        self.assertIn("AtlasDungeonTitles[NearestKnownDungeonSlot]", atlas)
+        self.assertIn("HoveredShrineTitle = ShrineTitle;", atlas)
+        self.assertIn("const FString ShrineTitle = Hero->AtlasDiscoveredShrineNames.IsValidIndex(AtlasShrineIndex)", atlas)
+        self.assertIn("FString HoveredShrineTitle;", atlas)
+        self.assertIn("bool bNamedRoadRevealed = false;", atlas)
+        self.assertIn('DrawText(TEXT("DUNGEON ROAD")', atlas)
+        self.assertIn('DrawText(TEXT("YOU")', atlas)
+        self.assertLess(atlas.index("if (!bFound && !bCleared) continue;"),
+                        atlas.index("HoveredDungeonSlot = Slot;"))
+        self.assertIn("if (bHoveredShrine)", atlas)
+        self.assertIn("if (NearestKnownDungeonSlot != INDEX_NONE)", atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
+        self.assertIn("TArray<FString> AtlasDiscoveredShrineNames;", self.hero_h)
+        self.assertIn("AtlasDiscoveredShrineNames.Reset();", self.hero_cpp)
+        self.assertIn("const FString ShrineTitle = Shrine->GetMapDisplayName();", self.hero_cpp)
+        self.assertIn("AtlasDiscoveredShrineNames.Add(ShrineTitle.Left(36));", self.hero_cpp)
+        self.assertIn("!HasDiscoveredShrine(Shrine->ShrineId)", self.hero_cpp)
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        self.assertIn("FText MapDisplayName;", shrine_h)
+        self.assertIn("FString GetMapDisplayName() const;", shrine_h)
+        self.assertIn("FString AMoonfallCheckpointShrine::GetMapDisplayName() const", shrine_cpp)
+        for expected in ("Firstlight Shrine", "Crossroads West Shrine",
+                         "Crimson Path Shrine", "Moonlit Path Shrine"):
+            self.assertIn(expected, shrine_cpp)
+        self.assertIn("ShrineLabel->SetText(FText::FromString(GetMapDisplayName()", shrine_cpp)
+        self.assertIn('TEXT("ACTIVE RESPAWN SHRINE")', shrine_cpp)
+        self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
