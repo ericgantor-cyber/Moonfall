@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallLootArtRules.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -13,20 +14,23 @@
 #include "GameFramework/PlayerController.h"
 AMoonfallCombatHUD::AMoonfallCombatHUD()
 {
- // The source PNG must be imported once as a UE Texture2D. A cooked asset
- // loads here with no disk I/O or texture creation during gameplay.
+ // Import and cook these Texture2D assets in Unreal before packaging.
+ // Missing optional atlases gracefully fall back to the earlier art layers.
  static ConstructorHelpers::FObjectFinder<UTexture2D> Atlas(
    TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas"));
  if (Atlas.Succeeded()) LootIconAtlas = Atlas.Object;
  static ConstructorHelpers::FObjectFinder<UTexture2D> Variants(
    TEXT("/Game/Moonfall/LootArt/T_MoonfallLootVariants.T_MoonfallLootVariants"));
  if (Variants.Succeeded()) LootVariantAtlas = Variants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Relics(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootRelics.T_MoonfallLootRelics"));
+ if (Relics.Succeeded()) LootRelicAtlas = Relics.Object;
 }
 
-void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, float X, float Y, float Side)
+void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
+ int32 Tier, float X, float Y, float Side)
 {
- if (!Canvas || Slot < 0 || Slot > 2 || Rarity < 0 || Rarity > 5
-     || Trait < 0 || Trait > 3
+ if (!Canvas || !MoonfallLootArt::ValidEquipment(Slot, Rarity, Trait, Tier)
      || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
      || !FMath::IsFinite(Side) || Side < 10.f) return;
  static const FLinearColor QualityColors[6] = {
@@ -36,68 +40,62 @@ void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, flo
  };
  const FLinearColor Accent = QualityColors[Rarity];
  DrawRect(FLinearColor(0.075f,0.07f,0.13f,0.96f),X,Y,Side,Side);
+ // Text labels identify rarity independently; this border aids recognition.
  DrawRect(Accent,X,Y,Side,1.8f);
  DrawRect(Accent,X,Y+Side-1.8f,Side,1.8f);
  DrawRect(Accent,X,Y,1.8f,Side);
  DrawRect(Accent,X+Side-1.8f,Y,1.8f,Side);
- // The second atlas changes *art only*: still the exact same three
- // equipment slots and saved canonical item codes. Traits choose motifs,
- // not actual additional item classes.
- int32 MotifColumn = INDEX_NONE, MotifRow = INDEX_NONE;
- if (Trait > 0 && IsValid(LootVariantAtlas)) {
-  if (Slot == 0) { // Force axe, Ward spellblade, Focus staff
-   MotifColumn = Trait - 1; MotifRow = 0;
-  } else if (Slot == 1) { // Force gauntlets, Ward shield, Focus helm
-   MotifColumn = Trait == 1 ? 2 : (Trait == 2 ? 0 : 1); MotifRow = 1;
-  } else { // Force / Ward ring, Focus grimoire
-   MotifColumn = Trait == 3 ? 2 : 0; MotifRow = 2;
+
+ const MoonfallLootArt::FCell Cell = MoonfallLootArt::Select(
+  Slot,Rarity,Trait,Tier,
+  IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas));
+ UTexture2D* IconTexture = nullptr;
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Base) IconTexture = LootIconAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Trait) IconTexture = LootVariantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Relic) IconTexture = LootRelicAtlas.Get();
+ if (IsValid(IconTexture) && Cell.Columns > 0 && Cell.Rows > 0) {
+  Canvas->K2_DrawTexture(IconTexture,
+    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
+    FVector2D(static_cast<float>(Cell.Column)/Cell.Columns,
+      static_cast<float>(Cell.Row)/Cell.Rows),
+    FVector2D(1.f/Cell.Columns,1.f/Cell.Rows),
+    FLinearColor::White,BLEND_Translucent);
+ } else {
+  // Accessible procedural silhouettes never rely on imported art assets.
+  const float S = Side;
+  const FLinearColor Metal(0.87f,0.88f,0.95f);
+  const auto L=[this](float AX,float AY,float BX,float BY,float Thick,
+                       const FLinearColor& C) {
+   Canvas->K2_DrawLine(FVector2D(AX,AY),FVector2D(BX,BY),Thick,C);
+  };
+  if (Slot == 0) {
+   L(X+S*.24f,Y+S*.75f,X+S*.78f,Y+S*.17f,3.f,Metal);
+   L(X+S*.30f,Y+S*.78f,X+S*.81f,Y+S*.20f,1.f,Accent);
+   L(X+S*.22f,Y+S*.56f,X+S*.46f,Y+S*.76f,3.f,Accent);
+   DrawRect(Metal,X+S*.11f,Y+S*.80f,S*.17f,S*.09f);
+  } else if (Slot == 1) {
+   DrawRect(Metal,X+S*.20f,Y+S*.34f,S*.60f,S*.45f);
+   DrawRect(Accent,X+S*.33f,Y+S*.40f,S*.34f,S*.33f);
+   DrawRect(Metal,X+S*.08f,Y+S*.24f,S*.28f,S*.23f);
+   DrawRect(Metal,X+S*.64f,Y+S*.24f,S*.28f,S*.23f);
+   L(X+S*.37f,Y+S*.55f,X+S*.63f,Y+S*.55f,2.f,Metal);
+  } else {
+   L(X+S*.19f,Y+S*.19f,X+S*.41f,Y+S*.37f,2.f,Metal);
+   L(X+S*.81f,Y+S*.19f,X+S*.59f,Y+S*.37f,2.f,Metal);
+   L(X+S*.42f,Y+S*.36f,X+S*.22f,Y+S*.63f,3.f,Accent);
+   L(X+S*.22f,Y+S*.63f,X+S*.48f,Y+S*.85f,3.f,Accent);
+   L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
+   DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
   }
  }
- if (MotifColumn != INDEX_NONE && MotifRow != INDEX_NONE) {
-  Canvas->K2_DrawTexture(LootVariantAtlas,
-    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
-    FVector2D(float(MotifColumn)/3.f,float(MotifRow)/3.f),
-    FVector2D(1.f/3.f,1.f/3.f),
-    FLinearColor::White,BLEND_Translucent);
-  return;
- }
- if (IsValid(LootIconAtlas)) {
-  // Atlas cells: weapon, armor, accessory / chest, crystal, coins.
-  // UV coordinates stay in the top row for equipment. 3 columns x 2 rows.
-  Canvas->K2_DrawTexture(LootIconAtlas,
-    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
-    FVector2D(float(Slot)/3.f,0.f), FVector2D(1.f/3.f,0.5f),
-    FLinearColor::White,BLEND_Translucent);
-  return;
- }
- // No asset dependency: geometric silhouettes remain legible before import.
- const float S = Side;
- const FLinearColor Metal(0.87f,0.88f,0.95f);
- const auto L=[this](float AX,float AY,float BX,float BY,float Thick,
-                      const FLinearColor& C) {
-  Canvas->K2_DrawLine(FVector2D(AX,AY),FVector2D(BX,BY),Thick,C);
- };
- if (Slot == 0) {
-  // Sword blade, crossguard and pommel.
-  L(X+S*.24f,Y+S*.75f,X+S*.78f,Y+S*.17f,3.f,Metal);
-  L(X+S*.30f,Y+S*.78f,X+S*.81f,Y+S*.20f,1.f,Accent);
-  L(X+S*.22f,Y+S*.56f,X+S*.46f,Y+S*.76f,3.f,Accent);
-  DrawRect(Metal,X+S*.11f,Y+S*.80f,S*.17f,S*.09f);
- } else if (Slot == 1) {
-  // Shoulders, plated chest and a central enchantment.
-  DrawRect(Metal,X+S*.20f,Y+S*.34f,S*.60f,S*.45f);
-  DrawRect(Accent,X+S*.33f,Y+S*.40f,S*.34f,S*.33f);
-  DrawRect(Metal,X+S*.08f,Y+S*.24f,S*.28f,S*.23f);
-  DrawRect(Metal,X+S*.64f,Y+S*.24f,S*.28f,S*.23f);
-  L(X+S*.37f,Y+S*.55f,X+S*.63f,Y+S*.55f,2.f,Metal);
- } else {
-  // Linked chain and gem in a crescent-shaped frame.
-  L(X+S*.19f,Y+S*.19f,X+S*.41f,Y+S*.37f,2.f,Metal);
-  L(X+S*.81f,Y+S*.19f,X+S*.59f,Y+S*.37f,2.f,Metal);
-  L(X+S*.42f,Y+S*.36f,X+S*.22f,Y+S*.63f,3.f,Accent);
-  L(X+S*.22f,Y+S*.63f,X+S*.48f,Y+S*.85f,3.f,Accent);
-  L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
-  DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
+ // Six discrete luminance marks distinguish Common..Legendary even without
+ // color perception; drawn on top of the painting, not baked into the art.
+ const float PipGap = Side >= 24.f ? 1.4f : 0.7f;
+ const float PipWidth = FMath::Max(0.5f,(Side-4.f-5.f*PipGap)/6.f);
+ for (int32 Pip=0; Pip<6; ++Pip) {
+  DrawRect(Pip <= Rarity ? FLinearColor(1.f,1.f,1.f,0.96f)
+       : FLinearColor(0.10f,0.10f,0.14f,0.86f),
+    X+2.f+Pip*(PipWidth+PipGap),Y+Side-4.2f,PipWidth,2.2f);
  }
 }
 
@@ -713,7 +711,7 @@ void AMoonfallCombatHUD::DrawHUD()
        && (SelectedRarity != 0 || SelectedTrait == 0)
        && SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000
           + SelectedRarity * 1000 + SelectedTier)
-    DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait,
+    DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,
        EquipX - 49.f, EquipY - 7.f, 40.f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
@@ -763,7 +761,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(1.f,0.52f,0.12f)};
    const float IconSide = FMath::Clamp(RowSpacing - 5.f, 16.f, 30.f);
    if (bValid)
-    DrawLootIcon(Slot, Rarity, Affix, Left + 17.f, Y - 1.f, IconSide);
+    DrawLootIcon(Slot, Rarity, Affix, Tier, Left + 17.f, Y - 1.f, IconSide);
    const FString CompactRow = bValid && PanelWidth < 420.f
      ? FString::Printf(TEXT("%02d %s T%d %s"), DisplayPosition + 1,
         Slots[Slot], Tier, Rarities[Rarity]) : Row;
