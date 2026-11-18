@@ -4537,6 +4537,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bRetry = NextDungeonSlot >= TotalDungeons;", spawning)
         self.assertIn("bRetry ? FailedDungeonSlots.Pop() : NextDungeonSlot++", spawning)
         self.assertIn("++DungeonSpawnAttempts[Slot];", spawning)
+        self.assertIn("int32 RetriesAvailableThisBatch = FailedDungeonSlots.Num();", spawning)
+        self.assertIn("NextDungeonSlot < TotalDungeons || RetriesAvailableThisBatch > 0", spawning)
+        self.assertIn("if (bRetry) --RetriesAvailableThisBatch;", spawning)
+        self.assertLess(spawning.index("int32 RetriesAvailableThisBatch"),
+                        spawning.index("while ((NextDungeonSlot"))
+        self.assertLess(spawning.index("if (bRetry) --RetriesAvailableThisBatch;"),
+                        spawning.index("++DungeonSpawnAttempts[Slot];"))
         self.assertIn("DungeonSpawnAttempts[Slot] < MaxAttemptsPerDungeon", spawning)
         self.assertIn("FailedDungeonSlots.Add(Slot);", spawning)
         self.assertIn("NextDungeonSlot >= TotalDungeons && FailedDungeonSlots.Num() == 0", spawning)
