@@ -1322,22 +1322,8 @@ void AMoonfallHeroPawn::ToggleAtlas() {
     if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
     if (AtlasDiscoveredShrineLocations.Num() >= 64) break;
     SeenShrineIds.Add(Shrine->ShrineId);
-    // Use map-authored titles where available; fall back to stable authored IDs.
-    // Built-in shrine IDs get names matching their in-world placement.
-    FString ShrineTitle = Shrine->MapDisplayName.ToString();
-    if (ShrineTitle.TrimStartAndEnd().IsEmpty()) {
-     const FName Id = Shrine->ShrineId;
-     if (Id == FName(TEXT("sanctuary_firstlight"))) ShrineTitle = TEXT("Firstlight Shrine");
-     else if (Id == FName(TEXT("crossroads_west"))) ShrineTitle = TEXT("Crossroads West Shrine");
-     else if (Id == FName(TEXT("crimson_path"))) ShrineTitle = TEXT("Crimson Path Shrine");
-     else if (Id == FName(TEXT("moonlit_path"))) ShrineTitle = TEXT("Moonlit Path Shrine");
-     else {
-      ShrineTitle = Id.ToString().Replace(TEXT("_"), TEXT(" "));
-      ShrineTitle += TEXT(" Shrine");
-     }
-    }
-    ShrineTitle.ReplaceInline(TEXT("\\n"), TEXT(" "));
-    ShrineTitle.ReplaceInline(TEXT("\\r"), TEXT(" "));
+    // Keep Atlas and world labels identical, while caching only discovered shrines.
+    const FString ShrineTitle = Shrine->GetMapDisplayName();
     AtlasDiscoveredShrineLocations.Add(ShrinePos);
     AtlasDiscoveredShrineNames.Add(ShrineTitle.Left(36));
     if (ActiveShrineId == Shrine->ShrineId
