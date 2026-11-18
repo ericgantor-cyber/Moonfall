@@ -131,6 +131,19 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    FirstDungeon | LastDungeon);
  Original->Salvage = 4321;
  Original->Level = 17;
+ // V12 world state must round-trip with the boss ledger in one transaction.
+ Original->ExploredZoneFogMasks.SetNumZeroed(6);
+ Original->ExploredZoneFogMasks[0] = (static_cast<int64>(1) << 55) | 1;
+ Original->ExploredZoneFogMasks[5] = static_cast<int64>(1) << 42;
+ Original->DungeonTreasureStates.SetNumZeroed(30 * 14);
+ Original->DungeonTreasureStates[0] = -1; // Collected treasure.
+ Original->DungeonTreasureStates[30 * 14 - 1] = 217; // Pending treasure.
+ FMoonfallWorldLootRecord PendingDrop;
+ PendingDrop.DropId = FGuid(0x12345678u, 0xABCDEF01u, 0x23456789u, 0xFEDCBA98u);
+ PendingDrop.ItemCode = 1234;
+ PendingDrop.Location = FVector(100.f, -200.f, 25.f);
+ PendingDrop.LevelId = FName(TEXT("MoonfallTestWorld"));
+ Original->PendingWorldLoot.Add(PendingDrop);
  TArray<uint8> Bytes;
  if (!TestTrue(TEXT("Serialize boss ledger in memory"),
        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
@@ -150,6 +163,31 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    (static_cast<uint32>(Restored->DefeatedDungeonBossMask) & MidDungeon) != 0u);
  TestEqual(TEXT("Reward balance survives"), Restored->Salvage, 4321);
  TestEqual(TEXT("Character level survives"), Restored->Level, 17);
+ TestEqual(TEXT("All six V12 fog-of-war zones survive"),
+   Restored->ExploredZoneFogMasks.Num(), 6);
+ if (Restored->ExploredZoneFogMasks.Num() == 6) {
+  TestEqual(TEXT("High fog bit in first zone survives"),
+    Restored->ExploredZoneFogMasks[0], Original->ExploredZoneFogMasks[0]);
+  TestEqual(TEXT("Exploration in final zone survives"),
+    Restored->ExploredZoneFogMasks[5], Original->ExploredZoneFogMasks[5]);
+ }
+ TestEqual(TEXT("All 420 dungeon treasure states survive"),
+   Restored->DungeonTreasureStates.Num(), 30 * 14);
+ if (Restored->DungeonTreasureStates.Num() == 30 * 14) {
+  TestEqual(TEXT("Collected treasure state survives"),
+    Restored->DungeonTreasureStates[0], -1);
+  TestEqual(TEXT("Pending treasure state survives"),
+    Restored->DungeonTreasureStates[30 * 14 - 1], 217);
+ }
+ TestEqual(TEXT("Pending world loot count survives"),
+   Restored->PendingWorldLoot.Num(), 1);
+ if (Restored->PendingWorldLoot.Num() == 1) {
+  const FMoonfallWorldLootRecord& Drop = Restored->PendingWorldLoot[0];
+  TestTrue(TEXT("World loot drop identity survives"), Drop.DropId == PendingDrop.DropId);
+  TestEqual(TEXT("World loot equipment code survives"), Drop.ItemCode, 1234);
+  TestTrue(TEXT("World loot position survives"), Drop.Location.Equals(PendingDrop.Location));
+  TestTrue(TEXT("World loot level identity survives"), Drop.LevelId == PendingDrop.LevelId);
+ }
 
  // Check every dungeon ledger position separately. One-hot round trips
  // detect dropped bits and accidental cross-zone victories, not just endpoints.
@@ -194,6 +232,10 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  // Emulate serialized V9 data and check it retains existing progress with
  // zero new boss victories. This does not substitute for loading a genuine
  // historical on-disk V9 fixture through LoadWorldProgress.
+ // A synthetic V9 record must not accidentally carry V11/V12-only data.
+ Original->ExploredZoneFogMasks.Reset();
+ Original->PendingWorldLoot.Reset();
+ Original->DungeonTreasureStates.Reset();
  Original->Version = 9;
  Original->DiscoveredDungeonMask = static_cast<int32>(FirstDungeon | MidDungeon);
  Original->DefeatedDungeonBossMask = 0;
