@@ -84,48 +84,71 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  }
  if (Hero->bAtlasOpen) {
-  // Native, read-only atlas: six named regions and thirty persistent dungeon states.
+  // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
+  // Artwork is procedural and schematic, never a claim of surveyed terrain.
   static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
-  const float Width = FMath::Min(680.f, Canvas->SizeX - 24.f);
-  const float Height = FMath::Min(610.f, Canvas->SizeY - 24.f);
+  static const FLinearColor AtlasZoneInk[6] = {
+   FLinearColor(0.43f, 0.34f, 0.28f), FLinearColor(0.28f, 0.38f, 0.32f),
+   FLinearColor(0.35f, 0.33f, 0.43f), FLinearColor(0.48f, 0.33f, 0.25f),
+   FLinearColor(0.35f, 0.43f, 0.47f), FLinearColor(0.39f, 0.34f, 0.39f)
+  };
+  const float Width = FMath::Min(900.f, Canvas->SizeX - 24.f);
+  const float Height = FMath::Min(650.f, Canvas->SizeY - 24.f);
   const float Left = (Canvas->SizeX - Width) * 0.5f;
   const float Top = (Canvas->SizeY - Height) * 0.5f;
-  DrawRect(FLinearColor(0.025f,0.035f,0.085f,0.96f), Left, Top, Width, Height);
-  const float Scale = FMath::Clamp(Width / 680.f, 0.52f, 1.f);
-  DrawText(TEXT("MOONFALL | ATLAS"), FLinearColor::White, Left + 18.f, Top + 12.f, nullptr, Scale * 1.35f);
-  // Mouse hit-test rectangles match ResidentContextMouseClick.
+  DrawRect(FLinearColor(0.045f, 0.043f, 0.049f, 0.98f), Left, Top, Width, Height);
+  DrawRect(FLinearColor(0.45f, 0.38f, 0.28f, 0.96f), Left + 8.f, Top + 8.f, Width - 16.f, 1.f);
+  const float Scale = FMath::Clamp(Width / 900.f, 0.48f, 1.f);
+  DrawText(TEXT("MOONFALL | CARTOGRAPHER'S ATLAS"), FLinearColor(0.91f, 0.84f, 0.68f), Left + 18.f, Top + 13.f, nullptr, Scale * 1.32f);
+  // The clickable X is the only Atlas header button (no ME button).
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
-  DrawText(TEXT("J / ESC: close | Up/Down: region | Left/Right: pan Y | Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 45.f, nullptr, Scale * 0.72f);
-  DrawText(TEXT("Mouse: select region / pan map"), FLinearColor(0.70f,0.84f,0.95f), Left + 18.f, Top + 64.f, nullptr, Scale * 0.70f);
-  const float AtlasRowGap = FMath::Max(0.f, Height - 220.f) / 6.f;
-  const bool bCompactAtlasRows = AtlasRowGap < 38.f;
+  DrawText(TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"), FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f, nullptr, Scale * 0.75f);
+  DrawText(TEXT("Mouse: select a region or pan the chart | Reveals as you explore"), FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f, nullptr, Scale * 0.72f);
+  const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
+  const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);
+  const bool bCompactAtlasRows = AtlasRowGap < 55.f;
+  const float AtlasSideTextScale = FMath::Clamp(AtlasSidebarWidth / 230.f, 0.50f, 1.f);
+  const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
+  DrawRect(FLinearColor(0.09f, 0.08f, 0.08f, 0.95f),
+      Left + 10.f, Top + 102.f, AtlasSidebarWidth - 16.f, Height - 132.f);
   for (int32 Zone = 0; Zone < 6; ++Zone) {
-   // Reserve the lower 102 px for the XY overview; shrink selected highlights
-   // and omit detail rows if the viewport cannot display two lines.
-   const float Y = Top + 86.f + Zone * AtlasRowGap;
-   const float RowHeight = FMath::Max(14.f, FMath::Min(61.f, AtlasRowGap - 2.f));
-   if (Zone == Hero->AtlasSelectedRegion) DrawRect(FLinearColor(0.17f,0.24f,0.36f,0.95f), Left + 10.f, Y - 5.f, Width - 20.f, RowHeight);
-   DrawText(FString::Printf(TEXT("%s  |  %d-%d"), AtlasRegions[Zone], Zone * 5 + 1, Zone * 5 + 5), FLinearColor(0.96f,0.83f,0.53f), Left + 18.f, Y, nullptr, Scale * 0.95f);
+   const float Y = Top + 110.f + Zone * AtlasRowGap;
+   const float RowHeight = FMath::Max(20.f, AtlasRowGap - 4.f);
+   if (Zone == Selected) {
+    DrawRect(FLinearColor(0.24f, 0.21f, 0.18f, 0.95f),
+        Left + 13.f, Y - 4.f, AtlasSidebarWidth - 22.f, RowHeight);
+    DrawRect(AtlasZoneInk[Zone], Left + 13.f, Y - 4.f, 4.f, RowHeight);
+   }
+   int32 Discovered = 0, Defeated = 0, Revealed = 0;
+   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+    if (Hero->HasDiscoveredDungeon(Zone, Dungeon)) ++Discovered;
+    if (Hero->HasDefeatedDungeonBoss(Zone, Dungeon)) ++Defeated;
+   }
+   for (int32 FogRow = 0; FogRow < 7; ++FogRow)
+    for (int32 FogColumn = 0; FogColumn < 8; ++FogColumn)
+     if (Hero->HasExploredAtlasCell(Zone, FogColumn, FogRow)) ++Revealed;
+   DrawText(FString(AtlasRegions[Zone]), Zone == Selected ? FLinearColor(1.f, 0.88f, 0.70f)
+       : FLinearColor(0.75f, 0.73f, 0.66f),
+       Left + 23.f, Y, nullptr, Scale * AtlasSideTextScale * 0.91f);
+   DrawText(FString::Printf(TEXT("DUNGEONS %d/5 | BOSSES %d/5"), Discovered, Defeated),
+       FLinearColor(0.72f, 0.79f, 0.76f), Left + 23.f, Y + 19.f,
+       nullptr, Scale * AtlasSideTextScale * 0.73f);
    if (!bCompactAtlasRows) {
-    FString Status;
-    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
-     const int32 Number = Zone * 5 + Dungeon + 1;
-     const TCHAR* Mark = Hero->HasDefeatedDungeonBoss(Zone, Dungeon) ? TEXT("X") : Hero->HasDiscoveredDungeon(Zone, Dungeon) ? TEXT("O") : TEXT("?");
-     Status += FString::Printf(TEXT("[%s] %d   "), Mark, Number);
-    }
-    DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
+    DrawText(FString::Printf(TEXT("EXPLORED %d%%"), FMath::RoundToInt(100.f * Revealed / 56.f)),
+        FLinearColor(0.72f, 0.66f, 0.55f), Left + 23.f, Y + 38.f,
+        nullptr, Scale * AtlasSideTextScale * 0.75f);
    }
   }
-  // World-space road projection: match MoonfallArena's 30 slots at 1350 cm.
-  // Selection pans the visible road window without teleporting the hero.
-  const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
-  const float MapLeft = Left + 18.f;
-  const float MapWidth = FMath::Max(40.f, Width - 36.f);
-  const float MapTop = Top + Height - 102.f;
-  const float MapHeight = 84.f;
-  DrawRect(FLinearColor(0.055f, 0.075f, 0.11f, 1.f), MapLeft, MapTop, MapWidth, MapHeight);
+  // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
+  const float MapLeft = Left + AtlasSidebarWidth + 19.f;
+  const float MapWidth = FMath::Max(40.f, Width - AtlasSidebarWidth - 36.f);
+  const float MapTop = Top + 105.f;
+  const float MapHeight = FMath::Max(74.f, Height - 141.f);
+  DrawRect(FLinearColor(0.09f, 0.087f, 0.087f, 1.f),
+      MapLeft - 3.f, MapTop - 3.f, MapWidth + 6.f, MapHeight + 6.f);
+  DrawRect(FLinearColor(0.054f, 0.053f, 0.055f, 1.f), MapLeft, MapTop, MapWidth, MapHeight);
   const float MapCenterX = (static_cast<float>(Selected * 5 + 2) - 14.5f) * 1350.f;
   const float VisibleHalfSpan = 21000.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
   const auto ProjectX = [&](float WorldX) {
@@ -151,9 +174,23 @@ void AMoonfallCombatHUD::DrawHUD()
      const float CellRight = FMath::Min(MapLeft + MapWidth, ProjectX(CellMinX + FogCellW));
      const float CellTop = FMath::Max(MapTop, ProjectY(CellMinY + FogCellH));
      const float CellBottom = FMath::Min(MapTop + MapHeight, ProjectY(CellMinY));
-     if (CellRight > CellLeft + 0.5f && CellBottom > CellTop + 0.5f)
-      DrawRect(FLinearColor(0.12f, 0.17f, 0.20f, 1.f),
-          CellLeft, CellTop, CellRight - CellLeft, CellBottom - CellTop);
+     if (CellRight > CellLeft + 0.5f && CellBottom > CellTop + 0.5f) {
+      // Ink-wash pigments suggest biome character without inventing topography.
+      const float InkVariation = 0.84f + 0.04f * float((Column * 3 + Row * 5) % 5);
+      DrawRect(AtlasZoneInk[Zone] * InkVariation, CellLeft, CellTop,
+          CellRight - CellLeft, CellBottom - CellTop);
+      // Subtle engraved contours only in revealed cells; bounded to 3 lines.
+      if (CellRight - CellLeft > 14.f && CellBottom - CellTop > 15.f) {
+       const FLinearColor Etch = AtlasZoneInk[Zone] * 0.64f;
+       const float EtchInset = FMath::Min(7.f, (CellRight - CellLeft) * 0.12f);
+       for (int32 EtchLine = 1; EtchLine <= 3; ++EtchLine) {
+        const float EtchY = CellTop + (CellBottom - CellTop) * float(EtchLine) / 4.f;
+        const float EtchOffset = float((Column + Row + EtchLine) % 3) * 2.f;
+        DrawRect(Etch, CellLeft + EtchInset + EtchOffset, EtchY,
+            FMath::Max(0.f, CellRight - CellLeft - EtchInset * 2.f - EtchOffset), 1.f);
+       }
+      }
+     }
     }
    }
   }
@@ -211,7 +248,8 @@ void AMoonfallCombatHUD::DrawHUD()
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
   }
-  DrawText(TEXT("Yellow: hero | cyan: shrine | violet: respawn | blue/green: dungeons"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
+  DrawText(TEXT("SCHEMATIC TERRAIN | gold: you | cyan: shrines | violet: respawn | blue/green: dungeons"),
+      FLinearColor(0.82f, 0.77f, 0.67f), MapLeft, MapTop + MapHeight + 8.f, nullptr, Scale * 0.69f);
   return;
  }
  if (Hero->bOptionsOpen) {
