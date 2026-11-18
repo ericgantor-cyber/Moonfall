@@ -947,11 +947,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
-        self.assertIn("int32 Version = 11;", persistent)
+        self.assertIn("int32 Version = 12;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
         self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
-        self.assertIn("Save->Version > 11", self.hero_cpp)
+        self.assertIn("Save->Version > 12", self.hero_cpp)
         self.assertIn("Save->Version >= 11", self.hero_cpp)
         self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
         self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
@@ -3777,9 +3777,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 11", self.hero_cpp)
+        self.assertIn("Version > 12", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -4399,7 +4399,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 11;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4409,7 +4409,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 11", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 12", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -5868,6 +5868,62 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
             "\n}", 1)[0]
         self.assertIn("Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen", toggle)
+
+
+
+    def test_v12_atlas_geographic_fog_is_bounded_persistent_and_legacy_safe(self):
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn("UPROPERTY() TArray<int64> ExploredZoneFogMasks;", save_h)
+        self.assertIn("TArray<int64> ExploredZoneFogMasks;", self.hero_h)
+        self.assertIn("bool HasExploredAtlasCell(int32 Zone, int32 Column, int32 Row) const;", self.hero_h)
+        self.assertIn("void RevealAtlasAtWorldLocation();", self.hero_h)
+
+        getter = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::HasExploredAtlasCell(", 1)[1].split(
+            "void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()", 1)[0]
+        reveal = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        self.assertIn("Zone < 0 || Zone >= 6 || Column < 0 || Column >= 8 || Row < 0 || Row >= 7", getter)
+        self.assertIn("ExploredZoneFogMasks.Num() != 6", getter)
+        self.assertIn("(1ULL << CellBit)", getter)
+        self.assertIn("bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked", reveal)
+        for bound in ("Position.X < -20250.f", "Position.X > 20250.f",
+                      "Position.Y < -12000.f", "Position.Y > 12000.f"):
+            self.assertIn(bound, reveal)
+        self.assertIn("ExploredZoneFogMasks.Init(0, 6);", reveal)
+        self.assertIn("ExploredZoneFogMasks[Zone] |= (1LL << (Row * 8 + Column));", reveal)
+        self.assertNotIn("SaveGameToSlot(", reveal)
+
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1]
+        self.assertIn("ExploredZoneFogMasks.Num() != 6", save)
+        self.assertIn("const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;", save)
+        self.assertIn("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;", save)
+        self.assertLess(save.index("ExploredZoneFogMasks.Num() != 6"),
+                        save.index("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;"))
+        self.assertIn("Save->Version < 1 || Save->Version > 12", load)
+        self.assertIn("if (Save->Version >= 12) {", load)
+        self.assertIn("if (Save->ExploredZoneFogMasks.Num() != 6)", load)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", load)
+        self.assertLess(load.index("if (Save->Version >= 12) {"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertIn("ExploredZoneFogMasks = Save->Version >= 12 ? Save->ExploredZoneFogMasks : TArray<int64>();", load)
+
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertLess(tick.index("RevealAtlasAtWorldLocation();"),
+                        tick.index("SecondsSinceLastWorldSave += SafeTimerDelta;"))
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        self.assertIn("if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;", atlas)
+        self.assertIn("const float FogCellW = 6750.f / 8.f;", atlas)
+        self.assertIn("const float FogCellH = 24000.f / 7.f;", atlas)
+        self.assertIn("const float CellLeft = FMath::Max(MapLeft, ProjectX(CellMinX));", atlas)
+        self.assertIn("const float CellBottom = FMath::Min(MapTop + MapHeight, ProjectY(CellMinY));", atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
 if __name__ == "__main__":
