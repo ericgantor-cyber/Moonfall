@@ -209,6 +209,19 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), RoadStart, RoadY, RoadEnd - RoadStart, 4.f);
    }
   }
+  // One pointer lookup per Atlas frame. Tooltips do not perform world traces
+  // or expose any undiscovered coordinates.
+  float AtlasPointerX = 0.f, AtlasPointerY = 0.f;
+  bool bAtlasPointerInsideMap = false;
+  if (APlayerController* AtlasPC = Cast<APlayerController>(Hero->GetController())) {
+   if (AtlasPC->bShowMouseCursor && AtlasPC->GetMousePosition(AtlasPointerX, AtlasPointerY)
+       && FMath::IsFinite(AtlasPointerX) && FMath::IsFinite(AtlasPointerY))
+    bAtlasPointerInsideMap = AtlasPointerX >= MapLeft && AtlasPointerX <= MapLeft + MapWidth
+        && AtlasPointerY >= MapTop && AtlasPointerY <= MapTop + MapHeight;
+  }
+  int32 HoveredDungeonSlot = INDEX_NONE;
+  bool bHoveredShrine = false;
+  bool bHoveredActiveRespawn = false;
   // Map wayfinding: mark only the nearest known, unfinished dungeon in the
   // selected region. Distances are straight-line estimates, NOT traversable routes.
   const FVector HeroPosition = Hero->GetActorLocation();
@@ -241,6 +254,9 @@ void AMoonfallCombatHUD::DrawHUD()
    if (MarkerY < MapTop + 5.f || MarkerY > MapTop + MapHeight - 5.f) continue;
    // Undiscovered dungeon locations remain hidden instead of exposing coordinates.
    if (!bFound && !bCleared) continue;
+   if (bAtlasPointerInsideMap && FMath::Abs(AtlasPointerX - MarkerX) <= 10.f
+       && FMath::Abs(AtlasPointerY - MarkerY) <= 10.f)
+    HoveredDungeonSlot = Slot;
    if (Slot == NearestKnownDungeonSlot)
     DrawRect(FLinearColor(0.96f, 0.72f, 0.33f), MarkerX - 7.f, MarkerY - 7.f, 14.f, 14.f);
    DrawRect(bCleared ? FLinearColor(0.24f, 0.65f, 0.46f)
@@ -258,6 +274,11 @@ void AMoonfallCombatHUD::DrawHUD()
        || ShrineY < MapTop + 6.f || ShrineY > MapTop + MapHeight - 6.f) continue;
    const bool bActiveRespawn = Hero->bAtlasHasActiveRespawnShrineLocation
        && FVector::DistSquared2D(ShrinePos, Hero->AtlasActiveRespawnShrineLocation) <= 1.f;
+   if (bAtlasPointerInsideMap && FMath::Abs(AtlasPointerX - ShrineX) <= 11.f
+       && FMath::Abs(AtlasPointerY - ShrineY) <= 11.f) {
+    bHoveredShrine = true;
+    bHoveredActiveRespawn = bActiveRespawn;
+   }
    DrawRect(bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f) : FLinearColor(0.32f, 0.91f, 0.91f),
        ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
    DrawRect(FLinearColor(0.025f, 0.035f, 0.085f), ShrineX - 2.f, ShrineY - 2.f, 4.f, 4.f);
@@ -268,6 +289,37 @@ void AMoonfallCombatHUD::DrawHUD()
    if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
+  }
+  // Hover cards are purely informational and keep the mouse optional.
+  // Only known markers qualify, and cards remain inside the chart bounds.
+  if (bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f
+      && (bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)) {
+   const float TooltipW = FMath::Min(220.f, MapWidth - 12.f);
+   const float TooltipH = 38.f;
+   const float TooltipX = FMath::Clamp(AtlasPointerX + 12.f,
+       MapLeft + 4.f, MapLeft + MapWidth - TooltipW - 4.f);
+   const float TooltipY = FMath::Clamp(AtlasPointerY - TooltipH - 12.f,
+       MapTop + 4.f, MapTop + MapHeight - TooltipH - 4.f);
+   DrawRect(FLinearColor(0.045f, 0.044f, 0.052f, 0.98f),
+       TooltipX, TooltipY, TooltipW, TooltipH);
+   DrawRect(FLinearColor(0.58f, 0.48f, 0.33f),
+       TooltipX, TooltipY, TooltipW, 2.f);
+   if (bHoveredShrine) {
+    DrawText(bHoveredActiveRespawn ? TEXT("ACTIVE RESPAWN SHRINE") : TEXT("DISCOVERED SHRINE"),
+        FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
+        nullptr, Scale * 0.77f);
+    DrawText(TEXT("Permanent discovery"), FLinearColor(0.76f, 0.76f, 0.72f),
+        TooltipX + 7.f, TooltipY + 22.f, nullptr, Scale * 0.66f);
+   } else {
+    const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
+        HoveredDungeonSlot / 5, HoveredDungeonSlot % 5);
+    DrawText(FString::Printf(TEXT("DUNGEON %02d"), HoveredDungeonSlot + 1),
+        FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
+        nullptr, Scale * 0.77f);
+    DrawText(bDungeonCleared ? TEXT("Boss defeated") : TEXT("Discovered | boss not defeated"),
+        FLinearColor(0.76f, 0.76f, 0.72f), TooltipX + 7.f, TooltipY + 22.f,
+        nullptr, Scale * 0.66f);
+   }
   }
   // Fixed compass: Unreal's +Y world axis points up on this XY projection.
   DrawText(TEXT("N"), FLinearColor(0.91f, 0.78f, 0.52f),
