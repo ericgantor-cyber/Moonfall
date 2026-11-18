@@ -14,6 +14,7 @@ SRC=ROOT/"MoonfallUnreal"/"Source"/"MoonfallUnreal"
 ICON=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootAtlas.png"
 VARIANTS=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootVariants_Atlas.png"
 RELICS=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootRelics_Atlas.png"
+MASTERWORKS=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootMasterworks_Atlas.png"
 IMPORTER=ROOT/"MoonfallUnreal"/"Build"/"Import-Loot-Art.py"
 
 
@@ -51,6 +52,15 @@ class LootArtTests(unittest.TestCase):
         self.assertEqual(struct.unpack(">II",raw[16:24]),(120,120))
         self.assertIn(b"tRNS",raw,"Relic atlas requires real transparency")
 
+    def test_masterwork_atlas_is_compact_and_transparent(self):
+        raw=MASTERWORKS.read_bytes()
+        self.assertEqual(raw[:8],bytes.fromhex("89504e470d0a1a0a"))
+        self.assertGreater(len(raw),1024)
+        self.assertLess(len(raw),512*1024)
+        self.assertEqual(struct.unpack(">II",raw[16:24]),(120,120))
+        self.assertIn(b"tRNS",raw)
+        self.assertEqual((120//3,120//3),(40,40))
+
     @classmethod
     def importer_validator(cls):
         # Load *only* the pure validator from the Unreal Editor script.
@@ -67,9 +77,10 @@ class LootArtTests(unittest.TestCase):
         exec(code,context)
         return context["validate_atlas"]
 
-    def test_all_three_png_files_pass_real_chunk_crc_checks(self):
+    def test_all_four_png_files_pass_real_chunk_crc_checks(self):
         validate=self.importer_validator()
-        for path,size in ((ICON,(120,80)),(VARIANTS,(120,120)),(RELICS,(120,120))):
+        for path,size in ((ICON,(120,80)),(VARIANTS,(120,120)),
+                          (RELICS,(120,120)),(MASTERWORKS,(120,120))):
             with self.subTest(filename=path.name):
                 validate(path,size)
 
@@ -94,6 +105,9 @@ class LootArtTests(unittest.TestCase):
     def test_trait_art_mapping_never_changes_item_codes(self):
         rules=(SRC/"MoonfallLootArtRules.h").read_text(encoding="utf-8")
         self.assertIn("constexpr FCell Select(",rules)
+        self.assertIn("EAtlas::Masterwork",rules)
+        self.assertIn("bMasterworkLoaded && Rarity >= 4 && Tier >= 16",rules)
+        self.assertIn("constexpr bool ValidCell(",rules)
         self.assertIn("bRelicLoaded && Rarity >= 3 && Tier >= 8",rules)
         self.assertIn("Trait == 3 ? 2 : 0",rules)
         self.assertIn("(Tier + Rarity + Trait) % 3",rules)
@@ -104,6 +118,9 @@ class LootArtTests(unittest.TestCase):
         self.assertIn('DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,',self.hud)
         self.assertIn('Pip <= Rarity',self.hud)
         self.assertIn('T_MoonfallLootRelics.T_MoonfallLootRelics',self.hud)
+        self.assertIn('T_MoonfallLootMasterworks.T_MoonfallLootMasterworks',self.hud)
+        self.assertIn('UPROPERTY() TObjectPtr<UTexture2D> LootMasterworkAtlas',self.hud_h)
+        self.assertIn('MoonfallLootArt::ValidCell(Cell)',self.hud)
 
         self.assertIn('UPROPERTY() TObjectPtr<UTexture2D> LootVariantAtlas',self.hud_h)
         self.assertIn('DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, int32 Tier,',self.hud_h)
@@ -126,6 +143,9 @@ class LootArtTests(unittest.TestCase):
         self.assertIn('Moonfall_LootAtlas.png',importer)
         self.assertIn('Moonfall_LootVariants_Atlas.png',importer)
         self.assertIn('Moonfall_LootRelics_Atlas.png',importer)
+        self.assertIn('Moonfall_LootMasterworks_Atlas.png',importer)
+        self.assertIn('T_MoonfallLootMasterworks',importer)
+        self.assertIn('Existing Moonfall art asset cannot be loaded:',importer)
         self.assertIn('T_MoonfallLootRelics',importer)
         self.assertIn('zlib.crc32(',importer)
         self.assertIn('validate_atlas(SOURCE_DIR / filename',importer)
