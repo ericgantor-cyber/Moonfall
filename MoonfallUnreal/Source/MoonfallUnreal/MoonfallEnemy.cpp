@@ -116,6 +116,10 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  Posture = 0.f;
  const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
  PostureBrokenUntil = Now + VulnerabilitySeconds;
+ // Breaking posture cancels both the visible counter and any queued
+ // adaptation, so recovering enemies cannot fire an inherited sweep.
+ AdaptiveSweepReadyUntil = -1.f;
+ bAdaptiveSweepCommitted = false;
  CancelDivineSignature();
  bPostureFinisherAvailable = true;
  PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
@@ -215,6 +219,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    NextTacticalRetreatAt = Now + 8.f;
    bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
+   AdaptiveSweepReadyUntil = -1.f;
+   bAdaptiveSweepCommitted = false;
    WindupEndsAt = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
@@ -278,6 +284,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // animations. Never leave a danger marker active on a defeated god.
    CancelDivineSignature();
    WindupEndsAt = -1.f;
+   AdaptiveSweepReadyUntil = -1.f;
+   bAdaptiveSweepCommitted = false;
    BossWarningEndTime = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
@@ -399,6 +407,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
+  // Menus, death and possession changes invalidate both enemy warnings and
+  // response memory. A paused menu never queues a surprise counter strike.
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -411,6 +423,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Cancel the full chain without dealing damage, then apply a brief recovery.
  if (!FMath::IsFinite(WindupEndsAt)) {
   CancelDivineSignature();
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -464,6 +478,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
   CancelDivineSignature();
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -483,6 +498,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Only deliberate close-range approaches activate their forgiving attacks.
  const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
  if (bSanctuaryPractice && Distance > 450.f) {
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -553,6 +570,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
  };
  if (!bInCombatArea) {
+  // Leaving combat clears any pending parry adaptation; the hero must earn
+  // another one after re-engaging rather than inherit an offscreen counter.
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   // Drop stale aggro once out of range; otherwise guards can stay stranded.
   if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
    LastSawHeroAt = -100.f;
@@ -584,6 +605,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
   WindupEndsAt = -1.f;
+  bAdaptiveSweepCommitted = false; // The telegraph has resolved.
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   // Preserve longer stagger recovery and cap invalid cooldown tuning.
@@ -1177,10 +1199,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // committed. Blueprints can attach a windup montage / character voice.
     // Without authored assets the source path remains silent and functional.
     OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);
+    // Blueprint events run synchronously and can interrupt, kill, or destroy
+    // the enemy. Never play a ghost tell after a canceled windup. Throttle
+    // each optional sound independently of real attacks and HUD warnings.
     if (bElite && !bSanctuaryPractice && IsValid(EliteAttackTellSound)
-        && GetWorld() && Distance <= 1000.f)
+        && GetWorld() && Distance <= 1000.f
+        && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health > 0.f
+        && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+        && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+        && FMath::IsFinite(Now)
+        && (!FMath::IsFinite(NextEliteAttackTellSoundAt)
+            || Now >= NextEliteAttackTellSoundAt)) {
+     NextEliteAttackTellSoundAt = Now + 2.f;
      UGameplayStatics::PlaySoundAtLocation(
        this, EliteAttackTellSound.Get(), GetActorLocation(), 0.55f);
+    }
    }
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
