@@ -3,13 +3,17 @@
 No Unreal engine compilation or packaged-game rendering is claimed.
 """
 import struct
+import ast
+import zlib
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 SRC=ROOT/"MoonfallUnreal"/"Source"/"MoonfallUnreal"
 ICON=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootAtlas.png"
 VARIANTS=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootVariants_Atlas.png"
+RELICS=ROOT/"MoonfallUnreal"/"Data"/"LootArt"/"Moonfall_LootRelics_Atlas.png"
 IMPORTER=ROOT/"MoonfallUnreal"/"Build"/"Import-Loot-Art.py"
 
 
@@ -40,18 +44,78 @@ class LootArtTests(unittest.TestCase):
         self.assertEqual((width//3,height//3),(40,40))
         self.assertIn(b"tRNS",raw,"Generated icons must keep transparency")
 
+    def test_relic_atlas_has_nine_square_cells(self):
+        raw=RELICS.read_bytes()
+        self.assertEqual(raw[:8],bytes.fromhex("89504e470d0a1a0a"))
+        self.assertLess(len(raw),512*1024)
+        self.assertEqual(struct.unpack(">II",raw[16:24]),(120,120))
+        self.assertIn(b"tRNS",raw,"Relic atlas requires real transparency")
+
+    @classmethod
+    def importer_validator(cls):
+        # Load *only* the pure validator from the Unreal Editor script.
+        # Do not import unreal, which is unavailable on GitHub-hosted Linux.
+        source=IMPORTER.read_text(encoding="utf-8")
+        parsed=ast.parse(source)
+        fn=next(n for n in parsed.body
+                if isinstance(n,ast.FunctionDef) and n.name=="validate_atlas")
+        module=ast.Module(body=[fn],type_ignores=[])
+        code=compile(module,str(IMPORTER),"exec")
+        context={"Path":Path,"struct":struct,"zlib":zlib,
+                 "PNG_SIGNATURE":bytes.fromhex("89504e470d0a1a0a"),
+                 "MAX_PNG_BYTES":512*1024}
+        exec(code,context)
+        return context["validate_atlas"]
+
+    def test_all_three_png_files_pass_real_chunk_crc_checks(self):
+        validate=self.importer_validator()
+        for path,size in ((ICON,(120,80)),(VARIANTS,(120,120)),(RELICS,(120,120))):
+            with self.subTest(filename=path.name):
+                validate(path,size)
+
+    def test_png_validator_rejects_corruption_before_import(self):
+        validate=self.importer_validator()
+        original=RELICS.read_bytes()
+        with TemporaryDirectory() as folder:
+            path=Path(folder)/"bad.png"
+            tests=(
+                (original[:28]+bytes([original[28]^1])+original[29:],"checksum"),
+                (original[:-8],"Truncated|Incomplete"),
+                (original[:16]+b"\\x00\\x00\\x01\\x00"+original[20:],
+                 "checksum|dimensions"),
+                (original+b"junk","Incomplete"),
+            )
+            for altered,expected in tests:
+                path.write_bytes(altered)
+                with self.subTest(error=expected),self.assertRaisesRegex(
+                    ValueError,expected):
+                    validate(path,(120,120))
+
     def test_trait_art_mapping_never_changes_item_codes(self):
+        rules=(SRC/"MoonfallLootArtRules.h").read_text(encoding="utf-8")
+        self.assertIn("constexpr FCell Select(",rules)
+        self.assertIn("bRelicLoaded && Rarity >= 3 && Tier >= 8",rules)
+        self.assertIn("Trait == 3 ? 2 : 0",rules)
+        self.assertIn("(Tier + Rarity + Trait) % 3",rules)
+        self.assertIn("MoonfallLootArt::Select(",self.hud)
+        self.assertIn("MoonfallLootArt::ValidEquipment(",self.hud)
+        self.assertIn('UPROPERTY() TObjectPtr<UTexture2D> LootRelicAtlas',self.hud_h)
+        self.assertIn('DrawLootIcon(Slot, Rarity, Affix, Tier,',self.hud)
+        self.assertIn('DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,',self.hud)
+        self.assertIn('Pip <= Rarity',self.hud)
+        self.assertIn('T_MoonfallLootRelics.T_MoonfallLootRelics',self.hud)
+
         self.assertIn('UPROPERTY() TObjectPtr<UTexture2D> LootVariantAtlas',self.hud_h)
-        self.assertIn('DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,',self.hud_h)
-        self.assertIn('Trait < 0 || Trait > 3',self.hud)
-        self.assertIn('Trait > 0 && IsValid(LootVariantAtlas)',self.hud)
-        self.assertIn('if (Slot == 0) { // Force axe, Ward spellblade, Focus staff',self.hud)
-        self.assertIn('MotifColumn = Trait == 1 ? 2 : (Trait == 2 ? 0 : 1)',self.hud)
-        self.assertIn('MotifColumn = Trait == 3 ? 2 : 0',self.hud)
-        self.assertIn('FVector2D(float(MotifColumn)/3.f,float(MotifRow)/3.f)',self.hud)
-        self.assertIn('FVector2D(1.f/3.f,1.f/3.f)',self.hud)
-        self.assertIn('DrawLootIcon(Slot, Rarity, Affix,',self.hud)
-        self.assertIn('DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait,',self.hud)
+        self.assertIn('DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, int32 Tier,',self.hud_h)
+
+
+
+
+
+
+
+
+
         self.assertIn('SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000',self.hud)
         self.assertIn('EquipX - 49.f, EquipY - 7.f, 40.f',self.hud)
         # The source image is purely decorative and cannot add or mutate gear.
@@ -61,9 +125,14 @@ class LootArtTests(unittest.TestCase):
         importer=IMPORTER.read_text(encoding="utf-8")
         self.assertIn('Moonfall_LootAtlas.png',importer)
         self.assertIn('Moonfall_LootVariants_Atlas.png',importer)
+        self.assertIn('Moonfall_LootRelics_Atlas.png',importer)
+        self.assertIn('T_MoonfallLootRelics',importer)
+        self.assertIn('zlib.crc32(',importer)
+        self.assertIn('validate_atlas(SOURCE_DIR / filename',importer)
+        self.assertIn('Non-texture asset occupies Moonfall art slot:',importer)
         self.assertIn('T_MoonfallLootVariants',importer)
         self.assertIn('bytes.fromhex("89504e470d0a1a0a")',importer)
-        self.assertIn('struct.unpack(">II", header[16:24])',importer)
+        self.assertIn('struct.unpack(">IIBBBBB", chunk_data)',importer)
         self.assertIn('/Game/Moonfall/LootArt',importer)
         self.assertIn('T_MoonfallLootAtlas',importer)
         self.assertIn('unreal.AssetImportTask()',importer)
@@ -72,13 +141,13 @@ class LootArtTests(unittest.TestCase):
         self.assertIn('/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas',self.hud)
         self.assertIn('UPROPERTY() TObjectPtr<UTexture2D> LootIconAtlas',self.hud_h)
         self.assertIn('/Game/Moonfall/LootArt/T_MoonfallLootVariants.T_MoonfallLootVariants',self.hud)
-        self.assertIn('if (IsValid(LootIconAtlas))',self.hud)
-        self.assertIn('FVector2D(float(Slot)/3.f,0.f)',self.hud)
-        self.assertIn('FVector2D(1.f/3.f,0.5f)',self.hud)
+        self.assertIn('IsValid(LootIconAtlas)',self.hud)
+        self.assertIn('static_cast<float>(Cell.Column)/Cell.Columns',self.hud)
+        self.assertIn('static_cast<float>(Cell.Row)/Cell.Rows',self.hud)
         self.assertIn('Canvas->K2_DrawTexture',self.hud)
 
     def test_art_is_safe_for_existing_item_codes(self):
-        self.assertIn('DrawLootIcon(Slot, Rarity, Affix, Left + 17.f',self.hud)
+        self.assertIn('DrawLootIcon(Slot, Rarity, Affix, Tier, Left + 17.f',self.hud)
         self.assertIn('const bool bValid = Code > 0',self.hud)
         self.assertIn('if (bValid)\n    DrawLootIcon(',self.hud)
         self.assertIn('if (Slot == 0)',self.pickup)
