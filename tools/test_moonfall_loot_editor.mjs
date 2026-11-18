@@ -50,7 +50,7 @@ assert.ok(script.includes("file.size>1024*1024"),"Limit imported CSV file size")
 assert.ok(script.includes("const candidate=parseCsv(await file.text())"),"Parse into a temporary candidate");
 assert.ok(script.indexOf("const checked=validate(candidate)") < script.indexOf("rows=checked.rows"),"Validate before replacing current edits");
 assert.ok(script.includes("Import rejected; your current table is unchanged."),"Import failure must explain edits are preserved");
-const malformed=helper.parseCsv("Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask,ForcedTrait\\nBad,Regular,-1,1,0,99999,7,0\\n");
+const malformed=helper.parseCsv("Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask,ForcedTrait\nBad,Regular,-1,1,0,99999,7,0\n");
 assert.ok(helper.validate(malformed).errors.length>0,"Out-of-range imported weights must be rejected");
 assert.equal(script.includes("innerHTML"),false,"Do not inject user-authored row names as markup");
 assert.equal(script.includes("fetch("),false,"Offline editor must not contact servers");
