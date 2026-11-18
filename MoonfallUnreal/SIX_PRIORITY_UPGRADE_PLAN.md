@@ -32,9 +32,45 @@ separate source-level and engine-level claims:
 | --- | --- | --- |
 | World | Bounded retry attempts for failed generated dungeon layouts; retries separated across timer ticks; no permanent slot consumption by destroying authored layouts | Real UE5.4 construction failure injection, all 30 distinct layouts, road/sanctuary navigation, streaming and startup frame times |
 | Combat | Rejects invalid/dead boss and mob spawns, atomically rolls back damaged combat/bonus groups after Blueprint callbacks, and guards against synchronous overlap re-entry | Combo/parry/dodge feel, boss callback destruction, collision-blocked 5–6 and 5–11 mob formations, native AI and GPU profiling |
-| Progression | Rechecks dungeon treasure pickups and restores pending reward records on room re-entry; indexes persisted world loot by GUID into an item-code map once per restoration, rather than repeating a saved-array scan per actor | In-world loot duplication/collection, large 512-drop stress, exact inventory and persistent-save round-trips, 30-dungeon reward recovery |
+| Progression | Rechecks dungeon treasure pickups and restores pending reward records on room re-entry; indexes persisted world loot by GUID; editable weighted tables now choose regular/elite/boss and regional gear, plus seeded dungeon treasure, using legacy-safe item codes | Actual drop distributions, 512-drop stress, exact inventory and persistent-save round-trips, 30-dungeon reward recovery and table tuning at all levels |
 | Characters | Guards NPC conversations and quest actions against invalid vitality/player ownership and conflicting Atlas/character overlays, while permitting intentional actions inside resident context | Mouse-only, keyboard and controller conversations; quests, reputation, relationship persistence; original Z/Nyra visual inspection |
 | Interface & systems | Native dungeon test source now expects V12 and covers map-fog masks, 420 treasure states and pending loot; source tests cover updated safety contracts | Compiled Editor automation, packaged Windows builds and installer, readable 4K HUD/menu focus, accessible inputs |
+
+### Weighted loot tables: rank, region and dungeon treasure
+
+The Unreal hero now exposes an editor-configurable `LootTableEntries` array
+(`FMoonfallLootTableEntry`) containing **Source**, **ZoneIndex** (-1 generic or
+0–5 regional), **MinimumLevel**, **Rarity** (0–5), **Weight** (1–10000),
+**SlotMask** (weapon/armor/accessory bits) and **ForcedTrait** (0 random or
+Force/Ward/Focus). C++ constructs usable defaults, so an external asset is not
+required to start. Authors can tune a Hero Blueprint's class defaults.
+
+| Pool | Default weighted candidates | Guarantee |
+| --- | --- | --- |
+| Regular | Common 44, Uncommon 34, Rare 18, Epic 4; Emerald +2 at level 40, Legendary +1 at level 60 | Valid equipment ID, no forced rare drop |
+| Elite | Rare 70, Epic 25; Emerald +5 at level 20, Legendary +1 at level 50 | Rare or better |
+| Boss | Epic 75; Emerald +20 at level 30, Legendary +5 at level 60 | Epic or better |
+| Dungeon treasure | Rare 60, Epic 30; Emerald +8 at level 20, Legendary +2 at level 50 | Rare or better |
+
+Every one of the six dungeon regions adds its own weight-8 thematic row to
+each source pool, selecting a region-specific combination of equipment slot
+and legacy Force/Ward/Focus trait. These are **relative weights**, not fixed
+percentages: level gates and regional entries change each pool's denominator.
+World enemies without a dungeon owner use the generic rank pool; dungeon
+mobs/bosses use their spawning dungeon's exact region.
+
+Dungeon treasure uses `FRandomStream` with the existing saved room seed. A
+previously created or collected reward is returned from the V12 ledger
+**before any new roll**, so editing tables never rerolls existing rewards.
+Enemy kills still create ground pickups and write persistence before
+collection; the item code format and original artwork are unchanged.
+
+**Not yet implemented:** individually named/unique boss item IDs, material
+inventory/drop stacks, a persistent Luck attribute/pity system, and a dedicated
+visual loot-table editor. Those need their own item schema and save-compatible
+migration, not undocumented extra codes. The source tests assert table
+constraints, but actual drop frequency, deterministic native replay, boss
+drops and save/reload behavior require UE5.4 gameplay verification.
 
 ### Release checks (do these in order)
 
