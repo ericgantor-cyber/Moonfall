@@ -622,7 +622,16 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
   // Claimed treasure is a successful, empty room; do not duplicate a pickup.
   return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;
  }
- if (SpawnedTreasure[ChamberIndex].IsValid()) return true;
+ // A weak pointer can still refer to an actor pending destruction.
+ // Only a live pickup with the correct persisted chamber identity counts.
+ if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get()) {
+  if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()
+      && Existing->GetItemCode() == Code
+      && Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex))
+   return true;
+  if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();
+  SpawnedTreasure[ChamberIndex].Reset();
+ }
  const FVector Position = GetActorTransform().TransformPosition(
    FVector(ChamberIndex * ChamberLength, 185.f, 55.f));
  FActorSpawnParameters Params;
@@ -646,6 +655,19 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  }
  SpawnedTreasure[ChamberIndex] = Loot;
  OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
+ // A Blueprint callback may collect the reward legitimately or destroy the
+ // actor without saving a claim. Those outcomes must not be conflated.
+ if (Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1) {
+  SpawnedTreasure[ChamberIndex].Reset();
+  return true;
+ }
+ if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()
+     || Loot->GetItemCode() != Code
+     || !Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)) {
+  if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();
+  SpawnedTreasure[ChamberIndex].Reset();
+  return false;
+ }
  return true;
 }
 
