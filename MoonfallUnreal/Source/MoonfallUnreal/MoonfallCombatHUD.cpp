@@ -97,12 +97,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
-  if (Width >= 410.f) {
-   DrawRect(FLinearColor(0.16f, 0.30f, 0.37f, 0.96f), AtlasCloseX - 68.f, Top + 12.f, 58.f, 28.f);
-   DrawText(TEXT("ME"), FLinearColor::White, AtlasCloseX - 52.f, Top + 16.f, nullptr, 0.85f);
-  }
   DrawText(TEXT("J / ESC: close | Up/Down: region | Left/Right: pan Y | Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 45.f, nullptr, Scale * 0.72f);
-  DrawText(TEXT("Mouse: select region / pan map | ME: center on hero"), FLinearColor(0.70f,0.84f,0.95f), Left + 18.f, Top + 64.f, nullptr, Scale * 0.70f);
+  DrawText(TEXT("Mouse: select region / pan map"), FLinearColor(0.70f,0.84f,0.95f), Left + 18.f, Top + 64.f, nullptr, Scale * 0.70f);
   const float AtlasRowGap = FMath::Max(0.f, Height - 220.f) / 6.f;
   const bool bCompactAtlasRows = AtlasRowGap < 38.f;
   for (int32 Zone = 0; Zone < 6; ++Zone) {
