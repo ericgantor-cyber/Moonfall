@@ -1760,8 +1760,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for name, operator in (("ZoomCameraIn", "-"), ("ZoomCameraOut", "+")):
             action = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
             self.assertIn("bOptionsOpen || bInventoryOpen", action)
-            self.assertIn("bOptionsOpen || bInventoryOpen || bWorldMapOpen", action)
-            self.assertLess(action.index("bWorldMapOpen) return;"), action.index("CameraDistance ="))
+            self.assertIn("bOptionsOpen || bInventoryOpen", action)
+            self.assertLess(action.index("bInventoryOpen) return;"), action.index("CameraDistance ="))
             self.assertIn("FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f", action)
             self.assertIn(f"{operator} 65.f, 250.f, 850.f", action)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(

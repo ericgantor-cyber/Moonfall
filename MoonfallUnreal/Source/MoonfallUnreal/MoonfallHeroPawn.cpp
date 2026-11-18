@@ -800,7 +800,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bWorldMapOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
@@ -808,7 +808,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
  }
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bWorldMapOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
