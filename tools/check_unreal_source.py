@@ -6026,5 +6026,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
+    def test_atlas_hover_tooltips_are_discovery_safe_optional_and_clipped(self):
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        self.assertIn("AtlasPC->bShowMouseCursor && AtlasPC->GetMousePosition(AtlasPointerX, AtlasPointerY)", atlas)
+        self.assertIn("FMath::IsFinite(AtlasPointerX) && FMath::IsFinite(AtlasPointerY)", atlas)
+        self.assertIn("bAtlasPointerInsideMap = AtlasPointerX >= MapLeft", atlas)
+        self.assertIn("int32 HoveredDungeonSlot = INDEX_NONE;", atlas)
+        self.assertIn("bool bHoveredShrine = false;", atlas)
+        self.assertIn("if (!bFound && !bCleared) continue;", atlas)
+        self.assertLess(atlas.index("if (!bFound && !bCleared) continue;"),
+                        atlas.index("HoveredDungeonSlot = Slot;"))
+        self.assertIn("for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations)", atlas)
+        self.assertIn("bHoveredActiveRespawn = bActiveRespawn;", atlas)
+        self.assertLess(atlas.index("const bool bActiveRespawn ="),
+                        atlas.index("bHoveredActiveRespawn = bActiveRespawn;"))
+        self.assertIn("bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f", atlas)
+        self.assertIn("(bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)", atlas)
+        self.assertIn("const float TooltipX = FMath::Clamp(", atlas)
+        self.assertIn("const float TooltipY = FMath::Clamp(", atlas)
+        self.assertIn("MapLeft + MapWidth - TooltipW - 4.f", atlas)
+        self.assertIn("MapTop + MapHeight - TooltipH - 4.f", atlas)
+        self.assertIn("HasDefeatedDungeonBoss(", atlas)
+        self.assertIn('TEXT("Permanent discovery")', atlas)
+        self.assertIn('TEXT("Boss defeated")', atlas)
+        self.assertIn('TEXT("Discovered | boss not defeated")', atlas)
+        self.assertNotIn("TActorIterator", atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
+
+
 if __name__ == "__main__":
     unittest.main()
