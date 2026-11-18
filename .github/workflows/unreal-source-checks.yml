@@ -98,6 +98,9 @@ jobs:
           set -euo pipefail
           python3 -m unittest -v tools.test_unreal_aaa_polish
           python3 -m unittest -v tools.test_unreal_enemy_warning_hud
+          python3 -m unittest -v tools.test_unreal_elite_tactics
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_elite_tactics.cpp -o /tmp/moonfall_elite_tactics
+          /tmp/moonfall_elite_tactics
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_forge_forecast.cpp -o /tmp/moonfall_forge_forecast
           /tmp/moonfall_forge_forecast
 
