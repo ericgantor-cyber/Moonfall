@@ -1308,6 +1308,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   // Discover active, already-visited shrines from their real actors once
   // per Atlas opening. No per-frame world actor scan or new save fields.
   AtlasDiscoveredShrineLocations.Reset();
+  AtlasDiscoveredShrineNames.Reset();
   bAtlasHasActiveRespawnShrineLocation = false;
   AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
   if (GetWorld()) {
@@ -1321,7 +1322,10 @@ void AMoonfallHeroPawn::ToggleAtlas() {
     if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
     if (AtlasDiscoveredShrineLocations.Num() >= 64) break;
     SeenShrineIds.Add(Shrine->ShrineId);
+    // Keep Atlas and world labels identical, while caching only discovered shrines.
+    const FString ShrineTitle = Shrine->GetMapDisplayName();
     AtlasDiscoveredShrineLocations.Add(ShrinePos);
+    AtlasDiscoveredShrineNames.Add(ShrineTitle.Left(36));
     if (ActiveShrineId == Shrine->ShrineId
         && IsCurrentRespawnLocation(Shrine->GetRespawnLocation())) {
      AtlasActiveRespawnShrineLocation = ShrinePos;

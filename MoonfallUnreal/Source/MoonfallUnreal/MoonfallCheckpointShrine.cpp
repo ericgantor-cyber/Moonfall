@@ -58,6 +58,24 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  DiscoveryRange->OnComponentEndOverlap.AddDynamic(this, &AMoonfallCheckpointShrine::OnDiscoveryEndOverlap);
 }
 
+FString AMoonfallCheckpointShrine::GetMapDisplayName() const
+{
+ FString Title = MapDisplayName.ToString().TrimStartAndEnd();
+ if (Title.IsEmpty()) {
+  if (ShrineId == FName(TEXT("sanctuary_firstlight"))) Title = TEXT("Firstlight Shrine");
+  else if (ShrineId == FName(TEXT("crossroads_west"))) Title = TEXT("Crossroads West Shrine");
+  else if (ShrineId == FName(TEXT("crimson_path"))) Title = TEXT("Crimson Path Shrine");
+  else if (ShrineId == FName(TEXT("moonlit_path"))) Title = TEXT("Moonlit Path Shrine");
+  else {
+   Title = ShrineId.IsNone() ? TEXT("Unnamed") : ShrineId.ToString().Replace(TEXT("_"), TEXT(" "));
+   Title += TEXT(" Shrine");
+  }
+ }
+ Title.ReplaceInline(TEXT("\n"), TEXT(" "));
+ Title.ReplaceInline(TEXT("\r"), TEXT(" "));
+ return Title.Left(36);
+}
+
 void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* Hero)
 {
  if (!ShrineLabel) return;
@@ -68,8 +86,9 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
      && Hero->IsCurrentRespawnLocation(GetRespawnLocation());
  // Text distinguishes the current respawn point without suggesting other
  // discovered shrines have been deactivated.
- ShrineLabel->SetText(FText::FromString(bCurrentRespawn ? TEXT("ACTIVE RESPAWN SHRINE")
-     : bDiscovered ? TEXT("ACTIVE SHRINE") : TEXT("UNDISCOVERED SHRINE")));
+ const FString ShrineState = bCurrentRespawn ? TEXT("ACTIVE RESPAWN SHRINE")
+     : bDiscovered ? TEXT("ACTIVE SHRINE") : TEXT("UNDISCOVERED SHRINE");
+ ShrineLabel->SetText(FText::FromString(GetMapDisplayName() + TEXT("\n") + ShrineState));
  // High-contrast secondary cue. Permanent activation is independent from
  // which shrine currently owns the respawn checkpoint; text remains primary
  // so the state is still readable without color vision.
