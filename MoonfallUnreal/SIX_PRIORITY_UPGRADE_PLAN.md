@@ -32,7 +32,7 @@ separate source-level and engine-level claims:
 | --- | --- | --- |
 | World | Bounded retry attempts for failed generated dungeon layouts; retries separated across timer ticks; no permanent slot consumption by destroying authored layouts | Real UE5.4 construction failure injection, all 30 distinct layouts, road/sanctuary navigation, streaming and startup frame times |
 | Combat | Rejects invalid/dead boss and mob spawns, atomically rolls back damaged combat/bonus groups after Blueprint callbacks, and guards against synchronous overlap re-entry | Combo/parry/dodge feel, boss callback destruction, collision-blocked 5–6 and 5–11 mob formations, native AI and GPU profiling |
-| Progression | Rechecks dungeon treasure pickups and restores pending reward records on room re-entry; indexes persisted world loot by GUID; editable weighted tables now choose regular/elite/boss and regional gear, plus seeded dungeon treasure, using legacy-safe item codes | Actual drop distributions, 512-drop stress, exact inventory and persistent-save round-trips, 30-dungeon reward recovery and table tuning at all levels |
+| Progression | Rechecks pending dungeon treasure; indexes persisted loot by GUID; adds weighted pools and a mouse-editable CSV/DataTable authoring path with guarded fallback and theoretical odds preview | UE5.4 actual DataTable import, runtime drop distributions, 512-drop stress, 30-dungeon reward recovery, all-level tuning |
 | Characters | Guards NPC conversations and quest actions against invalid vitality/player ownership and conflicting Atlas/character overlays, while permitting intentional actions inside resident context | Mouse-only, keyboard and controller conversations; quests, reputation, relationship persistence; original Z/Nyra visual inspection |
 | Interface & systems | Native dungeon test source now expects V12 and covers map-fog masks, 420 treasure states and pending loot; source tests cover updated safety contracts | Compiled Editor automation, packaged Windows builds and installer, readable 4K HUD/menu focus, accessible inputs |
 
@@ -65,12 +65,32 @@ previously created or collected reward is returned from the V12 ledger
 Enemy kills still create ground pickups and write persistence before
 collection; the item code format and original artwork are unchanged.
 
-**Not yet implemented:** individually named/unique boss item IDs, material
-inventory/drop stacks, a persistent Luck attribute/pity system, and a dedicated
-visual loot-table editor. Those need their own item schema and save-compatible
-migration, not undocumented extra codes. The source tests assert table
-constraints, but actual drop frequency, deterministic native replay, boss
-drops and save/reload behavior require UE5.4 gameplay verification.
+### Loot authoring and editable probability preview
+
+This draft also adds a real, mouse-editable Unreal **Data Table** pathway
+without changing the item/save schema. The row struct derives from
+`FTableRowBase`; a Hero Blueprint can assign `LootDataTable`, which imports
+rows **once at BeginPlay**, sorted by row name so seeded dungeon treasure
+is stable. An explicit Blueprint reload is supported. Bad/missing tables,
+invalid ranks and empty level-one generic pools preserve built-in loot.
+The import performs one-time snapshot allocation, not a new per-enemy scan.
+
+The import-ready `MoonfallUnreal/Data/Moonfall_DefaultLootTable.csv` has
+41 rows for regular/elite/boss/treasure and six regions. The offline,
+mouse-and-keyboard accessible `Moonfall_LootEditor.html` loads those defaults,
+accepts CSV, edits rows, previews percentages and exports a new CSV locally.
+`tools/moonfall_loot_table.py` independently validates edited CSVs and
+prints weight-based chances for chosen source, region and level. Blueprint
+functions `GetLootPoolTotalWeight` and `GetLootRarityChancePercent` expose
+the same selection weights without consuming RNG. See
+`MoonfallUnreal/Data/LOOT_TABLE_EDITOR.md` for setup.
+
+**Not yet implemented:** an *in-game* loot-table editor inside the playable
+Moonfall UI; individually named/unique boss item IDs, material drop stacks
+or a persistent Luck/pity stat. These require additional gameplay/UI design
+and possibly item/save migration. The offline editor and CSV syntax tests
+are not proof of actual UE5.4 compilation, imported asset cooking, live
+drop frequencies, or packaged Windows behavior.
 
 ### Release checks (do these in order)
 
