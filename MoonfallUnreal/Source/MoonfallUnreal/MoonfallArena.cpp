@@ -221,6 +221,23 @@ void AMoonfallArena::BeginPlay() {
     Sign->RegisterComponent();
     RegionalWaystationSigns.Add(Sign);
    }
+   // A separate road-facing cue is visible before the player turns north.
+   // It never blocks movement or relies on a colored map pin.
+   UTextRenderComponent* RoadGuide = NewObject<UTextRenderComponent>(
+     this, FName(*FString::Printf(TEXT("RegionalRoadGuideSign_%d"), Zone)));
+   if (IsValid(RoadGuide)) {
+    RoadGuide->SetupAttachment(GetRootComponent());
+    RoadGuide->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    RoadGuide->SetGenerateOverlapEvents(false);
+    RoadGuide->SetText(FText::FromString(FString::Printf(
+      TEXT("NORTH: %s\nSHRINE + CONTRACTS"), Site.Name)));
+    RoadGuide->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+    RoadGuide->SetWorldSize(32.f);
+    RoadGuide->SetTextRenderColor(FColor(255, 216, 148));
+    RoadGuide->SetRelativeLocation(FVector(ZoneCenterX, -2150.f, 170.f));
+    RoadGuide->RegisterComponent();
+    RegionalWaystationSigns.Add(RoadGuide);
+   }
    const FVector ShrineLocation = GetActorTransform().TransformPosition(
      FVector(ZoneCenterX, -1500.f, 0.f));
    const FTransform ShrineTransform(FRotator::ZeroRotator, ShrineLocation);
