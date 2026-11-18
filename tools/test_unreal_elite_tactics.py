@@ -86,7 +86,7 @@ class EliteCounterTactics(unittest.TestCase):
         checks = {
             "posture shatter": self.enemy.split(
                 "PostureBrokenUntil = Now + VulnerabilitySeconds;",1
-            )[1].split("bPostureFinisherAvailable = true;",1)[0],
+            )[1].split("OnPostureBroken(VulnerabilitySeconds);",1)[0],
             "wounded elite retreat": self.enemy.split(
                 "TacticalRetreatUntil = Now + 2.f;",1
             )[1].split("CachedWaypoint = FVector::ZeroVector;",1)[0],
