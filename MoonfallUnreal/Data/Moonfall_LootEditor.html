@@ -385,23 +385,41 @@ function renderRows(){
  }
 }
 function parseCsv(csv){
- const all=[];let line=[],value="",quoted=false;
+ const all=[];let line=[],value="",quoted=false,closed=false;
+ const completeField=()=>{
+  line.push(value);value="";closed=false;
+ };
+ const completeLine=()=>{
+  completeField();
+  if(line.some(field=>field!==""))all.push(line);
+  line=[];
+ };
  for(let i=0;i<csv.length;i++){
   const ch=csv[i];
   if(quoted){
    if(ch==='"'&&csv[i+1]==='"'){value+='"';i++;}
-   else if(ch==='"')quoted=false;
+   else if(ch==='"'){quoted=false;closed=true;}
    else value+=ch;
-  }else if(ch==='"')quoted=true;
-   else if(ch===","){line.push(value);value="";}
-   else if(ch==="\n"){line.push(value.replace(/\r$/,""));if(line.some(x=>x!==""))all.push(line);line=[];value="";}
+  }else if(closed){
+   if(ch===",")completeField();
+   else if(ch==="\n")completeLine();
+   else if(ch==="\r"&&csv[i+1]==="\n"){completeLine();i++;}
+   else throw Error("Unexpected text after closing CSV quote at character "+(i+1)+".");
+  }else if(ch==='"'){
+   if(value!=="")throw Error("CSV quotes must begin at the start of a field.");
+   quoted=true;
+  }else if(ch===",")completeField();
+   else if(ch==="\n")completeLine();
+   else if(ch==="\r"&&csv[i+1]==="\n"){completeLine();i++;}
+   else if(ch==="\r")throw Error("Use CRLF or LF line endings in CSV.");
    else value+=ch;
  }
  if(quoted)throw Error("Unclosed CSV quote.");
- if(value!==""||line.length){line.push(value.replace(/\r$/,""));all.push(line);}
+ if(value!==""||line.length||closed)completeLine();
  const header=all.shift();
  if(!header||header.map(x=>x.trim().replace(/^\uFEFF/,"")).join(",")!==FIELDS.join(","))
    throw Error("The CSV must contain the eight Moonfall column names in their normal order.");
+ if(all.length>2048)throw Error("CSV exceeds the 2048-row loot table limit.");
  return all.map((line,n)=>{
   if(line.length!==FIELDS.length)throw Error("Wrong number of columns on row "+(n+2));
   const row={};FIELDS.forEach((key,i)=>row[key]=line[i]);return row;
