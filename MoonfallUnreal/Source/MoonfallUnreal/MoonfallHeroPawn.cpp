@@ -798,7 +798,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if (bAtlasOpen) { AtlasZoom = FMath::Clamp(AtlasZoom + 0.2f, 0.8f, 1.8f); return; }
+ if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
@@ -807,7 +807,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if (bAtlasOpen) { AtlasZoom = FMath::Clamp(AtlasZoom - 0.2f, 0.8f, 1.8f); return; }
+ if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
@@ -1298,6 +1298,9 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 
 void AMoonfallHeroPawn::ToggleAtlas() {
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
+ // Blueprint and corrupt transient values must never poison projected map pixels.
+ AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
+ AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
   if (bInventoryOpen) ToggleInventory();
@@ -1606,12 +1609,12 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bAtlasOpen) { AtlasPanY = FMath::Clamp(AtlasPanY - 750.f, -12000.f, 12000.f); return; }
+ if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bAtlasOpen) { AtlasPanY = FMath::Clamp(AtlasPanY + 750.f, -12000.f, 12000.f); return; }
+ if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(1);
 }
@@ -3412,7 +3415,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float Zoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
      const float WorldCenterX = (float(AtlasSelectedRegion * 5 + 2) - 14.5f) * 1350.f;
      const float WorldX = WorldCenterX + ((MouseX - MapL) / MapW - 0.5f) * (42000.f / Zoom);
-     const float WorldY = AtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
+     const float SafeAtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
+     const float WorldY = SafeAtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
       AtlasSelectedRegion = Slot / 5;
