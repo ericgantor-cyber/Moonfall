@@ -17,6 +17,7 @@ ATLASES = (
     ("Moonfall_LootAtlas.png", "T_MoonfallLootAtlas", (120, 80)),
     ("Moonfall_LootVariants_Atlas.png", "T_MoonfallLootVariants", (120, 120)),
     ("Moonfall_LootRelics_Atlas.png", "T_MoonfallLootRelics", (120, 120)),
+    ("Moonfall_LootMasterworks_Atlas.png", "T_MoonfallLootMasterworks", (120, 120)),
 )
 PNG_SIGNATURE = bytes.fromhex("89504e470d0a1a0a")
 MAX_PNG_BYTES = 512 * 1024
@@ -90,7 +91,12 @@ def validate_atlas(path: Path, expected_size: tuple[int, int]) -> None:
 for filename, _, expected_size in ATLASES:
     validate_atlas(SOURCE_DIR / filename, expected_size)
 for _, asset_name, _ in ATLASES:
-    existing = unreal.load_asset(f"{DESTINATION}/{asset_name}")
+    target = f"{DESTINATION}/{asset_name}"
+    asset_exists = unreal.EditorAssetLibrary.does_asset_exist(target)
+    existing = unreal.load_asset(target) if asset_exists else None
+    # A stale/broken registry entry must never be silently replaced.
+    if asset_exists and existing is None:
+        raise RuntimeError(f"Existing Moonfall art asset cannot be loaded: {target}")
     if existing is not None and not isinstance(existing, unreal.Texture2D):
         raise TypeError(f"Non-texture asset occupies Moonfall art slot: {asset_name}")
 
