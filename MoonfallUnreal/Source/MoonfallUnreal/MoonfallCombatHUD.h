@@ -17,7 +17,10 @@ private:
  UPROPERTY() TObjectPtr<UTexture2D> LootIconAtlas = nullptr;
  // Optional nine-icon atlas expands the three equipment families by trait.
  UPROPERTY() TObjectPtr<UTexture2D> LootVariantAtlas = nullptr;
- void DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, float X, float Y, float Side);
+ // Optional third atlas: nine more relic motifs for epic+ tier-8+ gear.
+ UPROPERTY() TObjectPtr<UTexture2D> LootRelicAtlas = nullptr;
+ void DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, int32 Tier,
+  float X, float Y, float Side);
 
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
