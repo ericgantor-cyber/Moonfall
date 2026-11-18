@@ -44,7 +44,6 @@ class EliteCounterTactics(unittest.TestCase):
                         attacks.index("MoonfallEliteTactics::SelectPattern("))
         self.assertIn("if (bAdaptiveSweepCommitted)",self.enemy)
         self.assertIn("MoonfallEliteTactics::CounterSweepWindup",self.enemy)
-        self.assertIn("return {",self.rules) if False else None
 
     def test_nonboss_move_name_is_truthful_and_defense_unchanged(self):
         labels=self.enemy.split(
