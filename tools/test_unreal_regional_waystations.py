@@ -90,6 +90,10 @@ class RegionalWaystations(unittest.TestCase):
         self.assertIn('RegionalWaystationFloors->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);', self.arena)
         self.assertIn('RegionalWaystationFloors->SetCollisionResponseToAllChannels(ECR_Block);', self.arena)
         self.assertIn('RegionalWaystationSigns.Add(Sign);', self.arena)
+        self.assertIn('RegionalWaystationSigns.Add(RoadGuide);', self.arena)
+        self.assertIn('RegionalRoadGuideSign_%d', self.arena)
+        self.assertIn('RoadGuide->SetRelativeLocation(FVector(ZoneCenterX, -2150.f, 170.f));', self.arena)
+        self.assertIn('RoadGuide->SetCollisionEnabled(ECollisionEnabled::NoCollision);', self.arena)
         self.assertIn('Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);', self.arena)
         self.assertIn('RegionalWaystationRuins->SetCastShadow(false);', self.arena)
         self.assertNotIn('GetWorldTimerManager()', self.arena.split(
