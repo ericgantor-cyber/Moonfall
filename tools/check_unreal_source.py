@@ -5849,13 +5849,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
         self.assertNotIn("const float CenterX = CloseX - 68.f;", click)
         self.assertNotIn("ME: center on hero", atlas)
-        self.assertIn("const float MapH = 84.f;", click)
-        self.assertIn("const float MapHeight = 84.f;", atlas)
-        self.assertIn("const float RowGap = FMath::Max(0.f, PanelH - 220.f) / 6.f;", click)
-        self.assertIn("const float AtlasRowGap = FMath::Max(0.f, Height - 220.f) / 6.f;", atlas)
+        self.assertIn("const float MapH = FMath::Max(74.f, PanelH - 141.f);", click)
+        self.assertIn("const float MapHeight = FMath::Max(74.f, Height - 141.f);", atlas)
+        self.assertIn("const float RowGap = FMath::Clamp((PanelH - 145.f) / 6.f, 24.f, 78.f);", click)
+        self.assertIn("const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);", atlas)
         self.assertLess(click.index("// Clicks outside Atlas controls must never cast"),
                         click.index("if (bOptionsOpen) {"))
-        self.assertIn("const bool bCompactAtlasRows = AtlasRowGap < 38.f;", atlas)
+        self.assertIn("const bool bCompactAtlasRows = AtlasRowGap < 55.f;", atlas)
         self.assertIn("if (!bCompactAtlasRows) {", atlas)
 
         interaction = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
@@ -5953,6 +5953,50 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ShrineY < MapTop", atlas_draw)
         self.assertNotIn("TActorIterator<AMoonfallCheckpointShrine>", atlas_draw)
         self.assertNotIn('DrawText(TEXT("ME")', atlas_draw)
+
+
+    def test_pb_dw_inspired_atlas_ink_wash_stays_explored_only_and_mouse_aligned(self):
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "\n}", 1)[0]
+
+        # The enlarged illustrated chart must share exact layout expressions with input.
+        self.assertIn("const float Width = FMath::Min(900.f, Canvas->SizeX - 24.f);", atlas)
+        self.assertIn("const float PanelW = FMath::Min(900.f, float(ViewW) - 24.f);", click)
+        self.assertIn("const float Height = FMath::Min(650.f, Canvas->SizeY - 24.f);", atlas)
+        self.assertIn("const float PanelH = FMath::Min(650.f, float(ViewH) - 24.f);", click)
+        self.assertIn("const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);", atlas)
+        self.assertIn("const float SidebarWidth = FMath::Clamp(PanelW * 0.27f, 132.f, 238.f);", click)
+        self.assertIn("const float MapLeft = Left + AtlasSidebarWidth + 19.f;", atlas)
+        self.assertIn("const float MapL = PanelL + SidebarWidth + 19.f;", click)
+        self.assertIn("const float MapWidth = FMath::Max(40.f, Width - AtlasSidebarWidth - 36.f);", atlas)
+        self.assertIn("const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);", click)
+        self.assertIn("const float MapTop = Top + 105.f;", atlas)
+        self.assertIn("const float MapT = PanelT + 105.f;", click)
+        self.assertIn("const float MapHeight = FMath::Max(74.f, Height - 141.f);", atlas)
+        self.assertIn("const float MapH = FMath::Max(74.f, PanelH - 141.f);", click)
+        self.assertIn("const float Y = Top + 110.f + Zone * AtlasRowGap;", atlas)
+        self.assertIn("const float RowY = PanelT + 110.f + Zone * RowGap;", click)
+        self.assertIn("MouseX <= PanelL + SidebarWidth - 9.f", click)
+        self.assertIn("AtlasSelectedRegion = Zone;", click)
+        self.assertNotIn("ME: center on hero", atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
+
+        # The brush/contour pass must never reveal unexplored geography.
+        guard = "if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;"
+        self.assertIn(guard, atlas)
+        self.assertIn("static const FLinearColor AtlasZoneInk[6]", atlas)
+        self.assertIn("const float InkVariation = 0.84f", atlas)
+        self.assertIn("for (int32 EtchLine = 1; EtchLine <= 3; ++EtchLine)", atlas)
+        self.assertLess(atlas.index(guard), atlas.index("AtlasZoneInk[Zone] * InkVariation"))
+        self.assertIn("const float CellLeft = FMath::Max(MapLeft, ProjectX(CellMinX));", atlas)
+        self.assertIn("const float CellBottom = FMath::Min(MapTop + MapHeight, ProjectY(CellMinY));", atlas)
+        self.assertIn("for (int32 Column = 0; Column < 8; ++Column)", atlas)
+        self.assertIn("for (int32 Row = 0; Row < 7; ++Row)", atlas)
+        self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", atlas)
+        self.assertNotIn("TActorIterator", atlas)
+        self.assertIn("SCHEMATIC TERRAIN", atlas)
 
 
 if __name__ == "__main__":
