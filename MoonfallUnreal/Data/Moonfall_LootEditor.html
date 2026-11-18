@@ -33,6 +33,16 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .stat strong{display:block;font-size:22px}
 #message{padding:12px 14px;border-radius:9px;background:#243026;color:#eaffed;margin-bottom:12px}
 #message.bad{background:#4d2029;color:#ffe3ea}
+#unsaved{color:#ffd0da;font-weight:700;align-self:center}
+#unsaved.clean{color:#c1dfc8}
+.odds-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px;margin-top:14px}
+.odds-group{background:#110f16;border:1px solid var(--edge);border-radius:9px;padding:13px}
+.odds-group h3{font-size:17px;margin:0 0 10px}
+.odds-entry{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px;border-bottom:1px solid #453845}
+.odds-entry:last-child{border-bottom:0}
+.odds-entry span:first-child{overflow-wrap:anywhere}
+.scroller button{white-space:nowrap}
+.bulk{background:#26202d;border:1px solid var(--edge);border-radius:9px;padding:12px;margin-top:13px}
 .chances{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
 .chance{background:#281e2a;border:1px solid #635463;border-radius:9px;padding:10px}
 .chance-head{display:flex;justify-content:space-between;gap:8px}
@@ -65,9 +75,12 @@ footer{color:var(--muted);font-size:14px;padding-bottom:30px}
 <button id="import">Import CSV</button>
 <input id="file" type="file" accept=".csv,text/csv" hidden aria-label="Choose Moonfall loot CSV">
 <button id="add">Add loot row</button>
+<button id="undo" disabled title="Undo up to 40 changes">Undo</button>
+<button id="redo" disabled title="Redo a reverted change">Redo</button>
 <button id="export" class="primary">Export CSV for Unreal</button>
+<span id="unsaved" class="clean" role="status" aria-live="polite">Default table loaded; export to save edits</span>
 </div>
-<p class="hint">Nothing is uploaded online. Export the CSV to keep your edits. Unreal imports the CSV as an <code>FMoonfallLootTableEntry</code> Data Table.</p>
+<p class="hint">Nothing is uploaded online. Export the CSV to keep your edits. Undo/redo covers your last 40 editing actions. Unreal imports the CSV as an <code>FMoonfallLootTableEntry</code> Data Table.</p>
 </section>
 <section class="card" aria-labelledby="preview-title">
 <h2 id="preview-title">Drop probability preview</h2>
@@ -78,20 +91,35 @@ footer{color:var(--muted);font-size:14px;padding-bottom:30px}
 </div>
 <div id="stats" class="statline" aria-live="polite"></div>
 <div id="chances" class="chances" aria-live="polite"></div>
+<div class="odds-grid">
+<section class="odds-group" aria-labelledby="slot-title"><h3 id="slot-title">Equipment slot odds</h3><div id="slots"></div></section>
+<section class="odds-group" aria-labelledby="trait-title"><h3 id="trait-title">Trait odds</h3><div id="traits"></div></section>
+<section class="odds-group" aria-labelledby="rows-title"><h3 id="rows-title">Top eligible rows</h3><div id="row-odds"></div></section>
+</div>
+<p class="hint">Conditional odds among a generated reward. Slot choices are uniform over each eligible row's slot mask. Trait preview follows Unreal's existing rarity and forced-trait logic. No drop-rate or Luck modifier is implied.</p>
 </section>
 <section class="card" aria-labelledby="editor-title">
 <h2 id="editor-title">Editable loot table</h2>
 <div id="message" role="status" aria-live="polite">Loading default table…</div>
 <div class="toolbar">
 <div class="control"><label for="filter">Show reward source</label><select id="filter"><option>All</option><option>Regular</option><option>Elite</option><option>Boss</option><option>Treasure</option></select></div>
+<div class="control"><label for="filter-zone">Show region</label><select id="filter-zone"><option value="all">All regions</option><option value="-1">Generic only</option><option value="0">Region 1</option><option value="1">Region 2</option><option value="2">Region 3</option><option value="3">Region 4</option><option value="4">Region 5</option><option value="5">Region 6</option></select></div>
 <div class="control"><label for="search">Find row</label><input id="search" type="text" placeholder="e.g. Boss_Zone6"></div>
+</div>
+<div class="bulk" aria-label="Bulk weight adjustment">
+<div class="toolbar">
+<div class="control"><label for="bulk-factor">Adjust weights of visible rows</label>
+<select id="bulk-factor"><option value="50">50% (halve)</option><option value="75">75%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200% (double)</option></select></div>
+<button id="bulk-apply">Apply to filtered rows</button>
+</div>
+<p class="hint">Bulk edits affect rows matching both filters and the current search, not other regions or sources. Any invalid result is rejected without changing the table. Undo restores the previous weights.</p>
 </div>
 <p class="hint">Slots: 1 weapon, 2 armor, 4 accessory, 7 any. Traits: 0 random, 1 Force, 2 Ward, 3 Focus. Weight 0 disables a row. Scroll sideways to see all columns on smaller screens.</p>
 <div class="scroller" tabindex="0" aria-label="Scrollable editable loot table">
 <table><thead><tr>
 <th scope="col">Row name</th><th scope="col">Source</th><th scope="col">Region</th>
 <th scope="col">Min level</th><th scope="col">Rarity 0–5</th><th scope="col">Weight</th>
-<th scope="col">Slot mask</th><th scope="col">Trait 0–3</th><th scope="col">Remove</th>
+<th scope="col">Slot mask</th><th scope="col">Trait 0–3</th><th scope="col">Actions</th>
 </tr></thead><tbody id="rows"></tbody></table>
 </div>
 </section>
