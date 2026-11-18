@@ -797,6 +797,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (bAtlasOpen) { AtlasZoom = FMath::Clamp(AtlasZoom + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
@@ -805,6 +806,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (bAtlasOpen) { AtlasZoom = FMath::Clamp(AtlasZoom - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
@@ -1541,6 +1543,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
   bResidentTurnInPending = false;
@@ -1557,6 +1560,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
   bResidentTurnInPending = false;
@@ -1573,10 +1577,12 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
  if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
  if (bInventoryOpen) return;
  AdjustOption(1);
 }
