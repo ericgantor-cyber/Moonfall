@@ -993,7 +993,7 @@ void AMoonfallCombatHUD::DrawHUD()
       X+6.f*S,Y+55.f*S,nullptr,FMath::Min(1.35f,0.72f * AlertScale)*S);
    // A fixed, non-flashing impact cue remains readable with Reduce Motion.
    if (Seconds <= 0.3f)
-    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f*S,nullptr,0.78f);
+    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f*S,nullptr,0.78f*S);
    if (bRegionalBoss && FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)
        && Boss->DungeonBossAttackWarningDuration > 0.f) {
     const float WarningProgress = FMath::Clamp(
@@ -1006,7 +1006,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (bRegionalBoss && Canvas->SizeY > 600.f)
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
      Hero->GetTotalDefeatedDungeonBosses(),Hero->GetClearedDungeonZoneCount()),
-     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f*S,nullptr,0.76f);
+     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f*S,nullptr,0.76f*S);
  }
  // Show only the nearest engaged non-boss posture target to avoid clutter.
  if (PostureTarget && GetOwningPlayerController()) {
@@ -1255,9 +1255,13 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawRect(FLinearColor(0.025f,0.035f,0.08f,0.94f), 0.f, 0.f, Canvas->SizeX, 50.f);
   const int32 Selected = FMath::Clamp(Hero->HudSelectedPanel, 0, 2);
-  DrawText(FString::Printf(TEXT("HUD EDIT: %s  %.0f%% | Drag panel | Wheel / Left-Right: resize | Up-Down: select"),
-    PanelNames[Selected], MoonfallHUDLayout::SafeScale(Hero->HudPanelScales[Selected])*100.f),
-    FLinearColor::White, 12.f, 17.f, nullptr, Canvas->SizeX < 1100.f ? 0.63f : 0.78f);
+  const FString EditorHelp = Canvas->SizeX < 650.f ? TEXT("HUD EDIT")
+    : Canvas->SizeX < 1100.f
+      ? FString::Printf(TEXT("HUD EDIT: %s | Wheel: resize | Drag to move"), PanelNames[Selected])
+      : FString::Printf(TEXT("HUD EDIT: %s  %.0f%% | Drag | Wheel / Left-Right: resize | Up-Down: select"),
+          PanelNames[Selected], MoonfallHUDLayout::SafeScale(Hero->HudPanelScales[Selected])*100.f);
+  DrawText(EditorHelp, FLinearColor::White, 12.f, 17.f, nullptr,
+    Canvas->SizeX < 1100.f ? 0.70f : 0.78f);
   DrawRect(FLinearColor(0.27f,0.24f,0.35f), Canvas->SizeX-214.f, 8.f, 98.f, 36.f);
   DrawText(TEXT("RESET"), FLinearColor::White, Canvas->SizeX-201.f, 18.f, nullptr, 0.80f);
   DrawRect(FLinearColor(0.21f,0.42f,0.32f), Canvas->SizeX-106.f, 8.f, 94.f, 36.f);
