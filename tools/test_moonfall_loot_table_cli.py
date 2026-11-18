@@ -64,7 +64,7 @@ class LootTableEditorContracts(unittest.TestCase):
             header = ",".join(loot.FIELDS)
             row = "Boss_R3,Boss,-1,1,3,75,7,0"
             for bad in (row + ",unexpected", "Boss_R3,Boss,-1,1,3,75,7"):
-                target.write_text(header + "\\n" + bad + "\\n", encoding="utf-8")
+                target.write_text(header + "\n" + bad + "\n", encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "number of columns"):
                     loot.load_rows(target)
 
