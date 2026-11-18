@@ -125,6 +125,9 @@ private:
  float AdaptiveSweepReadyUntil = -1.f;
  float NextAdaptiveSweepAllowedAt = 0.f;
  bool bAdaptiveSweepCommitted = false;
+ // Minimum interval between optional elite warning sounds, even in a pack.
+ // Not a saved property and has no influence on actual attack cooldown.
+ float NextEliteAttackTellSoundAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
  // Ordinary enemies remember the last visible hero location for a short time.
