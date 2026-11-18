@@ -19,6 +19,15 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ // Read-only telegraph snapshot: the HUD may ask nearby mobs when a strike
+ // will land, without changing private AI timers or doing any trace.
+ // Bosses keep their existing dedicated warning display.
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ float GetAttackWarningRemaining(float WorldTime) const;
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ float GetAttackWarningDuration() const;
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ FString GetAttackWarningLabel() const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
