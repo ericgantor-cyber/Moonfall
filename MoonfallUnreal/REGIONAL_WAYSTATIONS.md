@@ -24,7 +24,7 @@ invented gear slot, loot table change, or god character artwork changes.**
 
 Each site is next to the **third of the five dungeon entrances** in its
 region. Travel along the existing thirty-lane east/west road from the
-Crossroads. Follow the regional sign to the north side of the road. A
+Crossroads. Follow the warm-colored, nonblocking **NORTH: [camp name]** road sign to the north side of the road. A second high-contrast sign identifies the camp, its shrine and resident contracts. A
 flat 960-unit-long station platform overlaps the main public road by 230
 units, without a gap, loading trigger or jump. The camp floor and public
 road have the same Z=0 walking surface. A shrine is near the far edge;
@@ -64,7 +64,7 @@ Shattered Sanctuary and Z/Nyra showcase remain untouched.
   platforms and the 24 non-colliding ruin pillars, rather than a new
   ticking actor per prop. Ruins have no collision or dynamic shadows.
   Platforms have physical collision and join the road.
-- Six world-space high-contrast labels, six shrine actors and twelve
+- Twelve world-space high-contrast labels (one road direction and one camp sign per region), six shrine actors and twelve
   static NPC actors are spawned once. The arena, all NPCs and shrines
   have **no per-frame Tick**.
 - Readable region and shrine names provide non-color navigation cues.
