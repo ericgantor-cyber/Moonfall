@@ -74,11 +74,9 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Slot changes silhouette without changing the item's code, drop location,
  // pickup collision rules, persistent ID, rarity, or seed-dependent roll.
  // Use engine-supplied primitives so art remains visible before texture import.
- static const FName CubePath(TEXT("/Engine/BasicShapes/Cube.Cube"));
- static const FName SpherePath(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
- // Assets are cached across all instances; no synchronous per-drop object load.
- static UStaticMesh* GearCube = LoadObject<UStaticMesh>(nullptr, *CubePath.ToString());
- static UStaticMesh* GearSphere = LoadObject<UStaticMesh>(nullptr, *SpherePath.ToString());
+ // Reuse constructor-provided meshes; no disk lookups in InitializeLoot.
+ UStaticMesh* GearCube = PickupDetailA->GetStaticMesh();
+ UStaticMesh* GearSphere = PickupMesh->GetStaticMesh();
  if (Slot == 0) {
   // Long blade with a crossguard and a bottom grip.
   if (GearCube) PickupMesh->SetStaticMesh(GearCube);
