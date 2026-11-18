@@ -25,6 +25,9 @@ AMoonfallCombatHUD::AMoonfallCombatHUD()
  static ConstructorHelpers::FObjectFinder<UTexture2D> Relics(
    TEXT("/Game/Moonfall/LootArt/T_MoonfallLootRelics.T_MoonfallLootRelics"));
  if (Relics.Succeeded()) LootRelicAtlas = Relics.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Masterworks(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootMasterworks.T_MoonfallLootMasterworks"));
+ if (Masterworks.Succeeded()) LootMasterworkAtlas = Masterworks.Object;
 }
 
 void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
@@ -48,12 +51,14 @@ void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
 
  const MoonfallLootArt::FCell Cell = MoonfallLootArt::Select(
   Slot,Rarity,Trait,Tier,
-  IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas));
+  IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas),
+  IsValid(LootMasterworkAtlas));
  UTexture2D* IconTexture = nullptr;
  if (Cell.Atlas == MoonfallLootArt::EAtlas::Base) IconTexture = LootIconAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Trait) IconTexture = LootVariantAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Relic) IconTexture = LootRelicAtlas.Get();
- if (IsValid(IconTexture) && Cell.Columns > 0 && Cell.Rows > 0) {
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork) IconTexture = LootMasterworkAtlas.Get();
+ if (IsValid(IconTexture) && MoonfallLootArt::ValidCell(Cell)) {
   Canvas->K2_DrawTexture(IconTexture,
     FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
     FVector2D(static_cast<float>(Cell.Column)/Cell.Columns,
@@ -87,6 +92,13 @@ void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
    L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
    DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
   }
+ }
+ // Masterwork is a visual distinction within Emerald or Legendary only.
+ // The second accent is not a new rarity, stat, equipment slot or item flag.
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork) {
+  const float Edge=FMath::Clamp(Side*0.12f,1.4f,4.0f);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+2.f,Y+2.f,Edge,Edge);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+Side-2.f-Edge,Y+2.f,Edge,Edge);
  }
  // Six discrete luminance marks distinguish Common..Legendary even without
  // color perception; drawn on top of the painting, not baked into the art.
