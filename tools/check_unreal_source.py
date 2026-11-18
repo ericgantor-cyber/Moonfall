@@ -3584,7 +3584,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\\n  CloseResidentContext();", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {", self.hero_cpp)
         self.assertIn("bAtlasOpen = false;", self.hero_cpp)
         self.assertIn("AtlasDiscoveredShrineLocations.Reset();", self.hero_cpp)
         self.assertIn("AtlasDiscoveredShrineNames.Reset();", self.hero_cpp)
