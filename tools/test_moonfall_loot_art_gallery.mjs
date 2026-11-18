@@ -16,9 +16,9 @@ const cutoff=script.indexOf("const el=id=>");
 assert.ok(cutoff>0,"Expected pure art rules before DOM rendering");
 const {ATLAS,choose,QUALITY}=vm.runInNewContext(
  script.slice(0,cutoff)+"\n;({ATLAS,choose,QUALITY})");
-assert.equal(ATLAS.length,4);
-assert.equal(ATLAS.reduce((n,a)=>n+a.names.length,0),33);
-assert.deepEqual(Array.from(ATLAS,atlas=>atlas.names.length),[6,9,9,9]);
+assert.equal(ATLAS.length,5);
+assert.equal(ATLAS.reduce((n,a)=>n+a.names.length,0),42);
+assert.deepEqual(Array.from(ATLAS,atlas=>atlas.names.length),[6,9,9,9,9]);
 assert.equal(QUALITY.length,6);
 for(const atlas of ATLAS){
  assert.ok(atlas.file.startsWith("Moonfall_Loot") &&
@@ -43,6 +43,14 @@ assert.equal(choose(0,4,1,15,true,true,true,true).atlas,2,
  "Masterwork requires tier 16");
 assert.equal(choose(0,5,1,16,true,true,true,false).atlas,2,
  "Missing masterwork texture falls back to the relic atlas");
+assert.equal(choose(0,5,1,22,true,true,true,true,true).atlas,4);
+assert.equal(choose(2,5,3,25,true,true,true,true,true).col,(25+3+2)%3);
+assert.equal(choose(1,5,1,21,true,true,true,true,true).atlas,3,
+ "Ascendant artwork requires tier 22");
+assert.equal(choose(1,4,1,25,true,true,true,true,true).atlas,3,
+ "Emerald still selects Masterwork not Ascendant");
+assert.equal(choose(1,5,1,22,true,true,true,true,false).atlas,3,
+ "Absent Ascendant texture should choose Masterwork");
 assert.equal(choose(0,0,1,1,true,true,true),null);
 assert.equal(choose(0,5,1,0,true,true,true),null);
 assert.equal(choose(0,5,1,8,false,false,false),null);
@@ -51,8 +59,8 @@ for(let slot=0;slot<3;slot++){
   for(let trait=0;trait<4;trait++){
    for(let tier=1;tier<=25;tier++){
     if(rarity===0&&trait!==0)continue;
-    for(let mask=0;mask<16;mask++){
-     const v=choose(slot,rarity,trait,tier,!!(mask&1),!!(mask&2),!!(mask&4),!!(mask&8));
+    for(let mask=0;mask<32;mask++){
+     const v=choose(slot,rarity,trait,tier,!!(mask&1),!!(mask&2),!!(mask&4),!!(mask&8),!!(mask&16));
      if(v){
       const a=ATLAS[v.atlas];
       assert.ok(v.col>=0&&v.col<a.cols&&v.row>=0&&v.row<a.rows,
@@ -69,7 +77,7 @@ assert.ok(!script.includes("innerHTML"),"User-entered search must not become HTM
 assert.ok(!script.includes("fetch("),"Gallery never contacts external servers");
 assert.ok(!gallery.includes("http://")&&!gallery.includes("https://"));
 for(const id of ["slot","rarity","trait","tier","base","variant","relic",
- "masterwork","high-visibility","gallery","search","collection","picked-sprite"]){
+ "masterwork","ascendant","high-visibility","gallery","search","collection","picked-sprite"]){
  assert.ok(gallery.includes('id="'+id+'"'),"Missing accessible control "+id);
 }
-console.log("Moonfall gallery: 33 original art cells, 4 atlases, 25,200 safe combinations, offline syntax OK");
+console.log("Moonfall gallery: 42 original art cells, 5 atlases, 50,400 safe combinations, offline syntax OK");
