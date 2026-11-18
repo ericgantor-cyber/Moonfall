@@ -209,6 +209,26 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), RoadStart, RoadY, RoadEnd - RoadStart, 4.f);
    }
   }
+  // Map wayfinding: mark only the nearest known, unfinished dungeon in the
+  // selected region. Distances are straight-line estimates, NOT traversable routes.
+  const FVector HeroPosition = Hero->GetActorLocation();
+  const bool bValidHeroXY = FMath::IsFinite(HeroPosition.X) && FMath::IsFinite(HeroPosition.Y);
+  int32 NearestKnownDungeonSlot = INDEX_NONE;
+  float NearestKnownDungeonDistanceSq = 1.0e20f;
+  if (bValidHeroXY) {
+   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+    if (!Hero->HasDiscoveredDungeon(Selected, Dungeon)
+        || Hero->HasDefeatedDungeonBoss(Selected, Dungeon)) continue;
+    const int32 Slot = Selected * 5 + Dungeon;
+    const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+    const float DistanceSq = FMath::Square(HeroPosition.X - WorldX)
+        + FMath::Square(HeroPosition.Y + 2500.f);
+    if (FMath::IsFinite(DistanceSq) && DistanceSq < NearestKnownDungeonDistanceSq) {
+     NearestKnownDungeonSlot = Slot;
+     NearestKnownDungeonDistanceSq = DistanceSq;
+    }
+   }
+  }
   for (int32 Slot = 0; Slot < 30; ++Slot) {
    const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
    const float MarkerX = ProjectX(WorldX);
@@ -221,6 +241,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if (MarkerY < MapTop + 5.f || MarkerY > MapTop + MapHeight - 5.f) continue;
    // Undiscovered dungeon locations remain hidden instead of exposing coordinates.
    if (!bFound && !bCleared) continue;
+   if (Slot == NearestKnownDungeonSlot)
+    DrawRect(FLinearColor(0.96f, 0.72f, 0.33f), MarkerX - 7.f, MarkerY - 7.f, 14.f, 14.f);
    DrawRect(bCleared ? FLinearColor(0.24f, 0.65f, 0.46f)
      : FLinearColor(0.33f, 0.58f, 0.86f),
      MarkerX - 4.f, MarkerY - 4.f, 8.f, 8.f);
@@ -240,16 +262,33 @@ void AMoonfallCombatHUD::DrawHUD()
        ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
    DrawRect(FLinearColor(0.025f, 0.035f, 0.085f), ShrineX - 2.f, ShrineY - 2.f, 4.f, 4.f);
   }
-  const FVector HeroPosition = Hero->GetActorLocation();
-  if (FMath::IsFinite(HeroPosition.X) && FMath::IsFinite(HeroPosition.Y)) {
+  if (bValidHeroXY) {
    const float HeroX = ProjectX(HeroPosition.X);
    const float HeroY = ProjectY(HeroPosition.Y);
    if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
   }
-  DrawText(TEXT("SCHEMATIC TERRAIN | gold: you | cyan: shrines | violet: respawn | blue/green: dungeons"),
-      FLinearColor(0.82f, 0.77f, 0.67f), MapLeft, MapTop + MapHeight + 8.f, nullptr, Scale * 0.69f);
+  // Fixed compass: Unreal's +Y world axis points up on this XY projection.
+  DrawText(TEXT("N"), FLinearColor(0.91f, 0.78f, 0.52f),
+      MapLeft + MapWidth - 22.f, MapTop + 8.f, nullptr, Scale * 0.88f);
+  DrawRect(FLinearColor(0.91f, 0.78f, 0.52f),
+      MapLeft + MapWidth - 19.f, MapTop + 27.f, 2.f, 12.f);
+  // Readable in every region, including ones with no discovered entrances.
+  DrawText(TEXT("Gold: hero / goal | cyan: shrine | violet: respawn"),
+      FLinearColor(0.82f, 0.77f, 0.67f), MapLeft, MapTop + MapHeight + 5.f,
+      nullptr, Scale * 0.68f);
+  if (NearestKnownDungeonSlot != INDEX_NONE) {
+   const int32 Meters = FMath::Clamp(
+       FMath::RoundToInt(FMath::Sqrt(NearestKnownDungeonDistanceSq) * 0.01f), 0, 999999);
+   DrawText(FString::Printf(TEXT("KNOWN DUNGEON %02d | %d m straight line"),
+       NearestKnownDungeonSlot + 1, Meters), FLinearColor(0.97f, 0.81f, 0.57f),
+       MapLeft, MapTop + MapHeight + 20.f, nullptr, Scale * 0.66f);
+  } else {
+   DrawText(TEXT("No discovered, uncleared dungeon in selected region"),
+       FLinearColor(0.70f, 0.70f, 0.66f), MapLeft, MapTop + MapHeight + 20.f,
+       nullptr, Scale * 0.66f);
+  }
   return;
  }
  if (Hero->bOptionsOpen) {
