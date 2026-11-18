@@ -188,6 +188,21 @@ void AMoonfallCombatHUD::DrawHUD()
      : FLinearColor(0.33f, 0.58f, 0.86f),
      MarkerX - 4.f, MarkerY - 4.f, 8.f, 8.f);
   }
+  // World-space shrine icons are cached when J opens the Atlas.
+  // Only discovered shrine actors appear. The active respawn is violet,
+  // while other permanently discovered shrines remain cyan.
+  for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations) {
+   if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
+   const float ShrineX = ProjectX(ShrinePos.X);
+   const float ShrineY = ProjectY(ShrinePos.Y);
+   if (ShrineX < MapLeft + 6.f || ShrineX > MapLeft + MapWidth - 6.f
+       || ShrineY < MapTop + 6.f || ShrineY > MapTop + MapHeight - 6.f) continue;
+   const bool bActiveRespawn = Hero->bAtlasHasActiveRespawnShrineLocation
+       && FVector::DistSquared2D(ShrinePos, Hero->AtlasActiveRespawnShrineLocation) <= 1.f;
+   DrawRect(bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f) : FLinearColor(0.32f, 0.91f, 0.91f),
+       ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
+   DrawRect(FLinearColor(0.025f, 0.035f, 0.085f), ShrineX - 2.f, ShrineY - 2.f, 4.f, 4.f);
+  }
   const FVector HeroPosition = Hero->GetActorLocation();
   if (FMath::IsFinite(HeroPosition.X) && FMath::IsFinite(HeroPosition.Y)) {
    const float HeroX = ProjectX(HeroPosition.X);
@@ -196,7 +211,7 @@ void AMoonfallCombatHUD::DrawHUD()
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
   }
-  DrawText(TEXT("Explored cells shown | yellow: hero | blue: discovered | green: cleared"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
+  DrawText(TEXT("Yellow: hero | cyan: shrine | violet: respawn | blue/green: dungeons"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
   return;
  }
  if (Hero->bOptionsOpen) {

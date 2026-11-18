@@ -1305,6 +1305,30 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  // Discover active, already-visited shrines from their real actors once
+  // per Atlas opening. No per-frame world actor scan or new save fields.
+  AtlasDiscoveredShrineLocations.Reset();
+  bAtlasHasActiveRespawnShrineLocation = false;
+  AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
+  if (GetWorld()) {
+   TSet<FName> SeenShrineIds;
+   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
+    const AMoonfallCheckpointShrine* Shrine = *It;
+    if (!IsValid(Shrine) || Shrine->ShrineId.IsNone()
+        || !HasDiscoveredShrine(Shrine->ShrineId)
+        || SeenShrineIds.Contains(Shrine->ShrineId)) continue;
+    const FVector ShrinePos = Shrine->GetActorLocation();
+    if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
+    if (AtlasDiscoveredShrineLocations.Num() >= 64) break;
+    SeenShrineIds.Add(Shrine->ShrineId);
+    AtlasDiscoveredShrineLocations.Add(ShrinePos);
+    if (ActiveShrineId == Shrine->ShrineId
+        && IsCurrentRespawnLocation(Shrine->GetRespawnLocation())) {
+     AtlasActiveRespawnShrineLocation = ShrinePos;
+     bAtlasHasActiveRespawnShrineLocation = true;
+    }
+   }
+  }
  }
  bAtlasOpen = !bAtlasOpen;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
