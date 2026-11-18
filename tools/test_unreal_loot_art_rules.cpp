@@ -20,25 +20,34 @@ static_assert(Same(Select(2,4,3,12,true,true,true),
                    {EAtlas::Relic,(12+4+3)%3,2,3,3}));
 static_assert(Same(Select(0,3,1,8,true,true,false),
                    {EAtlas::Trait,0,0,3,3}));
+static_assert(Same(Select(0,5,2,16,true,true,true,true),
+                   {EAtlas::Masterwork,(16+5+2)%3,0,3,3}));
+static_assert(Same(Select(2,4,1,15,true,true,true,true),
+                   {EAtlas::Relic,(15+4+1)%3,2,3,3}));
+static_assert(ValidCell(Select(1,5,1,25,true,true,true,true)));
+static_assert(ValidCell(Select(1,0,0,1,false,false,false,false)));
 static_assert(Same(Select(-1,5,1,25,true,true,true),
                    {EAtlas::None,0,0,0,0}));
 static_assert(Same(Select(1,0,2,1,true,true,true),
                    {EAtlas::None,0,0,0,0}));
 
 int main() {
- int checked=0, relicCells[3][3]={};
+ int checked=0, relicCells[3][3]={}, masterworkCells[3][3]={};
  for(int slot=0;slot<3;++slot)
   for(int rarity=0;rarity<6;++rarity)
    for(int trait=0;trait<4;++trait)
     for(int tier=1;tier<=25;++tier) {
      if(!ValidEquipment(slot,rarity,trait,tier))continue;
-     for(int mask=0;mask<8;++mask){
+     for(int mask=0;mask<16;++mask){
       const bool base=(mask&1)!=0, variant=(mask&2)!=0, relic=(mask&4)!=0;
-      const FCell choice=Select(slot,rarity,trait,tier,base,variant,relic);
-      assert(Same(choice,Select(slot,rarity,trait,tier,base,variant,relic)));
+      const bool masterwork=(mask&8)!=0;
+      const FCell choice=Select(slot,rarity,trait,tier,base,variant,relic,masterwork);
+      assert(Same(choice,Select(slot,rarity,trait,tier,base,variant,relic,masterwork)));
+      assert(ValidCell(choice));
       if(choice.Atlas==EAtlas::None){
        assert(!base && !(variant&&trait>0) &&
-              !(relic&&rarity>=3&&tier>=8));
+              !(relic&&rarity>=3&&tier>=8) &&
+              !(masterwork&&rarity>=4&&tier>=16));
        assert(choice.Columns==0&&choice.Rows==0);
       }else {
        assert(choice.Column>=0&&choice.Column<choice.Columns);
@@ -49,19 +58,27 @@ int main() {
        }else if(choice.Atlas==EAtlas::Trait){
         assert(variant&&trait>0&&choice.Row==slot);
         assert(choice.Columns==3&&choice.Rows==3);
-       }else {
-        assert(choice.Atlas==EAtlas::Relic);
+       }else if(choice.Atlas==EAtlas::Relic) {
         assert(relic&&rarity>=3&&tier>=8);
+        assert(!(masterwork&&rarity>=4&&tier>=16));
         assert(choice.Column==(tier+rarity+trait)%3);
         assert(choice.Row==slot);
         ++relicCells[choice.Row][choice.Column];
+       }else {
+        assert(choice.Atlas==EAtlas::Masterwork);
+        assert(masterwork&&rarity>=4&&tier>=16);
+        assert(choice.Columns==3&&choice.Rows==3);
+        assert(choice.Column==(tier+rarity+trait)%3);
+        assert(choice.Row==slot);
+        ++masterworkCells[choice.Row][choice.Column];
        }
       }
       ++checked;
      }
     }
  for(auto& row:relicCells)for(int hits:row)assert(hits>0);
- assert(checked==3*(25+5*4*25)*8);
+ for(auto& row:masterworkCells)for(int hits:row)assert(hits>0);
+ assert(checked==3*(25+5*4*25)*16);
  std::cout<<"Moonfall loot art: "<<checked
-          <<" valid atlas/fallback combinations, all 9 relic cells reachable OK\n";
+          <<" valid atlas/fallback combinations, 9 relic + 9 masterwork cells reachable OK\n";
 }
