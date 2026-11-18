@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallEliteTactics.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
@@ -39,6 +40,8 @@ float AMoonfallEnemy::GetAttackWarningDuration() const {
    ? FMath::Clamp(CurrentWindup,0.1f,5.f) : 0.f;
 }
 FString AMoonfallEnemy::GetAttackWarningLabel() const {
+ // All non-boss attacks remain blockable/parryable, including counter-sweep.
+ if (bAdaptiveSweepCommitted && bElite && !bBoss) return TEXT("COUNTER SWEEP");
  // The entire non-boss damage pipeline remains blockable and parryable.
  // These labels describe the actual committed attack shape, not a new move.
  if (CurrentAttackMultiplier > 2.f) return TEXT("ELITE CRUSH");
@@ -661,6 +664,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
      ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
+     // A parried elite remembers ONE successful counter opportunity for
+     // four seconds. Its response reuses the ordinary sweep damage and
+     // attack slot, with a longer readable tell. No bonus hit or path query.
+     const bool bCanArmAdaptation = MoonfallEliteTactics::CanArm(
+       bElite, bBoss, bSanctuaryPractice, Health > 0.f,
+       Now < PostureBrokenUntil, Now >= NextAdaptiveSweepAllowedAt);
+     if (bCanArmAdaptation) {
+      AdaptiveSweepReadyUntil = Now + MoonfallEliteTactics::ParryMemorySeconds;
+      NextAdaptiveSweepAllowedAt =
+        Now + MoonfallEliteTactics::ParryResponseCooldownSeconds;
+     }
      // Temporary visualization for editor/development builds until a Blueprint
      // implementation provides the finished impact animation and VFX.
 #if ENABLE_DRAW_DEBUG
@@ -1038,6 +1052,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;
    int32 Pattern = AttackSequence++ % PatternCount;
+   const bool bAdaptationReady = bElite && !bBoss
+       && FMath::IsFinite(AdaptiveSweepReadyUntil)
+       && AdaptiveSweepReadyUntil > Now;
+   bAdaptiveSweepCommitted = bAdaptationReady;
+   AdaptiveSweepReadyUntil = -1.f; // Consume on the next valid attack only.
+   Pattern = MoonfallEliteTactics::SelectPattern(
+     Pattern, bElite, bBoss, bAdaptationReady);
    if (bBoss) {
     // Select uniformly from all other basic patterns. No extra actor,
     // ticker, path solve or unbounded retry loop is needed.
@@ -1071,6 +1092,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
+   if (bAdaptiveSweepCommitted)
+    CurrentWindup = FMath::Max(CurrentWindup, MoonfallEliteTactics::CounterSweepWindup);
    if (bBoss && BossPhase >= 2) {
     // Phase three alternates swift strikes with pronounced heavy tells.
     if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;
@@ -1148,6 +1171,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
+   if (!bBoss) {
+    // Call once, after the authoritative timer and attack parameters are
+    // committed. Blueprints can attach a windup montage / character voice.
+    // Without authored assets the source path remains silent and functional.
+    OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);
+    if (bElite && !bSanctuaryPractice && IsValid(EliteAttackTellSound)
+        && GetWorld() && Distance <= 1000.f)
+     UGameplayStatics::PlaySoundAtLocation(
+       this, EliteAttackTellSound.Get(), GetActorLocation(), 0.55f);
+   }
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
    } else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5) {
