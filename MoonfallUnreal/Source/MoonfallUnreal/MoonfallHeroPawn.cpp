@@ -256,6 +256,11 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  AddLoot(EMoonfallLootSource::Boss, 3, 75);
  AddLoot(EMoonfallLootSource::Boss, 4, 20, 30);
  AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);
+ // Dungeon treasure is always Rare+, with separately weighted higher rarities.
+ AddLoot(EMoonfallLootSource::Treasure, 2, 60);
+ AddLoot(EMoonfallLootSource::Treasure, 3, 30);
+ AddLoot(EMoonfallLootSource::Treasure, 4, 8, 20);
+ AddLoot(EMoonfallLootSource::Treasure, 5, 2, 50);
  // Six regional bonus pools. Three equipment slots and three existing
  // traits combine into six zone-distinct outcomes without changing IDs.
  for (int32 Zone = 0; Zone < 6; ++Zone) {
@@ -264,6 +269,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
   AddLoot(EMoonfallLootSource::Regular, 2, 8, 1, Zone, SlotMask, Trait);
   AddLoot(EMoonfallLootSource::Elite, 3, 8, 1, Zone, SlotMask, Trait);
   AddLoot(EMoonfallLootSource::Boss, 3, 8, 1, Zone, SlotMask, Trait);
+  AddLoot(EMoonfallLootSource::Treasure, 3, 8, 1, Zone, SlotMask, Trait);
  }
  DungeonNavigationInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(
    TEXT("DungeonNavigationInvoker"));
@@ -1919,13 +1925,22 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level >= 100) Experience = 0;
 }
 
-int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex)
+// Shared weighted picker for combat drops and deterministic dungeon treasure.
+// The table is read-only at roll time; no per-kill allocations, save changes
+// or gameplay-altering Blueprint callbacks occur during selection.
+namespace {
+int32 MoonfallLootRandRange(FRandomStream* Stream, int32 MinValue, int32 MaxValue)
 {
- if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
- const EMoonfallLootSource Source = bBossEnemy ? EMoonfallLootSource::Boss
-   : (bEliteEnemy ? EMoonfallLootSource::Elite : EMoonfallLootSource::Regular);
- const int32 Zone = SourceZoneIndex >= 0 && SourceZoneIndex < 6 ? SourceZoneIndex : -1;
- const int32 SafeLevel = FMath::Clamp(Level, 1, 100);
+ return Stream ? Stream->RandRange(MinValue, MaxValue)
+   : FMath::RandRange(MinValue, MaxValue);
+}
+
+const FMoonfallLootTableEntry* SelectMoonfallLootEntry(
+ const TArray<FMoonfallLootTableEntry>& Entries, EMoonfallLootSource Source,
+ int32 ZoneIndex, int32 HeroLevel, FRandomStream* Stream)
+{
+ const int32 Zone = ZoneIndex >= 0 && ZoneIndex < 6 ? ZoneIndex : -1;
+ const int32 SafeLevel = FMath::Clamp(HeroLevel, 1, 100);
  const auto WeightFor = [Source, Zone, SafeLevel](const FMoonfallLootTableEntry& Entry) {
   if (Entry.Source != Source || Entry.MinimumLevel < 1
       || Entry.MinimumLevel > SafeLevel || Entry.Rarity < 0 || Entry.Rarity > 5
@@ -1934,49 +1949,73 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, in
       || Entry.ForcedTrait < 0 || Entry.ForcedTrait > 3
       || (Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone)
       || (Source == EMoonfallLootSource::Boss && Entry.Rarity < 3)
-      || (Source == EMoonfallLootSource::Elite && Entry.Rarity < 2)) return 0;
+      || (Source == EMoonfallLootSource::Elite && Entry.Rarity < 2)
+      || (Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2))
+   return 0;
   return Entry.Weight;
  };
- // Both passes admit the same bounded sequence of rows, even if a Blueprint
- // sets extreme weights. No overflow or out-of-range item code on bad input.
+ // Identical admission in both passes avoids overflow and biased selection,
+ // even if Blueprint defaults contain an excessive number of custom rows.
  constexpr int32 MaxTotalLootWeight = 1000000;
  int32 TotalWeight = 0;
- for (const FMoonfallLootTableEntry& Entry : LootTableEntries) {
+ for (const FMoonfallLootTableEntry& Entry : Entries) {
   const int32 Weight = WeightFor(Entry);
   if (Weight > 0 && TotalWeight <= MaxTotalLootWeight - Weight)
    TotalWeight += Weight;
  }
- if (TotalWeight <= 0) return 0;
- const int32 Ticket = FMath::RandRange(1, TotalWeight);
+ if (TotalWeight <= 0) return nullptr;
+ const int32 Ticket = MoonfallLootRandRange(Stream, 1, TotalWeight);
  int32 Accumulated = 0;
- const FMoonfallLootTableEntry* Selected = nullptr;
- for (const FMoonfallLootTableEntry& Entry : LootTableEntries) {
+ for (const FMoonfallLootTableEntry& Entry : Entries) {
   const int32 Weight = WeightFor(Entry);
   if (Weight <= 0 || Accumulated > MaxTotalLootWeight - Weight) continue;
   Accumulated += Weight;
-  if (Ticket <= Accumulated) { Selected = &Entry; break; }
+  if (Ticket <= Accumulated) return &Entry;
  }
- if (!Selected) return 0;
- // This compact equipment ID format is unchanged: trait/slot/rarity/tier.
- const int32 NewTier = FMath::Clamp(Level / 5
-   + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ return nullptr;
+}
+
+int32 EncodeMoonfallLootEntry(const FMoonfallLootTableEntry& Entry, int32 Tier,
+ FRandomStream* Stream, int32& OutSlot, int32& OutTrait)
+{
  int32 ValidSlots[3];
  int32 SlotCount = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot)
-  if ((Selected->SlotMask & (1 << Slot)) != 0)
+  if ((Entry.SlotMask & (1 << Slot)) != 0)
    ValidSlots[SlotCount++] = Slot;
- if (SlotCount == 0) return 0;
+ if (SlotCount <= 0 || Tier < 1 || Tier > 25) return 0;
+ OutSlot = ValidSlots[MoonfallLootRandRange(Stream, 0, SlotCount - 1)];
+ OutTrait = Entry.Rarity == 0 ? 0
+   : (Entry.Rarity == 1 && MoonfallLootRandRange(Stream, 0, 99) < 60
+      ? 0 : MoonfallLootRandRange(Stream, 1, 3));
+ if (Entry.Rarity > 0 && Entry.ForcedTrait > 0)
+  OutTrait = Entry.ForcedTrait;
+ return OutTrait * 100000 + OutSlot * 10000 + Entry.Rarity * 1000 + Tier;
+}
+}
+
+int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex)
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ const EMoonfallLootSource Source = bBossEnemy ? EMoonfallLootSource::Boss
+   : (bEliteEnemy ? EMoonfallLootSource::Elite : EMoonfallLootSource::Regular);
+ const FMoonfallLootTableEntry* Selected =
+   SelectMoonfallLootEntry(LootTableEntries, Source, SourceZoneIndex, Level, nullptr);
+ if (!Selected) return 0; // Invalid table: do not create corrupt equipment.
+ const int32 NewTier = FMath::Clamp(Level / 5
+   + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ int32 Slot = INDEX_NONE;
+ int32 Trait = 0;
+ const int32 ItemCode = EncodeMoonfallLootEntry(
+   *Selected, NewTier, nullptr, Slot, Trait);
+ if (ItemCode <= 0) return 0;
+ // Last-loot HUD state updates only for actual enemy/scripted drops.
  LastLootRarity = Selected->Rarity;
  LastLootTier = NewTier;
- LastLootSlot = ValidSlots[FMath::RandRange(0, SlotCount - 1)];
- LastLootAffix = LastLootRarity == 0 ? 0
-   : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
-      ? 0 : FMath::RandRange(1, 3));
- if (LastLootRarity > 0 && Selected->ForcedTrait > 0)
-  LastLootAffix = Selected->ForcedTrait;
+ LastLootSlot = Slot;
+ LastLootAffix = Trait;
  LastLootUpgrade = NewTier - GetValidatedEquippedTier(LastLootSlot);
- return LastLootAffix * 100000 + LastLootSlot * 10000
-   + LastLootRarity * 1000 + NewTier;
+ return ItemCode;
 }
 
 // Legacy direct grant remains available for scripted rewards. Enemy deaths
@@ -2513,13 +2552,18 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
   if (DungeonTreasureStates[Key] != 0)
    return FMath::Max(0, DungeonTreasureStates[Key]);
  }
- // Use a deterministic seed, independent of framerate and visit order.
+ // Use the same validated weighted table as enemies, but a dedicated
+ // deterministic stream. Persisted pending/claimed rewards are returned
+ // above, so table edits cannot reroll items already saved to a character.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
- const int32 Slot = Stream.RandRange(0, 2);
- const int32 Rarity = Stream.RandRange(2, 5);
- const int32 Affix = Stream.RandRange(0, 3);
+ const FMoonfallLootTableEntry* Selected = SelectMoonfallLootEntry(
+   LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream);
+ if (!Selected) return 0;
+ int32 Slot = INDEX_NONE;
+ int32 Trait = 0;
  const int32 Tier = FMath::Clamp(Level, 1, 25);
- const int32 Code = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ const int32 Code = EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait);
+ if (Code <= 0) return 0;
  const TArray<int32> Previous = DungeonTreasureStates;
  DungeonTreasureStates.SetNumZeroed(420);
  DungeonTreasureStates[Key] = Code;
