@@ -15,7 +15,7 @@ const script=found[1];
 new vm.Script(script); // Parse the full browser code, including event listeners.
 const cutoff=script.indexOf('byId("reset").addEventListener');
 assert.ok(cutoff>0,"Expected event-registration boundary");
-const helper=vm.runInNewContext(script.slice(0,cutoff)+"\n;({FIELDS,SOURCES,defaultRows,validate,summary,parseCsv,csvField})");
+const helper=vm.runInNewContext(script.slice(0,cutoff)+"\n;({FIELDS,SOURCES,defaultRows,validate,summary,parseCsv,csvField,bulkAdjust,uniqueCopyName})");
 const original=helper.defaultRows();
 assert.equal(original.length,41,"17 global and 24 regional rows");
 assert.equal(helper.validate(original).errors.length,0);
@@ -29,13 +29,38 @@ assert.equal(generic.total,100);
 assert.equal(generic.weights[3],75);
 assert.equal(generic.weights[4],20);
 assert.equal(generic.weights[5],5);
+assert.equal(generic.eligibleCount,3);
+assert.equal(Math.round(generic.slots.reduce((a,b)=>a+b,0)),100);
+assert.equal(Math.round(generic.traits.reduce((a,b)=>a+b,0)),100);
+assert.equal(generic.traits[0],0,"Epic+ generic bosses have only named traits");
 const region=helper.summary(original,"Boss",0,60);
 assert.equal(region.total,108);
 assert.equal(region.weights[3],83);
 assert.equal(region.weights[5],5);
+assert.equal(region.eligibleCount,4);
+assert.ok(Math.abs(region.slots[0]-(100/3+8))<1e-8,
+ "Region 1 boss row has weapon-only bitmask");
+assert.ok(Math.abs(region.traits[1]-(100/3+8))<1e-8,
+ "Region 1 boss row forces Force while generic rows have uniform named traits");
 const low=helper.summary(original,"Treasure",0,1);
 assert.equal(low.total,98);
 assert.equal(low.weights[5],0);
+const uncommon=helper.summary(original,"Regular",0,1);
+assert.ok(Math.abs(uncommon.traits[0]-64.4)<1e-8,
+ "Uncommon generic rows have 60% untraited chance");
+const altered=helper.bulkAdjust(original.map(row=>({...row})),150,row=>row.Name==="Boss_R3");
+assert.equal(altered.find(row=>row.Name==="Boss_R3").Weight,113,
+ "Bulk edits round weights to integer values");
+assert.equal(altered.find(row=>row.Name==="Boss_R4").Weight,20,
+ "Bulk edits may not affect unmatched rows");
+assert.throws(()=>helper.bulkAdjust(original.map(row=>({...row})),150,()=>false),
+ /No rows match/);
+const overweight=original.map(row=>({...row}));
+overweight.find(row=>row.Name==="Boss_R3").Weight=10000;
+assert.throws(()=>helper.bulkAdjust(overweight,200,row=>row.Name==="Boss_R3"),
+ /exceeds/, "Never silently clamp a bulk edit");
+assert.equal(helper.uniqueCopyName("Boss_R3",original),"Boss_R3_copy");
+assert.equal(helper.uniqueCopyName("Boss_R3",original.concat({Name:"boss_r3_COPY"})),"Boss_R3_copy2");
 const invalid=JSON.parse(JSON.stringify(original));
 invalid[0].Weight=10001;
 assert.ok(helper.validate(invalid).errors.length>0);
@@ -44,6 +69,13 @@ const elite=invalid.find(row=>row.Source==="Elite");
 assert.ok(elite);
 elite.Rarity=0;
 assert.ok(helper.validate(invalid).errors.length>0,"Invalid elite rarity floor must fail");
+const caseCollision=original.map(row=>({...row}));
+caseCollision[1].Name=caseCollision[0].Name.toLowerCase();
+assert.ok(helper.validate(caseCollision).errors.some(error=>error.includes("Duplicate")),
+ "Unreal FName case-insensitive collisions must fail");
+const missingName=original.map(row=>({...row}));
+missingName[0].Name="Cannot import spaces";
+assert.ok(helper.validate(missingName).errors.some(error=>error.includes("Invalid row name")));
 const incomplete=JSON.parse(JSON.stringify(original)).filter(row=>row.Source!=="Elite");
 assert.ok(helper.validate(incomplete).errors.length>0,"Incomplete tables fail closed");
 assert.ok(script.includes("file.size>1024*1024"),"Limit imported CSV file size");
@@ -55,7 +87,13 @@ assert.ok(helper.validate(malformed).errors.length>0,"Out-of-range imported weig
 assert.equal(script.includes("innerHTML"),false,"Do not inject user-authored row names as markup");
 assert.equal(script.includes("fetch("),false,"Offline editor must not contact servers");
 assert.equal(script.includes("eval("),false,"Do not evaluate CSV content as code");
-for(const id of ["export","import","add","reset","preview-source","preview-zone","preview-level","rows"]){
+for(const id of ["export","import","add","reset","undo","redo","bulk-factor","bulk-apply",
+ "filter-zone","slots","traits","row-odds","unsaved","preview-source","preview-zone","preview-level","rows"]){
  assert.ok(html.includes('id="'+id+'"'),"Missing accessible UI control: "+id);
 }
-console.log("Moonfall visual loot editor: syntax, 41 rows, rarity odds, input validation and CSV roundtrip OK");
+assert.ok(script.includes("rememberEdit();rows.splice(index,1)"),"Deletion must support undo");
+assert.ok(script.includes("rememberEdit();rows=defaultRows()"),"Reset must support undo");
+assert.ok(script.includes("rows=undoHistory.pop()"),"Undo must restore previous table");
+assert.ok(script.includes("rows=redoHistory.pop()"),"Redo must restore next table");
+assert.ok(script.includes("window.addEventListener(\"beforeunload\""),"Warn before losing unexported edits");
+console.log("Moonfall loot editor: syntax, 41 rows, rarity/slot/trait odds, bulk editing, undo/redo, validation, CSV roundtrip OK");
