@@ -1253,8 +1253,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
-  CombatCueMessage.Empty();
-  CombatCueUntil = -1.f;
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
@@ -1262,6 +1260,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
+  CombatCueMessage.Empty();
+  CombatCueUntil = -1.f;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
