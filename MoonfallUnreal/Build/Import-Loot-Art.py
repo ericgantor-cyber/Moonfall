@@ -57,8 +57,10 @@ def validate_atlas(path: Path, expected_size: tuple[int, int]) -> None:
             width, height, depth, color, compression, filtering, interlace = (
                 struct.unpack(">IIBBBBB", chunk_data)
             )
-            if ((width, height) != expected_size or depth != 8
-                    or color not in (2, 3, 6) or compression != 0
+            if ((width, height) != expected_size
+                    or not ((color == 3 and depth in (1, 2, 4, 8))
+                            or (color in (2, 6) and depth == 8))
+                    or compression != 0
                     or filtering != 0 or interlace not in (0, 1)):
                 raise ValueError(f"Unexpected Moonfall atlas dimensions or format: {path}")
             found_ihdr = True
