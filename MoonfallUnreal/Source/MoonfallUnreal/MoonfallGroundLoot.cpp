@@ -108,8 +108,18 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupDetailB->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
   PickupDetailB->SetRelativeRotation(FRotator(0.f,30.f,0.f));
  }
- PickupDetailA->SetHiddenInGame(false);
- PickupDetailB->SetHiddenInGame(false);
+ // Visual variation is bounded and derived only from validated item data.
+ // Collision stays disabled and pickup distances remain unchanged.
+ const float SizeAccent = 1.f + 0.004f * FMath::Clamp(Tier - 1, 0, 24);
+ PickupMesh->SetRelativeScale3D(PickupMesh->GetRelativeScale3D() * SizeAccent);
+ PickupDetailA->SetRelativeScale3D(PickupDetailA->GetRelativeScale3D() * SizeAccent);
+ PickupDetailB->SetRelativeScale3D(PickupDetailB->GetRelativeScale3D() * SizeAccent);
+ PickupDetailA->SetHiddenInGame(!IsValid(PickupDetailA->GetStaticMesh()));
+ PickupDetailB->SetHiddenInGame(!IsValid(PickupDetailB->GetStaticMesh()));
+ // Rarity changes beacon width/height, while text remains the accessible cue.
+ const float BeaconWidth = 0.08f + 0.012f * Rarity;
+ RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
+   1.25f + 0.11f * Rarity));
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
@@ -123,8 +133,13 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Colored beacon and object communicate rarity without transient effects or tick.
  if (UMaterialInstanceDynamic* BeaconMaterial = RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
   BeaconMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
- if (UMaterialInstanceDynamic* PickupMaterial = PickupMesh->CreateAndSetMaterialInstanceDynamic(0))
-  PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+ // Color all geometry, not only its center primitive. Missing base materials
+ // quietly retain their original appearance; art must never block collection.
+ for (UStaticMeshComponent* Part : {PickupMesh, PickupDetailA, PickupDetailB}) {
+  if (!IsValid(Part) || !IsValid(Part->GetStaticMesh())) continue;
+  if (UMaterialInstanceDynamic* Material = Part->CreateAndSetMaterialInstanceDynamic(0))
+   Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+ }
 }
 
 void AMoonfallGroundLoot::SetPersistentDropId(const FGuid& InId)
