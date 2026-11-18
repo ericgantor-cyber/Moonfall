@@ -106,17 +106,40 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
   }
-  // Fogged schematic: only discovered dungeon tiles are illuminated.
+  // World-space road projection: match MoonfallArena's 30 slots at 1350 cm.
+  // Selection pans the visible road window without teleporting the hero.
   const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
-  const float Tile = FMath::Clamp(22.f * Hero->AtlasZoom * Scale, 10.f, 35.f);
-  const float StartX = Left + 18.f;
-  const float TileY = Top + Height - 23.f;
-  for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
-   const bool bFound = Hero->HasDiscoveredDungeon(Selected, Dungeon);
-   const bool bCleared = Hero->HasDefeatedDungeonBoss(Selected, Dungeon);
-   DrawRect(bCleared ? FLinearColor(0.24f,0.65f,0.46f) : bFound ? FLinearColor(0.33f,0.58f,0.86f) : FLinearColor(0.09f,0.10f,0.14f), StartX + Dungeon * (Tile + 5.f), TileY - Tile, Tile, Tile);
+  const float MapLeft = Left + 18.f;
+  const float MapWidth = FMath::Max(40.f, Width - 36.f);
+  const float MapTop = Top + Height - 70.f;
+  const float MapHeight = 54.f;
+  DrawRect(FLinearColor(0.055f, 0.075f, 0.11f, 1.f), MapLeft, MapTop, MapWidth, MapHeight);
+  const float MapCenterX = (static_cast<float>(Selected * 5 + 2) - 14.5f) * 1350.f;
+  const float VisibleHalfSpan = 21000.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
+  const auto ProjectX = [&](float WorldX) {
+   return MapLeft + MapWidth * (0.5f + (WorldX - MapCenterX) / (2.f * VisibleHalfSpan));
+  };
+  DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), MapLeft, MapTop + 25.f, MapWidth, 4.f);
+  for (int32 Slot = 0; Slot < 30; ++Slot) {
+   const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+   const float MarkerX = ProjectX(WorldX);
+   if (MarkerX < MapLeft + 5.f || MarkerX > MapLeft + MapWidth - 5.f) continue;
+   const int32 Zone = Slot / 5;
+   const int32 Dungeon = Slot % 5;
+   const bool bFound = Hero->HasDiscoveredDungeon(Zone, Dungeon);
+   const bool bCleared = Hero->HasDefeatedDungeonBoss(Zone, Dungeon);
+   DrawRect(bCleared ? FLinearColor(0.24f, 0.65f, 0.46f)
+     : bFound ? FLinearColor(0.33f, 0.58f, 0.86f)
+     : FLinearColor(0.10f, 0.12f, 0.16f),
+     MarkerX - 4.f, MapTop + 18.f, 8.f, 18.f);
   }
-  DrawText(TEXT("Selected region: blue discovered / green cleared / dark unexplored"), FLinearColor(0.75f,0.84f,0.92f), Left + 18.f, Top + Height - 49.f, nullptr, Scale * 0.65f);
+  const FVector HeroPosition = Hero->GetActorLocation();
+  if (FMath::IsFinite(HeroPosition.X)) {
+   const float HeroX = ProjectX(HeroPosition.X);
+   if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f)
+    DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 3.f, MapTop + 6.f, 6.f, 39.f);
+  }
+  DrawText(TEXT("Road overview | yellow: hero | blue: discovered | green: cleared"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
   return;
  }
  if (Hero->bOptionsOpen) {
