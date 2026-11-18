@@ -31,6 +31,9 @@ AMoonfallCombatHUD::AMoonfallCombatHUD()
  static ConstructorHelpers::FObjectFinder<UTexture2D> Ascendants(
    TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAscendants.T_MoonfallLootAscendants"));
  if (Ascendants.Succeeded()) LootAscendantAtlas = Ascendants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Wayfarers(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootWayfarers.T_MoonfallLootWayfarers"));
+ if (Wayfarers.Succeeded()) LootWayfarerAtlas = Wayfarers.Object;
 }
 
 void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
@@ -55,13 +58,15 @@ void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
  const MoonfallLootArt::FCell Cell = MoonfallLootArt::Select(
   Slot,Rarity,Trait,Tier,
   IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas),
-  IsValid(LootMasterworkAtlas),IsValid(LootAscendantAtlas));
+  IsValid(LootMasterworkAtlas),IsValid(LootAscendantAtlas),
+  IsValid(LootWayfarerAtlas));
  UTexture2D* IconTexture = nullptr;
  if (Cell.Atlas == MoonfallLootArt::EAtlas::Base) IconTexture = LootIconAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Trait) IconTexture = LootVariantAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Relic) IconTexture = LootRelicAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork) IconTexture = LootMasterworkAtlas.Get();
  else if (Cell.Atlas == MoonfallLootArt::EAtlas::Ascendant) IconTexture = LootAscendantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Wayfarer) IconTexture = LootWayfarerAtlas.Get();
  if (IsValid(IconTexture) && MoonfallLootArt::ValidCell(Cell)) {
   Canvas->K2_DrawTexture(IconTexture,
     FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
