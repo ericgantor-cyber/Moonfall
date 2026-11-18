@@ -135,12 +135,19 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->ExploredZoneFogMasks.SetNumZeroed(6);
  Original->ExploredZoneFogMasks[0] = (static_cast<int64>(1) << 55) | 1;
  Original->ExploredZoneFogMasks[5] = static_cast<int64>(1) << 42;
+ // Keep this fixture valid under the real SaveWorldProgress/LoadWorldProgress
+ // validation rules. Chamber 0 is the entrance and 13 is the final boss:
+ // only interior indices 1..12 can contain saved treasure states.
+ constexpr int32 FirstTreasureKey = 1; // First dungeon, chamber 1.
+ constexpr int32 LastTreasureKey = 29 * 14 + 12; // 30th dungeon, chamber 12.
+ constexpr int32 PendingTreasureCode = 12017; // Rare armor, tier 17.
+ constexpr int32 PendingWorldDropCode = 22017; // Rare accessory, tier 17.
  Original->DungeonTreasureStates.SetNumZeroed(30 * 14);
- Original->DungeonTreasureStates[0] = -1; // Collected treasure.
- Original->DungeonTreasureStates[30 * 14 - 1] = 217; // Pending treasure.
+ Original->DungeonTreasureStates[FirstTreasureKey] = -1; // Collected treasure.
+ Original->DungeonTreasureStates[LastTreasureKey] = PendingTreasureCode; // Pending treasure.
  FMoonfallWorldLootRecord PendingDrop;
  PendingDrop.DropId = FGuid(0x12345678u, 0xABCDEF01u, 0x23456789u, 0xFEDCBA98u);
- PendingDrop.ItemCode = 1234;
+ PendingDrop.ItemCode = PendingWorldDropCode;
  PendingDrop.Location = FVector(100.f, -200.f, 25.f);
  PendingDrop.LevelId = FName(TEXT("MoonfallTestWorld"));
  Original->PendingWorldLoot.Add(PendingDrop);
@@ -175,16 +182,16 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    Restored->DungeonTreasureStates.Num(), 30 * 14);
  if (Restored->DungeonTreasureStates.Num() == 30 * 14) {
   TestEqual(TEXT("Collected treasure state survives"),
-    Restored->DungeonTreasureStates[0], -1);
+    Restored->DungeonTreasureStates[FirstTreasureKey], -1);
   TestEqual(TEXT("Pending treasure state survives"),
-    Restored->DungeonTreasureStates[30 * 14 - 1], 217);
+    Restored->DungeonTreasureStates[LastTreasureKey], PendingTreasureCode);
  }
  TestEqual(TEXT("Pending world loot count survives"),
    Restored->PendingWorldLoot.Num(), 1);
  if (Restored->PendingWorldLoot.Num() == 1) {
   const FMoonfallWorldLootRecord& Drop = Restored->PendingWorldLoot[0];
   TestTrue(TEXT("World loot drop identity survives"), Drop.DropId == PendingDrop.DropId);
-  TestEqual(TEXT("World loot equipment code survives"), Drop.ItemCode, 1234);
+  TestEqual(TEXT("World loot equipment code survives"), Drop.ItemCode, PendingWorldDropCode);
   TestTrue(TEXT("World loot position survives"), Drop.Location.Equals(PendingDrop.Location));
   TestTrue(TEXT("World loot level identity survives"), Drop.LevelId == PendingDrop.LevelId);
  }
