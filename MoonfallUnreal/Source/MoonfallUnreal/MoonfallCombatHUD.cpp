@@ -135,10 +135,11 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("DUNGEONS %d/5 | BOSSES %d/5"), Discovered, Defeated),
        FLinearColor(0.72f, 0.79f, 0.76f), Left + 23.f, Y + 19.f,
        nullptr, Scale * AtlasSideTextScale * 0.73f);
-   if (!bCompactAtlasRows)
+   if (!bCompactAtlasRows) {
     DrawText(FString::Printf(TEXT("EXPLORED %d%%"), FMath::RoundToInt(100.f * Revealed / 56.f)),
         FLinearColor(0.72f, 0.66f, 0.55f), Left + 23.f, Y + 38.f,
         nullptr, Scale * AtlasSideTextScale * 0.75f);
+   }
   }
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
