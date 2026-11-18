@@ -82,6 +82,76 @@ class EliteCounterTactics(unittest.TestCase):
         self.assertNotIn("GetWorldTimerManager()",commit)
         self.assertNotIn("SpawnActor",commit)
 
+    def test_counter_is_cleared_on_six_cancellation_paths(self):
+        checks = {
+            "posture shatter": self.enemy.split(
+                "PostureBrokenUntil = Now + VulnerabilitySeconds;",1
+            )[1].split("bPostureFinisherAvailable = true;",1)[0],
+            "wounded elite retreat": self.enemy.split(
+                "TacticalRetreatUntil = Now + 2.f;",1
+            )[1].split("CachedWaypoint = FVector::ZeroVector;",1)[0],
+            "defeat": self.enemy.split(
+                "if (Health <= 0.0f) {",1
+            )[1].split("SetActorEnableCollision(false);",1)[0],
+            "menu and possession": self.enemy.split(
+                "if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)",1
+            )[1].split("// A corrupt nonfinite windup",1)[0],
+            "corrupt timer": self.enemy.split(
+                "if (!FMath::IsFinite(WindupEndsAt)) {",1
+            )[1].split("// A shatter follow-up expires",1)[0],
+            "leaving combat": self.enemy.split(
+                "if (!bInCombatArea) {",1
+            )[1].split("// Complete the full two-second",1)[0],
+        }
+        for label, section in checks.items():
+            with self.subTest(reason=label):
+                self.assertIn("bAdaptiveSweepCommitted = false;", section)
+                self.assertIn("AdaptiveSweepReadyUntil = -1.f;", section)
+                self.assertIn("WindupEndsAt = -1.f;", section)
+        resolution = self.enemy.split(
+            "if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {",1
+        )[1].split("// Heavy elite crushes",1)[0]
+        self.assertIn("bAdaptiveSweepCommitted = false;", resolution)
+
+    def test_parry_recovery_does_not_erase_new_counter_memory(self):
+        # A successful parry causes a brief hit reaction. Clearing the
+        # *committed* label must not immediately discard the response that
+        # this same parry just armed, unless posture actually shattered.
+        stagger = self.enemy.split("if (Staggered) {",1)[1].split(
+            "// Reject invalid actor transforms",1)[0]
+        self.assertIn("bAdaptiveSweepCommitted = false;",stagger)
+        self.assertNotIn("AdaptiveSweepReadyUntil = -1.f;",stagger)
+        posture_break = self.enemy.split(
+            "PostureBrokenUntil = Now + VulnerabilitySeconds;",1
+        )[1].split("OnPostureBroken(VulnerabilitySeconds);",1)[0]
+        self.assertIn("AdaptiveSweepReadyUntil = -1.f;",posture_break)
+
+    def test_audio_is_suppressed_after_blueprint_cancels_a_windup(self):
+        commit = self.enemy.split(
+            "OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);",1
+        )[1].split("if (bDivineSignatureActive) {",1)[0]
+        self.assertIn("!IsActorBeingDestroyed()",commit)
+        self.assertIn("FMath::IsFinite(Health) && Health > 0.f",commit)
+        self.assertIn("FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now",commit)
+        self.assertIn("FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f",commit)
+        self.assertIn("UGameplayStatics::PlaySoundAtLocation(",commit)
+        self.assertLess(commit.index("WindupEndsAt > Now"),
+                        commit.index("UGameplayStatics::PlaySoundAtLocation("))
+        self.assertNotIn("GetWorldTimerManager",commit)
+        self.assertNotIn("SpawnActor",commit)
+
+    def test_audio_has_independent_per_enemy_two_second_cooldown(self):
+        self.assertIn("float NextEliteAttackTellSoundAt = 0.f;",self.header)
+        tell = self.enemy.split(
+            "OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);",1
+        )[1].split("if (bDivineSignatureActive) {",1)[0]
+        self.assertIn("Now >= NextEliteAttackTellSoundAt",tell)
+        self.assertIn("NextEliteAttackTellSoundAt = Now + 2.f;",tell)
+        self.assertLess(tell.index("NextEliteAttackTellSoundAt = Now + 2.f;"),
+                        tell.index("UGameplayStatics::PlaySoundAtLocation("))
+        self.assertNotIn("NextAttackAt =",tell)
+        self.assertNotIn("AdaptiveSweepReadyUntil =",tell)
+
     def test_no_new_ai_scan_or_saved_property(self):
         self.assertIn("float AdaptiveSweepReadyUntil = -1.f;",self.header)
         self.assertIn("float NextAdaptiveSweepAllowedAt = 0.f;",self.header)
