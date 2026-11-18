@@ -3,13 +3,20 @@
 #include "GameFramework/HUD.h"
 #include "MoonfallCombatHUD.generated.h"
 class AMoonfallHeroPawn;
+class UTexture2D;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
 {
  GENERATED_BODY()
 public:
+ AMoonfallCombatHUD();
  virtual void DrawHUD() override;
 private:
+ // Painted six-icon atlas, imported to a cooked texture by Build/Import-Loot-Art.py.
+ // Native silhouettes remain visible if the artist asset has not been imported.
+ UPROPERTY() TObjectPtr<UTexture2D> LootIconAtlas = nullptr;
+ void DrawLootIcon(int32 Slot, int32 Rarity, float X, float Y, float Side);
+
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
  float DisplayStamina = -1.f;
