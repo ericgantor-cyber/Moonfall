@@ -4782,7 +4782,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Drop.DropId == PendingDrop.DropId", native)
         self.assertIn("Drop.Location.Equals(PendingDrop.Location)", native)
         self.assertIn("Drop.LevelId == PendingDrop.LevelId", native)
-        self.assertIn("Restored->DungeonTreasureStates[30 * 14 - 1], 217", native)
+        # Fixture codes and chamber positions must be valid game-save data,
+        # not arbitrary bytes which bypass the normal loader validators.
+        self.assertIn("constexpr int32 FirstTreasureKey = 1;", native)
+        self.assertIn("constexpr int32 LastTreasureKey = 29 * 14 + 12;", native)
+        self.assertIn("constexpr int32 PendingTreasureCode = 12017;", native)
+        self.assertIn("constexpr int32 PendingWorldDropCode = 22017;", native)
+        self.assertIn("Original->DungeonTreasureStates[FirstTreasureKey] = -1;", native)
+        self.assertIn("Original->DungeonTreasureStates[LastTreasureKey] = PendingTreasureCode;", native)
+        self.assertIn("Restored->DungeonTreasureStates[FirstTreasureKey], -1", native)
+        self.assertIn("Restored->DungeonTreasureStates[LastTreasureKey], PendingTreasureCode", native)
+        self.assertIn("PendingDrop.ItemCode = PendingWorldDropCode;", native)
+        self.assertIn("Drop.ItemCode, PendingWorldDropCode", native)
+        for slot in (1, 29 * 14 + 12):
+            self.assertGreaterEqual(slot, 0)
+            self.assertLess(slot, 420)
+            self.assertNotIn(slot % 14, (0, 13))
+        for item_code in (12017, 22017):
+            affix, slot, rarity, tier = (
+                item_code // 100000, (item_code // 10000) % 10,
+                (item_code // 1000) % 10, item_code % 1000
+            )
+            self.assertTrue(0 <= affix <= 3 and 0 <= slot <= 2
+                            and 0 <= rarity <= 5 and 1 <= tier <= 25
+                            and (rarity != 0 or affix == 0))
+        hero_cpp = (ROOT / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        self.assertIn("Index % 14 == 0 || Index % 14 == 13", hero_cpp)
+        self.assertIn("Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code)", hero_cpp)
         for field in ("ExploredZoneFogMasks", "PendingWorldLoot", "DungeonTreasureStates"):
             self.assertIn("Original->" + field + ".Reset();", native)
         self.assertLess(native.index("Original->PendingWorldLoot.Reset();"),
