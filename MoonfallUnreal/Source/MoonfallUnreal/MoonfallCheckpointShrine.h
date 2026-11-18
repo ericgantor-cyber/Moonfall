@@ -23,6 +23,8 @@ public:
  virtual void BeginPlay() override;
  // Update the status label when a shrine is discovered. No per-frame Tick.
  void RefreshShrineDisplay(const AMoonfallHeroPawn* Hero);
+ // Human-readable name shared by Atlas and in-world sign; ShrineId stays stable.
+ FString GetMapDisplayName() const;
  // Called once when the hero finishes loading, including when a save teleports
  // them onto an already-present shrine (no fresh overlap event is guaranteed).
  void CheckHeroAtSpawn(AMoonfallHeroPawn* Hero);
