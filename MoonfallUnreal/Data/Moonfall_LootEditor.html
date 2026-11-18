@@ -279,8 +279,18 @@ byId("import").addEventListener("click",()=>byId("file").click());
 byId("file").addEventListener("change",async event=>{
  const file=event.target.files[0];
  if(!file)return;
- try{rows=parseCsv(await file.text());renderRows();showPreview();}
- catch(error){alert("Could not read CSV: "+error.message);}
+ try{
+  if(file.size>1024*1024)throw Error("CSV exceeds the 1 MB import limit.");
+  const candidate=parseCsv(await file.text());
+  const checked=validate(candidate);
+  if(checked.errors.length)throw Error(checked.errors.slice(0,3).join(" | "));
+  rows=checked.rows;
+  renderRows();showPreview();
+ }catch(error){
+  const message=byId("message");
+  message.className="bad";
+  message.textContent="Import rejected; your current table is unchanged. "+error.message;
+ }
  event.target.value="";
 });
 byId("export").addEventListener("click",()=>{
