@@ -23,6 +23,28 @@ const asText=helper.FIELDS.join(",")+"\r\n"+
  original.map(row=>helper.FIELDS.map(field=>helper.csvField(row[field])).join(",")).join("\r\n")+"\r\n";
 const recovered=helper.parseCsv(asText);
 assert.equal(recovered.length,41);
+// Round trip quoted cells, CRLF and escaped quote tokens without truncation.
+const quoted=helper.parseCsv(
+ helper.FIELDS.join(",")+"\r\n"+
+ '"Boss_R3","Boss",-1,1,3,75,7,0\r\n');
+assert.equal(quoted.length,1);
+assert.equal(quoted[0].Name,"Boss_R3");
+for(const malformed of [
+ 'Boss_R3,Bo"ss,-1,1,3,75,7,0',
+ 'Boss_R3,Bo"ss",-1,1,3,75,7,0',
+ 'Boss_R3,"Boss"junk,-1,1,3,75,7,0',
+ 'Boss_R3,Boss,-1,1,3,75,7,0\rCorrupt',
+ 'Boss_R3,"Boss,-1,1,3,75,7,0'
+]){
+ assert.throws(()=>helper.parseCsv(helper.FIELDS.join(",")+"\n"+malformed+"\n"),
+  /CSV quote|Unclosed|Unexpected|line endings/,
+  "Malformed CSV syntax must never be interpreted as a valid loot row");
+}
+const escaped=helper.parseCsv(helper.FIELDS.join(",")+"\n"+'"Row""Name",Boss,-1,1,3,75,7,0\n');
+assert.equal(escaped[0].Name,'Row"Name');
+assert.ok(helper.validate(escaped).errors.length,"Unsupported row names must remain invalid");
+assert.throws(()=>helper.parseCsv(helper.FIELDS.join(",")+"\n"+
+ 'Boss_R3,Boss,-1,1,3,75,7,0\n'.repeat(2049)),/2048-row/);
 assert.equal(helper.validate(recovered).errors.length,0);
 const generic=helper.summary(original,"Boss",-1,60);
 assert.equal(generic.total,100);
