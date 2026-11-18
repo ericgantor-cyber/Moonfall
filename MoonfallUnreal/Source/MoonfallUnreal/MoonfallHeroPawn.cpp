@@ -1271,6 +1271,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  if (bHUDLayoutEditing) SaveHUDLayout();
+  bHUDLayoutEditing = false;
+  HudDraggingPanel = INDEX_NONE;
   bOptionsOpen = false;
   bAtlasOpen = false;
   bInventoryScrollbarDragging = false;
