@@ -22,7 +22,7 @@ class LootArtTests(unittest.TestCase):
 
     def test_atlas_is_real_png_with_six_square_cells(self):
         raw=ICON.read_bytes()
-        self.assertEqual(raw[:8],b"\\x89PNG\\r\\n\\x1a\\n")
+        self.assertEqual(raw[:8],bytes.fromhex("89504e470d0a1a0a"))
         self.assertGreater(len(raw),1024)
         self.assertLess(len(raw),512*1024)
         width,height=struct.unpack(">II",raw[16:24])
