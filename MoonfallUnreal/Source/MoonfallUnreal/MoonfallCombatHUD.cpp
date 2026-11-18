@@ -217,6 +217,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Do not reveal the complete road through unexplored territory.
   // Show only road segments around previously discovered dungeons.
   const float RoadY = ProjectY(-2500.f);
+  bool bNamedRoadRevealed = false;
   if (RoadY >= MapTop && RoadY <= MapTop + MapHeight - 4.f) {
    for (int32 Slot = 0; Slot < 30; ++Slot) {
     const int32 Zone = Slot / 5;
@@ -225,10 +226,17 @@ void AMoonfallCombatHUD::DrawHUD()
     const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
     const float RoadStart = FMath::Max(MapLeft, ProjectX(WorldX - 600.f));
     const float RoadEnd = FMath::Min(MapLeft + MapWidth, ProjectX(WorldX + 600.f));
-    if (RoadEnd > RoadStart)
+    if (RoadEnd > RoadStart) {
+     bNamedRoadRevealed = true;
      DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), RoadStart, RoadY, RoadEnd - RoadStart, 4.f);
+    }
    }
   }
+  // Road title appears only after at least one discovered segment is visible.
+  if (bNamedRoadRevealed && MapHeight >= 95.f)
+   DrawText(TEXT("DUNGEON ROAD"), FLinearColor(0.76f, 0.72f, 0.64f),
+       MapLeft + 10.f, FMath::Clamp(RoadY - 14.f, MapTop + 24.f, MapTop + MapHeight - 20.f),
+       nullptr, Scale * 0.59f);
   // One pointer lookup per Atlas frame. Tooltips do not perform world traces
   // or expose any undiscovered coordinates.
   float AtlasPointerX = 0.f, AtlasPointerY = 0.f;
@@ -315,6 +323,11 @@ void AMoonfallCombatHUD::DrawHUD()
    if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
+   if (MapWidth >= 150.f && MapHeight >= 95.f)
+    DrawText(TEXT("YOU"), FLinearColor(1.f, 0.90f, 0.48f),
+        FMath::Clamp(HeroX + 10.f, MapLeft + 5.f, MapLeft + MapWidth - 28.f),
+        FMath::Clamp(HeroY - 12.f, MapTop + 28.f, MapTop + MapHeight - 17.f),
+        nullptr, Scale * 0.67f);
   }
   // Hover cards are purely informational and keep the mouse optional.
   // Only known markers qualify, and cards remain inside the chart bounds.
