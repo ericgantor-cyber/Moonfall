@@ -395,7 +395,10 @@ void AMoonfallDungeonLayout::HandleEntrance(
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bAtlasOpen) return;
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
+ // Entrance discovery must obey the same modal gate as room, boss, bonus,
+ // and hazard triggers. Do not lock difficulty while a menu owns input.
  // First visit saves through the V8 ledger; later visits are already known.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -624,8 +627,17 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  const int32 Code = Hero->GetOrCreateDungeonTreasureCode(
    ZoneIndex, DungeonIndex, ChamberIndex, GetEffectiveLayoutSeed());
  if (Code <= 0) {
-  // Claimed treasure is a successful, empty room; do not duplicate a pickup.
-  return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;
+  // A claimed reward is a successful, empty room. A Blueprint may have
+  // recorded that claim without destroying the previously spawned pickup:
+  // clean up its ghost so it cannot linger after a later room re-entry.
+  const bool bClaimed = Hero->GetDungeonTreasureState(
+    ZoneIndex, DungeonIndex, ChamberIndex) == -1;
+  if (bClaimed) {
+   if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())
+    if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();
+   SpawnedTreasure[ChamberIndex].Reset();
+  }
+  return bClaimed;
  }
  // A weak pointer can still refer to an actor pending destruction.
  // Only a live pickup with the correct persisted chamber identity counts.
