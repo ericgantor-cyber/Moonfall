@@ -4460,7 +4460,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)", layout)
         self.assertIn("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);", layout)
         self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
-        self.assertIn("LootTableEntries, EMoonfallLootSource::Treasure, Zone, Level, &Stream", self.hero_cpp)
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", self.hero_cpp)
         self.assertIn("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));", self.hero_cpp)
         self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", self.hero_cpp)
 
