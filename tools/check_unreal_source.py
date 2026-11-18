@@ -1637,6 +1637,53 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("LastLootRarity", method)
         self.assertNotIn("LastLootAffix", method)
 
+    def test_default_loot_csv_and_chance_preview_match_unreal_limits(self):
+        import importlib.util
+        module_path = Path(__file__).resolve().parent / "moonfall_loot_table.py"
+        spec = importlib.util.spec_from_file_location("moonfall_loot_table_test", module_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        rows = tool.load_rows(tool.DEFAULT_CSV)
+        self.assertEqual(len(rows), 41)
+        self.assertEqual(len({row["Name"] for row in rows}), 41)
+        self.assertEqual(set(row["Source"] for row in rows), set(tool.SOURCES))
+        for src in tool.SOURCES:
+            weight, rarities = tool.rarity_weights(rows, src, 0, 60)
+            self.assertGreater(weight, 0)
+            self.assertEqual(sum(rarities), weight)
+            self.assertAlmostEqual(sum(100.0 * x / weight for x in rarities), 100.0, places=5)
+        # At low levels the new high-end rows are excluded.
+        for src in ("Regular", "Elite", "Boss", "Treasure"):
+            _, weights = tool.rarity_weights(rows, src, 0, 1)
+            self.assertEqual(weights[5], 0)
+        _, generic = tool.rarity_weights(rows, "Boss", -1, 60)
+        _, region = tool.rarity_weights(rows, "Boss", 0, 60)
+        self.assertEqual(region[3], generic[3] + 8)
+        self.assertEqual(region[5], generic[5])
+        _, rare = tool.rarity_weights(rows, "Elite", -1, 60)
+        self.assertEqual(rare[0] + rare[1], 0)
+        self.assertEqual([r["Name"] for r in rows], sorted(r["Name"] for r in rows))
+        for field, invalid in (("Source", "Wrong"), ("ZoneIndex", 6),
+                               ("MinimumLevel", 0), ("Rarity", 8),
+                               ("Weight", 10001), ("SlotMask", 0),
+                               ("ForcedTrait", 9)):
+            mutated = [dict(row) for row in rows]
+            mutated[0][field] = invalid
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                tool.validate_rows(mutated)
+        # A source cannot lose its only level-one generic rewards.
+        mutated = [dict(row) for row in rows]
+        for row in mutated:
+            if row["Source"] == "Elite" and row["ZoneIndex"] == -1:
+                row["Weight"] = 0
+        with self.assertRaises(ValueError):
+            tool.validate_rows(mutated)
+        # Preview never uses chance rolls and follows the same budget limit.
+        self.assertIn("MAX_TOTAL_WEIGHT = 1_000_000", module_path.read_text(encoding="utf-8"))
+        self.assertIn("MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel)", self.hero_cpp)
+
     def test_mouse_editable_loot_data_table_and_preview_are_safe(self):
         hero = self.hero_cpp
         header = self.hero_h
