@@ -5,6 +5,28 @@ loot tuning panel. It has been added to **draft PR #1051**. Source checks
 do not prove native UE5.4 compilation, CSV import success, packaged Windows
 behavior, or actual in-game drop distributions.
 
+## Easier option: standalone visual editor, no Unreal required
+
+Open `MoonfallUnreal/Data/Moonfall_LootEditor.html` locally in a modern
+browser (Edge, Chrome, Firefox or Safari). It is a single offline page with
+large mouse-accessible controls and keyboard-focus indicators.
+
+- **Load default 41 rows** starts from the shipped weighted presets.
+- **Import CSV** opens an existing tuning file.
+- **Add loot row** / **Delete** adjusts the table without writing code.
+- Edit source, zone, minimum level, rarity, weight, slot mask or trait in the
+  grid; filter by source or name to find specific rows.
+- Select enemy source, region and hero level to preview **exact weighted
+  rarity percentages**. This is a theoretical drop distribution, not a
+  simulated Unreal gameplay test.
+- **Export CSV for Unreal** saves a new `Moonfall_CustomLootTable.csv` on
+  your computer. Invalid rows or missing generic pools block export.
+
+The page does **not** contact a server, install software or modify the
+repository or the live game. Changes are kept only while the page is open
+until you export the CSV. Import the exported file into Unreal as described
+below to use the changes in the game's source-data asset.
+
 ## Create the visual loot editor without writing C++
 
 1. Open the Moonfall Unreal project in UE5.4 after its C++ targets compile.
