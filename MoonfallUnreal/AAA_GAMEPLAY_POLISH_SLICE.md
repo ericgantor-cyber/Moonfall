@@ -48,7 +48,11 @@ not a complete AAA-quality game or a verified Windows build.
 - Enemy AI does **not** run an additional actor query, trace, timer,
   pathfinding request, tick, or RNG call. Normal pack strike-slot
   coordination and the existing cancel-on-menu/interrupt/posture-break
-  protections still apply.
+  protections still apply. **Hardening:** menus, lost possession, invalid
+  windup timers, retreat, death, posture break and leaving combat clear
+  stale adaptation state. Ordinary hit-stagger clears only the committed
+  label so the response newly earned by a successful parry remains
+  possible after stagger recovery. A resolved sweep clears its label.
 - A native **`OnAttackTelegraphCommitted(FName,float)`** Blueprint
   event fires once when an ordinary or elite attack really begins.
   Its move ID comes from the same source as the on-screen warning,
@@ -58,8 +62,12 @@ not a complete AAA-quality game or a verified Windows build.
   If a designer assigns a real cooked `USoundBase`, it plays once
   at each eligible elite attack commitment at low volume (0.55),
   only within 1000 world units. It never fires for regular mobs,
-  sanctuary targets or boss attacks. **No audio or animation assets
-  are claimed to be included by this change.**
+  sanctuary targets or boss attacks. It has an independent two-second
+  per-elite playback cooldown to prevent rapid repeated sounds. After
+  the synchronous Blueprint animation hook, the audio path revalidates
+  that the enemy is alive, not being destroyed, and still has a finite
+  active windup before playing, preventing ghost warnings after
+  interrupted attacks. **No audio or animation assets are included.**
 - Added pure C++17 policies and tests for all eligible state flags,
   cooldown/memory boundaries, and normal attack patterns. Source
   regressions separately verify the actual parry branch, finite
