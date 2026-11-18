@@ -253,6 +253,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasPanY = -2500.f;
+ // V12 permanent explored-world cells: six 8-by-7 grids, bounded to 56 bits each.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<int64> ExploredZoneFogMasks;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Atlas") bool HasExploredAtlasCell(int32 Zone, int32 Column, int32 Row) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Atlas") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
@@ -326,6 +329,8 @@ private:
  bool bHasRespawnCheckpointLocation = false;
  // Never write a shrine save before the initial persistent slot has loaded.
  bool bWorldProgressInitialized = false;
+ // Mark the occupied XY cell; routine two-second autosave persists discovery.
+ void RevealAtlasAtWorldLocation();
  // Collision-aware teleport during load can fire shrine overlaps before all
  // progress has been restored. Never allow nested discovery saves in this phase.
  bool bWorldProgressLoadInProgress = false;

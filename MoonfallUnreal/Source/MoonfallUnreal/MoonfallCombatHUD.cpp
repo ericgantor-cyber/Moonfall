@@ -135,6 +135,28 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto ProjectY = [&](float WorldY) {
    return MapTop + MapHeight * (0.5f - (WorldY - Hero->AtlasPanY) / (2.f * VisibleHalfY));
   };
+  // V12 geographic fog: only cells the hero physically entered gain
+  // subdued terrain shading. Do not reveal empty world coordinates or roads.
+  // Bound both iteration (336 cells) and draw area to this Atlas viewport.
+  const float FogCellW = 6750.f / 8.f;
+  const float FogCellH = 24000.f / 7.f;
+  for (int32 Zone = 0; Zone < 6; ++Zone) {
+   const float ZoneMinX = -20250.f + Zone * 6750.f;
+   for (int32 Row = 0; Row < 7; ++Row) {
+    const float CellMinY = -12000.f + Row * FogCellH;
+    for (int32 Column = 0; Column < 8; ++Column) {
+     if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;
+     const float CellMinX = ZoneMinX + Column * FogCellW;
+     const float CellLeft = FMath::Max(MapLeft, ProjectX(CellMinX));
+     const float CellRight = FMath::Min(MapLeft + MapWidth, ProjectX(CellMinX + FogCellW));
+     const float CellTop = FMath::Max(MapTop, ProjectY(CellMinY + FogCellH));
+     const float CellBottom = FMath::Min(MapTop + MapHeight, ProjectY(CellMinY));
+     if (CellRight > CellLeft + 0.5f && CellBottom > CellTop + 0.5f)
+      DrawRect(FLinearColor(0.12f, 0.17f, 0.20f, 1.f),
+          CellLeft, CellTop, CellRight - CellLeft, CellBottom - CellTop);
+    }
+   }
+  }
   // Do not reveal the complete road through unexplored territory.
   // Show only road segments around previously discovered dungeons.
   const float RoadY = ProjectY(-2500.f);
@@ -174,7 +196,7 @@ void AMoonfallCombatHUD::DrawHUD()
        && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
   }
-  DrawText(TEXT("XY world overview | Left/Right: vertical pan | yellow: hero"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
+  DrawText(TEXT("Explored cells shown | yellow: hero | blue: discovered | green: cleared"), FLinearColor(0.75f,0.84f,0.92f), MapLeft, MapTop - 19.f, nullptr, Scale * 0.63f);
   return;
  }
  if (Hero->bOptionsOpen) {

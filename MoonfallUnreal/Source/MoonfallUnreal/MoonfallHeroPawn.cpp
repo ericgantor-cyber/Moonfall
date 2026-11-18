@@ -404,6 +404,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
+  RevealAtlasAtWorldLocation();
   DefeatElapsedSeconds = 0.f;
   SecondsSinceLastWorldSave += SafeTimerDelta;
   if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
@@ -2566,6 +2567,33 @@ bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
  return true;
 }
 
+bool AMoonfallHeroPawn::HasExploredAtlasCell(int32 Zone, int32 Column, int32 Row) const
+{
+ if (Zone < 0 || Zone >= 6 || Column < 0 || Column >= 8 || Row < 0 || Row >= 7
+     || ExploredZoneFogMasks.Num() != 6) return false;
+ const int32 CellBit = Row * 8 + Column;
+ return (static_cast<uint64>(ExploredZoneFogMasks[Zone]) & (1ULL << CellBit)) != 0ULL;
+}
+
+void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()
+{
+ // A fixed six-zone XY grid with at most 336 explored cells (48 saved bytes).
+ // Mark once per occupied cell; persistence uses the existing two-second autosave.
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+     || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ const FVector Position = GetActorLocation();
+ if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y)
+     || Position.X < -20250.f || Position.X > 20250.f
+     || Position.Y < -12000.f || Position.Y > 12000.f) return;
+ if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
+ if (ExploredZoneFogMasks.Num() != 6) return;
+ const int32 Zone = FMath::Clamp(FMath::FloorToInt((Position.X + 20250.f) / 6750.f), 0, 5);
+ const float ZoneMinX = -20250.f + Zone * 6750.f;
+ const int32 Column = FMath::Clamp(FMath::FloorToInt((Position.X - ZoneMinX) / (6750.f / 8.f)), 0, 7);
+ const int32 Row = FMath::Clamp(FMath::FloorToInt((Position.Y + 12000.f) / (24000.f / 7.f)), 0, 6);
+ ExploredZoneFogMasks[Zone] |= (1LL << (Row * 8 + Column));
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
@@ -2576,6 +2604,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Existing saves have no V12 fog grid; initialize it without erasing other data.
+ if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
+ if (ExploredZoneFogMasks.Num() != 6) return false;
+ const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;
+ for (const int64 Mask : ExploredZoneFogMasks)
+  if ((static_cast<uint64>(Mask) & ~AllowedFogBits) != 0ULL) return false;
+ RevealAtlasAtWorldLocation();
  // Never create a save that this version's loader will reject on reload.
  // The source collection remains intact if its supported serialized size
  // would be exceeded; ground drops are not consumed in that case.
@@ -2661,6 +2696,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->CheckpointLocation = RespawnCheckpointLocation;
  Save->ActiveShrineId = ActiveShrineId;
  Save->DiscoveredShrineIds = DiscoveredShrineIds;
+ Save->ExploredZoneFogMasks = ExploredZoneFogMasks;
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
  Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;
  Save->DungeonTreasureStates = DungeonTreasureStates;
@@ -2690,7 +2726,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 11) {
+ if (!Save || Save->Version < 1 || Save->Version > 12) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2843,6 +2879,21 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    Seen.Add(Record.DropId);
   }
  }
+ // V12: fail closed on missing/oversized or invalid geographic exploration masks.
+ // V1-V11 saves legitimately have no fog history and start with unrevealed cells.
+ if (Save->Version >= 12) {
+  if (Save->ExploredZoneFogMasks.Num() != 6) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;
+  for (const int64 Mask : Save->ExploredZoneFogMasks) {
+   if ((static_cast<uint64>(Mask) & ~AllowedFogBits) != 0ULL) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -2875,6 +2926,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  bHasRespawnCheckpointLocation = true;
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
+ ExploredZoneFogMasks = Save->Version >= 12 ? Save->ExploredZoneFogMasks : TArray<int64>();
  DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
  DefeatedDungeonBossMask = Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;
  DungeonTreasureStates = Save->Version >= 9
