@@ -816,7 +816,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
   ChooseResidentContextAction(ResidentContextSelection);
   return;
  }
@@ -1296,7 +1296,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlas() {
- if (Health <= 0.f || bOptionsOpen) return;
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
   if (bInventoryOpen) ToggleInventory();
@@ -2106,7 +2106,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
@@ -3210,9 +3210,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
- // One controller D-pad Up mapping serves options/inventory navigation
- // and the contextual NPC menu without delivering duplicate key events.
- if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }
+ // One controller D-pad Up mapping serves modal navigation and the NPC menu.
+ // Never acquire an NPC target behind the open Atlas.
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
@@ -3291,8 +3291,69 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
- // Atlas is read-only: absorb clicks rather than casting into the world.
- if (bAtlasOpen) return;
+ // Handle all Atlas pointer actions before gameplay/NPC input.
+ if (bAtlasOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+   int32 ViewW = 0, ViewH = 0;
+   float MouseX = 0.f, MouseY = 0.f;
+   PC->GetViewportSize(ViewW, ViewH);
+   if (ViewW > 48 && ViewH > 48 && PC->bShowMouseCursor && PC->GetMousePosition(MouseX, MouseY)
+       && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
+    // Keep hit tests in sync with MoonfallCombatHUD's Atlas panel.
+    const float PanelW = FMath::Min(680.f, float(ViewW) - 24.f);
+    const float PanelH = FMath::Min(610.f, float(ViewH) - 24.f);
+    const float PanelL = (float(ViewW) - PanelW) * 0.5f;
+    const float PanelT = (float(ViewH) - PanelH) * 0.5f;
+    const float CloseX = PanelL + PanelW - 42.f;
+    if (MouseX >= CloseX && MouseX <= CloseX + 28.f
+        && MouseY >= PanelT + 12.f && MouseY <= PanelT + 40.f) {
+     ToggleAtlas();
+     return;
+    }
+    const float CenterX = CloseX - 68.f;
+    if (PanelW >= 410.f && MouseX >= CenterX && MouseX <= CenterX + 58.f
+        && MouseY >= PanelT + 12.f && MouseY <= PanelT + 40.f) {
+     const FVector HeroPos = GetActorLocation();
+     if (FMath::IsFinite(HeroPos.X) && FMath::IsFinite(HeroPos.Y)) {
+      const int32 Slot = FMath::Clamp(FMath::RoundToInt(HeroPos.X / 1350.f + 14.5f), 0, 29);
+      AtlasSelectedRegion = Slot / 5;
+      AtlasPanY = FMath::Clamp(HeroPos.Y, -12000.f, 12000.f);
+     }
+     return;
+    }
+    const float RowGap = FMath::Max(0.f, PanelH - 220.f) / 6.f;
+    if (RowGap >= 20.f && MouseX >= PanelL + 10.f && MouseX <= PanelL + PanelW - 10.f) {
+     for (int32 Zone = 0; Zone < 6; ++Zone) {
+      const float RowY = PanelT + 86.f + Zone * RowGap;
+      if (MouseY >= RowY - 5.f && MouseY < RowY + FMath::Min(61.f, RowGap - 2.f)) {
+       AtlasSelectedRegion = Zone;
+       return;
+      }
+     }
+    }
+    // Clicking the overview pans toward the chosen XY world coordinate.
+    const float MapL = PanelL + 18.f;
+    const float MapW = FMath::Max(40.f, PanelW - 36.f);
+    const float MapT = PanelT + PanelH - 102.f;
+    const float MapH = 84.f;
+    if (MouseX >= MapL && MouseX <= MapL + MapW
+        && MouseY >= MapT && MouseY <= MapT + MapH) {
+     const float Zoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
+     const float WorldCenterX = (float(AtlasSelectedRegion * 5 + 2) - 14.5f) * 1350.f;
+     const float WorldX = WorldCenterX + ((MouseX - MapL) / MapW - 0.5f) * (42000.f / Zoom);
+     const float WorldY = AtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
+     if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
+      const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
+      AtlasSelectedRegion = Slot / 5;
+      AtlasPanY = FMath::Clamp(WorldY, -12000.f, 12000.f);
+     }
+     return;
+    }
+   }
+  }
+  // Clicks outside Atlas controls must never cast or activate NPCs.
+  return;
+ }
  // All native modal panels own their mouse input before gameplay combat.
  if (bOptionsOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {

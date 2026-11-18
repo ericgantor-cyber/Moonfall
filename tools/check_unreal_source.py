@@ -534,7 +534,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
         self.assertIn('BindAction(TEXT("ResidentContext"), IE_Pressed', self.hero_cpp)
         resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }", resident_up)
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }", resident_up)
         self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
         self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', inputs)
@@ -5827,7 +5827,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(right.index("if (bAtlasOpen) return;"), right.index("if (bInventoryOpen) {"))
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", right)
         left = method_body("ResidentContextMouseClick")
-        self.assertLess(left.index("if (bAtlasOpen) return;"), left.index("if (bOptionsOpen) {"))
+        self.assertLess(left.index("if (bAtlasOpen) {"), left.index("if (bOptionsOpen) {"))
+
+
+    def test_atlas_mouse_controls_match_drawn_ui_and_block_combat(self):
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bAtlasOpen) {", click)
+        self.assertLess(click.index("if (bAtlasOpen) {"), click.index("if (bOptionsOpen) {"))
+        self.assertIn("GetViewportSize(ViewW, ViewH)", click)
+        self.assertIn("PC->bShowMouseCursor && PC->GetMousePosition(MouseX, MouseY)", click)
+        self.assertIn("FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)", click)
+        self.assertIn("ToggleAtlas();", click)
+        self.assertIn("AtlasSelectedRegion = Zone;", click)
+        self.assertIn("AtlasSelectedRegion = Slot / 5;", click)
+        self.assertIn("AtlasPanY = FMath::Clamp(WorldY, -12000.f, 12000.f);", click)
+        self.assertIn("const float CloseX = PanelL + PanelW - 42.f;", click)
+        self.assertIn("const float AtlasCloseX = Left + Width - 42.f;", atlas)
+        self.assertIn('DrawText(TEXT("ME")', atlas)
+        self.assertIn("const float MapH = 84.f;", click)
+        self.assertIn("const float MapHeight = 84.f;", atlas)
+        self.assertIn("const float RowGap = FMath::Max(0.f, PanelH - 220.f) / 6.f;", click)
+        self.assertIn("const float AtlasRowGap = FMath::Max(0.f, Height - 220.f) / 6.f;", atlas)
+        self.assertLess(click.index("// Clicks outside Atlas controls must never cast"),
+                        click.index("if (bOptionsOpen) {"))
+        self.assertIn("const bool bCompactAtlasRows = AtlasRowGap < 38.f;", atlas)
+        self.assertIn("if (!bCompactAtlasRows) {", atlas)
+
+        interaction = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }", interaction)
+        self.assertLess(interaction.index("bAtlasOpen"), interaction.index("GetNearestResidentNPC()"))
+        pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", pickup)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen", toggle)
 
 
 if __name__ == "__main__":

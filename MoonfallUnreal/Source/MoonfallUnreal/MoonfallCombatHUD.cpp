@@ -93,19 +93,34 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.025f,0.035f,0.085f,0.96f), Left, Top, Width, Height);
   const float Scale = FMath::Clamp(Width / 680.f, 0.52f, 1.f);
   DrawText(TEXT("MOONFALL | ATLAS"), FLinearColor::White, Left + 18.f, Top + 12.f, nullptr, Scale * 1.35f);
-  DrawText(TEXT("J / ESC: close    Up/Down: region    Left/Right: pan Y    Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 47.f, nullptr, Scale * 0.76f);
+  // Mouse hit-test rectangles match ResidentContextMouseClick.
+  const float AtlasCloseX = Left + Width - 42.f;
+  DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
+  DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
+  if (Width >= 410.f) {
+   DrawRect(FLinearColor(0.16f, 0.30f, 0.37f, 0.96f), AtlasCloseX - 68.f, Top + 12.f, 58.f, 28.f);
+   DrawText(TEXT("ME"), FLinearColor::White, AtlasCloseX - 52.f, Top + 16.f, nullptr, 0.85f);
+  }
+  DrawText(TEXT("J / ESC: close | Up/Down: region | Left/Right: pan Y | Wheel: zoom"), FLinearColor(0.76f,0.84f,0.96f), Left + 18.f, Top + 45.f, nullptr, Scale * 0.72f);
+  DrawText(TEXT("Mouse: select region / pan map | ME: center on hero"), FLinearColor(0.70f,0.84f,0.95f), Left + 18.f, Top + 64.f, nullptr, Scale * 0.70f);
+  const float AtlasRowGap = FMath::Max(0.f, Height - 220.f) / 6.f;
+  const bool bCompactAtlasRows = AtlasRowGap < 38.f;
   for (int32 Zone = 0; Zone < 6; ++Zone) {
-   // Reserve the lower 102 px for the XY overview; do not draw rows over it.
-   const float Y = Top + 86.f + Zone * (FMath::Max(0.f, Height - 220.f) / 6.f);
-   if (Zone == Hero->AtlasSelectedRegion) DrawRect(FLinearColor(0.17f,0.24f,0.36f,0.95f), Left + 10.f, Y - 5.f, Width - 20.f, 61.f);
+   // Reserve the lower 102 px for the XY overview; shrink selected highlights
+   // and omit detail rows if the viewport cannot display two lines.
+   const float Y = Top + 86.f + Zone * AtlasRowGap;
+   const float RowHeight = FMath::Max(14.f, FMath::Min(61.f, AtlasRowGap - 2.f));
+   if (Zone == Hero->AtlasSelectedRegion) DrawRect(FLinearColor(0.17f,0.24f,0.36f,0.95f), Left + 10.f, Y - 5.f, Width - 20.f, RowHeight);
    DrawText(FString::Printf(TEXT("%s  |  %d-%d"), AtlasRegions[Zone], Zone * 5 + 1, Zone * 5 + 5), FLinearColor(0.96f,0.83f,0.53f), Left + 18.f, Y, nullptr, Scale * 0.95f);
-   FString Status;
-   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
-    const int32 Number = Zone * 5 + Dungeon + 1;
-    const TCHAR* Mark = Hero->HasDefeatedDungeonBoss(Zone, Dungeon) ? TEXT("X") : Hero->HasDiscoveredDungeon(Zone, Dungeon) ? TEXT("O") : TEXT("?");
-    Status += FString::Printf(TEXT("[%s] %d   "), Mark, Number);
+   if (!bCompactAtlasRows) {
+    FString Status;
+    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+     const int32 Number = Zone * 5 + Dungeon + 1;
+     const TCHAR* Mark = Hero->HasDefeatedDungeonBoss(Zone, Dungeon) ? TEXT("X") : Hero->HasDiscoveredDungeon(Zone, Dungeon) ? TEXT("O") : TEXT("?");
+     Status += FString::Printf(TEXT("[%s] %d   "), Mark, Number);
+    }
+    DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
    }
-   DrawText(Status, FLinearColor(0.73f,0.89f,0.97f), Left + 25.f, Y + 25.f, nullptr, Scale * 0.88f);
   }
   // World-space road projection: match MoonfallArena's 30 slots at 1350 cm.
   // Selection pans the visible road window without teleporting the hero.
