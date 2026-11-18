@@ -84,6 +84,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  }
  if (Hero->bAtlasOpen) {
+  // Graceful fallback on tiny windows instead of negative panel dimensions.
+  if (Canvas->SizeX < 300.f || Canvas->SizeY < 240.f) {
+   DrawText(TEXT("ATLAS | Enlarge window | J / ESC: close"),
+       FLinearColor(0.91f, 0.84f, 0.68f), 12.f, 14.f, nullptr, 0.75f);
+   return;
+  }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
   // Artwork is procedural and schematic, never a claim of surveyed terrain.
   static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
@@ -167,13 +173,15 @@ void AMoonfallCombatHUD::DrawHUD()
       MapLeft - 3.f, MapTop - 3.f, MapWidth + 6.f, MapHeight + 6.f);
   DrawRect(FLinearColor(0.054f, 0.053f, 0.055f, 1.f), MapLeft, MapTop, MapWidth, MapHeight);
   const float MapCenterX = (static_cast<float>(Selected * 5 + 2) - 14.5f) * 1350.f;
-  const float VisibleHalfSpan = 21000.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
+  const float SafeAtlasZoom = FMath::Clamp(FMath::IsFinite(Hero->AtlasZoom) ? Hero->AtlasZoom : 1.f, 0.8f, 1.8f);
+  const float SafeAtlasPanY = FMath::Clamp(FMath::IsFinite(Hero->AtlasPanY) ? Hero->AtlasPanY : -2500.f, -12000.f, 12000.f);
+  const float VisibleHalfSpan = 21000.f / SafeAtlasZoom;
   const auto ProjectX = [&](float WorldX) {
    return MapLeft + MapWidth * (0.5f + (WorldX - MapCenterX) / (2.f * VisibleHalfSpan));
   };
-  const float VisibleHalfY = 6500.f / FMath::Clamp(Hero->AtlasZoom, 0.8f, 1.8f);
+  const float VisibleHalfY = 6500.f / SafeAtlasZoom;
   const auto ProjectY = [&](float WorldY) {
-   return MapTop + MapHeight * (0.5f - (WorldY - Hero->AtlasPanY) / (2.f * VisibleHalfY));
+   return MapTop + MapHeight * (0.5f - (WorldY - SafeAtlasPanY) / (2.f * VisibleHalfY));
   };
   // V12 geographic fog: only cells the hero physically entered gain
   // subdued terrain shading. Do not reveal empty world coordinates or roads.
@@ -320,20 +328,24 @@ void AMoonfallCombatHUD::DrawHUD()
   if (bValidHeroXY) {
    const float HeroX = ProjectX(HeroPosition.X);
    const float HeroY = ProjectY(HeroPosition.Y);
+   // Never pin a phantom "YOU" label to an edge when the hero is off-screen.
    if (HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f
-       && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f)
+       && HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f) {
     DrawRect(FLinearColor(1.f, 0.87f, 0.30f), HeroX - 4.f, HeroY - 4.f, 8.f, 8.f);
-   if (MapWidth >= 150.f && MapHeight >= 95.f)
-    DrawText(TEXT("YOU"), FLinearColor(1.f, 0.90f, 0.48f),
-        FMath::Clamp(HeroX + 10.f, MapLeft + 5.f, MapLeft + MapWidth - 28.f),
-        FMath::Clamp(HeroY - 12.f, MapTop + 28.f, MapTop + MapHeight - 17.f),
-        nullptr, Scale * 0.67f);
+    if (MapWidth >= 150.f && MapHeight >= 95.f)
+     DrawText(TEXT("YOU"), FLinearColor(1.f, 0.90f, 0.48f),
+         FMath::Clamp(HeroX + 10.f, MapLeft + 5.f, MapLeft + MapWidth - 28.f),
+         FMath::Clamp(HeroY - 12.f, MapTop + 28.f, MapTop + MapHeight - 17.f),
+         nullptr, Scale * 0.67f);
+   }
   }
   // Hover cards are purely informational and keep the mouse optional.
   // Only known markers qualify, and cards remain inside the chart bounds.
   if (bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f
       && (bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)) {
    const float TooltipW = FMath::Min(260.f, MapWidth - 12.f);
+   // Clip very long authored titles to the information card width.
+   const int32 TooltipNameChars = TooltipW < 200.f ? 20 : 29;
    const float TooltipH = 53.f;
    const float TooltipX = FMath::Clamp(AtlasPointerX + 12.f,
        MapLeft + 4.f, MapLeft + MapWidth - TooltipW - 4.f);
@@ -344,7 +356,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.58f, 0.48f, 0.33f),
        TooltipX, TooltipY, TooltipW, 2.f);
    if (bHoveredShrine) {
-    DrawText(HoveredShrineTitle.Left(36),
+    DrawText(HoveredShrineTitle.Left(TooltipNameChars),
         FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
         nullptr, Scale * 0.77f);
     DrawText(bHoveredActiveRespawn ? TEXT("Active respawn shrine") : TEXT("Discovered Shrine"),
@@ -355,7 +367,7 @@ void AMoonfallCombatHUD::DrawHUD()
    } else {
     const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
         HoveredDungeonSlot / 5, HoveredDungeonSlot % 5);
-    DrawText(FString(AtlasDungeonTitles[HoveredDungeonSlot]),
+    DrawText(FString(AtlasDungeonTitles[HoveredDungeonSlot]).Left(TooltipNameChars),
         FLinearColor(0.95f, 0.82f, 0.65f), TooltipX + 7.f, TooltipY + 6.f,
         nullptr, Scale * 0.77f);
     DrawText(FString::Printf(TEXT("%s | Dungeon %02d"),
@@ -373,15 +385,21 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.91f, 0.78f, 0.52f),
       MapLeft + MapWidth - 19.f, MapTop + 27.f, 2.f, 12.f);
   // Readable in every region, including ones with no discovered entrances.
-  DrawText(TEXT("Gold: hero / goal | cyan: shrine | violet: respawn"),
+  DrawText(MapWidth >= 430.f ? TEXT("Gold: hero / goal | cyan: shrine | violet: respawn")
+      : TEXT("Gold: hero / goal | cyan: shrine"),
       FLinearColor(0.82f, 0.77f, 0.67f), MapLeft, MapTop + MapHeight + 5.f,
       nullptr, Scale * 0.68f);
   if (NearestKnownDungeonSlot != INDEX_NONE) {
    const int32 Meters = FMath::Clamp(
        FMath::RoundToInt(FMath::Sqrt(NearestKnownDungeonDistanceSq) * 0.01f), 0, 999999);
-   DrawText(FString::Printf(TEXT("%s | Dungeon %02d | %d m straight line"),
-       AtlasDungeonTitles[NearestKnownDungeonSlot],
-       NearestKnownDungeonSlot + 1, Meters), FLinearColor(0.97f, 0.81f, 0.57f),
+   const FString GoalName = FString(AtlasDungeonTitles[NearestKnownDungeonSlot])
+       .Left(MapWidth >= 500.f ? 28 : 17);
+   const FString GoalText = MapWidth >= 315.f
+       ? FString::Printf(TEXT("%s | D%02d | %d m straight line"),
+           *GoalName, NearestKnownDungeonSlot + 1, Meters)
+       : FString::Printf(TEXT("D%02d | %d m direct"),
+           NearestKnownDungeonSlot + 1, Meters);
+   DrawText(GoalText, FLinearColor(0.97f, 0.81f, 0.57f),
        MapLeft, MapTop + MapHeight + 20.f, nullptr, Scale * 0.66f);
   } else {
    DrawText(TEXT("No discovered, uncleared dungeon in selected region"),

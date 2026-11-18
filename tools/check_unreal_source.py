@@ -6098,5 +6098,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
 
 
+    def test_atlas_projection_and_naming_hardening_handles_small_or_invalid_views(self):
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "\n}", 1)[0]
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (Canvas->SizeX < 300.f || Canvas->SizeY < 240.f)", atlas)
+        self.assertIn("if (ViewW >= 300 && ViewH >= 240 && PC->bShowMouseCursor", click)
+        self.assertIn("FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f", toggle)
+        self.assertIn("FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f", toggle)
+        self.assertIn("FMath::IsFinite(Hero->AtlasZoom) ? Hero->AtlasZoom : 1.f", atlas)
+        self.assertIn("FMath::IsFinite(Hero->AtlasPanY) ? Hero->AtlasPanY : -2500.f", atlas)
+        self.assertIn("const float VisibleHalfSpan = 21000.f / SafeAtlasZoom;", atlas)
+        self.assertIn("const float VisibleHalfY = 6500.f / SafeAtlasZoom;", atlas)
+        self.assertIn("(WorldY - SafeAtlasPanY)", atlas)
+        self.assertIn("const float SafeAtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY)", click)
+        self.assertIn("const float WorldY = SafeAtlasPanY +", click)
+        for name in ("ZoomCameraIn", "ZoomCameraOut", "OptionsLeft", "OptionsRight"):
+            method = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split(
+                "\n}", 1)[0]
+            expected = "FMath::IsFinite(AtlasZoom)" if "Zoom" in name else "FMath::IsFinite(AtlasPanY)"
+            self.assertIn(expected, method)
+        hero_marker = atlas.split("if (bValidHeroXY) {\n   const float HeroX =", 1)[1].split(
+            "// Hover cards are purely informational", 1)[0]
+        self.assertIn("HeroX >= MapLeft + 4.f && HeroX <= MapLeft + MapWidth - 4.f", hero_marker)
+        self.assertIn("HeroY >= MapTop + 4.f && HeroY <= MapTop + MapHeight - 4.f", hero_marker)
+        self.assertLess(hero_marker.index("HeroX >= MapLeft + 4.f"), hero_marker.index('DrawText(TEXT("YOU")'))
+        self.assertIn("const int32 TooltipNameChars = TooltipW < 200.f ? 20 : 29;", atlas)
+        self.assertIn("HoveredShrineTitle.Left(TooltipNameChars)", atlas)
+        self.assertIn("FString(AtlasDungeonTitles[HoveredDungeonSlot]).Left(TooltipNameChars)", atlas)
+        self.assertIn("const FString GoalName = FString(AtlasDungeonTitles[NearestKnownDungeonSlot])", atlas)
+        self.assertIn('TEXT("D%02d | %d m direct")', atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
+
+
 if __name__ == "__main__":
     unittest.main()
