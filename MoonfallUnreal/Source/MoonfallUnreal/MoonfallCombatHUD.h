@@ -19,6 +19,8 @@ private:
  UPROPERTY() TObjectPtr<UTexture2D> LootVariantAtlas = nullptr;
  // Optional third atlas: nine more relic motifs for epic+ tier-8+ gear.
  UPROPERTY() TObjectPtr<UTexture2D> LootRelicAtlas = nullptr;
+ // Highest-end cosmetic art, without introducing a new rarity or save field.
+ UPROPERTY() TObjectPtr<UTexture2D> LootMasterworkAtlas = nullptr;
  void DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait, int32 Tier,
   float X, float Y, float Side);
 
