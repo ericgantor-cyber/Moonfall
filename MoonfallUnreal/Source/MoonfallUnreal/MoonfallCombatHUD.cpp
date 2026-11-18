@@ -123,9 +123,21 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto ProjectY = [&](float WorldY) {
    return MapTop + MapHeight * (0.5f - (WorldY - Hero->AtlasPanY) / (2.f * VisibleHalfY));
   };
+  // Do not reveal the complete road through unexplored territory.
+  // Show only road segments around previously discovered dungeons.
   const float RoadY = ProjectY(-2500.f);
-  if (RoadY >= MapTop && RoadY <= MapTop + MapHeight - 4.f)
-   DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), MapLeft, RoadY, MapWidth, 4.f);
+  if (RoadY >= MapTop && RoadY <= MapTop + MapHeight - 4.f) {
+   for (int32 Slot = 0; Slot < 30; ++Slot) {
+    const int32 Zone = Slot / 5;
+    const int32 Dungeon = Slot % 5;
+    if (!Hero->HasDiscoveredDungeon(Zone, Dungeon) && !Hero->HasDefeatedDungeonBoss(Zone, Dungeon)) continue;
+    const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+    const float RoadStart = FMath::Max(MapLeft, ProjectX(WorldX - 600.f));
+    const float RoadEnd = FMath::Min(MapLeft + MapWidth, ProjectX(WorldX + 600.f));
+    if (RoadEnd > RoadStart)
+     DrawRect(FLinearColor(0.22f, 0.25f, 0.31f), RoadStart, RoadY, RoadEnd - RoadStart, 4.f);
+   }
+  }
   for (int32 Slot = 0; Slot < 30; ++Slot) {
    const float WorldX = (static_cast<float>(Slot) - 14.5f) * 1350.f;
    const float MarkerX = ProjectX(WorldX);
@@ -136,9 +148,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bCleared = Hero->HasDefeatedDungeonBoss(Zone, Dungeon);
    const float MarkerY = ProjectY(-2500.f);
    if (MarkerY < MapTop + 5.f || MarkerY > MapTop + MapHeight - 5.f) continue;
+   // Undiscovered dungeon locations remain hidden instead of exposing coordinates.
+   if (!bFound && !bCleared) continue;
    DrawRect(bCleared ? FLinearColor(0.24f, 0.65f, 0.46f)
-     : bFound ? FLinearColor(0.33f, 0.58f, 0.86f)
-     : FLinearColor(0.10f, 0.12f, 0.16f),
+     : FLinearColor(0.33f, 0.58f, 0.86f),
      MarkerX - 4.f, MarkerY - 4.f, 8.f, 8.f);
   }
   const FVector HeroPosition = Hero->GetActorLocation();
