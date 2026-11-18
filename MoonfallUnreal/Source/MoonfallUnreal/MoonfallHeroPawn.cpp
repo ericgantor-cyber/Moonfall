@@ -978,7 +978,7 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bAtlasOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -1003,7 +1003,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
@@ -1045,7 +1045,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1064,7 +1064,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -3232,6 +3232,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ // The map owns right-clicks; never hit-test NPCs behind the Atlas.
+ if (bAtlasOpen) return;
  if (bInventoryOpen) {
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
@@ -3243,7 +3245,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
   return;
  }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
  // AC-like central aim selection when using hidden-cursor mouse look.
  FHitResult Hit;
@@ -3289,6 +3291,8 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ // Atlas is read-only: absorb clicks rather than casting into the world.
+ if (bAtlasOpen) return;
  // All native modal panels own their mouse input before gameplay combat.
  if (bOptionsOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {

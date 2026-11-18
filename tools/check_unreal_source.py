@@ -393,7 +393,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
-        self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
@@ -2033,8 +2033,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;", begin)
-        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;"),
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;", begin)
+        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;"),
                         begin.index("bSprintHeld = true;"))
 
     def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
@@ -5806,6 +5806,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(EncounterLevelOverride, 1, 100)", enemy_begin)
         self.assertIn("Boss->bBoss = true;", boss)
         self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
+
+    def test_atlas_modal_blocks_remaining_combat_and_world_mouse_input(self):
+        def method_body(name):
+            return self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}(", 1)[1].split("\n}", 1)[0]
+
+        guarded = {
+            "CastBoth": "if (bOptionsOpen || bAtlasOpen) return;",
+            "BeginGuard": "bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f",
+            "BeginSprint": "if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;",
+            "Dodge": "bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid()",
+        }
+        for method, guard in guarded.items():
+            with self.subTest(method=method):
+                body = method_body(method)
+                self.assertIn(guard, body)
+                self.assertLess(body.index(guard), body.index("return;"))
+
+        right = method_body("CastRightMouse")
+        self.assertLess(right.index("if (bAtlasOpen) return;"), right.index("if (bInventoryOpen) {"))
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", right)
+        left = method_body("ResidentContextMouseClick")
+        self.assertLess(left.index("if (bAtlasOpen) return;"), left.index("if (bOptionsOpen) {"))
+
 
 if __name__ == "__main__":
     unittest.main()
