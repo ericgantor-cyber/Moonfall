@@ -820,6 +820,43 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AdjustOption(-1);", self.hero_cpp)
         self.assertIn("AdjustOption(1);", self.hero_cpp)
 
+    def test_hud_layout_editor_is_input_safe_bounded_and_persistent(self):
+        layout = (ROOT / "MoonfallHUDLayout.h").read_text(encoding="utf-8")
+        self.assertIn("constexpr int32 PanelCount = 3;", layout)
+        self.assertIn("constexpr float MinScale = 0.70f;", layout)
+        self.assertIn("constexpr float MaxScale = 1.60f;", layout)
+        self.assertIn("FMath::IsFinite(Offset.X)", layout)
+        self.assertIn("FMath::IsFinite(Offset.Y)", layout)
+        self.assertIn("FMath::IsFinite(Value)", layout)
+        self.assertIn("W - Width - 4.f", layout)
+        self.assertIn("H - Height - 4.f", layout)
+        self.assertIn("bool Contains(float X, float Y) const", layout)
+        self.assertIn("HudPanelOffsets[3]", self.hero_h)
+        self.assertIn("HudPanelScales[3]", self.hero_h)
+        self.assertIn("LoadHUDLayout();", self.hero_cpp)
+        self.assertIn('TEXT("Moonfall.HUDLayout")', self.hero_cpp)
+        self.assertIn("GGameUserSettingsIni", self.hero_cpp)
+        self.assertIn("SaveHUDLayout();", self.hero_cpp)
+        self.assertIn("if (bHUDLayoutEditing) { HandleHUDLayoutMousePress(); return; }", self.hero_cpp)
+        self.assertIn("if (bHUDLayoutEditing) { ExitHUDLayoutEditor(); return; }", self.hero_cpp)
+        self.assertIn("bHUDLayoutEditing = false;", self.hero_cpp)
+        self.assertIn("HudDraggingPanel = INDEX_NONE;", self.hero_cpp)
+        self.assertIn("if (bHUDLayoutEditing) { AdjustHUDPanelScale(1); return; }", self.hero_cpp)
+        self.assertIn("if (bHUDLayoutEditing) { AdjustHUDPanelScale(-1); return; }", self.hero_cpp)
+        self.assertIn("if (OptionsSelection == 8)", self.hero_cpp)
+        self.assertIn("SaveHUDLayout() const", self.hero_cpp)
+        self.assertIn("ResetHUDLayout()", self.hero_cpp)
+        self.assertNotIn("SaveGame", layout)
+        for panel in ("Orb", "Quest", "Boss"):
+            self.assertIn(f"MoonfallHUDLayout::{panel}", self.hud)
+        self.assertIn("if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", self.hud)
+        self.assertIn("HUD layout editor", self.hud)
+        self.assertIn("TEXT(\"RESET\")", self.hud)
+        self.assertIn("TEXT(\"DONE\")", self.hud)
+        self.assertIn("Hero->HudPanelOffsets[Panel]", self.hud)
+        self.assertIn("HudPanelOffsets[Panel], HudPanelScales[Panel]", self.hero_cpp)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni);", self.hero_cpp)
+
     def test_options_mouse_controls_only_adjust_a_selected_row(self):
         mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
