@@ -992,12 +992,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hero = self.hero_cpp
         restore = hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        self.assertIn("TMap<FGuid, const FMoonfallWorldLootRecord*> SavedById;", restore)
+        self.assertIn("TMap<FGuid, int32> SavedById;", restore)
         self.assertIn("SavedById.Reserve(PendingWorldLoot.Num());", restore)
-        self.assertIn("if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, &Record);", restore)
-        self.assertIn("const FMoonfallWorldLootRecord* const* Saved = SavedById.Find(Id);", restore)
-        self.assertIn("!Saved || Present.Contains(Id)", restore)
-        self.assertIn("(*Saved)->ItemCode != Loot->GetItemCode()", restore)
+        self.assertIn("if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, Record.ItemCode);", restore)
+        self.assertIn("const int32* SavedItemCode = SavedById.Find(Id);", restore)
+        self.assertIn("!SavedItemCode || Present.Contains(Id)", restore)
+        self.assertIn("*SavedItemCode != Loot->GetItemCode()", restore)
         self.assertIn("Loot->IsActorBeingDestroyed()", restore)
         self.assertIn("Present.Add(Id);", restore)
         self.assertIn("if (Record.LevelId != LevelId || Present.Contains(Record.DropId)) continue;", restore)
