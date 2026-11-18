@@ -3380,7 +3380,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    int32 ViewW = 0, ViewH = 0;
    float MouseX = 0.f, MouseY = 0.f;
    PC->GetViewportSize(ViewW, ViewH);
-   if (ViewW > 48 && ViewH > 48 && PC->bShowMouseCursor && PC->GetMousePosition(MouseX, MouseY)
+   if (ViewW >= 300 && ViewH >= 240 && PC->bShowMouseCursor && PC->GetMousePosition(MouseX, MouseY)
        && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
     // Keep hit tests in sync with MoonfallCombatHUD's Atlas panel.
     const float PanelW = FMath::Min(900.f, float(ViewW) - 24.f);
