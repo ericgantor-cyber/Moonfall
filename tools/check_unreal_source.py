@@ -5996,7 +5996,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (int32 Row = 0; Row < 7; ++Row)", atlas)
         self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", atlas)
         self.assertNotIn("TActorIterator", atlas)
-        self.assertIn("SCHEMATIC TERRAIN", atlas)
+        self.assertIn("Gold: hero / goal | cyan: shrine | violet: respawn", atlas)
+
+
+    def test_atlas_known_dungeon_wayfinding_only_uses_discovered_objectives(self):
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bOptionsOpen)", 1)[0]
+        target = atlas.split("// Map wayfinding: mark only the nearest known", 1)[1].split(
+            "for (int32 Slot = 0; Slot < 30; ++Slot)", 1)[0]
+        for guard in (
+            "const bool bValidHeroXY = FMath::IsFinite(HeroPosition.X) && FMath::IsFinite(HeroPosition.Y);",
+            "if (bValidHeroXY) {",
+            "!Hero->HasDiscoveredDungeon(Selected, Dungeon)",
+            "Hero->HasDefeatedDungeonBoss(Selected, Dungeon)",
+            "FMath::IsFinite(DistanceSq)",
+        ):
+            self.assertIn(guard, target)
+        self.assertIn("const int32 Slot = Selected * 5 + Dungeon;", target)
+        self.assertIn("HeroPosition.Y + 2500.f", target)
+        self.assertNotIn("GetAllActorsOfClass", target)
+        self.assertIn("if (Slot == NearestKnownDungeonSlot)", atlas)
+        self.assertIn("if (!bFound && !bCleared) continue;", atlas)
+        self.assertLess(atlas.index("if (!bFound && !bCleared) continue;"),
+                        atlas.index("if (Slot == NearestKnownDungeonSlot)"))
+        self.assertIn("FMath::Sqrt(NearestKnownDungeonDistanceSq) * 0.01f", atlas)
+        self.assertIn("m straight line", atlas)
+        self.assertIn("No discovered, uncleared dungeon in selected region", atlas)
+        self.assertIn('DrawText(TEXT("N")', atlas)
+        self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
 if __name__ == "__main__":
