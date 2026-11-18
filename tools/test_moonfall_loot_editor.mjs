@@ -152,4 +152,4 @@ get("page-next").click();
 assert.ok(get("page-status").textContent.includes("page 2/2"));
 get("page-prev").click();
 assert.ok(get("page-status").textContent.includes("page 1/2"));
-console.log("Moonfall loot editor: syntax, 41 rows, exact odds, safe edit history, bulk changes, pagination and offline event-handler smoke OK");
+console.log("Moonfall loot editor: syntax, 41 rows, exact odds, safe edit history, bulk changes, pagination and offline event-handler smoke, CSV roundtrip OK");
