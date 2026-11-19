@@ -227,6 +227,17 @@ public:
  };
  FRecentDamageHit DamageHistory[DamageHistorySize];
  int32 NextDamageHistorySlot = 0;
+ // Attack-result labels are anchored to the attacking enemy, not the hero.
+ // Fixed-size history avoids allocations and never changes savegame schema.
+ static constexpr int32 CombatOutcomeHistorySize = 4;
+ struct FCombatOutcomeFloat {
+  FName Outcome = NAME_None;
+  float HealthLost = 0.f;
+  float StartedAt = -10.f;
+ };
+ FCombatOutcomeFloat CombatOutcomeHistory[CombatOutcomeHistorySize];
+ int32 NextCombatOutcomeSlot = 0;
+ void RecordCombatOutcomeFloat(FName Outcome, float HealthLost, float WorldTime);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
