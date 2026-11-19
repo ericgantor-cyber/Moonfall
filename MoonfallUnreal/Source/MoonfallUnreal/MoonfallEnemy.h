@@ -19,6 +19,13 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ // Authoritative read-only strike warning for the existing HUD enemy scan.
+ UFUNCTION(BlueprintPure, Category="Combat|Presentation")
+ float GetAttackWarningRemaining(float WorldTime) const;
+ UFUNCTION(BlueprintPure, Category="Combat|Presentation")
+ float GetAttackWarningDuration() const;
+ UFUNCTION(BlueprintPure, Category="Combat|Presentation")
+ FString GetAttackWarningLabel() const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
  bool bEnableProceduralAttackTell = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Presentation")
