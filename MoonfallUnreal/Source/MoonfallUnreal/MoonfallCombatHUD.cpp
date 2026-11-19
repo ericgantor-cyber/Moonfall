@@ -1166,14 +1166,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
-  // A 232px three-row list at y=78 would collide with the bottom-left
-  // health orb in a 420px-tall window. Move it up without shrinking rows
-  // or hiding any accepted quests. Preserve original position at >=520px.
-  const float Top = Canvas->SizeY < 520.f ? 34.f : 78.f;
-  // Each contract uses a separate two-line entry. Keep the original compact
-  // 124px tracker when exploring or following the starting sanctuary.
+  // The three-line quest rows need a little extra vertical breathing room.
+  // At 420px tall keep the 3-row panel above the bottom-left health orb;
+  // 520px+ retains the original anchor. No quests are hidden or paginated.
+  const float Top = Canvas->SizeY < 520.f ? 18.f : 78.f;
   const float TrackerHeight = bThreeQuestList
-    ? 85.f + 49.f * QuestSummary.TrackedCount : 124.f;
+    ? 85.f + 57.f * QuestSummary.TrackedCount : 124.f;
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
     Left, Top, Width, TrackerHeight);
   // Visual priority without blinking: green means ready to turn in,
@@ -1200,6 +1198,7 @@ void AMoonfallCombatHUD::DrawHUD()
      Top + 8.f, nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.67f);
    // Three WoW Forever-style tracked objectives, sorted ready-first by the
    // pure, stable journal policy. Render no empty slots or completed quests.
+   // Three deliberately short text lines prevent compact-width overflow.
    for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row) {
     const int32 Index = QuestSummary.TrackedIndices[Row];
     if (Index < 0 || Index >= MoonfallQuestJournal::ResidentCount) continue;
@@ -1212,35 +1211,43 @@ void AMoonfallCombatHUD::DrawHUD()
       ? FString::Printf(TEXT("+%d XP%s"), RowXP.RewardXP,
           RowXP.LevelsGained > 0 ? TEXT(" LEVEL UP") : TEXT(""))
       : FString(TEXT("MAX LEVEL"));
-    const float RowTop = Top + 28.f + Row * 49.f;
+    const float RowTop = Top + 28.f + Row * 57.f;
     DrawRect(Row % 2 == 0
         ? FLinearColor(0.085f, 0.11f, 0.17f, 0.95f)
         : FLinearColor(0.065f, 0.095f, 0.15f, 0.95f),
-      Left + 12.f, RowTop, Width - 24.f, 45.f);
-    DrawRect(bReady ? FLinearColor(0.26f, 0.83f, 0.51f)
-        : FLinearColor(0.96f, 0.68f, 0.29f),
-      Left + 12.f, RowTop, 3.f, 45.f);
-    // The quest title describes the contract; the row below identifies
-    // the actual NPC and turn-in location. Both stay visible like a quest log.
-    DrawText(FString::Printf(TEXT("%d. %s  |  %s"), Row + 1,
-       UTF8_TO_TCHAR(Entry.QuestTitle), bReady ? TEXT("TURN IN") : TEXT("ACTIVE")),
-      FLinearColor::White, Left + 21.f, RowTop + 3.f, nullptr,
-      Canvas->SizeX < 1050.f ? 0.64f : 0.78f);
-    DrawText(FString::Printf(TEXT("%s @ %s | %d/%d SALVAGE | %s"),
-        UTF8_TO_TCHAR(Entry.Name), UTF8_TO_TCHAR(Entry.Location),
-        FMath::Min(Hero->Salvage, Cost), Cost, *XPText),
-      FLinearColor(0.76f, 0.84f, 0.92f), Left + 21.f, RowTop + 24.f,
-      nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.66f);
-    // Each quest's own salvage objective has a thin, static progress bar.
-    // Numeric x/y and TURN IN/ACTIVE text remain legible without color.
+      Left + 12.f, RowTop, Width - 24.f, 54.f);
+    const FLinearColor RowAccent = bReady
+      ? FLinearColor(0.26f, 0.83f, 0.51f)
+      : FLinearColor(0.96f, 0.68f, 0.29f);
+    DrawRect(RowAccent, Left + 12.f, RowTop, 3.f, 54.f);
+    // Distinct columns keep status and reward readable at 600px width.
+    // No overlapping long combined strings and no overhead combat text.
+    DrawText(FString::Printf(TEXT("%d. %s"), Row + 1,
+        UTF8_TO_TCHAR(Entry.QuestTitle)),
+      FLinearColor::White, Left + 21.f, RowTop + 2.f, nullptr,
+      Canvas->SizeX < 1050.f ? 0.68f : 0.81f);
+    DrawText(bReady ? TEXT("TURN IN") : TEXT("ACTIVE"),
+      RowAccent, Left + Width - 81.f, RowTop + 2.f, nullptr,
+      Canvas->SizeX < 1050.f ? 0.62f : 0.73f);
+    DrawText(FString::Printf(TEXT("%s @ %s"),
+        UTF8_TO_TCHAR(Entry.Name), UTF8_TO_TCHAR(Entry.Location)),
+      FLinearColor(0.76f, 0.84f, 0.92f), Left + 21.f, RowTop + 18.f,
+      nullptr, Canvas->SizeX < 1050.f ? 0.58f : 0.69f);
+    DrawText(FString::Printf(TEXT("%d/%d SALVAGE"),
+        FMath::Min(Hero->Salvage, Cost), Cost),
+      FLinearColor(0.83f, 0.87f, 0.95f), Left + 21.f, RowTop + 34.f,
+      nullptr, Canvas->SizeX < 1050.f ? 0.58f : 0.68f);
+    DrawText(XPText, FLinearColor(0.79f, 0.93f, 0.83f),
+      Left + Width - 166.f, RowTop + 34.f, nullptr,
+      Canvas->SizeX < 1050.f ? 0.58f : 0.68f);
+    // Per-quest salvage progress stays numeric and nonflashing.
     const float SalvageProgress = FMath::Clamp(
       static_cast<float>(Hero->Salvage) / FMath::Max(1, Cost), 0.f, 1.f);
     const float ProgressWidth = Width - 42.f;
     DrawRect(FLinearColor(0.16f, 0.19f, 0.26f),
-      Left + 21.f, RowTop + 40.f, ProgressWidth, 2.f);
-    DrawRect(bReady ? FLinearColor(0.26f, 0.83f, 0.51f)
-        : FLinearColor(0.96f, 0.68f, 0.29f),
-      Left + 21.f, RowTop + 40.f, ProgressWidth * SalvageProgress, 2.f);
+      Left + 21.f, RowTop + 50.f, ProgressWidth, 2.f);
+    DrawRect(RowAccent, Left + 21.f, RowTop + 50.f,
+      ProgressWidth * SalvageProgress, 2.f);
    }
   } else {
    DrawText(Objective, FLinearColor::White,
