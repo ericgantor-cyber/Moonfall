@@ -5566,14 +5566,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_world_signs_set_position_before_registering(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         zones = arena.split('for (int32 Zone = 0; Zone < 6; ++Zone)', 1)[1].split(
+            '// Six optional regional waystations', 1)[0]
+        stations = arena.split('// Six optional regional waystations', 1)[1].split(
             'if (bEnableStartingSanctuary) {', 1)[0]
         guide = arena.split('for (const FStarterSign& Entry : Signs)', 1)[1].split(
             'if (!GetWorld()) return;', 1)[0]
-        self.assertIn('Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));', zones)
-        self.assertIn('Sign->SetRelativeLocation(Entry.Position);', guide)
-        for section in (zones, guide):
+        # Three independent sign types register their own component once,
+        # with a valid transform and text color set before registration.
+        for section, position in (
+            (zones, 'Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));'),
+            (stations, 'Sign->SetRelativeLocation(FVector(ZoneCenterX, -1590.f, 155.f));'),
+            (guide, 'Sign->SetRelativeLocation(Entry.Position);'),
+        ):
+            self.assertIn(position, section)
             self.assertEqual(section.count('Sign->RegisterComponent();'), 1)
-            self.assertLess(section.index('Sign->SetRelativeLocation('),
+            self.assertLess(section.index(position),
                             section.index('Sign->RegisterComponent();'))
             self.assertLess(section.index('Sign->SetTextRenderColor('),
                             section.index('Sign->RegisterComponent();'))
