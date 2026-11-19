@@ -195,6 +195,20 @@ public:
  // Combat result floats belong to attacking enemies, never the hero.
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
+ // Three independent Canvas panels: orb, world quest tracker and boss warnings.
+ // Stored in local GameUserSettings.ini, deliberately outside V12 world saves.
+ FVector2D HudPanelOffsets[3] = {FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector};
+ float HudPanelScales[3] = {1.f, 1.f, 1.f};
+ bool bHUDLayoutEditing = false;
+ int32 HudSelectedPanel = 0;
+ int32 HudDraggingPanel = INDEX_NONE;
+ FVector2D HudDragStartMouse = FVector2D::ZeroVector;
+ FVector2D HudDragStartOffset = FVector2D::ZeroVector;
+ void LoadHUDLayout();
+ void SaveHUDLayout() const;
+ void ResetHUDLayout();
+ void ExitHUDLayoutEditor();
+ void AdjustHUDPanelScale(int32 Direction);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -462,6 +476,7 @@ private:
  void OptionsLeft();
  void OptionsRight();
  void AdjustOption(int32 Direction);
+ void HandleHUDLayoutMousePress();
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
