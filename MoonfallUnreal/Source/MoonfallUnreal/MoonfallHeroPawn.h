@@ -192,16 +192,7 @@ public:
  // 0 Classic colored, 1 high contrast, 2 monochrome. Saved as UI preference.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
  int32 CombatTextPalette = 0;
- static constexpr int32 IncomingCombatFloatCapacity = 8;
- struct FIncomingCombatFloat {
-  FName Outcome = NAME_None;
-  float HealthLost = 0.f;
-  float StartedAt = -10.f;
- };
- // Fixed-capacity, transient: no heap allocation, replicated data or save schema.
- FIncomingCombatFloat IncomingCombatFloats[IncomingCombatFloatCapacity];
- int32 NextIncomingCombatFloatSlot = 0;
- void RecordIncomingCombatFloat(FName Outcome, float HealthLost);
+ // Combat result floats belong to attacking enemies, never the hero.
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
