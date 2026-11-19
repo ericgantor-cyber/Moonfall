@@ -1117,7 +1117,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
- const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
+ const bool bCanShowQuestTracker = (Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f)
+    || (Hero->bHUDLayoutEditing && Canvas->SizeX >= 320.f && Canvas->SizeY >= 300.f);
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
   const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
@@ -1182,42 +1183,47 @@ void AMoonfallCombatHUD::DrawHUD()
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
-  const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
-  const float Left = 20.f;
-  const float Top = 78.f;
+  const auto Rect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Quest,
+    Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Quest],
+    Hero->HudPanelScales[MoonfallHUDLayout::Quest]);
+  const float Width = Rect.Width, Left = Rect.Left, Top = Rect.Top;
+  const float S = FMath::Min(Rect.Scale, Width / 560.f);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
-    Left, Top, Width, 124.f);
+    Left, Top, Width, Rect.Height);
   DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
-    Left, Top, 4.f, 124.f);
+    Left, Top, 4.f*S, Rect.Height);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
-    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
+    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f*S, Top + 7.f*S, nullptr, 0.86f*S);
   DrawText(Objective, FLinearColor::White,
-    Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
+    Left + 14.f*S, Top + 33.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.68f : 0.82f)*S);
   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
-    Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
+    Left + 14.f*S, Top + 57.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.65f : 0.75f)*S);
   // Two stable progress bars: discovering all 30 entrances, then clearing
   // all 30 bosses. Never conflate visited regions with defeated bosses.
-  const float TrackWidth = FMath::Max(20.f, Width - 28.f);
+  const float TrackWidth = FMath::Max(12.f, Width - 28.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 81.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.27f, 0.74f, 0.90f),
-    Left + 14.f, Top + 81.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 92.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
-    Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f*S);
   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
-    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f*S, Top + 102.f*S, nullptr,
+    (Canvas->SizeX < 1050.f ? 0.65f : 0.74f)*S);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
- const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
- const float CX = Radius + 25.f;
- const float CY = Canvas->SizeY - Radius - 25.f;
- const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
+ const auto OrbRect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Orb,
+   Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Orb],
+   Hero->HudPanelScales[MoonfallHUDLayout::Orb]);
+ const float Radius = OrbRect.Width / 2.5f;
+ const float CX = OrbRect.Left + OrbRect.Width * 0.5f;
+ const float CY = OrbRect.Top + OrbRect.Height * 0.5f;
+ const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.80f);
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
