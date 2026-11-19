@@ -414,7 +414,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 9.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 10.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -441,15 +441,17 @@ void AMoonfallCombatHUD::DrawHUD()
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
-     TEXT("Display mode"), TEXT("Floating results")};
+     TEXT("Display mode"), TEXT("Floating results"), TEXT("Text palette")};
    const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
-     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats")};
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats"), TEXT("Colors")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
      Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen"),
-     Hero->bShowFloatingCombatText ? TEXT("On") : TEXT("Off")};
+     Hero->bShowFloatingCombatText ? TEXT("On") : TEXT("Off"),
+     Hero->CombatTextPalette == 1 ? TEXT("Contrast")
+       : Hero->CombatTextPalette == 2 ? TEXT("Mono") : TEXT("Classic")};
    const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    // Options mouse hover is visual only; clicks still choose and adjust explicitly.
@@ -458,7 +460,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bOptionsCursorVisible = PC->bShowMouseCursor
       && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
-   for (int32 i = 0; i < 9; ++i) {
+   for (int32 i = 0; i < 10; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     const bool bHoveredRow = bOptionsCursorVisible
@@ -497,15 +499,16 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Scale damage numbers in combat"),
     TEXT("Scale the visibility of boss warnings"),
     TEXT("Choose Windowed, Borderless or Fullscreen"),
-    TEXT("Show floating hit/parry/dodge/block/miss text")
+    TEXT("Show floating hit/parry/dodge/block/miss text"),
+    TEXT("Combat text palette: Classic, Contrast, Mono")
   };
   const FString CompactHelp[] = {
     TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
     TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
     TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode"),
-    TEXT("Float results on/off")
+    TEXT("Float results on/off"), TEXT("Text colors")
   };
-  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 8);
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 9);
   FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
   // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
   // This is guidance, never a hidden automatic graphics-setting change.
@@ -1319,11 +1322,20 @@ void AMoonfallCombatHUD::DrawHUD()
       : bParry ? TEXT("PARRY!")
       : bDodge ? TEXT("DODGE!")
       : bGuard ? TEXT("BLOCKED!") : TEXT("MISS!");
-    const FLinearColor Hue = bHit ? FLinearColor(1.f,0.44f,0.44f)
-      : bParry ? FLinearColor(0.48f,0.96f,1.f)
-      : bDodge ? FLinearColor(0.63f,0.76f,1.f)
-      : bGuard ? FLinearColor(1.f,0.83f,0.43f)
-      : FLinearColor(0.90f,0.90f,0.94f);
+    // Three palettes keep meaning in the text itself, never color alone.
+    const FLinearColor Hue = Hero->CombatTextPalette == 2
+      ? FLinearColor::White
+      : Hero->CombatTextPalette == 1
+        ? (bHit ? FLinearColor(1.f,0.98f,0.35f)
+           : bParry ? FLinearColor(0.30f,1.f,0.70f)
+           : bDodge ? FLinearColor(0.65f,0.88f,1.f)
+           : bGuard ? FLinearColor(1.f,0.65f,0.96f)
+           : FLinearColor::White)
+        : (bHit ? FLinearColor(1.f,0.44f,0.44f)
+           : bParry ? FLinearColor(0.48f,0.96f,1.f)
+           : bDodge ? FLinearColor(0.63f,0.76f,1.f)
+           : bGuard ? FLinearColor(1.f,0.83f,0.43f)
+           : FLinearColor(0.90f,0.90f,0.94f));
     const float Alpha = FMath::Clamp(1.f - Age / 1.1f, 0.f, 1.f);
     const float Rise = Hero->bReduceMotion ? 0.f : Age * 68.f;
     FVector2D Screen;
@@ -1363,9 +1375,13 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bShatter = Hit.bShatter;
     // Lethal hits retain ordinary damage numbers. No KO text overlays the
     // finisher choreography; the combo is communicated through animation.
-    const FLinearColor DamageColor = bShatter
-      ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
-      : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+    const FLinearColor DamageColor = Hero->CombatTextPalette == 2
+      ? FLinearColor(1.f,1.f,1.f,1.f - Age / 0.8f)
+      : Hero->CombatTextPalette == 1
+        ? FLinearColor(0.36f,1.f,0.72f,1.f - Age / 0.8f)
+        : bShatter
+          ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+          : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
     const FString DamageLabel = bShatter
       ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
       : FString::Printf(TEXT("-%.0f"), Hit.Amount);
