@@ -85,6 +85,35 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("GetTotalDiscoveredDungeons()", section)
         self.assertIn("GetTotalDefeatedDungeonBosses()", section)
 
+    def test_compact_window_keeps_all_three_quests_and_health_orb_separate(self):
+        section = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        self.assertIn(
+            "Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f", section
+        )
+        self.assertIn(
+            "const float Top = Canvas->SizeY < 520.f ? 34.f : 78.f;", section
+        )
+        self.assertIn(
+            "85.f + 49.f * QuestSummary.TrackedCount : 124.f", section
+        )
+        self.assertIn(
+            "for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section
+        )
+        # These are policy checks against the existing orb's fixed placement,
+        # not claims of an actual Unreal-rendered screenshot or hit test.
+        for width, height in ((600, 420), (640, 480), (760, 520),
+                              (1280, 720), (1920, 1080), (3840, 2160)):
+            top = 34 if height < 520 else 78
+            radius = max(50, min(80, min(width, height) * 0.092))
+            orb_top = height - 2 * radius - 25
+            for quest_count in (1, 2, 3):
+                tracker_bottom = top + 85 + 49 * quest_count
+                with self.subTest(width=width, height=height,
+                                  quest_count=quest_count):
+                    self.assertLess(tracker_bottom, orb_top)
+                    self.assertLess(tracker_bottom, height)
+
     def test_catalog_matches_authored_crossroads_and_all_persisted_ids(self):
         entries = re.findall(
             r'\{"([^"]+)", "([^"]+)", "([^"]+)", "([^"]+)", (\d+)\}',
