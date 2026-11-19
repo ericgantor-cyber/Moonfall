@@ -1,6 +1,7 @@
 // Pure C++17 bounded journal regression. No Unreal SDK required.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestJournal.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestLayout.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -60,7 +61,47 @@ constexpr bool CheckNoActiveSlots() {
 }
 static_assert(CheckNoActiveSlots(), "Completed quests must not occupy slots.");
 
+// Pure compile-time viewport policy. Every row must retain distinct title,
+// resident, reward and progress lines, with three slots clearing the HP orb.
+namespace QuestLayout = MoonfallQuestLayout;
+static_assert(QuestLayout::Compute(420, 3).Top == 18);
+static_assert(QuestLayout::Compute(420, 3).PanelHeight == 265);
+static_assert(QuestLayout::Compute(420, 3).RowStride == 60);
+static_assert(QuestLayout::Compute(420, 3).RowHeight == 56);
+static_assert(QuestLayout::Compute(420, 3).ProgressOffset == 52);
+static_assert(QuestLayout::Compute(480, 3).RowStride == 60);
+static_assert(QuestLayout::Compute(519, 3).RowStride == 60);
+static_assert(QuestLayout::Compute(520, 3).Top == 78);
+static_assert(QuestLayout::Compute(520, 3).PanelHeight == 295);
+static_assert(QuestLayout::Compute(520, 3).RowStride == 70);
+static_assert(QuestLayout::Compute(520, 3).RowHeight == 66);
+static_assert(QuestLayout::Compute(520, 3).ProgressOffset == 62);
+static_assert(QuestLayout::Compute(720, 3).RowStride == 70);
+static_assert(QuestLayout::Compute(420, 0).PanelHeight == 124);
+static_assert(QuestLayout::Compute(720, 0).PanelHeight == 124);
+static_assert(QuestLayout::Compute(720, 7).PanelHeight == 295);
+static_assert(QuestLayout::Compute(420, -2).PanelHeight == 124);
+static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(420, 3)));
+static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(520, 3)));
+static_assert(QuestLayout::ClearsHealthOrb(600, 420, 3));
+static_assert(QuestLayout::ClearsHealthOrb(640, 480, 3));
+static_assert(QuestLayout::ClearsHealthOrb(760, 520, 3));
+static_assert(QuestLayout::ClearsHealthOrb(1280, 720, 3));
+static_assert(QuestLayout::ClearsHealthOrb(1920, 1080, 3));
+static_assert(QuestLayout::ClearsHealthOrb(3840, 2160, 3));
+
 int main() {
+ for (int width : {600, 640, 760, 1280, 1920, 3840}) {
+  for (int height : {420, 480, 519, 520, 720, 1080, 2160}) {
+   for (int rows=1; rows<=QuestLayout::MaxRows; ++rows) {
+    const auto metrics=QuestLayout::Compute(height, rows);
+    assert(QuestLayout::ValidRowSpacing(metrics));
+    assert(QuestLayout::ClearsHealthOrb(width, height, rows));
+    assert(metrics.RowHeight+4==metrics.RowStride);
+    assert(metrics.PanelHeight==85+metrics.RowStride*rows);
+   }
+  }
+ }
  for (int I=0; I<ResidentCount; ++I) {
   const auto& Resident = Residents[I];
   assert(Resident.Id && *Resident.Id && Resident.Name && *Resident.Name);
