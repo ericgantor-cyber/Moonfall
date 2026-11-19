@@ -62,16 +62,22 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("const FLinearColor TrackerAccent", section)
         self.assertIn("DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight)", section)
         self.assertIn("QuestSummary.TrackedCount > 0", section)
-        self.assertIn("85.f + 49.f * QuestSummary.TrackedCount : 124.f", section)
+        self.assertIn("85.f + 57.f * QuestSummary.TrackedCount : 124.f", section)
         self.assertIn("for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section)
         self.assertIn("QuestSummary.TrackedIndices[Row]", section)
-        self.assertIn("const float RowTop = Top + 28.f + Row * 49.f", section)
+        self.assertIn("const float RowTop = Top + 28.f + Row * 57.f", section)
         self.assertIn("if (bThreeQuestList)", section)
         self.assertIn("RowXP.LevelsGained > 0", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.QuestTitle)", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.Name)", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.Location)", section)
-        self.assertIn('%s @ %s | %d/%d SALVAGE | %s', section)
+        self.assertIn('FString::Printf(TEXT("%s @ %s")', section)
+        self.assertIn('FString::Printf(TEXT("%d/%d SALVAGE")', section)
+        self.assertIn('DrawText(XPText, FLinearColor', section)
+        self.assertIn("Left + Width - 166.f", section)
+        self.assertIn("Left + Width - 81.f", section)
+        self.assertIn("Left + 12.f, RowTop, Width - 24.f, 54.f", section)
+        self.assertNotIn('%s @ %s | %d/%d SALVAGE | %s', section)
         self.assertIn("bReady ? TEXT(\"TURN IN\") : TEXT(\"ACTIVE\")", section)
         self.assertIn("Top + TrackerHeight - 43.f", section)
         self.assertIn("Top + TrackerHeight - 32.f", section)
@@ -79,8 +85,15 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("const float SalvageProgress = FMath::Clamp(", section)
         self.assertIn("static_cast<float>(Hero->Salvage) / FMath::Max(1, Cost)", section)
         self.assertIn("ProgressWidth * SalvageProgress, 2.f", section)
-        self.assertIn("RowTop + 40.f", section)
+        self.assertIn("RowTop + 50.f", section)
         self.assertIn("FMath::Min(Hero->Salvage, Cost)", section)
+        # Three independent text lines keep title/action, NPC/location,
+        # and salvage/XP separate even on 600px-wide windows.
+        self.assertIn("RowTop + 2.f", section)
+        self.assertIn("RowTop + 18.f", section)
+        self.assertIn("RowTop + 34.f", section)
+        self.assertIn("RowTop + 50.f", section)
+        self.assertIn("const FLinearColor RowAccent = bReady", section)
         self.assertNotIn("ProjectWorldLocationToScreen", section)
         self.assertIn("GetTotalDiscoveredDungeons()", section)
         self.assertIn("GetTotalDefeatedDungeonBosses()", section)
@@ -92,23 +105,29 @@ class WorldQuestJournal(unittest.TestCase):
             "Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f", section
         )
         self.assertIn(
-            "const float Top = Canvas->SizeY < 520.f ? 34.f : 78.f;", section
+            "const float Top = Canvas->SizeY < 520.f ? 18.f : 78.f;", section
         )
         self.assertIn(
-            "85.f + 49.f * QuestSummary.TrackedCount : 124.f", section
+            "85.f + 57.f * QuestSummary.TrackedCount : 124.f", section
         )
         self.assertIn(
             "for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section
         )
+        # The fixed right-hand reward and status columns leave ample
+        # space for bounded title and destination labels in compact mode.
+        for width in (600, 640, 760, 1280, 1920):
+            panel_width = min(560, width - 40)
+            self.assertGreaterEqual(panel_width - 166, 350)
+            self.assertGreaterEqual(panel_width - 81, 435)
         # These are policy checks against the existing orb's fixed placement,
         # not claims of an actual Unreal-rendered screenshot or hit test.
         for width, height in ((600, 420), (640, 480), (760, 520),
                               (1280, 720), (1920, 1080), (3840, 2160)):
-            top = 34 if height < 520 else 78
+            top = 18 if height < 520 else 78
             radius = max(50, min(80, min(width, height) * 0.092))
             orb_top = height - 2 * radius - 25
             for quest_count in (1, 2, 3):
-                tracker_bottom = top + 85 + 49 * quest_count
+                tracker_bottom = top + 85 + 57 * quest_count
                 with self.subTest(width=width, height=height,
                                   quest_count=quest_count):
                     self.assertLess(tracker_bottom, orb_top)
