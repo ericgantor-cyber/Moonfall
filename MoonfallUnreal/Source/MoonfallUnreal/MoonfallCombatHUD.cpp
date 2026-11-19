@@ -1107,8 +1107,12 @@ void AMoonfallCombatHUD::DrawHUD()
        ? TEXT("Return to the Guide with 10 salvage (right-click)")
        : FString::Printf(TEXT("Find gear; salvage it in B (%d / 10)"),
            FMath::Clamp(Hero->Salvage, 0, GuideSalvageCost));
+     // Show the same XP award in the starter quest tracker and resident menu.
+     const int32 GuideRewardXP = MoonfallQuestXP::Reward(GuideSalvageCost, Hero->Level);
      Context = Hero->Salvage >= GuideSalvageCost
-       ? TEXT("Quest ready for turn-in")
+       ? (GuideRewardXP > 0
+          ? FString::Printf(TEXT("Quest ready: turn in for +%d XP"), GuideRewardXP)
+          : FString(TEXT("Quest ready: MAX LEVEL")))
        : TEXT("Practice gives XP; dungeon equipment can be salvaged");
     } else {
      Objective = TEXT("Practice north, then take the south gate to six regions");
