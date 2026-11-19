@@ -2619,7 +2619,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('TEXT("KO -%.0f")', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
         self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this)", damage)
-        self.assertIn("VisibleDamageNumbers < 32", self.hud)
+        self.assertIn("VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_rapid_hits_keep_independent_bounded_damage_labels(self):
@@ -2634,7 +2634,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Entry.Time = LastHitTime;", damage)
         self.assertIn("Entry.bShatter = bLastHitWasShatter;", damage)
         self.assertIn("NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;", damage)
-        self.assertIn("Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32", self.hud)
+        self.assertIn("Slot < AMoonfallEnemy::DamageHistorySize", self.hud)
+        self.assertIn("VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage", self.hud)
         self.assertIn("const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];", self.hud)
         self.assertIn("const float Age = WorldTime - Hit.Time;", self.hud)
         self.assertIn("!FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f", self.hud)
@@ -2652,7 +2653,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
         self.assertIn("(bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale", self.hud)
-        self.assertIn("VisibleDamageNumbers < 32", self.hud)
+        self.assertIn("VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_shatter_finisher_expires_and_phase_transition_preserves_stagger(self):
@@ -5483,7 +5484,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Canvas->SizeX >= 760.f", guide)
         self.assertIn("Canvas->SizeY >= 520.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
-        self.assertIn("VisibleDamageNumbers < 32", draw_damage)
+        self.assertIn("VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage", draw_damage)
         # Distance culling happens in the shared enemy pass, before any
         # nearby damage candidates are rendered. This saves a second world scan.
         scan = hud.split("TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;", 1)[1].split(
