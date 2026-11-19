@@ -29,7 +29,12 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertNotIn("ResidentQuestStates.Add", section)
         self.assertNotIn("SaveWorldProgress", section)
         self.assertIn("for (int32 I = 0; I < MoonfallQuestJournal::ResidentCount; ++I)", section)
-        self.assertIn("static const TArray<FName> QuestResidentIds = []()", section)
+        self.assertIn("static const TArray<FName> QuestResidentIds = []()", self.hud)
+        self.assertEqual(self.hud.count("static const TArray<FName> QuestResidentIds = []()"), 1)
+        # The same cached FNames identify NPC dialogue and persisted world
+        # tracking, rather than constructing separate catalogs per frame.
+        self.assertIn("QuestResidentIds.Find(Resident->ResidentId)", self.hud)
+        self.assertIn("ResidentQuestStates.Find(QuestResidentIds[I])", section)
         # Accepted quests stay visible in the sanctuary; Firstlight tutorial
         # only takes over when there are no active contracts.
         self.assertIn("if (!bThreeQuestList && bSanctuaryObjective)", section)
@@ -132,6 +137,25 @@ class WorldQuestJournal(unittest.TestCase):
                                   quest_count=quest_count):
                     self.assertLess(tracker_bottom, orb_top)
                     self.assertLess(tracker_bottom, height)
+
+    def test_npc_dialogue_matches_world_quest_title(self):
+        panel = self.hud.split("// Native Canvas resident menu.", 1)[1].split(
+            "if (Hero->bAtlasOpen)", 1)[0]
+        self.assertIn("QuestResidentIds.Find(Resident->ResidentId)", panel)
+        self.assertIn("ResidentCatalogIndex != INDEX_NONE", panel)
+        self.assertIn(
+            "MoonfallQuestJournal::Residents[ResidentCatalogIndex].QuestTitle", panel
+        )
+        self.assertIn('FString::Printf(TEXT("Quest: %s"), *ContractTitle)', panel)
+        self.assertIn("T + 37.f", panel)
+        self.assertIn("W < 355.f ? 0.60f : 0.72f", panel)
+        # The existing faction, bond, contract rank and reward preview must
+        # remain usable rather than being replaced by the new quest title.
+        for expected in ("GetSocialDisposition(Hero)", "Trust %d",
+                         "MoonfallQuestXP::RankName(", "MoonfallQuestXP::Preview(",
+                         "FText", "Salvage"):
+            if expected != "FText":
+                self.assertIn(expected, panel)
 
     def test_catalog_matches_authored_crossroads_and_all_persisted_ids(self):
         entries = re.findall(
