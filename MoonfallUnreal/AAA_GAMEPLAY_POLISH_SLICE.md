@@ -31,45 +31,46 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
-## WoW F-style floating combat results
+## WoW F-style combat floats: enemy-only overhaul
 
-- Moonfall already rendered **outgoing** spell damage numbers above
-  damaged enemies using each enemy's existing four-hit history and
-  one pooled HUD enemy scan. That remains unchanged unless the player
-  turns the overall floating text setting off.
-- The player's incoming combat feedback now adds floating, **explicit
-  text labels** above the hero: `HIT -damage` in red, `PARRY!`
-  in cyan, `DODGE!` in blue, `BLOCKED!` in gold (the existing
-  `GUARD` outcome), and `MISS!` in neutral gray. Color is
-  supplemental and never the only way to identify an outcome.
-- Only **actual classified enemy impact results** create entries, after
-  original hit/cover/guard/parry/dodge damage resolution. Entries use
-  a fixed **eight-slot transient ring**, last 1.1 seconds, float gently
-  upward, fade out, and respect visibility and viewport bounds.
-  No new actors, save schema changes, component allocation, per-frame
-  actor search, gameplay RNG or extra hit calculation.
-- In the existing **Esc > Options** menu, the 9th row is
-  `Floating results` **On/Off**, and the 10th row is
-  `Text palette`: **Classic / Contrast / Mono**.
-  Existing `Combat text` changes both outgoing and incoming number
-  size from 75% through 200% in 25% increments. All three settings
-  work with the existing mouse +/- buttons, keyboard and gamepad.
-  Values persist through `GameUserSettings.ini`, not world saves.
-- When **Reduced Motion** is enabled, floating labels remain at a
-  stationary height until they expire. Text alpha still fades
-  gradually without flashing.
-- Performance guard: at most eight incoming labels, 32 outgoing
-  numbers, and one already-existing enemy scan. Both types are hidden
-  when floating text is Off; boss warnings and other essential combat
-  messages remain independent.
+- **Nothing floats above the player's character.** Both existing outgoing
+  damage numbers and the five results of enemy attacks are anchored to
+  their source **enemy**. Incoming damage says `HIT YOU -damage` to
+  distinguish it from outgoing damage. Other labels are `PARRY!`,
+  `DODGE!`, `BLOCKED!` and `MISS!`. Each keeps a visible text
+  label and color palette, so color is never the only indicator.
+- The original **hero-side eight-entry ring and recorder are removed**,
+  not merely hidden. A four-entry, unsaved, fixed-size queue is now
+  owned by each attacking enemy. It records a result only after actual
+  hit arc, cover, dodge, parry, block and health changes have resolved.
+  Blueprints still receive the existing result and damage events.
+- The original **single HUD enemy scan** supplies both outgoing and
+  enemy-attributed result labels. Candidate actors are capped at 64;
+  drawing is limited to **16 recent outcome labels plus 32 outgoing
+  damage numbers**, even during large battles. No extra actor scans,
+  spawned effects, game ticks, RNG, save fields or damage calculations.
+  Outgoing killing blows remain eligible for their final damage label.
+- Results are shown for **1.1 seconds** using two deterministic
+  two-row screen-space lanes per enemy with a dark text backing,
+  bounded screen-space clipping and a gentle upward drift. When
+  Reduced Motion is enabled, they remain stationary and quietly fade.
+- **Esc > Options** retains ten selectable rows, with `Floating
+  results` On/Off, `Text palette` Classic/Contrast/Mono, and existing
+  `Combat text` sizing at 75% to 200%. Mouse, keyboard and controller
+  controls stay synchronized; UI preferences persist in
+  `GameUserSettings.ini` rather than savegame data.
+- Expanded source tests explicitly forbid an incoming hero label
+  queue, hero-position projection or unbounded enemy scans. A
+  C++17 test validates the animation-free lane, fade and reduced
+  motion policy with thousands of deterministic cases.
 
-**Native QA required:** Compile in UE5.4; confirm pixel-perfect menu
-row click bounds in windowed 720p, 1080p and 4K; test mouse, pad and
-keyboard settings and persistence; validate actual damage on both
-player and enemies; rapid parry/dodge/guard/miss sequences; death
-cleanup; Reduced Motion; all three palettes; out-of-screen targets;
-multimob performance and finished fonts. The visual work is
-source-implemented but **not yet verified as a Windows build**.
+**Native QA still required:** Compile UE5.4, check enemy-only label
+placement in melee (including when an attacker stands next to the
+hero), simultaneous 60+ mobs, incoming/ outgoing damage readability,
+parry/dodge/block/miss truthfulness, cap limits, standard and 4K
+resolutions, smallest window size, all three palettes, Reduced Motion,
+mouse/controller settings persistence, FPS and valid final-hit
+feedback. Source tests **do not** prove a working Windows build.
 
 ## Real impact outcomes and sound integration
 
