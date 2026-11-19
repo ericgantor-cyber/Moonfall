@@ -7,6 +7,9 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
       - 'tools/test_unreal_quest_xp.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestJournal.h'
+      - 'tools/test_unreal_quest_journal.cpp'
+      - 'tools/test_unreal_quest_journal.py'
       - 'tools/test_unreal_quest_xp.py'
       - 'tests/check_social_world.py'
       - '.github/workflows/unreal-quest-xp.yml'
@@ -17,6 +20,9 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
       - 'tools/test_unreal_quest_xp.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestJournal.h'
+      - 'tools/test_unreal_quest_journal.cpp'
+      - 'tools/test_unreal_quest_journal.py'
       - 'tools/test_unreal_quest_xp.py'
       - 'tests/check_social_world.py'
       - '.github/workflows/unreal-quest-xp.yml'
@@ -29,5 +35,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_quest_xp.cpp -o /tmp/moonfall-quest-xp
           /tmp/moonfall-quest-xp
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_quest_journal.cpp -o /tmp/moonfall-quest-journal
+          /tmp/moonfall-quest-journal
       - name: Verify one-time saved quest XP and rollback source contracts
-        run: python3 -m unittest -v tools.test_unreal_quest_xp
+        run: python3 -m unittest -v tools.test_unreal_quest_xp tools.test_unreal_quest_journal
