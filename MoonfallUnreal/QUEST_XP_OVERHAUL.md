@@ -64,7 +64,7 @@ separate regional waystation PR #1070.
 ## Persistent world contract journal
 
 The HUD's existing world quest tracker now considers **all 25 named
-residents** when no starting-sanctuary objective is active. It reads only
+residents** whenever a saved contract is accepted. It reads only
 the hero's existing saved `ResidentQuestStates`, not an expensive
 world-wide NPC scan, and uses the pure C++17 `MoonfallQuestJournal.h`
 catalog to identify each resident's expected contract cost and home.
@@ -75,13 +75,15 @@ catalog to identify each resident's expected contract cost and home.
   with stable tie order. The first three eligible quests fill the rows;
   more accepted quests remain saved and appear automatically as rows free up.
 - Every row displays **TURN IN** or **ACTIVE**, the resident's name and
-  location, available/required salvage and projected XP/level-up. Empty
-  slots are not shown, and completed quests cannot reappear as active.
-  The quest list shows no more than three rows even if 25 quests are active.
+  location, available/required salvage, projected XP/level-up, and a
+  thin static salvage progress bar. Empty slots are not shown, and completed
+  quests cannot reappear as active. The quest list shows no more than
+  three rows even if 25 quests are active.
 - The panel adjusts vertically for 1, 2 or 3 visible quests; the original
-  discovered-dungeon/boss progress bars remain beneath the rows. When no
-  contract is accepted, or when in the starting sanctuary, the original
-  single-objective layout is retained.
+  discovered-dungeon/boss progress bars remain beneath the rows. If no
+  contract is accepted, the original sanctuary tutorial or the world
+  exploration tracker returns. Active contracts remain visible even when
+  the hero walks back into the starting sanctuary.
 - The quest list uses the same live XP and level-up forecast as the NPC
   menu. Level-100 characters see MAX LEVEL rather than +0 XP. The retained
   summary line shows total active/completed counts, including quests beyond
@@ -94,9 +96,11 @@ catalog to identify each resident's expected contract cost and home.
 - Completed contracts (state 2) are counted but never tracked or
   replayed. When no contract is active the existing dungeon exploration
   and boss tracker resumes automatically.
-- The starting-sanctuary tutorial still takes precedence when the hero
-  is within its area. Original world-tracker dimensions and dungeon
-  discovery/boss progress bars are unchanged.
+- The starting-sanctuary tutorial remains available as the fallback
+  when no contract is accepted, including inside the sanctuary. Once
+  accepted, the Wandering Guide quest can occupy one of the three rows
+  and does not disappear while near the sanctuary. Original dungeon
+  discovery and boss progress bars remain unchanged.
 - For performance, the catalog resolves its `FName` lookup IDs only once,
   then performs a fixed **25 map lookups** on visible frames. It does not
   iterate world actors, spawn content, allocate per-frame NPC metadata,
@@ -126,12 +130,16 @@ Regional NPC authoring remains in separate draft PR #1070.
    Test with 1, 2, 3 and 4 active contracts; verify every row's XP/level-up,
    ready status, destination and salvage requirement. The dungeon bars must
    remain visible below the dynamic rows.
-7. Complete all tracked contracts. Confirm the original exploration tracker
+7. Return to the Shattered Sanctuary with one, two, and three accepted
+   contracts. Verify each remains on-screen; with none accepted, the
+   original Firstlight introduction must reappear. Check static salvage
+   bars at 0%, partial, and 100% readiness at 720p, 1080p and 4K.
+8. Complete all tracked contracts. Confirm the original exploration tracker
    returns, and a completed quest cannot claim rewards again. Inspect
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
-8. If regional waystations are later merged, validate all 12 residents
+9. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
-9. Profile menu/journal rendering and level-up tests in a real packaged
+10. Profile menu/journal rendering and level-up tests in a real packaged
    Windows build. GitHub source tests alone do not prove an Unreal build.
 
 No change to Z/Nyra original art, attack warning HUD, or combat balance.
