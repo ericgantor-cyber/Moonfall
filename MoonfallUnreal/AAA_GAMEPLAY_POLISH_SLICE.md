@@ -31,6 +31,43 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
+## Built-in in-world attack visualization (no external asset required)
+
+- Added a **procedural, visible 3D tell** to nonboss enemies and elites.
+  A single optional `UStaticMeshComponent` child uses the engine's standard
+  cube mesh to communicate an attack in-world. The existing sphere/collider
+  root, collision shape, sight tests, AI/attack timing, and actual damage
+  resolution are unchanged.
+- Five deterministic profiles match the existing move classifications:
+  quick narrow strike, taller heavy hit, wide sweep, broad crush, and
+  parry-adaptive counter-sweep. A marker scales and turns gently over the
+  **real authoritative attack windup**. No extra actors, physics overlap,
+  shadows, hitboxes, navigation scans, gameplay randomization, or timers.
+- The cue appears only while a live ordinary/elite attack is committed;
+  it is hidden on impact or interruption, death, menus, retreat, posture
+  break, or a canceled Blueprint callback. Bosses, including Z and Nyra,
+  never display this new marker, preserving their original visuals.
+- **Reduced Motion:** When the hero's existing `bReduceMotion` option is
+  on, the marker appears at its full readable size without turning or
+  moving. No flashing is used; the existing text countdown remains the
+  primary accessible cue.
+- `bEnableProceduralAttackTell` defaults on but is configurable in
+  derived Blueprints so professional skeletal animations can replace this
+  placeholder without changing the actual attack clock.
+- The sizing/timing policy is in a tiny, pure C++17 header and has
+  **50,500 profile/timing regression combinations**, plus six source
+  integration tests checking no collision, real timing, animation
+  interruption, Reduced Motion, zero new scans and original actor control.
+
+**Native work still outstanding:** compile in UE5.4 on Windows, verify
+the engine cube is visible and legible with shipped game materials, check
+marker offsets on different body scales, verify no player/projectile
+occlusion or camera obstruction, compare stable gameplay FPS across 60+
+mobs, inspect 720p and 4K UI plus Reduced Motion settings, and replace
+placeholder markers with authored animation montages and audio assets
+as those become available. Static/source tests do not prove rendered
+visual quality or a playable build.
+
 ## Combat animation life-cycle integration
 
 The optional Blueprint **non-boss attack animation protocol** is now
