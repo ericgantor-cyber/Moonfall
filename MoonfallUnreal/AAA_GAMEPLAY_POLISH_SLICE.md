@@ -31,6 +31,46 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
+## WoW F-style floating combat results
+
+- Moonfall already rendered **outgoing** spell damage numbers above
+  damaged enemies using each enemy's existing four-hit history and
+  one pooled HUD enemy scan. That remains unchanged unless the player
+  turns the overall floating text setting off.
+- The player's incoming combat feedback now adds floating, **explicit
+  text labels** above the hero: `HIT -damage` in red, `PARRY!`
+  in cyan, `DODGE!` in blue, `BLOCKED!` in gold (the existing
+  `GUARD` outcome), and `MISS!` in neutral gray. Color is
+  supplemental and never the only way to identify an outcome.
+- Only **actual classified enemy impact results** create entries, after
+  original hit/cover/guard/parry/dodge damage resolution. Entries use
+  a fixed **eight-slot transient ring**, last 1.1 seconds, float gently
+  upward, fade out, and respect visibility and viewport bounds.
+  No new actors, save schema changes, component allocation, per-frame
+  actor search, gameplay RNG or extra hit calculation.
+- In the existing **Esc > Options** menu, the 9th row is
+  `Floating results` **On/Off**, and the 10th row is
+  `Text palette`: **Classic / Contrast / Mono**.
+  Existing `Combat text` changes both outgoing and incoming number
+  size from 75% through 200% in 25% increments. All three settings
+  work with the existing mouse +/- buttons, keyboard and gamepad.
+  Values persist through `GameUserSettings.ini`, not world saves.
+- When **Reduced Motion** is enabled, floating labels remain at a
+  stationary height until they expire. Text alpha still fades
+  gradually without flashing.
+- Performance guard: at most eight incoming labels, 32 outgoing
+  numbers, and one already-existing enemy scan. Both types are hidden
+  when floating text is Off; boss warnings and other essential combat
+  messages remain independent.
+
+**Native QA required:** Compile in UE5.4; confirm pixel-perfect menu
+row click bounds in windowed 720p, 1080p and 4K; test mouse, pad and
+keyboard settings and persistence; validate actual damage on both
+player and enemies; rapid parry/dodge/guard/miss sequences; death
+cleanup; Reduced Motion; all three palettes; out-of-screen targets;
+multimob performance and finished fonts. The visual work is
+source-implemented but **not yet verified as a Windows build**.
+
 ## Real impact outcomes and sound integration
 
 - The timer event `OnAttackTelegraphResolved` still represents only the
