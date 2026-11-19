@@ -47,7 +47,7 @@ class LootHUDIntegrationChecks(unittest.TestCase):
 
     def test_inventory_icons_appear_only_for_valid_equipment(self):
         bag = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
-            "if (Hero->bCharacterStatsOpen)", 1)[0]
+            "if (Boss && BossDistanceSq", 1)[0]
         self.assertIn("Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)", bag)
         self.assertIn("SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000", bag)
         self.assertIn("DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,", bag)
