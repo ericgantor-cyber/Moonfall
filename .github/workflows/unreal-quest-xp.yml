@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
       - 'tools/test_unreal_quest_xp.cpp'
@@ -11,6 +12,7 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
       - 'tools/test_unreal_quest_xp.cpp'
