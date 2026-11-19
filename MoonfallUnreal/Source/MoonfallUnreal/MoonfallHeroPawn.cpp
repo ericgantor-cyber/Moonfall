@@ -1,7 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallQuestXP.h"
-#include "MoonfallQuestLayout.h"
+#include "MoonfallCombatHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -801,13 +801,14 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::CycleQuestTrackerPage() {
- // Middle mouse advances a compact quest list without requiring a visible
- // pointer, blocking attacks, or overriding the normal mouse-wheel zoom.
+ // Middle mouse advances only overflowing quest lists, leaving Q to dodge
+ // and normal mouse wheel camera zoom untouched. Gameplay panels remain modal.
  if (Health <= 0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bAtlasOpen || bInventoryOpen
      || bResidentContextOpen || FocusedResident.IsValid()) return;
- QuestTrackerPageStart = MoonfallQuestLayout::NextPageStart(
-   QuestTrackerPageStart, QuestTrackerPageSize, QuestTrackerTotal);
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+   HUD->CycleQuestTrackerPage();
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
