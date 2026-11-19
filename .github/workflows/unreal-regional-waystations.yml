@@ -1,0 +1,23 @@
+name: UE5 regional waystations source verification
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.h'
+      - 'MoonfallUnreal/REGIONAL_WAYSTATIONS.md'
+      - 'tools/test_unreal_regional_waystations.py'
+      - '.github/workflows/unreal-regional-waystations.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.h'
+      - 'MoonfallUnreal/REGIONAL_WAYSTATIONS.md'
+      - 'tools/test_unreal_regional_waystations.py'
+      - '.github/workflows/unreal-regional-waystations.yml'
+jobs:
+  regional-waystation-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify connected floors, unique NPC and shrine IDs, and save compatibility
+        run: python3 -m unittest -v tools.test_unreal_regional_waystations
