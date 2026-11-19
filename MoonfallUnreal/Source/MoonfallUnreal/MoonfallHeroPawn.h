@@ -185,6 +185,21 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Feedback") float CombatCueUntil = -1.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
+ // WoW F-style floating results, separate from boss warning and combat rules.
+ // This option is saved to GameUserSettings.ini, not the game progress save.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
+ bool bShowFloatingCombatText = true;
+ static constexpr int32 IncomingCombatFloatCapacity = 8;
+ struct FIncomingCombatFloat {
+  FName Outcome = NAME_None;
+  float HealthLost = 0.f;
+  float StartedAt = -10.f;
+ };
+ // Fixed-capacity, transient: no heap allocation, replicated data or save schema.
+ FIncomingCombatFloat IncomingCombatFloats[IncomingCombatFloatCapacity];
+ int32 NextIncomingCombatFloatSlot = 0;
+ void RecordIncomingCombatFloat(FName Outcome, float HealthLost);
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
