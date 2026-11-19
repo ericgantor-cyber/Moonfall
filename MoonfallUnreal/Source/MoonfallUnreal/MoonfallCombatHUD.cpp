@@ -1108,7 +1108,10 @@ void AMoonfallCombatHUD::DrawHUD()
     JournalStates, MoonfallQuestJournal::ResidentCount, FMath::Max(0, Hero->Salvage));
   FString Objective;
   FString Context;
-  if (bSanctuaryObjective) {
+  // The sanctuary introduction is a fallback, not a reason to hide
+  // accepted quests. A player's three tracked contracts remain visible
+  // while visiting the sanctuary, including the Wandering Guide contract.
+  if (bSanctuaryObjective && QuestSummary.TrackedCount == 0) {
    Objective = TEXT("Find the Firstlight Shrine");
    Context = TEXT("Explore the sanctuary and its northern practice area");
    if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
@@ -1177,7 +1180,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
   const float Top = 78.f;
-  const bool bThreeQuestList = !bSanctuaryObjective && QuestSummary.TrackedCount > 0;
+  const bool bThreeQuestList = QuestSummary.TrackedCount > 0;
   // Each contract uses a separate two-line entry. Keep the original compact
   // 124px tracker when exploring or following the starting sanctuary.
   const float TrackerHeight = bThreeQuestList
@@ -1186,7 +1189,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Left, Top, Width, TrackerHeight);
   // Visual priority without blinking: green means ready to turn in,
   // amber means gathering salvage, cyan remains the exploration color.
-  const bool bTrackingContract = !bSanctuaryObjective && QuestSummary.TrackedIndex >= 0;
+  const bool bTrackingContract = bThreeQuestList && QuestSummary.TrackedIndex >= 0;
   const bool bReadyToTurnIn = bTrackingContract
     && Hero->Salvage >= MoonfallQuestJournal::Cost(QuestSummary.TrackedIndex);
   const FLinearColor TrackerAccent = bReadyToTurnIn
@@ -1194,7 +1197,7 @@ void AMoonfallCombatHUD::DrawHUD()
     : bTrackingContract ? FLinearColor(0.96f, 0.68f, 0.29f, 0.95f)
     : FLinearColor(0.30f, 0.72f, 0.92f, 0.95f);
   DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight);
-  DrawText(bSanctuaryObjective
+  DrawText(bSanctuaryObjective && !bThreeQuestList
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : QuestSummary.TrackedIndex >= 0
         ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
@@ -1237,6 +1240,16 @@ void AMoonfallCombatHUD::DrawHUD()
         Cost, *XPText),
       FLinearColor(0.76f, 0.84f, 0.92f), Left + 21.f, RowTop + 24.f,
       nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.66f);
+    // Each quest's own salvage objective has a thin, static progress bar.
+    // Numeric x/y and TURN IN/ACTIVE text remain legible without color.
+    const float SalvageProgress = FMath::Clamp(
+      static_cast<float>(Hero->Salvage) / FMath::Max(1, Cost), 0.f, 1.f);
+    const float ProgressWidth = Width - 42.f;
+    DrawRect(FLinearColor(0.16f, 0.19f, 0.26f),
+      Left + 21.f, RowTop + 40.f, ProgressWidth, 2.f);
+    DrawRect(bReady ? FLinearColor(0.26f, 0.83f, 0.51f)
+        : FLinearColor(0.96f, 0.68f, 0.29f),
+      Left + 21.f, RowTop + 40.f, ProgressWidth * SalvageProgress, 2.f);
    }
   } else {
    DrawText(Objective, FLinearColor::White,
