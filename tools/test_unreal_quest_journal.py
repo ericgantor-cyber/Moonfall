@@ -35,6 +35,19 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("if (bSanctuaryObjective)", section)
         self.assertLess(section.index("if (bSanctuaryObjective)"),
                         section.index("else if (QuestSummary.TrackedIndex >= 0)"))
+        # Tracker includes the same XP forecast as the resident dialog.
+        self.assertIn("MoonfallQuestXP::Preview(", section)
+        self.assertIn("Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel", section)
+        self.assertIn("QuestXP.RewardXP", section)
+        self.assertIn("QuestXP.LevelsGained > 0", section)
+        self.assertIn("MAX LEVEL", section)
+        self.assertIn("SALVAGE | %s | %d ACTIVE %d DONE", section)
+        # Status remains readable without flashes or any above-character text.
+        self.assertIn("const bool bTrackingContract", section)
+        self.assertIn("const bool bReadyToTurnIn", section)
+        self.assertIn("const FLinearColor TrackerAccent", section)
+        self.assertIn("DrawRect(TrackerAccent, Left, Top, 4.f, 124.f)", section)
+        self.assertNotIn("ProjectWorldLocationToScreen", section)
         self.assertIn("GetTotalDiscoveredDungeons()", section)
         self.assertIn("GetTotalDefeatedDungeonBosses()", section)
 
