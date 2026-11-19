@@ -88,6 +88,13 @@ public:
  // Optional audio asset. Unassigned by default; elite-only once at commitment.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
  TObjectPtr<USoundBase> EliteAttackTellSound = nullptr;
+ // Visible fallback made from engine primitive geometry; turn this off in a
+ // derived Blueprint when a full authored skeletal animation is installed.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ bool bEnableProceduralAttackTell = true;
+ // The marker is decoration only, with no collisions, traces or hit checks.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Presentation")
+ TObjectPtr<UStaticMeshComponent> AttackTellMarker = nullptr;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -163,6 +170,7 @@ private:
  // Ephemeral cue identity is neither replicated nor serialized to saved games.
  FName ActiveNonBossTelegraphMove = NAME_None;
  void EndNonBossTelegraph(bool bResolved);
+ void UpdateAttackTellMarker(float Now, bool bReducedMotion);
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
