@@ -102,9 +102,12 @@ catalog to identify each resident's expected contract cost and home.
   and does not disappear while near the sanctuary. Original dungeon
   discovery and boss progress bars remain unchanged.
 - For performance, the catalog resolves its `FName` lookup IDs only once,
-  then performs a fixed **25 map lookups** on visible frames. It does not
-  iterate world actors, spawn content, allocate per-frame NPC metadata,
-  introduce another Tick, or write save data.
+  then performs a fixed **25 map lookups** on visible frames. The three-row
+  renderer forecasts XP only for displayed rows, rather than redundantly
+  building an unused first-quest summary. Dungeon target scanning and
+  exploration string formatting are skipped while contracts are tracked.
+  It does not iterate world actors, spawn content, allocate per-frame NPC
+  metadata, introduce another Tick, or write save data.
 
 The catalog's default costs mirror the currently authored NPC races
 (`10 + race % 4 × 5` salvage; the Wandering Guide costs 10).
