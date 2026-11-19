@@ -19,6 +19,10 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ bool bEnableProceduralAttackTell = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Presentation")
+ UStaticMeshComponent* AttackTellMarker = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
@@ -97,6 +101,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
+ void RefreshAttackTellMarker(float Now, bool bReduceMotion);
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
  TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
  float NextHeroCacheRefreshAt = 0.f;
