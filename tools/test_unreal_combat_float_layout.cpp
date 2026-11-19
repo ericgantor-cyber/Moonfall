@@ -69,8 +69,8 @@ int main() {
  // no overlap with accepted labels, regardless of how crowded it gets.
  FScreenRect accepted[MaxVisibleAttackOutcomes]{};
  int n=0;
- for(int y=100;y<=450;y+=22)
- for(int x=210;x<=950;x+=41) {
+ for(int y=100;y<=450 && n<MaxVisibleAttackOutcomes;y+=22)
+ for(int x=210;x<=950 && n<MaxVisibleAttackOutcomes;x+=41) {
   FScreenRect placed{};
   if(TryPlace(static_cast<float>(x),static_cast<float>(y),160.f,29.f,
               1280.f,720.f,true,Hero,accepted,n,placed)){
