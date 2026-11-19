@@ -1091,7 +1091,7 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
- // Keep the full three-slot tracker in common 640x480 and similar
+ // Keep a safe subset of the seven-slot tracker in compact Windows views.
  // windowed modes. Only skip it on truly tiny render surfaces.
  const bool bCanShowQuestTracker = Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f;
  if (bCanShowQuestTracker) {
@@ -1127,12 +1127,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 VisibleQuestCount = QuestSummary.TrackedCount
       + (RegionalGoals.Valid ? RegionalGoals.Count : 0);
-  const bool bThreeQuestList = VisibleQuestCount > 0;
+  const bool bQuestList = VisibleQuestCount > 0;
   // Dungeon objectives are a fallback. Skip the thirty-mask scan and
   // allocation-heavy string formatting while tracking accepted contracts.
   int32 NextBossZone = INDEX_NONE;
   int32 NextBossDungeon = INDEX_NONE;
-  if (!bThreeQuestList && !bSanctuaryObjective) {
+  if (!bQuestList && !bSanctuaryObjective) {
    for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone) {
     for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
      if (Hero->HasDiscoveredDungeon(Zone, Dungeon)
@@ -1148,7 +1148,7 @@ void AMoonfallCombatHUD::DrawHUD()
   FString Context;
   // Accepted contracts remain visible even inside the starting sanctuary.
   // Render tutorial text only when no contract is tracked.
-  if (!bThreeQuestList && bSanctuaryObjective) {
+  if (!bQuestList && bSanctuaryObjective) {
    Objective = TEXT("Find the Firstlight Shrine");
    Context = TEXT("Explore the sanctuary and its northern practice area");
    if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
@@ -1176,10 +1176,10 @@ void AMoonfallCombatHUD::DrawHUD()
      Context = TEXT("Discover dungeon entrances and defeat their bosses");
     }
    }
-  } else if (!bThreeQuestList && Cleared >= 30) {
+  } else if (!bQuestList && Cleared >= 30) {
    Objective = TEXT("All 30 dungeon bosses defeated");
    Context = TEXT("Explore remaining secrets and settlements");
-  } else if (!bThreeQuestList && Discovered < 30) {
+  } else if (!bQuestList && Discovered < 30) {
    const int32 NextZone = Hero->GetNextUnchartedDungeonZone();
    Objective = NextZone >= 0 && NextZone < 6
      ? FString::Printf(TEXT("Explore %s: discover dungeon entrances"), RegionNames[NextZone])
@@ -1188,7 +1188,7 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FString::Printf(TEXT("Next boss: %s, Dungeon %d  |  J: atlas"),
          RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
      : TEXT("J: atlas  |  Follow the connected dungeon road");
-  } else if (!bThreeQuestList) {
+  } else if (!bQuestList) {
    Objective = NextBossZone != INDEX_NONE
      ? FString::Printf(TEXT("Defeat boss: %s, Dungeon %d"),
          RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
@@ -1197,19 +1197,23 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
-  // Adapt the three-line row spacing to the actual viewport height.
-  // Spacious 70px rows on standard windows, 60px at 420-519px high
-  // so three full quests still clear the bottom-left health orb.
+  // Adapt seven three-line rows to the actual viewport height.
+  // Spacious 70px rows at >=850px high, 60px on shorter views
+  // so the visible subset clears the bottom-left health orb.
   const MoonfallQuestLayout::FMetrics QuestLayout = MoonfallQuestLayout::Compute(
     FMath::FloorToInt(Canvas->SizeY),
-    bThreeQuestList ? VisibleQuestCount : 0);
+    bQuestList ? VisibleQuestCount : 0, FMath::FloorToInt(Canvas->SizeX));
+  const int32 VisibleQuestRows = QuestLayout.VisibleRows;
+  const int32 VisibleResidentRows = FMath::Min(QuestSummary.TrackedCount, VisibleQuestRows);
+  const int32 VisibleRegionalRows = FMath::Min(
+    RegionalGoals.Valid ? RegionalGoals.Count : 0, VisibleQuestRows - VisibleResidentRows);
   const float Top = static_cast<float>(QuestLayout.Top);
   const float TrackerHeight = static_cast<float>(QuestLayout.PanelHeight);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
     Left, Top, Width, TrackerHeight);
   // Visual priority without blinking: green means ready to turn in,
   // amber means gathering salvage, cyan remains the exploration color.
-  const bool bTrackingContract = bThreeQuestList && QuestSummary.TrackedIndex >= 0;
+  const bool bTrackingContract = bQuestList && QuestSummary.TrackedIndex >= 0;
   const bool bReadyToTurnIn = bTrackingContract
     && Hero->Salvage >= MoonfallQuestJournal::Cost(QuestSummary.TrackedIndex);
   const FLinearColor TrackerAccent = bReadyToTurnIn
@@ -1217,7 +1221,7 @@ void AMoonfallCombatHUD::DrawHUD()
     : bTrackingContract ? FLinearColor(0.96f, 0.68f, 0.29f, 0.95f)
     : FLinearColor(0.30f, 0.72f, 0.92f, 0.95f);
   DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight);
-  DrawText(bSanctuaryObjective && !bThreeQuestList
+  DrawText(bSanctuaryObjective && !bQuestList
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : QuestSummary.TrackedIndex >= 0
         ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
@@ -1225,18 +1229,20 @@ void AMoonfallCombatHUD::DrawHUD()
           ? TEXT("WORLD QUEST TRACKER  |  REGIONAL QUESTS")
           : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
-  if (bThreeQuestList) {
+  if (bQuestList) {
    // Totals include accepted contracts beyond the three visible slots.
-   DrawText(QuestSummary.TrackedCount > 0
-       ? FString::Printf(TEXT("%d ACTIVE | %d DONE"),
-           QuestSummary.Active, QuestSummary.Completed)
-       : FString::Printf(TEXT("%d/12 GOALS DONE"), RegionalGoals.Completed),
+   DrawText(VisibleQuestRows < VisibleQuestCount
+       ? FString::Printf(TEXT("SHOWING %d/%d"), VisibleQuestRows, VisibleQuestCount)
+       : QuestSummary.TrackedCount > 0
+         ? FString::Printf(TEXT("%d ACTIVE | %d DONE"),
+             QuestSummary.Active, QuestSummary.Completed)
+         : FString::Printf(TEXT("%d/12 GOALS DONE"), RegionalGoals.Completed),
      FLinearColor(0.75f, 0.84f, 0.94f), Left + Width - 144.f,
      Top + 8.f, nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.67f);
-   // Three WoW Forever-style tracked objectives, sorted ready-first by the
+   // Up to seven WoW Forever-style objectives, sorted ready-first by the
    // pure, stable journal policy. Render no empty slots or completed quests.
-   // Three deliberately short text lines prevent compact-width overflow.
-   for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row) {
+   // Three short lines per objective prevent compact-width overflow.
+   for (int32 Row = 0; Row < VisibleResidentRows; ++Row) {
     const int32 Index = QuestSummary.TrackedIndices[Row];
     if (Index < 0 || Index >= MoonfallQuestJournal::ResidentCount) continue;
     const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Index];
@@ -1290,10 +1296,10 @@ void AMoonfallCombatHUD::DrawHUD()
    // automatically from already-saved dungeon discoveries and boss wins;
    // they do not silently grant extra experience or consume salvage.
    if (RegionalGoals.Valid) {
-    for (int32 GoalRow = 0; GoalRow < RegionalGoals.Count; ++GoalRow) {
+    for (int32 GoalRow = 0; GoalRow < VisibleRegionalRows; ++GoalRow) {
      const int32 Goal = RegionalGoals.Indices[GoalRow];
      if (Goal < 0 || Goal >= MoonfallWorldQuest::GoalCount) continue;
-     const int32 Row = QuestSummary.TrackedCount + GoalRow;
+     const int32 Row = VisibleResidentRows + GoalRow;
      const int32 Progress = MoonfallWorldQuest::Progress(
        Goal, ZoneDiscovered, ZoneDefeated);
      const float RowTop = Top + 28.f + Row * QuestLayout.RowStride;
