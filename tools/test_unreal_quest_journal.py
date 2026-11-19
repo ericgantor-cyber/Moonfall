@@ -13,6 +13,7 @@ class WorldQuestJournal(unittest.TestCase):
         cls.hero = (SRC / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         cls.arena = (SRC / "MoonfallArena.cpp").read_text(encoding="utf-8")
         cls.catalog = (SRC / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
+        cls.layout = (SRC / "MoonfallQuestLayout.h").read_text(encoding="utf-8")
         cls.npc = (SRC / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
 
     def test_persisted_contracts_prioritized_without_world_scanning(self):
@@ -66,11 +67,15 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("const bool bReadyToTurnIn", section)
         self.assertIn("const FLinearColor TrackerAccent", section)
         self.assertIn("DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight)", section)
+        self.assertIn("MoonfallQuestLayout::Compute(", section)
+        self.assertIn("const MoonfallQuestLayout::FMetrics QuestLayout", section)
+        self.assertIn("const float TrackerHeight = static_cast<float>(QuestLayout.PanelHeight)", section)
+        self.assertIn("const float Top = static_cast<float>(QuestLayout.Top)", section)
         self.assertIn("QuestSummary.TrackedCount > 0", section)
-        self.assertIn("85.f + 57.f * QuestSummary.TrackedCount : 124.f", section)
+        self.assertIn("QuestLayout.PanelHeight", section)
         self.assertIn("for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section)
         self.assertIn("QuestSummary.TrackedIndices[Row]", section)
-        self.assertIn("const float RowTop = Top + 28.f + Row * 57.f", section)
+        self.assertIn("const float RowTop = Top + 28.f + Row * QuestLayout.RowStride", section)
         self.assertIn("if (bThreeQuestList)", section)
         self.assertIn("RowXP.LevelsGained > 0", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.QuestTitle)", section)
@@ -81,7 +86,7 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn('DrawText(XPText, FLinearColor', section)
         self.assertIn("Left + Width - 166.f", section)
         self.assertIn("Left + Width - 81.f", section)
-        self.assertIn("Left + 12.f, RowTop, Width - 24.f, 54.f", section)
+        self.assertIn("Left + 12.f, RowTop, Width - 24.f, QuestLayout.RowHeight", section)
         self.assertNotIn('%s @ %s | %d/%d SALVAGE | %s', section)
         self.assertIn("bReady ? TEXT(\"TURN IN\") : TEXT(\"ACTIVE\")", section)
         self.assertIn("Top + TrackerHeight - 43.f", section)
@@ -89,15 +94,15 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("Top + TrackerHeight - 22.f", section)
         self.assertIn("const float SalvageProgress = FMath::Clamp(", section)
         self.assertIn("static_cast<float>(Hero->Salvage) / FMath::Max(1, Cost)", section)
-        self.assertIn("ProgressWidth * SalvageProgress, 2.f", section)
-        self.assertIn("RowTop + 50.f", section)
+        self.assertIn("ProgressWidth * SalvageProgress, 3.f", section)
+        self.assertIn("RowTop + QuestLayout.ProgressOffset", section)
         self.assertIn("FMath::Min(Hero->Salvage, Cost)", section)
         # Three independent text lines keep title/action, NPC/location,
         # and salvage/XP separate even on 600px-wide windows.
-        self.assertIn("RowTop + 2.f", section)
-        self.assertIn("RowTop + 18.f", section)
-        self.assertIn("RowTop + 34.f", section)
-        self.assertIn("RowTop + 50.f", section)
+        self.assertIn("RowTop + QuestLayout.TitleOffset", section)
+        self.assertIn("RowTop + QuestLayout.ResidentOffset", section)
+        self.assertIn("RowTop + QuestLayout.RewardOffset", section)
+        self.assertIn("RowTop + QuestLayout.ProgressOffset", section)
         self.assertIn("const FLinearColor RowAccent = bReady", section)
         self.assertNotIn("ProjectWorldLocationToScreen", section)
         self.assertIn("GetTotalDiscoveredDungeons()", section)
@@ -110,14 +115,19 @@ class WorldQuestJournal(unittest.TestCase):
             "Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f", section
         )
         self.assertIn(
-            "const float Top = Canvas->SizeY < 520.f ? 18.f : 78.f;", section
+            "const float Top = static_cast<float>(QuestLayout.Top);", section
         )
         self.assertIn(
-            "85.f + 57.f * QuestSummary.TrackedCount : 124.f", section
+            "QuestLayout.PanelHeight", section
         )
         self.assertIn(
             "for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section
         )
+        self.assertIn("bCompact = ViewHeight < 520", self.layout)
+        self.assertIn("Stride = bCompact ? 60 : 70", self.layout)
+        self.assertIn("Rows > 0 ? 85 + Stride * Rows : 124", self.layout)
+        self.assertIn("ValidRowSpacing(", self.layout)
+        self.assertIn("ClearsHealthOrb(", self.layout)
         # The fixed right-hand reward and status columns leave ample
         # space for bounded title and destination labels in compact mode.
         for width in (600, 640, 760, 1280, 1920):
@@ -129,14 +139,23 @@ class WorldQuestJournal(unittest.TestCase):
         for width, height in ((600, 420), (640, 480), (760, 520),
                               (1280, 720), (1920, 1080), (3840, 2160)):
             top = 18 if height < 520 else 78
+            stride = 60 if height < 520 else 70
             radius = max(50, min(80, min(width, height) * 0.092))
             orb_top = height - 2 * radius - 25
             for quest_count in (1, 2, 3):
-                tracker_bottom = top + 85 + 57 * quest_count
+                tracker_bottom = top + 85 + stride * quest_count
                 with self.subTest(width=width, height=height,
                                   quest_count=quest_count):
-                    self.assertLess(tracker_bottom, orb_top)
+                    self.assertLess(tracker_bottom + 8, orb_top)
                     self.assertLess(tracker_bottom, height)
+                    title_y, resident_y, reward_y, bar_y = (
+                        (4, 22, 40, 52) if height < 520 else (6, 28, 49, 62)
+                    )
+                    self.assertGreaterEqual(resident_y - title_y, 18)
+                    self.assertGreaterEqual(reward_y - resident_y, 18)
+                    self.assertGreaterEqual(bar_y - reward_y, 12)
+                    self.assertLessEqual(bar_y + 3, stride - 4)
+
 
     def test_npc_dialogue_matches_world_quest_title(self):
         panel = self.hud.split("// Native Canvas resident menu.", 1)[1].split(
