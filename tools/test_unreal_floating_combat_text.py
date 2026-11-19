@@ -105,15 +105,46 @@ class FloatingCombatTextChecks(unittest.TestCase):
         self.assertIn("Hero->CombatTextPalette == 1", block)
         self.assertIn("MoonfallCombatFloatLayout::Opacity(Age)", block)
         self.assertIn("MoonfallCombatFloatLayout::Rise(Age, Hero->bReduceMotion)", block)
-        self.assertIn("MoonfallCombatFloatLayout::LaneX(Slot)", block)
-        self.assertIn("MoonfallCombatFloatLayout::LaneY(Slot)", block)
+        self.assertIn("MoonfallCombatFloatLayout::LaneX(LocalDisplayed)", block)
+        self.assertIn("MoonfallCombatFloatLayout::LaneY(LocalDisplayed)", block)
         self.assertIn("FMath::Clamp(Hero->CombatTextScale,0.75f,2.f)", block)
-        self.assertIn("X+BadgeWidth >= Canvas->SizeX-8.f", block)
-        self.assertIn("Y+BadgeHeight >= Canvas->SizeY-8.f", block)
+        self.assertIn("MoonfallCombatFloatLayout::TryPlace(", block)
+        self.assertIn("bHeroScreenValid,HeroScreenExclusion,PlacedOutcomes,", block)
+        self.assertIn("VisibleOutcomeLabels,Placement", block)
+        self.assertIn("PlacedOutcomes[VisibleOutcomeLabels++] = Placement;", block)
         self.assertNotIn("Hero->GetActorLocation()", block)
         self.assertNotIn("SpawnActor", block)
         self.assertNotIn("TActorIterator", block)
         self.assertNotIn("LineTrace", block)
+
+    def test_hero_silhouette_has_strict_exclusion_even_when_enemy_is_close(self):
+        projection = self.hud.split(
+            "// All floating combat text is anchored exclusively to the attacker.",1
+        )[1]
+        self.assertIn("FVector2D HeroOnScreen = FVector2D::ZeroVector;", projection)
+        self.assertIn("HeroLocation + FVector(0.f,0.f,100.f),HeroOnScreen", projection)
+        self.assertIn("HeroScreenExclusion{", projection)
+        self.assertIn("HeroOnScreen.X-84.f,HeroOnScreen.Y-110.f,168.f,216.f", projection)
+        self.assertIn("bHeroScreenValid,HeroScreenExclusion", projection)
+        self.assertIn("MoonfallCombatFloatLayout::TryPlace(", projection)
+        self.assertNotIn("Hero->GetActorLocation()", projection)
+        # Player screen position is a protected obstacle, never an anchor.
+        self.assertIn("EnemyDamageLocation + FVector(0.f,0.f,245.f+Rise)", projection)
+
+    def test_recent_outcomes_take_priority_over_expired_old_events(self):
+        block = self.hud.split(
+            "// Most recent resolution first.",1
+        )[1].split("for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize",1)[0]
+        self.assertIn("Enemy->NextCombatOutcomeSlot", block)
+        self.assertIn("+ AMoonfallEnemy::CombatOutcomeHistorySize-1-AgeIndex", block)
+        self.assertIn("% AMoonfallEnemy::CombatOutcomeHistorySize", block)
+        self.assertIn("int32 LocalDisplayed = 0;", block)
+        self.assertIn("++LocalDisplayed;", block)
+        self.assertIn("PlacedOutcomes[VisibleOutcomeLabels++] = Placement;",block)
+        self.assertIn("MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes",block)
+        for dangerous in ("FMath::Rand", "TActorIterator", "SpawnActor",
+                          "GetWorldTimerManager", "NewObject"):
+            self.assertNotIn(dangerous,block)
 
     def test_outgoing_damage_labels_stay_above_enemies(self):
         hud = self.hud
