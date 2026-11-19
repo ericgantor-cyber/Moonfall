@@ -64,6 +64,16 @@ static_assert(CheckNoActiveSlots(), "Completed quests must not occupy slots.");
 // and a safe subset at 420p/480p without overlapping the lower-left orb.
 namespace QuestLayout = MoonfallQuestLayout;
 static_assert(QuestLayout::MaxRows == MaxTracked);
+static_assert(QuestLayout::NormalizePageStart(-1, 3, 7) == 0);
+static_assert(QuestLayout::NormalizePageStart(6, 3, 7) == 6);
+static_assert(QuestLayout::NormalizePageStart(6, 7, 7) == 0);
+static_assert(QuestLayout::NextPageStart(0, 3, 7) == 3);
+static_assert(QuestLayout::NextPageStart(3, 3, 7) == 6);
+static_assert(QuestLayout::NextPageStart(6, 3, 7) == 0);
+static_assert(QuestLayout::NextPageStart(0, 4, 7) == 4);
+static_assert(QuestLayout::NextPageStart(4, 4, 7) == 0);
+static_assert(QuestLayout::NextPageStart(0, 7, 7) == 0);
+static_assert(QuestLayout::NextPageStart(6, 3, 5) == 0);
 static_assert(QuestLayout::Compute(420, 7, 600).Top == 18);
 static_assert(QuestLayout::Compute(420, 7, 600).VisibleRows == 3);
 static_assert(QuestLayout::Compute(420, 7, 600).PanelHeight == 265);
@@ -95,6 +105,16 @@ int main() {
     assert(QuestLayout::ValidRowSpacing(metrics));
     assert(QuestLayout::ClearsHealthOrb(width, height, rows));
     assert(metrics.VisibleRows>=0 && metrics.VisibleRows<=rows);
+    const int pageSize=metrics.VisibleRows;
+    int pageStart=0;
+    bool Seen[7]{};
+    for (int page=0; page<7 && pageSize>0; ++page) {
+     const int available=(pageStart+pageSize<=rows?pageSize:rows-pageStart);
+     for(int I=0; I<available; ++I) Seen[pageStart+I]=true;
+     pageStart=QuestLayout::NextPageStart(pageStart,pageSize,rows);
+     if(pageStart==0) break;
+    }
+    for (int I=0; I<rows; ++I) assert(Seen[I]);
     if (height>=720) assert(metrics.VisibleRows==rows);
     assert(metrics.RowHeight+4==metrics.RowStride);
     assert(metrics.PanelHeight==85+metrics.RowStride*metrics.VisibleRows);
