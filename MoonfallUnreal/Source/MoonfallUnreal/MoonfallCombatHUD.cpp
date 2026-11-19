@@ -1,5 +1,6 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallForgeForecast.h"
+#include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -69,15 +70,43 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    const FString ContractStatus = Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
-   DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
-     *ContractStatus, *Resident->FactionId.ToString()),
-     FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
-       Hero->Salvage, Resident->GetContractSalvageCost()),
-       FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
+   const int32 SalvageCost = Resident->GetContractSalvageCost();
+   const FString ContractRank(UTF8_TO_TCHAR(MoonfallQuestXP::RankName(SalvageCost)));
+   const MoonfallQuestXP::FProjection XPPlan = MoonfallQuestXP::Preview(
+     SalvageCost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel);
+   // Status and reward preview use the same validated XP policy as turn-in.
+   // The resident panel is a modal: never render an overhead combat result.
+   const FString StatusLine = W < 355.f
+     ? FString::Printf(TEXT("%s | %s"), *ContractStatus, *ContractRank)
+     : FString::Printf(TEXT("%s | %s | %s"),
+         *ContractStatus, *ContractRank, *Resident->FactionId.ToString());
+   DrawText(StatusLine, FLinearColor(0.83f,0.81f,0.94f),
+     L + 18.f, T + 77.f, nullptr, W < 355.f ? 0.65f : 0.76f);
+   FString RewardLine;
+   if (Quest == 2)
+    RewardLine = TEXT("CONTRACT COMPLETED | REWARD CLAIMED");
+   else if (Hero->Level >= 100)
+    RewardLine = H < 330.f ? TEXT("MAX LEVEL | +6 BOND +3 REP")
+      : TEXT("MAX LEVEL | +6 BOND +3 FACTION REP");
+   else if (H < 330.f)
+    RewardLine = FString::Printf(TEXT("SALVAGE %d/%d | +%d XP%s"),
+      Hero->Salvage, SalvageCost, XPPlan.RewardXP,
+      XPPlan.LevelsGained > 0 ? TEXT(" LEVEL UP") : TEXT(""));
+   else
+    RewardLine = FString::Printf(TEXT("+%d XP%s  |  +6 BOND  +3 REP"),
+      XPPlan.RewardXP,
+      XPPlan.LevelsGained > 0 ? TEXT(" | LEVEL UP") : TEXT(""));
+   // Small windows keep cost and XP legible in one line without drawing
+   // the salvage footer over the third mouse/controller choice.
+   if (H >= 330.f)
+    DrawText(FString::Printf(TEXT("Salvage: %d / %d"), Hero->Salvage, SalvageCost),
+      FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
-        L + 18.f, T + 99.f, nullptr, 0.72f);
+      L + 18.f, T + 99.f, nullptr, W < 355.f ? 0.60f : 0.72f);
+   else
+    DrawText(RewardLine, FLinearColor(0.76f,0.91f,0.73f),
+      L + 18.f, T + 99.f, nullptr, W < 355.f ? 0.58f : 0.70f);
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
