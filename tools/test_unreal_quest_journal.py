@@ -20,11 +20,9 @@ class WorldQuestJournal(unittest.TestCase):
             "// Compact circular resource HUD", 1)[0]
         for text in ("QuestResidentIds", "QuestSummary", "QuestSummary.TrackedIndex >= 0",
                      "MoonfallQuestJournal::Summarize(", "ResidentQuestStates.Find(QuestResidentIds[I])",
-                     "MoonfallQuestJournal::Cost(Tracked)", "TURN IN CONTRACT: %s",
-                     "ACTIVE CONTRACT: %s", "WORLD QUEST TRACKER  |  CONTRACTS",
-                     "WORLD QUEST TRACKER  |  EXPLORATION",
-                     "FMath::Min(Hero->Salvage, Cost)", "QuestSummary.Active",
-                     "QuestSummary.Completed"):
+                     "MoonfallQuestJournal::Cost(Index)", "WORLD QUEST TRACKER  |  CONTRACTS",
+                     "WORLD QUEST TRACKER  |  EXPLORATION", "FMath::Min(Hero->Salvage, Cost)",
+                     "QuestSummary.Active", "QuestSummary.Completed"):
             self.assertIn(text, section)
         self.assertNotIn("TActorIterator", section)
         self.assertNotIn("SpawnActor", section)
@@ -34,19 +32,30 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("static const TArray<FName> QuestResidentIds = []()", section)
         # Accepted quests stay visible in the sanctuary; Firstlight tutorial
         # only takes over when there are no active contracts.
-        self.assertIn("if (bSanctuaryObjective && QuestSummary.TrackedCount == 0)", section)
-        self.assertLess(section.index("if (bSanctuaryObjective && QuestSummary.TrackedCount == 0)"),
-                        section.index("else if (QuestSummary.TrackedIndex >= 0)"))
+        self.assertIn("if (!bThreeQuestList && bSanctuaryObjective)", section)
+        self.assertLess(section.index("if (!bThreeQuestList && bSanctuaryObjective)"),
+                        section.index("else if (!bThreeQuestList && Cleared >= 30)"))
+        self.assertIn("else if (!bThreeQuestList && Discovered < 30)", section)
+        self.assertIn("else if (!bThreeQuestList) {", section)
         self.assertIn("const bool bThreeQuestList = QuestSummary.TrackedCount > 0;", section)
         self.assertIn("bSanctuaryObjective && !bThreeQuestList", section)
         self.assertNotIn("!bSanctuaryObjective && QuestSummary.TrackedCount > 0", section)
         # Tracker includes the same XP forecast as the resident dialog.
         self.assertIn("MoonfallQuestXP::Preview(", section)
         self.assertIn("Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel", section)
-        self.assertIn("QuestXP.RewardXP", section)
-        self.assertIn("QuestXP.LevelsGained > 0", section)
+        self.assertIn("RowXP.RewardXP", section)
+        self.assertIn("RowXP.LevelsGained > 0", section)
         self.assertIn("MAX LEVEL", section)
-        self.assertIn("SALVAGE | %s | %d ACTIVE %d DONE", section)
+        self.assertIn("%d ACTIVE | %d DONE", section)
+        self.assertNotIn("const FString XPLabel", section)
+        self.assertEqual(section.count("MoonfallQuestXP::Preview("), 1)
+        # No duplicate reward forecast, menu strings, or dungeon candidate
+        # scans when a saved contract is active.
+        self.assertIn("if (!bThreeQuestList && !bSanctuaryObjective)", section)
+        self.assertLess(section.index("if (!bThreeQuestList && !bSanctuaryObjective)"),
+                        section.index("for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone)"))
+        self.assertLess(section.index("const bool bThreeQuestList = QuestSummary.TrackedCount > 0;"),
+                        section.index("if (!bThreeQuestList && !bSanctuaryObjective)"))
         # Status remains readable without flashes or any above-character text.
         self.assertIn("const bool bTrackingContract", section)
         self.assertIn("const bool bReadyToTurnIn", section)
