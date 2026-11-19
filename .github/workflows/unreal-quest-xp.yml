@@ -1,0 +1,27 @@
+name: UE5 resident quest XP safety
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
+      - 'tools/test_unreal_quest_xp.cpp'
+      - 'tools/test_unreal_quest_xp.py'
+      - '.github/workflows/unreal-quest-xp.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
+      - 'tools/test_unreal_quest_xp.cpp'
+      - 'tools/test_unreal_quest_xp.py'
+      - '.github/workflows/unreal-quest-xp.yml'
+jobs:
+  quest-xp-policy-and-save-rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test bounded XP policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_quest_xp.cpp -o /tmp/moonfall-quest-xp
+          /tmp/moonfall-quest-xp
+      - name: Verify one-time saved quest XP and rollback source contracts
+        run: python3 -m unittest -v tools.test_unreal_quest_xp
