@@ -31,6 +31,37 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
+## Combat animation life-cycle integration
+
+The optional Blueprint **non-boss attack animation protocol** is now
+complete: `OnAttackTelegraphCommitted(MoveId, WarningSeconds)` when the
+real AI strike timer starts; `OnAttackTelegraphResolved(MoveId)` at the
+authoritative impact deadline; and `OnAttackTelegraphInterrupted(MoveId)`
+on canceled attacks. `Resolved` does **not** mean the hit landed;
+ordinary collision, guard, parry and dodge logic still decides damage.
+
+The move ID is captured at the start and cleared **before** a completion
+event is emitted. Each attack therefore delivers at most one end event,
+even when a nested Blueprint callback cancels or destroys its owner.
+Interruption events cover posture breaks, wounded-elite retreat, death,
+modal menus, player possession changes, invalid timestamps, stagger,
+practice resets and disengagement. Elite adaptation and sound cooldown
+remain separate from animation state.
+
+If an authored Blueprint cancels its own telegraph during the commitment
+event, the native code clears its timer and reports interruption before
+considering the optional sound; this prevents a ghost attack sound.
+All three hooks are inert unless a game designer implements them in a
+Blueprint, and **no finished animation or sound assets have been added**.
+Boss animation events, original Z/Nyra art and boss timing are untouched.
+
+Native verification needed: wire three hooks to an Unreal montage with
+anticipation, hit and interruption transitions; test missed attacks,
+successfully parried attacks, postponement by attack-slot coordination,
+menus, death, respawn, crowd audio, short and long windups, and
+Blueprint callbacks that destroy their owning actor. Confirm no double
+notify or audio after cancellation on a real packaged Windows build.
+
 ## Continued AI upgrade: earned elite counter-sweeps and authored action cues
 
 - **Elite tactical response:** A *successful* player parry can arm one
