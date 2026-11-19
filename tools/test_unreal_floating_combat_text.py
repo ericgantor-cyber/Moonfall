@@ -97,7 +97,8 @@ class FloatingCombatTextChecks(unittest.TestCase):
         self.assertIn("Hero->bReduceMotion ? 0.f : Age * 68.f",block)
         self.assertIn("FMath::Clamp(1.f - Age / 1.1f, 0.f, 1.f)",block)
         self.assertIn("FMath::IsFinite(X) || !FMath::IsFinite(Y)",block)
-        self.assertIn("!Hero->bShowFloatingCombatText",self.hero)
+        self.assertIn("!bShowFloatingCombatText",self.hero)
+        self.assertIn("if (Hero->bShowFloatingCombatText && DamageProjectionPC",self.hud)
         self.assertIn("Hero->CombatTextPalette == 2",self.hud.split(
             "// Reuse one controller lookup for every projected damage label",1
         )[-1])
