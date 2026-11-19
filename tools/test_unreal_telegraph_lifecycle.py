@@ -65,9 +65,8 @@ class AttackTelegraphLifecycle(unittest.TestCase):
         self.assertIn("EndNonBossTelegraph(true);",attack)
         self.assertLess(attack.index("WindupEndsAt = -1.f;"),
                         attack.index("EndNonBossTelegraph(true);"))
-        self.assertIn(
-            "if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
-            attack)
+        self.assertIn("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f", attack)
+        self.assertIn("|| !IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;", attack)
         self.assertEqual(
             self.enemy.count("EndNonBossTelegraph(true);"),1,
             "No additional event fired for hit/miss or repeated ticking")
