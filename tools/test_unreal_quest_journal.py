@@ -1,0 +1,74 @@
+"""Source regression for active-contract world tracker and saved NPC catalog."""
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "MoonfallUnreal" / "Source" / "MoonfallUnreal"
+
+class WorldQuestJournal(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.hud = (SRC / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        cls.hero = (SRC / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        cls.arena = (SRC / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        cls.catalog = (SRC / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
+        cls.npc = (SRC / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+
+    def test_persisted_contracts_prioritized_without_world_scanning(self):
+        section = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        for text in ("QuestResidentIds", "QuestSummary", "QuestSummary.TrackedIndex >= 0",
+                     "MoonfallQuestJournal::Summarize(", "ResidentQuestStates.Find(QuestResidentIds[I])",
+                     "MoonfallQuestJournal::Cost(Tracked)", "TURN IN CONTRACT: %s",
+                     "ACTIVE CONTRACT: %s", "WORLD QUEST TRACKER  |  CONTRACTS",
+                     "WORLD QUEST TRACKER  |  EXPLORATION",
+                     "FMath::Min(Hero->Salvage, Cost)", "QuestSummary.Active",
+                     "QuestSummary.Completed"):
+            self.assertIn(text, section)
+        self.assertNotIn("TActorIterator", section)
+        self.assertNotIn("SpawnActor", section)
+        self.assertNotIn("ResidentQuestStates.Add", section)
+        self.assertNotIn("SaveWorldProgress", section)
+        self.assertIn("for (int32 I = 0; I < MoonfallQuestJournal::ResidentCount; ++I)", section)
+        self.assertIn("static const TArray<FName> QuestResidentIds = []()", section)
+        self.assertIn("if (bSanctuaryObjective)", section)
+        self.assertLess(section.index("if (bSanctuaryObjective)"),
+                        section.index("else if (QuestSummary.TrackedIndex >= 0)"))
+        self.assertIn("GetTotalDiscoveredDungeons()", section)
+        self.assertIn("GetTotalDefeatedDungeonBosses()", section)
+
+    def test_catalog_matches_authored_crossroads_and_all_persisted_ids(self):
+        entries = re.findall(
+            r'\{"([^"]+)", "([^"]+)", "([^"]+)", (\d+)\}', self.catalog
+        )
+        self.assertEqual(len(entries), 25)
+        known = set()
+        for ident, name, region, race in entries:
+            self.assertNotIn(ident, known)
+            self.assertTrue(name and region)
+            known.add(ident)
+            self.assertTrue(0 <= int(race) <= 11)
+            self.assertEqual(self.hero.count('FName(TEXT("' + ident + '"))'), 4, ident)
+        self.assertIn("CrossroadsGuide", known)
+        # The Guide is a cost-10 exception even though its race is Wood Elf.
+        self.assertIn('return ResidentId == FName(TEXT("CrossroadsGuide")) ? 10', self.npc)
+        self.assertIn("10 + (MoonfallRaces::Validated(RaceId) % 4) * 5", self.npc)
+        authored = self.arena.split("const FResident Residents[] = {", 1)[1].split("\n };", 1)[0]
+        authored_rows = re.findall(r'\{TEXT\("([^"]+)"\), (\d+), TEXT\(', authored)
+        self.assertEqual(len(authored_rows), 12)
+        catalog = {key:(name,int(race)) for key,name,region,race in entries}
+        for name, race in authored_rows:
+            ident = name.replace(" ", "")
+            self.assertEqual(catalog[ident], (name,int(race)))
+        self.assertEqual(catalog["CrossroadsGuide"], ("Wandering Guide",2))
+        self.assertIn('Guide->RaceId = 2;', self.arena)
+
+    def test_unwanted_enemy_instruction_overlay_not_added(self):
+        journal_section = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        self.assertNotIn("GUARD / PARRY / DODGE", journal_section)
+        self.assertNotIn("GetAttackWarningRemaining", journal_section)
+
+if __name__ == "__main__":
+    unittest.main()
