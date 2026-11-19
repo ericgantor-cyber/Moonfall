@@ -33,11 +33,15 @@ and turn-in increases the award. At level 100, the award is 0 XP.
 
 ## Before and after turn-in
 
-The NPC menu previews XP and whether the reward is expected to cause a
-level-up. It also shows contract rank, available salvage, and existing bond
-and reputation rewards. The starter Guide objective shows its XP reward
-when the contract is ready. The confirmation message shows actual awarded
-XP and LEVEL UP when applicable.
+The NPC menu now displays the **same unique quest title** as the three-row
+world tracker, resolved through a single cached, stable resident ID catalog.
+The title appears below the NPC's name without replacing their ancestry,
+social status, faction, trust or the existing choices. The NPC menu also
+previews XP and whether the reward is expected to cause a level-up, along
+with contract rank, available salvage, and existing bond and reputation
+rewards. The starter Guide objective shows its XP reward when the contract
+is ready. The confirmation message shows actual awarded XP and LEVEL UP
+when applicable.
 
 The preview uses a pure C++17 projection matching Moonfall's existing
 100 + 55 × (level − 1) XP thresholds, including rollover and the
@@ -139,7 +143,9 @@ Regional NPC authoring remains in separate draft PR #1070.
 4. Force a save failure and confirm that all numerical progression, UI
    notification, quest state, salvage and relationship values are unchanged.
 5. Verify both compact (e.g. 720p window) and large (1080p/4K) NPC menus
-   with mouse/controller. The last button must not be covered by salvage text.
+   with mouse/controller. Check that the named quest matches the world
+   tracker, does not cover race/trust/rank/rewards, and that the last
+   selectable action remains clickable and accessible.
 6. Accept four or more contracts. Confirm **exactly three stacked
    quest entries** are shown, salvage-ready quests appear first, and the
    fourth accepted quest appears as soon as a visible quest is completed.
