@@ -1,0 +1,19 @@
+name: UE5 dungeon spawn liveness regression
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDungeonLayout.cpp'
+      - 'tools/test_unreal_dungeon_spawn_liveness.py'
+      - '.github/workflows/unreal-dungeon-liveness.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDungeonLayout.cpp'
+      - 'tools/test_unreal_dungeon_spawn_liveness.py'
+      - '.github/workflows/unreal-dungeon-liveness.yml'
+jobs:
+  dungeon-spawn-liveness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bonus packs and final boss remain retryable after bad spawns
+        run: python3 -m unittest -v tools.test_unreal_dungeon_spawn_liveness
