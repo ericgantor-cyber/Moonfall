@@ -330,8 +330,12 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    // a distinct movement role without spawning additional enemies.
    if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
    Enemy->FinishSpawning(SpawnTransform);
-   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
-    if (IsValid(Enemy)) Enemy->Destroy();
+   // Failed or invalid-health spawns must not consume a bonus-pack slot.
+   // Match the primary chamber's post-BeginPlay health validation.
+   if (!IsValid(Enemy)) continue;
+   if (Enemy->IsActorBeingDestroyed()
+       || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+    Enemy->Destroy();
     continue;
    }
    GroupActors.Add(Enemy);
