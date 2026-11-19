@@ -35,6 +35,7 @@ class RegionalWorldQuests(unittest.TestCase):
         self.assertEqual(len(set(regions)), 6)
         self.assertIn("GoalCount = ZoneCount * GoalsPerZone", self.header)
         self.assertIn("GoalCount == 12", self.header)
+        self.assertIn("MaxVisible = 7", self.header)
         self.assertIn("Progress == 5", self.header)
         self.assertIn("Stage == 1 && !Touched", self.header)
         self.assertIn("Out.Indices[Out.Count++] = Goal", self.header)
@@ -49,9 +50,9 @@ class RegionalWorldQuests(unittest.TestCase):
             "MoonfallWorldQuest::Select(ZoneDiscovered, ZoneDefeated,",
             "MoonfallQuestJournal::MaxTracked - QuestSummary.TrackedCount",
             "const int32 VisibleQuestCount = QuestSummary.TrackedCount",
-            "bThreeQuestList ? VisibleQuestCount : 0",
-            "for (int32 GoalRow = 0; GoalRow < RegionalGoals.Count; ++GoalRow)",
-            "const int32 Row = QuestSummary.TrackedCount + GoalRow",
+            "bQuestList ? VisibleQuestCount : 0",
+            "for (int32 GoalRow = 0; GoalRow < VisibleRegionalRows; ++GoalRow)",
+            "const int32 Row = VisibleResidentRows + GoalRow",
             "GoalTitles[Goal]", "RegionNames[Goal / 2]",
             "MoonfallWorldQuest::Progress(", "MoonfallWorldQuest::Type(Goal)",
             "WORLD QUEST TRACKER  |  REGIONAL QUESTS", "WORLD GOAL",
@@ -62,8 +63,10 @@ class RegionalWorldQuests(unittest.TestCase):
             else:
                 self.assertIn(expected, section)
         self.assertIn("QuestSummary.TrackedCount < MoonfallQuestJournal::MaxTracked", section)
+        self.assertIn("const int32 VisibleQuestRows = QuestLayout.VisibleRows", section)
+        self.assertIn("VisibleRegionalRows", section)
         self.assertIn("!bSanctuaryObjective || QuestSummary.TrackedCount > 0", section)
-        self.assertIn("if (!bThreeQuestList && bSanctuaryObjective)", section)
+        self.assertIn("if (!bQuestList && bSanctuaryObjective)", section)
         self.assertNotIn("TActorIterator", section)
         self.assertNotIn("GetAllActorsOfClass", section)
         # New world goals do not mutate saves or create unearned XP.
