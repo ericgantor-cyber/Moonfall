@@ -14,6 +14,12 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+void AMoonfallCombatHUD::CycleQuestTrackerPage()
+{
+ QuestTrackerPageStart = MoonfallQuestLayout::NextPageStart(
+   QuestTrackerPageStart, QuestTrackerPageSize, QuestTrackerTotal);
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -1200,13 +1206,30 @@ void AMoonfallCombatHUD::DrawHUD()
   // Adapt seven three-line rows to the actual viewport height.
   // Spacious 70px rows at >=850px high, 60px on shorter views
   // so the visible subset clears the bottom-left health orb.
+  // First calculate available rows without changing tracked selection.
+  // The MMB page offset belongs to this HUD, never the saved hero.
+  const int32 ViewHeight = FMath::FloorToInt(Canvas->SizeY);
+  const int32 ViewWidth = FMath::FloorToInt(Canvas->SizeX);
+  const MoonfallQuestLayout::FMetrics AvailableLayout = MoonfallQuestLayout::Compute(
+    ViewHeight, bQuestList ? VisibleQuestCount : 0, ViewWidth);
+  QuestTrackerPageSize = AvailableLayout.VisibleRows;
+  QuestTrackerTotal = VisibleQuestCount;
+  QuestTrackerPageStart = MoonfallQuestLayout::NormalizePageStart(
+    QuestTrackerPageStart, QuestTrackerPageSize, QuestTrackerTotal);
+  // The final page may contain fewer rows, so its panel shrinks too.
   const MoonfallQuestLayout::FMetrics QuestLayout = MoonfallQuestLayout::Compute(
-    FMath::FloorToInt(Canvas->SizeY),
-    bQuestList ? VisibleQuestCount : 0, FMath::FloorToInt(Canvas->SizeX));
+    ViewHeight,
+    FMath::Min(QuestTrackerPageSize, VisibleQuestCount - QuestTrackerPageStart),
+    ViewWidth);
   const int32 VisibleQuestRows = QuestLayout.VisibleRows;
-  const int32 VisibleResidentRows = FMath::Min(QuestSummary.TrackedCount, VisibleQuestRows);
-  const int32 VisibleRegionalRows = FMath::Min(
-    RegionalGoals.Valid ? RegionalGoals.Count : 0, VisibleQuestRows - VisibleResidentRows);
+  const int32 ResidentStart = FMath::Min(QuestTrackerPageStart, QuestSummary.TrackedCount);
+  const int32 VisibleResidentRows = FMath::Clamp(
+    QuestSummary.TrackedCount - ResidentStart, 0, VisibleQuestRows);
+  const int32 RegionalStart = FMath::Max(0,
+    QuestTrackerPageStart - QuestSummary.TrackedCount);
+  const int32 VisibleRegionalRows = FMath::Clamp(
+    (RegionalGoals.Valid ? RegionalGoals.Count : 0) - RegionalStart,
+    0, VisibleQuestRows - VisibleResidentRows);
   const float Top = static_cast<float>(QuestLayout.Top);
   const float TrackerHeight = static_cast<float>(QuestLayout.PanelHeight);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
@@ -1221,18 +1244,23 @@ void AMoonfallCombatHUD::DrawHUD()
     : bTrackingContract ? FLinearColor(0.96f, 0.68f, 0.29f, 0.95f)
     : FLinearColor(0.30f, 0.72f, 0.92f, 0.95f);
   DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight);
-  DrawText(bSanctuaryObjective && !bQuestList
-      ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
-      : QuestSummary.TrackedIndex >= 0
-        ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
-        : RegionalGoals.Valid && RegionalGoals.Count > 0
-          ? TEXT("WORLD QUEST TRACKER  |  REGIONAL QUESTS")
-          : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
+  DrawText(Canvas->SizeX < 850.f && bQuestList
+      ? TEXT("QUEST TRACKER")
+      : bSanctuaryObjective && !bQuestList
+        ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
+        : QuestSummary.TrackedIndex >= 0
+          ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
+          : RegionalGoals.Valid && RegionalGoals.Count > 0
+            ? TEXT("WORLD QUEST TRACKER  |  REGIONAL QUESTS")
+            : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
   if (bQuestList) {
-   // Totals include accepted contracts beyond the three visible slots.
-   DrawText(VisibleQuestRows < VisibleQuestCount
-       ? FString::Printf(TEXT("SHOWING %d/%d"), VisibleQuestRows, VisibleQuestCount)
+   // Compact pages are switchable via MMB even with the cursor hidden.
+   // Display the absolute range, not a misleading first-page-only count.
+   DrawText(QuestTrackerPageSize < VisibleQuestCount
+       ? FString::Printf(TEXT("%d-%d/%d MMB NEXT"),
+           QuestTrackerPageStart + 1, QuestTrackerPageStart + VisibleQuestRows,
+           VisibleQuestCount)
        : QuestSummary.TrackedCount > 0
          ? FString::Printf(TEXT("%d ACTIVE | %d DONE"),
              QuestSummary.Active, QuestSummary.Completed)
@@ -1243,7 +1271,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // pure, stable journal policy. Render no empty slots or completed quests.
    // Three short lines per objective prevent compact-width overflow.
    for (int32 Row = 0; Row < VisibleResidentRows; ++Row) {
-    const int32 Index = QuestSummary.TrackedIndices[Row];
+    const int32 Index = QuestSummary.TrackedIndices[ResidentStart + Row];
     if (Index < 0 || Index >= MoonfallQuestJournal::ResidentCount) continue;
     const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Index];
     const int32 Cost = MoonfallQuestJournal::Cost(Index);
@@ -1265,7 +1293,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(RowAccent, Left + 12.f, RowTop, 3.f, QuestLayout.RowHeight);
     // Distinct columns keep status and reward readable at 600px width.
     // No overlapping long combined strings and no overhead combat text.
-    DrawText(FString::Printf(TEXT("%d. %s"), Row + 1,
+    DrawText(FString::Printf(TEXT("%d. %s"), QuestTrackerPageStart + Row + 1,
         UTF8_TO_TCHAR(Entry.QuestTitle)),
       FLinearColor::White, Left + 21.f, RowTop + QuestLayout.TitleOffset, nullptr,
       Canvas->SizeX < 1050.f ? 0.70f : 0.86f);
@@ -1297,7 +1325,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // they do not silently grant extra experience or consume salvage.
    if (RegionalGoals.Valid) {
     for (int32 GoalRow = 0; GoalRow < VisibleRegionalRows; ++GoalRow) {
-     const int32 Goal = RegionalGoals.Indices[GoalRow];
+     const int32 Goal = RegionalGoals.Indices[RegionalStart + GoalRow];
      if (Goal < 0 || Goal >= MoonfallWorldQuest::GoalCount) continue;
      const int32 Row = VisibleResidentRows + GoalRow;
      const int32 Progress = MoonfallWorldQuest::Progress(
@@ -1309,7 +1337,7 @@ void AMoonfallCombatHUD::DrawHUD()
          : FLinearColor(0.065f, 0.095f, 0.15f, 0.95f),
        Left + 12.f, RowTop, Width - 24.f, QuestLayout.RowHeight);
      DrawRect(RowAccent, Left + 12.f, RowTop, 3.f, QuestLayout.RowHeight);
-     DrawText(FString::Printf(TEXT("%d. %s"), Row + 1,
+     DrawText(FString::Printf(TEXT("%d. %s"), QuestTrackerPageStart + Row + 1,
          UTF8_TO_TCHAR(MoonfallWorldQuest::GoalTitles[Goal])),
        FLinearColor::White, Left + 21.f, RowTop + QuestLayout.TitleOffset,
        nullptr, Canvas->SizeX < 1050.f ? 0.70f : 0.86f);
