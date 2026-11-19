@@ -685,7 +685,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   bAdaptiveSweepCommitted = false; // The telegraph has resolved.
   BossWarningEndTime = -1.f;
   EndNonBossTelegraph(true); // Timed impact, not a promise of damage.
-  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+  // Blueprint's synchronous callback may destroy/unpossess the target.
+  // Do not dereference a stale hero while calculating the actual outcome.
+  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+      || !IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   // Preserve longer stagger recovery and cap invalid cooldown tuning.
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
