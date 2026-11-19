@@ -41,12 +41,15 @@ int main(){
   ++checked;
  }
  // After parry, one read-only memory window is consumed by one attack
- // and a separate 8-second cooldown prevents permanent adaptive sweeps.
+ // and a separate 5-second cooldown prevents permanent adaptive sweeps.
  float now=10.f;
  float readyUntil=now+ParryMemorySeconds;
  float nextAllowedAt=now+ParryResponseCooldownSeconds;
  assert(readyUntil>now && readyUntil<nextAllowedAt);
  assert(CanArm(true,false,false,true,false,now>=nextAllowedAt)==false);
+ // Exact re-arm boundaries: still blocked at 4.99s, allowed at 5.00s.
+ assert(!CanArm(true,false,false,true,false,(now+4.99f)>=nextAllowedAt));
+ assert(CanArm(true,false,false,true,false,(now+5.f)>=nextAllowedAt));
  float nextAttackAt=now+1.1f;
  assert(nextAttackAt<readyUntil);
  assert(SelectPattern(0,true,false,nextAttackAt<readyUntil)==2);
