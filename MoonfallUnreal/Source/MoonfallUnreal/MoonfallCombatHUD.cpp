@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallQuestXP.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -1089,6 +1090,22 @@ void AMoonfallCombatHUD::DrawHUD()
     }
    }
   }
+  // Reuse the persisted resident quest ledger. Prebuild catalog FNames once,
+  // then perform only 25 bounded TMap lookups, never world actor scans.
+  static const TArray<FName> QuestResidentIds = []() {
+   TArray<FName> Result;
+   Result.Reserve(MoonfallQuestJournal::ResidentCount);
+   for (const auto& Resident : MoonfallQuestJournal::Residents)
+    Result.Add(FName(UTF8_TO_TCHAR(Resident.Id)));
+   return Result;
+  }();
+  int32 JournalStates[MoonfallQuestJournal::ResidentCount] = {};
+  for (int32 I = 0; I < MoonfallQuestJournal::ResidentCount; ++I) {
+   if (const int32* SavedState = Hero->ResidentQuestStates.Find(QuestResidentIds[I]))
+    JournalStates[I] = *SavedState;
+  }
+  const MoonfallQuestJournal::FSummary QuestSummary = MoonfallQuestJournal::Summarize(
+    JournalStates, MoonfallQuestJournal::ResidentCount, FMath::Max(0, Hero->Salvage));
   FString Objective;
   FString Context;
   if (bSanctuaryObjective) {
@@ -1119,6 +1136,16 @@ void AMoonfallCombatHUD::DrawHUD()
      Context = TEXT("Discover dungeon entrances and defeat their bosses");
     }
    }
+  } else if (QuestSummary.TrackedIndex >= 0) {
+   const int32 Tracked = QuestSummary.TrackedIndex;
+   const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Tracked];
+   const int32 Cost = MoonfallQuestJournal::Cost(Tracked);
+   const bool bReady = Hero->Salvage >= Cost;
+   Objective = FString::Printf(bReady ? TEXT("TURN IN CONTRACT: %s")
+     : TEXT("ACTIVE CONTRACT: %s"), UTF8_TO_TCHAR(Entry.Name));
+   Context = FString::Printf(TEXT("%s | SALVAGE %d/%d | %d ACTIVE | %d DONE"),
+     UTF8_TO_TCHAR(Entry.Location), FMath::Min(Hero->Salvage, Cost), Cost,
+     QuestSummary.Active, QuestSummary.Completed);
   } else if (Cleared >= 30) {
    Objective = TEXT("All 30 dungeon bosses defeated");
    Context = TEXT("Explore remaining secrets and settlements");
@@ -1147,7 +1174,9 @@ void AMoonfallCombatHUD::DrawHUD()
     Left, Top, 4.f, 124.f);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
-      : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
+      : QuestSummary.TrackedIndex >= 0
+        ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
+        : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
   DrawText(Objective, FLinearColor::White,
     Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
