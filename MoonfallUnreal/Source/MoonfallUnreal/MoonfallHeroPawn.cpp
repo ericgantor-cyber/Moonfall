@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallQuestXP.h"
+#include "MoonfallQuestLayout.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -564,6 +565,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
+ Input->BindAction(TEXT("QuestPage"), IE_Pressed, this, &AMoonfallHeroPawn::CycleQuestTrackerPage);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -796,6 +798,16 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
+}
+
+void AMoonfallHeroPawn::CycleQuestTrackerPage() {
+ // Middle mouse advances a compact quest list without requiring a visible
+ // pointer, blocking attacks, or overriding the normal mouse-wheel zoom.
+ if (Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bAtlasOpen || bInventoryOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return;
+ QuestTrackerPageStart = MoonfallQuestLayout::NextPageStart(
+   QuestTrackerPageStart, QuestTrackerPageSize, QuestTrackerTotal);
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
