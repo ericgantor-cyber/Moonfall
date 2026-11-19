@@ -414,7 +414,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 9.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -441,14 +441,15 @@ void AMoonfallCombatHUD::DrawHUD()
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
-     TEXT("Display mode")};
+     TEXT("Display mode"), TEXT("Floating results")};
    const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
-     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode")};
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
-     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen"),
+     Hero->bShowFloatingCombatText ? TEXT("On") : TEXT("Off")};
    const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    // Options mouse hover is visual only; clicks still choose and adjust explicitly.
@@ -457,7 +458,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bOptionsCursorVisible = PC->bShowMouseCursor
       && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
-   for (int32 i = 0; i < 8; ++i) {
+   for (int32 i = 0; i < 9; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     const bool bHoveredRow = bOptionsCursorVisible
@@ -495,14 +496,16 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Reduce impact shake and camera motion"),
     TEXT("Scale damage numbers in combat"),
     TEXT("Scale the visibility of boss warnings"),
-    TEXT("Choose Windowed, Borderless or Fullscreen")
+    TEXT("Choose Windowed, Borderless or Fullscreen"),
+    TEXT("Show floating hit/parry/dodge/block/miss text")
   };
   const FString CompactHelp[] = {
     TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
     TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
-    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
+    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode"),
+    TEXT("Float results on/off")
   };
-  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 8);
   FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
   // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
   // This is guidance, never a hidden automatic graphics-setting change.
@@ -1292,9 +1295,54 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
- // Reuse one controller lookup for every projected damage label this frame.
+ // WoW F-style combat floats share the existing player's projection.
+ // Incoming defense outcomes live in an eight-entry transient hero ring.
+ // Existing dealt damage numbers continue floating above actual enemies.
+ // Floating results are customizable via Options > Floating results, and
+ // share the existing Combat text size control.
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
+ if (Hero->bShowFloatingCombatText && DamageProjectionPC && FMath::IsFinite(WorldTime)) {
+  const FVector BasePosition = Hero->GetActorLocation();
+  if (!BasePosition.ContainsNaN()) {
+   for (int32 Slot = 0; Slot < AMoonfallHeroPawn::IncomingCombatFloatCapacity; ++Slot) {
+    const AMoonfallHeroPawn::FIncomingCombatFloat& Event = Hero->IncomingCombatFloats[Slot];
+    const float Age = WorldTime - Event.StartedAt;
+    if (!FMath::IsFinite(Event.StartedAt) || Age < 0.f || Age >= 1.1f
+        || Event.Outcome.IsNone() || !FMath::IsFinite(Event.HealthLost)) continue;
+    const bool bHit = Event.Outcome == FName(TEXT("HIT"));
+    const bool bParry = Event.Outcome == FName(TEXT("PARRY"));
+    const bool bDodge = Event.Outcome == FName(TEXT("DODGE"));
+    const bool bGuard = Event.Outcome == FName(TEXT("GUARD"));
+    // Labels make the meaning clear without relying on the color palette.
+    const FString ResultText = bHit
+      ? FString::Printf(TEXT("HIT -%.0f"), Event.HealthLost)
+      : bParry ? TEXT("PARRY!")
+      : bDodge ? TEXT("DODGE!")
+      : bGuard ? TEXT("BLOCKED!") : TEXT("MISS!");
+    const FLinearColor Hue = bHit ? FLinearColor(1.f,0.44f,0.44f)
+      : bParry ? FLinearColor(0.48f,0.96f,1.f)
+      : bDodge ? FLinearColor(0.63f,0.76f,1.f)
+      : bGuard ? FLinearColor(1.f,0.83f,0.43f)
+      : FLinearColor(0.90f,0.90f,0.94f);
+    const float Alpha = FMath::Clamp(1.f - Age / 1.1f, 0.f, 1.f);
+    const float Rise = Hero->bReduceMotion ? 0.f : Age * 68.f;
+    FVector2D Screen;
+    if (!DamageProjectionPC->ProjectWorldLocationToScreen(
+          BasePosition + FVector(0.f, 0.f, 185.f + Rise), Screen)) continue;
+    const float OffsetX = static_cast<float>(Slot % 4) * 38.f - 57.f;
+    const float OffsetY = static_cast<float>(Slot / 4) * 24.f;
+    const float X = Screen.X + OffsetX - 55.f, Y = Screen.Y - 25.f - OffsetY;
+    if (!FMath::IsFinite(X) || !FMath::IsFinite(Y)
+        || X < 10.f || X + 128.f >= Canvas->SizeX
+        || Y < 12.f || Y + 30.f >= Canvas->SizeY) continue;
+    DrawRect(FLinearColor(0.f,0.f,0.f,0.46f*Alpha),X-5.f,Y-3.f,125.f,26.f);
+    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),X,Y,nullptr,
+      (bHit ? 1.13f : 1.02f) * FMath::Clamp(Hero->CombatTextScale,0.75f,2.f));
+   }
+  }
+ }
  int32 VisibleDamageNumbers = 0;
+ if (Hero->bShowFloatingCombatText)
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
   if (VisibleDamageNumbers >= 32) break;
   if (!IsValid(Enemy)) continue;
