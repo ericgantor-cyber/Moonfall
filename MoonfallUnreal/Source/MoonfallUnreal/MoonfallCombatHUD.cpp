@@ -1201,6 +1201,11 @@ void AMoonfallCombatHUD::DrawHUD()
         : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
   if (bThreeQuestList) {
+   // Totals include accepted contracts beyond the three visible slots.
+   DrawText(FString::Printf(TEXT("%d ACTIVE | %d DONE"),
+       QuestSummary.Active, QuestSummary.Completed),
+     FLinearColor(0.75f, 0.84f, 0.94f), Left + Width - 144.f,
+     Top + 8.f, nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.67f);
    // Three WoW Forever-style tracked objectives, sorted ready-first by the
    // pure, stable journal policy. Render no empty slots or completed quests.
    for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row) {
