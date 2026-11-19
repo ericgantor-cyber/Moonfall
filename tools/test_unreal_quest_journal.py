@@ -68,8 +68,10 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("const float RowTop = Top + 28.f + Row * 49.f", section)
         self.assertIn("if (bThreeQuestList)", section)
         self.assertIn("RowXP.LevelsGained > 0", section)
+        self.assertIn("UTF8_TO_TCHAR(Entry.QuestTitle)", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.Name)", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.Location)", section)
+        self.assertIn('%s @ %s | %d/%d SALVAGE | %s', section)
         self.assertIn("bReady ? TEXT(\"TURN IN\") : TEXT(\"ACTIVE\")", section)
         self.assertIn("Top + TrackerHeight - 43.f", section)
         self.assertIn("Top + TrackerHeight - 32.f", section)
@@ -85,14 +87,19 @@ class WorldQuestJournal(unittest.TestCase):
 
     def test_catalog_matches_authored_crossroads_and_all_persisted_ids(self):
         entries = re.findall(
-            r'\{"([^"]+)", "([^"]+)", "([^"]+)", (\d+)\}', self.catalog
+            r'\{"([^"]+)", "([^"]+)", "([^"]+)", "([^"]+)", (\d+)\}',
+            self.catalog,
         )
         self.assertEqual(len(entries), 25)
         known = set()
-        for ident, name, region, race in entries:
+        titles = set()
+        for ident, name, title, region, race in entries:
             self.assertNotIn(ident, known)
-            self.assertTrue(name and region)
+            self.assertNotIn(title, titles)
+            self.assertTrue(name and title and region)
+            self.assertLessEqual(len(title), 26)
             known.add(ident)
+            titles.add(title)
             self.assertTrue(0 <= int(race) <= 11)
             self.assertEqual(self.hero.count('FName(TEXT("' + ident + '"))'), 4, ident)
         self.assertIn("CrossroadsGuide", known)
@@ -102,7 +109,7 @@ class WorldQuestJournal(unittest.TestCase):
         authored = self.arena.split("const FResident Residents[] = {", 1)[1].split("\n };", 1)[0]
         authored_rows = re.findall(r'\{TEXT\("([^"]+)"\), (\d+), TEXT\(', authored)
         self.assertEqual(len(authored_rows), 12)
-        catalog = {key:(name,int(race)) for key,name,region,race in entries}
+        catalog = {key:(name,int(race)) for key,name,title,region,race in entries}
         for name, race in authored_rows:
             ident = name.replace(" ", "")
             self.assertEqual(catalog[ident], (name,int(race)))
