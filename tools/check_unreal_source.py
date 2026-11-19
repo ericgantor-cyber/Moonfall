@@ -4452,11 +4452,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
-        # Blueprint spawn callbacks can destroy their actor synchronously.
-        # The final room must stay retryable when that happens.
+        # Both Blueprint callbacks can destroy the actor or corrupt its HP.
+        # An invalid boss must never consume the retryable final-room trigger.
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
         self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
-        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        after_spawn = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", after_spawn)
+        self.assertIn("if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)", after_spawn)
+        self.assertLess(after_spawn.index("if (!FMath::IsFinite(Boss->Health)"),
+                        after_spawn.index("return true;"))
         self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", boss)
         self.assertIn("const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;", boss)
         self.assertIn("const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;", boss)
