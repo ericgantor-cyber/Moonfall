@@ -9,47 +9,53 @@
 namespace W = MoonfallWorldQuest;
 namespace J = MoonfallQuestJournal;
 static_assert(W::GoalCount == 12 && W::ZoneCount == 6);
-static_assert(W::MaxVisible == J::MaxTracked && J::MaxTracked == 3);
+static_assert(W::MaxVisible == J::MaxTracked && J::MaxTracked == 7);
 static_assert(W::Type(0)[0] == 'E' && W::Type(1)[0] == 'B');
 constexpr bool FreshWorld() {
  int Seen[6]{}, Dead[6]{};
- const auto R = W::Select(Seen, Dead, 3);
+ const auto R = W::Select(Seen, Dead, 7);
  return R.Valid && R.Completed == 0 && R.Unfinished == 12
-    && R.Count == 3 && R.Indices[0] == 0
-    && R.Indices[1] == 2 && R.Indices[2] == 4;
+    && R.Count == 6 && R.Indices[0] == 0
+    && R.Indices[1] == 2 && R.Indices[2] == 4
+    && R.Indices[3] == 6 && R.Indices[4] == 8
+    && R.Indices[5] == 10;
 }
-static_assert(FreshWorld(), "Unvisited zones should offer three discovery goals.");
+static_assert(FreshWorld(), "Unvisited zones should offer six discovery goals.");
 constexpr bool ZoneInProgress() {
  int Seen[6]{1, 0, 0, 0, 0, 0}, Dead[6]{};
- const auto R = W::Select(Seen, Dead, 3);
- return R.Valid && R.Count == 3 && R.Indices[0] == 0
-    && R.Indices[1] == 1 && R.Indices[2] == 2;
+ const auto R = W::Select(Seen, Dead, 7);
+ return R.Valid && R.Count == 7 && R.Indices[0] == 0
+    && R.Indices[1] == 1 && R.Indices[2] == 2
+    && R.Indices[3] == 4 && R.Indices[4] == 6
+    && R.Indices[5] == 8 && R.Indices[6] == 10;
 }
 static_assert(ZoneInProgress(), "Started regions prioritize discovery and boss quests.");
 constexpr bool DoneStagesDisappear() {
  int Seen[6]{5, 2, 0, 0, 0, 0}, Dead[6]{5, 1, 0, 0, 0, 0};
- const auto R = W::Select(Seen, Dead, 3);
+ const auto R = W::Select(Seen, Dead, 7);
  return R.Valid && R.Completed == 2 && R.Unfinished == 10
-    && R.Indices[0] == 2 && R.Indices[1] == 3 && R.Indices[2] == 4;
+    && R.Count == 6 && R.Indices[0] == 2 && R.Indices[1] == 3
+    && R.Indices[2] == 4 && R.Indices[3] == 6
+    && R.Indices[4] == 8 && R.Indices[5] == 10;
 }
 static_assert(DoneStagesDisappear(), "Completed quests must never reuse slots.");
 constexpr bool AllFinished() {
  int Seen[6]{5,5,5,5,5,5}, Dead[6]{5,5,5,5,5,5};
- const auto R = W::Select(Seen, Dead, 3);
+ const auto R = W::Select(Seen, Dead, 7);
  return R.Valid && R.Completed == 12 && R.Unfinished == 0 && R.Count == 0;
 }
 static_assert(AllFinished(), "12 complete regional quests return to exploration.");
 constexpr bool RejectCorruption() {
  int Seen[6]{0,0,6,0,0,0}, Dead[6]{};
- const auto Wrong = W::Select(Seen, Dead, 3);
+ const auto Wrong = W::Select(Seen, Dead, 7);
  Seen[2]=0; Dead[1]=1;
- const auto BossWithoutEntrance = W::Select(Seen, Dead, 3);
+ const auto BossWithoutEntrance = W::Select(Seen, Dead, 7);
  return !Wrong.Valid && Wrong.Count == 0
    && !BossWithoutEntrance.Valid && BossWithoutEntrance.Count == 0
-   && !W::Select(nullptr, Dead, 3).Valid
-   && !W::Select(Seen, nullptr, 3).Valid
+   && !W::Select(nullptr, Dead, 7).Valid
+   && !W::Select(Seen, nullptr, 7).Valid
    && !W::Select(Seen, Dead, -1).Valid
-   && !W::Select(Seen, Dead, 4).Valid;
+   && !W::Select(Seen, Dead, 8).Valid;
 }
 static_assert(RejectCorruption(), "Bad saved counts must not produce a quest.");
 int main() {
@@ -64,9 +70,9 @@ int main() {
   for (int Wins=0; Wins<=Stage; ++Wins) {
    int Seen[6]{}, Dead[6]{};
    Seen[0]=Stage; Dead[0]=Wins;
-   for(int Slots=0; Slots<=3; ++Slots) {
+   for(int Slots=0; Slots<=7; ++Slots) {
     const auto R=W::Select(Seen,Dead,Slots);
-    assert(R.Valid && R.Count<=Slots && R.Count<=3);
+    assert(R.Valid && R.Count<=Slots && R.Count<=7);
     assert(R.Completed==((Stage==5)?1:0)+((Wins==5)?1:0));
     for (int I=0; I<R.Count; ++I) {
      const int Goal=R.Indices[I];
@@ -84,5 +90,5 @@ int main() {
    }
   }
  }
- std::cout<<"12 regional world quests and three-slot blending policy passed\n";
+ std::cout<<"12 regional world quests and seven-slot blending policy passed\n";
 }
