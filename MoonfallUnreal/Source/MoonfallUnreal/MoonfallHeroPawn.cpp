@@ -321,6 +321,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ShowFloatingCombatText"), bShowFloatingCombatText, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
  BossWarningScale = FMath::Clamp(FMath::RoundToFloat(BossWarningScale * 4.f) / 4.f, 1.f, 2.f);
@@ -1569,6 +1570,24 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
  if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
 }
 
+void AMoonfallHeroPawn::RecordIncomingCombatFloat(FName Outcome, float HealthLost) {
+ // Called only after real enemy hit/defense resolution. Reject nonsensical
+ // events and never allocate or change a gameplay outcome.
+ if (!bShowFloatingCombatText || !GetWorld() || !FMath::IsFinite(HealthLost)
+     || HealthLost < 0.f) return;
+ if (Outcome != FName(TEXT("HIT")) && Outcome != FName(TEXT("PARRY"))
+     && Outcome != FName(TEXT("DODGE")) && Outcome != FName(TEXT("GUARD"))
+     && Outcome != FName(TEXT("MISS"))) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
+ FIncomingCombatFloat& Entry = IncomingCombatFloats[NextIncomingCombatFloatSlot];
+ Entry.Outcome = Outcome;
+ Entry.HealthLost = FMath::Clamp(HealthLost, 0.f, 100000.f);
+ Entry.StartedAt = Now;
+ NextIncomingCombatFloatSlot =
+   (NextIncomingCombatFloatSlot + 1) % IncomingCombatFloatCapacity;
+}
+
 void AMoonfallHeroPawn::OpenOptions() {
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
@@ -1610,7 +1629,7 @@ void AMoonfallHeroPawn::OptionsUp() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 8) % 9;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
@@ -1627,7 +1646,7 @@ void AMoonfallHeroPawn::OptionsDown() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 9;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f); return; }
@@ -1701,6 +1720,15 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   BossWarningScale = FMath::Clamp(BossWarningScale + Direction * 0.25f, 1.f, 2.f);
   if (GConfig) {
    GConfig->SetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 8) {
+  // Mouse and keyboard options use the same explicit on/off setting.
+  bShowFloatingCombatText = Direction > 0;
+  if (GConfig) {
+   GConfig->SetBool(TEXT("Moonfall.Accessibility"), TEXT("ShowFloatingCombatText"),
+     bShowFloatingCombatText, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
@@ -3467,14 +3495,14 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
     } else {
-     // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
-     const float RowGap = (MenuHeight - 130.f) / 8.f;
+     // Match all nine options rows and +/- button bounds to MoonfallCombatHUD.
+     const float RowGap = (MenuHeight - 130.f) / 9.f;
      const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
      const float FirstRowY = MenuTop + 63.f;
      const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
      const float RowY = FirstRowY + ClickedRow * RowGap;
      if (MouseX >= MenuLeft + 10.f && MouseX <= MenuLeft + MenuWidth - 10.f
-         && ClickedRow >= 0 && ClickedRow < 8
+         && ClickedRow >= 0 && ClickedRow < 9
          && MouseY >= RowY && MouseY <= RowY + RowHeight) {
       OptionsSelection = ClickedRow;
       const float MinusX = MenuLeft + MenuWidth - 145.f;
