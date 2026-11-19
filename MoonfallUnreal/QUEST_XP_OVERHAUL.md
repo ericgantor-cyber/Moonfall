@@ -84,16 +84,22 @@ catalog to identify each resident's expected contract cost and home.
   thin static salvage progress bar. The compact tracker is organized into
   three short lines per quest: **title + status**, **NPC + destination**,
   **salvage + XP**, with fixed right-hand status/XP columns to prevent
-  a long combined label from overflowing a small window. Empty slots are
+  a long combined label from overflowing a small window. The normal
+  layout uses **70px** per quest row with more readable font scales,
+  21–22px line spacing and a 3px progress bar. In short windows,
+  **60px** rows keep three objectives visible with 18px line spacing. Empty slots are
   not shown, and completed quests cannot reappear as active. The quest
   list shows no more than three rows even if 25 quests are active.
 - The panel adjusts vertically for 1, 2 or 3 visible quests; the original
   discovered-dungeon/boss progress bars remain beneath the rows. For 600px+
   wide and 420px+ tall windowed views (including 640x480), the three-row
   tracker remains enabled instead of disappearing below 760x520. Below
-  520px tall, its top offset is reduced to 18px and its row spacing is
-  57px, keeping three lines per quest above the bottom-left health orb.
-  Existing 720p/1080p/4K anchor placement is unchanged.
+  520px tall, its top offset stays at 18px, and 60px row spacing keeps
+  three lines per quest above the bottom-left health orb. From 520px high
+  onward, the panel anchors at 78px with spacious 70px rows. The exact
+  geometry comes from a pure C++17 policy (`MoonfallQuestLayout.h`) shared
+  by native HUD code and exhaustive layout tests. Dungeon bars remain
+  visible below all three quests at each supported window size.
   If no contract is accepted, the original sanctuary tutorial or the world
   exploration tracker returns. Active contracts remain visible even when
   the hero walks back into the starting sanctuary.
@@ -158,7 +164,9 @@ Regional NPC authoring remains in separate draft PR #1070.
    bars at 0%, partial, and 100% readiness at 600x420, 640x480,
    720p, 1080p and 4K; ensure the tracker doesn't overlap the health orb.
    Inspect all three lines per quest and verify title/status and salvage/XP
-   columns remain separate and legible at 600px width.
+   columns remain separate and legible at 600px width. Verify 60px compact
+   rows and 70px normal rows, with 3px salvage bars below each reward line;
+   compare readability and text overlap in native Unreal gameplay.
 8. Complete all tracked contracts. Confirm the original exploration tracker
    returns, and a completed quest cannot claim rewards again. Inspect
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
