@@ -1321,7 +1321,7 @@ void AMoonfallCombatHUD::DrawHUD()
  // visible silhouette and other enemy labels, with no heap/actor allocations.
  MoonfallCombatFloatLayout::FScreenRect PlacedOutcomes[
    MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes]{};
- FVector2D HeroOnScreen;
+ FVector2D HeroOnScreen = FVector2D::ZeroVector;
  const bool bHeroScreenValid = DamageProjectionPC && bHeroLocationValid
    && DamageProjectionPC->ProjectWorldLocationToScreen(
       HeroLocation + FVector(0.f,0.f,100.f),HeroOnScreen)
