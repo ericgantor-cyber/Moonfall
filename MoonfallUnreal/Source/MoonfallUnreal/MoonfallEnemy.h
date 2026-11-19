@@ -143,6 +143,9 @@ private:
  int32 DefeatAnimationStyle = 1;
  bool bDefeatAnimationShatter = false;
  void TickDefeatAnimation(float DeltaSeconds);
+ // One bounded counter-sweep opportunity after a successful elite parry.
+ float AdaptiveSweepReadyUntil = -1.f;
+ float NextAdaptiveSweepAllowedAt = 0.f;
  int32 AttackSequence = 0;
  // Random basic boss attacks cannot repeat immediately, even after phase changes.
  int32 LastBossAttackPattern = -1;

@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallEliteTactics.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -647,6 +648,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
      ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
+     // A parried non-boss elite can schedule one ordinary sweep, not a bonus hit.
+     // The four-second memory and eight-second re-arm cooldown bound the response.
+     if (MoonfallEliteTactics::CanArm(bElite, bBoss, bSanctuaryPractice,
+           Health > 0.f, Now < PostureBrokenUntil,
+           Now >= NextAdaptiveSweepAllowedAt)) {
+      AdaptiveSweepReadyUntil = Now + MoonfallEliteTactics::ParryMemorySeconds;
+      NextAdaptiveSweepAllowedAt =
+        Now + MoonfallEliteTactics::ParryResponseCooldownSeconds;
+     }
      // Temporary visualization for editor/development builds until a Blueprint
      // implementation provides the finished impact animation and VFX.
 #if ENABLE_DRAW_DEBUG
@@ -1053,6 +1063,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;
    int32 Pattern = AttackSequence++ % PatternCount;
+   // Consume a valid counter opportunity in the normal attack slot.
+   // Existing guardian/dungeon boss patterns remain unchanged.
+   const bool bEliteAdaptiveSweep = bElite && !bBoss &&
+     FMath::IsFinite(AdaptiveSweepReadyUntil) && AdaptiveSweepReadyUntil > Now;
+   AdaptiveSweepReadyUntil = -1.f;
+   Pattern = MoonfallEliteTactics::SelectPattern(
+     Pattern, bElite, bBoss, bEliteAdaptiveSweep);
    if (bBoss) {
     // Select uniformly from all other basic patterns. No extra actor,
     // ticker, path solve or unbounded retry loop is needed.
@@ -1086,6 +1103,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
+   if (bEliteAdaptiveSweep)
+    CurrentWindup = FMath::Max(CurrentWindup, MoonfallEliteTactics::CounterSweepWindup);
    if (bBoss && BossPhase >= 2) {
     // Phase three alternates swift strikes with pronounced heavy tells.
     if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;

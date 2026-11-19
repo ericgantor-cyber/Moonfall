@@ -1,0 +1,22 @@
+name: UE5 elite counter-sweep offline C++ verification
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEliteTactics.h'
+      - 'tools/test_unreal_elite_tactics.cpp'
+      - '.github/workflows/unreal-elite-counter.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEliteTactics.h'
+      - 'tools/test_unreal_elite_tactics.cpp'
+      - '.github/workflows/unreal-elite-counter.yml'
+jobs:
+  elite-counter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run C++17 elite counter-sweep tests
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -pedantic tools/test_unreal_elite_tactics.cpp -o /tmp/moonfall-elite-counter
+          /tmp/moonfall-elite-counter
