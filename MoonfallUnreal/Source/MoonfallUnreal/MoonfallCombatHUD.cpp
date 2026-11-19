@@ -1215,13 +1215,15 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(bReady ? FLinearColor(0.26f, 0.83f, 0.51f)
         : FLinearColor(0.96f, 0.68f, 0.29f),
       Left + 12.f, RowTop, 3.f, 45.f);
+    // The quest title describes the contract; the row below identifies
+    // the actual NPC and turn-in location. Both stay visible like a quest log.
     DrawText(FString::Printf(TEXT("%d. %s  |  %s"), Row + 1,
-       UTF8_TO_TCHAR(Entry.Name), bReady ? TEXT("TURN IN") : TEXT("ACTIVE")),
+       UTF8_TO_TCHAR(Entry.QuestTitle), bReady ? TEXT("TURN IN") : TEXT("ACTIVE")),
       FLinearColor::White, Left + 21.f, RowTop + 3.f, nullptr,
       Canvas->SizeX < 1050.f ? 0.64f : 0.78f);
-    DrawText(FString::Printf(TEXT("%s | %d/%d SALVAGE | %s"),
-        UTF8_TO_TCHAR(Entry.Location), FMath::Min(Hero->Salvage, Cost),
-        Cost, *XPText),
+    DrawText(FString::Printf(TEXT("%s @ %s | %d/%d SALVAGE | %s"),
+        UTF8_TO_TCHAR(Entry.Name), UTF8_TO_TCHAR(Entry.Location),
+        FMath::Min(Hero->Salvage, Cost), Cost, *XPText),
       FLinearColor(0.76f, 0.84f, 0.92f), Left + 21.f, RowTop + 24.f,
       nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.66f);
     // Each quest's own salvage objective has a thin, static progress bar.
