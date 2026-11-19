@@ -32,6 +32,34 @@ constexpr bool CheckStableOrder() {
 }
 static_assert(CheckStableOrder(), "Equal priority retains stable catalog order.");
 
+
+constexpr bool CheckThreeQuestSlots() {
+ int State[ResidentCount]{};
+ State[1] = 1; // Ready at 10.
+ State[2] = 1; // Needs 15.
+ State[3] = 1; // Needs 20.
+ State[4] = 1; // Needs 25.
+ State[5] = 1; // Ready at 10.
+ State[6] = 2; // Completed, never occupies a slot.
+ const auto S = Summarize(State, ResidentCount, 10);
+ return S.Active == 5 && S.Completed == 1 && S.Ready == 2
+   && S.TrackedCount == MaxTracked && S.TrackedIndex == 1
+   && S.TrackedIndices[0] == 1 && S.TrackedIndices[1] == 5
+   && S.TrackedIndices[2] == 2;
+}
+static_assert(MaxTracked == 3, "Exactly three quest slots visible.");
+static_assert(CheckThreeQuestSlots(), "Ready quests must fill three slots first.");
+constexpr bool CheckNoActiveSlots() {
+ int State[ResidentCount]{};
+ State[0] = 2;
+ const auto S = Summarize(State, ResidentCount, 100);
+ return S.Active == 0 && S.Completed == 1 && S.TrackedCount == 0
+   && S.TrackedIndex == -1
+   && S.TrackedIndices[0] == -1 && S.TrackedIndices[1] == -1
+   && S.TrackedIndices[2] == -1;
+}
+static_assert(CheckNoActiveSlots(), "Completed quests must not occupy slots.");
+
 int main() {
  for (int I=0; I<ResidentCount; ++I) {
   const auto& Resident = Residents[I];
@@ -49,10 +77,13 @@ int main() {
    States[tracked]=1;
    auto result=Summarize(States,ResidentCount,salvage);
    assert(result.Active==1 && result.TrackedIndex==tracked);
+   assert(result.TrackedCount==1 && result.TrackedIndices[0]==tracked);
+   assert(result.TrackedIndices[1]==-1 && result.TrackedIndices[2]==-1);
    assert(result.Ready==(salvage>=Cost(tracked) ? 1 : 0));
    States[tracked]=2;
    result=Summarize(States,ResidentCount,salvage);
    assert(result.Active==0 && result.Completed==1 && result.TrackedIndex==-1);
+   assert(result.TrackedCount==0);
   }
  }
  int Bad[ResidentCount]{};
