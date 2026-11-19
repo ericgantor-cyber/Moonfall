@@ -4452,7 +4452,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # The final room must stay retryable when that happens.
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
         self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
-        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        # A successful return is only permitted after the boss survives both
+        # synchronous Blueprint callbacks, including finite positive health.
+        identity = boss.index("Boss->OnDungeonBossIdentityReady(")
+        callback = boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", identity)
+        successful_return = boss.index("return true;", callback)
+        for fragment in (boss[identity:callback], boss[callback:successful_return]):
+            self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", fragment)
+            self.assertIn("!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f", fragment)
+            self.assertIn("Boss->Destroy();", fragment)
+            self.assertIn("return false;", fragment)
+        self.assertLess(callback, successful_return)
         self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", boss)
         self.assertIn("const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;", boss)
         self.assertIn("const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;", boss)
