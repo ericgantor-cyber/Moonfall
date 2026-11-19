@@ -32,9 +32,14 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertNotIn("SaveWorldProgress", section)
         self.assertIn("for (int32 I = 0; I < MoonfallQuestJournal::ResidentCount; ++I)", section)
         self.assertIn("static const TArray<FName> QuestResidentIds = []()", section)
-        self.assertIn("if (bSanctuaryObjective)", section)
-        self.assertLess(section.index("if (bSanctuaryObjective)"),
+        # Accepted quests stay visible in the sanctuary; Firstlight tutorial
+        # only takes over when there are no active contracts.
+        self.assertIn("if (bSanctuaryObjective && QuestSummary.TrackedCount == 0)", section)
+        self.assertLess(section.index("if (bSanctuaryObjective && QuestSummary.TrackedCount == 0)"),
                         section.index("else if (QuestSummary.TrackedIndex >= 0)"))
+        self.assertIn("const bool bThreeQuestList = QuestSummary.TrackedCount > 0;", section)
+        self.assertIn("bSanctuaryObjective && !bThreeQuestList", section)
+        self.assertNotIn("!bSanctuaryObjective && QuestSummary.TrackedCount > 0", section)
         # Tracker includes the same XP forecast as the resident dialog.
         self.assertIn("MoonfallQuestXP::Preview(", section)
         self.assertIn("Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel", section)
@@ -60,6 +65,11 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("Top + TrackerHeight - 43.f", section)
         self.assertIn("Top + TrackerHeight - 32.f", section)
         self.assertIn("Top + TrackerHeight - 22.f", section)
+        self.assertIn("const float SalvageProgress = FMath::Clamp(", section)
+        self.assertIn("static_cast<float>(Hero->Salvage) / FMath::Max(1, Cost)", section)
+        self.assertIn("ProgressWidth * SalvageProgress, 2.f", section)
+        self.assertIn("RowTop + 40.f", section)
+        self.assertIn("FMath::Min(Hero->Salvage, Cost)", section)
         self.assertNotIn("ProjectWorldLocationToScreen", section)
         self.assertIn("GetTotalDiscoveredDungeons()", section)
         self.assertIn("GetTotalDefeatedDungeonBosses()", section)
