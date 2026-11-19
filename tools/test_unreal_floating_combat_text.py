@@ -157,19 +157,19 @@ class FloatingCombatTextChecks(unittest.TestCase):
         self.assertIn("Hero->CombatTextScale", hud)
 
     def test_accessibility_settings_remain_persistent_and_mouse_driven(self):
-        options = self.hud.split("if (Hero->bOptionsOpen) {",1)[1].split(
+        options = self.hud.split("if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing) {",1)[1].split(
             "if (Hero->bInventoryOpen)",1)[0]
-        mouse = self.hero.split("// Match all ten options rows",1)[1].split(
+        mouse = self.hero.split("// Match all eleven options rows",1)[1].split(
             "if (bInventoryOpen)",1)[0]
         for text in ('TEXT("Floating results")', 'TEXT("Text palette")',
                      'TEXT("Contrast")', 'TEXT("Mono")'):
             self.assertIn(text, options)
-        self.assertIn("(MenuHeight - 130.f) / 10.f", options)
-        self.assertIn("(MenuHeight - 130.f) / 10.f", mouse)
-        self.assertIn("ClickedRow >= 0 && ClickedRow < 10", mouse)
-        self.assertIn("for (int32 i = 0; i < 10; ++i)", options)
-        self.assertIn("OptionsSelection = (OptionsSelection + 9) % 10", self.hero)
-        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 10", self.hero)
+        self.assertIn("(MenuHeight - 130.f) / 11.f", options)
+        self.assertIn("(MenuHeight - 130.f) / 11.f", mouse)
+        self.assertIn("ClickedRow >= 0 && ClickedRow < 11", mouse)
+        self.assertIn("for (int32 i = 0; i < 11; ++i)", options)
+        self.assertIn("OptionsSelection = (OptionsSelection + 10) % 11", self.hero)
+        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 11", self.hero)
         self.assertIn('TEXT("ShowFloatingCombatText")', self.hero)
         self.assertIn('TEXT("CombatTextPalette")', self.hero)
         self.assertIn("CombatTextScale + Direction * 0.25f", self.hero)

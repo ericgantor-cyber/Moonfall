@@ -773,23 +773,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_options_mouse_selects_all_visible_settings_rows(self):
         mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
-        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 10.f;", options)
+        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 11.f;", options)
         self.assertIn("const float RowHeight = FMath::Min(38.f, RowGap - 2.f);", options)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
         self.assertIn("const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);", options)
-        self.assertIn("ClickedRow >= 0 && ClickedRow < 10", options)
+        self.assertIn("ClickedRow >= 0 && ClickedRow < 11", options)
         self.assertIn("OptionsSelection = ClickedRow;", options)
         self.assertIn("const float MinusX = MenuLeft + MenuWidth - 145.f;", options)
         self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", options)
         self.assertIn("if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);", options)
         self.assertIn("else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);", options)
         self.assertLess(options.index("OptionsSelection = ClickedRow;"), options.index("AdjustOption(-1)"))
-        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 10.f;", self.hud)
+        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 11.f;", self.hud)
         self.assertIn("const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);", self.hud)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", self.hud)
         self.assertIn("const float MinusX = MenuLeft + MenuWidth - 145.f;", self.hud)
         self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", self.hud)
-        self.assertIn("for (int32 i = 0; i < 10; ++i)", self.hud)
+        self.assertIn("for (int32 i = 0; i < 11; ++i)", self.hud)
         self.assertIn("Hero->OptionsSelection == i", self.hud)
         self.assertIn("const FString Names[]", self.hud)
         self.assertIn("const FString Values[]", self.hud)
@@ -803,7 +803,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Frame generation is a preference only; no runtime integration.", self.hud)
         self.assertIn("const FString SettingHelp[]", self.hud)
         self.assertIn("const FString CompactHelp[]", self.hud)
-        self.assertIn("const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 9);", self.hud)
+        self.assertIn("const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 10);", self.hud)
         self.assertIn("FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];", self.hud)
         self.assertIn("FG preference only (inactive)", self.hud)
         self.assertIn('TEXT("Display mode")', self.hud)
@@ -813,8 +813,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 NextIndex = (CurrentIndex + (Direction < 0 ? 2 : 1)) % 3;", self.hero_cpp)
         self.assertIn("NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;", self.hero_cpp)
         self.assertIn('Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
-        self.assertIn("OptionsSelection = (OptionsSelection + 9) % 10;", self.hero_cpp)
-        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 10;", self.hero_cpp)
+        self.assertIn("OptionsSelection = (OptionsSelection + 10) % 11;", self.hero_cpp)
+        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 11;", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::OptionsLeft()", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::OptionsRight()", self.hero_cpp)
         self.assertIn("AdjustOption(-1);", self.hero_cpp)
@@ -859,7 +859,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(2560 * 1440, 3840 * 2160)
 
     def test_4k_ui_explains_resolution_and_render_scale_without_automatic_changes(self):
-        options = self.hud.split("if (Hero->bOptionsOpen)", 1)[1].split("if (Hero->bInventoryOpen)", 1)[0]
+        options = self.hud.split("if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[1].split("if (Hero->bInventoryOpen)", 1)[0]
         self.assertIn("Settings->GetScreenResolution() == FIntPoint(3840,2160)", options)
         self.assertIn("if (HelpIndex == 0)", options)
         self.assertIn("else if (HelpIndex == 1)", options)
@@ -5839,7 +5839,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_atlas_mouse_controls_match_drawn_ui_and_block_combat(self):
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
             "\n}", 1)[0]
         self.assertIn("if (bAtlasOpen) {", click)
@@ -5924,7 +5924,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("RevealAtlasAtWorldLocation();"),
                         tick.index("SecondsSinceLastWorldSave += SafeTimerDelta;"))
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         self.assertIn("if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;", atlas)
         self.assertIn("const float FogCellW = 6750.f / 8.f;", atlas)
         self.assertIn("const float FogCellH = 24000.f / 7.f;", atlas)
@@ -5937,7 +5937,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         atlas_toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
             "void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
         atlas_draw = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         self.assertIn("TArray<FVector> AtlasDiscoveredShrineLocations;", self.hero_h)
         self.assertIn("FVector AtlasActiveRespawnShrineLocation", self.hero_h)
         self.assertIn("bool bAtlasHasActiveRespawnShrineLocation", self.hero_h)
@@ -5964,7 +5964,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_pb_dw_inspired_atlas_ink_wash_stays_explored_only_and_mouse_aligned(self):
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
             "\n}", 1)[0]
 
@@ -6008,7 +6008,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_atlas_known_dungeon_wayfinding_only_uses_discovered_objectives(self):
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         target = atlas.split("// Map wayfinding: mark only the nearest known", 1)[1].split(
             "for (int32 Slot = 0; Slot < 30; ++Slot)", 1)[0]
         for guard in (
@@ -6035,7 +6035,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_atlas_hover_tooltips_are_discovery_safe_optional_and_clipped(self):
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         self.assertIn("AtlasPC->bShowMouseCursor && AtlasPC->GetMousePosition(AtlasPointerX, AtlasPointerY)", atlas)
         self.assertIn("FMath::IsFinite(AtlasPointerX) && FMath::IsFinite(AtlasPointerY)", atlas)
         self.assertIn("bAtlasPointerInsideMap = AtlasPointerX >= MapLeft", atlas)
@@ -6065,7 +6065,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_atlas_all_known_places_have_original_names_without_fog_leaks(self):
         import re
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         catalog = atlas.split("static const TCHAR* AtlasDungeonTitles[30] = {", 1)[1].split("};", 1)[0]
         names = re.findall(r'TEXT\("([^"]+)"\)', catalog)
         self.assertEqual(len(names), 30)
@@ -6107,7 +6107,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_atlas_projection_and_naming_hardening_handles_small_or_invalid_views(self):
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
-            "if (Hero->bOptionsOpen)", 1)[0]
+            "if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing)", 1)[0]
         click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
             "\n}", 1)[0]
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(

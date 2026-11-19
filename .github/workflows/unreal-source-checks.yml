@@ -103,6 +103,7 @@ jobs:
           python3 -m unittest -v tools.test_unreal_attack_tell_visual
           python3 -m unittest -v tools.test_unreal_attack_outcome
           python3 -m unittest -v tools.test_unreal_floating_combat_text
+          python3 -m unittest -v tools.test_unreal_hud_combat_integration
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_combat_float_layout.cpp -o /tmp/moonfall_combat_float_layout
           /tmp/moonfall_combat_float_layout
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_attack_outcome.cpp -o /tmp/moonfall_attack_outcome
@@ -113,6 +114,23 @@ jobs:
           /tmp/moonfall_elite_tactics
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_forge_forecast.cpp -o /tmp/moonfall_forge_forecast
           /tmp/moonfall_forge_forecast
+
+      - name: Verify original painted loot art and native pickup contracts
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_loot_art
+      - name: Check loot art and HUD editor integration safety
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_loot_hud_integration
+      - name: Compile and exhaustively test asset-independent loot art rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic \
+            tools/test_unreal_loot_art_rules.cpp -o /tmp/moonfall_loot_art_rules
+          /tmp/moonfall_loot_art_rules
+      - name: Validate offline loot art gallery controls
+        shell: bash
+        run: node tools/test_moonfall_loot_art_gallery.mjs
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
