@@ -130,6 +130,10 @@ private:
  FVector CachedWaypoint = FVector::ZeroVector;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ // -1 by default; authored tag selects one deterministic guardian footprint.
+ int32 ActiveGuardianFootprint = -1;
+ FVector GuardianOrigin = FVector::ZeroVector;
+ FVector GuardianTarget = FVector::ZeroVector;
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
