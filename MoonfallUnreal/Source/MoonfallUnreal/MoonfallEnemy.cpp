@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
@@ -579,8 +580,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Both signatures are avoidable by leaving the marked area before impact.
   const bool bWithinDivineMarker = bDivineSignatureActive
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
-  const bool bWithinBasicAttack = !bDivineSignatureActive
-    && bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
+  const bool bWithinGuardianFootprint = ActiveGuardianFootprint >= 0 &&
+    MoonfallGuardianFootprint::Hit(
+      static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint),
+      GuardianOrigin.X, GuardianOrigin.Y, GuardianTarget.X, GuardianTarget.Y,
+      LockedAttackDirection.X, LockedAttackDirection.Y,
+      HeroPosition.X, HeroPosition.Y, AttackRange * CurrentAttackRangeMultiplier);
+  const bool bWithinBasicAttack = !bDivineSignatureActive &&
+    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint :
+      (bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier));
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
@@ -695,6 +703,35 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
     : (CurrentAttackMultiplier > 2.f ? FColor::Purple
     : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red));
+  if (ActiveGuardianFootprint >= 0) {
+   const auto Shape = static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint);
+   const float Reach = AttackRange * CurrentAttackRangeMultiplier;
+   const FVector Origin = GuardianOrigin - FVector(0.f,0.f,55.f);
+   const FVector Target = GuardianTarget - FVector(0.f,0.f,55.f);
+   const FColor ShapeColor = Shape == MoonfallGuardianFootprint::Shape::VenomPool ? FColor::Green
+     : (Shape == MoonfallGuardianFootprint::Shape::EclipseCross ? FColor::Purple : FColor::Orange);
+   auto Circle = [&](const FVector& Center,float Radius) {
+    DrawDebugCircle(GetWorld(), Center, Radius, 32, ShapeColor, false, 0.12f, 0, 3.f,
+      FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+   };
+   if (Shape == MoonfallGuardianFootprint::Shape::MoonboundRing) {
+    Circle(Origin, Reach); Circle(Origin, Reach * 0.34f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::VenomPool) {
+    Circle(Target, Reach * 0.46f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::EmberCharge) {
+    const FVector Dir = LockedAttackDirection.GetSafeNormal2D();
+    const FVector Side(-Dir.Y,Dir.X,0.f);
+    const FVector End = Origin + Dir * (Reach*1.25f);
+    DrawDebugLine(GetWorld(), Origin + Side*Reach*0.22f, End + Side*Reach*0.22f, ShapeColor, false, 0.12f, 0, 3.f);
+    DrawDebugLine(GetWorld(), Origin - Side*Reach*0.22f, End - Side*Reach*0.22f, ShapeColor, false, 0.12f, 0, 3.f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::EclipseCross) {
+    DrawDebugLine(GetWorld(), Target + FVector(Reach,0,0), Target - FVector(Reach,0,0), ShapeColor, false, 0.12f, 0, 5.f);
+    DrawDebugLine(GetWorld(), Target + FVector(0,Reach,0), Target - FVector(0,Reach,0), ShapeColor, false, 0.12f, 0, 5.f);
+   }
+   DrawDebugString(GetWorld(), GetActorLocation()+FVector(0.f,0.f,160.f),
+      UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(Shape)), nullptr, FColor::White, 0.12f, false);
+   return;
+  }
   DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
     bBoss ? 24 : 16, TellColor, false, 0.12f, 0, bBoss ? 1.f + WarningScale : 1.f);
   // Horizontal radius marker on the ground helps distinguish the dodge zone.
@@ -1102,6 +1139,26 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     bComboSecondHitPending = true;
    }
    LockedAttackDirection = Difference.GetSafeNormal2D();
+   // Opt-in authored guardian tags. Divine Z/Nyra signatures are never replaced.
+   ActiveGuardianFootprint = -1;
+   if (bBoss && !bDivineSignatureActive && DivineBossId.IsNone()) {
+    static const FName TraitTags[4] = {
+     FName(TEXT("MoonfallGuardianMoonbound")), FName(TEXT("MoonfallGuardianEmber")),
+     FName(TEXT("MoonfallGuardianVenom")), FName(TEXT("MoonfallGuardianEclipse"))
+    };
+    for (int32 Trait = 0; Trait < 4; ++Trait) {
+     if (ActorHasTag(TraitTags[Trait])) { ActiveGuardianFootprint = Trait; break; }
+    }
+   }
+   if (ActiveGuardianFootprint >= 0) {
+    GuardianOrigin = GetActorLocation();
+    GuardianTarget = HeroPosition;
+    CurrentWindup = FMath::Max(CurrentWindup, 1.35f);
+    CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.6f);
+    CurrentAttackRangeMultiplier = FMath::Max(CurrentAttackRangeMultiplier, 2.0f);
+    bComboSecondHitPending = false;
+    BossSpecialMove = 0;
+   }
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
    if (bRegionalBoss) {
@@ -1115,12 +1172,20 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       : Pattern == 1 ? TEXT("POWER STRIKE")
       : Pattern == 2 ? TEXT("WIDE SWEEP")
       : TEXT("CRUSH ATTACK");
-    DungeonBossAttackLabel = FText::FromString(AttackLabel);
+    DungeonBossAttackLabel = FText::FromString(ActiveGuardianFootprint >= 0
+      ? UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(
+          static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint)))
+      : AttackLabel);
     DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
     // Red is dodge-only. Blue sweeps are parryable; ordinary strikes
     // preserve the existing neutral guard and parry mechanics.
     bDungeonBossAttackDodgeOnly = BossSpecialMove == 2
       || BossSpecialMove == 3 || BossSpecialMove == 5;
+   }
+   if (ActiveGuardianFootprint >= 0) {
+    OnDungeonBossAttackTelegraphed(FName(TEXT("Guardian")),
+      FName(UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(
+        static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint)))), CurrentWindup);
    }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
