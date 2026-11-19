@@ -1,6 +1,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallAttackTellVisual.h"
+#include "MoonfallAttackOutcome.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
@@ -673,6 +674,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  // Preserve the identity through the real hit/miss/defense checks below.
+  // EndNonBossTelegraph clears its active identity before Blueprint events.
+  const FName ImpactMoveId = ActiveNonBossTelegraphMove;
+  const float HeroHealthBefore = Hero->Health;
+  bool bImpactReachedAndClear = false;
+  bool bImpactParried = false;
+  bool bImpactPerfectDodged = false;
   WindupEndsAt = -1.f;
   bAdaptiveSweepCommitted = false; // The telegraph has resolved.
   BossWarningEndTime = -1.f;
@@ -723,12 +731,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
+    // A clear line of sight only counts if actual damage is valid; outcomes
+    // are published after the original defensive pipeline, not at windup.
     // Damage must be finite and positive before dodge or parry callbacks fire.
     const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);
     if (!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f) return;
+    bImpactReachedAndClear = true;
     // One actual timed dodge rewards the hero and pressures only the
     // attacking enemy. Repeated overlapping hits cannot farm posture.
     const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
+    bImpactPerfectDodged = bPerfectDodge;
     if (bPerfectDodge) {
      const float DodgePressure = FMath::IsFinite(PerfectDodgePostureDamage)
        ? FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f) : 0.f;
@@ -751,6 +763,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     const bool bParried = bDodgeOnlyStrike
       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())
       : Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation());
+    bImpactParried = bParried;
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -782,6 +795,37 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
      OnEnemyAttack();
+    }
+   }
+  }
+  // Notify the presentation layer once, AFTER the real collision and
+  // defense resolution. No extra trace, hit, XP, stamina, AI query or RNG.
+  // The committed move ID is captured before its timer event clears it.
+  if (!bBoss && !ImpactMoveId.IsNone() && !IsActorBeingDestroyed()
+      && IsValid(Hero) && FMath::IsFinite(HeroHealthBefore)
+      && FMath::IsFinite(Hero->Health)) {
+   const float HealthLost = FMath::Max(0.f, HeroHealthBefore - Hero->Health);
+   const auto Outcome = MoonfallAttackOutcome::Classify(
+     bImpactReachedAndClear, bImpactParried, bImpactPerfectDodged, HealthLost);
+   const FName OutcomeName = Outcome == MoonfallAttackOutcome::EResult::Hit
+     ? FName(TEXT("HIT")) : Outcome == MoonfallAttackOutcome::EResult::Parry
+     ? FName(TEXT("PARRY")) : Outcome == MoonfallAttackOutcome::EResult::Dodge
+     ? FName(TEXT("DODGE")) : Outcome == MoonfallAttackOutcome::EResult::Guard
+     ? FName(TEXT("GUARD")) : FName(TEXT("MISS"));
+   OnAttackImpactOutcome(ImpactMoveId, OutcomeName, HealthLost);
+   // Optional authored sound is played only for the *real* hit or parry
+   // outcome. Never fake a hit on a miss, guard or successful dodge.
+   if (!IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health > 0.f
+       && FMath::IsFinite(Now) && FMath::IsFinite(NextAttackImpactSoundAt)
+       && Now >= NextAttackImpactSoundAt && Distance <= 1000.f) {
+    USoundBase* Sound = MoonfallAttackOutcome::MayPlayHitSound(Outcome)
+      ? AttackHitSound.Get()
+      : MoonfallAttackOutcome::MayPlayParrySound(Outcome)
+        ? AttackParrySound.Get() : nullptr;
+    if (IsValid(Sound)) {
+     NextAttackImpactSoundAt = Now + 0.4f;
+     UGameplayStatics::PlaySoundAtLocation(
+       this, Sound, GetActorLocation(), 0.55f);
     }
    }
   }
