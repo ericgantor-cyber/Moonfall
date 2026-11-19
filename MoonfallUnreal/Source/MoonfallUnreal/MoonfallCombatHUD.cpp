@@ -1078,18 +1078,6 @@ void AMoonfallCombatHUD::DrawHUD()
   // Progress already lives in two persistent 30-bit masks. Find one
   // discovered, unbeaten dungeon without searching world actors or paths.
   static const TCHAR* RegionNames[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
-  int32 NextBossZone = INDEX_NONE;
-  int32 NextBossDungeon = INDEX_NONE;
-  for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone) {
-   for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
-    if (Hero->HasDiscoveredDungeon(Zone, Dungeon)
-        && !Hero->HasDefeatedDungeonBoss(Zone, Dungeon)) {
-     NextBossZone = Zone;
-     NextBossDungeon = Dungeon;
-     break;
-    }
-   }
-  }
   // Reuse the persisted resident quest ledger. Prebuild catalog FNames once,
   // then perform only 25 bounded TMap lookups, never world actor scans.
   static const TArray<FName> QuestResidentIds = []() {
@@ -1106,12 +1094,28 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const MoonfallQuestJournal::FSummary QuestSummary = MoonfallQuestJournal::Summarize(
     JournalStates, MoonfallQuestJournal::ResidentCount, FMath::Max(0, Hero->Salvage));
+  const bool bThreeQuestList = QuestSummary.TrackedCount > 0;
+  // Dungeon objectives are a fallback. Skip the thirty-mask scan and
+  // allocation-heavy string formatting while tracking accepted contracts.
+  int32 NextBossZone = INDEX_NONE;
+  int32 NextBossDungeon = INDEX_NONE;
+  if (!bThreeQuestList && !bSanctuaryObjective) {
+   for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone) {
+    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
+     if (Hero->HasDiscoveredDungeon(Zone, Dungeon)
+         && !Hero->HasDefeatedDungeonBoss(Zone, Dungeon)) {
+      NextBossZone = Zone;
+      NextBossDungeon = Dungeon;
+      break;
+     }
+    }
+   }
+  }
   FString Objective;
   FString Context;
-  // The sanctuary introduction is a fallback, not a reason to hide
-  // accepted quests. A player's three tracked contracts remain visible
-  // while visiting the sanctuary, including the Wandering Guide contract.
-  if (bSanctuaryObjective && QuestSummary.TrackedCount == 0) {
+  // Accepted contracts remain visible even inside the starting sanctuary.
+  // Render tutorial text only when no contract is tracked.
+  if (!bThreeQuestList && bSanctuaryObjective) {
    Objective = TEXT("Find the Firstlight Shrine");
    Context = TEXT("Explore the sanctuary and its northern practice area");
    if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
@@ -1139,29 +1143,10 @@ void AMoonfallCombatHUD::DrawHUD()
      Context = TEXT("Discover dungeon entrances and defeat their bosses");
     }
    }
-  } else if (QuestSummary.TrackedIndex >= 0) {
-   const int32 Tracked = QuestSummary.TrackedIndex;
-   const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Tracked];
-   const int32 Cost = MoonfallQuestJournal::Cost(Tracked);
-   const bool bReady = Hero->Salvage >= Cost;
-   // Same deterministic XP and rollover as the NPC turn-in. Keep contract
-   // reward information in the existing world tracker, not over the hero.
-   const MoonfallQuestXP::FProjection QuestXP = MoonfallQuestXP::Preview(
-     Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel);
-   const FString XPLabel = QuestXP.RewardXP > 0
-     ? FString::Printf(TEXT("+%d XP%s"), QuestXP.RewardXP,
-         QuestXP.LevelsGained > 0 ? TEXT(" LEVEL UP") : TEXT(""))
-     : FString(TEXT("MAX LEVEL"));
-   Objective = FString::Printf(bReady ? TEXT("TURN IN CONTRACT: %s")
-     : TEXT("ACTIVE CONTRACT: %s"), UTF8_TO_TCHAR(Entry.Name));
-   Context = FString::Printf(
-     TEXT("%s | %d/%d SALVAGE | %s | %d ACTIVE %d DONE"),
-     UTF8_TO_TCHAR(Entry.Location), FMath::Min(Hero->Salvage, Cost), Cost,
-     *XPLabel, QuestSummary.Active, QuestSummary.Completed);
-  } else if (Cleared >= 30) {
+  } else if (!bThreeQuestList && Cleared >= 30) {
    Objective = TEXT("All 30 dungeon bosses defeated");
    Context = TEXT("Explore remaining secrets and settlements");
-  } else if (Discovered < 30) {
+  } else if (!bThreeQuestList && Discovered < 30) {
    const int32 NextZone = Hero->GetNextUnchartedDungeonZone();
    Objective = NextZone >= 0 && NextZone < 6
      ? FString::Printf(TEXT("Explore %s: discover dungeon entrances"), RegionNames[NextZone])
@@ -1170,7 +1155,7 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FString::Printf(TEXT("Next boss: %s, Dungeon %d  |  J: atlas"),
          RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
      : TEXT("J: atlas  |  Follow the connected dungeon road");
-  } else {
+  } else if (!bThreeQuestList) {
    Objective = NextBossZone != INDEX_NONE
      ? FString::Printf(TEXT("Defeat boss: %s, Dungeon %d"),
          RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
@@ -1180,7 +1165,6 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
   const float Top = 78.f;
-  const bool bThreeQuestList = QuestSummary.TrackedCount > 0;
   // Each contract uses a separate two-line entry. Keep the original compact
   // 124px tracker when exploring or following the starting sanctuary.
   const float TrackerHeight = bThreeQuestList
