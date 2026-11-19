@@ -1,0 +1,23 @@
+name: UE5 incoming enemy attack HUD regression
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_incoming_enemy_hud.py'
+      - '.github/workflows/unreal-incoming-enemy-hud.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_incoming_enemy_hud.py'
+      - '.github/workflows/unreal-incoming-enemy-hud.yml'
+jobs:
+  source-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify warning timing, single scan and boss priority
+        run: python3 -m unittest -v tools.test_unreal_incoming_enemy_hud
