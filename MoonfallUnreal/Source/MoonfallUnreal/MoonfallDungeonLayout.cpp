@@ -330,8 +330,12 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    // a distinct movement role without spawning additional enemies.
    if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
    Enemy->FinishSpawning(SpawnTransform);
-   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
-    if (IsValid(Enemy)) Enemy->Destroy();
+   // Deferred spawning can run Blueprint initialization that kills or rejects
+   // this enemy. Never consume a bonus-pack slot for a dead/invalid actor.
+   if (!IsValid(Enemy)) continue;
+   if (Enemy->IsActorBeingDestroyed()
+       || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+    Enemy->Destroy();
     continue;
    }
    GroupActors.Add(Enemy);
@@ -686,13 +690,21 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  }
  Boss->OnDungeonBossIdentityReady(
    Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
- // Blueprint identity events are synchronous and may destroy the actor.
- // Do not consume the room trigger or announce a nonexistent boss.
+ // Blueprint identity events are synchronous and can destroy or kill the boss.
+ // Keep the final room retryable if initialization invalidates the encounter.
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
+  Boss->Destroy();
+  return false;
+ }
  OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
- // Blueprint encounter events can also reject/destroy the spawn.
- // Keep the final-chamber overlap retryable in that case.
- return IsValid(Boss) && !Boss->IsActorBeingDestroyed();
+ // Encounter callbacks can also invalidate a live boss synchronously.
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
+  Boss->Destroy();
+  return false;
+ }
+ return true;
  }
  return false; // All collision-safe spawn positions were unavailable.
 }
