@@ -62,6 +62,27 @@ void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
   AttackTellMarker->SetRelativeRotation(Rotation);
  if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
 }
+float AMoonfallEnemy::GetAttackWarningRemaining(float WorldTime) const {
+ // Bosses retain their own HUD warning clock; never infer new attacks.
+ if (bBoss || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(WorldTime) || !FMath::IsFinite(WindupEndsAt)
+     || !FMath::IsFinite(CurrentWindup) || CurrentWindup <= 0.f
+     || WindupEndsAt <= WorldTime) return 0.f;
+ const float Remaining = WindupEndsAt - WorldTime;
+ return FMath::IsFinite(Remaining) && Remaining > 0.f
+   && Remaining <= FMath::Clamp(CurrentWindup,0.1f,5.f) ? Remaining : 0.f;
+}
+float AMoonfallEnemy::GetAttackWarningDuration() const {
+ return FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+   ? FMath::Clamp(CurrentWindup,0.1f,5.f) : 0.f;
+}
+FString AMoonfallEnemy::GetAttackWarningLabel() const {
+ // These are the committed damage/range profiles, not speculative moves.
+ if (CurrentAttackMultiplier > 2.f) return TEXT("ELITE CRUSH");
+ if (CurrentAttackMultiplier > 1.5f) return TEXT("HEAVY");
+ if (CurrentAttackRangeMultiplier > 1.f) return TEXT("SWEEP");
+ return TEXT("STRIKE");
+}
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
