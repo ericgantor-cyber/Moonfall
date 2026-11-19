@@ -1,5 +1,6 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallForgeForecast.h"
+#include "MoonfallCombatFloatLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -947,7 +948,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Keep defeated enemies eligible for final-hit feedback, but only retain
   // actors that have a recent visible damage entry. Most idle world enemies
   // never enter the per-frame damage-label projection pass.
-  if (DistSq <= FMath::Square(6000.f)) {
+  if (Hero->bShowFloatingCombatText && DistSq <= FMath::Square(6000.f)
+      && NearbyDamageEnemies.Num() < MoonfallCombatFloatLayout::MaxNearbyCombatActors) {
    bool bHasRecentDamage = false;
    for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
     const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
@@ -957,7 +959,19 @@ void AMoonfallCombatHUD::DrawHUD()
      break;
     }
    }
-   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
+   bool bHasRecentOutcome = false;
+   if (!bHasRecentDamage) {
+    for (int32 Slot = 0; Slot < AMoonfallEnemy::CombatOutcomeHistorySize; ++Slot) {
+     const AMoonfallEnemy::FCombatOutcomeFloat& Event = E->CombatOutcomeHistory[Slot];
+     const float Age = WorldTime - Event.StartedAt;
+     if (FMath::IsFinite(Event.StartedAt) && FMath::IsFinite(Event.HealthLost)
+         && MoonfallCombatFloatLayout::Active(Age) && !Event.Outcome.IsNone()) {
+      bHasRecentOutcome = true;
+      break;
+     }
+    }
+   }
+   if (bHasRecentDamage || bHasRecentOutcome) NearbyDamageEnemies.Add(E);
   }
   if (E->Health <= 0.f) continue;
   // Reuse the same scan as boss/posture and damage labels. Ordinary enemies
@@ -1298,31 +1312,35 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
- // WoW F-style combat floats share the existing player's projection.
- // Incoming defense outcomes live in an eight-entry transient hero ring.
- // Existing dealt damage numbers continue floating above actual enemies.
- // Floating results are customizable via Options > Floating results, and
- // share the existing Combat text size control.
+ // All floating combat text is anchored exclusively to the attacker.
+ // No incoming combat result is ever projected above the player.
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
- if (Hero->bShowFloatingCombatText && DamageProjectionPC && FMath::IsFinite(WorldTime)) {
-  const FVector BasePosition = Hero->GetActorLocation();
-  if (!BasePosition.ContainsNaN()) {
-   for (int32 Slot = 0; Slot < AMoonfallHeroPawn::IncomingCombatFloatCapacity; ++Slot) {
-    const AMoonfallHeroPawn::FIncomingCombatFloat& Event = Hero->IncomingCombatFloats[Slot];
+ int32 VisibleOutcomeLabels = 0;
+ int32 VisibleDamageNumbers = 0;
+ if (Hero->bShowFloatingCombatText)
+ for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
+  if (VisibleDamageNumbers >= MoonfallCombatFloatLayout::MaxVisibleDealtDamage
+      && VisibleOutcomeLabels >= MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes) break;
+  if (!IsValid(Enemy)) continue;
+  // Capture position once per target; a rapid combo can draw several labels.
+  const FVector EnemyDamageLocation = Enemy->GetActorLocation();
+  // Enemy-only source labels, in fixed two-column lanes above the attacker.
+  if (DamageProjectionPC && !EnemyDamageLocation.ContainsNaN()
+      && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes) {
+   for (int32 Slot = 0; Slot < AMoonfallEnemy::CombatOutcomeHistorySize
+       && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes; ++Slot) {
+    const AMoonfallEnemy::FCombatOutcomeFloat& Event = Enemy->CombatOutcomeHistory[Slot];
     const float Age = WorldTime - Event.StartedAt;
-    if (!FMath::IsFinite(Event.StartedAt) || Age < 0.f || Age >= 1.1f
-        || Event.Outcome.IsNone() || !FMath::IsFinite(Event.HealthLost)) continue;
+    if (!FMath::IsFinite(Event.StartedAt) || !FMath::IsFinite(Event.HealthLost)
+        || !MoonfallCombatFloatLayout::Active(Age) || Event.Outcome.IsNone()) continue;
     const bool bHit = Event.Outcome == FName(TEXT("HIT"));
     const bool bParry = Event.Outcome == FName(TEXT("PARRY"));
     const bool bDodge = Event.Outcome == FName(TEXT("DODGE"));
     const bool bGuard = Event.Outcome == FName(TEXT("GUARD"));
-    // Labels make the meaning clear without relying on the color palette.
     const FString ResultText = bHit
-      ? FString::Printf(TEXT("HIT -%.0f"), Event.HealthLost)
-      : bParry ? TEXT("PARRY!")
-      : bDodge ? TEXT("DODGE!")
+      ? FString::Printf(TEXT("HIT YOU -%.0f"), Event.HealthLost)
+      : bParry ? TEXT("PARRY!") : bDodge ? TEXT("DODGE!")
       : bGuard ? TEXT("BLOCKED!") : TEXT("MISS!");
-    // Three palettes keep meaning in the text itself, never color alone.
     const FLinearColor Hue = Hero->CombatTextPalette == 2
       ? FLinearColor::White
       : Hero->CombatTextPalette == 1
@@ -1336,31 +1354,25 @@ void AMoonfallCombatHUD::DrawHUD()
            : bDodge ? FLinearColor(0.63f,0.76f,1.f)
            : bGuard ? FLinearColor(1.f,0.83f,0.43f)
            : FLinearColor(0.90f,0.90f,0.94f));
-    const float Alpha = FMath::Clamp(1.f - Age / 1.1f, 0.f, 1.f);
-    const float Rise = Hero->bReduceMotion ? 0.f : Age * 68.f;
+    const float Alpha = MoonfallCombatFloatLayout::Opacity(Age);
+    const float Rise = MoonfallCombatFloatLayout::Rise(Age, Hero->bReduceMotion);
+    const FVector WorldTextPosition = EnemyDamageLocation + FVector(0.f,0.f,245.f+Rise);
     FVector2D Screen;
-    if (!DamageProjectionPC->ProjectWorldLocationToScreen(
-          BasePosition + FVector(0.f, 0.f, 185.f + Rise), Screen)) continue;
-    const float OffsetX = static_cast<float>(Slot % 4) * 38.f - 57.f;
-    const float OffsetY = static_cast<float>(Slot / 4) * 24.f;
-    const float X = Screen.X + OffsetX - 55.f, Y = Screen.Y - 25.f - OffsetY;
+    if (!DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition,Screen)) continue;
+    const float Scale = FMath::Clamp(Hero->CombatTextScale,0.75f,2.f);
+    const float BadgeWidth = 175.f*Scale, BadgeHeight = 26.f*Scale;
+    const float X = Screen.X + MoonfallCombatFloatLayout::LaneX(Slot)*Scale;
+    const float Y = Screen.Y - 26.f*Scale - MoonfallCombatFloatLayout::LaneY(Slot)*Scale;
     if (!FMath::IsFinite(X) || !FMath::IsFinite(Y)
-        || X < 10.f || X + 128.f >= Canvas->SizeX
-        || Y < 12.f || Y + 30.f >= Canvas->SizeY) continue;
-    DrawRect(FLinearColor(0.f,0.f,0.f,0.46f*Alpha),X-5.f,Y-3.f,125.f,26.f);
-    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),X,Y,nullptr,
-      (bHit ? 1.13f : 1.02f) * FMath::Clamp(Hero->CombatTextScale,0.75f,2.f));
+        || X < 8.f || X+BadgeWidth >= Canvas->SizeX-8.f
+        || Y < 8.f || Y+BadgeHeight >= Canvas->SizeY-8.f) continue;
+    DrawRect(FLinearColor(0.f,0.f,0.f,0.50f*Alpha),X-3.f,Y-3.f,BadgeWidth,BadgeHeight);
+    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),X,Y,nullptr,0.9f*Scale);
+    ++VisibleOutcomeLabels;
    }
   }
- }
- int32 VisibleDamageNumbers = 0;
- if (Hero->bShowFloatingCombatText)
- for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
-  if (VisibleDamageNumbers >= 32) break;
-  if (!IsValid(Enemy)) continue;
-  // Capture position once per target; a rapid combo can draw several labels.
-  const FVector EnemyDamageLocation = Enemy->GetActorLocation();
-  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
+  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize
+       && VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
    const float Age = WorldTime - Hit.Time;
    if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
