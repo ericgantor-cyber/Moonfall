@@ -10,6 +10,11 @@ class WorldQuestJournal(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.hud = (SRC / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        cls.hud_header = (SRC / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        cls.hero_header = (SRC / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        cls.input_config = (
+            ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini"
+        ).read_text(encoding="utf-8")
         cls.hero = (SRC / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         cls.arena = (SRC / "MoonfallArena.cpp").read_text(encoding="utf-8")
         cls.catalog = (SRC / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
@@ -150,6 +155,57 @@ class WorldQuestJournal(unittest.TestCase):
                     if height >= 720:
                         self.assertEqual(visible, requested)
         self.assertNotIn("bThreeQuestList", section)
+
+    def test_compact_pages_show_every_tracked_quest_without_new_saves(self):
+        section = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        self.assertIn("int32 QuestTrackerPageStart = 0;", self.hud_header)
+        self.assertIn("int32 QuestTrackerPageSize = 0;", self.hud_header)
+        self.assertIn("int32 QuestTrackerTotal = 0;", self.hud_header)
+        self.assertNotIn("QuestTrackerPageStart", self.hero_header)
+        self.assertIn("void AMoonfallCombatHUD::CycleQuestTrackerPage()", self.hud)
+        self.assertIn("MoonfallQuestLayout::NextPageStart(", self.hud)
+        self.assertIn("MoonfallQuestLayout::NormalizePageStart(", section)
+        self.assertIn("QuestTrackerPageStart", section)
+        self.assertIn("QuestTrackerPageSize = AvailableLayout.VisibleRows", section)
+        self.assertIn("QuestTrackerTotal = VisibleQuestCount", section)
+        self.assertIn("RegionalStart + GoalRow", section)
+        self.assertIn("ResidentStart + Row", section)
+        self.assertIn("QuestTrackerPageStart + Row + 1", section)
+        self.assertIn("%d-%d/%d MMB NEXT", section)
+        self.assertIn("const int32 VisibleQuestRows = QuestLayout.VisibleRows", section)
+        self.assertIn("const int32 ViewHeight = FMath::FloorToInt(Canvas->SizeY)", section)
+        self.assertIn("const int32 ViewWidth = FMath::FloorToInt(Canvas->SizeX)", section)
+        for term in ("QuestTrackerPageStart = 0", "QuestTrackerPageSize = 0",
+                     "QuestTrackerTotal = 0", "NextPageStart(", "NormalizePageStart("):
+            self.assertIn(term, self.layout if term.endswith("(") else self.hud_header)
+        self.assertIn('ActionMappings=(ActionName="QuestPage",Key=MiddleMouseButton)',
+                      self.input_config)
+        self.assertIn('ActionMappings=(ActionName="Dodge",Key=Q)', self.input_config)
+        self.assertIn('ActionMappings=(ActionName="ZoomIn",Key=MouseScrollUp)',
+                      self.input_config)
+        self.assertIn('ActionMappings=(ActionName="ZoomOut",Key=MouseScrollDown)',
+                      self.input_config)
+        self.assertIn('BindAction(TEXT("QuestPage"), IE_Pressed,', self.hero)
+        self.assertIn("PC->GetHUD()", self.hero)
+        self.assertIn("HUD->CycleQuestTrackerPage()", self.hero)
+        self.assertNotIn("QuestTrackerPageStart", self.hero_header)
+        # Page ranges are disjoint. Shrinking the viewport never discards
+        # logical quests and partial final pages remain accessible.
+        for total in range(1, 8):
+            for capacity in range(1, 8):
+                page_start = 0
+                seen = []
+                for _ in range(7):
+                    count = min(capacity, total - page_start)
+                    seen.extend(range(page_start, page_start + count))
+                    next_start = (page_start + capacity
+                                  if capacity < total and page_start + capacity < total
+                                  else 0)
+                    page_start = next_start
+                    if page_start == 0:
+                        break
+                self.assertEqual(seen, list(range(total)))
 
     def test_npc_dialogue_matches_world_quest_title(self):
         panel = self.hud.split("// Native Canvas resident menu.", 1)[1].split(
