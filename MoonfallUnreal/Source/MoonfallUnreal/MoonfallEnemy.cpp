@@ -24,6 +24,15 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.TickInterval = 0.1f;
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+void AMoonfallEnemy::EndNonBossTelegraph(bool bResolved) {
+ // Clear BEFORE the Blueprint event. Nested interruption/defeat callbacks
+ // cannot report the same attack twice or leave a ghost cue behind.
+ const FName FinishedMove = ActiveNonBossTelegraphMove;
+ if (FinishedMove.IsNone()) return;
+ ActiveNonBossTelegraphMove = NAME_None;
+ if (bResolved) OnAttackTelegraphResolved(FinishedMove);
+ else OnAttackTelegraphInterrupted(FinishedMove);
+}
 float AMoonfallEnemy::GetAttackWarningRemaining(float WorldTime) const {
  // Read-only information for the single existing HUD enemy scan.
  // Bosses have their own more detailed, authoritative warning clock.
@@ -137,6 +146,7 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
     + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
  WindupEndsAt = -1.f;
+ EndNonBossTelegraph(false);
  BossWarningEndTime = -1.f;
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
@@ -222,6 +232,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    AdaptiveSweepReadyUntil = -1.f;
    bAdaptiveSweepCommitted = false;
    WindupEndsAt = -1.f;
+   EndNonBossTelegraph(false);
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
    CachedWaypoint = FVector::ZeroVector;
@@ -284,6 +295,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // animations. Never leave a danger marker active on a defeated god.
    CancelDivineSignature();
    WindupEndsAt = -1.f;
+   EndNonBossTelegraph(false);
    AdaptiveSweepReadyUntil = -1.f;
    bAdaptiveSweepCommitted = false;
    BossWarningEndTime = -1.f;
@@ -412,6 +424,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   AdaptiveSweepReadyUntil = -1.f;
   bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -426,6 +439,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   AdaptiveSweepReadyUntil = -1.f;
   bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -480,6 +494,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   CancelDivineSignature();
   bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -501,6 +516,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   AdaptiveSweepReadyUntil = -1.f;
   bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -584,6 +600,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   CancelDivineSignature();
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;
@@ -607,6 +624,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   WindupEndsAt = -1.f;
   bAdaptiveSweepCommitted = false; // The telegraph has resolved.
   BossWarningEndTime = -1.f;
+  EndNonBossTelegraph(true); // Timed impact, not a promise of damage.
+  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   // Preserve longer stagger recovery and cap invalid cooldown tuning.
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
@@ -1198,7 +1217,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Call once, after the authoritative timer and attack parameters are
     // committed. Blueprints can attach a windup montage / character voice.
     // Without authored assets the source path remains silent and functional.
-    OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);
+    ActiveNonBossTelegraphMove = FName(*GetAttackWarningLabel());
+    OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);
+    // A synchronous Blueprint callback may stop or kill the attack.
+    // Publish exactly one interruption even when the callback does not use
+    // native cancel helpers, before considering optional warning audio.
+    if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+        || !FMath::IsFinite(WindupEndsAt) || WindupEndsAt <= Now) {
+     WindupEndsAt = -1.f;
+     bAdaptiveSweepCommitted = false;
+     EndNonBossTelegraph(false);
+    }
     // Blueprint events run synchronously and can interrupt, kill, or destroy
     // the enemy. Never play a ghost tell after a canceled windup. Throttle
     // each optional sound independently of real attacks and HUD warnings.
