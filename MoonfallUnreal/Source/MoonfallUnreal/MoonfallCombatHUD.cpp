@@ -1141,11 +1141,20 @@ void AMoonfallCombatHUD::DrawHUD()
    const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Tracked];
    const int32 Cost = MoonfallQuestJournal::Cost(Tracked);
    const bool bReady = Hero->Salvage >= Cost;
+   // Same deterministic XP and rollover as the NPC turn-in. Keep contract
+   // reward information in the existing world tracker, not over the hero.
+   const MoonfallQuestXP::FProjection QuestXP = MoonfallQuestXP::Preview(
+     Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel);
+   const FString XPLabel = QuestXP.RewardXP > 0
+     ? FString::Printf(TEXT("+%d XP%s"), QuestXP.RewardXP,
+         QuestXP.LevelsGained > 0 ? TEXT(" LEVEL UP") : TEXT(""))
+     : FString(TEXT("MAX LEVEL"));
    Objective = FString::Printf(bReady ? TEXT("TURN IN CONTRACT: %s")
      : TEXT("ACTIVE CONTRACT: %s"), UTF8_TO_TCHAR(Entry.Name));
-   Context = FString::Printf(TEXT("%s | SALVAGE %d/%d | %d ACTIVE | %d DONE"),
+   Context = FString::Printf(
+     TEXT("%s | %d/%d SALVAGE | %s | %d ACTIVE %d DONE"),
      UTF8_TO_TCHAR(Entry.Location), FMath::Min(Hero->Salvage, Cost), Cost,
-     QuestSummary.Active, QuestSummary.Completed);
+     *XPLabel, QuestSummary.Active, QuestSummary.Completed);
   } else if (Cleared >= 30) {
    Objective = TEXT("All 30 dungeon bosses defeated");
    Context = TEXT("Explore remaining secrets and settlements");
@@ -1170,8 +1179,16 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = 78.f;
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
     Left, Top, Width, 124.f);
-  DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
-    Left, Top, 4.f, 124.f);
+  // Visual priority without blinking: green means ready to turn in,
+  // amber means gathering salvage, cyan remains the exploration color.
+  const bool bTrackingContract = !bSanctuaryObjective && QuestSummary.TrackedIndex >= 0;
+  const bool bReadyToTurnIn = bTrackingContract
+    && Hero->Salvage >= MoonfallQuestJournal::Cost(QuestSummary.TrackedIndex);
+  const FLinearColor TrackerAccent = bReadyToTurnIn
+    ? FLinearColor(0.26f, 0.83f, 0.51f, 0.95f)
+    : bTrackingContract ? FLinearColor(0.96f, 0.68f, 0.29f, 0.95f)
+    : FLinearColor(0.30f, 0.72f, 0.92f, 0.95f);
+  DrawRect(TrackerAccent, Left, Top, 4.f, 124.f);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : QuestSummary.TrackedIndex >= 0
