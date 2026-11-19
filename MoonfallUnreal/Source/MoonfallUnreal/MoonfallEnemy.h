@@ -85,6 +85,18 @@ public:
  void OnAttackTelegraphResolved(FName MoveId);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
  void OnAttackTelegraphInterrupted(FName MoveId);
+ // Called once after the real collision/defense resolution. Unlike the
+ // timer-only Resolved event, this describes what actually happened.
+ // Outcome is HIT, PARRY, DODGE, GUARD or MISS; HP loss is measured.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackImpactOutcome(FName MoveId, FName Outcome, float HealthLost);
+ // Optional event-specific sounds, deliberately unassigned until authored.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> AttackHitSound = nullptr;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> AttackParrySound = nullptr;
+ // Independent impact-audio limiter to protect crowded encounters.
+ float NextAttackImpactSoundAt = 0.f;
  // Optional audio asset. Unassigned by default; elite-only once at commitment.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
  TObjectPtr<USoundBase> EliteAttackTellSound = nullptr;
