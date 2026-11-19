@@ -105,6 +105,7 @@ jobs:
           python3 -m unittest -v tools.test_unreal_floating_combat_text
           python3 -m unittest -v tools.test_unreal_hud_combat_integration
           python3 -m unittest -v tools.test_unreal_regional_waystations
+          python3 -m unittest -v tools.test_unreal_dungeon_retry_safety
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_combat_float_layout.cpp -o /tmp/moonfall_combat_float_layout
           /tmp/moonfall_combat_float_layout
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_attack_outcome.cpp -o /tmp/moonfall_attack_outcome
