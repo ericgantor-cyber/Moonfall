@@ -34,71 +34,70 @@ constexpr bool CheckStableOrder() {
 static_assert(CheckStableOrder(), "Equal priority retains stable catalog order.");
 
 
-constexpr bool CheckThreeQuestSlots() {
+constexpr bool CheckSevenQuestSlots() {
  int State[ResidentCount]{};
- State[1] = 1; // Ready at 10.
- State[2] = 1; // Needs 15.
- State[3] = 1; // Needs 20.
- State[4] = 1; // Needs 25.
- State[5] = 1; // Ready at 10.
+ for (const int I : {1, 2, 3, 4, 5, 7, 8, 9, 10}) State[I] = 1;
  State[6] = 2; // Completed, never occupies a slot.
  const auto S = Summarize(State, ResidentCount, 10);
- return S.Active == 5 && S.Completed == 1 && S.Ready == 2
+ return S.Active == 9 && S.Completed == 1 && S.Ready == 3
    && S.TrackedCount == MaxTracked && S.TrackedIndex == 1
    && S.TrackedIndices[0] == 1 && S.TrackedIndices[1] == 5
-   && S.TrackedIndices[2] == 2;
+   && S.TrackedIndices[2] == 9 && S.TrackedIndices[3] == 2
+   && S.TrackedIndices[4] == 3 && S.TrackedIndices[5] == 4
+   && S.TrackedIndices[6] == 7;
 }
-static_assert(MaxTracked == 3, "Exactly three quest slots visible.");
-static_assert(CheckThreeQuestSlots(), "Ready quests must fill three slots first.");
+static_assert(MaxTracked == 7, "Exactly seven quest slots supported.");
+static_assert(CheckSevenQuestSlots(), "Ready quests must fill seven slots first.");
 constexpr bool CheckNoActiveSlots() {
  int State[ResidentCount]{};
  State[0] = 2;
  const auto S = Summarize(State, ResidentCount, 100);
- return S.Active == 0 && S.Completed == 1 && S.TrackedCount == 0
-   && S.TrackedIndex == -1
-   && S.TrackedIndices[0] == -1 && S.TrackedIndices[1] == -1
-   && S.TrackedIndices[2] == -1;
+ if (S.Active != 0 || S.Completed != 1 || S.TrackedCount != 0
+     || S.TrackedIndex != -1) return false;
+ for (int I = 0; I < MaxTracked; ++I)
+  if (S.TrackedIndices[I] != -1) return false;
+ return true;
 }
 static_assert(CheckNoActiveSlots(), "Completed quests must not occupy slots.");
 
-// Pure compile-time viewport policy. Every row must retain distinct title,
-// resident, reward and progress lines, with three slots clearing the HP orb.
+// Native-free layout tests: track seven; show the full seven at 720p+,
+// and a safe subset at 420p/480p without overlapping the lower-left orb.
 namespace QuestLayout = MoonfallQuestLayout;
-static_assert(QuestLayout::Compute(420, 3).Top == 18);
-static_assert(QuestLayout::Compute(420, 3).PanelHeight == 265);
-static_assert(QuestLayout::Compute(420, 3).RowStride == 60);
-static_assert(QuestLayout::Compute(420, 3).RowHeight == 56);
-static_assert(QuestLayout::Compute(420, 3).ProgressOffset == 52);
-static_assert(QuestLayout::Compute(480, 3).RowStride == 60);
-static_assert(QuestLayout::Compute(519, 3).RowStride == 60);
-static_assert(QuestLayout::Compute(520, 3).Top == 78);
-static_assert(QuestLayout::Compute(520, 3).PanelHeight == 295);
-static_assert(QuestLayout::Compute(520, 3).RowStride == 70);
-static_assert(QuestLayout::Compute(520, 3).RowHeight == 66);
-static_assert(QuestLayout::Compute(520, 3).ProgressOffset == 62);
-static_assert(QuestLayout::Compute(720, 3).RowStride == 70);
+static_assert(QuestLayout::MaxRows == MaxTracked);
+static_assert(QuestLayout::Compute(420, 7, 600).Top == 18);
+static_assert(QuestLayout::Compute(420, 7, 600).VisibleRows == 3);
+static_assert(QuestLayout::Compute(420, 7, 600).PanelHeight == 265);
+static_assert(QuestLayout::Compute(480, 7, 640).VisibleRows == 4);
+static_assert(QuestLayout::Compute(520, 7, 760).VisibleRows == 4);
+static_assert(QuestLayout::Compute(720, 7, 1280).VisibleRows == 7);
+static_assert(QuestLayout::Compute(720, 7, 1280).Top == 18);
+static_assert(QuestLayout::Compute(720, 7, 1280).PanelHeight == 505);
+static_assert(QuestLayout::Compute(1080, 7, 1920).Top == 78);
+static_assert(QuestLayout::Compute(1080, 7, 1920).PanelHeight == 575);
+static_assert(QuestLayout::Compute(1080, 7, 1920).RowStride == 70);
 static_assert(QuestLayout::Compute(420, 0).PanelHeight == 124);
 static_assert(QuestLayout::Compute(720, 0).PanelHeight == 124);
-static_assert(QuestLayout::Compute(720, 7).PanelHeight == 295);
-static_assert(QuestLayout::Compute(420, -2).PanelHeight == 124);
-static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(420, 3)));
-static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(520, 3)));
-static_assert(QuestLayout::ClearsHealthOrb(600, 420, 3));
-static_assert(QuestLayout::ClearsHealthOrb(640, 480, 3));
-static_assert(QuestLayout::ClearsHealthOrb(760, 520, 3));
-static_assert(QuestLayout::ClearsHealthOrb(1280, 720, 3));
-static_assert(QuestLayout::ClearsHealthOrb(1920, 1080, 3));
-static_assert(QuestLayout::ClearsHealthOrb(3840, 2160, 3));
+static_assert(QuestLayout::Compute(420, -2).VisibleRows == 0);
+static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(420, 7, 600)));
+static_assert(QuestLayout::ValidRowSpacing(QuestLayout::Compute(1080, 7, 1920)));
+static_assert(QuestLayout::ClearsHealthOrb(600, 420, 7));
+static_assert(QuestLayout::ClearsHealthOrb(640, 480, 7));
+static_assert(QuestLayout::ClearsHealthOrb(760, 520, 7));
+static_assert(QuestLayout::ClearsHealthOrb(1280, 720, 7));
+static_assert(QuestLayout::ClearsHealthOrb(1920, 1080, 7));
+static_assert(QuestLayout::ClearsHealthOrb(3840, 2160, 7));
 
 int main() {
  for (int width : {600, 640, 760, 1280, 1920, 3840}) {
   for (int height : {420, 480, 519, 520, 720, 1080, 2160}) {
    for (int rows=1; rows<=QuestLayout::MaxRows; ++rows) {
-    const auto metrics=QuestLayout::Compute(height, rows);
+    const auto metrics=QuestLayout::Compute(height, rows, width);
     assert(QuestLayout::ValidRowSpacing(metrics));
     assert(QuestLayout::ClearsHealthOrb(width, height, rows));
+    assert(metrics.VisibleRows>=0 && metrics.VisibleRows<=rows);
+    if (height>=720) assert(metrics.VisibleRows==rows);
     assert(metrics.RowHeight+4==metrics.RowStride);
-    assert(metrics.PanelHeight==85+metrics.RowStride*rows);
+    assert(metrics.PanelHeight==85+metrics.RowStride*metrics.VisibleRows);
    }
   }
  }
@@ -106,7 +105,7 @@ int main() {
   const auto& Resident = Residents[I];
   assert(Resident.Id && *Resident.Id && Resident.Name && *Resident.Name);
   assert(Resident.QuestTitle && *Resident.QuestTitle);
-  // Title length stays bounded for the compact three-row Canvas HUD.
+  // Title length stays bounded for the compact seven-slot Canvas HUD.
   assert(std::strlen(Resident.QuestTitle) <= 26);
   assert(Resident.Location && *Resident.Location);
   assert(Resident.Race >= 0 && Resident.Race <= 11);
@@ -124,7 +123,7 @@ int main() {
    auto result=Summarize(States,ResidentCount,salvage);
    assert(result.Active==1 && result.TrackedIndex==tracked);
    assert(result.TrackedCount==1 && result.TrackedIndices[0]==tracked);
-   assert(result.TrackedIndices[1]==-1 && result.TrackedIndices[2]==-1);
+   for(int Slot=1; Slot<MaxTracked; ++Slot) assert(result.TrackedIndices[Slot]==-1);
    assert(result.Ready==(salvage>=Cost(tracked) ? 1 : 0));
    States[tracked]=2;
    result=Summarize(States,ResidentCount,salvage);
