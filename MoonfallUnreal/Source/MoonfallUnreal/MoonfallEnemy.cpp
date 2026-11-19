@@ -1,10 +1,14 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallEliteTactics.h"
+#include "MoonfallAttackTellVisual.h"
+#include "MoonfallAttackOutcome.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
@@ -18,10 +22,109 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  // One non-colliding static-mesh cue, hidden except during real windups.
+  // The Body remains the authoritative collision root and is never replaced.
+  AttackTellMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AttackTellMarker"));
+  AttackTellMarker->SetupAttachment(Body);
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> TellCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  if (TellCube.Succeeded()) AttackTellMarker->SetStaticMesh(TellCube.Object);
+  AttackTellMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  AttackTellMarker->SetCollisionResponseToAllChannels(ECR_Ignore);
+  AttackTellMarker->SetGenerateOverlapEvents(false);
+  AttackTellMarker->SetCastShadow(false);
+  AttackTellMarker->SetVisibility(false);
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+void AMoonfallEnemy::RecordCombatOutcomeFloat(FName Outcome, float HealthLost, float WorldTime) {
+ // Source-only feedback: accept exactly the five resolved outcomes.
+ // No hero actor, damage, health, RNG, allocation, tick or save modification.
+ if (!FMath::IsFinite(WorldTime) || !FMath::IsFinite(HealthLost)
+     || HealthLost < 0.f || IsActorBeingDestroyed()) return;
+ if (Outcome != FName(TEXT("HIT")) && Outcome != FName(TEXT("PARRY"))
+     && Outcome != FName(TEXT("DODGE")) && Outcome != FName(TEXT("GUARD"))
+     && Outcome != FName(TEXT("MISS"))) return;
+ FCombatOutcomeFloat& Entry = CombatOutcomeHistory[NextCombatOutcomeSlot];
+ Entry.Outcome = Outcome;
+ Entry.HealthLost = FMath::Clamp(HealthLost, 0.f, 100000.f);
+ Entry.StartedAt = WorldTime;
+ NextCombatOutcomeSlot = (NextCombatOutcomeSlot + 1) % CombatOutcomeHistorySize;
+}
+
+void AMoonfallEnemy::EndNonBossTelegraph(bool bResolved) {
+ // Clear BEFORE the Blueprint event. Nested interruption/defeat callbacks
+ // cannot report the same attack twice or leave a ghost cue behind.
+ const FName FinishedMove = ActiveNonBossTelegraphMove;
+ if (FinishedMove.IsNone()) return;
+ ActiveNonBossTelegraphMove = NAME_None;
+ // Hide the render-only cue before notifying a nested Blueprint callback.
+ if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+  AttackTellMarker->SetVisibility(false);
+ if (bResolved) OnAttackTelegraphResolved(FinishedMove);
+ else OnAttackTelegraphInterrupted(FinishedMove);
+}
+void AMoonfallEnemy::UpdateAttackTellMarker(float Now, bool bReducedMotion) {
+ if (!IsValid(AttackTellMarker)) return;
+ const bool bLiveTelegraph = bEnableProceduralAttackTell && !bBoss
+   && !ActiveNonBossTelegraphMove.IsNone() && FMath::IsFinite(Health)
+   && Health > 0.f && FMath::IsFinite(Now)
+   && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+   && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+   && FMath::IsFinite(CurrentAttackMultiplier)
+   && FMath::IsFinite(CurrentAttackRangeMultiplier);
+ if (!bLiveTelegraph) {
+  if (AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
+ const auto Kind = MoonfallAttackTellVisual::Select(bAdaptiveSweepCommitted,
+   CurrentAttackMultiplier, CurrentAttackRangeMultiplier);
+ const auto Profile = MoonfallAttackTellVisual::Profile(Kind);
+ const float Remaining = WindupEndsAt - Now;
+ const float Progress = MoonfallAttackTellVisual::Progress(
+   Remaining, CurrentWindup, bReducedMotion);
+ const float Growth = MoonfallAttackTellVisual::Growth(Progress);
+ // Stable silhouette is available even when Reduced Motion is enabled.
+ // Only the visible child is transformed, never the collision root, actor
+ // velocity, hit arc, target direction, animation clock or damage rules.
+ const FVector Scale(Profile.Width * Growth,
+   Profile.Depth * Growth, Profile.Height * Growth);
+ const FVector Location(0.f, 0.f, 107.f + (bReducedMotion ? 0.f : 14.f * Progress));
+ const FRotator Rotation(0.f, bReducedMotion ? 0.f : Profile.YawDegrees * Progress, 0.f);
+ if (!AttackTellMarker->GetRelativeScale3D().Equals(Scale, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeScale3D(Scale);
+ if (!AttackTellMarker->GetRelativeLocation().Equals(Location, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeLocation(Location);
+ if (!AttackTellMarker->GetRelativeRotation().Equals(Rotation, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeRotation(Rotation);
+ if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
+}
+float AMoonfallEnemy::GetAttackWarningRemaining(float WorldTime) const {
+ // Read-only information for the single existing HUD enemy scan.
+ // Bosses have their own more detailed, authoritative warning clock.
+ if (bBoss || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(WorldTime) || !FMath::IsFinite(WindupEndsAt)
+     || !FMath::IsFinite(CurrentWindup) || CurrentWindup <= 0.f
+     || WindupEndsAt <= WorldTime) return 0.f;
+ const float Remaining = WindupEndsAt - WorldTime;
+ return FMath::IsFinite(Remaining) && Remaining > 0.f
+     && Remaining <= FMath::Clamp(CurrentWindup,0.1f,5.f)
+   ? Remaining : 0.f;
+}
+float AMoonfallEnemy::GetAttackWarningDuration() const {
+ return FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+   ? FMath::Clamp(CurrentWindup,0.1f,5.f) : 0.f;
+}
+FString AMoonfallEnemy::GetAttackWarningLabel() const {
+ // All non-boss attacks remain blockable/parryable, including counter-sweep.
+ if (bAdaptiveSweepCommitted && bElite && !bBoss) return TEXT("COUNTER SWEEP");
+ // The entire non-boss damage pipeline remains blockable and parryable.
+ // These labels describe the actual committed attack shape, not a new move.
+ if (CurrentAttackMultiplier > 2.f) return TEXT("ELITE CRUSH");
+ if (CurrentAttackMultiplier > 1.5f) return TEXT("HEAVY");
+ if (CurrentAttackRangeMultiplier > 1.f) return TEXT("SWEEP");
+ return TEXT("STRIKE");
+}
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
@@ -88,6 +191,10 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  Posture = 0.f;
  const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
  PostureBrokenUntil = Now + VulnerabilitySeconds;
+ // Breaking posture cancels both the visible counter and any queued
+ // adaptation, so recovering enemies cannot fire an inherited sweep.
+ AdaptiveSweepReadyUntil = -1.f;
+ bAdaptiveSweepCommitted = false;
  CancelDivineSignature();
  bPostureFinisherAvailable = true;
  PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
@@ -105,6 +212,7 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
     + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
  WindupEndsAt = -1.f;
+ EndNonBossTelegraph(false);
  BossWarningEndTime = -1.f;
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
@@ -187,7 +295,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    NextTacticalRetreatAt = Now + 8.f;
    bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
+   AdaptiveSweepReadyUntil = -1.f;
+   bAdaptiveSweepCommitted = false;
    WindupEndsAt = -1.f;
+   EndNonBossTelegraph(false);
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
    CachedWaypoint = FVector::ZeroVector;
@@ -250,6 +361,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // animations. Never leave a danger marker active on a defeated god.
    CancelDivineSignature();
    WindupEndsAt = -1.f;
+   EndNonBossTelegraph(false);
+   AdaptiveSweepReadyUntil = -1.f;
+   bAdaptiveSweepCommitted = false;
    BossWarningEndTime = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
@@ -371,7 +485,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
+  // Menus, death and possession changes invalidate both enemy warnings and
+  // response memory. A paused menu never queues a surprise counter strike.
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -383,7 +502,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Cancel the full chain without dealing damage, then apply a brief recovery.
  if (!FMath::IsFinite(WindupEndsAt)) {
   CancelDivineSignature();
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -425,6 +547,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
    Body->SetRelativeScale3D(DesiredScale);
  }
+ // Reuse this existing 0.1-second AI update; no extra render tick or timers.
+ UpdateAttackTellMarker(Now, IsValid(Hero) && Hero->bReduceMotion);
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
   WindupEndsAt = -1.f;
@@ -436,7 +560,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
   CancelDivineSignature();
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -455,7 +581,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Only deliberate close-range approaches activate their forgiving attacks.
  const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
  if (bSanctuaryPractice && Distance > 450.f) {
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -525,6 +654,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
  };
  if (!bInCombatArea) {
+  // Leaving combat clears any pending parry adaptation; the hero must earn
+  // another one after re-engaging rather than inherit an offscreen counter.
+  AdaptiveSweepReadyUntil = -1.f;
+  bAdaptiveSweepCommitted = false;
   // Drop stale aggro once out of range; otherwise guards can stay stranded.
   if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
    LastSawHeroAt = -100.f;
@@ -535,6 +668,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   CancelDivineSignature();
   WindupEndsAt = -1.f;
+  EndNonBossTelegraph(false);
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;
@@ -555,8 +689,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  // Preserve the identity through the real hit/miss/defense checks below.
+  // EndNonBossTelegraph clears its active identity before Blueprint events.
+  const FName ImpactMoveId = ActiveNonBossTelegraphMove;
+  const float HeroHealthBefore = Hero->Health;
+  bool bImpactReachedAndClear = false;
+  bool bImpactParried = false;
+  bool bImpactPerfectDodged = false;
   WindupEndsAt = -1.f;
+  bAdaptiveSweepCommitted = false; // The telegraph has resolved.
   BossWarningEndTime = -1.f;
+  EndNonBossTelegraph(true); // Timed impact, not a promise of damage.
+  // Blueprint's synchronous callback may destroy/unpossess the target.
+  // Do not dereference a stale hero while calculating the actual outcome.
+  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+      || !IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   // Preserve longer stagger recovery and cap invalid cooldown tuning.
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
@@ -602,12 +749,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
+    // A clear line of sight only counts if actual damage is valid; outcomes
+    // are published after the original defensive pipeline, not at windup.
     // Damage must be finite and positive before dodge or parry callbacks fire.
     const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);
     if (!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f) return;
+    bImpactReachedAndClear = true;
     // One actual timed dodge rewards the hero and pressures only the
     // attacking enemy. Repeated overlapping hits cannot farm posture.
     const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
+    bImpactPerfectDodged = bPerfectDodge;
     if (bPerfectDodge) {
      const float DodgePressure = FMath::IsFinite(PerfectDodgePostureDamage)
        ? FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f) : 0.f;
@@ -630,6 +781,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     const bool bParried = bDodgeOnlyStrike
       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())
       : Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation());
+    bImpactParried = bParried;
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -637,6 +789,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
      ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
+     // A parried elite remembers ONE successful counter opportunity for
+     // four seconds. Its response reuses the ordinary sweep damage and
+     // attack slot, with a longer readable tell. No bonus hit or path query.
+     const bool bCanArmAdaptation = MoonfallEliteTactics::CanArm(
+       bElite, bBoss, bSanctuaryPractice, Health > 0.f,
+       Now < PostureBrokenUntil, Now >= NextAdaptiveSweepAllowedAt);
+     if (bCanArmAdaptation) {
+      AdaptiveSweepReadyUntil = Now + MoonfallEliteTactics::ParryMemorySeconds;
+      NextAdaptiveSweepAllowedAt =
+        Now + MoonfallEliteTactics::ParryResponseCooldownSeconds;
+     }
      // Temporary visualization for editor/development builds until a Blueprint
      // implementation provides the finished impact animation and VFX.
 #if ENABLE_DRAW_DEBUG
@@ -650,6 +813,42 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
      OnEnemyAttack();
+    }
+   }
+  }
+  // Notify the presentation layer once, AFTER the real collision and
+  // defense resolution. No extra trace, hit, XP, stamina, AI query or RNG.
+  // The committed move ID is captured before its timer event clears it.
+  if (!bBoss && !ImpactMoveId.IsNone() && !IsActorBeingDestroyed()
+      && IsValid(Hero) && FMath::IsFinite(HeroHealthBefore)
+      && FMath::IsFinite(Hero->Health)) {
+   const float HealthLost = FMath::Max(0.f, HeroHealthBefore - Hero->Health);
+   const auto Outcome = MoonfallAttackOutcome::Classify(
+     bImpactReachedAndClear, bImpactParried, bImpactPerfectDodged, HealthLost);
+   const FName OutcomeName = Outcome == MoonfallAttackOutcome::EResult::Hit
+     ? FName(TEXT("HIT")) : Outcome == MoonfallAttackOutcome::EResult::Parry
+     ? FName(TEXT("PARRY")) : Outcome == MoonfallAttackOutcome::EResult::Dodge
+     ? FName(TEXT("DODGE")) : Outcome == MoonfallAttackOutcome::EResult::Guard
+     ? FName(TEXT("GUARD")) : FName(TEXT("MISS"));
+   // Store the verified outcome ON THE ATTACKER before a Blueprint
+   // callback could destroy it. Nothing is anchored above the hero.
+   // Reuse the existing HUD enemy scan; no actors, timers or save fields.
+   if (Hero->bShowFloatingCombatText)
+    RecordCombatOutcomeFloat(OutcomeName, HealthLost, Now);
+   OnAttackImpactOutcome(ImpactMoveId, OutcomeName, HealthLost);
+   // Optional authored sound is played only for the *real* hit or parry
+   // outcome. Never fake a hit on a miss, guard or successful dodge.
+   if (!IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health > 0.f
+       && FMath::IsFinite(Now) && FMath::IsFinite(NextAttackImpactSoundAt)
+       && Now >= NextAttackImpactSoundAt && Distance <= 1000.f) {
+    USoundBase* Sound = MoonfallAttackOutcome::MayPlayHitSound(Outcome)
+      ? AttackHitSound.Get()
+      : MoonfallAttackOutcome::MayPlayParrySound(Outcome)
+        ? AttackParrySound.Get() : nullptr;
+    if (IsValid(Sound)) {
+     NextAttackImpactSoundAt = Now + 0.4f;
+     UGameplayStatics::PlaySoundAtLocation(
+       this, Sound, GetActorLocation(), 0.55f);
     }
    }
   }
@@ -1014,6 +1213,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;
    int32 Pattern = AttackSequence++ % PatternCount;
+   const bool bAdaptationReady = bElite && !bBoss
+       && FMath::IsFinite(AdaptiveSweepReadyUntil)
+       && AdaptiveSweepReadyUntil > Now;
+   bAdaptiveSweepCommitted = bAdaptationReady;
+   AdaptiveSweepReadyUntil = -1.f; // Consume on the next valid attack only.
+   Pattern = MoonfallEliteTactics::SelectPattern(
+     Pattern, bElite, bBoss, bAdaptationReady);
    if (bBoss) {
     // Select uniformly from all other basic patterns. No extra actor,
     // ticker, path solve or unbounded retry loop is needed.
@@ -1047,6 +1253,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
+   if (bAdaptiveSweepCommitted)
+    CurrentWindup = FMath::Max(CurrentWindup, MoonfallEliteTactics::CounterSweepWindup);
    if (bBoss && BossPhase >= 2) {
     // Phase three alternates swift strikes with pronounced heavy tells.
     if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;
@@ -1124,6 +1332,38 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
+   if (!bBoss) {
+    // Call once, after the authoritative timer and attack parameters are
+    // committed. Blueprints can attach a windup montage / character voice.
+    // Without authored assets the source path remains silent and functional.
+    ActiveNonBossTelegraphMove = FName(*GetAttackWarningLabel());
+    UpdateAttackTellMarker(Now, IsValid(Hero) && Hero->bReduceMotion);
+    OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);
+    // A synchronous Blueprint callback may stop or kill the attack.
+    // Publish exactly one interruption even when the callback does not use
+    // native cancel helpers, before considering optional warning audio.
+    if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+        || !FMath::IsFinite(WindupEndsAt) || WindupEndsAt <= Now) {
+     WindupEndsAt = -1.f;
+     bAdaptiveSweepCommitted = false;
+     EndNonBossTelegraph(false);
+    }
+    // Blueprint events run synchronously and can interrupt, kill, or destroy
+    // the enemy. Never play a ghost tell after a canceled windup. Throttle
+    // each optional sound independently of real attacks and HUD warnings.
+    if (bElite && !bSanctuaryPractice && IsValid(EliteAttackTellSound)
+        && GetWorld() && Distance <= 1000.f
+        && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health > 0.f
+        && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+        && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+        && FMath::IsFinite(Now)
+        && (!FMath::IsFinite(NextEliteAttackTellSoundAt)
+            || Now >= NextEliteAttackTellSoundAt)) {
+     NextEliteAttackTellSoundAt = Now + 2.f;
+     UGameplayStatics::PlaySoundAtLocation(
+       this, EliteAttackTellSound.Get(), GetActorLocation(), 0.55f);
+    }
+   }
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
    } else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5) {

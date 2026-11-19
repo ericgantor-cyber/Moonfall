@@ -1,14 +1,129 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallLootArtRules.h"
+#include "MoonfallForgeForecast.h"
+#include "MoonfallCombatFloatLayout.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallHUDLayout.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+AMoonfallCombatHUD::AMoonfallCombatHUD()
+{
+ // Import and cook these Texture2D assets in Unreal before packaging.
+ // Missing optional atlases gracefully fall back to the earlier art layers.
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Atlas(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas"));
+ if (Atlas.Succeeded()) LootIconAtlas = Atlas.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Variants(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootVariants.T_MoonfallLootVariants"));
+ if (Variants.Succeeded()) LootVariantAtlas = Variants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Relics(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootRelics.T_MoonfallLootRelics"));
+ if (Relics.Succeeded()) LootRelicAtlas = Relics.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Masterworks(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootMasterworks.T_MoonfallLootMasterworks"));
+ if (Masterworks.Succeeded()) LootMasterworkAtlas = Masterworks.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Ascendants(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAscendants.T_MoonfallLootAscendants"));
+ if (Ascendants.Succeeded()) LootAscendantAtlas = Ascendants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Wayfarers(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootWayfarers.T_MoonfallLootWayfarers"));
+ if (Wayfarers.Succeeded()) LootWayfarerAtlas = Wayfarers.Object;
+}
+
+void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
+ int32 Tier, float X, float Y, float Side)
+{
+ if (!Canvas || !MoonfallLootArt::ValidEquipment(Slot, Rarity, Trait, Tier)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
+     || !FMath::IsFinite(Side) || Side < 10.f) return;
+ static const FLinearColor QualityColors[6] = {
+  FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
+  FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
+  FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
+ };
+ const FLinearColor Accent = QualityColors[Rarity];
+ DrawRect(FLinearColor(0.075f,0.07f,0.13f,0.96f),X,Y,Side,Side);
+ // Text labels identify rarity independently; this border aids recognition.
+ DrawRect(Accent,X,Y,Side,1.8f);
+ DrawRect(Accent,X,Y+Side-1.8f,Side,1.8f);
+ DrawRect(Accent,X,Y,1.8f,Side);
+ DrawRect(Accent,X+Side-1.8f,Y,1.8f,Side);
+
+ const MoonfallLootArt::FCell Cell = MoonfallLootArt::Select(
+  Slot,Rarity,Trait,Tier,
+  IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas),
+  IsValid(LootMasterworkAtlas),IsValid(LootAscendantAtlas),
+  IsValid(LootWayfarerAtlas));
+ UTexture2D* IconTexture = nullptr;
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Base) IconTexture = LootIconAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Trait) IconTexture = LootVariantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Relic) IconTexture = LootRelicAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork) IconTexture = LootMasterworkAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Ascendant) IconTexture = LootAscendantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Wayfarer) IconTexture = LootWayfarerAtlas.Get();
+ if (IsValid(IconTexture) && MoonfallLootArt::ValidCell(Cell)) {
+  Canvas->K2_DrawTexture(IconTexture,
+    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
+    FVector2D(static_cast<float>(Cell.Column)/Cell.Columns,
+      static_cast<float>(Cell.Row)/Cell.Rows),
+    FVector2D(1.f/Cell.Columns,1.f/Cell.Rows),
+    FLinearColor::White,BLEND_Translucent);
+ } else {
+  // Accessible procedural silhouettes never rely on imported art assets.
+  const float S = Side;
+  const FLinearColor Metal(0.87f,0.88f,0.95f);
+  const auto L=[this](float AX,float AY,float BX,float BY,float Thick,
+                       const FLinearColor& C) {
+   Canvas->K2_DrawLine(FVector2D(AX,AY),FVector2D(BX,BY),Thick,C);
+  };
+  if (Slot == 0) {
+   L(X+S*.24f,Y+S*.75f,X+S*.78f,Y+S*.17f,3.f,Metal);
+   L(X+S*.30f,Y+S*.78f,X+S*.81f,Y+S*.20f,1.f,Accent);
+   L(X+S*.22f,Y+S*.56f,X+S*.46f,Y+S*.76f,3.f,Accent);
+   DrawRect(Metal,X+S*.11f,Y+S*.80f,S*.17f,S*.09f);
+  } else if (Slot == 1) {
+   DrawRect(Metal,X+S*.20f,Y+S*.34f,S*.60f,S*.45f);
+   DrawRect(Accent,X+S*.33f,Y+S*.40f,S*.34f,S*.33f);
+   DrawRect(Metal,X+S*.08f,Y+S*.24f,S*.28f,S*.23f);
+   DrawRect(Metal,X+S*.64f,Y+S*.24f,S*.28f,S*.23f);
+   L(X+S*.37f,Y+S*.55f,X+S*.63f,Y+S*.55f,2.f,Metal);
+  } else {
+   L(X+S*.19f,Y+S*.19f,X+S*.41f,Y+S*.37f,2.f,Metal);
+   L(X+S*.81f,Y+S*.19f,X+S*.59f,Y+S*.37f,2.f,Metal);
+   L(X+S*.42f,Y+S*.36f,X+S*.22f,Y+S*.63f,3.f,Accent);
+   L(X+S*.22f,Y+S*.63f,X+S*.48f,Y+S*.85f,3.f,Accent);
+   L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
+   DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
+  }
+ }
+ // Masterwork is a visual distinction within Emerald or Legendary only.
+ // The second accent is not a new rarity, stat, equipment slot or item flag.
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork ||
+     Cell.Atlas == MoonfallLootArt::EAtlas::Ascendant) {
+  const float Edge=FMath::Clamp(Side*0.12f,1.4f,4.0f);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+2.f,Y+2.f,Edge,Edge);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+Side-2.f-Edge,Y+2.f,Edge,Edge);
+ }
+ // Six discrete luminance marks distinguish Common..Legendary even without
+ // color perception; drawn on top of the painting, not baked into the art.
+ const float PipGap = Side >= 24.f ? 1.4f : 0.7f;
+ const float PipWidth = FMath::Max(0.5f,(Side-4.f-5.f*PipGap)/6.f);
+ for (int32 Pip=0; Pip<6; ++Pip) {
+  DrawRect(Pip <= Rarity ? FLinearColor(1.f,1.f,1.f,0.96f)
+       : FLinearColor(0.10f,0.10f,0.14f,0.86f),
+    X+2.f+Pip*(PipWidth+PipGap),Y+Side-4.2f,PipWidth,2.2f);
+ }
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -408,12 +523,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   return;
  }
- if (Hero->bOptionsOpen) {
+ if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 11.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -440,14 +555,17 @@ void AMoonfallCombatHUD::DrawHUD()
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
-     TEXT("Display mode")};
+     TEXT("Display mode"), TEXT("Floating results"), TEXT("Text palette"), TEXT("HUD layout editor")};
    const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
-     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode")};
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats"), TEXT("Colors"), TEXT("HUD edit")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
-     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen"),
+     Hero->bShowFloatingCombatText ? TEXT("On") : TEXT("Off"),
+     Hero->CombatTextPalette == 1 ? TEXT("Contrast")
+       : Hero->CombatTextPalette == 2 ? TEXT("Mono") : TEXT("Classic"), TEXT("OPEN")};
    const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    // Options mouse hover is visual only; clicks still choose and adjust explicitly.
@@ -456,7 +574,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bOptionsCursorVisible = PC->bShowMouseCursor
       && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
-   for (int32 i = 0; i < 8; ++i) {
+   for (int32 i = 0; i < 11; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     const bool bHoveredRow = bOptionsCursorVisible
@@ -494,14 +612,18 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Reduce impact shake and camera motion"),
     TEXT("Scale damage numbers in combat"),
     TEXT("Scale the visibility of boss warnings"),
-    TEXT("Choose Windowed, Borderless or Fullscreen")
+    TEXT("Choose Windowed, Borderless or Fullscreen"),
+    TEXT("Show floating hit/parry/dodge/block/miss text"),
+    TEXT("Combat text palette: Classic, Contrast, Mono"),
+    TEXT("Drag resource, quest and boss panels; wheel resizes")
   };
   const FString CompactHelp[] = {
     TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
     TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
-    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
+    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode"),
+    TEXT("Float results on/off"), TEXT("Text colors"), TEXT("Drag & resize HUD")
   };
-  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 10);
   FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
   // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
   // This is guidance, never a hidden automatic graphics-setting change.
@@ -607,6 +729,22 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+   // Larger selected-gear illustration without changing any mouse hit tests.
+   // All data comes from the current saved inventory code; no item mutation.
+   const int32 SelectedCode = Hero->InventoryItemCodes[Hero->InventorySelection];
+   const int32 SelectedTrait = SelectedCode / 100000;
+   const int32 SelectedSlot = (SelectedCode / 10000) % 10;
+   const int32 SelectedRarity = (SelectedCode / 1000) % 10;
+   const int32 SelectedTier = SelectedCode % 1000;
+   if (SelectedCode > 0 && SelectedTrait >= 0 && SelectedTrait <= 3
+       && SelectedSlot >= 0 && SelectedSlot <= 2
+       && SelectedRarity >= 0 && SelectedRarity <= 5
+       && SelectedTier >= 1 && SelectedTier <= 25
+       && (SelectedRarity != 0 || SelectedTrait == 0)
+       && SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000
+          + SelectedRarity * 1000 + SelectedTier)
+    DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,
+       EquipX - 49.f, EquipY - 7.f, 40.f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
@@ -653,9 +791,16 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
      FLinearColor(1.f,0.52f,0.12f)};
-   DrawText(Row, Index == Selected ? FLinearColor::Yellow
+   const float IconSide = FMath::Clamp(RowSpacing - 5.f, 16.f, 30.f);
+   if (bValid)
+    DrawLootIcon(Slot, Rarity, Affix, Tier, Left + 17.f, Y - 1.f, IconSide);
+   const FString CompactRow = bValid && PanelWidth < 420.f
+     ? FString::Printf(TEXT("%02d %s T%d %s"), DisplayPosition + 1,
+        Slots[Slot], Tier, Rarities[Rarity]) : Row;
+   DrawText(CompactRow, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
-     Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+     Left + (bValid ? IconSide + 26.f : 20.f), Y, nullptr,
+     Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Proportional scroll indicator. Clicking its track jumps the visible
   // bag window without selecting, equipping or modifying saved gear.
@@ -789,6 +934,18 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
+   if (PanelHeight >= 500.f) {
+    const MoonfallForgeForecast::FPlan Plan =
+      MoonfallForgeForecast::Preview(SelectedCode, Hero->Salvage, 5);
+    const FString Forecast = !Plan.Valid ? TEXT("FORGE 5: INVALID GEAR")
+      : Plan.NextTierCost == 0 ? TEXT("FORGE 5: MAX TIER")
+      : FString::Printf(TEXT("FORGE 5: +%d tiers -> T%d  |  %d salvage total"),
+          Plan.Upgrades, Plan.FinalTier, Plan.TotalCost);
+    DrawText(Forecast, Plan.Valid && Plan.Upgrades > 0
+      ? FLinearColor(0.58f,0.91f,0.83f) : FLinearColor(0.93f,0.72f,0.50f),
+      Left + 18.f, Top + PanelHeight - 182.f, nullptr,
+      PanelWidth < 550.f ? 0.61f : 0.75f);
+   }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
@@ -838,7 +995,7 @@ void AMoonfallCombatHUD::DrawHUD()
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),
      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
-   const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
+   const int32 NextCost = MoonfallForgeForecast::Cost(SelectedTier, SelectedRarity);
    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
        NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
@@ -891,12 +1048,29 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }
+ // Text-only feedback on verified combat success. No loud flash, screen
+ // shake or additional actor tick; reduced-motion mode remains fully readable.
+ if (Hero->Health > 0.f && !Hero->CombatCueMessage.IsEmpty()
+     && GetWorld() && FMath::IsFinite(Hero->CombatCueUntil)
+     && GetWorld()->GetTimeSeconds() <= Hero->CombatCueUntil
+     && Canvas->SizeX >= 540.f && Canvas->SizeY >= 350.f) {
+  const float CueX = FMath::Max(12.f, (Canvas->SizeX - 330.f) * 0.5f);
+  const float CueY = FMath::Min(115.f, Canvas->SizeY * 0.19f);
+  DrawRect(FLinearColor(0.05f,0.06f,0.12f,0.90f), CueX - 12.f, CueY - 7.f, 350.f, 30.f);
+  DrawText(Hero->CombatCueMessage,
+      FLinearColor(1.f,0.88f,0.56f), CueX, CueY, nullptr,
+      FMath::Clamp(Hero->CombatTextScale,0.65f,1.2f) * 0.8f);
+ }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
  float PostureDistanceSq = FMath::Square(1200.f);
+ // Only the soonest live nonboss tell is shown, avoiding overlapping alerts.
+ const AMoonfallEnemy* IncomingThreat = nullptr;
+ float IncomingThreatSeconds = 10.f;
+ float IncomingThreatDistanceSq = FMath::Square(1050.f);
  TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;
  const FVector HeroLocation = Hero->GetActorLocation();
  const bool bHeroLocationValid = !HeroLocation.ContainsNaN();
@@ -911,7 +1085,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Keep defeated enemies eligible for final-hit feedback, but only retain
   // actors that have a recent visible damage entry. Most idle world enemies
   // never enter the per-frame damage-label projection pass.
-  if (DistSq <= FMath::Square(6000.f)) {
+  if (Hero->bShowFloatingCombatText && DistSq <= FMath::Square(6000.f)
+      && NearbyDamageEnemies.Num() < MoonfallCombatFloatLayout::MaxNearbyCombatActors) {
    bool bHasRecentDamage = false;
    for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
     const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
@@ -921,9 +1096,34 @@ void AMoonfallCombatHUD::DrawHUD()
      break;
     }
    }
-   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
+   bool bHasRecentOutcome = false;
+   if (!bHasRecentDamage) {
+    for (int32 Slot = 0; Slot < AMoonfallEnemy::CombatOutcomeHistorySize; ++Slot) {
+     const AMoonfallEnemy::FCombatOutcomeFloat& Event = E->CombatOutcomeHistory[Slot];
+     const float Age = WorldTime - Event.StartedAt;
+     if (FMath::IsFinite(Event.StartedAt) && FMath::IsFinite(Event.HealthLost)
+         && MoonfallCombatFloatLayout::Active(Age) && !Event.Outcome.IsNone()) {
+      bHasRecentOutcome = true;
+      break;
+     }
+    }
+   }
+   if (bHasRecentDamage || bHasRecentOutcome) NearbyDamageEnemies.Add(E);
   }
   if (E->Health <= 0.f) continue;
+  // Reuse the same scan as boss/posture and damage labels. Ordinary enemies
+  // have an authoritative windup, but no pre-existing player HUD warning.
+  if (!E->bBoss && DistSq <= FMath::Square(1050.f)) {
+   const float Seconds = E->GetAttackWarningRemaining(WorldTime);
+   if (Seconds > 0.f &&
+       (Seconds < IncomingThreatSeconds
+       || (FMath::IsNearlyEqual(Seconds,IncomingThreatSeconds)
+           && DistSq < IncomingThreatDistanceSq))) {
+    IncomingThreat = E;
+    IncomingThreatSeconds = Seconds;
+    IncomingThreatDistanceSq = DistSq;
+   }
+  }
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
   } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
@@ -933,9 +1133,13 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
-  const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
-  const float X = (Canvas->SizeX - Width) * 0.5f;
-  const float Y = 72.f;
+  const auto BossRect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Boss,
+    Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Boss],
+    Hero->HudPanelScales[MoonfallHUDLayout::Boss]);
+  const float S = BossRect.Scale;
+  const float Width = FMath::Max(8.f, BossRect.Width - 12.f * S);
+  const float X = BossRect.Left + 6.f * S;
+  const float Y = BossRect.Top + 48.f * S;
   const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
   const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
   const bool bRegionalBoss = Boss->bBoss && Boss->DungeonBossRank >= 1
@@ -944,24 +1148,24 @@ void AMoonfallCombatHUD::DrawHUD()
     ? Boss->DungeonBossTitle.ToString() : FString(TEXT("BOSS"));
   const float AlertScale = FMath::Clamp(Hero->BossWarningScale, 1.f, 2.f);
   DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),
-    X-6.f,Y-40.f,Width+12.f,120.f);
-  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
-  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
+    X-6.f*S,Y-40.f*S,Width+12.f*S,120.f*S);
+  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f*S);
+  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f*S);
   DrawText(FString::Printf(TEXT("%s  |  PHASE %d / 3  |  %.0f / %.0f HP"),
     *BossTitle,Boss->BossPhase,FMath::Max(0.f,Boss->Health),MaxHP),
-    FLinearColor::White,X,Y-29.f,nullptr,Canvas->SizeX < 850.f ? 0.73f : 0.95f);
+    FLinearColor::White,X,Y-29.f*S,nullptr,(Canvas->SizeX < 850.f ? 0.73f : 0.95f)*S);
   if (bRegionalBoss) {
    DrawText(FString::Printf(TEXT("REGIONAL BOSS  |  RANK %d / 5"),Boss->DungeonBossRank),
-     FLinearColor(0.83f,0.87f,1.f),X,Y-48.f,nullptr,0.76f);
+     FLinearColor(0.83f,0.87f,1.f),X,Y-48.f*S,nullptr,0.76f*S);
   }
   const bool bBossPostureBroken = Boss->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
   const float BossPostureRatio = FMath::Clamp(Boss->Posture / FMath::Max(1.f, Boss->MaxPosture), 0.f, 1.f);
-  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f,Width,7.f);
+  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f*S,Width,7.f*S);
   DrawRect(bBossPostureBroken ? FLinearColor(1.f,0.77f,0.30f) : FLinearColor(0.84f,0.59f,1.f),
-    X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
+    X,Y+24.f*S,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f*S);
   DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
     bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
-    X,Y+35.f,nullptr,0.78f);
+    X,Y+35.f*S,nullptr,0.78f*S);
   const float WarningRemaining = Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds();
   if (FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f) {
    // Draw a concrete countdown, not just a vague warning. It uses the
@@ -981,26 +1185,52 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* ActionCue = bRedDodge ? TEXT("RED - DODGE ONLY")
      : bBlueParry ? TEXT("BLUE - PARRY / DODGE")
      : TEXT("GUARD / PARRY / DODGE");
-   DrawRect(CueColor,X-6.f,Y+51.f,5.f,22.f);
+   DrawRect(CueColor,X-6.f*S,Y+51.f*S,5.f*S,22.f*S);
    DrawText(FString::Printf(TEXT("%s  |  %.1fs  |  %s"),
       *MoveName, Seconds, ActionCue),CueColor,
-      X+6.f,Y+55.f,nullptr,FMath::Min(1.35f,0.72f * AlertScale));
+      X+6.f*S,Y+55.f*S,nullptr,FMath::Min(1.35f,0.72f * AlertScale)*S);
    // A fixed, non-flashing impact cue remains readable with Reduce Motion.
    if (Seconds <= 0.3f)
-    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f,nullptr,0.78f);
+    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f*S,nullptr,0.78f*S);
    if (bRegionalBoss && FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)
        && Boss->DungeonBossAttackWarningDuration > 0.f) {
     const float WarningProgress = FMath::Clamp(
       Seconds / Boss->DungeonBossAttackWarningDuration, 0.f, 1.f);
-    DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f,Width,4.f);
+    DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f*S,Width,4.f*S);
     DrawRect(CueColor,
-      X,Y+73.f,Width*WarningProgress,4.f);
+      X,Y+73.f*S,Width*WarningProgress,4.f*S);
    }
   }
   if (bRegionalBoss && Canvas->SizeY > 600.f)
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
      Hero->GetTotalDefeatedDungeonBosses(),Hero->GetClearedDungeonZoneCount()),
-     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f,nullptr,0.76f);
+     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f*S,nullptr,0.76f*S);
+ }
+ // A single text-first warning for the nearest imminent ordinary/elite
+ // attack. No second enemy scan, flashing, new widgets or spawned VFX.
+ // A nearby boss keeps its existing full-width, higher-priority alert.
+ if (IsValid(IncomingThreat)
+     && (!Boss || BossDistanceSq >= FMath::Square(3000.f))
+     && Canvas->SizeX >= 480.f && Canvas->SizeY >= 400.f) {
+  const float AlertW = FMath::Min(375.f, Canvas->SizeX - 32.f);
+  const float AlertX = (Canvas->SizeX - AlertW) * 0.5f;
+  const float AlertY = FMath::Max(145.f, Canvas->SizeY - 162.f);
+  const float Duration = IncomingThreat->GetAttackWarningDuration();
+  const float Progress = Duration > 0.f
+    ? FMath::Clamp(IncomingThreatSeconds / Duration,0.f,1.f) : 0.f;
+  const FString Move = IncomingThreat->GetAttackWarningLabel();
+  DrawRect(FLinearColor(0.04f,0.05f,0.11f,0.94f),AlertX,AlertY,AlertW,64.f);
+  DrawRect(FLinearColor(0.74f,0.28f,0.16f),AlertX+8.f,AlertY+49.f,
+           FMath::Max(0.f,AlertW-16.f),5.f);
+  DrawRect(FLinearColor(1.f,0.77f,0.38f),AlertX+8.f,AlertY+49.f,
+           FMath::Max(0.f,AlertW-16.f)*Progress,5.f);
+  DrawText(FString::Printf(TEXT("%s  |  %.1fs TO IMPACT"),
+      *Move,IncomingThreatSeconds),
+      FLinearColor(1.f,0.88f,0.64f),AlertX+12.f,AlertY+6.f,nullptr,0.82f);
+  DrawText(IncomingThreatSeconds <= 0.3f
+      ? TEXT("IMPACT SOON  |  GUARD / PARRY / DODGE")
+      : TEXT("GUARD / PARRY / DODGE"),
+      FLinearColor::White,AlertX+12.f,AlertY+28.f,nullptr,0.72f);
  }
  // Show only the nearest engaged non-boss posture target to avoid clutter.
  if (PostureTarget && GetOwningPlayerController()) {
@@ -1022,7 +1252,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
- const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
+ const bool bCanShowQuestTracker = (Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f)
+    || (Hero->bHUDLayoutEditing && Canvas->SizeX >= 320.f && Canvas->SizeY >= 300.f);
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
   const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
@@ -1087,42 +1318,47 @@ void AMoonfallCombatHUD::DrawHUD()
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
-  const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
-  const float Left = 20.f;
-  const float Top = 78.f;
+  const auto Rect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Quest,
+    Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Quest],
+    Hero->HudPanelScales[MoonfallHUDLayout::Quest]);
+  const float Width = Rect.Width, Left = Rect.Left, Top = Rect.Top;
+  const float S = FMath::Min(Rect.Scale, Width / 560.f);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
-    Left, Top, Width, 124.f);
+    Left, Top, Width, Rect.Height);
   DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
-    Left, Top, 4.f, 124.f);
+    Left, Top, 4.f*S, Rect.Height);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
-    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
+    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f*S, Top + 7.f*S, nullptr, 0.86f*S);
   DrawText(Objective, FLinearColor::White,
-    Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
+    Left + 14.f*S, Top + 33.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.68f : 0.82f)*S);
   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
-    Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
+    Left + 14.f*S, Top + 57.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.65f : 0.75f)*S);
   // Two stable progress bars: discovering all 30 entrances, then clearing
   // all 30 bosses. Never conflate visited regions with defeated bosses.
-  const float TrackWidth = FMath::Max(20.f, Width - 28.f);
+  const float TrackWidth = FMath::Max(12.f, Width - 28.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 81.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.27f, 0.74f, 0.90f),
-    Left + 14.f, Top + 81.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 92.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
-    Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f*S);
   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
-    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f*S, Top + 102.f*S, nullptr,
+    (Canvas->SizeX < 1050.f ? 0.65f : 0.74f)*S);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
- const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
- const float CX = Radius + 25.f;
- const float CY = Canvas->SizeY - Radius - 25.f;
- const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
+ const auto OrbRect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Orb,
+   Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Orb],
+   Hero->HudPanelScales[MoonfallHUDLayout::Orb]);
+ const float Radius = OrbRect.Width / 2.5f;
+ const float CX = OrbRect.Left + OrbRect.Width * 0.5f;
+ const float CY = OrbRect.Top + OrbRect.Height * 0.5f;
+ const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.80f);
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
@@ -1223,15 +1459,123 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
- // Reuse one controller lookup for every projected damage label this frame.
+ // Editing is visible only while the Options HUD editor owns all input.
+ // The three outlines reuse the exact same geometry as the pointer handler.
+ if (Hero->bHUDLayoutEditing) {
+  static const TCHAR* PanelNames[] = {TEXT("ORBS"), TEXT("QUEST"), TEXT("BOSS")};
+  for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+   const auto R = MoonfallHUDLayout::Geometry(Panel, Canvas->SizeX, Canvas->SizeY,
+      Hero->HudPanelOffsets[Panel], Hero->HudPanelScales[Panel]);
+   const bool bSelected = Hero->HudSelectedPanel == Panel;
+   const FLinearColor C = bSelected
+      ? FLinearColor(1.f, 0.85f, 0.35f, 0.97f)
+      : FLinearColor(0.48f, 0.85f, 1.f, 0.93f);
+   DrawRect(C, R.Left, R.Top, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top + R.Height - 2.f, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top, 2.f, R.Height);
+   DrawRect(C, R.Left + R.Width - 2.f, R.Top, 2.f, R.Height);
+   DrawRect(FLinearColor(0.045f,0.05f,0.1f,0.91f), R.Left+3.f, R.Top+3.f,
+     FMath::Min(R.Width-6.f,105.f),20.f);
+   DrawText(FString(PanelNames[Panel]), C, R.Left+9.f, R.Top+4.f, nullptr, 0.75f);
+  }
+  DrawRect(FLinearColor(0.025f,0.035f,0.08f,0.94f), 0.f, 0.f, Canvas->SizeX, 50.f);
+  const int32 Selected = FMath::Clamp(Hero->HudSelectedPanel, 0, 2);
+  const FString EditorHelp = Canvas->SizeX < 650.f ? TEXT("HUD EDIT")
+    : Canvas->SizeX < 1100.f
+      ? FString::Printf(TEXT("HUD EDIT: %s | Wheel: resize | Drag to move"), PanelNames[Selected])
+      : FString::Printf(TEXT("HUD EDIT: %s  %.0f%% | Drag | Wheel / Left-Right: resize | Up-Down: select"),
+          PanelNames[Selected], MoonfallHUDLayout::SafeScale(Hero->HudPanelScales[Selected])*100.f);
+  DrawText(EditorHelp, FLinearColor::White, 12.f, 17.f, nullptr,
+    Canvas->SizeX < 1100.f ? 0.70f : 0.78f);
+  DrawRect(FLinearColor(0.27f,0.24f,0.35f), Canvas->SizeX-214.f, 8.f, 98.f, 36.f);
+  DrawText(TEXT("RESET"), FLinearColor::White, Canvas->SizeX-201.f, 18.f, nullptr, 0.80f);
+  DrawRect(FLinearColor(0.21f,0.42f,0.32f), Canvas->SizeX-106.f, 8.f, 94.f, 36.f);
+  DrawText(TEXT("DONE"), FLinearColor::White, Canvas->SizeX-94.f, 18.f, nullptr, 0.80f);
+ }
+ // All floating combat text is anchored exclusively to the attacker.
+ // No incoming combat result is ever projected above the player.
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
+ int32 VisibleOutcomeLabels = 0;
  int32 VisibleDamageNumbers = 0;
+ // Fixed-size frame-local rectangle cache. Labels avoid both the player's
+ // visible silhouette and other enemy labels, with no heap/actor allocations.
+ MoonfallCombatFloatLayout::FScreenRect PlacedOutcomes[
+   MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes]{};
+ FVector2D HeroOnScreen = FVector2D::ZeroVector;
+ const bool bHeroScreenValid = DamageProjectionPC && bHeroLocationValid
+   && DamageProjectionPC->ProjectWorldLocationToScreen(
+      HeroLocation + FVector(0.f,0.f,100.f),HeroOnScreen)
+   && FMath::IsFinite(HeroOnScreen.X) && FMath::IsFinite(HeroOnScreen.Y);
+ const MoonfallCombatFloatLayout::FScreenRect HeroScreenExclusion{
+    HeroOnScreen.X-84.f,HeroOnScreen.Y-110.f,168.f,216.f};
+ if (Hero->bShowFloatingCombatText)
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
-  if (VisibleDamageNumbers >= 32) break;
+  if (VisibleDamageNumbers >= MoonfallCombatFloatLayout::MaxVisibleDealtDamage
+      && VisibleOutcomeLabels >= MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes) break;
   if (!IsValid(Enemy)) continue;
   // Capture position once per target; a rapid combo can draw several labels.
   const FVector EnemyDamageLocation = Enemy->GetActorLocation();
-  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
+  // Enemy-only source labels, in fixed two-column lanes above the attacker.
+  if (DamageProjectionPC && !EnemyDamageLocation.ContainsNaN()
+      && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes) {
+   // Most recent resolution first. A stale MISS never takes the space
+   // needed by a fresh parry or hit when a crowd saturates the draw cap.
+   int32 LocalDisplayed = 0;
+   for (int32 AgeIndex = 0; AgeIndex < AMoonfallEnemy::CombatOutcomeHistorySize
+       && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes; ++AgeIndex) {
+    const int32 Slot = (Enemy->NextCombatOutcomeSlot
+        + AMoonfallEnemy::CombatOutcomeHistorySize-1-AgeIndex)
+        % AMoonfallEnemy::CombatOutcomeHistorySize;
+    const AMoonfallEnemy::FCombatOutcomeFloat& Event = Enemy->CombatOutcomeHistory[Slot];
+    const float Age = WorldTime - Event.StartedAt;
+    if (!FMath::IsFinite(Event.StartedAt) || !FMath::IsFinite(Event.HealthLost)
+        || !MoonfallCombatFloatLayout::Active(Age) || Event.Outcome.IsNone()) continue;
+    const bool bHit = Event.Outcome == FName(TEXT("HIT"));
+    const bool bParry = Event.Outcome == FName(TEXT("PARRY"));
+    const bool bDodge = Event.Outcome == FName(TEXT("DODGE"));
+    const bool bGuard = Event.Outcome == FName(TEXT("GUARD"));
+    const FString ResultText = bHit
+      ? FString::Printf(TEXT("HIT YOU -%.0f"), Event.HealthLost)
+      : bParry ? TEXT("PARRY!") : bDodge ? TEXT("DODGE!")
+      : bGuard ? TEXT("BLOCKED!") : TEXT("MISS!");
+    const FLinearColor Hue = Hero->CombatTextPalette == 2
+      ? FLinearColor::White
+      : Hero->CombatTextPalette == 1
+        ? (bHit ? FLinearColor(1.f,0.98f,0.35f)
+           : bParry ? FLinearColor(0.30f,1.f,0.70f)
+           : bDodge ? FLinearColor(0.65f,0.88f,1.f)
+           : bGuard ? FLinearColor(1.f,0.65f,0.96f)
+           : FLinearColor::White)
+        : (bHit ? FLinearColor(1.f,0.44f,0.44f)
+           : bParry ? FLinearColor(0.48f,0.96f,1.f)
+           : bDodge ? FLinearColor(0.63f,0.76f,1.f)
+           : bGuard ? FLinearColor(1.f,0.83f,0.43f)
+           : FLinearColor(0.90f,0.90f,0.94f));
+    const float Alpha = MoonfallCombatFloatLayout::Opacity(Age);
+    const float Rise = MoonfallCombatFloatLayout::Rise(Age, Hero->bReduceMotion);
+    const FVector WorldTextPosition = EnemyDamageLocation + FVector(0.f,0.f,245.f+Rise);
+    FVector2D Screen;
+    if (!DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition,Screen)) continue;
+    const float Scale = FMath::Clamp(Hero->CombatTextScale,0.75f,2.f);
+    const float BadgeWidth = 175.f*Scale, BadgeHeight = 26.f*Scale;
+    const float X = Screen.X + MoonfallCombatFloatLayout::LaneX(LocalDisplayed)*Scale;
+    const float Y = Screen.Y - 26.f*Scale
+      - MoonfallCombatFloatLayout::LaneY(LocalDisplayed)*Scale;
+    MoonfallCombatFloatLayout::FScreenRect Placement{};
+    if (!MoonfallCombatFloatLayout::TryPlace(
+       X,Y,BadgeWidth,BadgeHeight,Canvas->SizeX,Canvas->SizeY,
+       bHeroScreenValid,HeroScreenExclusion,PlacedOutcomes,
+       VisibleOutcomeLabels,Placement)) continue;
+    DrawRect(FLinearColor(0.f,0.f,0.f,0.50f*Alpha),
+      Placement.X-3.f,Placement.Y-3.f,Placement.Width,Placement.Height);
+    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),
+      Placement.X,Placement.Y,nullptr,0.9f*Scale);
+    PlacedOutcomes[VisibleOutcomeLabels++] = Placement;
+    ++LocalDisplayed;
+   }
+  }
+  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize
+       && VisibleDamageNumbers < MoonfallCombatFloatLayout::MaxVisibleDealtDamage; ++Slot) {
    const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
    const float Age = WorldTime - Hit.Time;
    if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
@@ -1246,9 +1590,13 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bShatter = Hit.bShatter;
     // Lethal hits retain ordinary damage numbers. No KO text overlays the
     // finisher choreography; the combo is communicated through animation.
-    const FLinearColor DamageColor = bShatter
-      ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
-      : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+    const FLinearColor DamageColor = Hero->CombatTextPalette == 2
+      ? FLinearColor(1.f,1.f,1.f,1.f - Age / 0.8f)
+      : Hero->CombatTextPalette == 1
+        ? FLinearColor(0.36f,1.f,0.72f,1.f - Age / 0.8f)
+        : bShatter
+          ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+          : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
     const FString DamageLabel = bShatter
       ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
       : FString::Printf(TEXT("-%.0f"), Hit.Amount);

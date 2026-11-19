@@ -8,6 +8,7 @@ class AMoonfallGroundLoot;
 class UBoxComponent;
 class UInstancedStaticMeshComponent;
 class UPrimitiveComponent;
+class USoundBase;
 
 // Authored, connected 14-room dungeon inside the continuous world.
 // No ticking actors, scene transitions, automated enemies, or loot claims.
@@ -78,6 +79,13 @@ public:
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Rooms")
  UInstancedStaticMeshComponent* HazardPlates;
+ // One visual-only, seed-stable set of chamber identity props for each dungeon.
+ // Instancing prevents a separate renderer/tick actor per decorative prop.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Atmosphere")
+ UInstancedStaticMeshComponent* RoomLandmarks;
+ // Optional designer-supplied audio: no missing asset dependency by default.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Atmosphere")
+ TObjectPtr<USoundBase> ChamberEntrySound = nullptr;
 
  // Spawn only upon entering combat chambers, never in startup waves.
  // Up to six regular enemies per combat room; elite encounters remain special.

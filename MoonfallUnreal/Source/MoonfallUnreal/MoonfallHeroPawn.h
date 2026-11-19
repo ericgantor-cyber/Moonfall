@@ -179,9 +179,36 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
+ // Brief textual combat feedback: success events only, no screen shake or
+ // particle dependency. Visible without requiring audio or color perception.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Feedback") FString CombatCueMessage;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Feedback") float CombatCueUntil = -1.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
+ // WoW F-style floating results, separate from boss warning and combat rules.
+ // This option is saved to GameUserSettings.ini, not the game progress save.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
+ bool bShowFloatingCombatText = true;
+ // 0 Classic colored, 1 high contrast, 2 monochrome. Saved as UI preference.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
+ int32 CombatTextPalette = 0;
+ // Combat result floats belong to attacking enemies, never the hero.
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
+ // Three independent Canvas panels: orb, world quest tracker and boss warnings.
+ // Stored in local GameUserSettings.ini, deliberately outside V12 world saves.
+ FVector2D HudPanelOffsets[3] = {FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector};
+ float HudPanelScales[3] = {1.f, 1.f, 1.f};
+ bool bHUDLayoutEditing = false;
+ int32 HudSelectedPanel = 0;
+ int32 HudDraggingPanel = INDEX_NONE;
+ FVector2D HudDragStartMouse = FVector2D::ZeroVector;
+ FVector2D HudDragStartOffset = FVector2D::ZeroVector;
+ void LoadHUDLayout();
+ void SaveHUDLayout() const;
+ void ResetHUDLayout();
+ void ExitHUDLayoutEditor();
+ void AdjustHUDPanelScale(int32 Direction);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -449,6 +476,7 @@ private:
  void OptionsLeft();
  void OptionsRight();
  void AdjustOption(int32 Direction);
+ void HandleHUDLayoutMousePress();
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);

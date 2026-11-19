@@ -14,6 +14,14 @@ public:
  // thirty individually ticking mesh actors.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  UInstancedStaticMeshComponent* DungeonRoad;
+ // Six connected regional stopovers, built with instancing and no Tick.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Waystations")
+ UInstancedStaticMeshComponent* RegionalWaystationFloors;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Waystations")
+ UInstancedStaticMeshComponent* RegionalWaystationRuins;
+ UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> RegionalWaystationSigns;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|World|Waystations")
+ bool bEnableRegionalWaystations = true;
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
  // Nonblocking starter directions share the same no-Tick text approach as zone signs.
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> SanctuaryGuideSigns;

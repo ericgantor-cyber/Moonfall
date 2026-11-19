@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class USoundBase;
 class AMoonfallHeroPawn;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
@@ -19,6 +20,15 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ // Read-only telegraph snapshot: the HUD may ask nearby mobs when a strike
+ // will land, without changing private AI timers or doing any trace.
+ // Bosses keep their existing dedicated warning display.
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ float GetAttackWarningRemaining(float WorldTime) const;
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ float GetAttackWarningDuration() const;
+ UFUNCTION(BlueprintPure, Category="Combat|Telegraph")
+ FString GetAttackWarningLabel() const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
@@ -65,6 +75,38 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ // Asset-authoring hooks: Blueprint may play attack anticipation animations,
+ // voice, and readable cues after a *real* committed windup begins.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphCommitted(FName MoveId, float WarningSeconds);
+ // Resolved marks the actual impact timer, not guaranteed damage to the hero.
+ // Interrupted fires on canceled attacks, so animations can be stopped.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphResolved(FName MoveId);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphInterrupted(FName MoveId);
+ // Called once after the real collision/defense resolution. Unlike the
+ // timer-only Resolved event, this describes what actually happened.
+ // Outcome is HIT, PARRY, DODGE, GUARD or MISS; HP loss is measured.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackImpactOutcome(FName MoveId, FName Outcome, float HealthLost);
+ // Optional event-specific sounds, deliberately unassigned until authored.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> AttackHitSound = nullptr;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> AttackParrySound = nullptr;
+ // Independent impact-audio limiter to protect crowded encounters.
+ float NextAttackImpactSoundAt = 0.f;
+ // Optional audio asset. Unassigned by default; elite-only once at commitment.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ TObjectPtr<USoundBase> EliteAttackTellSound = nullptr;
+ // Visible fallback made from engine primitive geometry; turn this off in a
+ // derived Blueprint when a full authored skeletal animation is installed.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ bool bEnableProceduralAttackTell = true;
+ // The marker is decoration only, with no collisions, traces or hit checks.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Presentation")
+ TObjectPtr<UStaticMeshComponent> AttackTellMarker = nullptr;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -104,6 +146,13 @@ private:
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
+ // Only a successful hero parry can arm one tactical sweep. No extra AI ticks.
+ float AdaptiveSweepReadyUntil = -1.f;
+ float NextAdaptiveSweepAllowedAt = 0.f;
+ bool bAdaptiveSweepCommitted = false;
+ // Minimum interval between optional elite warning sounds, even in a pack.
+ // Not a saved property and has no influence on actual attack cooldown.
+ float NextEliteAttackTellSoundAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
  // Ordinary enemies remember the last visible hero location for a short time.
@@ -130,6 +179,10 @@ private:
  FVector CachedWaypoint = FVector::ZeroVector;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ // Ephemeral cue identity is neither replicated nor serialized to saved games.
+ FName ActiveNonBossTelegraphMove = NAME_None;
+ void EndNonBossTelegraph(bool bResolved);
+ void UpdateAttackTellMarker(float Now, bool bReducedMotion);
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
@@ -174,6 +227,17 @@ public:
  };
  FRecentDamageHit DamageHistory[DamageHistorySize];
  int32 NextDamageHistorySlot = 0;
+ // Attack-result labels are anchored to the attacking enemy, not the hero.
+ // Fixed-size history avoids allocations and never changes savegame schema.
+ static constexpr int32 CombatOutcomeHistorySize = 4;
+ struct FCombatOutcomeFloat {
+  FName Outcome = NAME_None;
+  float HealthLost = 0.f;
+  float StartedAt = -10.f;
+ };
+ FCombatOutcomeFloat CombatOutcomeHistory[CombatOutcomeHistorySize];
+ int32 NextCombatOutcomeSlot = 0;
+ void RecordCombatOutcomeFloat(FName Outcome, float HealthLost, float WorldTime);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
