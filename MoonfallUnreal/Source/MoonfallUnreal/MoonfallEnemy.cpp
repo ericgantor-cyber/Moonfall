@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallEliteTactics.h"
+#include "MoonfallAttackTellVisual.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
@@ -20,6 +21,17 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  // One non-colliding static-mesh cue, hidden except during real windups.
+  // The Body remains the authoritative collision root and is never replaced.
+  AttackTellMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AttackTellMarker"));
+  AttackTellMarker->SetupAttachment(Body);
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> TellCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  if (TellCube.Succeeded()) AttackTellMarker->SetStaticMesh(TellCube.Object);
+  AttackTellMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  AttackTellMarker->SetCollisionResponseToAllChannels(ECR_Ignore);
+  AttackTellMarker->SetGenerateOverlapEvents(false);
+  AttackTellMarker->SetCastShadow(false);
+  AttackTellMarker->SetVisibility(false);
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -30,8 +42,46 @@ void AMoonfallEnemy::EndNonBossTelegraph(bool bResolved) {
  const FName FinishedMove = ActiveNonBossTelegraphMove;
  if (FinishedMove.IsNone()) return;
  ActiveNonBossTelegraphMove = NAME_None;
+ // Hide the render-only cue before notifying a nested Blueprint callback.
+ if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+  AttackTellMarker->SetVisibility(false);
  if (bResolved) OnAttackTelegraphResolved(FinishedMove);
  else OnAttackTelegraphInterrupted(FinishedMove);
+}
+void AMoonfallEnemy::UpdateAttackTellMarker(float Now, bool bReducedMotion) {
+ if (!IsValid(AttackTellMarker)) return;
+ const bool bLiveTelegraph = bEnableProceduralAttackTell && !bBoss
+   && !ActiveNonBossTelegraphMove.IsNone() && FMath::IsFinite(Health)
+   && Health > 0.f && FMath::IsFinite(Now)
+   && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+   && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+   && FMath::IsFinite(CurrentAttackMultiplier)
+   && FMath::IsFinite(CurrentAttackRangeMultiplier);
+ if (!bLiveTelegraph) {
+  if (AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
+ const auto Kind = MoonfallAttackTellVisual::Select(bAdaptiveSweepCommitted,
+   CurrentAttackMultiplier, CurrentAttackRangeMultiplier);
+ const auto Profile = MoonfallAttackTellVisual::Profile(Kind);
+ const float Remaining = WindupEndsAt - Now;
+ const float Progress = MoonfallAttackTellVisual::Progress(
+   Remaining, CurrentWindup, bReducedMotion);
+ const float Growth = MoonfallAttackTellVisual::Growth(Progress);
+ // Stable silhouette is available even when Reduced Motion is enabled.
+ // Only the visible child is transformed, never the collision root, actor
+ // velocity, hit arc, target direction, animation clock or damage rules.
+ const FVector Scale(Profile.Width * Growth,
+   Profile.Depth * Growth, Profile.Height * Growth);
+ const FVector Location(0.f, 0.f, 107.f + (bReducedMotion ? 0.f : 14.f * Progress));
+ const FRotator Rotation(0.f, bReducedMotion ? 0.f : Profile.YawDegrees * Progress, 0.f);
+ if (!AttackTellMarker->GetRelativeScale3D().Equals(Scale, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeScale3D(Scale);
+ if (!AttackTellMarker->GetRelativeLocation().Equals(Location, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeLocation(Location);
+ if (!AttackTellMarker->GetRelativeRotation().Equals(Rotation, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeRotation(Rotation);
+ if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
 }
 float AMoonfallEnemy::GetAttackWarningRemaining(float WorldTime) const {
  // Read-only information for the single existing HUD enemy scan.
@@ -481,6 +531,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
    Body->SetRelativeScale3D(DesiredScale);
  }
+ // Reuse this existing 0.1-second AI update; no extra render tick or timers.
+ UpdateAttackTellMarker(Now, IsValid(Hero) && Hero->bReduceMotion);
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
   WindupEndsAt = -1.f;
@@ -1218,6 +1270,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // committed. Blueprints can attach a windup montage / character voice.
     // Without authored assets the source path remains silent and functional.
     ActiveNonBossTelegraphMove = FName(*GetAttackWarningLabel());
+    UpdateAttackTellMarker(Now, IsValid(Hero) && Hero->bReduceMotion);
     OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);
     // A synchronous Blueprint callback may stop or kill the attack.
     // Publish exactly one interruption even when the callback does not use
