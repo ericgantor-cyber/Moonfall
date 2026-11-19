@@ -1070,7 +1070,9 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
- const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
+ // Keep the full three-slot tracker in common 640x480 and similar
+ // windowed modes. Only skip it on truly tiny render surfaces.
+ const bool bCanShowQuestTracker = Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f;
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
   const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
@@ -1164,7 +1166,10 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
-  const float Top = 78.f;
+  // A 232px three-row list at y=78 would collide with the bottom-left
+  // health orb in a 420px-tall window. Move it up without shrinking rows
+  // or hiding any accepted quests. Preserve original position at >=520px.
+  const float Top = Canvas->SizeY < 520.f ? 34.f : 78.f;
   // Each contract uses a separate two-line entry. Keep the original compact
   // 124px tracker when exploring or following the starting sanctuary.
   const float TrackerHeight = bThreeQuestList
