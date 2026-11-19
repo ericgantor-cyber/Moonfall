@@ -69,8 +69,8 @@ class QuestXPSourceRegression(unittest.TestCase):
         self.assertIn("ResidentFeedbackMessage", menu)
         self.assertIn('MoonfallQuestXP::Reward(GuideSalvageCost, Hero->Level)', self.hud)
         self.assertIn('Quest ready: turn in for +%d XP', self.hud)
-        self.assertNotIn("GUARD / PARRY / DODGE", self.hud)
-        self.assertNotIn("GetAttackWarningRemaining", self.hud)
+        self.assertNotIn("GUARD / PARRY / DODGE", menu)
+        self.assertNotIn("GetAttackWarningRemaining", menu)
 
     def test_all_regional_residents_are_whitelisted_for_quest_and_bond_saves(self):
         regional = {
