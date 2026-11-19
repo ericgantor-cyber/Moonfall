@@ -82,6 +82,12 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
+ // Transient read-only HUD paging state. Seven quests remain tracked; only
+ // the visible viewport changes when cycling small-window pages.
+ int32 QuestTrackerPageStart = 0;
+ int32 QuestTrackerPageSize = 0;
+ int32 QuestTrackerTotal = 0;
+ void CycleQuestTrackerPage();
 
 
 
