@@ -4448,11 +4448,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
-        # Blueprint spawn callbacks can destroy their actor synchronously.
-        # The final room must stay retryable when that happens.
+        # Blueprint callbacks can destroy the actor or invalidate its health.
+        # Both cases must preserve the final chamber's retry path.
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
         self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
-        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        after_spawn = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", after_spawn)
+        self.assertIn("if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)", after_spawn)
+        self.assertLess(after_spawn.index("if (!FMath::IsFinite(Boss->Health)"),
+                        after_spawn.index("return true;"))
         self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", boss)
         self.assertIn("const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;", boss)
         self.assertIn("const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;", boss)
@@ -5792,6 +5796,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
 
+
+    def test_dungeon_boss_blueprint_callbacks_cannot_complete_invalid_spawn(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        after_identity = boss.split("Boss->OnDungeonBossIdentityReady(", 1)[1].split(
+            "OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[0]
+        after_encounter = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        invalid_health = "if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)"
+        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;"
+        for stage in (after_identity, after_encounter):
+            self.assertIn(actor_invalid, stage)
+            self.assertIn(invalid_health, stage)
+            self.assertLess(stage.index(actor_invalid), stage.index(invalid_health))
+            self.assertLess(stage.index(invalid_health), stage.index("Boss->Destroy();"))
+            self.assertLess(stage.index("Boss->Destroy();"), stage.index("return false;\n }"))
+        self.assertLess(after_encounter.index(invalid_health), after_encounter.index("return true;"))
+        self.assertIn("return false; // All collision-safe spawn positions were unavailable.", boss)
 
     def test_dungeon_final_boss_uses_first_entry_level_before_beginplay(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
