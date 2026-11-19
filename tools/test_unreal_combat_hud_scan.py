@@ -21,10 +21,13 @@ class CombatHudScanTests(unittest.TestCase):
         self.assertLess(hud.index("NearbyDamageEnemies.Add(E)"),
                         hud.index("if (E->Health <= 0.f) continue;"))
         self.assertIn("DistSq <= FMath::Square(6000.f)", hud)
-        self.assertIn("if (bHasRecentDamage) NearbyDamageEnemies.Add(E);", hud)
+        self.assertIn("if (bHasRecentDamage || bHasRecentOutcome) NearbyDamageEnemies.Add(E);", hud)
+        self.assertIn("NearbyDamageEnemies.Num() < MoonfallCombatFloatLayout::MaxNearbyCombatActors", hud)
+        self.assertIn("E->CombatOutcomeHistory[Slot]", hud)
         self.assertIn("const float Age = WorldTime - Hit.Time;", hud)
         self.assertIn("Age >= 0.f && Age <= 0.8f", hud)
-        self.assertIn("if (VisibleDamageNumbers >= 32) break;", hud)
+        self.assertIn("VisibleDamageNumbers >= MoonfallCombatFloatLayout::MaxVisibleDealtDamage", hud)
+        self.assertIn("VisibleOutcomeLabels >= MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes", hud)
         self.assertIn("AMoonfallEnemy::DamageHistorySize", hud)
 
     def test_damage_projection_reuses_controller(self):
