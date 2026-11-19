@@ -6,7 +6,7 @@ namespace MoonfallWorldQuest {
 inline constexpr int ZoneCount = 6;
 inline constexpr int GoalsPerZone = 2;
 inline constexpr int GoalCount = ZoneCount * GoalsPerZone;
-inline constexpr int MaxVisible = 3;
+inline constexpr int MaxVisible = 7;
 inline constexpr const char* RegionNames[ZoneCount] = {
  "Ashen Wilds", "Moonveil Forest", "Hollow Depths",
  "Iron Foundry", "Frostbound Reach", "Eclipse Wastes"
@@ -20,7 +20,7 @@ inline constexpr const char* GoalTitles[GoalCount] = {
  "Chart the Eclipse Wastes", "Scatter the Night Wardens"
 };
 struct FSelection {
- int Indices[MaxVisible] = {-1, -1, -1};
+ int Indices[MaxVisible] = {-1, -1, -1, -1, -1, -1, -1};
  int Count = 0;
  int Unfinished = 0;
  int Completed = 0;
