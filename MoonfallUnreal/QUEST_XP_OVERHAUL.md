@@ -98,10 +98,13 @@ catalog to identify each resident's expected contract cost and home.
 - At **720p or above, all seven tracked objectives** fit with 60px rows;
   at 850px or taller, spacious 70px rows display the full seven.
   Compact views safely show a subset (three rows at 600x420,
-  four at 640x480) and display **SHOWING X/7** instead of overlapping
-  the bottom-left health orb. All seven objectives stay tracked even if
-  fewer fit the physical screen; enlarging the window shows the rest.
-  The original discovery and boss bars stay beneath the visible rows.
+  four at 640x480), with a **1-3/7 MMB NEXT**-style range hint.
+  **Middle mouse button (MMB) cycles between nonoverlapping pages** of
+  tracked quests even when the gameplay cursor is hidden; the last page
+  can be shorter so it doesn't leave empty decorative rows. Every quest
+  remains tracked and can be viewed in a compact window without resizing.
+  The full seven appear at 720p+ without page navigation. The original
+  discovery and boss bars stay beneath the currently visible rows.
   These limits come from pure C++17 viewport geometry
   (`MoonfallQuestLayout.h`). If no contract is accepted, the original
   sanctuary tutorial or world exploration tracker remains available.
@@ -213,7 +216,11 @@ visiting a new zone or defeating a boss advances the relevant goals.
     seven-slot tracker positions are filled by the correct regional
     discovery/boss goals, and regional progress survives save/reload.
     At all 30 discovered and 30 defeated, verify regional goals vanish.
-    Q must still dodge; J, B and C must retain their existing menus.
+    At 600x420 and 640x480, press MMB to cycle through all seven
+    objectives, verifying absolute row numbers and a shorter last page.
+    Mouse-wheel camera zoom, Q dodge, and J/B/C menu controls must retain
+    their existing behavior. Test MMB while a modal menu or NPC dialogue
+    is open; it must not change quest pages.
 11. Profile menu/journal rendering and level-up tests in a real packaged
     Windows build. GitHub source tests alone do not prove an Unreal build.
 
