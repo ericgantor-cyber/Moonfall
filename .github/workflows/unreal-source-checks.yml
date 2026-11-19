@@ -101,6 +101,9 @@ jobs:
           python3 -m unittest -v tools.test_unreal_elite_tactics
           python3 -m unittest -v tools.test_unreal_telegraph_lifecycle
           python3 -m unittest -v tools.test_unreal_attack_tell_visual
+          python3 -m unittest -v tools.test_unreal_attack_outcome
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_attack_outcome.cpp -o /tmp/moonfall_attack_outcome
+          /tmp/moonfall_attack_outcome
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_attack_tell_visual.cpp -o /tmp/moonfall_attack_tell_visual
           /tmp/moonfall_attack_tell_visual
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_elite_tactics.cpp -o /tmp/moonfall_elite_tactics
