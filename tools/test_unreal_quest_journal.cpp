@@ -64,12 +64,17 @@ int main() {
  for (int I=0; I<ResidentCount; ++I) {
   const auto& Resident = Residents[I];
   assert(Resident.Id && *Resident.Id && Resident.Name && *Resident.Name);
+  assert(Resident.QuestTitle && *Resident.QuestTitle);
+  // Title length stays bounded for the compact three-row Canvas HUD.
+  assert(std::strlen(Resident.QuestTitle) <= 26);
   assert(Resident.Location && *Resident.Location);
   assert(Resident.Race >= 0 && Resident.Race <= 11);
   assert(Cost(I) >= 10 && Cost(I) <= 25);
   assert(MoonfallQuestXP::Reward(Cost(I), 1) > 0);
-  for(int J=I+1;J<ResidentCount;++J)
+  for(int J=I+1;J<ResidentCount;++J) {
    assert(std::strcmp(Resident.Id, Residents[J].Id) != 0);
+   assert(std::strcmp(Resident.QuestTitle, Residents[J].QuestTitle) != 0);
+  }
  }
  for(int salvage=0;salvage<=40;++salvage) {
   for(int tracked=0;tracked<ResidentCount;++tracked) {
