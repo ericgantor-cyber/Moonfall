@@ -5438,7 +5438,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetNextUnchartedDungeonZone()", tracker)
         self.assertIn("bSanctuaryObjective", tracker)
         self.assertIn("bCanShowQuestTracker", tracker)
-        self.assertIn("Canvas->SizeY >= 520.f", tracker)
+        self.assertIn("Canvas->SizeY >= 420.f", tracker)
         self.assertIn("WORLD QUEST TRACKER", tracker)
         self.assertIn("All 30 dungeon bosses defeated", tracker)
         self.assertIn("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6", tracker)
@@ -5487,8 +5487,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Practice north, then take the south gate", guide)
         self.assertNotIn("Train to the north; then turn in", guide)
 
-        self.assertIn("Canvas->SizeX >= 760.f", guide)
-        self.assertIn("Canvas->SizeY >= 520.f", guide)
+        self.assertIn("Canvas->SizeX >= 600.f", guide)
+        self.assertIn("Canvas->SizeY >= 420.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
         self.assertIn("VisibleDamageNumbers < 32", draw_damage)
         # Distance culling happens in the shared enemy pass, before any
