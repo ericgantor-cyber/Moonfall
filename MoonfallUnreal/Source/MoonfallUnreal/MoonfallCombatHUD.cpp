@@ -2,6 +2,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
+#include "MoonfallWorldQuest.h"
 #include "MoonfallQuestLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -1109,7 +1110,24 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const MoonfallQuestJournal::FSummary QuestSummary = MoonfallQuestJournal::Summarize(
     JournalStates, MoonfallQuestJournal::ResidentCount, FMath::Max(0, Hero->Salvage));
-  const bool bThreeQuestList = QuestSummary.TrackedCount > 0;
+  // Twelve regional discovery/boss quests use only persisted 6x5 dungeon
+  // progress, not actor scans or new reward/save fields. Fill any free slots
+  // after accepted NPC contracts; protect the sanctuary's first tutorial.
+  int32 ZoneDiscovered[MoonfallWorldQuest::ZoneCount] = {};
+  int32 ZoneDefeated[MoonfallWorldQuest::ZoneCount] = {};
+  MoonfallWorldQuest::FSelection RegionalGoals{};
+  if ((!bSanctuaryObjective || QuestSummary.TrackedCount > 0)
+      && QuestSummary.TrackedCount < MoonfallQuestJournal::MaxTracked) {
+   for (int32 Zone = 0; Zone < MoonfallWorldQuest::ZoneCount; ++Zone) {
+    ZoneDiscovered[Zone] = Hero->GetDiscoveredDungeonCount(Zone);
+    ZoneDefeated[Zone] = Hero->GetDefeatedDungeonBossCount(Zone);
+   }
+   RegionalGoals = MoonfallWorldQuest::Select(ZoneDiscovered, ZoneDefeated,
+     MoonfallQuestJournal::MaxTracked - QuestSummary.TrackedCount);
+  }
+  const int32 VisibleQuestCount = QuestSummary.TrackedCount
+      + (RegionalGoals.Valid ? RegionalGoals.Count : 0);
+  const bool bThreeQuestList = VisibleQuestCount > 0;
   // Dungeon objectives are a fallback. Skip the thirty-mask scan and
   // allocation-heavy string formatting while tracking accepted contracts.
   int32 NextBossZone = INDEX_NONE;
@@ -1184,7 +1202,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // so three full quests still clear the bottom-left health orb.
   const MoonfallQuestLayout::FMetrics QuestLayout = MoonfallQuestLayout::Compute(
     FMath::FloorToInt(Canvas->SizeY),
-    bThreeQuestList ? QuestSummary.TrackedCount : 0);
+    bThreeQuestList ? VisibleQuestCount : 0);
   const float Top = static_cast<float>(QuestLayout.Top);
   const float TrackerHeight = static_cast<float>(QuestLayout.PanelHeight);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
@@ -1203,12 +1221,16 @@ void AMoonfallCombatHUD::DrawHUD()
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : QuestSummary.TrackedIndex >= 0
         ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
-        : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
+        : RegionalGoals.Valid && RegionalGoals.Count > 0
+          ? TEXT("WORLD QUEST TRACKER  |  REGIONAL QUESTS")
+          : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
   if (bThreeQuestList) {
    // Totals include accepted contracts beyond the three visible slots.
-   DrawText(FString::Printf(TEXT("%d ACTIVE | %d DONE"),
-       QuestSummary.Active, QuestSummary.Completed),
+   DrawText(QuestSummary.TrackedCount > 0
+       ? FString::Printf(TEXT("%d ACTIVE | %d DONE"),
+           QuestSummary.Active, QuestSummary.Completed)
+       : FString::Printf(TEXT("%d/12 GOALS DONE"), RegionalGoals.Completed),
      FLinearColor(0.75f, 0.84f, 0.94f), Left + Width - 144.f,
      Top + 8.f, nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.67f);
    // Three WoW Forever-style tracked objectives, sorted ready-first by the
@@ -1263,6 +1285,49 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 21.f, RowTop + QuestLayout.ProgressOffset, ProgressWidth, 3.f);
     DrawRect(RowAccent, Left + 21.f, RowTop + QuestLayout.ProgressOffset,
       ProgressWidth * SalvageProgress, 3.f);
+   }
+   // Any unused slot shows a named regional quest. These 12 goals update
+   // automatically from already-saved dungeon discoveries and boss wins;
+   // they do not silently grant extra experience or consume salvage.
+   if (RegionalGoals.Valid) {
+    for (int32 GoalRow = 0; GoalRow < RegionalGoals.Count; ++GoalRow) {
+     const int32 Goal = RegionalGoals.Indices[GoalRow];
+     if (Goal < 0 || Goal >= MoonfallWorldQuest::GoalCount) continue;
+     const int32 Row = QuestSummary.TrackedCount + GoalRow;
+     const int32 Progress = MoonfallWorldQuest::Progress(
+       Goal, ZoneDiscovered, ZoneDefeated);
+     const float RowTop = Top + 28.f + Row * QuestLayout.RowStride;
+     const FLinearColor RowAccent(0.43f, 0.74f, 0.95f);
+     DrawRect(Row % 2 == 0
+         ? FLinearColor(0.085f, 0.11f, 0.17f, 0.95f)
+         : FLinearColor(0.065f, 0.095f, 0.15f, 0.95f),
+       Left + 12.f, RowTop, Width - 24.f, QuestLayout.RowHeight);
+     DrawRect(RowAccent, Left + 12.f, RowTop, 3.f, QuestLayout.RowHeight);
+     DrawText(FString::Printf(TEXT("%d. %s"), Row + 1,
+         UTF8_TO_TCHAR(MoonfallWorldQuest::GoalTitles[Goal])),
+       FLinearColor::White, Left + 21.f, RowTop + QuestLayout.TitleOffset,
+       nullptr, Canvas->SizeX < 1050.f ? 0.70f : 0.86f);
+     DrawText(Goal % 2 == 0 ? TEXT("EXPLORE") : TEXT("DEFEAT"),
+       RowAccent, Left + Width - 81.f, RowTop + QuestLayout.TitleOffset,
+       nullptr, Canvas->SizeX < 1050.f ? 0.64f : 0.76f);
+     DrawText(FString(UTF8_TO_TCHAR(MoonfallWorldQuest::RegionNames[Goal / 2])),
+       FLinearColor(0.76f, 0.84f, 0.92f),
+       Left + 21.f, RowTop + QuestLayout.ResidentOffset, nullptr,
+       Canvas->SizeX < 1050.f ? 0.60f : 0.74f);
+     DrawText(FString::Printf(TEXT("%d/5 %s"), Progress,
+         UTF8_TO_TCHAR(MoonfallWorldQuest::Type(Goal))),
+       FLinearColor(0.83f, 0.87f, 0.95f),
+       Left + 21.f, RowTop + QuestLayout.RewardOffset, nullptr,
+       Canvas->SizeX < 1050.f ? 0.62f : 0.73f);
+     DrawText(TEXT("WORLD GOAL"), FLinearColor(0.72f, 0.85f, 0.98f),
+       Left + Width - 166.f, RowTop + QuestLayout.RewardOffset, nullptr,
+       Canvas->SizeX < 1050.f ? 0.62f : 0.73f);
+     const float ProgressWidth = Width - 42.f;
+     DrawRect(FLinearColor(0.16f, 0.19f, 0.26f),
+       Left + 21.f, RowTop + QuestLayout.ProgressOffset, ProgressWidth, 3.f);
+     DrawRect(RowAccent, Left + 21.f, RowTop + QuestLayout.ProgressOffset,
+       ProgressWidth * (static_cast<float>(Progress) / 5.f), 3.f);
+    }
    }
   } else {
    DrawText(Objective, FLinearColor::White,
