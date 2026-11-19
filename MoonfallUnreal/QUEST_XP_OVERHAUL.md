@@ -4,6 +4,10 @@ This is a **source implementation** for Unreal Engine 5. Native UE5 Windows
 compilation, gameplay, saving/reloading, UX readability and accessibility
 remain unverified until an actual Editor/package test.
 
+The game combines **25 unique resident salvage contracts** with **12 regional
+dungeon discovery/boss progression quests**, while showing up to **three**
+current objectives at once.
+
 ## Quest rewards
 
 Completed resident salvage contracts now award XP **once** alongside the
@@ -138,6 +142,42 @@ If a designer changes an individual NPC's race or contract cost, they
 must update this UI-only metadata as well to keep the tracker accurate.
 Regional NPC authoring remains in separate draft PR #1070.
 
+## Twelve additional regional quests
+
+Moonfall now offers **two original world quests per region**, 12 in all:
+one to discover that region's five dungeon entrances, and one to defeat
+its five dungeon bosses. They have individual story titles for all six
+regions and update automatically from the **existing persistent 30-bit
+discovery and boss-victory masks**. Completed objectives leave the tracker;
+visiting a new zone or defeating a boss advances the relevant goals.
+
+- Accepted NPC contracts remain first in the WoW Forever-style
+  **three-quest tracker**. If fewer than three contracts are visible,
+  eligible regional quests fill the unused rows; the list never exceeds
+  three, and more goals appear as objectives complete.
+- In-progress regions are prioritized before unvisited ones. Boss goals
+  are shown only after at least one entrance has been discovered. All
+  completed regional goals disappear, and the existing endgame exploration
+  fallback remains.
+- Each regional row shows its unique title, region name, **0–5 progress**,
+  an EXPLORE/DEFEAT indicator, and a progress bar. The status is
+  **WORLD GOAL**, not a fictitious "+XP" turn-in reward.
+- These regional quests are **progression objectives**, not additional
+  reward claims. Existing dungeon bosses, monsters and exploration
+  continue providing their original rewards; this patch introduces **no
+  duplicate XP**, no bonus currency, no new save format, and no unlock
+  of undiscovered dungeon markers.
+- While the hero is at the starting sanctuary with no accepted contracts,
+  the Firstlight tutorial remains the priority. Existing window geometry
+  and three-row height/spacing rules are reused.
+- No additional per-frame world actor scans: at most six per-zone saved
+  discovery counts and six boss-victory counts are read when free quest
+  slots are available. The pure C++17 `MoonfallWorldQuest.h` selection
+  policy and automated tests validate all 12 goals, invalid state,
+  completion filtering, and three-slot prioritization.
+- Keyboard **Q remains Dodge**. Other existing controls, especially
+  J = atlas, B = inventory, and C = character sheet, are untouched.
+
 ## Native UE5 verification needed
 
 1. Open a saved game before the change. Confirm existing quest states,
@@ -172,7 +212,12 @@ Regional NPC authoring remains in separate draft PR #1070.
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
 9. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
-10. Profile menu/journal rendering and level-up tests in a real packaged
-   Windows build. GitHub source tests alone do not prove an Unreal build.
+10. With 0, 1, 2 and 3 accepted NPC contracts, verify the remaining
+    three-slot tracker positions are filled by the correct regional
+    discovery/boss goals, and regional progress survives save/reload.
+    At all 30 discovered and 30 defeated, verify regional goals vanish.
+    Q must still dodge; J, B and C must retain their existing menus.
+11. Profile menu/journal rendering and level-up tests in a real packaged
+    Windows build. GitHub source tests alone do not prove an Unreal build.
 
 No change to Z/Nyra original art, attack warning HUD, or combat balance.
