@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Engine/DataTable.h"
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallHeroPawn.generated.h"
@@ -12,6 +13,42 @@ class AMoonfallWorldNPC;
 class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
+
+// Editor-configurable weighted equipment tables. Generated item codes stay
+// compatible with existing inventories, dungeon loot and V12 savegames.
+UENUM(BlueprintType)
+enum class EMoonfallLootSource : uint8
+{
+ Regular UMETA(DisplayName="Regular Enemy"),
+ Elite UMETA(DisplayName="Elite Enemy"),
+ Boss UMETA(DisplayName="Boss"),
+ Treasure UMETA(DisplayName="Dungeon Treasure")
+};
+
+USTRUCT(BlueprintType)
+struct FMoonfallLootTableEntry : public FTableRowBase
+{
+ GENERATED_BODY()
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables")
+ EMoonfallLootSource Source = EMoonfallLootSource::Regular;
+ // -1 generic, 0..5 region-specific bonus pool.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="-1", ClampMax="5"))
+ int32 ZoneIndex = -1;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="1", ClampMax="100"))
+ int32 MinimumLevel = 1;
+ // 0 Common, 1 Uncommon, 2 Rare, 3 Epic, 4 Emerald, 5 Legendary.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="0", ClampMax="5"))
+ int32 Rarity = 0;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="0", ClampMax="10000"))
+ int32 Weight = 0;
+ // Bitmask: 1 weapon, 2 armor, 4 accessory; 7 = any slot.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="1", ClampMax="7"))
+ int32 SlotMask = 7;
+ // 0 random; 1 Force, 2 Ward, 3 Focus.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot|Tables", meta=(ClampMin="0", ClampMax="3"))
+ int32 ForcedTrait = 0;
+};
+
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -227,9 +264,29 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
+ // Defaults are populated in the native hero constructor. Edit in Blueprint
+ // class defaults without changing loot identity or savegame schema.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
+ TArray<FMoonfallLootTableEntry> LootTableEntries;
+ // Optional visual CSV/DataTable asset. Valid rows replace the built-in
+ // defaults as a complete table; invalid/missing assets keep safe defaults.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
+ TObjectPtr<UDataTable> LootDataTable = nullptr;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot|Tables")
+ bool bLootDataTableActive = false;
+ // Reimport in Unreal Editor and reload without restarting PIE. The game
+ // never writes an asset or alters an existing V12 save.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Loot|Tables")
+ bool ReloadLootDataTable();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Loot|Tables")
+ float GetLootRarityChancePercent(EMoonfallLootSource Source, int32 ZoneIndex,
+   int32 HeroLevel, int32 Rarity) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Loot|Tables")
+ int32 GetLootPoolTotalWeight(EMoonfallLootSource Source, int32 ZoneIndex,
+   int32 HeroLevel) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
- UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation, int32 SourceZoneIndex = -1);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") bool CollectGroundEquipmentCode(int32 ItemCode);
  bool CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
@@ -451,7 +508,11 @@ private:
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
- int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
+ // Imported sorted snapshot is populated only once at BeginPlay or explicit
+ // reload, keeping death rewards allocation-free even with large DataTables.
+ TArray<FMoonfallLootTableEntry> ImportedLootTableEntries;
+ const TArray<FMoonfallLootTableEntry>& GetActiveLootTableEntries() const;
+ int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 SourceZoneIndex = -1);
  bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
  TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);

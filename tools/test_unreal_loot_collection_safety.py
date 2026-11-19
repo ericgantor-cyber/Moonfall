@@ -61,17 +61,23 @@ class GroundLootCollectionSafety(unittest.TestCase):
         hero = (SOURCE.parent / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         restore = hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        for token in ("Record.ItemCode == Loot->GetItemCode()",
-                      "MatchingRecord == INDEX_NONE", "Loot->IsActorBeingDestroyed()",
+        for token in ("TMap<FGuid, int32> SavedById;",
+                      "SavedById.Reserve(PendingWorldLoot.Num());",
+                      "if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, Record.ItemCode);",
+                      "SavedById.Find(Id)", "!SavedItemCode || Present.Contains(Id)",
+                      "*SavedItemCode != Loot->GetItemCode()",
+                      "Loot->IsActorBeingDestroyed()",
                       "Loot->GetPersistentDropId() != Record.DropId",
                       "Loot->GetItemCode() != Record.ItemCode",
                       "Present.Add(Record.DropId);"):
             self.assertIn(token, restore)
-        self.assertLess(restore.index("MatchingRecord == INDEX_NONE"),
+        self.assertNotIn("IndexOfByPredicate", restore)
+        self.assertLess(restore.index("SavedById.Find(Id)"),
+                        restore.index("Present.Add(Id);"))
+        self.assertLess(restore.index("*SavedItemCode != Loot->GetItemCode()"),
                         restore.index("Present.Add(Id);"))
         self.assertLess(restore.index("Loot->GetItemCode() != Record.ItemCode"),
                         restore.index("Present.Add(Record.DropId);"))
-        creation = hero.split("bool AMoonfallHeroPawn::", 1)
         self.assertGreaterEqual(hero.count("Loot->GetPersistentDropId() != Record.DropId"), 2)
         self.assertGreaterEqual(hero.count("Loot->GetItemCode() != Record.ItemCode"), 2)
 

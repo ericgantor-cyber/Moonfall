@@ -34,8 +34,13 @@ int32 AMoonfallWorldNPC::GetContractSalvageCost() const {
    : 10 + (MoonfallRaces::Validated(RaceId) % 4) * 5;
 }
 bool AMoonfallWorldNPC::CanHeroInteract(const AMoonfallHeroPawn* Hero) const {
- if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
-     || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
+ // Direct Blueprint/NPC calls must respect the same modal boundaries as
+ // mouse, dungeon triggers, combat and loot. Keep the resident context open
+ // itself eligible: accepting and turning in a quest happen inside that panel.
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled() || !GetWorld()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bInventoryOpen || Hero->bOptionsOpen
+     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen) return false;
  const FVector From = Hero->GetActorLocation();
  const FVector To = GetActorLocation();
  const float Range = FMath::IsFinite(InteractRange)

@@ -412,7 +412,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
         for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
@@ -422,7 +422,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
-        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", spawn)
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, SourceZoneIndex)", spawn)
         self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
@@ -745,6 +745,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bResidentContextOpen = false;", close)
         self.assertIn("OnResidentContextClosed();", close)
 
+    def test_resident_interaction_respects_all_modal_and_vitality_guards(self):
+        npc = (ROOT / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        can = npc.split("bool AMoonfallWorldNPC::CanHeroInteract(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetRaceName()", 1)[0]
+        for token in ("!IsValid(Hero)", "!Hero->IsPlayerControlled()",
+                      "!FMath::IsFinite(Hero->Health)", "Hero->Health <= 0.f",
+                      "Hero->bInventoryOpen", "Hero->bOptionsOpen",
+                      "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen"):
+            self.assertIn(token, can)
+            self.assertLess(can.index(token), can.index("LineTraceSingleByChannel"))
+        # The resident context remains interactive for intentional Accept/Turn In.
+        self.assertNotIn("Hero->bResidentContextOpen", can)
+        for action in ("RewardResidentTrust", "TryTalk", "OfferResidentQuest",
+                       "TurnInResidentQuest"):
+            body = npc.split("AMoonfallWorldNPC::" + action + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("CanHeroInteract(Hero)", body)
+        self.assertIn("Params.AddIgnoredActor(Hero);", can)
+        self.assertIn("ECC_Visibility, Params", can)
+
     def test_npc_close_restores_cursor_and_defeat_clears_menu_transients(self):
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
@@ -969,6 +988,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RestorePendingWorldEquipmentDrops();", self.hero_cpp)
         self.assertNotIn("UMoonfallRewardSaveGame", self.hero_cpp)
 
+    def test_world_loot_restoration_uses_indexed_level_scoped_matching(self):
+        hero = self.hero_cpp
+        restore = hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("TMap<FGuid, int32> SavedById;", restore)
+        self.assertIn("SavedById.Reserve(PendingWorldLoot.Num());", restore)
+        self.assertIn("if (Record.LevelId == LevelId) SavedById.Add(Record.DropId, Record.ItemCode);", restore)
+        self.assertIn("const int32* SavedItemCode = SavedById.Find(Id);", restore)
+        self.assertIn("!SavedItemCode || Present.Contains(Id)", restore)
+        self.assertIn("*SavedItemCode != Loot->GetItemCode()", restore)
+        self.assertIn("Loot->IsActorBeingDestroyed()", restore)
+        self.assertIn("Present.Add(Id);", restore)
+        self.assertIn("if (Record.LevelId != LevelId || Present.Contains(Record.DropId)) continue;", restore)
+        self.assertIn("Loot->SetPersistentDropId(Record.DropId);", restore)
+        self.assertIn("Loot->InitializeLoot(Record.ItemCode);", restore)
+        self.assertIn("Loot->GetPersistentDropId() != Record.DropId", restore)
+        self.assertIn("Loot->GetItemCode() != Record.ItemCode", restore)
+        self.assertNotIn("IndexOfByPredicate", restore)
+        # This is a world-spawn optimization, not a schema or loot-ownership change.
+        self.assertIn("UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;",
+                      (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8"))
+
     def test_ground_loot_actor_enforces_reachability_before_destruction(self):
         actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         method = actor.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
@@ -1164,8 +1205,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity >= 5", self.hero_cpp)
         self.assertIn("SelectedRarity < 5", hud)
         self.assertIn("Rarity <= 5", hud)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);", self.hero_cpp)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 4, 20, 30);", self.hero_cpp)
         self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
@@ -1551,9 +1592,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("int32 " + field + " = 0;", self.hero_h)
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
-        self.assertIn("FMath::RandRange(1, 3)", loot)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        encode = self.hero_cpp.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encode)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, 3)", encode)
+        self.assertIn("OutTrait * 100000 + OutSlot * 10000", encode)
+        self.assertIn("LastLootAffix = Trait;", loot)
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertNotIn("EquipInventoryItem(", award)
@@ -1570,22 +1614,232 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_dungeon_treasure_weighted_table_preserves_persisted_claims(self):
+        hero = self.hero_cpp
+        method = hero.split("int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(", 1)[0]
+        self.assertIn("DungeonTreasureStates[Key] != 0", method)
+        self.assertIn("return FMath::Max(0, DungeonTreasureStates[Key]);", method)
+        self.assertLess(method.index("DungeonTreasureStates[Key] != 0"),
+                        method.index("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));"))
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", method)
+        self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", method)
+        self.assertIn("const int32 Tier = FMath::Clamp(Level, 1, 25);", method)
+        self.assertIn("if (Code <= 0) return 0;", method)
+        self.assertIn("DungeonTreasureStates[Key] = Code;", method)
+        self.assertIn("if (!SaveWorldProgress())", method)
+        self.assertIn("DungeonTreasureStates = Previous;", method)
+        self.assertIn("return Code;", method)
+        # Rarity table changes cannot alter a previously saved pending/claimed reward.
+        self.assertLess(method.index("DungeonTreasureStates[Key] != 0"),
+                        method.index("DungeonTreasureStates[Key] = Code;"))
+        # Do not overwrite the HUD's last enemy reward when opening a chest.
+        self.assertNotIn("LastLootRarity", method)
+        self.assertNotIn("LastLootAffix", method)
+
+    def test_offline_mouse_loot_editor_parses_and_roundtrips_csv(self):
+        import shutil
+        import subprocess
+        editor = Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Data" / "Moonfall_LootEditor.html"
+        node_test = Path(__file__).resolve().parent / "test_moonfall_loot_editor.mjs"
+        self.assertTrue(editor.is_file())
+        self.assertTrue(node_test.is_file())
+        text = editor.read_text(encoding="utf-8")
+        for marker in ('id="import"', 'id="export"', 'id="add"',
+                       'id="reset"', 'id="preview-source"', 'id="preview-zone"',
+                       'id="preview-level"', 'id="rows"',
+                       'aria-label="Scrollable editable loot table"'):
+            self.assertIn(marker, text)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node.js unavailable; offline visual editor smoke test requires Node")
+        result = subprocess.run([node, str(node_test)], capture_output=True,
+                                text=True, timeout=20, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("CSV roundtrip OK", result.stdout)
+
+    def test_default_loot_csv_and_chance_preview_match_unreal_limits(self):
+        import importlib.util
+        module_path = Path(__file__).resolve().parent / "moonfall_loot_table.py"
+        spec = importlib.util.spec_from_file_location("moonfall_loot_table_test", module_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        rows = tool.load_rows(tool.DEFAULT_CSV)
+        self.assertEqual(len(rows), 41)
+        self.assertEqual(len({row["Name"] for row in rows}), 41)
+        self.assertEqual(set(row["Source"] for row in rows), set(tool.SOURCES))
+        for src in tool.SOURCES:
+            weight, rarities = tool.rarity_weights(rows, src, 0, 60)
+            self.assertGreater(weight, 0)
+            self.assertEqual(sum(rarities), weight)
+            self.assertAlmostEqual(sum(100.0 * x / weight for x in rarities), 100.0, places=5)
+        # At low levels the new high-end rows are excluded.
+        for src in ("Regular", "Elite", "Boss", "Treasure"):
+            _, weights = tool.rarity_weights(rows, src, 0, 1)
+            self.assertEqual(weights[5], 0)
+        _, generic = tool.rarity_weights(rows, "Boss", -1, 60)
+        _, region = tool.rarity_weights(rows, "Boss", 0, 60)
+        self.assertEqual(region[3], generic[3] + 8)
+        self.assertEqual(region[5], generic[5])
+        _, rare = tool.rarity_weights(rows, "Elite", -1, 60)
+        self.assertEqual(rare[0] + rare[1], 0)
+        self.assertEqual([r["Name"] for r in rows], sorted(r["Name"] for r in rows))
+        for field, invalid in (("Source", "Wrong"), ("ZoneIndex", 6),
+                               ("MinimumLevel", 0), ("Rarity", 8),
+                               ("Weight", 10001), ("SlotMask", 0),
+                               ("ForcedTrait", 9)):
+            mutated = [dict(row) for row in rows]
+            mutated[0][field] = invalid
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                tool.validate_rows(mutated)
+        # A source cannot lose its only level-one generic rewards.
+        mutated = [dict(row) for row in rows]
+        for row in mutated:
+            if row["Source"] == "Elite" and row["ZoneIndex"] == -1:
+                row["Weight"] = 0
+        with self.assertRaises(ValueError):
+            tool.validate_rows(mutated)
+        # Preview never uses chance rolls and follows the same budget limit.
+        self.assertIn("MAX_TOTAL_WEIGHT = 1_000_000", module_path.read_text(encoding="utf-8"))
+        self.assertIn("MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel)", self.hero_cpp)
+
+    def test_mouse_editable_loot_data_table_and_preview_are_safe(self):
+        hero = self.hero_cpp
+        header = self.hero_h
+        self.assertIn('#include "Engine/DataTable.h"', header)
+        self.assertIn("struct FMoonfallLootTableEntry : public FTableRowBase", header)
+        for prop in ("TObjectPtr<UDataTable> LootDataTable = nullptr;",
+                     "bool bLootDataTableActive = false;",
+                     "bool ReloadLootDataTable();",
+                     "GetLootRarityChancePercent(EMoonfallLootSource Source, int32 ZoneIndex,",
+                     "GetLootPoolTotalWeight(EMoonfallLootSource Source, int32 ZoneIndex,"):
+            self.assertIn(prop, header)
+        begin = hero.split("void AMoonfallHeroPawn::BeginPlay() {", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("ReloadLootDataTable();", begin)
+        reload = hero.split("bool AMoonfallHeroPawn::ReloadLootDataTable()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetLootPoolTotalWeight(", 1)[0]
+        for token in ("ImportedLootTableEntries.Reset();", "bLootDataTableActive = false;",
+                      "LootDataTable->GetRowStruct() != FMoonfallLootTableEntry::StaticStruct()",
+                      "RowNames.Sort(", "A.ToString() < B.ToString()",
+                      "LootDataTable->FindRow<FMoonfallLootTableEntry>(",
+                      "RowNames.IsEmpty() || RowNames.Num() > 2048",
+                      "Row->Weight < 0 || Row->Weight > 10000",
+                      "Row->ZoneIndex < -1 || Row->ZoneIndex > 5",
+                      "Row->Source == EMoonfallLootSource::Boss && Row->Rarity < 3",
+                      "Row->Source == EMoonfallLootSource::Elite && Row->Rarity < 2",
+                      "Row->Source == EMoonfallLootSource::Treasure && Row->Rarity < 2",
+                      "Row->ZoneIndex == -1 && Row->MinimumLevel == 1 && Row->Weight > 0",
+                      "GenericSourceMask != 15", "ImportedLootTableEntries = MoveTemp(Imported);",
+                      "bLootDataTableActive = true;"):
+            self.assertIn(token, reload)
+        self.assertLess(reload.index("GenericSourceMask != 15"),
+                        reload.index("ImportedLootTableEntries = MoveTemp(Imported);"))
+        self.assertLess(reload.index("ImportedLootTableEntries = MoveTemp(Imported);"),
+                        reload.index("bLootDataTableActive = true;"))
+        active = hero.split("GetActiveLootTableEntries() const", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReloadLootDataTable()", 1)[0]
+        self.assertIn("bLootDataTableActive ? ImportedLootTableEntries : LootTableEntries", active)
+        chance = hero.split("float AMoonfallHeroPawn::GetLootRarityChancePercent(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("MoonfallLootRowWeight(Row, Source, ZoneIndex, HeroLevel)", chance)
+        self.assertIn("Matching += Weight;", chance)
+        self.assertIn("100.f * static_cast<float>(Matching) / Total", chance)
+        self.assertIn("GetActiveLootTableEntries(), Source, SourceZoneIndex, Level", hero)
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", hero)
+        self.assertNotIn("SaveWorldProgress()", reload)
+
+    def test_rank_and_region_loot_pool_defaults_are_valid(self):
+        import re
+        header = self.hero_h
+        hero = self.hero_cpp
+        enemy = self.enemy_cpp
+        constructor = hero.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
+            "void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor()", 1)[0]
+        rows = re.findall(
+            r"AddLoot\(EMoonfallLootSource::(Regular|Elite|Boss|Treasure),\s*(\d+),\s*(\d+)"
+            r"(?:,\s*(\d+))?\);", constructor)
+        self.assertEqual(len(rows), 17)
+        minimum = {"Regular": 0, "Elite": 2, "Boss": 3, "Treasure": 2}
+        for source, rarity, weight, min_level in rows:
+            rarity, weight, min_level = int(rarity), int(weight), int(min_level or "1")
+            self.assertGreaterEqual(rarity, minimum[source])
+            self.assertTrue(0 <= rarity <= 5 and 1 <= weight <= 10000
+                            and 1 <= min_level <= 100)
+        self.assertIn("const int32 SlotMask = 1 << (Zone % 3);", constructor)
+        self.assertIn("const int32 Trait = 1 + ((Zone + Zone / 3) % 3);", constructor)
+        for source, rarity in (("Regular", 2), ("Elite", 3), ("Boss", 3), ("Treasure", 3)):
+            self.assertIn(
+                f"AddLoot(EMoonfallLootSource::{source}, {rarity}, 8, 1, Zone, SlotMask, Trait);",
+                constructor)
+        for zone in range(6):
+            mask = 1 << (zone % 3)
+            trait = 1 + ((zone + zone // 3) % 3)
+            self.assertIn(mask, (1, 2, 4))
+            self.assertIn(trait, (1, 2, 3))
+        self.assertIn("const AMoonfallDungeonLayout* DungeonOwner =", enemy)
+        self.assertIn("Cast<AMoonfallDungeonLayout>(GetOwner())", enemy)
+        self.assertIn("IsValid(DungeonOwner) ? DungeonOwner->ZoneIndex : -1", enemy)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone)", enemy)
+        spawn = hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, SourceZoneIndex)", spawn)
+        # Existing scripted rewards continue through the generic table.
+        direct = hero.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", direct)
+        self.assertNotIn("SpawnGroundEquipmentDrop(", direct)
+        self.assertIn("void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation, int32 SourceZoneIndex = -1);", header)
+
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
-        loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+        hero = self.hero_cpp
+        hero_h = self.hero_h
+        validator = hero.split("int32 MoonfallLootRowWeight(", 1)[1].split(
+            "const FMoonfallLootTableEntry* SelectMoonfallLootEntry(", 1)[0]
+        picker = hero.split("const FMoonfallLootTableEntry* SelectMoonfallLootEntry(", 1)[1].split(
+            "int32 EncodeMoonfallLootEntry(", 1)[0]
+        encode = hero.split("int32 EncodeMoonfallLootEntry(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        roll = hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
-        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
-        self.assertIn("LastLootRarity = bBossEnemy", loot)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", loot)
-        self.assertIn("LootRoll < 3 + RarityBias / 3 ? 3", loot)
-        self.assertIn("LootRoll < 18 + RarityBias ? 2", loot)
-        self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
-        self.assertIn("FMath::Clamp(Level / 5", loot)
-        self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+        for token in ("UENUM(BlueprintType)", "EMoonfallLootSource",
+                      "USTRUCT(BlueprintType)", "FMoonfallLootTableEntry",
+                      "TArray<FMoonfallLootTableEntry> LootTableEntries;",
+                      "int32 ZoneIndex = -1;", "int32 MinimumLevel = 1;",
+                      "int32 Weight = 0;", "int32 SlotMask = 7;"):
+            self.assertIn(token, hero_h)
+        self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Regular, 0, 44);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Elite, 2, 70);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 3, 75);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Boss, 5, 5, 60);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Treasure, 2, 60);", hero)
+        self.assertIn("AddLoot(EMoonfallLootSource::Treasure, 5, 2, 50);", hero)
+        for token in (
+            "ZoneIndex >= 0 && ZoneIndex < 6", "Entry.ZoneIndex != -1 && Entry.ZoneIndex != Zone",
+            "Entry.MinimumLevel > SafeLevel", "Entry.Weight <= 0 || Entry.Weight > 10000",
+            "Entry.SlotMask < 1 || Entry.SlotMask > 7", "Entry.Rarity < 0 || Entry.Rarity > 5",
+            "Source == EMoonfallLootSource::Boss && Entry.Rarity < 3",
+            "Source == EMoonfallLootSource::Elite && Entry.Rarity < 2",
+            "Source == EMoonfallLootSource::Treasure && Entry.Rarity < 2"
+        ):
+            self.assertIn(token, validator)
+        self.assertIn("constexpr int32 MaxTotalLootWeight = 1000000;", picker)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, TotalWeight)", picker)
+        self.assertIn("MoonfallLootRowWeight(Entry, Source, Zone, SafeLevel)", picker)
+        self.assertIn("MoonfallLootRandRange(Stream, 0, SlotCount - 1)", encode)
+        self.assertIn("OutTrait = Entry.Rarity == 0 ? 0", encode)
+        self.assertIn("MoonfallLootRandRange(Stream, 1, 3)", encode)
+        self.assertIn("OutTrait = Entry.ForcedTrait;", encode)
+        self.assertIn("OutTrait * 100000 + OutSlot * 10000", encode)
+        self.assertIn("LastLootRarity = Selected->Rarity;", roll)
+        self.assertIn("LastLootAffix = Trait;", roll)
+        self.assertIn("LastLootUpgrade = NewTier - GetValidatedEquippedTier(LastLootSlot)", roll)
+        self.assertIn("FMath::Clamp(Level / 5", roll)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", hero)
+        self.assertNotIn("FinisherShockwave", hero)
 
     def test_equipment_stats_affect_combat(self):
         for name in ("WeaponTier", "ArmorTier", "AccessoryTier"):
@@ -3944,6 +4198,128 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
 
 
+    def test_reentering_announced_treasure_room_restores_pending_pickup(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        entered = chamber.split("if ((EnteredChambersMask & Bit) != 0u) {", 1)[1].split(
+            "const int32 ChamberType = GetChamberType(ChamberIndex);", 1)[0]
+        self.assertIn("GetChamberType(ChamberIndex) == 2", entered)
+        self.assertIn("!SpawnTreasureChamber(Hero, ChamberIndex)", entered)
+        self.assertLess(entered.index("!SpawnTreasureChamber(Hero, ChamberIndex)"),
+                        entered.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
+        self.assertNotIn("OnChamberEntered(", entered)
+        self.assertEqual(chamber.count("OnChamberEntered(Hero, ChamberIndex, ChamberType);"), 1)
+        self.assertEqual(chamber.count("TrySpawnBonusGroup(Hero, ChamberIndex);"), 2)
+        treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        self.assertIn("if (Code <= 0)", treasure)
+        self.assertIn("const bool bClaimed = Hero->GetDungeonTreasureState(", treasure)
+        self.assertIn("ZoneIndex, DungeonIndex, ChamberIndex) == -1;", treasure)
+        self.assertIn("if (bClaimed) {", treasure)
+        self.assertIn("if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())", treasure)
+        self.assertIn("if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();", treasure)
+        self.assertIn("return bClaimed;", treasure)
+        claim = treasure.split("OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);", 1)[1].split(
+            "if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()", 1)[0]
+        self.assertIn("GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", claim)
+        self.assertIn("if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", claim)
+        self.assertLess(claim.index("Loot->Destroy();"), claim.index("return true;"))
+
+    def test_dungeon_treasure_callback_keeps_reward_retryable_and_claims_exactly_once(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        treasure = layout.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        self.assertIn("if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())", treasure)
+        self.assertIn("!Existing->IsActorBeingDestroyed()", treasure)
+        self.assertIn("Existing->GetItemCode() == Code", treasure)
+        self.assertIn("Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)",
+                      treasure)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", treasure)
+        event = "OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);"
+        after = treasure.split(event, 1)[1]
+        self.assertIn("Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1",
+                      after)
+        self.assertIn("if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()", after)
+        self.assertIn("Loot->GetItemCode() != Code", after)
+        self.assertIn("!Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)",
+                      after)
+        self.assertLess(after.index("== -1"), after.index("return true;"))
+        self.assertLess(after.index("if (!IsValid(Loot)"), after.index("return false;"))
+        self.assertLess(treasure.index("SpawnedTreasure[ChamberIndex] = Loot;"),
+                        treasure.index(event))
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", loot)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;",
+                      chamber)
+        self.assertLess(chamber.index("!SpawnTreasureChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+
+    def test_dungeon_overlap_reentry_guards_scope_all_sync_callbacks(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "Templates/UnrealTemplate.h"', layout)
+        self.assertIn("uint16 ActiveChamberOverlapsMask = 0;", layout_h)
+        self.assertIn("bool bFinalChamberSpawnInProgress = false;", layout_h)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        self.assertIn("if ((ActiveChamberOverlapsMask & Bit) != 0u) return;", chamber)
+        self.assertIn("TGuardValue<uint16> ChamberOverlapGuard(ActiveChamberOverlapsMask,", chamber)
+        self.assertIn("static_cast<uint16>(ActiveChamberOverlapsMask | Bit)", chamber)
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("if ((EnteredChambersMask & Bit) != 0u)"))
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("StartCombatChamber(Hero, ChamberIndex)"))
+        self.assertLess(chamber.index("TGuardValue<uint16> ChamberOverlapGuard"),
+                        chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"))
+        self.assertIn("if (bFinalChamberSpawnInProgress) return;", final)
+        self.assertIn("TGuardValue<bool> FinalChamberGuard(bFinalChamberSpawnInProgress, true);", final)
+        self.assertLess(final.index("TGuardValue<bool> FinalChamberGuard"),
+                        final.index("StartFinalBossChamber(Hero)"))
+        self.assertLess(final.index("TGuardValue<bool> FinalChamberGuard"),
+                        final.index("bFinalChamberNotified = true;"))
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u)", chamber)
+        # No persistent save fields or global enemy cap are introduced.
+        self.assertNotIn("ActiveChamberOverlapsMask", (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8"))
+
+    def test_dungeon_spawn_callbacks_cannot_consume_broken_encounters(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        for body, event, counter, array, marker in (
+            (bonus, "OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);",
+             "SpawnedBonusGroupsMask |= GroupBit;", "GroupActors", "bGroupSurvived"),
+            (combat, "OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);",
+             "SpawnedEncounterCount += Spawned;", "SpawnedActors", "bEncounterSurvived"),
+        ):
+            post_event = body.split(event, 1)[1]
+            self.assertIn("!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()", post_event)
+            self.assertIn("!FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f", post_event)
+            self.assertIn("if (!" + marker + ") {", post_event)
+            self.assertIn("for (AMoonfallEnemy* Enemy : " + array + ")", post_event)
+            self.assertIn("if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();",
+                          post_event)
+            self.assertLess(body.index(event), body.index(counter))
+            self.assertLess(post_event.index("if (!" + marker + ") {"),
+                            post_event.index(counter))
+            self.assertLess(post_event.index("return false;"), post_event.index(counter))
+        # The combat entry bit is only set when StartCombatChamber succeeds.
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;",
+                      chamber)
+        self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+
     def test_rejected_deferred_dungeon_enemy_is_not_counted(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
@@ -3956,6 +4332,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(combat.index("Enemy->FinishSpawning(SpawnTransform);"),
                         combat.index("Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
+
+    def test_dungeon_bonus_rejects_invalid_health_and_preserves_atomic_retry(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        self.assertIn("if (!IsValid(Enemy)) continue;", bonus)
+        self.assertIn("!FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f", bonus)
+        self.assertIn("Enemy->IsActorBeingDestroyed()", bonus)
+        self.assertIn("Enemy->Destroy();", bonus)
+        self.assertLess(bonus.index("Enemy->FinishSpawning(SpawnTransform);"),
+                        bonus.index("!FMath::IsFinite(Enemy->Health)"))
+        self.assertLess(bonus.index("!FMath::IsFinite(Enemy->Health)"),
+                        bonus.index("GroupActors.Add(Enemy);"))
+        self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", bonus)
+        self.assertLess(bonus.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
+                        bonus.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
     def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
@@ -4131,10 +4523,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", loot)
         self.assertIn("GetOrCreateDungeonTreasureCode(", layout)
         self.assertIn("Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", layout)
-        self.assertIn("SpawnedTreasure[ChamberIndex].IsValid()", layout)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Get()", layout)
+        self.assertIn("!Existing->IsActorBeingDestroyed()", layout)
+        self.assertIn("Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)", layout)
         self.assertIn("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);", layout)
         self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
-        self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
+        self.assertIn("GetActiveLootTableEntries(), EMoonfallLootSource::Treasure, Zone, Level, &Stream", self.hero_cpp)
+        self.assertIn("FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));", self.hero_cpp)
+        self.assertIn("EncodeMoonfallLootEntry(*Selected, Tier, &Stream, Slot, Trait)", self.hero_cpp)
 
 
     def test_full_six_zone_dungeon_network_integrated_in_continuous_world(self):
@@ -4343,6 +4739,61 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("name: Preserve native dungeon test evidence"))
         self.assertIn("if: always()", workflow)
 
+    def test_dungeon_world_retries_failed_layout_spawns_with_bounded_batches(self):
+        mode_h = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        startup = mode.split("void AMoonfallUnrealGameMode::BeginPlay()", 1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
+        spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        for token in ("TArray<int32> FailedDungeonSlots;", "TArray<uint8> DungeonSpawnAttempts;"):
+            self.assertIn(token, mode_h)
+        for token in ("DungeonSpawnAttempts.SetNumZeroed(TotalDungeons);",
+                      "FailedDungeonSlots.Reset();",
+                      "NextDungeonSlot < TotalDungeons || FailedDungeonSlots.Num() > 0"):
+            self.assertIn(token, startup)
+        self.assertIn("constexpr int32 MaxLayoutsPerBatch = 2;", spawning)
+        self.assertIn("constexpr uint8 MaxAttemptsPerDungeon = 3;", spawning)
+        self.assertIn("Processed < MaxLayoutsPerBatch", spawning)
+        self.assertIn("const bool bRetry = NextDungeonSlot >= TotalDungeons;", spawning)
+        self.assertIn("bRetry ? FailedDungeonSlots.Pop() : NextDungeonSlot++", spawning)
+        self.assertIn("++DungeonSpawnAttempts[Slot];", spawning)
+        self.assertIn("int32 RetriesAvailableThisBatch = FailedDungeonSlots.Num();", spawning)
+        self.assertIn("NextDungeonSlot < TotalDungeons || RetriesAvailableThisBatch > 0", spawning)
+        self.assertIn("if (bRetry) --RetriesAvailableThisBatch;", spawning)
+        self.assertLess(spawning.index("int32 RetriesAvailableThisBatch"),
+                        spawning.index("while ((NextDungeonSlot"))
+        self.assertLess(spawning.index("if (bRetry) --RetriesAvailableThisBatch;"),
+                        spawning.index("++DungeonSpawnAttempts[Slot];"))
+        self.assertIn("DungeonSpawnAttempts[Slot] < MaxAttemptsPerDungeon", spawning)
+        self.assertIn("FailedDungeonSlots.Add(Slot);", spawning)
+        self.assertIn("NextDungeonSlot >= TotalDungeons && FailedDungeonSlots.Num() == 0", spawning)
+        self.assertLess(spawning.index("FailedDungeonSlots.Add(Slot);"),
+                        spawning.index("GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);"))
+        self.assertLess(spawning.index("GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);"),
+                        spawning.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        self.assertNotIn("MaxLiveWorldEnemies", spawning)
+        self.assertNotIn("GetWorld()->GetDeltaSeconds()", spawning)
+
+    def test_dungeon_world_ignores_tearing_down_authored_actors(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        startup = mode.split("void AMoonfallUnrealGameMode::BeginPlay()", 1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
+        arena = startup.split("for (TActorIterator<AMoonfallArena>", 1)[1].split(
+            "if (!bHasArena)", 1)[0]
+        self.assertIn("IsValid(*It) && !It->IsActorBeingDestroyed()", arena)
+        dungeon = startup.split("for (TActorIterator<AMoonfallDungeonLayout>", 1)[1].split(
+            "NextDungeonSlot = 0;", 1)[0]
+        self.assertIn("if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;", dungeon)
+        self.assertLess(dungeon.index("It->IsActorBeingDestroyed()"),
+                        dungeon.index("AuthoredDungeonSlots[Slot] = 1;"))
+        self.assertIn("if (!AuthoredDungeonSlots[Slot])", dungeon)
+        # The deferred path still counts only live layouts, then queues bounded retries.
+        spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) {", spawning)
+        self.assertLess(spawning.index("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) {"),
+                        spawning.index("++ReadyDungeonCount;"))
+        self.assertIn("FailedDungeonSlots.Add(Slot);", spawning)
+
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
@@ -4447,12 +4898,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LivingHero->MarkDungeonBossDefeated(this);", death)
         self.assertNotIn("MarkDungeonBossDefeated(", final)
         self.assertNotIn("MarkDungeonBossDefeated(", boss)
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
-        # Blueprint spawn callbacks can destroy their actor synchronously.
-        # The final room must stay retryable when that happens.
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", death)
+        # Blueprint callbacks can destroy the actor or invalidate its health.
+        # Both cases must preserve the final chamber's retry path.
         self.assertIn("Boss->OnDungeonBossIdentityReady(", boss)
         self.assertIn("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", boss)
-        self.assertIn("return IsValid(Boss) && !Boss->IsActorBeingDestroyed();", boss)
+        after_spawn = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", after_spawn)
+        self.assertIn("if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)", after_spawn)
+        self.assertLess(after_spawn.index("if (!FMath::IsFinite(Boss->Health)"),
+                        after_spawn.index("return true;"))
         self.assertIn("for (int32 Attempt = 0; Attempt < 3; ++Attempt)", boss)
         self.assertIn("const float BossOffsetX = Attempt == 1 ? -160.f : 0.f;", boss)
         self.assertIn("const float BossOffsetY = Attempt == 2 ? -160.f : 0.f;", boss)
@@ -4476,15 +4931,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         final.index("bFinalChamberNotified = true;"))
 
 
-    def test_v10_native_dungeon_runner_requires_boss_ledger_check(self):
-        # CI source contracts ensure the real Editor test runner cannot
-        # silently omit the native V10 boss ledger scenario.
+    def test_current_save_schema_native_dungeon_runner_requires_boss_ledger_check(self):
+        # Native Editor test expectations must track the actual save schema,
+        # while the older V9 serialization compatibility scenario remains intact.
         source = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
         name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
         self.assertIn(name, source)
         self.assertIn(name, runner)
-        self.assertIn('Save->Version, 10', source)
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn('Save->Version, 12', source)
+        self.assertIn('Restored->Version, 12', source)
+        self.assertNotIn('Save->Version, 10', source)
+        self.assertNotIn('Restored->Version, 10', source)
         self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
         self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
@@ -4524,6 +4984,56 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
         self.assertIn("all four native tests explicitly passed", runner)
+
+    def test_native_v12_world_save_fields_round_trip_with_boss_victories(self):
+        # Source-level coverage only. Real serialization is checked by UE5.4 Editor.
+        native = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        for field in ("ExploredZoneFogMasks", "PendingWorldLoot", "DungeonTreasureStates"):
+            self.assertIn(field, save_h)
+            self.assertIn("Original->" + field, native)
+            self.assertIn("Restored->" + field, native)
+        self.assertIn("Original->ExploredZoneFogMasks.SetNumZeroed(6);", native)
+        self.assertIn("static_cast<int64>(1) << 55", native)
+        self.assertIn("Original->DungeonTreasureStates.SetNumZeroed(30 * 14);", native)
+        self.assertIn("Original->PendingWorldLoot.Add(PendingDrop);", native)
+        self.assertIn("Restored->PendingWorldLoot.Num(), 1", native)
+        self.assertIn("Drop.DropId == PendingDrop.DropId", native)
+        self.assertIn("Drop.Location.Equals(PendingDrop.Location)", native)
+        self.assertIn("Drop.LevelId == PendingDrop.LevelId", native)
+        # Fixture codes and chamber positions must be valid game-save data,
+        # not arbitrary bytes which bypass the normal loader validators.
+        self.assertIn("constexpr int32 FirstTreasureKey = 1;", native)
+        self.assertIn("constexpr int32 LastTreasureKey = 29 * 14 + 12;", native)
+        self.assertIn("constexpr int32 PendingTreasureCode = 12017;", native)
+        self.assertIn("constexpr int32 PendingWorldDropCode = 22017;", native)
+        self.assertIn("Original->DungeonTreasureStates[FirstTreasureKey] = -1;", native)
+        self.assertIn("Original->DungeonTreasureStates[LastTreasureKey] = PendingTreasureCode;", native)
+        self.assertIn("Restored->DungeonTreasureStates[FirstTreasureKey], -1", native)
+        self.assertIn("Restored->DungeonTreasureStates[LastTreasureKey], PendingTreasureCode", native)
+        self.assertIn("PendingDrop.ItemCode = PendingWorldDropCode;", native)
+        self.assertIn("Drop.ItemCode, PendingWorldDropCode", native)
+        for slot in (1, 29 * 14 + 12):
+            self.assertGreaterEqual(slot, 0)
+            self.assertLess(slot, 420)
+            self.assertNotIn(slot % 14, (0, 13))
+        for item_code in (12017, 22017):
+            affix, slot, rarity, tier = (
+                item_code // 100000, (item_code // 10000) % 10,
+                (item_code // 1000) % 10, item_code % 1000
+            )
+            self.assertTrue(0 <= affix <= 3 and 0 <= slot <= 2
+                            and 0 <= rarity <= 5 and 1 <= tier <= 25
+                            and (rarity != 0 or affix == 0))
+        hero_cpp = (ROOT / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        self.assertIn("Index % 14 == 0 || Index % 14 == 13", hero_cpp)
+        self.assertIn("Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code)", hero_cpp)
+        for field in ("ExploredZoneFogMasks", "PendingWorldLoot", "DungeonTreasureStates"):
+            self.assertIn("Original->" + field + ".Reset();", native)
+        self.assertLess(native.index("Original->PendingWorldLoot.Reset();"),
+                        native.index("Original->Version = 9;"))
+        self.assertIn("Legacy->Version, 9", native)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -5507,7 +6017,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', defeated)
         self.assertIn("Hero->AwardExperience(5);", defeated)
         self.assertIn("} else {", defeated)
-        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", defeated)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);", defeated)
         self.assertLess(defeated.index("if (bSanctuaryPracticeReward)"),
                         defeated.index("Hero->SpawnGroundEquipmentDrop("))
 
@@ -5752,6 +6262,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 
+    def test_dungeon_entrance_respects_all_gameplay_modals(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        entrance = dungeon.split("void AMoonfallDungeonLayout::HandleEntrance(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[0]
+        for guard in ("Hero->bOptionsOpen", "Hero->bInventoryOpen",
+                      "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen",
+                      "Hero->bResidentContextOpen", "!Hero->IsPlayerControlled()",
+                      "!FMath::IsFinite(Hero->Health)", "Hero->Health <= 0.f"):
+            self.assertIn(guard, entrance)
+            self.assertLess(entrance.index(guard),
+                            entrance.index("Hero->DiscoverDungeonEntrance("))
+            self.assertLess(entrance.index(guard),
+                            entrance.index("GetOrLockEncounterLevel(Hero);"))
+        self.assertLess(entrance.index("Hero->DiscoverDungeonEntrance("),
+                        entrance.index("GetOrLockEncounterLevel(Hero);"))
+
+    def test_claimed_dungeon_treasure_cleans_up_ghost_pickup(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        treasure = dungeon.split("bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[0]
+        claim = treasure.split("if (Code <= 0) {", 1)[1].split(
+            "const FVector Position =", 1)[0]
+        self.assertIn("Hero->GetDungeonTreasureState(", claim)
+        self.assertIn("if (bClaimed) {", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Get()", claim)
+        self.assertIn("!Existing->IsActorBeingDestroyed()", claim)
+        self.assertIn("Existing->Destroy();", claim)
+        self.assertIn("SpawnedTreasure[ChamberIndex].Reset();", claim)
+        self.assertIn("return bClaimed;", claim)
+        self.assertLess(claim.index("Existing->Destroy();"), claim.index("return bClaimed;"))
+        self.assertLess(claim.index("SpawnedTreasure[ChamberIndex].Reset();"),
+                        claim.index("return bClaimed;"))
+        # Failed save writes do not become collected rewards or delete pickups.
+        self.assertLess(claim.index("if (bClaimed) {"), claim.index("Existing->Destroy();"))
+
     def test_dungeon_standard_and_final_room_triggers_wait_for_closed_menus(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         bonus = dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
@@ -5792,6 +6337,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
 
+
+    def test_dungeon_boss_blueprint_callbacks_cannot_complete_invalid_spawn(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        after_identity = boss.split("Boss->OnDungeonBossIdentityReady(", 1)[1].split(
+            "OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[0]
+        after_encounter = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        invalid_health = "if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)"
+        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;"
+        for stage in (after_identity, after_encounter):
+            self.assertIn(actor_invalid, stage)
+            self.assertIn(invalid_health, stage)
+            self.assertLess(stage.index(actor_invalid), stage.index(invalid_health))
+            self.assertLess(stage.index(invalid_health), stage.index("Boss->Destroy();"))
+            self.assertLess(stage.index("Boss->Destroy();"), stage.index("return false;\n }"))
+        self.assertLess(after_encounter.index(invalid_health), after_encounter.index("return true;"))
+        self.assertIn("return false; // All collision-safe spawn positions were unavailable.", boss)
 
     def test_dungeon_final_boss_uses_first_entry_level_before_beginplay(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")

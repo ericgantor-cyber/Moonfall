@@ -289,7 +289,12 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     } else {
      const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
      Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
-     Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+     // The dungeon owner supplies the exact regional pool for all 30 dungeons.
+     // Unowned overworld enemies continue to use the generic rank pool.
+     const AMoonfallDungeonLayout* DungeonOwner =
+       Cast<AMoonfallDungeonLayout>(GetOwner());
+     const int32 LootZone = IsValid(DungeonOwner) ? DungeonOwner->ZoneIndex : -1;
+     Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation(), LootZone);
     }
    }
    // Visible until the queued finisher plays or the finite fallback expires.

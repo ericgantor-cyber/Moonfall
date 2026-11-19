@@ -9,6 +9,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Math/RandomStream.h"
+#include "Templates/UnrealTemplate.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -330,8 +331,12 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    // a distinct movement role without spawning additional enemies.
    if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
    Enemy->FinishSpawning(SpawnTransform);
-   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
-    if (IsValid(Enemy)) Enemy->Destroy();
+   // Failed or invalid-health spawns must not consume a bonus-pack slot.
+   // Match the primary chamber's post-BeginPlay health validation.
+   if (!IsValid(Enemy)) continue;
+   if (Enemy->IsActorBeingDestroyed()
+       || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+    Enemy->Destroy();
     continue;
    }
    GroupActors.Add(Enemy);
@@ -350,8 +355,23 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    if (IsValid(Enemy)) Enemy->Destroy();
   return false;
  }
- SpawnedBonusGroupsMask |= GroupBit;
  OnBonusGroupSpawned(Group, ChamberIndex, GroupSize);
+ // Blueprint notification may destroy a member or invalidate its health.
+ // Never consume the one-shot token for a partial post-callback pack.
+ bool bGroupSurvived = true;
+ for (AMoonfallEnemy* Enemy : GroupActors) {
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()
+      || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+   bGroupSurvived = false;
+   break;
+  }
+ }
+ if (!bGroupSurvived) {
+  for (AMoonfallEnemy* Enemy : GroupActors)
+   if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();
+  return false;
+ }
+ SpawnedBonusGroupsMask |= GroupBit;
  return true;
 }
 
@@ -375,7 +395,10 @@ void AMoonfallDungeonLayout::HandleEntrance(
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bAtlasOpen) return;
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
+ // Entrance discovery must obey the same modal gate as room, boss, bonus,
+ // and hazard triggers. Do not lock difficulty while a menu owns input.
  // First visit saves through the V8 ledger; later visits are already known.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -395,6 +418,10 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ // Blueprint boss notifications can synchronously trigger this overlap again.
+ // Restore the guard even when collision or a Blueprint rejects the spawn.
+ if (bFinalChamberSpawnInProgress) return;
+ TGuardValue<bool> FinalChamberGuard(bFinalChamberSpawnInProgress, true);
  // A failed spawn must not consume the final chamber event. Player can
  // retreat and retry when collision or the global population cap clears.
  if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)
@@ -423,10 +450,21 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberTriggers[Index] != Overlapped) continue;
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+  // Spawn and Blueprint events may synchronously re-enter this chamber.
+  // A scoped, per-room bit prevents duplicate mobs, loot, and bonus packs;
+  // the original bitmask is restored on all return paths and failures.
+  if ((ActiveChamberOverlapsMask & Bit) != 0u) return;
+  TGuardValue<uint16> ChamberOverlapGuard(ActiveChamberOverlapsMask,
+    static_cast<uint16>(ActiveChamberOverlapsMask | Bit));
   // Bonus packs retry on re-entry, even after the primary room event.
   // On first entry, spawn the authored combat/treasure encounter BEFORE a
   // bonus pack: the bonus group must not occupy primary formation slots.
   if ((EnteredChambersMask & Bit) != 0u) {
+   // Re-entering an already announced treasure room must recover a pending
+   // pickup lost after first entry. Claimed rewards remain permanently claimed.
+   // Do not replay OnChamberEntered or create another reward record.
+   if (GetChamberType(ChamberIndex) == 2
+       && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
    TrySpawnBonusGroup(Hero, ChamberIndex);
    return;
   }
@@ -557,8 +595,23 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
    if (IsValid(Enemy)) Enemy->Destroy();
   return false;
  }
- SpawnedEncounterCount += Spawned;
  OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
+ // A synchronous Blueprint callback can remove or invalidate a spawned mob.
+ // Roll back surviving members instead of consuming a half-empty chamber.
+ bool bEncounterSurvived = true;
+ for (AMoonfallEnemy* Enemy : SpawnedActors) {
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()
+      || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+   bEncounterSurvived = false;
+   break;
+  }
+ }
+ if (!bEncounterSurvived) {
+  for (AMoonfallEnemy* Enemy : SpawnedActors)
+   if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) Enemy->Destroy();
+  return false;
+ }
+ SpawnedEncounterCount += Spawned;
  return true;
 }
 
@@ -574,10 +627,28 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  const int32 Code = Hero->GetOrCreateDungeonTreasureCode(
    ZoneIndex, DungeonIndex, ChamberIndex, GetEffectiveLayoutSeed());
  if (Code <= 0) {
-  // Claimed treasure is a successful, empty room; do not duplicate a pickup.
-  return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;
+  // A claimed reward is a successful, empty room. A Blueprint may have
+  // recorded that claim without destroying the previously spawned pickup:
+  // clean up its ghost so it cannot linger after a later room re-entry.
+  const bool bClaimed = Hero->GetDungeonTreasureState(
+    ZoneIndex, DungeonIndex, ChamberIndex) == -1;
+  if (bClaimed) {
+   if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get())
+    if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();
+   SpawnedTreasure[ChamberIndex].Reset();
+  }
+  return bClaimed;
  }
- if (SpawnedTreasure[ChamberIndex].IsValid()) return true;
+ // A weak pointer can still refer to an actor pending destruction.
+ // Only a live pickup with the correct persisted chamber identity counts.
+ if (AMoonfallGroundLoot* Existing = SpawnedTreasure[ChamberIndex].Get()) {
+  if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()
+      && Existing->GetItemCode() == Code
+      && Existing->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex))
+   return true;
+  if (IsValid(Existing) && !Existing->IsActorBeingDestroyed()) Existing->Destroy();
+  SpawnedTreasure[ChamberIndex].Reset();
+ }
  const FVector Position = GetActorTransform().TransformPosition(
    FVector(ChamberIndex * ChamberLength, 185.f, 55.f));
  FActorSpawnParameters Params;
@@ -601,6 +672,22 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  }
  SpawnedTreasure[ChamberIndex] = Loot;
  OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
+ // A Blueprint callback may collect the reward legitimately or destroy the
+ // actor without saving a claim. Those outcomes must not be conflated.
+ if (Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1) {
+  // A Blueprint may persist the claim without removing the pickup actor.
+  // Delete the now-uncollectable ghost without ever granting another item.
+  if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();
+  SpawnedTreasure[ChamberIndex].Reset();
+  return true;
+ }
+ if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()
+     || Loot->GetItemCode() != Code
+     || !Loot->HasDungeonRewardIdentity(ZoneIndex, DungeonIndex, ChamberIndex)) {
+  if (IsValid(Loot) && !Loot->IsActorBeingDestroyed()) Loot->Destroy();
+  SpawnedTreasure[ChamberIndex].Reset();
+  return false;
+ }
  return true;
 }
 
@@ -686,13 +773,22 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  }
  Boss->OnDungeonBossIdentityReady(
    Boss->DungeonBossFamily, Boss->DungeonBossTitle, Boss->DungeonBossRank);
- // Blueprint identity events are synchronous and may destroy the actor.
- // Do not consume the room trigger or announce a nonexistent boss.
+ // Blueprint identity events are synchronous and can destroy the actor
+ // or invalidate its health. Do not announce an unusable dungeon boss.
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
+  Boss->Destroy();
+  return false;
+ }
  OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
- // Blueprint encounter events can also reject/destroy the spawn.
- // Keep the final-chamber overlap retryable in that case.
- return IsValid(Boss) && !Boss->IsActorBeingDestroyed();
+ // Encounter Blueprint callbacks may also invalidate the spawned boss.
+ // Keep the final-room overlap retryable instead of consuming its trigger.
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
+  Boss->Destroy();
+  return false;
+ }
+ return true;
  }
  return false; // All collision-safe spawn positions were unavailable.
 }

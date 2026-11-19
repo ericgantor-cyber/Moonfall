@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moonfall Loot Foundry | Visual Table Editor</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0b10;--panel:#19151e;--edge:#504450;--text:#fbf6fa;--muted:#d0c5d1;--accent:#a32945;--focus:#ff9cab}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header,main,footer{max-width:1500px;margin:auto;padding:20px}
+header{padding-top:30px}
+h1{font-size:clamp(27px,4vw,43px);margin:0 0 8px;letter-spacing:.02em}
+h2{margin:0 0 12px;font-size:22px}
+p{margin:6px 0 15px;color:var(--muted)}
+.small{font-size:14px}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:13px;padding:18px;margin-bottom:16px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+.control{display:grid;gap:5px;min-width:130px;flex:0 1 190px}
+.control label{font-weight:650;font-size:15px}
+button,select,input{font:inherit;color:var(--text);background:#28202c;border:1px solid #806775;border-radius:8px;padding:10px 12px;min-height:45px}
+input[type=number]{width:100px}
+input[type=text]{min-width:130px;width:100%}
+button{cursor:pointer;background:#49202b;font-weight:700}
+button:hover{background:#70283b}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#9c2f49;border-color:#ee829e}
+button.primary:hover{background:#b93c59}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--focus)}
+.statline{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}
+.stat{background:#281c29;border:1px solid #655464;border-radius:9px;padding:8px 12px;min-width:130px}
+.stat strong{display:block;font-size:22px}
+#message{padding:12px 14px;border-radius:9px;background:#243026;color:#eaffed;margin-bottom:12px}
+#message.bad{background:#4d2029;color:#ffe3ea}
+#unsaved{color:#ffd0da;font-weight:700;align-self:center}
+#unsaved.clean{color:#c1dfc8}
+.odds-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px;margin-top:14px}
+.odds-group{background:#110f16;border:1px solid var(--edge);border-radius:9px;padding:13px}
+.odds-group h3{font-size:17px;margin:0 0 10px}
+.odds-entry{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px;border-bottom:1px solid #453845}
+.odds-entry:last-child{border-bottom:0}
+.odds-entry span:first-child{overflow-wrap:anywhere}
+.scroller button{white-space:nowrap}
+.bulk{background:#26202d;border:1px solid var(--edge);border-radius:9px;padding:12px;margin-top:13px}
+.chances{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+.chance{background:#281e2a;border:1px solid #635463;border-radius:9px;padding:10px}
+.chance-head{display:flex;justify-content:space-between;gap:8px}
+.track{height:14px;background:#100e14;border-radius:99px;overflow:hidden;margin-top:10px}
+.fill{height:100%;background:linear-gradient(90deg,#922640,#f19ab3);width:0}
+.scroller{max-height:550px;overflow:auto;border:1px solid var(--edge);border-radius:9px}
+table{width:100%;border-collapse:collapse;min-width:1140px}
+thead{position:sticky;top:0;z-index:1;background:#29202e}
+th,td{text-align:left;padding:8px;border-bottom:1px solid #463946}
+th{font-size:15px}
+td input,td select{padding:7px;min-height:40px;width:100%;min-width:80px}
+td:first-child{min-width:170px}
+td:nth-child(2){min-width:130px}
+td:last-child{width:85px}
+.delete{background:#54202a}
+.hint{font-size:14px;margin:12px 0 0}
+code{color:#ffd0da}
+footer{color:var(--muted);font-size:14px;padding-bottom:30px}
+</style>
+</head>
+<body>
+<header>
+<h1>MOONFALL <span style="color:#f49bb3">LOOT FOUNDRY</span></h1>
+<p>Mouse-first weighted loot table editor. Change rarity, enemy type, region, equipment slot and trait, then export a CSV for Unreal Engine 5.4.</p>
+</header>
+<main>
+<section class="card" aria-label="File and editing controls">
+<div class="toolbar">
+<button id="reset">Load default 41 rows</button>
+<button id="import">Import CSV</button>
+<input id="file" type="file" accept=".csv,text/csv" hidden aria-label="Choose Moonfall loot CSV">
+<button id="add">Add loot row</button>
+<button id="undo" disabled title="Undo up to 40 changes">Undo</button>
+<button id="redo" disabled title="Redo a reverted change">Redo</button>
+<button id="export" class="primary">Export CSV for Unreal</button>
+<span id="unsaved" class="clean" role="status" aria-live="polite">Default table loaded; export to save edits</span>
+</div>
+<p class="hint">Nothing is uploaded online. Export the CSV to keep your edits. Undo/redo covers your last 40 editing actions. Unreal imports the CSV as an <code>FMoonfallLootTableEntry</code> Data Table.</p>
+</section>
+<section class="card" aria-labelledby="preview-title">
+<h2 id="preview-title">Drop probability preview</h2>
+<div class="toolbar">
+<div class="control"><label for="preview-source">Reward source</label><select id="preview-source"><option>Regular</option><option>Elite</option><option>Boss</option><option>Treasure</option></select></div>
+<div class="control"><label for="preview-zone">Region</label><select id="preview-zone"><option value="-1">Overworld / generic</option><option value="0">Region 1</option><option value="1">Region 2</option><option value="2">Region 3</option><option value="3">Region 4</option><option value="4">Region 5</option><option value="5">Region 6</option></select></div>
+<div class="control"><label for="preview-level">Hero level</label><input id="preview-level" type="number" min="1" max="100" value="60"></div>
+</div>
+<div id="stats" class="statline" aria-live="polite"></div>
+<div id="chances" class="chances" aria-live="polite"></div>
+<div class="odds-grid">
+<section class="odds-group" aria-labelledby="slot-title"><h3 id="slot-title">Equipment slot odds</h3><div id="slots"></div></section>
+<section class="odds-group" aria-labelledby="trait-title"><h3 id="trait-title">Trait odds</h3><div id="traits"></div></section>
+<section class="odds-group" aria-labelledby="rows-title"><h3 id="rows-title">Top eligible rows</h3><div id="row-odds"></div></section>
+</div>
+<p class="hint">Conditional odds among a generated reward. Slot choices are uniform over each eligible row's slot mask. Trait preview follows Unreal's existing rarity and forced-trait logic. No drop-rate or Luck modifier is implied.</p>
+</section>
+<section class="card" aria-labelledby="editor-title">
+<h2 id="editor-title">Editable loot table</h2>
+<div id="message" role="status" aria-live="polite">Loading default table…</div>
+<div class="toolbar">
+<div class="control"><label for="filter">Show reward source</label><select id="filter"><option>All</option><option>Regular</option><option>Elite</option><option>Boss</option><option>Treasure</option></select></div>
+<div class="control"><label for="filter-zone">Show region</label><select id="filter-zone"><option value="all">All regions</option><option value="-1">Generic only</option><option value="0">Region 1</option><option value="1">Region 2</option><option value="2">Region 3</option><option value="3">Region 4</option><option value="4">Region 5</option><option value="5">Region 6</option></select></div>
+<div class="control"><label for="search">Find row</label><input id="search" type="text" placeholder="e.g. Boss_Zone6"></div>
+</div>
+<div class="bulk" aria-label="Bulk weight adjustment">
+<div class="toolbar">
+<div class="control"><label for="bulk-factor">Adjust weights of matching rows</label>
+<select id="bulk-factor"><option value="50">50% (halve)</option><option value="75">75%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200% (double)</option></select></div>
+<button id="bulk-apply">Apply to filtered rows</button>
+</div>
+<p class="hint">Bulk edits affect all rows matching both filters and the current search, including rows on other pages. They do not affect unmatched regions or sources. Any invalid result is rejected without changing the table. Undo restores the previous weights.</p>
+</div>
+<div class="toolbar" aria-label="Loot table page controls">
+<div class="control"><label for="page-size">Rows per page</label><select id="page-size"><option value="40">40</option><option value="80" selected>80</option><option value="160">160</option></select></div>
+<button id="page-prev">Previous page</button>
+<button id="page-next">Next page</button>
+<span id="page-status" role="status" aria-live="polite">Loading rows…</span>
+</div>
+<p class="hint">Slots: 1 weapon, 2 armor, 4 accessory, 7 any. Traits: 0 random, 1 Force, 2 Ward, 3 Focus. Weight 0 disables a row. Scroll sideways to see all columns on smaller screens.</p>
+<div class="scroller" tabindex="0" aria-label="Scrollable editable loot table">
+<table><thead><tr>
+<th scope="col">Row name</th><th scope="col">Source</th><th scope="col">Region</th>
+<th scope="col">Min level</th><th scope="col">Rarity 0–5</th><th scope="col">Weight</th>
+<th scope="col">Slot mask</th><th scope="col">Trait 0–3</th><th scope="col">Actions</th>
+</tr></thead><tbody id="rows"></tbody></table>
+</div>
+</section>
+</main>
+<footer>Editor-only tuning tool. No in-game loot editor or Unreal native gameplay build is claimed. Saved items and character art are untouched.</footer>
+<script>
+"use strict";
+const FIELDS=["Name","Source","ZoneIndex","MinimumLevel","Rarity","Weight","SlotMask","ForcedTrait"];
+const SOURCES=["Regular","Elite","Boss","Treasure"];
+const RARITIES=["Common","Uncommon","Rare","Epic","Emerald","Legendary"];
+const FLOORS={Regular:0,Elite:2,Boss:3,Treasure:2};
+const CAP=1000000;
+const byId=id=>document.getElementById(id);
+let rows=[];
+let page=0;
+const HISTORY_LIMIT=40;
+let undoHistory=[],redoHistory=[],dirty=false;
+const snapshot=()=>rows.map(row=>({...row}));
+function updateHistoryButtons(){
+ byId("undo").disabled=undoHistory.length===0;
+ byId("redo").disabled=redoHistory.length===0;
+ const unsaved=byId("unsaved");
+ unsaved.className=dirty?"":"clean";
+ unsaved.textContent=dirty?"Unexported changes: export CSV to keep them"
+   :"No pending edits (verify your CSV download after export)";
+}
+function rememberEdit(){
+ undoHistory.push(snapshot());
+ if(undoHistory.length>HISTORY_LIMIT)undoHistory.shift();
+ redoHistory=[];
+ dirty=true;
+ updateHistoryButtons();
+}
+function undoEdit(){
+ if(!undoHistory.length)return;
+ redoHistory.push(snapshot());
+ rows=undoHistory.pop();dirty=true;
+ renderRows();showPreview();updateHistoryButtons();
+}
+function redoEdit(){
+ if(!redoHistory.length)return;
+ undoHistory.push(snapshot());
+ rows=redoHistory.pop();dirty=true;
+ renderRows();showPreview();updateHistoryButtons();
+}
+function uniqueCopyName(name,sourceRows){
+ const base=String(name).replace(/_copy\d*$/i,"").slice(0,67);
+ let candidate=base+"_copy",n=2;
+ while(sourceRows.some(row=>String(row.Name).toLowerCase()===candidate.toLowerCase()))
+   candidate=base+"_copy"+(n++);
+ return candidate;
+}
+
+function defaultRows(){
+ const out=[];
+ const global=[
+ ["Regular",[[0,44,1],[1,34,1],[2,18,1],[3,4,1],[4,2,40],[5,1,60]]],
+ ["Elite",[[2,70,1],[3,25,1],[4,5,20],[5,1,50]]],
+ ["Boss",[[3,75,1],[4,20,30],[5,5,60]]],
+ ["Treasure",[[2,60,1],[3,30,1],[4,8,20],[5,2,50]]]
+ ];
+ const add=(Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask=7,ForcedTrait=0)=>
+    out.push({Name,Source,ZoneIndex,MinimumLevel,Rarity,Weight,SlotMask,ForcedTrait});
+ for(const [src,list] of global)for(const [rarity,weight,minLevel] of list)
+   add(src+"_R"+rarity,src,-1,minLevel,rarity,weight);
+ for(let zone=0;zone<6;zone++){
+  const slot=1<<(zone%3),trait=1+((zone+Math.floor(zone/3))%3);
+  for(const [src,rarity] of [["Regular",2],["Elite",3],["Boss",3],["Treasure",3]])
+   add(src+"_Zone"+(zone+1),src,zone,1,rarity,8,slot,trait);
+ }
+ return out;
+}
+function asInt(x){
+ const text=String(x).trim();
+ return /^-?\d+$/.test(text)?Number(text):NaN;
+}
+function validate(sourceRows){
+ const errors=[],result=[],names=new Set(),coverage=new Set();
+ if(sourceRows.length<1||sourceRows.length>2048)errors.push("Use 1–2048 rows.");
+ for(const raw of sourceRows){
+  const name=String(raw.Name||"").trim(),src=String(raw.Source||"").trim();
+  if(!/^[a-zA-Z0-9_-]{1,80}$/.test(name))errors.push("Invalid row name: "+name);
+  const normalizedName=name.toLowerCase();
+  if(names.has(normalizedName))errors.push("Duplicate row: "+name);
+  names.add(normalizedName);
+  const row={Name:name,Source:src};
+  for(const field of FIELDS.slice(2))row[field]=asInt(raw[field]);
+  if(!SOURCES.includes(src))errors.push(name+": choose a valid source");
+  const ok=Number.isInteger(row.ZoneIndex)&&row.ZoneIndex>=-1&&row.ZoneIndex<=5
+    &&Number.isInteger(row.MinimumLevel)&&row.MinimumLevel>=1&&row.MinimumLevel<=100
+    &&Number.isInteger(row.Rarity)&&row.Rarity>=(FLOORS[src]===undefined?0:FLOORS[src])&&row.Rarity<=5
+    &&Number.isInteger(row.Weight)&&row.Weight>=0&&row.Weight<=10000
+    &&Number.isInteger(row.SlotMask)&&row.SlotMask>=1&&row.SlotMask<=7
+    &&Number.isInteger(row.ForcedTrait)&&row.ForcedTrait>=0&&row.ForcedTrait<=3
+    &&(row.Rarity!==0||row.ForcedTrait===0);
+  if(!ok)errors.push(name+": invalid level, rarity, region, weight, slot or trait");
+  if(ok&&row.ZoneIndex===-1&&row.MinimumLevel===1&&row.Weight>0)coverage.add(src);
+  result.push(row);
+ }
+ for(const src of SOURCES)if(!coverage.has(src))errors.push("Missing generic level-one pool: "+src);
+ return {rows:result.sort((a,b)=>a.Name<b.Name?-1:(a.Name>b.Name?1:0)),errors};
+}
+function summary(data,source,zone,level){
+ const effective=zone>=0&&zone<=5?zone:-1;
+ const currentLevel=Math.max(1,Math.min(100,level));
+ const weights=[0,0,0,0,0,0],slots=[0,0,0],traits=[0,0,0,0],eligible=[];
+ let total=0;
+ for(const row of data){
+  if(row.Source!==source||row.MinimumLevel>currentLevel||row.Weight<=0
+      ||(row.ZoneIndex!==-1&&row.ZoneIndex!==effective)
+      ||total>CAP-row.Weight)continue;
+  total+=row.Weight;
+  weights[row.Rarity]+=row.Weight;
+  eligible.push({Name:row.Name,Weight:row.Weight});
+  // UE uniformly samples among the allowed slot bits after selecting a row.
+  const allowed=[0,1,2].filter(slot=>(row.SlotMask&(1<<slot))!==0);
+  for(const slot of allowed)slots[slot]+=row.Weight/allowed.length;
+  if(row.Rarity===0)traits[0]+=row.Weight;
+  else if(row.ForcedTrait>0)traits[row.ForcedTrait]+=row.Weight;
+  else if(row.Rarity===1){
+   traits[0]+=row.Weight*0.6;
+   for(let trait=1;trait<=3;trait++)traits[trait]+=row.Weight*0.4/3;
+  }else{
+   for(let trait=1;trait<=3;trait++)traits[trait]+=row.Weight/3;
+  }
+ }
+ eligible.sort((a,b)=>b.Weight-a.Weight||(a.Name<b.Name?-1:a.Name>b.Name?1:0));
+ return {total,weights,slots,traits,eligible:eligible.slice(0,12),eligibleCount:eligible.length};
+}
+function oddsList(target,labels,weights,total){
+ const node=byId(target);node.replaceChildren();
+ labels.forEach((label,i)=>{
+  const line=document.createElement("div");line.className="odds-entry";
+  const key=document.createElement("span");key.textContent=label;
+  const percent=document.createElement("strong");
+  percent.textContent=(total>0?100*weights[i]/total:0).toFixed(2)+"%";
+  line.append(key,percent);node.append(line);
+ });
+}
+
+function showPreview(){
+ const {rows:data,errors}=validate(rows);
+ const msg=byId("message");
+ msg.className=errors.length?"bad":"";
+ msg.textContent=errors.length?errors.slice(0,4).join(" | ")+(errors.length>4?" | More errors: "+(errors.length-4):""):
+  "Valid table: "+data.length+" rows. Export is enabled.";
+ byId("export").disabled=errors.length>0;
+ const chances=byId("chances"),stats=byId("stats");
+ chances.replaceChildren();stats.replaceChildren();
+ for(const id of ["slots","traits","row-odds"])byId(id).replaceChildren();
+ if(errors.length){chances.textContent="Fix the table to see trustworthy probabilities.";return;}
+ const source=byId("preview-source").value,zone=asInt(byId("preview-zone").value);
+ const level=asInt(byId("preview-level").value);
+ const {total,weights,slots,traits,eligible,eligibleCount}=
+   summary(data,source,zone,Number.isInteger(level)?level:1);
+ for(const [label,value] of [["Rows",data.length],["Eligible rows",eligibleCount],["Active weight",total],["Source",source]]){
+  const tile=document.createElement("div");tile.className="stat";
+  const caption=document.createElement("span");caption.textContent=label;
+  const strong=document.createElement("strong");strong.textContent=String(value);
+  tile.append(caption,strong);stats.append(tile);
+ }
+ RARITIES.forEach((rarity,index)=>{
+  const chance=total>0?100*weights[index]/total:0;
+  const tile=document.createElement("div");tile.className="chance";
+  const heading=document.createElement("div");heading.className="chance-head";
+  const label=document.createElement("strong");label.textContent=rarity;
+  const value=document.createElement("span");value.textContent=chance.toFixed(2)+"%";
+  heading.append(label,value);
+  const track=document.createElement("div");track.className="track";
+  const fill=document.createElement("div");fill.className="fill";
+  fill.style.width=chance.toFixed(3)+"%";
+  track.append(fill);tile.append(heading,track);chances.append(tile);
+ });
+ oddsList("slots",["Weapon","Armor","Accessory"],slots,total);
+ oddsList("traits",["No trait","Force","Ward","Focus"],traits,total);
+ const top=byId("row-odds");
+ for(const entry of eligible){
+  const line=document.createElement("div");line.className="odds-entry";
+  const name=document.createElement("span");name.textContent=entry.Name;
+  const percent=document.createElement("strong");
+  percent.textContent=(100*entry.Weight/total).toFixed(2)+"%";
+  line.append(name,percent);top.append(line);
+ }
+ if(eligibleCount>eligible.length){
+  const note=document.createElement("p");note.className="hint";
+  note.textContent="Showing top "+eligible.length+" of "+eligibleCount+" eligible rows.";
+  top.append(note);
+ }
+}
+function control(row,index,field){
+ const cell=document.createElement("td");
+ let input;
+ if(field==="Source"){
+  input=document.createElement("select");
+  for(const source of SOURCES){
+   const opt=document.createElement("option");opt.value=source;opt.textContent=source;input.append(opt);
+  }
+  input.value=row[field];
+ }else{
+  input=document.createElement("input");
+  input.type=field==="Name"?"text":"number";
+  input.value=row[field];
+  if(field!=="Name")input.step="1";
+  if(field==="Name")input.maxLength=80;
+ }
+ input.setAttribute("aria-label",field+" for row "+(index+1));
+ input.addEventListener("change",()=>{
+  if(String(row[field])===input.value)return;
+  rememberEdit();
+  row[field]=input.value;
+  if(["Source","ZoneIndex","Name"].includes(field))renderRows();
+  showPreview();
+ });
+ cell.append(input);return cell;
+}
+function matchesFilter(row){
+ const source=byId("filter").value,zone=byId("filter-zone").value;
+ const term=byId("search").value.trim().toLowerCase();
+ return (source==="All"||row.Source===source)
+   && (zone==="all"||String(row.ZoneIndex)===zone)
+   && (!term||String(row.Name).toLowerCase().includes(term));
+}
+function renderRows(){
+ const tbody=byId("rows");tbody.replaceChildren();
+ const visible=rows.map((row,index)=>({row,index})).filter(({row})=>matchesFilter(row));
+ const perPage=asInt(byId("page-size").value);
+ const count=Number.isInteger(perPage)&&perPage>=40&&perPage<=160?perPage:80;
+ const pages=Math.max(1,Math.ceil(visible.length/count));
+ page=Math.max(0,Math.min(page,pages-1));
+ const start=page*count;
+ byId("page-prev").disabled=page===0;
+ byId("page-next").disabled=page>=pages-1;
+ byId("page-status").textContent=visible.length
+   ? "Rows "+(start+1)+"-"+Math.min(visible.length,start+count)
+     +" of "+visible.length+" (page "+(page+1)+"/"+pages+")"
+   : "No rows match these filters.";
+ for(const {row,index} of visible.slice(start,start+count)){
+  const tr=document.createElement("tr");
+  for(const field of FIELDS)tr.append(control(row,index,field));
+  const td=document.createElement("td");
+  const duplicate=document.createElement("button");
+  duplicate.textContent="Duplicate";
+  duplicate.setAttribute("aria-label","Duplicate "+row.Name);
+  duplicate.addEventListener("click",()=>{
+   if(rows.length>=2048){byId("message").textContent="2048-row limit reached.";return;}
+   rememberEdit();
+   const cloned={...row,Name:uniqueCopyName(row.Name,rows)};
+   rows.splice(index+1,0,cloned);renderRows();showPreview();
+  });
+  const button=document.createElement("button");
+  button.className="delete";button.textContent="Delete";
+  button.setAttribute("aria-label","Delete "+row.Name);
+  button.addEventListener("click",()=>{
+   rememberEdit();rows.splice(index,1);renderRows();showPreview();
+  });
+  td.append(duplicate,button);tr.append(td);tbody.append(tr);
+ }
+}
+function parseCsv(csv){
+ const all=[];let line=[],value="",quoted=false,closed=false;
+ const completeField=()=>{
+  line.push(value);value="";closed=false;
+ };
+ const completeLine=()=>{
+  completeField();
+  if(line.some(field=>field!==""))all.push(line);
+  line=[];
+ };
+ for(let i=0;i<csv.length;i++){
+  const ch=csv[i];
+  if(quoted){
+   if(ch==='"'&&csv[i+1]==='"'){value+='"';i++;}
+   else if(ch==='"'){quoted=false;closed=true;}
+   else value+=ch;
+  }else if(closed){
+   if(ch===",")completeField();
+   else if(ch==="\n")completeLine();
+   else if(ch==="\r"&&csv[i+1]==="\n"){completeLine();i++;}
+   else throw Error("Unexpected text after closing CSV quote at character "+(i+1)+".");
+  }else if(ch==='"'){
+   if(value!=="")throw Error("CSV quotes must begin at the start of a field.");
+   quoted=true;
+  }else if(ch===",")completeField();
+   else if(ch==="\n")completeLine();
+   else if(ch==="\r"&&csv[i+1]==="\n"){completeLine();i++;}
+   else if(ch==="\r")throw Error("Use CRLF or LF line endings in CSV.");
+   else value+=ch;
+ }
+ if(quoted)throw Error("Unclosed CSV quote.");
+ if(value!==""||line.length||closed)completeLine();
+ const header=all.shift();
+ if(!header||header.map(x=>x.trim().replace(/^\uFEFF/,"")).join(",")!==FIELDS.join(","))
+   throw Error("The CSV must contain the eight Moonfall column names in their normal order.");
+ if(all.length>2048)throw Error("CSV exceeds the 2048-row loot table limit.");
+ return all.map((line,n)=>{
+  if(line.length!==FIELDS.length)throw Error("Wrong number of columns on row "+(n+2));
+  const row={};FIELDS.forEach((key,i)=>row[key]=line[i]);return row;
+ });
+}
+function csvField(x){
+ const value=String(x);
+ return /[",\r\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value;
+}
+function bulkAdjust(candidate,factor,filterFn){
+ if(![50,75,125,150,200].includes(factor))throw Error("Invalid weight adjustment.");
+ let changed=0;
+ for(const row of candidate){
+  if(!filterFn(row))continue;
+  const weight=asInt(row.Weight);
+  const adjusted=Math.round(weight*factor/100);
+  if(!Number.isInteger(weight)||weight<0||adjusted>10000)
+   throw Error("Bulk weight adjustment exceeds the 0-10000 range.");
+  row.Weight=adjusted;
+  changed++;
+ }
+ if(!changed)throw Error("No rows match the current filters.");
+ const checked=validate(candidate);
+ if(checked.errors.length)throw Error(checked.errors.slice(0,3).join(" | "));
+ return checked.rows;
+}
+byId("reset").addEventListener("click",()=>{
+ rememberEdit();rows=defaultRows();renderRows();showPreview();
+});
+byId("undo").addEventListener("click",undoEdit);
+byId("redo").addEventListener("click",redoEdit);
+byId("bulk-apply").addEventListener("click",()=>{
+ try{
+  const candidate=bulkAdjust(snapshot(),asInt(byId("bulk-factor").value),matchesFilter);
+  rememberEdit();rows=candidate;renderRows();showPreview();
+ }catch(error){
+  const message=byId("message");
+  message.className="bad";
+  message.textContent="Bulk edit rejected; no weights changed. "+error.message;
+ }
+});
+byId("add").addEventListener("click",()=>{
+ let name="Custom_"+(rows.length+1),i=1;
+ while(rows.some(x=>x.Name===name))name="Custom_"+(rows.length+1)+"_"+(i++);
+ if(rows.length>=2048){byId("message").textContent="2048-row limit reached.";return;}
+ rememberEdit();
+ rows.push({Name:name,Source:"Regular",ZoneIndex:-1,MinimumLevel:1,Rarity:0,Weight:1,SlotMask:7,ForcedTrait:0});
+ byId("filter").value="All";byId("filter-zone").value="all";byId("search").value="";
+ page=0;renderRows();showPreview();
+});
+byId("import").addEventListener("click",()=>byId("file").click());
+byId("file").addEventListener("change",async event=>{
+ const file=event.target.files[0];
+ if(!file)return;
+ try{
+  if(file.size>1024*1024)throw Error("CSV exceeds the 1 MB import limit.");
+  const candidate=parseCsv(await file.text());
+  const checked=validate(candidate);
+  if(checked.errors.length)throw Error(checked.errors.slice(0,3).join(" | "));
+  rememberEdit();
+  rows=checked.rows;
+  renderRows();showPreview();
+ }catch(error){
+  const message=byId("message");
+  message.className="bad";
+  message.textContent="Import rejected; your current table is unchanged. "+error.message;
+ }
+ event.target.value="";
+});
+byId("export").addEventListener("click",()=>{
+ const data=validate(rows);if(data.errors.length){showPreview();return;}
+ const csv=[FIELDS.join(","),...data.rows.map(row=>FIELDS.map(field=>csvField(row[field])).join(","))].join("\r\n")+"\r\n";
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob),link=document.createElement("a");
+ link.href=url;link.download="Moonfall_CustomLootTable.csv";
+ document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ dirty=false;updateHistoryButtons();
+});
+for(const id of ["preview-source","preview-zone","preview-level"])byId(id).addEventListener("change",showPreview);
+for(const id of ["filter","filter-zone"])byId(id).addEventListener("change",()=>{
+ page=0;renderRows();
+});
+byId("search").addEventListener("input",()=>{page=0;renderRows();});
+byId("page-size").addEventListener("change",()=>{page=0;renderRows();});
+byId("page-prev").addEventListener("click",()=>{page=Math.max(0,page-1);renderRows();});
+byId("page-next").addEventListener("click",()=>{page++;renderRows();});
+document.addEventListener("keydown",event=>{
+ if(!(event.ctrlKey||event.metaKey)||event.altKey||event.target?.matches?.("input,textarea,select"))return;
+ const key=event.key.toLowerCase();
+ if(key==="z"&&!event.shiftKey){event.preventDefault();undoEdit();}
+ else if(key==="y"||(key==="z"&&event.shiftKey)){event.preventDefault();redoEdit();}
+});
+window.addEventListener("beforeunload",event=>{
+ if(dirty){event.preventDefault();event.returnValue="";}
+});
+rows=defaultRows();byId("preview-source").value="Boss";
+renderRows();showPreview();updateHistoryButtons();
+</script>
+</body>
+</html>

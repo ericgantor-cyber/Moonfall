@@ -35,17 +35,20 @@ void AMoonfallUnrealGameMode::BeginPlay()
  // Preserve an arena already placed by a designer.
  bool bHasArena = false;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
-  if (IsValid(*It)) { bHasArena = true; break; }
+  if (IsValid(*It) && !It->IsActorBeingDestroyed()) { bHasArena = true; break; }
  if (!bHasArena)
   GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
 
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
+ DungeonSpawnAttempts.SetNumZeroed(TotalDungeons);
+ FailedDungeonSlots.Reset();
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
-  if (!IsValid(*It)) continue;
+  // Destroying layouts must not reserve a permanent dungeon slot.
+  if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;
   const int32 Zone = It->ZoneIndex;
   const int32 Dungeon = It->DungeonIndex;
   if (Zone >= 0 && Zone < DungeonZoneCount
@@ -60,7 +63,7 @@ void AMoonfallUnrealGameMode::BeginPlay()
  }
  NextDungeonSlot = 0;
  SpawnDungeonBatch();
- if (NextDungeonSlot < TotalDungeons)
+ if (NextDungeonSlot < TotalDungeons || FailedDungeonSlots.Num() > 0)
   GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
@@ -68,15 +71,26 @@ void AMoonfallUnrealGameMode::BeginPlay()
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
  if (!GetWorld()) return;
- // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
- // the short timer stops entirely when all slots have been considered.
+ // Keep startup responsive: at most two layout attempts per timer tick.
+ // Failed spawns receive two additional attempts after the original 30 slots
+ // have been visited, not an unbounded retry or a permanent missing slot.
  constexpr int32 MaxLayoutsPerBatch = 2;
+ constexpr uint8 MaxAttemptsPerDungeon = 3;
  int32 Processed = 0;
- while (NextDungeonSlot < TotalDungeons && Processed < MaxLayoutsPerBatch) {
-  const int32 Slot = NextDungeonSlot++;
+ // Only retry entries queued before this batch began. A failed retry cannot
+ // immediately consume its second chance in the same tick while collision
+ // cleanup and pending-destroy actors have not settled yet.
+ int32 RetriesAvailableThisBatch = FailedDungeonSlots.Num();
+ while ((NextDungeonSlot < TotalDungeons || RetriesAvailableThisBatch > 0)
+        && Processed < MaxLayoutsPerBatch) {
+  const bool bRetry = NextDungeonSlot >= TotalDungeons;
+  const int32 Slot = bRetry ? FailedDungeonSlots.Pop() : NextDungeonSlot++;
+  if (bRetry) --RetriesAvailableThisBatch;
   ++Processed;
   if (AuthoredDungeonSlots.IsValidIndex(Slot) && AuthoredDungeonSlots[Slot])
    continue;
+  if (!DungeonSpawnAttempts.IsValidIndex(Slot)) continue;
+  ++DungeonSpawnAttempts[Slot];
   const int32 Zone = Slot / DungeonsPerZone;
   const int32 DungeonIndex = Slot % DungeonsPerZone;
   FTransform DungeonTransform;
@@ -85,14 +99,19 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
     AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
     ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-  if (!IsValid(Layout)) continue;
-  Layout->ZoneIndex = Zone;
-  Layout->DungeonIndex = DungeonIndex;
-  Layout->bRandomizeChambers = true;
-  Layout->FinishSpawning(DungeonTransform);
-  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;
+  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) {
+   Layout->ZoneIndex = Zone;
+   Layout->DungeonIndex = DungeonIndex;
+   Layout->bRandomizeChambers = true;
+   Layout->FinishSpawning(DungeonTransform);
+  }
+  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) {
+   ++ReadyDungeonCount;
+  } else if (DungeonSpawnAttempts[Slot] < MaxAttemptsPerDungeon) {
+   FailedDungeonSlots.Add(Slot);
+  }
  }
- if (NextDungeonSlot >= TotalDungeons) {
+ if (NextDungeonSlot >= TotalDungeons && FailedDungeonSlots.Num() == 0) {
   GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
   if (ReadyDungeonCount != TotalDungeons)
    UE_LOG(LogTemp, Warning, TEXT("Moonfall dungeon world: only %d/%d layouts ready"),
