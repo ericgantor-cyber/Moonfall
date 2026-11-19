@@ -54,6 +54,17 @@ not a complete AAA-quality game or a verified Windows build.
   two-row screen-space lanes per enemy with a dark text backing,
   bounded screen-space clipping and a gentle upward drift. When
   Reduced Motion is enabled, they remain stationary and quietly fade.
+- **Player-safe crowd placement:** The HUD projects the player only
+  once to establish a protected on-screen silhouette, **never as a
+  source of combat labels**. Each result tries up to eleven fixed
+  nearby positions and rejects boxes that overlap the player or any
+  of the already accepted enemy results. If none fit, it skips that
+  optional label rather than obscuring the player. At most sixteen
+  rectangles are compared, using a stack-local fixed array with no
+  extra actors, heap allocation, AI scans or timers.
+- **Newest results first:** Each enemy's four-entry ring is inspected
+  from the latest resolved hit backward. This prioritizes a fresh
+  parry, dodge or damage result when the scene reaches its label cap.
 - **Esc > Options** retains ten selectable rows, with `Floating
   results` On/Off, `Text palette` Classic/Contrast/Mono, and existing
   `Combat text` sizing at 75% to 200%. Mouse, keyboard and controller
@@ -70,7 +81,13 @@ hero), simultaneous 60+ mobs, incoming/ outgoing damage readability,
 parry/dodge/block/miss truthfulness, cap limits, standard and 4K
 resolutions, smallest window size, all three palettes, Reduced Motion,
 mouse/controller settings persistence, FPS and valid final-hit
-feedback. Source tests **do not** prove a working Windows build.
+feedback. Also check attackers standing directly next to the player:
+outcome labels must move aside or be suppressed, never overlap the
+player silhouette. Verify label separation across adjacent enemies
+and whether small viewports skip optional text without covering
+gameplay. The C++17 layout test now checks screen exclusion,
+inter-label collisions, expiry, bounds and Reduced Motion.
+Source tests **do not** prove a working Windows build.
 
 ## Real impact outcomes and sound integration
 
