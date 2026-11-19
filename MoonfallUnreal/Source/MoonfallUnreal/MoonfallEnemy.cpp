@@ -694,7 +694,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
      // A parried non-boss elite can schedule one ordinary sweep, not a bonus hit.
-     // The four-second memory and eight-second re-arm cooldown bound the response.
+     // The four-second memory and five-second re-arm cooldown bound the response.
      if (MoonfallEliteTactics::CanArm(bElite, bBoss, bSanctuaryPractice,
            Health > 0.f, Now < PostureBrokenUntil,
            Now >= NextAdaptiveSweepAllowedAt)) {
