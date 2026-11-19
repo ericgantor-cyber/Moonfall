@@ -1317,6 +1317,17 @@ void AMoonfallCombatHUD::DrawHUD()
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
  int32 VisibleOutcomeLabels = 0;
  int32 VisibleDamageNumbers = 0;
+ // Fixed-size frame-local rectangle cache. Labels avoid both the player's
+ // visible silhouette and other enemy labels, with no heap/actor allocations.
+ MoonfallCombatFloatLayout::FScreenRect PlacedOutcomes[
+   MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes]{};
+ FVector2D HeroOnScreen;
+ const bool bHeroScreenValid = DamageProjectionPC && bHeroLocationValid
+   && DamageProjectionPC->ProjectWorldLocationToScreen(
+      HeroLocation + FVector(0.f,0.f,100.f),HeroOnScreen)
+   && FMath::IsFinite(HeroOnScreen.X) && FMath::IsFinite(HeroOnScreen.Y);
+ const MoonfallCombatFloatLayout::FScreenRect HeroScreenExclusion{
+    HeroOnScreen.X-84.f,HeroOnScreen.Y-110.f,168.f,216.f};
  if (Hero->bShowFloatingCombatText)
  for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies) {
   if (VisibleDamageNumbers >= MoonfallCombatFloatLayout::MaxVisibleDealtDamage
@@ -1327,8 +1338,14 @@ void AMoonfallCombatHUD::DrawHUD()
   // Enemy-only source labels, in fixed two-column lanes above the attacker.
   if (DamageProjectionPC && !EnemyDamageLocation.ContainsNaN()
       && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes) {
-   for (int32 Slot = 0; Slot < AMoonfallEnemy::CombatOutcomeHistorySize
-       && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes; ++Slot) {
+   // Most recent resolution first. A stale MISS never takes the space
+   // needed by a fresh parry or hit when a crowd saturates the draw cap.
+   int32 LocalDisplayed = 0;
+   for (int32 AgeIndex = 0; AgeIndex < AMoonfallEnemy::CombatOutcomeHistorySize
+       && VisibleOutcomeLabels < MoonfallCombatFloatLayout::MaxVisibleAttackOutcomes; ++AgeIndex) {
+    const int32 Slot = (Enemy->NextCombatOutcomeSlot
+        + AMoonfallEnemy::CombatOutcomeHistorySize-1-AgeIndex)
+        % AMoonfallEnemy::CombatOutcomeHistorySize;
     const AMoonfallEnemy::FCombatOutcomeFloat& Event = Enemy->CombatOutcomeHistory[Slot];
     const float Age = WorldTime - Event.StartedAt;
     if (!FMath::IsFinite(Event.StartedAt) || !FMath::IsFinite(Event.HealthLost)
@@ -1361,14 +1378,20 @@ void AMoonfallCombatHUD::DrawHUD()
     if (!DamageProjectionPC->ProjectWorldLocationToScreen(WorldTextPosition,Screen)) continue;
     const float Scale = FMath::Clamp(Hero->CombatTextScale,0.75f,2.f);
     const float BadgeWidth = 175.f*Scale, BadgeHeight = 26.f*Scale;
-    const float X = Screen.X + MoonfallCombatFloatLayout::LaneX(Slot)*Scale;
-    const float Y = Screen.Y - 26.f*Scale - MoonfallCombatFloatLayout::LaneY(Slot)*Scale;
-    if (!FMath::IsFinite(X) || !FMath::IsFinite(Y)
-        || X < 8.f || X+BadgeWidth >= Canvas->SizeX-8.f
-        || Y < 8.f || Y+BadgeHeight >= Canvas->SizeY-8.f) continue;
-    DrawRect(FLinearColor(0.f,0.f,0.f,0.50f*Alpha),X-3.f,Y-3.f,BadgeWidth,BadgeHeight);
-    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),X,Y,nullptr,0.9f*Scale);
-    ++VisibleOutcomeLabels;
+    const float X = Screen.X + MoonfallCombatFloatLayout::LaneX(LocalDisplayed)*Scale;
+    const float Y = Screen.Y - 26.f*Scale
+      - MoonfallCombatFloatLayout::LaneY(LocalDisplayed)*Scale;
+    MoonfallCombatFloatLayout::FScreenRect Placement{};
+    if (!MoonfallCombatFloatLayout::TryPlace(
+       X,Y,BadgeWidth,BadgeHeight,Canvas->SizeX,Canvas->SizeY,
+       bHeroScreenValid,HeroScreenExclusion,PlacedOutcomes,
+       VisibleOutcomeLabels,Placement)) continue;
+    DrawRect(FLinearColor(0.f,0.f,0.f,0.50f*Alpha),
+      Placement.X-3.f,Placement.Y-3.f,Placement.Width,Placement.Height);
+    DrawText(ResultText,FLinearColor(Hue.R,Hue.G,Hue.B,Alpha),
+      Placement.X,Placement.Y,nullptr,0.9f*Scale);
+    PlacedOutcomes[VisibleOutcomeLabels++] = Placement;
+    ++LocalDisplayed;
    }
   }
   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize
