@@ -1,0 +1,19 @@
+name: UE5 forge five HUD preview regression
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_forge_preview_hud.py'
+      - '.github/workflows/unreal-forge-preview-hud.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_forge_preview_hud.py'
+      - '.github/workflows/unreal-forge-preview-hud.yml'
+jobs:
+  forge-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check forge preview against real equipment upgrade rules
+        run: python3 -m unittest -v tools.test_unreal_forge_preview_hud
