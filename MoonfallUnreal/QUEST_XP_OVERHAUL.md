@@ -81,8 +81,12 @@ catalog to identify each resident's expected contract cost and home.
   quests cannot reappear as active. The quest list shows no more than
   three rows even if 25 quests are active.
 - The panel adjusts vertically for 1, 2 or 3 visible quests; the original
-  discovered-dungeon/boss progress bars remain beneath the rows. If no
-  contract is accepted, the original sanctuary tutorial or the world
+  discovered-dungeon/boss progress bars remain beneath the rows. For 600px+
+  wide and 420px+ tall windowed views (including 640x480), the three-row
+  tracker remains enabled instead of disappearing below 760x520. Below
+  520px tall, its top offset is reduced to 34px to avoid the bottom-left
+  health orb. Existing 720p/1080p/4K placement is unchanged.
+  If no contract is accepted, the original sanctuary tutorial or the world
   exploration tracker returns. Active contracts remain visible even when
   the hero walks back into the starting sanctuary.
 - Quest titles are short, stable UI metadata, not new quest categories:
@@ -141,7 +145,8 @@ Regional NPC authoring remains in separate draft PR #1070.
 7. Return to the Shattered Sanctuary with one, two, and three accepted
    contracts. Verify each remains on-screen; with none accepted, the
    original Firstlight introduction must reappear. Check static salvage
-   bars at 0%, partial, and 100% readiness at 720p, 1080p and 4K.
+   bars at 0%, partial, and 100% readiness at 600x420, 640x480,
+   720p, 1080p and 4K; ensure the tracker doesn't overlap the health orb.
 8. Complete all tracked contracts. Confirm the original exploration tracker
    returns, and a completed quest cannot claim rewards again. Inspect
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
