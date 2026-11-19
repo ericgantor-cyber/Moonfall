@@ -25,6 +25,12 @@ class QuestXPSourceRegression(unittest.TestCase):
         self.assertIn("GetResidentQuestState(Resident->ResidentId) != 1",method)
         self.assertLess(method.index("GetResidentQuestState(Resident->ResidentId) != 1"),
                         method.index("AwardExperience(RewardXP)"))
+        self.assertIn("bDeferQuestLevelHealthNotification = true;",method)
+        self.assertIn("bDeferQuestLevelHealthNotification = false;",method)
+        self.assertIn("if (Level > PreviousLevel) OnHealthChanged(Health, MaxHealth);",method)
+        self.assertLess(method.index("if (!SaveWorldProgress())"),
+                        method.index("if (Level > PreviousLevel) OnHealthChanged"))
+        self.assertIn("if (!bDeferQuestLevelHealthNotification) OnHealthChanged(Health, MaxHealth);", self.hero)
         self.assertIn("ResidentQuestStates.Add(Id, 2);",method)
         self.assertLess(method.index("AwardExperience(RewardXP)"),
                         method.index("if (!SaveWorldProgress())"))
