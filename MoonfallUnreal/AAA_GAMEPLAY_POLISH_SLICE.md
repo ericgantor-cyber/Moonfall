@@ -31,6 +31,36 @@ not a complete AAA-quality game or a verified Windows build.
 - The warning UI is source-implemented and **not yet visually verified
   through a native UE5.4 build**.
 
+## Real impact outcomes and sound integration
+
+- The timer event `OnAttackTelegraphResolved` still represents only the
+  scheduled strike deadline, not a successful blow. A new event,
+  `OnAttackImpactOutcome(MoveId, Outcome, HealthLost)`, fires **after**
+  existing hit-arc, cover, dodge, parry and hero HP calculations for
+  ordinary/elite melee attacks. Its explicit outcomes are **HIT, PARRY,
+  DODGE, GUARD, MISS**. The move ID is captured before the timing event
+  clears it, so authored impact effects can match their anticipation.
+- Recorded HP loss comes from the player's actual pre/post-defense
+  health values. Fully blocked strikes are GUARD; attacks outside
+  range or blocked by cover are MISS. No success effect is claimed for
+  misses, perfect dodges or successful parries.
+- New optional `AttackHitSound` and `AttackParrySound` assets are
+  **null by default**. If supplied, audio plays only for real matching
+  outcomes, within 1000 units and with a per-enemy 0.4-second limit.
+  A Blueprint callback that kills the enemy cannot trigger ghost audio.
+- All this is feedback-only: it does not alter damage, enemy AI,
+  attack cooldown, boss phase mechanics, stamina, XP, loot, save formats,
+  hit collisions, Godot, Z or Nyra art. No new runtime actors or scanning.
+- `MoonfallAttackOutcome.h` is engine-free and independently tests
+  **80,008 combinations** of contact, defensive state, HP loss and
+  audio gating, alongside focused Unreal source integration tests.
+
+**Native QA:** attach authored impact sounds and montage/VFX to real
+Blueprint enemy variants, verify misses behind walls, shield blocks,
+perfect parries, invulnerable dodges, low HP/defeat, and saved state.
+Check crowd audio mixing and win10/11 latency. No actual sound files or
+native UE5.4 gameplay test are included in this source change.
+
 ## Built-in in-world attack visualization (no external asset required)
 
 - Added a **procedural, visible 3D tell** to nonboss enemies and elites.
