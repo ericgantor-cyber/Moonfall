@@ -17,6 +17,7 @@ static_assert(SelectPattern(0,false,false,true)==0);
 static_assert(SelectPattern(1,true,false,false)==1);
 static_assert(CounterSweepWindup>=0.75f && CounterSweepWindup<=1.2f);
 static_assert(ParryMemorySeconds>0.f && ParryMemorySeconds<ParryResponseCooldownSeconds);
+static_assert(ParryResponseCooldownSeconds == 5.f, "Elite counter cooldown must be five seconds");
 
 int main(){
  long checked=0;
