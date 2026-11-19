@@ -37,6 +37,21 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.TickInterval = 0.1f;
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+void AMoonfallEnemy::RecordCombatOutcomeFloat(FName Outcome, float HealthLost, float WorldTime) {
+ // Source-only feedback: accept exactly the five resolved outcomes.
+ // No hero actor, damage, health, RNG, allocation, tick or save modification.
+ if (!FMath::IsFinite(WorldTime) || !FMath::IsFinite(HealthLost)
+     || HealthLost < 0.f || IsActorBeingDestroyed()) return;
+ if (Outcome != FName(TEXT("HIT")) && Outcome != FName(TEXT("PARRY"))
+     && Outcome != FName(TEXT("DODGE")) && Outcome != FName(TEXT("GUARD"))
+     && Outcome != FName(TEXT("MISS"))) return;
+ FCombatOutcomeFloat& Entry = CombatOutcomeHistory[NextCombatOutcomeSlot];
+ Entry.Outcome = Outcome;
+ Entry.HealthLost = FMath::Clamp(HealthLost, 0.f, 100000.f);
+ Entry.StartedAt = WorldTime;
+ NextCombatOutcomeSlot = (NextCombatOutcomeSlot + 1) % CombatOutcomeHistorySize;
+}
+
 void AMoonfallEnemy::EndNonBossTelegraph(bool bResolved) {
  // Clear BEFORE the Blueprint event. Nested interruption/defeat callbacks
  // cannot report the same attack twice or leave a ghost cue behind.
@@ -815,10 +830,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      ? FName(TEXT("PARRY")) : Outcome == MoonfallAttackOutcome::EResult::Dodge
      ? FName(TEXT("DODGE")) : Outcome == MoonfallAttackOutcome::EResult::Guard
      ? FName(TEXT("GUARD")) : FName(TEXT("MISS"));
-   // Snapshot the verified outcome before notifying a Blueprint that might
-   // destroy the enemy or hero. The HUD reads the hero's fixed-size queue;
-   // no new enemy scan, actor, timer or saved field is introduced.
-   Hero->RecordIncomingCombatFloat(OutcomeName, HealthLost);
+   // Store the verified outcome ON THE ATTACKER before a Blueprint
+   // callback could destroy it. Nothing is anchored above the hero.
+   // Reuse the existing HUD enemy scan; no actors, timers or save fields.
+   if (Hero->bShowFloatingCombatText)
+    RecordCombatOutcomeFloat(OutcomeName, HealthLost, Now);
    OnAttackImpactOutcome(ImpactMoveId, OutcomeName, HealthLost);
    // Optional authored sound is played only for the *real* hit or parry
    // outcome. Never fake a hit on a miss, guard or successful dodge.
