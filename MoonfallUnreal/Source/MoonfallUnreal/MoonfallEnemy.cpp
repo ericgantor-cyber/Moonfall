@@ -586,9 +586,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       GuardianOrigin.X, GuardianOrigin.Y, GuardianTarget.X, GuardianTarget.Y,
       LockedAttackDirection.X, LockedAttackDirection.Y,
       HeroPosition.X, HeroPosition.Y, AttackRange * CurrentAttackRangeMultiplier);
+  // Preserve the existing directional melee contract for untagged enemies.
+  const bool bOrdinaryDirectionalMelee =
+    bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
   const bool bWithinBasicAttack = !bDivineSignatureActive &&
-    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint :
-      (bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier));
+    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint : bOrdinaryDirectionalMelee);
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
@@ -1172,10 +1174,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       : Pattern == 1 ? TEXT("POWER STRIKE")
       : Pattern == 2 ? TEXT("WIDE SWEEP")
       : TEXT("CRUSH ATTACK");
-    DungeonBossAttackLabel = FText::FromString(ActiveGuardianFootprint >= 0
-      ? UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(
-          static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint)))
-      : AttackLabel);
+    DungeonBossAttackLabel = FText::FromString(AttackLabel);
+    if (ActiveGuardianFootprint >= 0) {
+     DungeonBossAttackLabel = FText::FromString(UTF8_TO_TCHAR(
+       MoonfallGuardianFootprint::Name(
+        static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint))));
+    }
     DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
     // Red is dodge-only. Blue sweeps are parryable; ordinary strikes
     // preserve the existing neutral guard and parry mechanics.
