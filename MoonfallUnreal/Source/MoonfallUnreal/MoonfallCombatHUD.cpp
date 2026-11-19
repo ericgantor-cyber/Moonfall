@@ -2,6 +2,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallCombatFloatLayout.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallHUDLayout.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -410,12 +411,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   return;
  }
- if (Hero->bOptionsOpen) {
+ if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 10.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 11.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -442,9 +443,9 @@ void AMoonfallCombatHUD::DrawHUD()
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
-     TEXT("Display mode"), TEXT("Floating results"), TEXT("Text palette")};
+     TEXT("Display mode"), TEXT("Floating results"), TEXT("Text palette"), TEXT("HUD layout editor")};
    const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
-     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats"), TEXT("Colors")};
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("Floats"), TEXT("Colors"), TEXT("HUD edit")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
@@ -452,7 +453,7 @@ void AMoonfallCombatHUD::DrawHUD()
      Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen"),
      Hero->bShowFloatingCombatText ? TEXT("On") : TEXT("Off"),
      Hero->CombatTextPalette == 1 ? TEXT("Contrast")
-       : Hero->CombatTextPalette == 2 ? TEXT("Mono") : TEXT("Classic")};
+       : Hero->CombatTextPalette == 2 ? TEXT("Mono") : TEXT("Classic"), TEXT("OPEN")};
    const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    // Options mouse hover is visual only; clicks still choose and adjust explicitly.
@@ -461,7 +462,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bOptionsCursorVisible = PC->bShowMouseCursor
       && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
-   for (int32 i = 0; i < 10; ++i) {
+   for (int32 i = 0; i < 11; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     const bool bHoveredRow = bOptionsCursorVisible
@@ -501,15 +502,16 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Scale the visibility of boss warnings"),
     TEXT("Choose Windowed, Borderless or Fullscreen"),
     TEXT("Show floating hit/parry/dodge/block/miss text"),
-    TEXT("Combat text palette: Classic, Contrast, Mono")
+    TEXT("Combat text palette: Classic, Contrast, Mono"),
+    TEXT("Drag resource, quest and boss panels; wheel resizes")
   };
   const FString CompactHelp[] = {
     TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
     TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
     TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode"),
-    TEXT("Float results on/off"), TEXT("Text colors")
+    TEXT("Float results on/off"), TEXT("Text colors"), TEXT("Drag & resize HUD")
   };
-  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 9);
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 10);
   FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
   // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
   // This is guidance, never a hidden automatic graphics-setting change.
@@ -1312,6 +1314,39 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
+ // Editing is visible only while the Options HUD editor owns all input.
+ // The three outlines reuse the exact same geometry as the pointer handler.
+ if (Hero->bHUDLayoutEditing) {
+  static const TCHAR* PanelNames[] = {TEXT("ORBS"), TEXT("QUEST"), TEXT("BOSS")};
+  for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+   const auto R = MoonfallHUDLayout::Geometry(Panel, Canvas->SizeX, Canvas->SizeY,
+      Hero->HudPanelOffsets[Panel], Hero->HudPanelScales[Panel]);
+   const bool bSelected = Hero->HudSelectedPanel == Panel;
+   const FLinearColor C = bSelected
+      ? FLinearColor(1.f, 0.85f, 0.35f, 0.97f)
+      : FLinearColor(0.48f, 0.85f, 1.f, 0.93f);
+   DrawRect(C, R.Left, R.Top, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top + R.Height - 2.f, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top, 2.f, R.Height);
+   DrawRect(C, R.Left + R.Width - 2.f, R.Top, 2.f, R.Height);
+   DrawRect(FLinearColor(0.045f,0.05f,0.1f,0.91f), R.Left+3.f, R.Top+3.f,
+     FMath::Min(R.Width-6.f,105.f),20.f);
+   DrawText(FString(PanelNames[Panel]), C, R.Left+9.f, R.Top+4.f, nullptr, 0.75f);
+  }
+  DrawRect(FLinearColor(0.025f,0.035f,0.08f,0.94f), 0.f, 0.f, Canvas->SizeX, 50.f);
+  const int32 Selected = FMath::Clamp(Hero->HudSelectedPanel, 0, 2);
+  const FString EditorHelp = Canvas->SizeX < 650.f ? TEXT("HUD EDIT")
+    : Canvas->SizeX < 1100.f
+      ? FString::Printf(TEXT("HUD EDIT: %s | Wheel: resize | Drag to move"), PanelNames[Selected])
+      : FString::Printf(TEXT("HUD EDIT: %s  %.0f%% | Drag | Wheel / Left-Right: resize | Up-Down: select"),
+          PanelNames[Selected], MoonfallHUDLayout::SafeScale(Hero->HudPanelScales[Selected])*100.f);
+  DrawText(EditorHelp, FLinearColor::White, 12.f, 17.f, nullptr,
+    Canvas->SizeX < 1100.f ? 0.70f : 0.78f);
+  DrawRect(FLinearColor(0.27f,0.24f,0.35f), Canvas->SizeX-214.f, 8.f, 98.f, 36.f);
+  DrawText(TEXT("RESET"), FLinearColor::White, Canvas->SizeX-201.f, 18.f, nullptr, 0.80f);
+  DrawRect(FLinearColor(0.21f,0.42f,0.32f), Canvas->SizeX-106.f, 8.f, 94.f, 36.f);
+  DrawText(TEXT("DONE"), FLinearColor::White, Canvas->SizeX-94.f, 18.f, nullptr, 0.80f);
+ }
  // All floating combat text is anchored exclusively to the attacker.
  // No incoming combat result is ever projected above the player.
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
