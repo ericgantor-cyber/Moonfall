@@ -897,6 +897,10 @@ void AMoonfallCombatHUD::DrawHUD()
  const AMoonfallEnemy* PostureTarget = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
  float PostureDistanceSq = FMath::Square(1200.f);
+ // One priority warning, selected in the existing combat HUD world scan.
+ const AMoonfallEnemy* IncomingThreat = nullptr;
+ float IncomingThreatSeconds = 10.f;
+ float IncomingThreatDistanceSq = FMath::Square(1050.f);
  TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;
  const FVector HeroLocation = Hero->GetActorLocation();
  const bool bHeroLocationValid = !HeroLocation.ContainsNaN();
@@ -924,6 +928,18 @@ void AMoonfallCombatHUD::DrawHUD()
    if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   }
   if (E->Health <= 0.f) continue;
+  // Include the nearest/soonest live, committed nonboss strike only.
+  if (!E->bBoss && DistSq <= FMath::Square(1050.f)) {
+   const float Seconds = E->GetAttackWarningRemaining(WorldTime);
+   if (Seconds > 0.f &&
+       (Seconds < IncomingThreatSeconds ||
+         (FMath::IsNearlyEqual(Seconds,IncomingThreatSeconds)
+          && DistSq < IncomingThreatDistanceSq))) {
+    IncomingThreat = E;
+    IncomingThreatSeconds = Seconds;
+    IncomingThreatDistanceSq = DistSq;
+   }
+  }
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
   } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
@@ -1001,6 +1017,31 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
      Hero->GetTotalDefeatedDungeonBosses(),Hero->GetClearedDungeonZoneCount()),
      FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f,nullptr,0.76f);
+ }
+ // A single non-flashing alert for the next ordinary/elite strike.
+ // Existing boss warnings take priority, and no new world scan is performed.
+ if (IsValid(IncomingThreat)
+     && (!Boss || BossDistanceSq >= FMath::Square(3000.f))
+     && Canvas->SizeX >= 480.f && Canvas->SizeY >= 400.f) {
+  const float AlertW = FMath::Min(375.f, Canvas->SizeX - 32.f);
+  const float AlertX = (Canvas->SizeX - AlertW) * 0.5f;
+  const float AlertY = FMath::Max(145.f, Canvas->SizeY - 162.f);
+  const float Duration = IncomingThreat->GetAttackWarningDuration();
+  const float Progress = Duration > 0.f
+    ? FMath::Clamp(IncomingThreatSeconds / Duration,0.f,1.f) : 0.f;
+  const FString Move = IncomingThreat->GetAttackWarningLabel();
+  DrawRect(FLinearColor(0.04f,0.05f,0.11f,0.94f),AlertX,AlertY,AlertW,64.f);
+  DrawRect(FLinearColor(0.74f,0.28f,0.16f),AlertX+8.f,AlertY+49.f,
+           FMath::Max(0.f,AlertW-16.f),5.f);
+  DrawRect(FLinearColor(1.f,0.77f,0.38f),AlertX+8.f,AlertY+49.f,
+           FMath::Max(0.f,AlertW-16.f)*Progress,5.f);
+  DrawText(FString::Printf(TEXT("%s  |  %.1fs TO IMPACT"),
+      *Move,IncomingThreatSeconds),
+      FLinearColor(1.f,0.88f,0.64f),AlertX+12.f,AlertY+6.f,nullptr,0.82f);
+  DrawText(IncomingThreatSeconds <= 0.3f
+      ? TEXT("IMPACT SOON  |  GUARD / PARRY / DODGE")
+      : TEXT("GUARD / PARRY / DODGE"),
+      FLinearColor::White,AlertX+12.f,AlertY+28.f,nullptr,0.72f);
  }
  // Show only the nearest engaged non-boss posture target to avoid clutter.
  if (PostureTarget && GetOwningPlayerController()) {
