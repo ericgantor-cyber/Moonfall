@@ -189,6 +189,9 @@ public:
  // This option is saved to GameUserSettings.ini, not the game progress save.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
  bool bShowFloatingCombatText = true;
+ // 0 Classic colored, 1 high contrast, 2 monochrome. Saved as UI preference.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility")
+ int32 CombatTextPalette = 0;
  static constexpr int32 IncomingCombatFloatCapacity = 8;
  struct FIncomingCombatFloat {
   FName Outcome = NAME_None;
