@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
@@ -20,8 +21,46 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  // One non-colliding, render-only attack cue per enemy; preserve the collision root.
+  AttackTellMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AttackTellMarker"));
+  AttackTellMarker->SetupAttachment(Body);
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> TellCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  if (TellCube.Succeeded()) AttackTellMarker->SetStaticMesh(TellCube.Object);
+  AttackTellMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  AttackTellMarker->SetCollisionResponseToAllChannels(ECR_Ignore);
+  AttackTellMarker->SetGenerateOverlapEvents(false);
+  AttackTellMarker->SetCastShadow(false);
+  AttackTellMarker->SetVisibility(false);
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
+}
+void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
+ if (!IsValid(AttackTellMarker)) return;
+ const bool bWindup = bEnableProceduralAttackTell && !bBoss
+  && FMath::IsFinite(Now) && FMath::IsFinite(Health) && Health > 0.f
+  && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+  && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+  && FMath::IsFinite(CurrentAttackMultiplier) && FMath::IsFinite(CurrentAttackRangeMultiplier);
+ if (!bWindup) {
+  if (AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
+ const auto Type = MoonfallAttackTellVisual::Select(
+  false, CurrentAttackMultiplier, CurrentAttackRangeMultiplier);
+ const auto Profile = MoonfallAttackTellVisual::Profile(Type);
+ const float Progress = MoonfallAttackTellVisual::Progress(
+  WindupEndsAt - Now, CurrentWindup, bReduceMotion);
+ const float Growth = MoonfallAttackTellVisual::Growth(Progress);
+ const FVector Scale(Profile.Width * Growth, Profile.Depth * Growth, Profile.Height * Growth);
+ const FVector Location(0.f, 0.f, 107.f + (bReduceMotion ? 0.f : 14.f * Progress));
+ const FRotator Rotation(0.f, bReduceMotion ? 0.f : Profile.YawDegrees * Progress, 0.f);
+ if (!AttackTellMarker->GetRelativeScale3D().Equals(Scale, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeScale3D(Scale);
+ if (!AttackTellMarker->GetRelativeLocation().Equals(Location, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeLocation(Location);
+ if (!AttackTellMarker->GetRelativeRotation().Equals(Rotation, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeRotation(Rotation);
+ if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
@@ -342,6 +381,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
  if (Health <= 0.f) {
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
@@ -373,6 +414,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -394,6 +437,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextPathRefreshAt = 0.f;
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
  }
+ // Visual-only cue: existing 0.1s AI tick, no new path query or damage.
+ RefreshAttackTellMarker(Now, Hero->bReduceMotion);
  // A shatter follow-up expires with its break window. Never carry it into
  // another posture cycle or let an expired flag affect later spells.
  if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
