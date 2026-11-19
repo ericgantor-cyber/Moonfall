@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallLootArtRules.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallCombatFloatLayout.h"
 #include "MoonfallHeroPawn.h"
@@ -9,9 +10,120 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+AMoonfallCombatHUD::AMoonfallCombatHUD()
+{
+ // Import and cook these Texture2D assets in Unreal before packaging.
+ // Missing optional atlases gracefully fall back to the earlier art layers.
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Atlas(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAtlas.T_MoonfallLootAtlas"));
+ if (Atlas.Succeeded()) LootIconAtlas = Atlas.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Variants(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootVariants.T_MoonfallLootVariants"));
+ if (Variants.Succeeded()) LootVariantAtlas = Variants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Relics(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootRelics.T_MoonfallLootRelics"));
+ if (Relics.Succeeded()) LootRelicAtlas = Relics.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Masterworks(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootMasterworks.T_MoonfallLootMasterworks"));
+ if (Masterworks.Succeeded()) LootMasterworkAtlas = Masterworks.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Ascendants(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootAscendants.T_MoonfallLootAscendants"));
+ if (Ascendants.Succeeded()) LootAscendantAtlas = Ascendants.Object;
+ static ConstructorHelpers::FObjectFinder<UTexture2D> Wayfarers(
+   TEXT("/Game/Moonfall/LootArt/T_MoonfallLootWayfarers.T_MoonfallLootWayfarers"));
+ if (Wayfarers.Succeeded()) LootWayfarerAtlas = Wayfarers.Object;
+}
+
+void AMoonfallCombatHUD::DrawLootIcon(int32 Slot, int32 Rarity, int32 Trait,
+ int32 Tier, float X, float Y, float Side)
+{
+ if (!Canvas || !MoonfallLootArt::ValidEquipment(Slot, Rarity, Trait, Tier)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
+     || !FMath::IsFinite(Side) || Side < 10.f) return;
+ static const FLinearColor QualityColors[6] = {
+  FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
+  FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
+  FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
+ };
+ const FLinearColor Accent = QualityColors[Rarity];
+ DrawRect(FLinearColor(0.075f,0.07f,0.13f,0.96f),X,Y,Side,Side);
+ // Text labels identify rarity independently; this border aids recognition.
+ DrawRect(Accent,X,Y,Side,1.8f);
+ DrawRect(Accent,X,Y+Side-1.8f,Side,1.8f);
+ DrawRect(Accent,X,Y,1.8f,Side);
+ DrawRect(Accent,X+Side-1.8f,Y,1.8f,Side);
+
+ const MoonfallLootArt::FCell Cell = MoonfallLootArt::Select(
+  Slot,Rarity,Trait,Tier,
+  IsValid(LootIconAtlas),IsValid(LootVariantAtlas),IsValid(LootRelicAtlas),
+  IsValid(LootMasterworkAtlas),IsValid(LootAscendantAtlas),
+  IsValid(LootWayfarerAtlas));
+ UTexture2D* IconTexture = nullptr;
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Base) IconTexture = LootIconAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Trait) IconTexture = LootVariantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Relic) IconTexture = LootRelicAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork) IconTexture = LootMasterworkAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Ascendant) IconTexture = LootAscendantAtlas.Get();
+ else if (Cell.Atlas == MoonfallLootArt::EAtlas::Wayfarer) IconTexture = LootWayfarerAtlas.Get();
+ if (IsValid(IconTexture) && MoonfallLootArt::ValidCell(Cell)) {
+  Canvas->K2_DrawTexture(IconTexture,
+    FVector2D(X+2.f,Y+2.f), FVector2D(Side-4.f,Side-4.f),
+    FVector2D(static_cast<float>(Cell.Column)/Cell.Columns,
+      static_cast<float>(Cell.Row)/Cell.Rows),
+    FVector2D(1.f/Cell.Columns,1.f/Cell.Rows),
+    FLinearColor::White,BLEND_Translucent);
+ } else {
+  // Accessible procedural silhouettes never rely on imported art assets.
+  const float S = Side;
+  const FLinearColor Metal(0.87f,0.88f,0.95f);
+  const auto L=[this](float AX,float AY,float BX,float BY,float Thick,
+                       const FLinearColor& C) {
+   Canvas->K2_DrawLine(FVector2D(AX,AY),FVector2D(BX,BY),Thick,C);
+  };
+  if (Slot == 0) {
+   L(X+S*.24f,Y+S*.75f,X+S*.78f,Y+S*.17f,3.f,Metal);
+   L(X+S*.30f,Y+S*.78f,X+S*.81f,Y+S*.20f,1.f,Accent);
+   L(X+S*.22f,Y+S*.56f,X+S*.46f,Y+S*.76f,3.f,Accent);
+   DrawRect(Metal,X+S*.11f,Y+S*.80f,S*.17f,S*.09f);
+  } else if (Slot == 1) {
+   DrawRect(Metal,X+S*.20f,Y+S*.34f,S*.60f,S*.45f);
+   DrawRect(Accent,X+S*.33f,Y+S*.40f,S*.34f,S*.33f);
+   DrawRect(Metal,X+S*.08f,Y+S*.24f,S*.28f,S*.23f);
+   DrawRect(Metal,X+S*.64f,Y+S*.24f,S*.28f,S*.23f);
+   L(X+S*.37f,Y+S*.55f,X+S*.63f,Y+S*.55f,2.f,Metal);
+  } else {
+   L(X+S*.19f,Y+S*.19f,X+S*.41f,Y+S*.37f,2.f,Metal);
+   L(X+S*.81f,Y+S*.19f,X+S*.59f,Y+S*.37f,2.f,Metal);
+   L(X+S*.42f,Y+S*.36f,X+S*.22f,Y+S*.63f,3.f,Accent);
+   L(X+S*.22f,Y+S*.63f,X+S*.48f,Y+S*.85f,3.f,Accent);
+   L(X+S*.48f,Y+S*.85f,X+S*.80f,Y+S*.61f,3.f,Accent);
+   DrawRect(Metal,X+S*.44f,Y+S*.48f,S*.13f,S*.17f);
+  }
+ }
+ // Masterwork is a visual distinction within Emerald or Legendary only.
+ // The second accent is not a new rarity, stat, equipment slot or item flag.
+ if (Cell.Atlas == MoonfallLootArt::EAtlas::Masterwork ||
+     Cell.Atlas == MoonfallLootArt::EAtlas::Ascendant) {
+  const float Edge=FMath::Clamp(Side*0.12f,1.4f,4.0f);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+2.f,Y+2.f,Edge,Edge);
+  DrawRect(FLinearColor(1.f,0.91f,0.62f,0.98f),X+Side-2.f-Edge,Y+2.f,Edge,Edge);
+ }
+ // Six discrete luminance marks distinguish Common..Legendary even without
+ // color perception; drawn on top of the painting, not baked into the art.
+ const float PipGap = Side >= 24.f ? 1.4f : 0.7f;
+ const float PipWidth = FMath::Max(0.5f,(Side-4.f-5.f*PipGap)/6.f);
+ for (int32 Pip=0; Pip<6; ++Pip) {
+  DrawRect(Pip <= Rarity ? FLinearColor(1.f,1.f,1.f,0.96f)
+       : FLinearColor(0.10f,0.10f,0.14f,0.86f),
+    X+2.f+Pip*(PipWidth+PipGap),Y+Side-4.2f,PipWidth,2.2f);
+ }
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -617,6 +729,22 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+   // Larger selected-gear illustration without changing any mouse hit tests.
+   // All data comes from the current saved inventory code; no item mutation.
+   const int32 SelectedCode = Hero->InventoryItemCodes[Hero->InventorySelection];
+   const int32 SelectedTrait = SelectedCode / 100000;
+   const int32 SelectedSlot = (SelectedCode / 10000) % 10;
+   const int32 SelectedRarity = (SelectedCode / 1000) % 10;
+   const int32 SelectedTier = SelectedCode % 1000;
+   if (SelectedCode > 0 && SelectedTrait >= 0 && SelectedTrait <= 3
+       && SelectedSlot >= 0 && SelectedSlot <= 2
+       && SelectedRarity >= 0 && SelectedRarity <= 5
+       && SelectedTier >= 1 && SelectedTier <= 25
+       && (SelectedRarity != 0 || SelectedTrait == 0)
+       && SelectedCode == SelectedTrait * 100000 + SelectedSlot * 10000
+          + SelectedRarity * 1000 + SelectedTier)
+    DrawLootIcon(SelectedSlot, SelectedRarity, SelectedTrait, SelectedTier,
+       EquipX - 49.f, EquipY - 7.f, 40.f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
@@ -663,9 +791,16 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
      FLinearColor(1.f,0.52f,0.12f)};
-   DrawText(Row, Index == Selected ? FLinearColor::Yellow
+   const float IconSide = FMath::Clamp(RowSpacing - 5.f, 16.f, 30.f);
+   if (bValid)
+    DrawLootIcon(Slot, Rarity, Affix, Tier, Left + 17.f, Y - 1.f, IconSide);
+   const FString CompactRow = bValid && PanelWidth < 420.f
+     ? FString::Printf(TEXT("%02d %s T%d %s"), DisplayPosition + 1,
+        Slots[Slot], Tier, Rarities[Rarity]) : Row;
+   DrawText(CompactRow, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
-     Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+     Left + (bValid ? IconSide + 26.f : 20.f), Y, nullptr,
+     Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Proportional scroll indicator. Clicking its track jumps the visible
   // bag window without selecting, equipping or modifying saved gear.
