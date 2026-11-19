@@ -59,6 +59,9 @@ constexpr int NormalizePageStart(int Start, int Capacity, int Count) {
 constexpr int NextPageStart(int Start, int Capacity, int Count) {
  if (Count <= 0 || Capacity <= 0 || Capacity >= Count) return 0;
  const int Current = NormalizePageStart(Start, Capacity, Count);
+ // If quest completion or a viewport resize invalidated this page, return
+ // to the first page rather than jumping directly to an unexpected offset.
+ if (Current != Start) return 0;
  return Current + Capacity >= Count ? 0 : Current + Capacity;
 }
 constexpr bool ValidRowSpacing(FMetrics Layout) {
