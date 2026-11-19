@@ -157,7 +157,7 @@ class FloatingCombatTextChecks(unittest.TestCase):
         self.assertIn("Hero->CombatTextScale", hud)
 
     def test_accessibility_settings_remain_persistent_and_mouse_driven(self):
-        options = self.hud.split("if (Hero->bOptionsOpen) {",1)[1].split(
+        options = self.hud.split("if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing) {",1)[1].split(
             "if (Hero->bInventoryOpen)",1)[0]
         mouse = self.hero.split("// Match all eleven options rows",1)[1].split(
             "if (bInventoryOpen)",1)[0]
