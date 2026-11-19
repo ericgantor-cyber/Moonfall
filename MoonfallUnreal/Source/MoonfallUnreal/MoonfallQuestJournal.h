@@ -45,18 +45,19 @@ constexpr int Cost(int Index) {
  return Index < 0 || Index >= ResidentCount ? 0
    : Index == 0 ? 10 : 10 + (Residents[Index].Race % 4) * 5;
 }
-// World tracker has three slots, inspired by WoW Forever's compact quest list.
-// Only accepted quests are shown; completed quests remain recorded in saves.
-inline constexpr int MaxTracked = 3;
+// World tracker supports up to seven quests at once. Compact windows may
+// display a smaller subset, but never discard the remaining tracked quests.
+// Completed quests remain recorded in existing saves, not displayed as active.
+inline constexpr int MaxTracked = 7;
 struct FSummary {
  int Active = 0;
  int Completed = 0;
  int Ready = 0;
  int TrackedIndex = -1; // First visible row, for existing callers.
- int TrackedIndices[MaxTracked] = {-1, -1, -1};
+ int TrackedIndices[MaxTracked] = {-1, -1, -1, -1, -1, -1, -1};
  int TrackedCount = 0;
 };
-// State 1 is accepted, 2 completed. Fill up to three slots, ready-to-turn-in
+// State 1 is accepted, 2 completed. Fill up to seven slots, ready-to-turn-in
 // first, then quests needing salvage. Within each group, catalog order is
 // deterministic and independent of saved TMap iteration or game RNG.
 constexpr FSummary Summarize(const int* States, int StateCount, int Salvage) {
