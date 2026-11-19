@@ -50,6 +50,17 @@ constexpr FMetrics Compute(int ViewHeight, int TrackedRows, int ViewWidth = 1280
   Visible
  };
 }
+// Move through a tracked list in fixed, nonoverlapping pages on compact
+// windows. These are display offsets only, never persisted quest indices.
+constexpr int NormalizePageStart(int Start, int Capacity, int Count) {
+ return Count <= 0 || Capacity <= 0 || Capacity >= Count
+     || Start < 0 || Start >= Count ? 0 : Start;
+}
+constexpr int NextPageStart(int Start, int Capacity, int Count) {
+ if (Count <= 0 || Capacity <= 0 || Capacity >= Count) return 0;
+ const int Current = NormalizePageStart(Start, Capacity, Count);
+ return Current + Capacity >= Count ? 0 : Current + Capacity;
+}
 constexpr bool ValidRowSpacing(FMetrics Layout) {
  return Layout.TitleOffset >= 0
   && Layout.ResidentOffset - Layout.TitleOffset >= 18
@@ -71,6 +82,14 @@ constexpr bool ClearsHealthOrb(int ViewWidth, int ViewHeight, int TrackedRows) {
   < ViewHeight - Radius * 2.f - 25.f;
 }
 static_assert(MaxRows == 7, "Seven quest slots supported");
+static_assert(NextPageStart(0, 3, 7) == 3);
+static_assert(NextPageStart(3, 3, 7) == 6);
+static_assert(NextPageStart(6, 3, 7) == 0);
+static_assert(NextPageStart(0, 4, 7) == 4);
+static_assert(NextPageStart(4, 4, 7) == 0);
+static_assert(NormalizePageStart(6, 7, 7) == 0);
+static_assert(NormalizePageStart(-1, 3, 7) == 0);
+static_assert(NextPageStart(6, 3, 5) == 0);
 static_assert(SafeVisibleRows(600, 420, 7) == 3, "Minimum window shows three safe rows");
 static_assert(SafeVisibleRows(640, 480, 7) == 4, "Small window shows four safe rows");
 static_assert(SafeVisibleRows(1280, 720, 7) == 7, "720p shows all seven quests");
