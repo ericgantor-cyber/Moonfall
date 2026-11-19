@@ -2680,7 +2680,19 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
  };
  for (const auto& Entry : FactionReputation)
   if (!SaveFactionIds[0].IsNone() &&
@@ -2803,7 +2815,19 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
   };
   for (const auto& Entry : Save->ResidentBonds) {
    bool bKnown = false;
@@ -2995,7 +3019,19 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
   };
   for (FName Key : ValidIds) {
    if (const int32* Value = Save->ResidentBonds.Find(Key))
@@ -3576,12 +3612,14 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   } else {
    bResidentTurnInPending = false;
    // Capture the intended award before a successful turn-in can level up.
+   const int32 LevelBeforeQuest = Level;
    const int32 RewardXP = MoonfallQuestXP::Reward(
      Resident->GetContractSalvageCost(), Level);
    bSucceeded = Resident->TurnInResidentQuest(this);
    Message = bSucceeded
      ? FText::FromString(RewardXP > 0
-       ? FString::Printf(TEXT("Contract complete. +%d XP"), RewardXP)
+       ? FString::Printf(TEXT("Contract complete. +%d XP%s"), RewardXP,
+           Level > LevelBeforeQuest ? TEXT("  LEVEL UP!") : TEXT(""))
        : FString(TEXT("Contract complete. MAX LEVEL")))
      : FText::FromString(TEXT("Contract could not be completed."));
   }
@@ -3636,7 +3674,19 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;
