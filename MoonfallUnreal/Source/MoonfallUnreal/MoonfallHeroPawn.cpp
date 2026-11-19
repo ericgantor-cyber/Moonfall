@@ -1572,24 +1572,6 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
  if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
 }
 
-void AMoonfallHeroPawn::RecordIncomingCombatFloat(FName Outcome, float HealthLost) {
- // Called only after real enemy hit/defense resolution. Reject nonsensical
- // events and never allocate or change a gameplay outcome.
- if (!bShowFloatingCombatText || !GetWorld() || !FMath::IsFinite(HealthLost)
-     || HealthLost < 0.f) return;
- if (Outcome != FName(TEXT("HIT")) && Outcome != FName(TEXT("PARRY"))
-     && Outcome != FName(TEXT("DODGE")) && Outcome != FName(TEXT("GUARD"))
-     && Outcome != FName(TEXT("MISS"))) return;
- const float Now = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now)) return;
- FIncomingCombatFloat& Entry = IncomingCombatFloats[NextIncomingCombatFloatSlot];
- Entry.Outcome = Outcome;
- Entry.HealthLost = FMath::Clamp(HealthLost, 0.f, 100000.f);
- Entry.StartedAt = Now;
- NextIncomingCombatFloatSlot =
-   (NextIncomingCombatFloatSlot + 1) % IncomingCombatFloatCapacity;
-}
-
 void AMoonfallHeroPawn::OpenOptions() {
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
