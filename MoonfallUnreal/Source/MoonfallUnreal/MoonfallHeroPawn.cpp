@@ -1876,7 +1876,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
-  OnHealthChanged(Health, MaxHealth);
+  if (!bDeferQuestLevelHealthNotification) OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
 }
@@ -3710,7 +3710,10 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
+ // Hold synchronous health/level UI notifications until persistence succeeds.
+ bDeferQuestLevelHealthNotification = true;
  if (RewardXP > 0) AwardExperience(RewardXP);
+ bDeferQuestLevelHealthNotification = false;
  if (!SaveWorldProgress()) {
   Salvage = PreviousSalvage;
   ResidentQuestStates.Add(Id, 1);
@@ -3725,8 +3728,9 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
   Health = PreviousHealth;
   Mana = PreviousMana;
   SpellPowerMultiplier = PreviousSpellPower;
-  if (RewardXP > 0 && Level != 100) OnHealthChanged(Health, MaxHealth);
   return false;
  }
+ // The saved quest state and XP now agree. Notify health UI after commit.
+ if (Level > PreviousLevel) OnHealthChanged(Health, MaxHealth);
  return true;
 }
