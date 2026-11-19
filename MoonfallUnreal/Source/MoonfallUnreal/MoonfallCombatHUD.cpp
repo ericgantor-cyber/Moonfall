@@ -1177,8 +1177,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
   const float Top = 78.f;
+  const bool bThreeQuestList = !bSanctuaryObjective && QuestSummary.TrackedCount > 0;
+  // Each contract uses a separate two-line entry. Keep the original compact
+  // 124px tracker when exploring or following the starting sanctuary.
+  const float TrackerHeight = bThreeQuestList
+    ? 85.f + 49.f * QuestSummary.TrackedCount : 124.f;
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
-    Left, Top, Width, 124.f);
+    Left, Top, Width, TrackerHeight);
   // Visual priority without blinking: green means ready to turn in,
   // amber means gathering salvage, cyan remains the exploration color.
   const bool bTrackingContract = !bSanctuaryObjective && QuestSummary.TrackedIndex >= 0;
@@ -1188,31 +1193,66 @@ void AMoonfallCombatHUD::DrawHUD()
     ? FLinearColor(0.26f, 0.83f, 0.51f, 0.95f)
     : bTrackingContract ? FLinearColor(0.96f, 0.68f, 0.29f, 0.95f)
     : FLinearColor(0.30f, 0.72f, 0.92f, 0.95f);
-  DrawRect(TrackerAccent, Left, Top, 4.f, 124.f);
+  DrawRect(TrackerAccent, Left, Top, 4.f, TrackerHeight);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : QuestSummary.TrackedIndex >= 0
         ? TEXT("WORLD QUEST TRACKER  |  CONTRACTS")
         : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
-  DrawText(Objective, FLinearColor::White,
-    Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
-  DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
-    Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
+  if (bThreeQuestList) {
+   // Three WoW Forever-style tracked objectives, sorted ready-first by the
+   // pure, stable journal policy. Render no empty slots or completed quests.
+   for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row) {
+    const int32 Index = QuestSummary.TrackedIndices[Row];
+    if (Index < 0 || Index >= MoonfallQuestJournal::ResidentCount) continue;
+    const MoonfallQuestJournal::FResident& Entry = MoonfallQuestJournal::Residents[Index];
+    const int32 Cost = MoonfallQuestJournal::Cost(Index);
+    const bool bReady = Hero->Salvage >= Cost;
+    const MoonfallQuestXP::FProjection RowXP = MoonfallQuestXP::Preview(
+      Cost, Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel);
+    const FString XPText = RowXP.RewardXP > 0
+      ? FString::Printf(TEXT("+%d XP%s"), RowXP.RewardXP,
+          RowXP.LevelsGained > 0 ? TEXT(" LEVEL UP") : TEXT(""))
+      : FString(TEXT("MAX LEVEL"));
+    const float RowTop = Top + 28.f + Row * 49.f;
+    DrawRect(Row % 2 == 0
+        ? FLinearColor(0.085f, 0.11f, 0.17f, 0.95f)
+        : FLinearColor(0.065f, 0.095f, 0.15f, 0.95f),
+      Left + 12.f, RowTop, Width - 24.f, 45.f);
+    DrawRect(bReady ? FLinearColor(0.26f, 0.83f, 0.51f)
+        : FLinearColor(0.96f, 0.68f, 0.29f),
+      Left + 12.f, RowTop, 3.f, 45.f);
+    DrawText(FString::Printf(TEXT("%d. %s  |  %s"), Row + 1,
+       UTF8_TO_TCHAR(Entry.Name), bReady ? TEXT("TURN IN") : TEXT("ACTIVE")),
+      FLinearColor::White, Left + 21.f, RowTop + 3.f, nullptr,
+      Canvas->SizeX < 1050.f ? 0.64f : 0.78f);
+    DrawText(FString::Printf(TEXT("%s | %d/%d SALVAGE | %s"),
+        UTF8_TO_TCHAR(Entry.Location), FMath::Min(Hero->Salvage, Cost),
+        Cost, *XPText),
+      FLinearColor(0.76f, 0.84f, 0.92f), Left + 21.f, RowTop + 24.f,
+      nullptr, Canvas->SizeX < 1050.f ? 0.57f : 0.66f);
+   }
+  } else {
+   DrawText(Objective, FLinearColor::White,
+     Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
+   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
+     Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
+  }
   // Two stable progress bars: discovering all 30 entrances, then clearing
   // all 30 bosses. Never conflate visited regions with defeated bosses.
   const float TrackWidth = FMath::Max(20.f, Width - 28.f);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 81.f, TrackWidth, 5.f);
+    Left + 14.f, Top + TrackerHeight - 43.f, TrackWidth, 5.f);
   DrawRect(FLinearColor(0.27f, 0.74f, 0.90f),
-    Left + 14.f, Top + 81.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
+    Left + 14.f, Top + TrackerHeight - 43.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 92.f, TrackWidth, 5.f);
+    Left + 14.f, Top + TrackerHeight - 32.f, TrackWidth, 5.f);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
-    Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
+    Left + 14.f, Top + TrackerHeight - 32.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + TrackerHeight - 22.f, nullptr,
     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
