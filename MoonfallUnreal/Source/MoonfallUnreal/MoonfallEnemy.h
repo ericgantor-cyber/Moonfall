@@ -79,6 +79,12 @@ public:
  // voice, and readable cues after a *real* committed windup begins.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
  void OnAttackTelegraphCommitted(FName MoveId, float WarningSeconds);
+ // Resolved marks the actual impact timer, not guaranteed damage to the hero.
+ // Interrupted fires on canceled attacks, so animations can be stopped.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphResolved(FName MoveId);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Presentation")
+ void OnAttackTelegraphInterrupted(FName MoveId);
  // Optional audio asset. Unassigned by default; elite-only once at commitment.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
  TObjectPtr<USoundBase> EliteAttackTellSound = nullptr;
@@ -154,6 +160,9 @@ private:
  FVector CachedWaypoint = FVector::ZeroVector;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ // Ephemeral cue identity is neither replicated nor serialized to saved games.
+ FName ActiveNonBossTelegraphMove = NAME_None;
+ void EndNonBossTelegraph(bool bResolved);
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
