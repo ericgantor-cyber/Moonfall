@@ -5,7 +5,7 @@ compilation, gameplay, saving/reloading, UX readability and accessibility
 remain unverified until an actual Editor/package test.
 
 The game combines **25 unique resident salvage contracts** with **12 regional
-dungeon discovery/boss progression quests**, while showing up to **three**
+dungeon discovery/boss progression quests**, while tracking up to **seven**
 current objectives at once.
 
 ## Quest rewards
@@ -37,7 +37,7 @@ and turn-in increases the award. At level 100, the award is 0 XP.
 
 ## Before and after turn-in
 
-The NPC menu now displays the **same unique quest title** as the three-row
+The NPC menu now displays the **same unique quest title** as the seven-slot
 world tracker, resolved through a single cached, stable resident ID catalog.
 The title appears below the NPC's name without replacing their ancestry,
 social status, faction, trust or the existing choices. The NPC menu also
@@ -77,11 +77,11 @@ the hero's existing saved `ResidentQuestStates`, not an expensive
 world-wide NPC scan, and uses the pure C++17 `MoonfallQuestJournal.h`
 catalog to identify each resident's expected contract cost and home.
 
-- **Accepted** contracts (state 1) are candidates. The tracker now shows
-  **up to 3 quests simultaneously**, in a WoW Forever-style stacked list.
-  All ready-to-turn-in contracts are listed before ones needing salvage,
-  with stable tie order. The first three eligible quests fill the rows;
-  more accepted quests remain saved and appear automatically as rows free up.
+- **Accepted** contracts (state 1) are candidates. The tracker now supports
+  **up to seven quests simultaneously**, in a WoW Forever-style stacked list.
+  Ready-to-turn-in contracts take precedence over those needing salvage.
+  The first seven eligible contracts are tracked in stable order;
+  more accepted quests remain saved and replace completed contracts.
 - Every row displays a **unique named quest** (25 authored salvage
   contracts), **TURN IN** or **ACTIVE**, the resident's name and
   location, available/required salvage, projected XP/level-up, and a
@@ -91,22 +91,21 @@ catalog to identify each resident's expected contract cost and home.
   a long combined label from overflowing a small window. The normal
   layout uses **70px** per quest row with more readable font scales,
   21–22px line spacing and a 3px progress bar. In short windows,
-  **60px** rows keep three objectives visible with 18px line spacing. Empty slots are
-  not shown, and completed quests cannot reappear as active. The quest
-  list shows no more than three rows even if 25 quests are active.
-- The panel adjusts vertically for 1, 2 or 3 visible quests; the original
-  discovered-dungeon/boss progress bars remain beneath the rows. For 600px+
-  wide and 420px+ tall windowed views (including 640x480), the three-row
-  tracker remains enabled instead of disappearing below 760x520. Below
-  520px tall, its top offset stays at 18px, and 60px row spacing keeps
-  three lines per quest above the bottom-left health orb. From 520px high
-  onward, the panel anchors at 78px with spacious 70px rows. The exact
-  geometry comes from a pure C++17 policy (`MoonfallQuestLayout.h`) shared
-  by native HUD code and exhaustive layout tests. Dungeon bars remain
-  visible below all three quests at each supported window size.
-  If no contract is accepted, the original sanctuary tutorial or the world
-  exploration tracker returns. Active contracts remain visible even when
-  the hero walks back into the starting sanctuary.
+  **60px** rows preserve three text lines with 18px line spacing.
+  Empty slots are not shown, and completed quests cannot reappear as active.
+  The tracker selects no more than **seven** objectives even when more
+  than seven NPC contracts or regional goals are eligible.
+- At **720p or above, all seven tracked objectives** fit with 60px rows;
+  at 850px or taller, spacious 70px rows display the full seven.
+  Compact views safely show a subset (three rows at 600x420,
+  four at 640x480) and display **SHOWING X/7** instead of overlapping
+  the bottom-left health orb. All seven objectives stay tracked even if
+  fewer fit the physical screen; enlarging the window shows the rest.
+  The original discovery and boss bars stay beneath the visible rows.
+  These limits come from pure C++17 viewport geometry
+  (`MoonfallQuestLayout.h`). If no contract is accepted, the original
+  sanctuary tutorial or world exploration tracker remains available.
+  Accepted contracts stay visible when returning to the sanctuary.
 - Quest titles are short, stable UI metadata, not new quest categories:
   each still completes by spending the existing NPC's required salvage.
   IDs, rewards, save fields and NPC identities are unchanged. Unique
@@ -114,7 +113,7 @@ catalog to identify each resident's expected contract cost and home.
 - The quest list uses the same live XP and level-up forecast as the NPC
   menu. Level-100 characters see MAX LEVEL rather than +0 XP. The retained
   summary line shows total active/completed counts, including quests beyond
-  the three visible slots.
+  the seven tracked slots.
 - A nonflashing **green** tracker edge marks a contract ready to turn in;
   **amber** marks one still gathering salvage. Exploration keeps its
   original cyan edge. The text also states TURN IN or ACTIVE, so readiness
@@ -125,11 +124,11 @@ catalog to identify each resident's expected contract cost and home.
   and boss tracker resumes automatically.
 - The starting-sanctuary tutorial remains available as the fallback
   when no contract is accepted, including inside the sanctuary. Once
-  accepted, the Wandering Guide quest can occupy one of the three rows
+  accepted, the Wandering Guide quest can occupy one of the seven slots
   and does not disappear while near the sanctuary. Original dungeon
   discovery and boss progress bars remain unchanged.
 - For performance, the catalog resolves its `FName` lookup IDs only once,
-  then performs a fixed **25 map lookups** on visible frames. The three-row
+  then performs a fixed **25 map lookups** on visible frames. The seven-slot
   renderer forecasts XP only for displayed rows, rather than redundantly
   building an unused first-quest summary. Dungeon target scanning and
   exploration string formatting are skipped while contracts are tracked.
@@ -152,9 +151,10 @@ discovery and boss-victory masks**. Completed objectives leave the tracker;
 visiting a new zone or defeating a boss advances the relevant goals.
 
 - Accepted NPC contracts remain first in the WoW Forever-style
-  **three-quest tracker**. If fewer than three contracts are visible,
-  eligible regional quests fill the unused rows; the list never exceeds
-  three, and more goals appear as objectives complete.
+  **seven-quest tracker**. If fewer than seven contracts are tracked,
+  eligible regional objectives fill the remaining slots; the logical
+  list never exceeds seven, and more eligible goals appear as completed
+  objectives free up slots.
 - In-progress regions are prioritized before unvisited ones. Boss goals
   are shown only after at least one entrance has been discovered. All
   completed regional goals disappear, and the existing endgame exploration
@@ -169,12 +169,12 @@ visiting a new zone or defeating a boss advances the relevant goals.
   of undiscovered dungeon markers.
 - While the hero is at the starting sanctuary with no accepted contracts,
   the Firstlight tutorial remains the priority. Existing window geometry
-  and three-row height/spacing rules are reused.
+  and adaptive seven-slot height/spacing rules are reused.
 - No additional per-frame world actor scans: at most six per-zone saved
   discovery counts and six boss-victory counts are read when free quest
   slots are available. The pure C++17 `MoonfallWorldQuest.h` selection
   policy and automated tests validate all 12 goals, invalid state,
-  completion filtering, and three-slot prioritization.
+  completion filtering, and seven-slot prioritization.
 - Keyboard **Q remains Dodge**. Other existing controls, especially
   J = atlas, B = inventory, and C = character sheet, are untouched.
 
@@ -192,28 +192,25 @@ visiting a new zone or defeating a boss advances the relevant goals.
    with mouse/controller. Check that the named quest matches the world
    tracker, does not cover race/trust/rank/rewards, and that the last
    selectable action remains clickable and accessible.
-6. Accept four or more contracts. Confirm **exactly three stacked
-   quest entries** are shown, salvage-ready quests appear first, and the
-   fourth accepted quest appears as soon as a visible quest is completed.
-   Test with 1, 2, 3 and 4 active contracts; verify every row's XP/level-up,
-   ready status, destination and salvage requirement. The dungeon bars must
-   remain visible below the dynamic rows.
-7. Return to the Shattered Sanctuary with one, two, and three accepted
-   contracts. Verify each remains on-screen; with none accepted, the
-   original Firstlight introduction must reappear. Check static salvage
-   bars at 0%, partial, and 100% readiness at 600x420, 640x480,
-   720p, 1080p and 4K; ensure the tracker doesn't overlap the health orb.
-   Inspect all three lines per quest and verify title/status and salvage/XP
-   columns remain separate and legible at 600px width. Verify 60px compact
-   rows and 70px normal rows, with 3px salvage bars below each reward line;
-   compare readability and text overlap in native Unreal gameplay.
+6. Accept eight or more contracts. Confirm **at most seven tracked
+   quest entries**, with salvage-ready contracts first; the eighth
+   accepted quest should appear when a tracked contract is completed.
+   Test with 1 through 8 active contracts, including all seven visible
+   at 720p/1080p. Verify XP, turn-in priority, and dungeon bars.
+7. Return to the Shattered Sanctuary with seven accepted contracts.
+   All seven should remain tracked. With no accepted contracts, the
+   original Firstlight introduction should return. Test 600x420,
+   640x480, 720p, 1080p and 4K. Compact views must show a truthful
+   SHOWING X/7 count, keep rows above the health orb, and retain readable
+   title/NPC/reward lines and 3px salvage bars. Verify actual visuals
+   and mouse accessibility in native Unreal gameplay.
 8. Complete all tracked contracts. Confirm the original exploration tracker
    returns, and a completed quest cannot claim rewards again. Inspect
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
 9. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
-10. With 0, 1, 2 and 3 accepted NPC contracts, verify the remaining
-    three-slot tracker positions are filled by the correct regional
+10. With 0 through 7 accepted NPC contracts, verify the remaining
+    seven-slot tracker positions are filled by the correct regional
     discovery/boss goals, and regional progress survives save/reload.
     At all 30 discovered and 30 defeated, verify regional goals vanish.
     Q must still dodge; J, B and C must retain their existing menus.
