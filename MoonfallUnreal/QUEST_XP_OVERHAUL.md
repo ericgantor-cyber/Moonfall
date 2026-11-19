@@ -75,7 +75,13 @@ catalog to identify each resident's expected contract cost and home.
 - If no accepted contract is ready, the first active contract is shown
   as **ACTIVE CONTRACT: [resident]**, with available/required salvage.
 - The second line shows the NPC's location, salvage progress, active
-  contract count and completed count.
+  contract count, completed count, and the same live XP/level-up forecast
+  as the NPC menu. Level-100 characters see MAX LEVEL rather than +0 XP.
+- A nonflashing **green** tracker edge marks a contract ready to turn in;
+  **amber** marks one still gathering salvage. Exploration keeps its
+  original cyan edge. The text also states TURN IN or ACTIVE, so readiness
+  is not communicated by color alone. No new screen-space text is placed
+  above the hero or enemies.
 - Completed contracts (state 2) are counted but never tracked or
   replayed. When no contract is active the existing dungeon exploration
   and boss tracker resumes automatically.
@@ -106,8 +112,10 @@ Regional NPC authoring remains in separate draft PR #1070.
 5. Verify both compact (e.g. 720p window) and large (1080p/4K) NPC menus
    with mouse/controller. The last button must not be covered by salvage text.
 6. Accept two contracts at once. Confirm the world tracker prioritizes a
-   salvage-ready contract, counts active/completed quests, and switches back
-   to exploration when the last contract is turned in.
+   salvage-ready contract, counts active/completed quests, shows accurate XP
+   and projected level-ups, and switches back to exploration when the last
+   contract is turned in. Inspect readable green/amber cues at 720p, 1080p
+   and 4K, including reduced-motion mode.
 7. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
 8. Profile menu/journal rendering and level-up tests in a real packaged
