@@ -1,0 +1,31 @@
+name: Moonfall standalone UE5 combat and forge policy checks
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallForgeForecast.h'
+      - 'tools/test_unreal_forge_forecast.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallAttackOutcome.h'
+      - 'tools/test_unreal_attack_outcome.cpp'
+      - '.github/workflows/unreal-forge-forecast.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallForgeForecast.h'
+      - 'tools/test_unreal_forge_forecast.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallAttackOutcome.h'
+      - 'tools/test_unreal_attack_outcome.cpp'
+      - '.github/workflows/unreal-forge-forecast.yml'
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run deterministic C++17 forge test
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -pedantic tools/test_unreal_forge_forecast.cpp -o /tmp/moonfall-forge-forecast
+          /tmp/moonfall-forge-forecast
+      - name: Compile and run deterministic C++17 attack outcome tests
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -pedantic tools/test_unreal_attack_outcome.cpp -o /tmp/moonfall-attack-outcome
+          /tmp/moonfall-attack-outcome
