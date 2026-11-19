@@ -80,7 +80,7 @@ class EliteCounterTactics(unittest.TestCase):
         self.assertLess(
             self.enemy.index("WindupEndsAt = Now + CurrentWindup;",self.enemy.index(
                 "const int32 PatternCount =")),
-            self.enemy.index("OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel())"))
+            self.enemy.index("OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);"))
         self.assertNotIn("GetWorldTimerManager()",commit)
         self.assertNotIn("SpawnActor",commit)
 
