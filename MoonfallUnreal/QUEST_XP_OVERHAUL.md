@@ -69,14 +69,23 @@ the hero's existing saved `ResidentQuestStates`, not an expensive
 world-wide NPC scan, and uses the pure C++17 `MoonfallQuestJournal.h`
 catalog to identify each resident's expected contract cost and home.
 
-- **Accepted** contracts (state 1) are candidates. The tracker selects a
-  quest that has enough available salvage first, giving the player a
-  clear **TURN IN CONTRACT: [resident]** objective.
-- If no accepted contract is ready, the first active contract is shown
-  as **ACTIVE CONTRACT: [resident]**, with available/required salvage.
-- The second line shows the NPC's location, salvage progress, active
-  contract count, completed count, and the same live XP/level-up forecast
-  as the NPC menu. Level-100 characters see MAX LEVEL rather than +0 XP.
+- **Accepted** contracts (state 1) are candidates. The tracker now shows
+  **up to 3 quests simultaneously**, in a WoW Forever-style stacked list.
+  All ready-to-turn-in contracts are listed before ones needing salvage,
+  with stable tie order. The first three eligible quests fill the rows;
+  more accepted quests remain saved and appear automatically as rows free up.
+- Every row displays **TURN IN** or **ACTIVE**, the resident's name and
+  location, available/required salvage and projected XP/level-up. Empty
+  slots are not shown, and completed quests cannot reappear as active.
+  The quest list shows no more than three rows even if 25 quests are active.
+- The panel adjusts vertically for 1, 2 or 3 visible quests; the original
+  discovered-dungeon/boss progress bars remain beneath the rows. When no
+  contract is accepted, or when in the starting sanctuary, the original
+  single-objective layout is retained.
+- The quest list uses the same live XP and level-up forecast as the NPC
+  menu. Level-100 characters see MAX LEVEL rather than +0 XP. The retained
+  summary line shows total active/completed counts, including quests beyond
+  the three visible slots.
 - A nonflashing **green** tracker edge marks a contract ready to turn in;
   **amber** marks one still gathering salvage. Exploration keeps its
   original cyan edge. The text also states TURN IN or ACTIVE, so readiness
@@ -111,14 +120,18 @@ Regional NPC authoring remains in separate draft PR #1070.
    notification, quest state, salvage and relationship values are unchanged.
 5. Verify both compact (e.g. 720p window) and large (1080p/4K) NPC menus
    with mouse/controller. The last button must not be covered by salvage text.
-6. Accept two contracts at once. Confirm the world tracker prioritizes a
-   salvage-ready contract, counts active/completed quests, shows accurate XP
-   and projected level-ups, and switches back to exploration when the last
-   contract is turned in. Inspect readable green/amber cues at 720p, 1080p
-   and 4K, including reduced-motion mode.
-7. If regional waystations are later merged, validate all 12 residents
+6. Accept four or more contracts. Confirm **exactly three stacked
+   quest entries** are shown, salvage-ready quests appear first, and the
+   fourth accepted quest appears as soon as a visible quest is completed.
+   Test with 1, 2, 3 and 4 active contracts; verify every row's XP/level-up,
+   ready status, destination and salvage requirement. The dungeon bars must
+   remain visible below the dynamic rows.
+7. Complete all tracked contracts. Confirm the original exploration tracker
+   returns, and a completed quest cannot claim rewards again. Inspect
+   green/amber and text cues at 720p, 1080p, 4K and reduced motion.
+8. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
-8. Profile menu/journal rendering and level-up tests in a real packaged
+9. Profile menu/journal rendering and level-up tests in a real packaged
    Windows build. GitHub source tests alone do not prove an Unreal build.
 
 No change to Z/Nyra original art, attack warning HUD, or combat balance.
