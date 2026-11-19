@@ -38,13 +38,13 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("ResidentQuestStates.Find(QuestResidentIds[I])", section)
         # Accepted quests stay visible in the sanctuary; Firstlight tutorial
         # only takes over when there are no active contracts.
-        self.assertIn("if (!bThreeQuestList && bSanctuaryObjective)", section)
-        self.assertLess(section.index("if (!bThreeQuestList && bSanctuaryObjective)"),
-                        section.index("else if (!bThreeQuestList && Cleared >= 30)"))
-        self.assertIn("else if (!bThreeQuestList && Discovered < 30)", section)
-        self.assertIn("else if (!bThreeQuestList) {", section)
-        self.assertIn("const bool bThreeQuestList = VisibleQuestCount > 0;", section)
-        self.assertIn("bSanctuaryObjective && !bThreeQuestList", section)
+        self.assertIn("if (!bQuestList && bSanctuaryObjective)", section)
+        self.assertLess(section.index("if (!bQuestList && bSanctuaryObjective)"),
+                        section.index("else if (!bQuestList && Cleared >= 30)"))
+        self.assertIn("else if (!bQuestList && Discovered < 30)", section)
+        self.assertIn("else if (!bQuestList) {", section)
+        self.assertIn("const bool bQuestList = VisibleQuestCount > 0;", section)
+        self.assertIn("bSanctuaryObjective && !bQuestList", section)
         self.assertNotIn("!bSanctuaryObjective && QuestSummary.TrackedCount > 0", section)
         # Tracker includes the same XP forecast as the resident dialog.
         self.assertIn("MoonfallQuestXP::Preview(", section)
@@ -57,11 +57,11 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertEqual(section.count("MoonfallQuestXP::Preview("), 1)
         # No duplicate reward forecast, menu strings, or dungeon candidate
         # scans when a saved contract is active.
-        self.assertIn("if (!bThreeQuestList && !bSanctuaryObjective)", section)
-        self.assertLess(section.index("if (!bThreeQuestList && !bSanctuaryObjective)"),
+        self.assertIn("if (!bQuestList && !bSanctuaryObjective)", section)
+        self.assertLess(section.index("if (!bQuestList && !bSanctuaryObjective)"),
                         section.index("for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone)"))
-        self.assertLess(section.index("const bool bThreeQuestList = VisibleQuestCount > 0;"),
-                        section.index("if (!bThreeQuestList && !bSanctuaryObjective)"))
+        self.assertLess(section.index("const bool bQuestList = VisibleQuestCount > 0;"),
+                        section.index("if (!bQuestList && !bSanctuaryObjective)"))
         # Status remains readable without flashes or any above-character text.
         self.assertIn("const bool bTrackingContract", section)
         self.assertIn("const bool bReadyToTurnIn", section)
@@ -73,10 +73,10 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("const float Top = static_cast<float>(QuestLayout.Top)", section)
         self.assertIn("QuestSummary.TrackedCount > 0", section)
         self.assertIn("QuestLayout.PanelHeight", section)
-        self.assertIn("for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section)
+        self.assertIn("for (int32 Row = 0; Row < VisibleResidentRows; ++Row)", section)
         self.assertIn("QuestSummary.TrackedIndices[Row]", section)
         self.assertIn("const float RowTop = Top + 28.f + Row * QuestLayout.RowStride", section)
-        self.assertIn("if (bThreeQuestList)", section)
+        self.assertIn("if (bQuestList)", section)
         self.assertIn("RowXP.LevelsGained > 0", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.QuestTitle)", section)
         self.assertIn("UTF8_TO_TCHAR(Entry.Name)", section)
@@ -108,54 +108,48 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("GetTotalDiscoveredDungeons()", section)
         self.assertIn("GetTotalDefeatedDungeonBosses()", section)
 
-    def test_compact_window_keeps_all_three_quests_and_health_orb_separate(self):
+    def test_up_to_seven_quests_fit_without_covering_health_orb(self):
         section = self.hud.split("// World-wide quest tracker", 1)[1].split(
             "// Compact circular resource HUD", 1)[0]
         self.assertIn(
             "Canvas->SizeX >= 600.f && Canvas->SizeY >= 420.f", section
         )
-        self.assertIn(
-            "const float Top = static_cast<float>(QuestLayout.Top);", section
-        )
-        self.assertIn(
-            "QuestLayout.PanelHeight", section
-        )
-        self.assertIn(
-            "for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row)", section
-        )
-        self.assertIn("bCompact = ViewHeight < 520", self.layout)
+        self.assertIn("MoonfallQuestLayout::Compute(", section)
+        self.assertIn("FMath::FloorToInt(Canvas->SizeX)", section)
+        self.assertIn("const int32 VisibleQuestRows = QuestLayout.VisibleRows", section)
+        self.assertIn("VisibleResidentRows", section)
+        self.assertIn("VisibleRegionalRows", section)
+        self.assertIn("SHOWING %d/%d", section)
+        self.assertIn("MaxRows = 7", self.layout)
+        self.assertIn("bCompact = ViewHeight < 850", self.layout)
         self.assertIn("Stride = bCompact ? 60 : 70", self.layout)
-        self.assertIn("Rows > 0 ? 85 + Stride * Rows : 124", self.layout)
-        self.assertIn("ValidRowSpacing(", self.layout)
+        self.assertIn("Visible > 0 ? 85 + Stride * Visible : 124", self.layout)
+        self.assertIn("SafeVisibleRows(", self.layout)
         self.assertIn("ClearsHealthOrb(", self.layout)
-        # The fixed right-hand reward and status columns leave ample
-        # space for bounded title and destination labels in compact mode.
-        for width in (600, 640, 760, 1280, 1920):
-            panel_width = min(560, width - 40)
-            self.assertGreaterEqual(panel_width - 166, 350)
-            self.assertGreaterEqual(panel_width - 81, 435)
-        # These are policy checks against the existing orb's fixed placement,
-        # not claims of an actual Unreal-rendered screenshot or hit test.
-        for width, height in ((600, 420), (640, 480), (760, 520),
-                              (1280, 720), (1920, 1080), (3840, 2160)):
-            top = 18 if height < 520 else 78
-            stride = 60 if height < 520 else 70
+        self.assertIn("MaxTracked = 7", self.catalog)
+        self.assertIn("TrackedIndices[MaxTracked]", self.catalog)
+        for width, height, minimum_rows in (
+            (600, 420, 3), (640, 480, 4), (760, 520, 4),
+            (1280, 720, 7), (1920, 1080, 7), (3840, 2160, 7),
+        ):
+            top = 18 if height < 850 else 78
+            stride = 60 if height < 850 else 70
             radius = max(50, min(80, min(width, height) * 0.092))
             orb_top = height - 2 * radius - 25
-            for quest_count in (1, 2, 3):
-                tracker_bottom = top + 85 + stride * quest_count
+            for requested in range(1, 8):
+                visible = 0
+                for candidate in range(1, requested + 1):
+                    if top + 85 + stride * candidate + 8 >= orb_top:
+                        break
+                    visible = candidate
                 with self.subTest(width=width, height=height,
-                                  quest_count=quest_count):
-                    self.assertLess(tracker_bottom + 8, orb_top)
-                    self.assertLess(tracker_bottom, height)
-                    title_y, resident_y, reward_y, bar_y = (
-                        (4, 22, 40, 52) if height < 520 else (6, 28, 49, 62)
-                    )
-                    self.assertGreaterEqual(resident_y - title_y, 18)
-                    self.assertGreaterEqual(reward_y - resident_y, 18)
-                    self.assertGreaterEqual(bar_y - reward_y, 12)
-                    self.assertLessEqual(bar_y + 3, stride - 4)
-
+                                  requested=requested):
+                    self.assertGreaterEqual(visible, min(requested, minimum_rows))
+                    self.assertLess(top + 85 + stride * visible + 8, orb_top)
+                    self.assertLessEqual(visible, 7)
+                    if height >= 720:
+                        self.assertEqual(visible, requested)
+        self.assertNotIn("bThreeQuestList", section)
 
     def test_npc_dialogue_matches_world_quest_title(self):
         panel = self.hud.split("// Native Canvas resident menu.", 1)[1].split(
