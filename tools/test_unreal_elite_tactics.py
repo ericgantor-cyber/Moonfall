@@ -68,12 +68,14 @@ class EliteCounterTactics(unittest.TestCase):
             "// Blueprint hooks run synchronously.",1
         )[1].split("\n  }\n }\n}",1)[0]
         self.assertIn("if (!bBoss) {",commit)
-        self.assertIn("OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);",commit)
+        self.assertIn("OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);",commit)
         self.assertIn("IsValid(EliteAttackTellSound)",commit)
         self.assertIn("bElite && !bSanctuaryPractice",commit)
         self.assertIn("Distance <= 1000.f",commit)
         self.assertIn("UGameplayStatics::PlaySoundAtLocation(",commit)
         self.assertIn("EliteAttackTellSound.Get()",commit)
+        self.assertIn("ActiveNonBossTelegraphMove = FName(*GetAttackWarningLabel());",self.enemy)
+        self.assertIn("EndNonBossTelegraph(false);",self.enemy)
         self.assertIn("WindupEndsAt = Now + CurrentWindup;",self.enemy)
         self.assertLess(
             self.enemy.index("WindupEndsAt = Now + CurrentWindup;",self.enemy.index(
@@ -128,7 +130,7 @@ class EliteCounterTactics(unittest.TestCase):
 
     def test_audio_is_suppressed_after_blueprint_cancels_a_windup(self):
         commit = self.enemy.split(
-            "OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);",1
+            "OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);",1
         )[1].split("if (bDivineSignatureActive) {",1)[0]
         self.assertIn("!IsActorBeingDestroyed()",commit)
         self.assertIn("FMath::IsFinite(Health) && Health > 0.f",commit)
@@ -143,7 +145,7 @@ class EliteCounterTactics(unittest.TestCase):
     def test_audio_has_independent_per_enemy_two_second_cooldown(self):
         self.assertIn("float NextEliteAttackTellSoundAt = 0.f;",self.header)
         tell = self.enemy.split(
-            "OnAttackTelegraphCommitted(FName(*GetAttackWarningLabel()), CurrentWindup);",1
+            "OnAttackTelegraphCommitted(ActiveNonBossTelegraphMove, CurrentWindup);",1
         )[1].split("if (bDivineSignatureActive) {",1)[0]
         self.assertIn("Now >= NextEliteAttackTellSoundAt",tell)
         self.assertIn("NextEliteAttackTellSoundAt = Now + 2.f;",tell)
