@@ -815,6 +815,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      ? FName(TEXT("PARRY")) : Outcome == MoonfallAttackOutcome::EResult::Dodge
      ? FName(TEXT("DODGE")) : Outcome == MoonfallAttackOutcome::EResult::Guard
      ? FName(TEXT("GUARD")) : FName(TEXT("MISS"));
+   // Snapshot the verified outcome before notifying a Blueprint that might
+   // destroy the enemy or hero. The HUD reads the hero's fixed-size queue;
+   // no new enemy scan, actor, timer or saved field is introduced.
+   Hero->RecordIncomingCombatFloat(OutcomeName, HealthLost);
    OnAttackImpactOutcome(ImpactMoveId, OutcomeName, HealthLost);
    // Optional authored sound is played only for the *real* hit or parry
    // outcome. Never fake a hit on a miss, guard or successful dodge.
