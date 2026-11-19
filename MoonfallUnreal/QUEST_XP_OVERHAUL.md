@@ -61,6 +61,38 @@ validation, save-load validation and load restoration. This is compatible
 with the current save schema, does not spawn the NPCs, and does not merge
 separate regional waystation PR #1070.
 
+## Persistent world contract journal
+
+The HUD's existing world quest tracker now considers **all 25 named
+residents** when no starting-sanctuary objective is active. It reads only
+the hero's existing saved `ResidentQuestStates`, not an expensive
+world-wide NPC scan, and uses the pure C++17 `MoonfallQuestJournal.h`
+catalog to identify each resident's expected contract cost and home.
+
+- **Accepted** contracts (state 1) are candidates. The tracker selects a
+  quest that has enough available salvage first, giving the player a
+  clear **TURN IN CONTRACT: [resident]** objective.
+- If no accepted contract is ready, the first active contract is shown
+  as **ACTIVE CONTRACT: [resident]**, with available/required salvage.
+- The second line shows the NPC's location, salvage progress, active
+  contract count and completed count.
+- Completed contracts (state 2) are counted but never tracked or
+  replayed. When no contract is active the existing dungeon exploration
+  and boss tracker resumes automatically.
+- The starting-sanctuary tutorial still takes precedence when the hero
+  is within its area. Original world-tracker dimensions and dungeon
+  discovery/boss progress bars are unchanged.
+- For performance, the catalog resolves its `FName` lookup IDs only once,
+  then performs a fixed **25 map lookups** on visible frames. It does not
+  iterate world actors, spawn content, allocate per-frame NPC metadata,
+  introduce another Tick, or write save data.
+
+The catalog's default costs mirror the currently authored NPC races
+(`10 + race % 4 × 5` salvage; the Wandering Guide costs 10).
+If a designer changes an individual NPC's race or contract cost, they
+must update this UI-only metadata as well to keep the tracker accurate.
+Regional NPC authoring remains in separate draft PR #1070.
+
 ## Native UE5 verification needed
 
 1. Open a saved game before the change. Confirm existing quest states,
@@ -73,9 +105,12 @@ separate regional waystation PR #1070.
    notification, quest state, salvage and relationship values are unchanged.
 5. Verify both compact (e.g. 720p window) and large (1080p/4K) NPC menus
    with mouse/controller. The last button must not be covered by salvage text.
-6. If regional waystations are later merged, validate all 12 residents
+6. Accept two contracts at once. Confirm the world tracker prioritizes a
+   salvage-ready contract, counts active/completed quests, and switches back
+   to exploration when the last contract is turned in.
+7. If regional waystations are later merged, validate all 12 residents
    individually: accept, complete, bond, save, reload, and forbid duplicates.
-7. Profile menu rendering and level-up tests in a real packaged Windows
-   build. GitHub source tests alone do not prove an Unreal build.
+8. Profile menu/journal rendering and level-up tests in a real packaged
+   Windows build. GitHub source tests alone do not prove an Unreal build.
 
 No change to Z/Nyra original art, attack warning HUD, or combat balance.
