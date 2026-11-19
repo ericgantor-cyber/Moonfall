@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -788,6 +789,23 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("EQUIPPED SET: no set bonus from this item");
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
+   }
+   // Read-only five-tier projection from the same forge cost schedule.
+   // Display in the existing tall-panel detail gap; never spend salvage here.
+   if (PanelHeight >= 500.f) {
+    const MoonfallForgeForecast::FPlan Plan =
+      MoonfallForgeForecast::Preview(SelectedCode, Hero->Salvage, 5);
+    const FString Forecast = !Plan.Valid ? TEXT("FORGE 5: INVALID GEAR")
+      : Plan.NextTierCost == 0 ? TEXT("FORGE 5: MAX TIER")
+      : Plan.Upgrades == 0
+        ? FString::Printf(TEXT("FORGE 5: NEED %d SALVAGE FOR NEXT TIER"), Plan.NextTierCost)
+        : FString::Printf(TEXT("FORGE 5: +%d TIERS TO T%d  |  %d SALVAGE"),
+            Plan.Upgrades, Plan.FinalTier, Plan.TotalCost);
+    DrawText(Forecast,
+      Plan.Valid && Plan.Upgrades > 0
+        ? FLinearColor(0.58f,0.91f,0.83f) : FLinearColor(0.93f,0.72f,0.50f),
+      Left + 18.f, Top + PanelHeight - 182.f, nullptr,
+      PanelWidth < 550.f ? 0.57f : 0.72f);
    }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
