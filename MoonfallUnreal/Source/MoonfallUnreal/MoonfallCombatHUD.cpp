@@ -21,6 +21,15 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ // Resolve quest identities once for both NPC dialogue and the three-row
+ // tracker. This is a catalog-only cache, not new saved game state.
+  static const TArray<FName> QuestResidentIds = []() {
+   TArray<FName> Result;
+   Result.Reserve(MoonfallQuestJournal::ResidentCount);
+   for (const auto& Resident : MoonfallQuestJournal::Residents)
+    Result.Add(FName(UTF8_TO_TCHAR(Resident.Id)));
+   return Result;
+  }();
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
@@ -41,6 +50,16 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("X"), FLinearColor::White, NpcCloseX + 9.f, T + 16.f, nullptr, 0.9f);
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
+   // The NPC and the world quest tracker must show the same stable title.
+   // Keep it below the resident's name and above existing social metadata.
+   const int32 ResidentCatalogIndex = QuestResidentIds.Find(Resident->ResidentId);
+   if (ResidentCatalogIndex != INDEX_NONE) {
+    const FString ContractTitle(
+      UTF8_TO_TCHAR(MoonfallQuestJournal::Residents[ResidentCatalogIndex].QuestTitle));
+    DrawText(FString::Printf(TEXT("Quest: %s"), *ContractTitle),
+      FLinearColor(0.88f, 0.83f, 0.98f), L + 18.f, T + 37.f, nullptr,
+      W < 355.f ? 0.60f : 0.72f);
+   }
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
@@ -1080,15 +1099,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Progress already lives in two persistent 30-bit masks. Find one
   // discovered, unbeaten dungeon without searching world actors or paths.
   static const TCHAR* RegionNames[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
-  // Reuse the persisted resident quest ledger. Prebuild catalog FNames once,
-  // then perform only 25 bounded TMap lookups, never world actor scans.
-  static const TArray<FName> QuestResidentIds = []() {
-   TArray<FName> Result;
-   Result.Reserve(MoonfallQuestJournal::ResidentCount);
-   for (const auto& Resident : MoonfallQuestJournal::Residents)
-    Result.Add(FName(UTF8_TO_TCHAR(Resident.Id)));
-   return Result;
-  }();
+  // The cached catalog is shared with NPC dialogue; only 25 bounded map
+  // lookups read existing saved quest state, never a world actor scan.
   int32 JournalStates[MoonfallQuestJournal::ResidentCount] = {};
   for (int32 I = 0; I < MoonfallQuestJournal::ResidentCount; ++I) {
    if (const int32* SavedState = Hero->ResidentQuestStates.Find(QuestResidentIds[I]))
