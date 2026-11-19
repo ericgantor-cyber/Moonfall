@@ -43,7 +43,7 @@ class WorldQuestJournal(unittest.TestCase):
                         section.index("else if (!bThreeQuestList && Cleared >= 30)"))
         self.assertIn("else if (!bThreeQuestList && Discovered < 30)", section)
         self.assertIn("else if (!bThreeQuestList) {", section)
-        self.assertIn("const bool bThreeQuestList = QuestSummary.TrackedCount > 0;", section)
+        self.assertIn("const bool bThreeQuestList = VisibleQuestCount > 0;", section)
         self.assertIn("bSanctuaryObjective && !bThreeQuestList", section)
         self.assertNotIn("!bSanctuaryObjective && QuestSummary.TrackedCount > 0", section)
         # Tracker includes the same XP forecast as the resident dialog.
@@ -60,7 +60,7 @@ class WorldQuestJournal(unittest.TestCase):
         self.assertIn("if (!bThreeQuestList && !bSanctuaryObjective)", section)
         self.assertLess(section.index("if (!bThreeQuestList && !bSanctuaryObjective)"),
                         section.index("for (int32 Zone = 0; Zone < 6 && NextBossZone == INDEX_NONE; ++Zone)"))
-        self.assertLess(section.index("const bool bThreeQuestList = QuestSummary.TrackedCount > 0;"),
+        self.assertLess(section.index("const bool bThreeQuestList = VisibleQuestCount > 0;"),
                         section.index("if (!bThreeQuestList && !bSanctuaryObjective)"))
         # Status remains readable without flashes or any above-character text.
         self.assertIn("const bool bTrackingContract", section)
