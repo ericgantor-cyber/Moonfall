@@ -74,7 +74,8 @@ catalog to identify each resident's expected contract cost and home.
   All ready-to-turn-in contracts are listed before ones needing salvage,
   with stable tie order. The first three eligible quests fill the rows;
   more accepted quests remain saved and appear automatically as rows free up.
-- Every row displays **TURN IN** or **ACTIVE**, the resident's name and
+- Every row now displays a **unique named quest** (25 authored salvage
+  contracts), **TURN IN** or **ACTIVE**, the resident's name and
   location, available/required salvage, projected XP/level-up, and a
   thin static salvage progress bar. Empty slots are not shown, and completed
   quests cannot reappear as active. The quest list shows no more than
@@ -84,6 +85,10 @@ catalog to identify each resident's expected contract cost and home.
   contract is accepted, the original sanctuary tutorial or the world
   exploration tracker returns. Active contracts remain visible even when
   the hero walks back into the starting sanctuary.
+- Quest titles are short, stable UI metadata, not new quest categories:
+  each still completes by spending the existing NPC's required salvage.
+  IDs, rewards, save fields and NPC identities are unchanged. Unique
+  title lengths are verified in the C++17 and Python regression suites.
 - The quest list uses the same live XP and level-up forecast as the NPC
   menu. Level-100 characters see MAX LEVEL rather than +0 XP. The retained
   summary line shows total active/completed counts, including quests beyond
