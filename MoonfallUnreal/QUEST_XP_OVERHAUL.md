@@ -74,18 +74,22 @@ catalog to identify each resident's expected contract cost and home.
   All ready-to-turn-in contracts are listed before ones needing salvage,
   with stable tie order. The first three eligible quests fill the rows;
   more accepted quests remain saved and appear automatically as rows free up.
-- Every row now displays a **unique named quest** (25 authored salvage
+- Every row displays a **unique named quest** (25 authored salvage
   contracts), **TURN IN** or **ACTIVE**, the resident's name and
   location, available/required salvage, projected XP/level-up, and a
-  thin static salvage progress bar. Empty slots are not shown, and completed
-  quests cannot reappear as active. The quest list shows no more than
-  three rows even if 25 quests are active.
+  thin static salvage progress bar. The compact tracker is organized into
+  three short lines per quest: **title + status**, **NPC + destination**,
+  **salvage + XP**, with fixed right-hand status/XP columns to prevent
+  a long combined label from overflowing a small window. Empty slots are
+  not shown, and completed quests cannot reappear as active. The quest
+  list shows no more than three rows even if 25 quests are active.
 - The panel adjusts vertically for 1, 2 or 3 visible quests; the original
   discovered-dungeon/boss progress bars remain beneath the rows. For 600px+
   wide and 420px+ tall windowed views (including 640x480), the three-row
   tracker remains enabled instead of disappearing below 760x520. Below
-  520px tall, its top offset is reduced to 34px to avoid the bottom-left
-  health orb. Existing 720p/1080p/4K placement is unchanged.
+  520px tall, its top offset is reduced to 18px and its row spacing is
+  57px, keeping three lines per quest above the bottom-left health orb.
+  Existing 720p/1080p/4K anchor placement is unchanged.
   If no contract is accepted, the original sanctuary tutorial or the world
   exploration tracker returns. Active contracts remain visible even when
   the hero walks back into the starting sanctuary.
@@ -147,6 +151,8 @@ Regional NPC authoring remains in separate draft PR #1070.
    original Firstlight introduction must reappear. Check static salvage
    bars at 0%, partial, and 100% readiness at 600x420, 640x480,
    720p, 1080p and 4K; ensure the tracker doesn't overlap the health orb.
+   Inspect all three lines per quest and verify title/status and salvage/XP
+   columns remain separate and legible at 600px width.
 8. Complete all tracked contracts. Confirm the original exploration tracker
    returns, and a completed quest cannot claim rewards again. Inspect
    green/amber and text cues at 720p, 1080p, 4K and reduced motion.
