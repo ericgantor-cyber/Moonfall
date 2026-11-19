@@ -29,6 +29,10 @@ public:
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupMesh;
+ // Distinct sword, cuirass and amulet silhouettes. Components are created once,
+ // with no per-frame tick, extra loot actors, or gameplay collisions.
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupDetailA;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupDetailB;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* RarityBeacon;
  UPROPERTY(VisibleAnywhere) UTextRenderComponent* ItemLabel;
  UPROPERTY(VisibleAnywhere) int32 ItemCode = 0;
