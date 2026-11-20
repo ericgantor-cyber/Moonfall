@@ -4,6 +4,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -126,6 +127,24 @@ int main() {
   Broken=Layout;
   Broken.Province=0;
   assert(!N::ValidSanctumLayout(Broken));
+ }
+ // Portable geometry authoring plans: uninterrupted approach, open exit,
+ // wall collision only, and no blocking markers or boss duplication.
+ for (const auto Site : Sites) {
+  const auto Plan=N::PlanSanctum(Site);
+  assert(N::SafeSanctumPlan(Plan));
+  assert(Plan.Count==7);
+  assert(Plan.Parts[0].Solid && Plan.Parts[1].Solid);
+  assert(Plan.Parts[0].CenterYcm+Plan.Parts[0].HalfYcm==
+    Plan.Parts[1].CenterYcm-Plan.Parts[1].HalfYcm);
+  assert(Plan.Parts[2].CenterXcm<0 && Plan.Parts[3].CenterXcm>0);
+  assert(!Plan.Parts[5].Solid && !Plan.Parts[6].Solid);
+  auto Broken=Plan;
+  Broken.Parts[0].CenterYcm-=100;
+  assert(!N::SafeSanctumPlan(Broken));
+  Broken=Plan;
+  Broken.Parts[6].Solid=true;
+  assert(!N::SafeSanctumPlan(Broken));
  }
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
