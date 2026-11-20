@@ -33,6 +33,10 @@ operations must be proven properly gated by menu focus. Merely recording these
 conflicts does **not** fix them. The audit intentionally does not fail CI just
 because an established overlapping binding exists.
 
+## Controller A collision fixed in source
+
+A GitHub review found the A button simultaneously bound to `Jump` and `CharacterStats`. In gameplay both action handlers would run for one press, potentially opening the character panel during jumps. The conflicting Gamepad A `CharacterStats` ActionMappings entry was removed. `AMoonfallHeroPawn::TryJump()` now routes **Gamepad A inside the open inventory** to the existing character sheet; during gameplay it performs the original Jump, while keyboard Space still jumps and cannot open the character panel. This preserves access to the sheet from an Xbox-style controller without duplicate action dispatches. Five other shared gamepad bindings remain, but existing inventory/combat state guards have not yet been native-tested; the CI audit lists them explicitly. Native UE5 and controller playtesting is still mandatory.
+
 ## Next integration priorities
 
 1. **Input focus and accessibility.** Eliminate unintended multi-trigger
