@@ -12,12 +12,13 @@ The compile job must run on a Windows machine with Unreal Engine 5.4 installed.
 
 ```powershell
 $env:UE54_ROOT = 'C:\Program Files\Epic Games\UE_5.4'
-./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompilePreflightOnly
 ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+# After installing .NET 8 SDK and NSIS, create the startup map and package:
+./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -LaunchSmokeTest
 ```
 
-The preflight checks installation paths and C++ tooling, but **does not compile**.
-The second command compiles the Unreal Editor target. Preserve the complete error
+The compile preflight checks the engine and C++ toolchain but **does not compile** or require a generated startup map. The second command compiles both the Unreal Editor and standalone Game targets. Do not use `-PreflightOnly` before the first startup map has been generated; it intentionally requires the project-owned map and packaging tools. The final command generates/validates the startup map, cooks the game, and attempts packaging, launch smoke testing, launcher publication, and NSIS installer creation. Preserve the complete error
 output from any unsuccessful build and attach the first compiler error and surrounding lines.
 
 ## Option B: GitHub Actions self-hosted build

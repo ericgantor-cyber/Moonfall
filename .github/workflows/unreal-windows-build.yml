@@ -87,6 +87,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
           $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
           if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
+          # A successful UAT exit and .exe alone do not prove cooked game data exists.
+          $pakDir = Join-Path $exe.Directory.FullName "MoonfallUnreal\Content\Paks"
+          if (-not (Test-Path -LiteralPath $pakDir -PathType Container)) { throw "Missing cooked content directory: $pakDir" }
+          $pakFiles = @(Get-ChildItem -LiteralPath $pakDir -Recurse -File -Filter "*.pak" | Where-Object { $_.Length -gt 0 })
+          $indexes = @(Get-ChildItem -LiteralPath $pakDir -Recurse -File -Filter "*.utoc" | Where-Object { $_.Length -gt 0 })
+          $pairedIoStore = $false
+          foreach ($index in $indexes) {
+            $data = [IO.Path]::ChangeExtension($index.FullName, ".ucas")
+            if ((Test-Path -LiteralPath $data -PathType Leaf) -and (Get-Item -LiteralPath $data).Length -gt 0) {
+              $pairedIoStore = $true
+              break
+            }
+          }
+          if ($pakFiles.Count -eq 0 -and -not $pairedIoStore) {
+            throw "Cook produced no non-empty .pak or matching .utoc/.ucas content archive; refusing launcher and installer."
+          }
+          Write-Host "Cooked package validated: $($pakFiles.Count) nonempty pak(s); paired IoStore present: $pairedIoStore"
           Write-Host "Packaged executable found: $($exe.FullName)"
       - name: Smoke-test packaged Unreal game launch
         shell: pwsh
