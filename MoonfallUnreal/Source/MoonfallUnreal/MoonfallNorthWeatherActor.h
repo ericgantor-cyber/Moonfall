@@ -6,8 +6,9 @@
 class USceneComponent;
 class UPointLightComponent;
 class UTextRenderComponent;
+class UInstancedStaticMeshComponent;
 
-// Optional placeable weather ambience demonstrator; no particles, fog,
+// Optional placeable weather ambience demonstrator; small cube particles, no fog,
 // damage, global postprocessing, save writes, god instances or player input.
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallNorthWeatherActor : public AActor {
@@ -30,9 +31,14 @@ public:
  TObjectPtr<UPointLightComponent> WeatherLight;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TObjectPtr<UTextRenderComponent> WeatherText;
+ // Maximum 18 noncolliding cube flakes/streaks, updated on one shared timer.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
+ TObjectPtr<UInstancedStaticMeshComponent> WeatherParticles;
 private:
  FTimerHandle WeatherTimer;
  int32 WeatherStep=0;
+ int32 ParticleStep=0;
+ void RefreshWeatherParticles();
  void RefreshWeatherPreview();
  void AdvanceWeatherPreview();
 };
