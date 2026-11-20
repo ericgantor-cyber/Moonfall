@@ -1,6 +1,7 @@
 #include "MoonfallNorthGothicFerryActor.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Camera/CameraComponent.h"
@@ -30,6 +31,8 @@ void Tint(UInstancedStaticMeshComponent* Group, const FLinearColor& Color) {
 AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("GothicFerryRoot")));
+ // CharacterMovement can only consistently track a MOVABLE based floor.
+ GetRootComponent()->SetMobility(EComponentMobility::Movable);
  // Explicitly use this actor's onboard camera when the controller follows
  // the non-steerable ferry. The preview deck meshes remain nonblocking.
  bFindCameraComponentWhenViewTarget = true;
@@ -46,6 +49,8 @@ AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
  // remains collision-free so it cannot snag or block players and cameras.
  PassengerDeck = CreateDefaultSubobject<UBoxComponent>(TEXT("PassengerWalkableDeck"));
  PassengerDeck->SetupAttachment(GetRootComponent());
+ PassengerDeck->SetMobility(EComponentMobility::Movable);
+ PassengerDeck->CanCharacterStepUpOn = ECB_Yes;
  PassengerDeck->SetRelativeLocation(FVector(30.f, 0.f, 252.f));
  PassengerDeck->SetBoxExtent(FVector(720.f, 235.f, 23.f));
  PassengerDeck->SetCollisionObjectType(ECC_WorldDynamic);
@@ -61,10 +66,24 @@ AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
  // Hero capsule starts above the platform, never inside the floor or rail.
  PassengerBoardingMarker->SetRelativeLocation(FVector(390.f, 0.f, 390.f));
 
+ // Readable after departure because it moves with the ship, unlike the
+ // harbor sign. It never blocks the player, camera, or walking floor.
+ PassengerTravelSign = CreateDefaultSubobject<UTextRenderComponent>(TEXT("PassengerVoyageStatus"));
+ PassengerTravelSign->SetupAttachment(GetRootComponent());
+ PassengerTravelSign->SetRelativeLocation(FVector(-160.f, 0.f, 515.f));
+ PassengerTravelSign->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
+ PassengerTravelSign->SetWorldSize(38.f);
+ PassengerTravelSign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+ PassengerTravelSign->SetTextRenderColor(FColor(255, 94, 115));
+ PassengerTravelSign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ PassengerTravelSign->SetGenerateOverlapEvents(false);
+ PassengerTravelSign->SetText(FText::FromString(TEXT("GOTHIC RAVEN\nBOARDING")));
+
  auto MakeRail = [this](const FName& Name, const FVector& Position,
                        const FVector& HalfExtent) -> UBoxComponent* {
   UBoxComponent* Rail = CreateDefaultSubobject<UBoxComponent>(Name);
   Rail->SetupAttachment(GetRootComponent());
+  Rail->SetMobility(EComponentMobility::Movable);
   Rail->SetRelativeLocation(Position);
   Rail->SetBoxExtent(HalfExtent);
   Rail->SetCollisionObjectType(ECC_WorldDynamic);
@@ -272,4 +291,13 @@ void AMoonfallNorthGothicFerryActor::AnimateCrimsonSails(
   CrimsonSails->UpdateInstanceTransform(Index, SailTransform, false, bFlushRender);
  }
  bSailsWereAnimated = true;
+}
+
+void AMoonfallNorthGothicFerryActor::SetPassengerTravelStatus(const FString& Status) {
+ if (!IsValid(PassengerTravelSign)) return;
+ PassengerTravelSign->SetText(FText::FromString(Status.Left(160)));
+}
+
+void AMoonfallNorthGothicFerryActor::ResetPassengerTravelStatus() {
+ SetPassengerTravelStatus(TEXT("GOTHIC RAVEN\nBOARDING"));
 }
