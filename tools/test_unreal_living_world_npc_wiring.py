@@ -20,6 +20,26 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertNotIn("SaveWorldProgress(", rank)
         self.assertIn("Save->ResidentBonds = ResidentBonds;", hero)
 
+    def test_community_outlook_uses_persisted_quest_and_shrine_ledgers(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("FString GetWorldCommunityOutlook() const;", header)
+        outlook = hero.split("FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const", 1)[1].split(
+            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[0]
+        for expected in (
+            "for (const auto& Entry : ResidentQuestStates)",
+            "if (Entry.Value == 2) ++CompletedContracts;",
+            "Progress.completedContracts = CompletedContracts;",
+            "Progress.shrineDiscovered = !DiscoveredShrineIds.IsEmpty();",
+            "MoonfallLivingWorld::SettlementStatus(Progress)",
+            "Endangered", "Recovering", "Flourishing",
+        ):
+            self.assertIn(expected, outlook)
+        for forbidden in ("SaveWorldProgress(", "GetAllActorsOfClass(", "SpawnActor(",
+                          "ResidentQuestStates.Add(", "DiscoveredShrineIds.Add("):
+            self.assertNotIn(forbidden, outlook)
+        self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
+        self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
     def test_dialogue_reflects_completed_contract_and_never_grants_bond(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         section = npc.split("bool AMoonfallWorldNPC::TryTalk(", 1)[1].split(
