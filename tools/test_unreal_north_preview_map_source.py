@@ -18,6 +18,17 @@ mode_cpp = game_mode_source.read_text(encoding="utf-8")
 assert "public AGameModeBase" in mode_h
 assert "DefaultPawnClass=AMoonfallHeroPawn::StaticClass();" in mode_cpp
 assert "SpawnActor" not in mode_cpp
+assert "MoonfallArena" not in mode_cpp
+assert "MoonfallDungeonLayout" not in mode_cpp
+config=(script.parents[1]/"Config"/"DefaultInput.ini").read_text(encoding="utf-8")
+for axis in ('AxisName="MoveForward",Scale=1.000000,Key=Gamepad_LeftY',
+             'AxisName="MoveRight",Scale=1.000000,Key=Gamepad_LeftX',
+             'AxisName="Turn",Scale=1.000000,Key=Gamepad_RightX'):
+    assert axis in config, "Required controller axis mapping missing: "+axis
+for action in ('ActionName="Jump",Key=Gamepad_FaceButton_Bottom',
+               'ActionName="Options",Key=Gamepad_Special_Right'):
+    assert action in config, "Required controller action mapping missing: "+action
+
 
 
 assert 'LEVEL_PATH = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"' in source
