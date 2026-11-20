@@ -82,6 +82,11 @@ private:
  void StopAutomaticVoyage(bool bArrived = false);
  bool IsVoyagerAboard(const AMoonfallHeroPawn* Hero,
                      const AMoonfallNorthGothicFerryActor* Ship) const;
+ // Verify a real collision-blocking dry surface under the arrival marker,
+ // not merely that the editor marker exists or is inside world bounds.
+ bool FindSafeDryLanding(const AMoonfallHeroPawn* Hero,
+                         const AMoonfallNorthFerryGate* Harbor,
+                         FVector& OutLandingLocation) const;
  void UpdateVoyagePresentation(AMoonfallHeroPawn* Hero, float ElapsedSeconds);
  FTimerHandle AutomaticVoyageTimer;
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
