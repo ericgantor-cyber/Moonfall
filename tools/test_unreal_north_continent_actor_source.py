@@ -32,6 +32,12 @@ assert 'Sign->SetGenerateOverlapEvents(false)' in source
 assert 'Region.SuggestedLevel' in source
 assert 'Region.Hub' in source
 assert 'Region.Name' in source
+assert '#include "MoonfallNorthClimate.h"' in source
+assert "MoonfallNorth::ClimateFor(Zone)" in source
+assert "Climate->Name" in source
+assert "Sign->SetTextRenderColor" in source
+assert "Climate->Red, Climate->Green, Climate->Blue" in source
+
 assert 'ProvinceSigns[Zone]' in source
 assert "Region.Dungeon" not in source
 assert "ZSanctum" not in source and "NyraSanctum" not in source
