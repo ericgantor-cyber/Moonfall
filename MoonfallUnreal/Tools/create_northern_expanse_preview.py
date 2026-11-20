@@ -129,6 +129,10 @@ def main():
     island_gate.set_editor_property("sailing_vessel", island_ship)
     mainland_gate.set_editor_property("voyage_duration_seconds", 11.0)
     island_gate.set_editor_property("voyage_duration_seconds", 11.0)
+    # WoW-style passenger transport: move normally on the walking deck while
+    # the ship sails itself. Optional cinematic camera remains opt-in.
+    mainland_gate.set_editor_property("b_use_voyage_camera", False)
+    island_gate.set_editor_property("b_use_voyage_camera", False)
     mainland_gate.rerun_construction_scripts()
     island_gate.rerun_construction_scripts()
 
