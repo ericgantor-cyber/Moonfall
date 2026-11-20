@@ -1277,7 +1277,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float LedgerW = 330.f;
   const float LedgerX = Canvas->SizeX - LedgerW - 24.f;
   const float LedgerY = 78.f;
-  const float LedgerH = 254.f;
+  const float LedgerH = 290.f;
   DrawRect(FLinearColor(0.055f, 0.044f, 0.092f, 0.92f),
     LedgerX, LedgerY, LedgerW, LedgerH);
   DrawRect(FLinearColor(0.62f, 0.39f, 0.74f, 0.96f),
@@ -1305,10 +1305,23 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("Complete 3 contracts to unlock council"),
     FLinearColor(0.93f, 0.77f, 0.64f),
     LedgerX + 14.f, LedgerY + 205.f, nullptr, 0.70f);
-  if (Hero->IsSanctuaryRoomUnlocked(4))
-   DrawText(TEXT("Protect  |  Rebuild  |  Fortify"),
-     FLinearColor(0.86f, 0.83f, 0.94f),
-     LedgerX + 14.f, LedgerY + 226.f, nullptr, 0.70f);
+  if (Hero->IsSanctuaryRoomUnlocked(4)) {
+   // D-pad left/right cycles previews, never commits the choice.
+   const int32 Selected = FMath::Clamp(Hero->CouncilPreviewSelection, 0, 2);
+   const FString Preview = Hero->PreviewCouncilDecision(Selected);
+   FString Title, Consequences;
+   if (Preview.Split(TEXT("|"), &Title, &Consequences)) {
+    DrawText(Title.TrimStartAndEnd(),
+      FLinearColor(0.97f, 0.84f, 0.67f),
+      LedgerX + 14.f, LedgerY + 227.f, nullptr, 0.78f);
+    DrawText(Consequences.TrimStartAndEnd().Left(62),
+      FLinearColor(0.82f, 0.90f, 0.94f),
+      LedgerX + 14.f, LedgerY + 247.f, nullptr, 0.62f);
+   }
+   DrawText(TEXT("D-pad left/right: review only"),
+     FLinearColor(0.68f, 0.78f, 0.88f),
+     LedgerX + 14.f, LedgerY + 270.f, nullptr, 0.64f);
+  }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
