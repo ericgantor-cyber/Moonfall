@@ -1113,7 +1113,7 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  // Rewards are earned only during live gameplay, not behind paused overlays.
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  // Invalid or expired windows must never grant an unearned dodge reward.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
@@ -3189,7 +3189,7 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
- if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen || bAtlasOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
