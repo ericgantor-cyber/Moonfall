@@ -61,9 +61,10 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  if (!IsValid(Hero) || !IsValid(PairedGate) || PairedGate == this
      || GetWorld() != PairedGate->GetWorld()
      || !Hero->IsPlayerControlled()) return false;
- const FVector Destination = PairedGate->ArrivalMarker
-     ? PairedGate->ArrivalMarker->GetComponentLocation() : FVector(NAN);
- const bool bLandingUsable = !Destination.ContainsNaN()
+ const bool bMarkerReady = IsValid(PairedGate->ArrivalMarker);
+ const FVector Destination = bMarkerReady
+     ? PairedGate->ArrivalMarker->GetComponentLocation() : FVector::ZeroVector;
+ const bool bLandingUsable = bMarkerReady && !Destination.ContainsNaN()
      && Destination.SizeSquared() < 1.0e14f;
  const MoonfallNorth::ESeaPort Origin = bIslandHarbor
      ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
