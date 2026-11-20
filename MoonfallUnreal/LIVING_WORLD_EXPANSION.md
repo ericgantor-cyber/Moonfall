@@ -58,6 +58,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - `PreviewCouncilDecision(DecisionId)` (0=Protect Residents, 1=Fund Reconstruction, 2=Fortify Borders) returns constrained faction/prosperity/threat outcomes for UI preview. **No choice is executed**, and no faction reputation, game save, or world simulation state is mutated.
 - Native UE5 compilation, room geometry and navigation, UI bindings, controller focus, council confirmation and transactional persistence remain outstanding.
 
+## Contextual Sanctuary HUD (first visible world integration)
+
+- A read-only sanctuary ledger now appears on displays at least 1280×700 while the hero is near the starting sanctuary, with the six existing policy unlocks, real saved community outlook, and council availability.
+- The panel does not intercept clicks, replaces no existing Atlas/quest controls, and is hidden while Atlas, inventory or options are open. On smaller displays, normal game HUD remains uncluttered.
+- This is a **contextual progression interface**, not actual constructed sanctuary rooms or interactive council votes. World geometry, in-game choice confirmation, and transactional outcomes remain to be implemented and playtested.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
