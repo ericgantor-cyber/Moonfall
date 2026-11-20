@@ -38,6 +38,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The query never changes persistent data, spawns actors, grants rewards or fabricates raids/restored buildings. `SettlementStatus` can later accept those events once their data is reliably recorded.
 - An additional source regression test protects read-only behavior and authentic save-field wiring. No native Unreal build is claimed.
 
+## Equipped-weapon milestone integration
+
+- A read-only `GetEquippedWeaponResonance()` now shows Dormant, Awakened, Ascendant or Mythic in the UE5 character sheet. This uses only an owned, validated equipped weapon's rarity/tier and the **global saved dungeon-boss defeat ledger** (up to 30 unique bosses).
+- This is **global boss resonance**, not per-weapon victory tracking or physical weapon evolution. It does not change stats, visuals, ownership, item codes, or save versions.
+- Unreal-independent C++ rule tests cover impossible and boundary progression; Python source checks verify the exact saved-ledger, equipped-item and HUD wiring.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
