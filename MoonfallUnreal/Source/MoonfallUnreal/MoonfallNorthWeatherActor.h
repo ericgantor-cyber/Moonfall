@@ -7,6 +7,7 @@ class USceneComponent;
 class UPointLightComponent;
 class UTextRenderComponent;
 class UInstancedStaticMeshComponent;
+class AMoonfallNorthContinentActor;
 
 // Optional placeable weather ambience demonstrator; small cube particles, no fog,
 // damage, global postprocessing, save writes, god instances or player input.
@@ -26,6 +27,10 @@ public:
  // Off by default to preserve existing UE5 maps and player experience.
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  bool bEnableWeatherPreview=false;
+ // Opt-in single-actor mode. Requires a placed Northern Continent actor;
+ // only previews weather while player is inside the prototype continent.
+ UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
+ bool bFollowPlayerProvince=false;
 
  // Maximum range of this local preview. Effects stop outside range.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse",
@@ -51,6 +56,8 @@ public:
 private:
  FTimerHandle WeatherTimer;
  FTimerHandle ProximityTimer;
+ TWeakObjectPtr<AMoonfallNorthContinentActor> NorthernContinent;
+ bool bContinentLookupAttempted=false;
  bool bWeatherActive=false;
  bool bWeatherRuntimeInitialized=false;
  void CheckWeatherProximity();
