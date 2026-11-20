@@ -27,6 +27,11 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse")
  bool bEnableWeatherPreview=false;
 
+ // Maximum range of this local preview. Effects stop outside range.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse",
+   meta=(ClampMin="800.0",ClampMax="8000.0",UIMin="800.0",UIMax="8000.0"))
+ float WeatherActivationRadiusCm=2500.f;
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TObjectPtr<UPointLightComponent> WeatherLight;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
@@ -36,6 +41,10 @@ public:
  TObjectPtr<UInstancedStaticMeshComponent> WeatherParticles;
 private:
  FTimerHandle WeatherTimer;
+ FTimerHandle ProximityTimer;
+ bool bWeatherActive=false;
+ void CheckWeatherProximity();
+ void DeactivateWeatherPreview();
  int32 WeatherStep=0;
  int32 ParticleStep=0;
  void RefreshWeatherParticles();
