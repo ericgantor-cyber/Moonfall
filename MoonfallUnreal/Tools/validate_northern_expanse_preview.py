@@ -99,6 +99,18 @@ def main():
     require(abs(sea_y_positions[0] + 7650.0) < 100.0
             and abs(sea_y_positions[1] + 2750.0) < 100.0,
             "Gothic ships must remain offshore at the two test harbors")
+    mainland_ship = next(ship for ship in ships if ship.get_actor_label()
+                         == "Mainland Gothic Raven Ferry")
+    island_ship = next(ship for ship in ships if ship.get_actor_label()
+                       == "Shiverwake Gothic Raven Ferry")
+    require(mainland.get_editor_property("sailing_vessel") == mainland_ship
+            and island.get_editor_property("sailing_vessel") == island_ship,
+            "Both automatic ferry routes need their own offshore visual ship")
+    for gate in (mainland, island):
+        require(abs(gate.get_editor_property("voyage_duration_seconds") - 8.0) < 0.01,
+                "The test crossing should take eight seconds")
+        require(not gate.get_editor_property("b_auto_voyage_in_progress"),
+                "Editor preview gate should not start sailing before PIE")
 
     pads = continent.get_editor_property("province_pads")
     roads = continent.get_editor_property("province_roads")
