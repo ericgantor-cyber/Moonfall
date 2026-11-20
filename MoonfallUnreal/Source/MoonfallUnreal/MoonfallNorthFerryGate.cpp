@@ -3,6 +3,7 @@
 #include "MoonfallNorthAutoSail.h"
 #include "MoonfallNorthGothicFerryActor.h"
 #include "Engine/World.h"
+#include "CollisionQueryParams.h"
 #include "TimerManager.h"
 #include "MoonfallHeroPawn.h"
 #include "GameFramework/PlayerController.h"
@@ -206,6 +207,41 @@ void AMoonfallNorthFerryGate::UpdateVoyagePresentation(
  OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase);
 }
 
+bool AMoonfallNorthFerryGate::FindSafeDryLanding(
+    const AMoonfallHeroPawn* Hero, const AMoonfallNorthFerryGate* Harbor,
+    FVector& OutLandingLocation) const {
+ OutLandingLocation = FVector::ZeroVector;
+ if (!GetWorld() || !IsValid(Hero) || !IsValid(Harbor)
+     || !IsValid(Harbor->ArrivalMarker) || !IsValid(Hero->GetCapsuleComponent())
+     || Harbor->GetWorld() != GetWorld()) return false;
+
+ const FVector Anchor = Harbor->ArrivalMarker->GetComponentLocation();
+ if (Anchor.ContainsNaN() || Anchor.SizeSquared() >= 1.0e14f) return false;
+ const FVector TraceTop = Anchor + FVector(0.f,0.f,150.f);
+ const FVector TraceBottom = Anchor - FVector(0.f,0.f,800.f);
+ FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallFerryDryLanding), false);
+ Query.AddIgnoredActor(Hero);
+ Query.AddIgnoredActor(this);
+ Query.AddIgnoredActor(Harbor);
+ FHitResult Ground;
+ if (!GetWorld()->LineTraceSingleByChannel(
+         Ground, TraceTop, TraceBottom, ECC_Visibility, Query)
+     || !Ground.bBlockingHit || Ground.ImpactPoint.ContainsNaN()
+     || Ground.ImpactNormal.Z < 0.7f || !IsValid(Ground.GetComponent()))
+  return false;
+ const float CapsuleHalfHeight =
+     Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+ if (!FMath::IsFinite(CapsuleHalfHeight)
+     || CapsuleHalfHeight <= 0.f || CapsuleHalfHeight >= 500.f) return false;
+ const FVector Candidate(Ground.ImpactPoint.X, Ground.ImpactPoint.Y,
+                         Ground.ImpactPoint.Z + CapsuleHalfHeight + 3.f);
+ // Avoid snapping to distant or implausible geometry below an empty dock.
+ if (Candidate.ContainsNaN() || Candidate.SizeSquared() >= 1.0e14f
+     || FMath::Abs(Candidate.Z - Anchor.Z) > 400.f) return false;
+ OutLandingLocation = Candidate;
+ return true;
+}
+
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // The boat sails itself. There is no helm, player acceleration, steering
  // or enemy encounter code in this finite-duration boarding gate.
@@ -218,11 +254,11 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
      || PairedGate->SailingVessel->GetWorld() != GetWorld()
      || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress)
   return false;
- const bool bMarkerReady = IsValid(PairedGate->ArrivalMarker);
- const FVector Destination = bMarkerReady
-     ? PairedGate->ArrivalMarker->GetComponentLocation() : FVector::ZeroVector;
- const bool bLandingUsable = bMarkerReady && !Destination.ContainsNaN()
-     && Destination.SizeSquared() < 1.0e14f;
+ // A visually plausible editor marker is not proof of dry land. Both
+ // departure and return routes require collision-backed walkable ground.
+ FVector Destination;
+ const bool bLandingUsable =
+     FindSafeDryLanding(Hero, PairedGate, Destination);
  const MoonfallNorth::ESeaPort Origin = bIslandHarbor
      ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
  const MoonfallNorth::ESeaPort Finish = PairedGate->bIslandHarbor
@@ -348,10 +384,10 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
 
  if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
   return;
- const FVector Destination = IsValid(Arrival->ArrivalMarker)
-     ? Arrival->ArrivalMarker->GetComponentLocation() : FVector::ZeroVector;
- const bool bDestinationSafe = IsValid(Arrival->ArrivalMarker)
-     && !Destination.ContainsNaN() && Destination.SizeSquared() < 1.0e14f;
+ // Recheck dry land just before disembark in case the target platform
+ // was destroyed or disabled during the eleven-second automatic crossing.
+ FVector Destination;
+ const bool bDestinationSafe = FindSafeDryLanding(Hero, Arrival, Destination);
  // The arriving hero only teleports after the voyage timer. Unreal checks
  // collision without forcing placement; a failed landing grants no progress.
  // Remove the moving-platform base before the dry-land teleport. On failure,
