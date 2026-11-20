@@ -85,6 +85,43 @@ int main() {
    }
   }
  }
+ // World-wide progression must stay consistent with every regional view.
+ // Test all valid five-dungeon patterns independently in each of six regions.
+ for (int Act=0; Act<S::ActCount; ++Act) {
+  for (unsigned Found=0; Found<32u; ++Found) {
+   for (unsigned Won=0; Won<32u; ++Won) {
+    const std::uint32_t FoundMask=static_cast<std::uint32_t>(Found) << (Act*5);
+    const std::uint32_t WonMask=static_cast<std::uint32_t>(Won) << (Act*5);
+    const auto World=S::SummarizeWorld(FoundMask,WonMask);
+    if ((Won & ~Found) != 0u) {
+     assert(!World.Valid);
+     assert(World.DungeonsDiscovered==0);
+     assert(World.BossesDefeated==0);
+     assert(World.ActsCompleted==0);
+     assert(World.ChaptersRevealed==0);
+     assert(!World.ChronicleComplete);
+     continue;
+    }
+    const int FoundCount=S::PopCount5(Found);
+    const int WonCount=S::PopCount5(Won);
+    assert(World.Valid);
+    assert(World.DungeonsDiscovered==FoundCount);
+    assert(World.BossesDefeated==WonCount);
+    assert(World.ActsCompleted==(WonCount==5?1:0));
+    assert(World.ChaptersRevealed==6+FoundCount+(WonCount==5?1:0));
+    assert(!World.ChronicleComplete);
+   }
+  }
+ }
+ const auto CompleteWorld=S::SummarizeWorld(S::ValidDungeonBits,S::ValidDungeonBits);
+ assert(CompleteWorld.Valid && CompleteWorld.DungeonsDiscovered==30);
+ assert(CompleteWorld.BossesDefeated==30 && CompleteWorld.ActsCompleted==6);
+ assert(CompleteWorld.ChaptersRevealed==42 && CompleteWorld.ChronicleComplete);
+ const auto FreshWorld=S::SummarizeWorld(0u,0u);
+ assert(FreshWorld.Valid && FreshWorld.ChaptersRevealed==6);
+ assert(!FreshWorld.ChronicleComplete);
+ assert(!S::SummarizeWorld(1u<<30,0u).Valid);
+ assert(!S::SummarizeWorld(0u,1u<<30).Valid);
  // Discover dungeon 5 first, without revealing dungeon 1 through 4.
  const auto NonLinear=S::Summarize(3, (1u<<19), 0u);
  assert(NonLinear.Valid && NonLinear.FeaturedBeat==5);
