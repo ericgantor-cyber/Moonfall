@@ -79,7 +79,17 @@ def main():
     racial_power=pawn.split("bool AMoonfallHeroPawn::ActivateRacePower()",1)[1].split(
         "const float Now = GetWorld()->GetTimeSeconds();",1)[0]
     assert "bOptionsOpen || bInventoryOpen || bAtlasOpen) return false;" in dodge_reward
-    assert "bInventoryOpen || bOptionsOpen || bAtlasOpen) return false;" in racial_power
+    assert "bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;" in racial_power
+    # A resident conversation is a modal interaction: combat stance, sprint,
+    # and consumable racial power cannot activate while choosing dialogue.
+    for signature in (
+        "void AMoonfallHeroPawn::BeginGuard()",
+        "void AMoonfallHeroPawn::BeginSprint()",
+    ):
+        section=pawn.split(signature,1)[1].split("\n}",1)[0]
+        assert "bResidentContextOpen" in section.split("return;",1)[0], signature
+    assert "bResidentContextOpen" in racial_power
+    print("Resident dialogue blocks sprint, guard and racial powers: PASS (source verified)")
     # Guard all five shared gamepad buttons against cross-context effects.
     # Source checks supplement, but never replace, a native controller playtest.
     def start(signature):
