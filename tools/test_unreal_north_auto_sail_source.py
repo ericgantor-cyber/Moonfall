@@ -111,7 +111,8 @@ assert "bVoyagerOnDeck = false" in cleanup
 assert "Hero->GetMovementBase() == Ship->PassengerDeck" in cleanup
 assert "Hero->SetBase(nullptr)" in cleanup
 assert "Ship->PassengerBoardingMarker->GetComponentLocation()" in cleanup
-assert "IsVoyagerAboard(" in cleanup
+# Cleanup must work even when the passenger has left the deck footprint.
+assert "IsVoyagerAboard(" in tick
 assert "if (PC->GetViewTarget() == Ship)" in cleanup
 assert "ReturnTarget = PreviousPlayerViewTarget.Get()" in cleanup
 assert "ReturnTarget = Hero" in cleanup
