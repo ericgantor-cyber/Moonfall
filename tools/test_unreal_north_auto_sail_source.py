@@ -99,6 +99,13 @@ assert "!IsVoyagerAboard(Hero, Ship)" in tick
 assert "Hero->SetBase(nullptr)" in tick
 assert "Hero->SetBase(Ship->PassengerDeck)" in tick
 assert "StopAutomaticVoyage(bArrived)" in tick
+assert '#include "GameFramework/CharacterMovementComponent.h"' in gate_cpp
+aboard = gate_cpp.split(
+    "bool AMoonfallNorthFerryGate::IsVoyagerAboard(", 1
+)[1].split("void AMoonfallNorthFerryGate::UpdateVoyagePresentation(", 1)[0]
+assert "Movement->IsMovingOnGround()" in aboard
+assert "Hero->GetMovementBase() != Ship->PassengerDeck" in aboard
+assert "Local.Z >= 260.f && Local.Z <= 800.f" in aboard
 assert "MoonfallNorth::AutoSailShouldArrive" in tick
 assert "Hero->TeleportTo(Destination" in tick
 assert "if (bArrived) OnFerryArrival(Hero, bFirst)" in tick
@@ -144,4 +151,17 @@ for expected in (
 ):
     assert expected in validation, f"Missing travel validation: {expected}"
 
-print("Automatic sailing source safety, timers and preview script syntax passed")
+native = (module / "MoonfallNorthFerryNativeTests.cpp").read_text(encoding="utf-8")
+for requirement in (
+    'WITH_DEV_AUTOMATION_TESTS',
+    'Moonfall.NorthernExpanse.Ferry.ComponentContract',
+    'GetDefault<AMoonfallNorthGothicFerryActor>()',
+    'GetDefault<AMoonfallNorthFerryGate>()',
+    'Deck->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block',
+    'Rails[Index]->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block',
+    'RenderComponents[Index]->GetCollisionEnabled() == ECollisionEnabled::NoCollision',
+    'AutoSailShouldArrive(10.99f, 11.f)',
+    'AutoSailShouldArrive(11.f, 11.f)',
+):
+    assert requirement in native, f"Native test missing contract: {requirement}"
+print("Automatic sailing and native UE test source contract passed (native execution pending)")
