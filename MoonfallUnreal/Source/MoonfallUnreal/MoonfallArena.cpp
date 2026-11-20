@@ -318,9 +318,9 @@ void AMoonfallArena::SpawnMorvellaWorldEncounter() {
  }
  struct FNecropolisSign { const TCHAR* Name; const TCHAR* Label; FVector Location; };
  const FNecropolisSign Signs[] = {
-  {TEXT("MorvellaRoadSign"), TEXT("MOONLIT NECROPOLIS\\nMORVELLA VELMORA  -  GODDESS OF DEATH"),
+  {TEXT("MorvellaRoadSign"), TEXT("MOONLIT NECROPOLIS\nMORVELLA VELMORA  -  GODDESS OF DEATH"),
    FVector(X,-2170.f,145.f)},
-  {TEXT("MorvellaSanctumSign"), TEXT("THE CRIMSON REAPER\\nDEATH'S EMBRACE"),
+  {TEXT("MorvellaSanctumSign"), TEXT("THE CRIMSON REAPER\nDEATH'S EMBRACE"),
    FVector(X,1540.f,160.f)}
  };
  for (const FNecropolisSign& Entry : Signs) {
