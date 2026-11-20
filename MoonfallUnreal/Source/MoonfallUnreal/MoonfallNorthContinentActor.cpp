@@ -2,6 +2,8 @@
 #include "MoonfallNorthContinentLayout.h"
 #include "MoonfallNorthLandmarks.h"
 #include "MoonfallNorthClimate.h"
+#include "MoonfallNorthBiomeTones.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -16,11 +18,24 @@ AMoonfallNorthContinentActor::AMoonfallNorthContinentActor() {
  ProvinceRoads->SetupAttachment(GetRootComponent());
  ProvinceLandmarks=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ProvinceLandmarks"));
  ProvinceLandmarks->SetupAttachment(GetRootComponent());
+ // One cheap surface group per biome keeps material color independent
+ // without changing the original collision-enabled pad meshes.
+ for (int32 Zone=0;Zone<MoonfallNorth::ZoneCount;++Zone) {
+  UInstancedStaticMeshComponent* Overlay=CreateDefaultSubobject<UInstancedStaticMeshComponent>(
+   FName(*FString::Printf(TEXT("NorthernBiomeSurface_%d"),Zone)));
+  Overlay->SetupAttachment(GetRootComponent());
+  Overlay->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Overlay->SetGenerateOverlapEvents(false);
+  Overlay->SetCastShadow(false);
+  BiomeSurfaceOverlays.Add(Overlay);
+ }
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
   ProvincePads->SetStaticMesh(Cube.Object);
   ProvinceRoads->SetStaticMesh(Cube.Object);
   ProvinceLandmarks->SetStaticMesh(Cube.Object);
+  for(UInstancedStaticMeshComponent* Overlay : BiomeSurfaceOverlays)
+   if(IsValid(Overlay)) Overlay->SetStaticMesh(Cube.Object);
  }
  ProvincePads->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  ProvinceRoads->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -47,13 +62,17 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
  ProvincePads->ClearInstances();
  ProvinceRoads->ClearInstances();
  ProvinceLandmarks->ClearInstances();
+ for(UInstancedStaticMeshComponent* Overlay : BiomeSurfaceOverlays)
+  if(IsValid(Overlay)) Overlay->ClearInstances();
  for (UTextRenderComponent* Sign : ProvinceSigns)
   if (IsValid(Sign)) Sign->SetText(FText::GetEmpty());
  if (!ProvincePads->GetStaticMesh() || !ProvinceRoads->GetStaticMesh()
      || !ProvinceLandmarks->GetStaticMesh()
      || !MoonfallNorth::ValidContinentCenters()
      || !MoonfallNorth::ValidLandmarks()
-     || ProvinceSigns.Num() != MoonfallNorth::ZoneCount) return;
+     || ProvinceSigns.Num() != MoonfallNorth::ZoneCount
+     || BiomeSurfaceOverlays.Num() != MoonfallNorth::ZoneCount
+     || !MoonfallNorth::ValidBiomeTones()) return;
  // One static plaza per zone, all with the same walkable Z=0 top face.
  for (int32 Zone=0; Zone<MoonfallNorth::ZoneCount; ++Zone) {
   const auto& P=MoonfallNorth::ContinentCenters[Zone];
@@ -61,6 +80,22 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
   ProvincePads->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),-20.f),
     FVector(Half/50.f,Half/50.f,0.4f)));
+  // Thin decorative skin above the original slab: no collision and
+  // never alters road height, traversal, divine models or gameplay.
+  if(UInstancedStaticMeshComponent* Overlay=BiomeSurfaceOverlays[Zone]) {
+   if(bEnableBiomeSurfacePreview && Overlay->GetStaticMesh()) {
+    const float SurfaceHalf=Half-100.f;
+    Overlay->AddInstance(FTransform(FRotator::ZeroRotator,
+     FVector(static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),2.f),
+     FVector(SurfaceHalf/50.f,SurfaceHalf/50.f,0.03f)));
+    const auto& Tone=MoonfallNorth::BiomeTones[Zone];
+    if(UMaterialInstanceDynamic* MID=Overlay->CreateAndSetMaterialInstanceDynamic(0)) {
+     MID->SetVectorParameterValue(TEXT("Color"),FLinearColor(
+      FColor(static_cast<uint8>(Tone.Red),static_cast<uint8>(Tone.Green),
+       static_cast<uint8>(Tone.Blue))));
+    }
+   }
+  }
   if (UTextRenderComponent* Sign=ProvinceSigns[Zone]) {
    const auto& Region=MoonfallNorth::Zones[Zone];
    // Text first: climate remains legible without perceiving tint alone.
