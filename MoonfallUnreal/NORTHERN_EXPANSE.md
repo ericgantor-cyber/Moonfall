@@ -70,6 +70,12 @@ In addition to individual province actors, `AMoonfallNorthContinentActor` is a n
 
 This is the first codepath that can produce a connected *physical* nine-zone road network inside a real Unreal map when an editor user places the actor. It **does not** mean the asset is already placed in a committed .umap or available in a packaged game. Terrain materials, biome landmarks, authored collision/navmesh validation, streaming, enemy/quest populations, Atlas discovery, and final coordinate separation from the legacy world remain outstanding. Use a separate Northern Expanse test map and never spawn a second copy of Z, Nyra or Morvella from this geometry actor.
 
+### Biome landmark pass
+
+The optional continent greybox now generates **18 biome landmark placeholders**, two in each of the nine provinces. Their static heights and widths vary by region: coastal ice formations, towering timberland silhouettes, tundra boulders, Gravewind grave spires, Verdant Rift columns, mountain pillars, Sunken Crown ruins, Starveil crystals and Nightspire monoliths. The existing hub pads and 13 connecting road segments remain intact. Landmarks use a separate instanced mesh component with collision and overlap events disabled so they cannot block player movement or road travel.
+
+These are intentionally untextured cube placeholders, not finished biome artwork or playable environmental hazards. Follow-up UE5 work must replace them with original appropriately licensed art, define terrain/foliage/weather/audio, author distinct silhouettes and test navigation and visibility on Windows packaged builds. C++17 regressions enforce 18 bounded placements away from the nine hub pads. Native engine verification remains outstanding.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
