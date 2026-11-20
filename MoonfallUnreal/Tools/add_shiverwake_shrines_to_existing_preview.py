@@ -1,8 +1,10 @@
-"""Add missing Shiverwake shrines to an EXISTING isolated UE5 preview map.
+"""Redistribute/add exactly two shrines per zone in an EXISTING Northern preview.
 
 Run in UE5 Editor via Tools > Execute Python Script. Unlike the creation
 script, this deliberately updates ONLY /Game/NorthernExpanse/Maps/NorthernExpansePreview.
-Other levels, player saves and authored shrines are never touched.
+Old generated Shiverwake shrines migrate in place only when their identity,
+location and generator tag match exactly. Authored shrines and campaign saves
+are never changed.
 """
 import sys
 from pathlib import Path
@@ -34,7 +36,7 @@ def main():
     world_actors = unreal.EditorLevelLibrary.get_all_level_actors()
     if len([actor for actor in world_actors
             if actor.get_class().get_name() == "MoonfallNorthContinentActor"]) != 1:
-        raise RuntimeError("Refusing to add island shrines without the correct continent")
+        raise RuntimeError("Refusing to add Northern shrines without the correct continent")
     harbors = [actor for actor in world_actors
                if actor.get_class().get_name() == "MoonfallNorthFerryGate"]
     if len(harbors) != 2 or sum(bool(h.get_editor_property("b_island_harbor"))
@@ -43,8 +45,8 @@ def main():
     created = install_shiverwake_shrines(actors, shrine_class)
     if created > 0:
         if not level.save_current_level():
-            raise RuntimeError("Could not save the 18-shrine preview update")
-    unreal.log("Shiverwake shrines updated: %d created, previously authored actors preserved" % created)
+            raise RuntimeError("Could not save the 2-per-zone Northern shrine update")
+    unreal.log("Northern shrines updated: %d created/migrated; two per zone, authored actors preserved" % created)
 
 
 if __name__ == "__main__":
