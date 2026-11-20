@@ -6,51 +6,68 @@ Moonfall ferry at an authored mainland harbor. The paired return ferry is at
 Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
 **not** a tenth province, a shrine shortcut, or a replacement of existing maps.
 
-## Eighteen Shiverwake Coast shrines (preview integration)
+## Two shrines per Northern Expanse zone (18 total)
 
-**Exactly 18 named, discoverable shrine actors** are now authored for the
-existing Shiverwake Coast province pad, without creating another zone, moving
-either ferry or changing Z/Nyra art. The shared, source-controlled layout
-`Tools/shiverwake_shrine_layout.py` spaces all 18 on solid province ground
-outside the ferry trigger and landing marker. They reuse the existing
-`AMoonfallCheckpointShrine` actor, including its overlap range, persistent
-lit/active visual while discovered, distinct active respawn marker and Atlas
-display names. Names by island area:
+The isolated Northern Expanse UE5 preview now authors **exactly two named,
+discoverable checkpoints on each of its original nine walkable zone pads**.
+There are 18 shrines total, **not 18 on Shiverwake Coast**. No new province,
+road, combat encounter or original Z/Nyra artwork has been changed. The
+source-controlled layout in `Tools/shiverwake_shrine_layout.py` retains its
+historical module name for editor-script compatibility, but now covers the
+entire continent and checks positions against the native C++ province centers.
 
-- **Southern shore (6):** Shiverwake Landing, Tideglass Watch, Saltwind Beacon,
-  Ravenrest, Frosttide Hollow, Dawnwatch Bluff.
-- **Central plateau (6):** Moonshard Cairn, Whispering Ice, Blackwater Vigil,
-  Greywake Spire, Silverfall Refuge, Northwind Rise.
-- **Northern ridge (6):** Frostglass Chapel, Stormbreak Cairn, Pale Aurora,
-  Seaborn Sanctuary, Winterthorn, Lastlight Beacon.
+| Province | Checkpoint 1 | Checkpoint 2 |
+| --- | --- | --- |
+| Shiverwake Coast | Shiverwake Landing | Tideglass Watch |
+| Wolfsong Timberlands | Emberpine Lodge | Rootsong Clearing |
+| Palehorn Tundra | Greyhorn Outpost | Frosthorn Cairn |
+| Gravewind Barrens | Lantern Rest | Hollow Bell |
+| Verdant Rift | Bloomwatch Refuge | Heartseed Grove |
+| Skyshard Summits | Cloudbreak Hold | Skybreaker Beacon |
+| The Sunken Crown | Lastlight Enclave | Rusted Crown |
+| Starveil Vale | Prismwatch | Mirrorlight |
+| Nightspire Dominion | Dawn's Edge | Nightspire Vigil |
 
-**Preview gameplay:** discovered shrines stay lit, the newest discovered
-shrine becomes the active in-memory death checkpoint, and entering any
-previously discovered Shiverwake shrine restores health, mana and stamina.
-Only the isolated `MoonfallNorthPreviewGameMode` grants session-only
-activation; all reads/writes to the player's **main six-zone campaign save**
-remain blocked. Leaving the test preview discards its shrine progress. A
-permanent new-island save format still needs separate review and migration,
-not a silent write to the legacy save slot.
+The placements use the existing collision-enabled province pads, keep at
+least 440 cm between 220-cm overlap spheres, and avoid the Shiverwake ferry
+boarding/arrival triggers. Each shrine has a distinct, authored ID, a
+readable in-world sign, and a matching Atlas name.
 
-**Authoring:** running `Tools/create_northern_expanse_preview.py` in a
-compiled UE5.4 Editor includes all 18 shrines in a *new* isolated preview.
-If that preview level **already exists**, do not delete or regenerate it.
-Instead run `Tools/add_shiverwake_shrines_to_existing_preview.py`: it
-checks the preview game mode and two harbors, adds only missing named shrines,
-preserves other actors and existing shrine identities, and saves the isolated
-preview map. Re-running the updater is idempotent. Finally run
-`Tools/validate_northern_expanse_preview.py` and confirm 18 IDs, names,
-positions and discovery triggers.
+**Preview behavior:** approaching an undiscovered shrine activates it.
+Discovered shrines remain illuminated even when another shrine becomes the
+most recent active respawn point. Visiting a discovered shrine restores
+health, mana and stamina. Only the isolated preview GameMode permits
+**session-only** checkpoint activation without a disk save: the six-region
+campaign save is never read/written by this map. Preview shrine discovery
+does **not** persist between preview sessions.
 
-**Native acceptance still needed:** compile UE5.4 Editor; generate/update
-and validate the map; walk between all 18 shrines; confirm visiting one
-activates it without deactivating previous shrines, rest heals HP/mana/stamina,
-death respawns at the most recently discovered valid checkpoint, and neither
-a test session nor reopening the preview changes the main campaign save.
-Verify ferry arrivals do not automatically activate a shrine. Python CI
-uses a fake Unreal editor for layout/idempotence and source assertions;
-it does **not** prove real UE5 physics, saves, map generation or PIE play.
+**New maps:** run `Tools/create_northern_expanse_preview.py` using a
+compiled UE5.4 Editor. It adds the correct 18 actors when creating a
+previously nonexistent preview level.
+
+**Existing preview maps:** do **not** regenerate or delete the existing
+map. Run `Tools/add_shiverwake_shrines_to_existing_preview.py`. This
+historically named script now upgrades the entire nine-zone preview:
+the two original Shiverwake shoreline shrine IDs stay at their positions,
+while the former **16 generated, unmodified, tagged island-only shrines**
+are migrated to the other eight province pads and given new IDs/names.
+This is done in place, without deleting actors or changing main campaign
+saves. A moved/renamed/untagged original shrine triggers a hard refusal
+rather than destroying a designer's custom placement. Repeat runs add
+nothing. If the map was already partly upgraded, only missing/generated
+actors are adjusted. Other authored shrine actors are preserved.
+
+**Validation:** run `Tools/validate_northern_expanse_preview.py` after
+the map update. It checks actual saved actor IDs, names, coordinates,
+collidable discovery triggers, no leftover legacy shrine IDs, and
+**exactly two per each of nine zones**. Portable Linux/Windows tests also
+compare the Python zone centers to `MoonfallNorthContinentLayout.h` and
+exercise a simulated editor, including a full 18-to-18 migration.
+
+**Still unverified in Unreal:** native UE5 Editor generation, actual
+walkability/line-of-sight, shrine discovery and healing, correct respawn
+after death, controller access, and save isolation during PIE must be
+tested before merging. Portable CI is not proof of actual UE gameplay.
 
 ## What exists in code
 
