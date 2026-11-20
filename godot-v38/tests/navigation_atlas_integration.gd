@@ -1,5 +1,6 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
+const GUARDIAN_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
 const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 const APPROVED_ART=preload("res://scripts/systems/ai_art_overrides.gd")
@@ -488,6 +489,9 @@ func _run()->void:
  check('var dodge_before:float=dodge_time' in boss_combat_source and 'precision_target["v407_precision_rewarded"]=true' in boss_combat_source,"precision reward requires verified movement and is once per strike")
  check('combat_aura.light_energy=light_goal' in boss_combat_source and 'beast["v407_release_until"]=map_time+0.42' in boss_combat_source,"boss aura reads windup and visual recovery without altering damage timing")
  check('var warning_text:String' not in boss_combat_source and 'STRIKE NOW' not in boss_combat_source and 'SIDESTEP' not in boss_combat_source and 'EXIT CIRCLE' not in boss_combat_source,"withdrawn countdown and prompt UI stays removed")
+ check(GUARDIAN_ATTACKS.valid_trait(0) and GUARDIAN_ATTACKS.valid_trait(3) and not GUARDIAN_ATTACKS.valid_trait(-1) and not GUARDIAN_ATTACKS.valid_trait(4),"guardian attacks accept only four named traits")
+ check(GUARDIAN_ATTACKS.WARNING_SECONDS>=1.0 and GUARDIAN_ATTACKS.ATTACK_NAMES.size()==4 and GUARDIAN_ATTACKS.COUNTER_HINTS.size()==4,"guardian warnings have readable countdown and counterplay")
+ check(GUARDIAN_ATTACKS.cooldown(0,1)>GUARDIAN_ATTACKS.WARNING_SECONDS and GUARDIAN_ATTACKS.damage(0,1)>0.0,"guardian cooldown and damage remain bounded")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
