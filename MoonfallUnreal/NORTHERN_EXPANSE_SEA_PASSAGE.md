@@ -20,13 +20,17 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   `bIslandHarbor=false` at the mainland and `true` on the island, set
   each `PairedGate` to the other and explicitly enable both. A failed,
   missing, disabled or non-reciprocal pairing refuses travel.
-- Each gate is linked to its own decorative `SailingVessel` actor. A 0.1s
-  timer moves the outbound vessel toward the receiving harbor using a smooth
-  bounded path and gentle cosmetic wave bob (no Actor Tick, no boat physics).
-  After eleven seconds, a healthy nearby player is collision-teleported to
-  the receiving harbor. If the traveler leaves the dock, dies, opens a menu,
-  the pairing becomes invalid, or landing is blocked, the crossing cancels;
-  the ship returns to its initial position and no arrival event fires.
+- Each gate is linked to its own `SailingVessel`. **Boarding now moves the
+  hero onto the ship's actual collision-enabled walking deck**, then uses
+  Unreal CharacterMovement's moving-platform base while the 0.1s timer
+  carries the vessel between harbors. The player retains ordinary on-deck
+  walking controls, but **cannot steer the ship**. Four invisible pawn-blocking
+  guard rails prevent walking off the narrow prototype boat. After eleven
+  seconds, the hero detaches from the walking base and is collision-teleported
+  to safe land. Leaving the guarded deck, losing the pairing, dying, opening
+  a menu or encountering blocked landing cancels the crossing without an
+  arrival event. On cancellation it attempts to restore the original dry
+  dock position, then a nearby fallback; the ship is reset to its origin.
 - **Accessible voyage countdown:** the harbor sign displays "ARRIVAL IN
   11S" and counts down to "1S" during the timed animation. The optional
   `OnAutomaticVoyageProgress(Hero, SecondsRemaining, PhaseIndex)` event
@@ -43,8 +47,10 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   ship camera; the normal view is restored when the voyage succeeds, fails
   or is canceled. The restoration only runs if the ship is still the active
   view target, so a separate cutscene/camera system is not forcibly reset.
-  The `bUseVoyageCamera` gate option can disable this and keep the existing
-  view. If the hero has **Reduce Motion** enabled, camera switching is
+  The `bUseVoyageCamera` gate option is now **off by default** for a regular
+  third-person walkable passenger deck; designers can enable the cinematic
+  ship-wide camera if desired. If the hero has **Reduce Motion** enabled,
+  camera switching is
   immediate instead of blended and decorative wave bob is disabled.
   No manual steering or input bindings were introduced.
 - **Crimson sail animation:** six existing sail panels receive a small,
@@ -52,10 +58,10 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   Each local rest transform is cached before animating and restored on any
   completion/cancellation. Reduced Motion stops sail flutter immediately
   and the movement handler already disables ship bob under that setting.
-  No new collision, damage or naval-encounter actor is spawned.
-  **The character remains at the departure dock during the camera ride**;
-  the ship's deck is currently non-colliding geometry, and this is
-  *not* yet a walkable moving-deck feature.
+  The existing visual meshes remain nonblocking and no damage or naval
+  encounter actors are spawned. The **new passenger floor and four invisible
+  rails block only pawn collision**. Hero boarding uses a safe elevated marker
+  instead of jumping from the harbor over empty water.
 - The arrival marker is outside its gate's overlap sphere. Place markers on
   collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
@@ -79,9 +85,11 @@ ship mesh, textured asset or animated ship.
 The isolated Northern Expanse preview generator now places **two separate
 decorative ships offshore**: a mainland vessel near (0, -7650, -40) and a
 Shiverwake vessel near (0, -2750, -40). The actual boarding trigger stays
-on safe dry land at its respective harbor. No ship parts generate collision
-or overlaps; the ship moves on a **bounded ten-updates-per-second timer
-only while its ferry crossing is active**, not a permanent Tick. The optional
+on safe dry land at its respective harbor; the gate safely transfers players
+to a ship-mounted elevated boarding marker. **Only the deck and invisible
+safety rails block pawn movement; all visible ship mesh instances remain
+nonblocking.** The ship moves on a bounded ten-updates-per-second timer
+only while its ferry crossing is active, not a permanent Tick. The optional
 `bShowGothicFerry` flag can hide geometry but the voyage requires the
 assigned visual ship actor to remain valid.
 
@@ -94,14 +102,15 @@ real player world assets.
 
 ## What does NOT yet exist
 
-This is an **opt-in automatic crossing prototype**, not a complete
-walkable sailing experience. The decorated ship **does** follow an animated
-eleven-second route, but the hero **currently remains at the departure dock
-during the ship animation** before being moved to safe land at its destination.
-The new camera follows the animated boat, but the hero is not physically
-attached to it. There is no moving walkable deck, animated cloth/sail rigging, interactive
-captain or crew, dynamic wave physics, camera cutscene, authored ship/water
-assets, streaming between levels, permanent crossing unlock, or final
+This is an **opt-in walkable passenger ferry prototype**, not a complete
+shipped sailing system. The decorated ship follows an animated eleven-second
+route. The hero is now placed on a **moving pawn-blocking deck** supported
+by CharacterMovement's movement base. Native UE5 testing is still necessary
+to verify that the capsule tracks the ship correctly at all frame rates and
+does not fall through the floor or clip into the rails. There are no
+high-detail modeled interiors, real gangways, crew, animated cloth rigging,
+dynamic wave physics, authored water assets, cross-level streaming, save-backed
+crossing unlocks or final
 playable island landscapes. Per the design direction there will be **no
 ghost-ship fights, sea monsters, naval combat or ocean encounters**.
 It has not been compiled or playtested in Unreal 5.4 on Windows. The
@@ -146,8 +155,8 @@ exists yet. Do not attach experimental gates to a production main map.
    **No real player save must be loaded or modified.**
 4. Check controls with mouse, keyboard and controller. Check that entering
    the arrival dock does not immediately bounce the player back to origin.
-5. Only after tests, add a walkable sailing deck, genuine sail animations,
-   ambient storm visuals and sounds, camera transitions, safe docking,
+5. After native passenger-deck verification, add genuine gangways,
+   high-quality sail animation, ambient storm visuals and sounds, safe docking,
    return-voyage skip, save-backed discovery and Windows 10/11 packaging.
    Keep the voyage automatic and **do not add ocean battles or encounters**.
    Preserve original Z and Nyra visuals exactly; do not merge without
