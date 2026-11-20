@@ -88,6 +88,21 @@ class ChronicleIntegration(unittest.TestCase):
         self.assertIn("Chronicle.Valid && ChronicleCard.Visible", self.preview)
         self.assertNotIn("MoonfallChronicle::Acts[Selected]", self.preview)
 
+    def test_chronicle_progress_round_trips_through_existing_world_save(self):
+        # Chronicle is a read-only view over the authoritative dungeon ledgers.
+        save = self.pawn.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.pawn.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1]
+        for field in ("DiscoveredDungeonMask", "DefeatedDungeonBossMask"):
+            self.assertIn(f"Save->{field} = {field};", save)
+            self.assertRegex(load, rf"Save->{field}")
+            self.assertIn(f"static_cast<uint32>(Hero->{field})", self.atlas)
+        self.assertIn("UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0)", save)
+        self.assertIn("UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0)", load)
+        self.assertIn("DefeatedDungeonBossMask = PreviousMask;", self.pawn)
+        self.assertIn("DiscoveredDungeonMask = PreviousMask;", self.pawn)
+        self.assertNotIn("Save->AtlasChronicleChapter", save)
+        self.assertNotIn("Save->bAtlasChronicleFocus", save)
     def test_atlas_reader_is_spoiler_safe_and_window_adaptive(self):
         for token in (
             "MoonfallChronicleUI::Layout(",
