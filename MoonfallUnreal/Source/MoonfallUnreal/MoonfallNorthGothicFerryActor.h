@@ -18,6 +18,10 @@ class MOONFALLUNREAL_API AMoonfallNorthGothicFerryActor : public AActor {
 public:
  AMoonfallNorthGothicFerryActor();
  virtual void OnConstruction(const FTransform& Transform) override;
+ // Cosmetic cloth-like flutter using only existing sail instances, never
+ // colliding or affecting the automatic course or travel timer.
+ void AnimateCrimsonSails(float ElapsedSeconds, bool bReduceMotion);
+ void ResetCrimsonSails();
 
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|North Ferry")
  bool bShowGothicFerry = true;
@@ -42,4 +46,8 @@ public:
  // player-driven steering. The harbor gate owns restoration on cancel/arrival.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
  TObjectPtr<UCameraComponent> VoyageCamera;
+
+private:
+ TArray<FTransform> SailRestTransforms;
+ bool bSailsWereAnimated = false;
 };
