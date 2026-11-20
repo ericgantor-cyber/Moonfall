@@ -28,6 +28,9 @@ public:
  // The pier sign alone is no longer visible once the hero boards.
  void SetPassengerTravelStatus(const FString& Status);
  void ResetPassengerTravelStatus();
+ // Low-cost crimson lantern atmosphere (no shadow casting or gameplay).
+ void AnimateCrimsonLanterns(float ElapsedSeconds, bool bReduceMotion);
+ void ResetCrimsonLanterns();
 
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|North Ferry")
  bool bShowGothicFerry = true;
