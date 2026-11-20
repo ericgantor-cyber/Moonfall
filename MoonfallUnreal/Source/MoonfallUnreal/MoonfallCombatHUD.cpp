@@ -356,7 +356,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Chronicle.Valid && ChronicleBeat
       && MapWidth >= 295.f && MapHeight >= 185.f) {
    const bool bCompactChronicle = MapHeight < 390.f;
-   const float ChronicleHeight = bCompactChronicle ? 68.f : 99.f;
+   const float ChronicleHeight = bCompactChronicle ? 68.f : 127.f;
    const float ChronicleLeft = MapLeft + 8.f;
    const float ChronicleTop = MapTop + MapHeight - ChronicleHeight - 8.f;
    const float ChronicleWidth = MapWidth - 16.f;
@@ -375,17 +375,35 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor::White,
       ChronicleLeft + 10.f, ChronicleTop + 26.f, nullptr, Scale * 0.78f);
    const FString Lore = FString(UTF8_TO_TCHAR(ChronicleBeat->Lore));
-   const int32 MaxLoreChars = MapWidth >= 480.f ? 78 : 48;
-   const FString LoreLine = Lore.Len() > MaxLoreChars
-     ? Lore.Left(MaxLoreChars - 3) + TEXT("...") : Lore;
-   DrawText(LoreLine, FLinearColor(0.79f, 0.84f, 0.93f),
-      ChronicleLeft + 10.f, ChronicleTop + 45.f, nullptr, Scale * 0.68f);
+   const int32 LoreLineLimit = MapWidth >= 480.f ? 78 : 48;
+   const int32 LoreLines = bCompactChronicle ? 1 : 3;
+   int32 LoreCursor = 0;
+   // Read full authored passages on standard windows. Use only three
+   // bounded lines and split at word boundaries rather than mid-word.
+   for (int32 Line = 0; Line < LoreLines && LoreCursor < Lore.Len(); ++Line) {
+    int32 End = FMath::Min(LoreCursor + LoreLineLimit, Lore.Len());
+    if (End < Lore.Len()) {
+     int32 WordEnd = End;
+     while (WordEnd > LoreCursor + LoreLineLimit / 2
+            && Lore[WordEnd] != TCHAR(' ')) --WordEnd;
+     if (WordEnd > LoreCursor + LoreLineLimit / 2) End = WordEnd;
+    }
+    FString Segment = Lore.Mid(LoreCursor, End - LoreCursor);
+    if (Line == LoreLines - 1 && End < Lore.Len())
+     Segment = Segment.Left(FMath::Max(0, Segment.Len() - 3)) + TEXT("...");
+    DrawText(Segment, FLinearColor(0.79f, 0.84f, 0.93f),
+       ChronicleLeft + 10.f, ChronicleTop + 45.f + Line * 17.f,
+       nullptr, Scale * 0.68f);
+    LoreCursor = End;
+    while (LoreCursor < Lore.Len() && Lore[LoreCursor] == TCHAR(' '))
+     ++LoreCursor;
+   }
    if (!bCompactChronicle) {
     DrawText(FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
         Chronicle.Revealed, Chronicle.BossesDefeated,
         Chronicle.Complete ? TEXT("ACT COMPLETE") : TEXT("EXPLORE TO REVEAL")),
       FLinearColor(0.66f, 0.86f, 0.78f),
-      ChronicleLeft + 10.f, ChronicleTop + 71.f, nullptr, Scale * 0.68f);
+      ChronicleLeft + 10.f, ChronicleTop + 105.f, nullptr, Scale * 0.68f);
    }
   }
   // Hover cards are purely informational and keep the mouse optional.
