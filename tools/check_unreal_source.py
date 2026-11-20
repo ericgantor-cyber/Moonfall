@@ -5886,7 +5886,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(interaction.index("bAtlasOpen"), interaction.index("GetNearestResidentNPC()"))
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "\n}", 1)[0]
-        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", pickup)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld()", pickup)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
             "\n}", 1)[0]
         self.assertIn("Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen", toggle)
@@ -6170,7 +6170,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(cancel, enemy_modal)
         self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {", tick)
+        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
