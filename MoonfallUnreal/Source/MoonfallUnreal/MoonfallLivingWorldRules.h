@@ -43,6 +43,22 @@ constexpr WeaponStage WeaponEvolution(int verifiedVictories, int upgrades,
  return WeaponStage::Dormant;
 }
 
+// This separate resonance display uses the already persisted dungeon boss
+// ledger, which is GLOBAL progress, not a per-weapon kill counter.
+// WeaponEvolution above remains reserved for real per-weapon milestones.
+constexpr WeaponStage BossResonance(int defeatedDungeonBosses, int gearTier, int rarity) {
+ if (defeatedDungeonBosses < 0 || defeatedDungeonBosses > 30
+     || gearTier < 1 || gearTier > 25 || rarity < 0 || rarity > 5)
+  return WeaponStage::Dormant;
+ if (defeatedDungeonBosses >= 15 && gearTier >= 9 && rarity >= 5)
+  return WeaponStage::Mythic;
+ if (defeatedDungeonBosses >= 5 && gearTier >= 5 && rarity >= 4)
+  return WeaponStage::Ascendant;
+ if (defeatedDungeonBosses >= 1 && gearTier >= 2)
+  return WeaponStage::Awakened;
+ return WeaponStage::Dormant;
+}
+
 // A settlement is rebuilt through verified objective completions, not mere
 // proximity. Harm may lower prosperity but never fabricate completed quests.
 struct Settlement {
