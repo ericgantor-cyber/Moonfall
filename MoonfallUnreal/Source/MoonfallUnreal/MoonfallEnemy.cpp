@@ -626,10 +626,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? -0.35f : 0.f;
   const bool bWithinAttackArc = bDivineSignatureActive || bSpinningSweep || LockedAttackDirection.IsNearlyZero()
     || Difference.IsNearlyZero() || FacingDot >= MinFacingDot;
-  // Z and Morvella strike their locked marks; Nyra pulses around her position at cast start.
-  // All divine signatures are avoidable by leaving the marked area before impact.
+  // Morvella uses a locked lane, a safe-center ring, a cross or a circle.
+  // Z/Nyra retain their original circular damage geometry unchanged.
   const bool bWithinDivineMarker = bDivineSignatureActive
-    && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
+    && (MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
+      ? MoonfallDeathGoddess::HitsSignature(ActiveDivineMoveId, DivineSignatureOrigin,
+          DivineSignatureCenter, HeroPosition, DivineSignatureRadius)
+      : FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius));
   const bool bWithinGuardianFootprint = ActiveGuardianFootprint >= 0 &&
     MoonfallGuardianFootprint::Hit(
       static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint),
@@ -800,10 +803,42 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
   if (bDivineSignatureActive) {
-   DrawDebugCircle(GetWorld(), DivineSignatureCenter - FVector(0.f,0.f,55.f),
-     DivineSignatureRadius, 32, MoonfallDeathGoddess::IsDeathGoddess(DivineBossId) ? FColor(220, 68, 105)
-       : (DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan),
-     false, 0.12f, 0, 3.f * WarningScale, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+   // Draw exactly the native collision footprint, not a misleading circle
+   // around a line, ring or cross. The words also distinguish the warning
+   // without relying on color alone. Z and Nyra keep their prior circles.
+   const bool bMorvella = MoonfallDeathGoddess::IsDeathGoddess(DivineBossId);
+   const FColor MarkColor = bMorvella ? FColor(220, 68, 105)
+     : (DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan);
+   const FVector Ground = DivineSignatureCenter - FVector(0.f,0.f,55.f);
+   const float R = DivineSignatureRadius;
+   const float MarkWidth = 3.f * WarningScale;
+   if (bMorvella && ActiveDivineMoveId == FName(TEXT("GraveNeedle"))) {
+    const FVector Start = DivineSignatureOrigin - FVector(0.f,0.f,55.f);
+    const FVector Direction = (DivineSignatureCenter - DivineSignatureOrigin).GetSafeNormal2D();
+    if (!Direction.IsNearlyZero()) {
+     const FVector Perp(-Direction.Y, Direction.X, 0.f);
+     const FVector End = Ground + Direction * MoonfallDeathGoddessFootprint::GraveNeedleBeyondTarget;
+     DrawDebugLine(GetWorld(), Start + Perp * R, End + Perp * R, MarkColor, false, 0.12f, 0, MarkWidth);
+     DrawDebugLine(GetWorld(), Start - Perp * R, End - Perp * R, MarkColor, false, 0.12f, 0, MarkWidth);
+     DrawDebugLine(GetWorld(), End + Perp * R, End - Perp * R, MarkColor, false, 0.12f, 0, MarkWidth);
+    }
+   } else if (bMorvella && ActiveDivineMoveId == FName(TEXT("CrimsonEclipse"))) {
+    const float Half = R * MoonfallDeathGoddessFootprint::EclipseCrossHalfWidthFraction;
+    DrawDebugLine(GetWorld(), Ground + FVector(-R,-Half,0.f), Ground + FVector(R,-Half,0.f), MarkColor, false, 0.12f, 0, MarkWidth);
+    DrawDebugLine(GetWorld(), Ground + FVector(-R,Half,0.f), Ground + FVector(R,Half,0.f), MarkColor, false, 0.12f, 0, MarkWidth);
+    DrawDebugLine(GetWorld(), Ground + FVector(-Half,-R,0.f), Ground + FVector(-Half,R,0.f), MarkColor, false, 0.12f, 0, MarkWidth);
+    DrawDebugLine(GetWorld(), Ground + FVector(Half,-R,0.f), Ground + FVector(Half,R,0.f), MarkColor, false, 0.12f, 0, MarkWidth);
+   } else {
+    DrawDebugCircle(GetWorld(), Ground, R, 32, MarkColor,
+     false, 0.12f, 0, MarkWidth, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+    if (bMorvella && ActiveDivineMoveId == FName(TEXT("SoulHarvest"))) {
+     DrawDebugCircle(GetWorld(), Ground,
+       R * MoonfallDeathGoddessFootprint::SoulHarvestSafeFraction, 24, FColor::Green,
+       false, 0.12f, 0, MarkWidth, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+     DrawDebugString(GetWorld(), Ground + FVector(0.f,0.f,50.f),
+       TEXT("SAFE CENTER"), nullptr, FColor::White, 0.12f, false);
+    }
+   }
    const bool bVoidSignature = DivineBossId == FName(TEXT("z_void_reaper"));
    const TCHAR* DivineWarningText = MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
      ? MoonfallDeathGoddess::WarningForPhase(BossPhase)
@@ -1217,7 +1252,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      const auto Move = MoonfallDeathGoddess::SignatureForPhase(BossPhase);
      bDivineAlternateGeometry = false;
      ActiveDivineMoveId = Move.Id;
-     DivineSignatureCenter = Move.bCenteredOnCaster ? GetActorLocation() : HeroPosition;
+     DivineSignatureOrigin = GetActorLocation();
+     DivineSignatureCenter = Move.bCenteredOnCaster ? DivineSignatureOrigin : HeroPosition;
      DivineSignatureRadius = Move.Radius;
      CurrentWindup = Move.WarningSeconds;
      CurrentAttackMultiplier = Move.DamageMultiplier;
