@@ -44,21 +44,38 @@ void AMoonfallNorthWeatherActor::BeginPlay() {
  Super::BeginPlay();
  WeatherStep=0;
  ParticleStep=0;
- bWeatherActive=false;
- DeactivateWeatherPreview();
- // Proximity is checked at 1Hz; the fast 5Hz animation timer is only
- // scheduled when the local player is inside range.
- if(bEnableWeatherPreview && MoonfallNorth::ValidZone(ProvinceIndex)) {
-  CheckWeatherProximity();
-  GetWorldTimerManager().SetTimer(ProximityTimer,this,
-    &AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true);
- }
+ SetWeatherPreviewEnabled(bEnableWeatherPreview);
 }
 void AMoonfallNorthWeatherActor::EndPlay(const EEndPlayReason::Type Reason) {
  GetWorldTimerManager().ClearTimer(WeatherTimer);
  GetWorldTimerManager().ClearTimer(ProximityTimer);
  DeactivateWeatherPreview();
  Super::EndPlay(Reason);
+}
+void AMoonfallNorthWeatherActor::SetWeatherPreviewEnabled(bool bEnabled) {
+ bEnableWeatherPreview=bEnabled;
+ if(!HasActorBegunPlay()) {
+  RefreshWeatherPreview();
+  return;
+ }
+ // Reset both timers when toggled, even if an earlier preview was active.
+ GetWorldTimerManager().ClearTimer(WeatherTimer);
+ GetWorldTimerManager().ClearTimer(ProximityTimer);
+ bWeatherActive=false;
+ DeactivateWeatherPreview();
+ if(!bEnabled || !MoonfallNorth::ValidZone(ProvinceIndex)) return;
+ CheckWeatherProximity();
+ // The 5Hz animation is enabled only near the local player; 1Hz monitoring
+ // does not manipulate global weather, cameras or player controls.
+ GetWorldTimerManager().SetTimer(ProximityTimer,this,
+   &AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true);
+}
+void AMoonfallNorthWeatherActor::SetWeatherProvinceIndex(int32 NewProvinceIndex) {
+ ProvinceIndex=NewProvinceIndex;
+ WeatherStep=0;
+ ParticleStep=0;
+ if(HasActorBegunPlay()) SetWeatherPreviewEnabled(bEnableWeatherPreview);
+ else RefreshWeatherPreview();
 }
 void AMoonfallNorthWeatherActor::DeactivateWeatherPreview() {
  if(IsValid(WeatherLight)) WeatherLight->SetVisibility(false);
@@ -67,11 +84,10 @@ void AMoonfallNorthWeatherActor::DeactivateWeatherPreview() {
 }
 void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
  if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)) {
-  if(bWeatherActive) {
-   bWeatherActive=false;
-   GetWorldTimerManager().ClearTimer(WeatherTimer);
-   DeactivateWeatherPreview();
-  }
+  bWeatherActive=false;
+  GetWorldTimerManager().ClearTimer(WeatherTimer);
+  GetWorldTimerManager().ClearTimer(ProximityTimer);
+  DeactivateWeatherPreview();
   return;
  }
  const APawn* Player=UGameplayStatics::GetPlayerPawn(this,0);
@@ -117,10 +133,15 @@ void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
 }
 void AMoonfallNorthWeatherActor::RefreshWeatherParticles() {
  if(!IsValid(WeatherParticles)) return;
- WeatherParticles->ClearInstances();
  if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)
      || (HasActorBegunPlay() && !bWeatherActive)
-     || !WeatherParticles->GetStaticMesh()) return;
+     || !WeatherParticles->GetStaticMesh()) {
+  WeatherParticles->ClearInstances();
+  return;
+ }
+ const bool bInitialBuild =
+   WeatherParticles->GetInstanceCount()!=MoonfallNorth::PrecipitationInstanceCount;
+ if(bInitialBuild) WeatherParticles->ClearInstances();
  for(int32 Slot=0;Slot<MoonfallNorth::PrecipitationInstanceCount;++Slot) {
   const auto P=MoonfallNorth::PrecipitationAt(ProvinceIndex,Slot,ParticleStep);
   const FVector Center(static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),
@@ -128,6 +149,13 @@ void AMoonfallNorthWeatherActor::RefreshWeatherParticles() {
   const FVector Scale(static_cast<float>(P.HalfWidthCm)/50.f,
     static_cast<float>(P.HalfDepthCm)/50.f,
     static_cast<float>(P.HalfHeightCm)/50.f);
-  WeatherParticles->AddInstance(FTransform(FRotator::ZeroRotator,Center,Scale));
+  const FTransform InstanceTransform(FRotator::ZeroRotator,Center,Scale);
+  if(bInitialBuild) {
+   WeatherParticles->AddInstance(InstanceTransform);
+  } else {
+   // Update transforms in place; only the final instance dirties rendering.
+   WeatherParticles->UpdateInstanceTransform(Slot,InstanceTransform,
+     false,Slot==MoonfallNorth::PrecipitationInstanceCount-1,true);
+  }
  }
 }
