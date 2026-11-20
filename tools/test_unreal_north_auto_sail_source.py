@@ -77,9 +77,13 @@ for expected in (
     "Query.AddIgnoredActor(this)",
     "Query.AddIgnoredActor(Harbor)",
     "Ground.bBlockingHit",
-    "Ground.ImpactNormal.Z < 0.7f",
+    "Ground.ImpactNormal.ContainsNaN()",
+    "Ground.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block",
+    "MoonfallNorth::ValidDryLandingSample(",
+    "Ground.ImpactNormal.Z",
+    "Ground.ImpactPoint.Z, CapsuleHalfHeight",
+    "MoonfallNorth::DryLandingCapsuleClearanceCm",
     "GetScaledCapsuleHalfHeight()",
-    "FMath::Abs(Candidate.Z - Anchor.Z) > 400.f",
     "OutLandingLocation = Candidate",
 ):
     assert expected in land_guard, f"Missing true walkable landing guard: {expected}"
@@ -200,4 +204,15 @@ for requirement in (
     'Onboard sign cannot block passenger',
 ):
     assert requirement in native, f"Native test missing contract: {requirement}"
-print("Automatic sailing and native UE test source contract passed (native execution pending)")
+policyLanding = (module / "MoonfallNorthDryLandingPolicy.h").read_text(encoding="utf-8")
+for expected in (
+    "ValidDryLandingSample(",
+    "DryLandingMinNormalZ = 0.7f",
+    "DryLandingMaxAnchorDistanceCm = 400.f",
+    "DryLandingCapsuleClearanceCm = 3.f",
+    "bGroundHit || !bPawnBlocks",
+):
+    assert expected in policyLanding, f"Dry landing policy missing: {expected}"
+assert '#include "MoonfallNorthDryLandingPolicy.h"' in gate_cpp
+assert "FindSafeDryLanding(Hero, this, Fallback)" in cleanup
+print("Automatic voyage, dry landing and native UE source contracts passed (native execution pending)")
