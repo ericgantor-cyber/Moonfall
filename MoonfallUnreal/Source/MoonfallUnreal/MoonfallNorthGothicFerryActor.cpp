@@ -301,3 +301,22 @@ void AMoonfallNorthGothicFerryActor::SetPassengerTravelStatus(const FString& Sta
 void AMoonfallNorthGothicFerryActor::ResetPassengerTravelStatus() {
  SetPassengerTravelStatus(TEXT("GOTHIC RAVEN\nBOARDING"));
 }
+
+void AMoonfallNorthGothicFerryActor::ResetCrimsonLanterns() {
+ if (IsValid(PortLanternLight)) PortLanternLight->SetIntensity(210.f);
+ if (IsValid(StarboardLanternLight)) StarboardLanternLight->SetIntensity(210.f);
+}
+
+void AMoonfallNorthGothicFerryActor::AnimateCrimsonLanterns(
+    float ElapsedSeconds, bool bReduceMotion) {
+ if (bReduceMotion || !FMath::IsFinite(ElapsedSeconds) || ElapsedSeconds < 0.f) {
+  ResetCrimsonLanterns();
+  return;
+ }
+ // Two staggered scarlet glows, updated at 10Hz during the eleven-second
+ // trip only. Both lights remain non-shadowing for stable Windows framerate.
+ if (IsValid(PortLanternLight))
+  PortLanternLight->SetIntensity(210.f + 30.f * FMath::Sin(ElapsedSeconds * 3.6f));
+ if (IsValid(StarboardLanternLight))
+  StarboardLanternLight->SetIntensity(210.f + 30.f * FMath::Sin(ElapsedSeconds * 3.6f + 1.9f));
+}
