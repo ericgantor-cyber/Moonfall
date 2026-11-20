@@ -40,6 +40,22 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_sanctuary_hud_uses_actual_progress_and_preserves_small_screens(self):
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        block = hud.split("// The sanctuary ledger is read-only:", 1)[1].split(
+            "// Compact circular resource HUD at bottom left", 1
+        )[0]
+        for expected in ("bSanctuaryObjective", "Canvas->SizeX >= 1280.f",
+                         "Canvas->SizeY >= 700.f", "!Hero->bAtlasOpen",
+                         "!Hero->bOptionsOpen", "Hero->IsSanctuaryRoomUnlocked(Room)",
+                         "Hero->GetWorldCommunityOutlook()",
+                         "Hero->IsSanctuaryRoomUnlocked(4)",
+                         "COUNCIL CHOICES (PREVIEW ONLY)"):
+            self.assertIn(expected, block)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "ChangeFactionReputation(",
+                          "ResidentQuestStates.Add("):
+            self.assertNotIn(forbidden, block)
+
     def test_sanctuary_unlock_uses_saved_firstlight_and_proven_victories(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
