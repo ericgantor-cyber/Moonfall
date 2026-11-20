@@ -3449,11 +3449,35 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      for (int32 Zone = 0; Zone < 6; ++Zone) {
       const float RowY = PanelT + 110.f + Zone * RowGap;
       if (MouseY >= RowY - 4.f && MouseY < RowY - 4.f + FMath::Max(20.f, RowGap - 4.f)) {
+       if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1;
        AtlasSelectedRegion = Zone;
        return;
       }
      }
     }
+    // Chronicle tab and focus hit tests use the exact same native-free
+    // layout policy as DrawHUD. These clicks must never pan the world
+    // chart, trigger a spell, or accidentally reveal locked story text.
+    const float ChronicleMapL = PanelL + SidebarWidth + 19.f;
+    const float ChronicleMapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
+    const float ChronicleMapT = PanelT + 105.f;
+    const float ChronicleMapH = FMath::Max(74.f, PanelH - 141.f);
+    const auto ChronicleCard = MoonfallChronicleUI::Layout(
+      ChronicleMapL, ChronicleMapT, ChronicleMapW, ChronicleMapH,
+      bAtlasChronicleFocus);
+    if (MoonfallChronicleUI::HitToggle(ChronicleCard, MouseX, MouseY)) {
+     ToggleAtlasChronicleFocus();
+     return;
+    }
+    const int32 ClickedBeat = MoonfallChronicleUI::HitChapter(
+      ChronicleCard, MouseX, MouseY);
+    if (ClickedBeat >= 0) {
+     AtlasChronicleChapter = ClickedBeat;
+     bAtlasChronicleFocus = true;
+     return;
+    }
+    if (MoonfallChronicleUI::HitCard(ChronicleCard, MouseX, MouseY))
+     return;
     // Clicking the parchment chart pans toward the chosen XY world coordinate.
     const float MapL = PanelL + SidebarWidth + 19.f;
     const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
@@ -3468,6 +3492,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float WorldY = SafeAtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
+      if (AtlasSelectedRegion != Slot / 5) AtlasChronicleChapter = -1;
       AtlasSelectedRegion = Slot / 5;
       AtlasPanY = FMath::Clamp(WorldY, -12000.f, 12000.f);
      }
