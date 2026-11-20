@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallImpactFeedback.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -924,6 +925,16 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   // AAA combat weight with no new asset, tick, debug text or global pause.
+   // Only real HP damage can trigger it. Camera distance uses the already
+   // bounded spring-arm decay, and Reduced Motion disables the impulse.
+   const MoonfallImpactFeedback::FResult HitFeedback =
+     MoonfallImpactFeedback::ConfirmedHit(
+       ImpactCameraOffset, LastOffensiveImpactAt, Time, ActualSpellDamage,
+       HitComboStage, Enemy->bBoss, Enemy->Health <= 0.f,
+       bReduceMotion, bOptionsOpen || bInventoryOpen || bAtlasOpen);
+   ImpactCameraOffset = HitFeedback.Offset;
+   LastOffensiveImpactAt = HitFeedback.LastAt;
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
