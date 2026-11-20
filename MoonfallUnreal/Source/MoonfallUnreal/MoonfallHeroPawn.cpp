@@ -1014,7 +1014,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
@@ -1056,7 +1056,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -3189,7 +3189,7 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
- if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen || bAtlasOpen) return false;
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
