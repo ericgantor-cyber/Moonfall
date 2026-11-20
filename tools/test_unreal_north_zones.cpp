@@ -3,6 +3,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -108,6 +109,24 @@ int main() {
  assert(N::DiscoveredRoute(-1,0,N::AllProvinceBits).Length==0);
  assert(N::DiscoveredRoute(0,9,N::AllProvinceBits).Length==0);
  assert(N::DiscoveredRoute(0,3,1u<<N::ZoneCount).Length==0);
+ // All three proposed sanctum footprints have safe entrance and return paths.
+ assert(N::ValidAllSanctumLayouts());
+ for (const auto& Layout : N::SanctumLayouts) {
+  assert(N::ValidSanctumLayout(Layout));
+  assert(Layout.EntranceWidthCm>=400);
+  assert(Layout.ArenaRadiusCm>=1000);
+  assert(Layout.HasSafeReturnPath);
+  assert(N::DivineSite(Layout.Site).Province==Layout.Province);
+  auto Broken=Layout;
+  Broken.EntranceWidthCm=250;
+  assert(!N::ValidSanctumLayout(Broken));
+  Broken=Layout;
+  Broken.HasSafeReturnPath=false;
+  assert(!N::ValidSanctumLayout(Broken));
+  Broken=Layout;
+  Broken.Province=0;
+  assert(!N::ValidSanctumLayout(Broken));
+ }
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
