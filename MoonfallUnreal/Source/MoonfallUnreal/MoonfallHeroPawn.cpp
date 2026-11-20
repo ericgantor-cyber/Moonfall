@@ -1004,8 +1004,32 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen || bAtlasOpen) return;
- if (LeftSpell != RightSpell || !GetWorld()) return;
+ if (bOptionsOpen || bAtlasOpen || bInventoryOpen || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ // A different-school weave is a SINGLE bounded hostile attack.
+ // Preserve the existing doubled same-school spell path below.
+ if (LeftSpell != RightSpell) {
+  const MoonfallLivingWorld::SpellPair Pair = MoonfallLivingWorld::Weave(LeftSpell, RightSpell);
+  if (Pair == MoonfallLivingWorld::SpellPair::Invalid
+      || Pair == MoonfallLivingWorld::SpellPair::SameSchool) return;
+  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
+  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
+  const float Now = GetWorld()->GetTimeSeconds();
+  const float RequiredMana = Costs[LeftSpell] * 1.25f + Costs[RightSpell] * 0.5f;
+  if (!FMath::IsFinite(Now) || !FMath::IsFinite(Mana)
+      || Mana < RequiredMana || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f) return;
+  const float Haste = 1.f + GetHasteBonus();
+  if (!FMath::IsFinite(Haste) || Haste <= 0.f
+      || Now - LastCastTime[0] < Cooldowns[LeftSpell] / Haste
+      || Now - LastCastTime[1] < Cooldowns[RightSpell] / Haste) return;
+  // TryCast owns targeting, damage, recovery, the first mana debit and its
+  // cooldown. Failed target acquisition never charges the other hand.
+  if (TryCast(LeftSpell, 0, 1.25f)) {
+   Mana -= Costs[RightSpell] * 0.5f;
+   LastCastTime[1] = LastCastTime[0];
+   OnSpellWeaved(LeftSpell, RightSpell, static_cast<int32>(Pair));
+  }
+  return;
+ }
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
