@@ -54,12 +54,14 @@ class ArtworkIntegrityTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
-    def run_checker(self, exports=True):
+    def run_checker(self, exports=True, heroes=False):
         self.manifest_path.write_text(json.dumps(self.manifest), encoding="utf-8")
         output = io.StringIO()
         args = ["verify_artwork_inventory.py"]
         if exports:
             args.append("--check-exports")
+        if heroes:
+            args.append("--require-original-heroes")
         with patch.object(checker, "ROOT", self.root), patch.object(checker, "MANIFEST", self.manifest_path), patch.object(sys, "argv", args), contextlib.redirect_stdout(output):
             status = checker.check()
         return status, output.getvalue()
@@ -107,6 +109,21 @@ class ArtworkIntegrityTests(unittest.TestCase):
         self.manifest["assets"][0]["source"] = "godot-v38/assets/../../escape.png"
         self.assert_rejected("missing or invalid path")
 
+    def test_omitted_original_heroes_are_rejected_in_protection_mode(self):
+        status, output = self.run_checker(heroes=True)
+        self.assertEqual(status, 1)
+        self.assertIn("original hero baseline mismatch or omitted", output)
+
+    def test_forged_hero_manifest_hash_is_rejected(self):
+        hero = "godot-v38/assets/heroes/Z_Original.webp"
+        fake = b"fake replacement for Z"
+        self.write_file(hero, fake)
+        self.manifest["assets"][0]["source"] = hero
+        self.manifest["assets"][0]["source_sha256"] = sha(fake)
+        (self.root / SOURCE).unlink()
+        status, output = self.run_checker(heroes=True)
+        self.assertEqual(status, 1)
+        self.assertIn("protected original hero: hash mismatch", output)
     def test_missing_art_directory_is_rejected(self):
         for path in (self.root / "godot-v38/assets").rglob("*"):
             if path.is_file():

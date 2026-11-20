@@ -38,4 +38,4 @@ jobs:
       - name: Test detector against intentionally damaged disposable fixtures
         run: python -m unittest discover -s tools -p test_verify_artwork_inventory.py -v
       - name: Verify originals and prototype exports
-        run: python tools/verify_artwork_inventory.py --check-exports
+        run: python tools/verify_artwork_inventory.py --check-exports --require-original-heroes
