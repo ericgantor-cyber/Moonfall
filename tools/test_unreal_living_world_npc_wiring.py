@@ -40,6 +40,24 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_mixed_school_cast_is_single_transactional_hit(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        cast = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("void OnSpellWeaved(int32 LeftSchool, int32 RightSchool, int32 HybridType);", header)
+        for required in ("LeftSpell != RightSpell", "MoonfallLivingWorld::Weave(LeftSpell, RightSpell)",
+                         "Mana < RequiredMana", "TryCast(LeftSpell, 0, 1.25f)",
+                         "Mana -= Costs[RightSpell] * 0.5f;",
+                         "LastCastTime[1] = LastCastTime[0];",
+                         "OnSpellWeaved(LeftSpell, RightSpell, static_cast<int32>(Pair))",
+                         "if (TryCast(LeftSpell, 0, 2.f))"):
+            self.assertIn(required, cast)
+        self.assertLess(cast.index("Mana < RequiredMana"), cast.index("TryCast(LeftSpell, 0, 1.25f)"))
+        self.assertLess(cast.index("TryCast(LeftSpell, 0, 1.25f)"), cast.index("Mana -= Costs[RightSpell] * 0.5f;"))
+        self.assertLess(cast.index("Mana -= Costs[RightSpell] * 0.5f;"), cast.index("OnSpellWeaved("))
+        self.assertNotIn("TryCast(RightSpell", cast)
+        self.assertNotIn("SaveWorldProgress(", cast)
     def test_weapon_resonance_reads_valid_equipped_gear_and_saved_boss_mask(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
