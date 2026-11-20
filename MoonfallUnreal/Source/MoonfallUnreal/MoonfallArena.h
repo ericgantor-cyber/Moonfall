@@ -23,7 +23,7 @@ public:
  FVector GetStartingSanctuaryLocation() const;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  // NAME_None keeps the previous combined showcase. Select one god per arena
- // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.
+ // by setting this to z_void_reaper, nyra_eclipse_queen, or death_goddess_crimson_reaper in the editor.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
  void CreateBlock(FVector Position, FVector Scale);
