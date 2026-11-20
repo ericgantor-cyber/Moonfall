@@ -11,12 +11,19 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "engine-comparison" / "ART_IMPORT_MANIFEST.json"
 IMAGES = {".png", ".webp", ".jpg", ".jpeg", ".bmp", ".tga", ".gif", ".svg", ".tif", ".tiff", ".exr", ".hdr"}
 HEX64 = re.compile(r"^[a-f0-9]{64}$")
+# Independent original-art SHA-256 values, never read from the import manifest.
+ORIGINAL_HERO_SHA256 = {
+    "godot-v38/assets/heroes/Z_Original.webp": "81b8ac6bae0830ab8d8bf53d2cdcbc8bae07256a8b7a9d4398ce4591bafd0666",
+    "godot-v38/assets/heroes/Nyra_Original.png": "64aa23e2de7ea0e07347171c3ebe4beae13166359b08855d1076db9dd25871a9",
+}
 
 
 def check():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check-exports", action="store_true",
                         help="Also compare declared Unity/Unreal prototype converted images.")
+    parser.add_argument("--require-original-heroes", action="store_true",
+                        help="Enforce fixed Z and Nyra source-art hashes.")
     args = parser.parse_args()
     errors = []
     try:
@@ -91,6 +98,14 @@ def check():
         if engines != {"unity", "unreal_source_art"}:
             errors.append(f"missing required export engine for {source}")
 
+    if args.require_original_heroes:
+        known = {item.get("source"): item.get("source_sha256")
+                 for item in assets if isinstance(item, dict)
+                 and isinstance(item.get("source"), str)}
+        for hero, golden_hash in ORIGINAL_HERO_SHA256.items():
+            if known.get(hero) != golden_hash:
+                errors.append(f"original hero baseline mismatch or omitted: {hero}")
+            verify_file(hero, golden_hash, "protected original hero")
     if manifest.get("source_count") != len(assets):
         errors.append("source_count does not match manifest entries")
     if manifest.get("imported_files") != len(seen_exports):
