@@ -46,6 +46,10 @@ for text in (
     "int32 VoyagePhaseIndex = 0",
     "void UpdateVoyagePresentation",
     "virtual void EndPlay",
+    "bool bUseVoyageCamera = true",
+    "TWeakObjectPtr<APlayerController> VoyagePlayerController",
+    "TWeakObjectPtr<AActor> PreviousPlayerViewTarget",
+    "bool bCinematicViewActive = false",
 ):
     assert text in gate_h, f"Missing voyage gate member: {text}"
 
@@ -62,6 +66,11 @@ assert "SailingVessel->GetActorLocation()" in start
 assert "PairedGate->SailingVessel->GetActorLocation()" in start
 assert "OnAutomaticVoyageStarted(Hero)" in start
 assert "MoonfallNorth::MayBoard" in start
+assert "bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)" in start
+assert "PC->IsLocalController()" in start
+assert "PreviousPlayerViewTarget = Before" in start
+assert "PC->SetViewTargetWithBlend(SailingVessel" in start
+assert "Hero->bReduceMotion ? 0.f : 0.35f" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
 assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
 assert "OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase)" in gate_cpp
@@ -80,6 +89,14 @@ assert "if (bArrived) OnFerryArrival(Hero, bFirst)" in tick
 assert "StopAutomaticVoyage();" in tick
 assert "ClearTimer(AutomaticVoyageTimer)" in cleanup
 assert "Ship->SetActorTransform(OriginalShipTransform" in cleanup
+assert "if (PC->GetViewTarget() == PendingShip.Get())" in cleanup
+assert "ReturnTarget = PreviousPlayerViewTarget.Get()" in cleanup
+assert "ReturnTarget = PendingVoyager.Get()" in cleanup
+assert "PC->SetViewTargetWithBlend(ReturnTarget" in cleanup
+assert "VoyagePlayerController.Reset()" in cleanup
+assert "PreviousPlayerViewTarget.Reset()" in cleanup
+assert "bCinematicViewActive = false" in cleanup
+assert "if (!Hero->bReduceMotion)" in tick
 assert "PendingVoyager.Reset()" in cleanup
 assert "PrimaryActorTick.bCanEverTick = false" in gate_cpp
 for forbidden in (
