@@ -82,6 +82,12 @@ The connected-continent UE5 prototype now has nine **static, nonblocking in-worl
 
 These signs only become visible after a designer places the continent actor in an actual Unreal map. No world save, quest unlock, fog-of-war, dynamic weather, or packaged map placement is implemented by this update. Level and controller readability must be tested in UE5 before merge.
 
+### Nine distinct provincial climate cues
+
+`MoonfallNorthClimate.h` adds one explicit climate identity per province: Snow Flurries, Pine Mist, Tundra Snow, Grave Ash, Warm Rain, High Storm, Rust Dust, Astral Haze and Eclipse Wind. Each includes a legible text label, RGB sign tint, proposed wind intensity and a design-only visibility minimum of 85% or 90% of clear conditions. The UE5 connected-continent greybox now displays each climate name on its nonblocking hub sign as a static preview, without relying on color alone. Portable C++17 tests validate all nine profiles, unique weather names, valid ranges and invalid province handling.
+
+**Not yet implemented:** no dynamic atmosphere, changing weather, gameplay penalties, particles, sky/fog control or runtime visibility enforcement. The numerical visibility values are constraints for future implementation, not a claim that current weather rendering exists. God characters, divine entrances, world collision and save data remain untouched.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
