@@ -6,6 +6,7 @@
 #include "TimerManager.h"
 #include "MoonfallHeroPawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/SceneComponent.h"
@@ -147,6 +148,13 @@ bool AMoonfallNorthFerryGate::IsVoyagerAboard(
     const AMoonfallNorthGothicFerryActor* Ship) const {
  if (!bVoyagerOnDeck || !IsValid(Hero) || !IsValid(Ship)
      || !IsValid(Ship->PassengerDeck)) return false;
+ // Detect a silently lost movement base while the hero reports grounded.
+ // A jumping/falling hero is allowed briefly inside the protected rail space,
+ // but a grounded hero on anything other than this deck fails closed.
+ const UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
+ if (!IsValid(Movement)
+     || (Movement->IsMovingOnGround()
+         && Hero->GetMovementBase() != Ship->PassengerDeck)) return false;
  const FVector Local = Ship->GetActorTransform().InverseTransformPosition(
      Hero->GetActorLocation());
  // An actual walkable deck: the hero can explore while the boat sails.
