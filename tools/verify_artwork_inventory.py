@@ -35,8 +35,9 @@ def check():
         if not isinstance(path_text, str) or not isinstance(expected, str) or not HEX64.fullmatch(expected):
             errors.append(f"{label}: invalid path or SHA-256")
             return
-        path = ROOT / path_text
-        if path.is_absolute() or ".." in Path(path_text).parts or not path.is_file():
+        relative = Path(path_text)
+        path = ROOT / relative
+        if relative.is_absolute() or ".." in relative.parts or not path.is_file():
             errors.append(f"{label}: missing or invalid path: {path_text}")
             return
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
