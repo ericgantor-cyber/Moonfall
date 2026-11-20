@@ -8,6 +8,7 @@ on:
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.cpp'
       - '.github/workflows/unreal-living-world.yml'
   push:
@@ -17,6 +18,7 @@ on:
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.cpp'
       - '.github/workflows/unreal-living-world.yml'
 permissions:
