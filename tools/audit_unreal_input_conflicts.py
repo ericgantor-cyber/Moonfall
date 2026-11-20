@@ -100,6 +100,16 @@ def main():
         assert cleanup in before_modal, cleanup
     assert acquired.index("EndSprint();") < acquired.index("FocusedResident = Resident;")
     assert acquired.index("EndGuard();") < acquired.index("FocusedResident = Resident;")
+    # Neither timed auto-loot nor manual pickup should mutate world loot
+    # while a dialogue choice is active. The timer must reset in that state.
+    auto_loot=pawn.split("// Throttled automatic pickup",1)[1].split(
+        "// Only track pointer motion",1)[0]
+    assert "!bResidentContextOpen" in auto_loot.split("AutoLootElapsed +=",1)[0]
+    assert "else AutoLootElapsed = 0.f;" in auto_loot
+    manual_loot=pawn.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()",1)[1].split(
+        "// No arbitrary six-drop",1)[0]
+    assert "bResidentContextOpen" in manual_loot
+    print("NPC dialogue blocks auto/manual loot and resets pickup timer: PASS (source verified)")
     print("Resident dialogue releases held sprint, guard, jump and movement: PASS (source verified)")
     print("Resident dialogue blocks sprint, guard and racial powers: PASS (source verified)")
     # Guard all five shared gamepad buttons against cross-context effects.
