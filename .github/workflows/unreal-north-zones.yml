@@ -29,6 +29,9 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_zones.cpp -o /tmp/moonfall_north_test
           /tmp/moonfall_north_test
+      - name: Set up MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       - name: Compile and run (Windows MSVC)
         if: runner.os == 'Windows'
         shell: pwsh
