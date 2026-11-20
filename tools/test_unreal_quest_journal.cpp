@@ -64,6 +64,25 @@ static_assert(CheckNoActiveSlots(), "Completed quests must not occupy slots.");
 // and a safe subset at 420p/480p without overlapping the lower-left orb.
 namespace QuestLayout = MoonfallQuestLayout;
 static_assert(QuestLayout::MaxRows == MaxTracked);
+constexpr int QuestKeys[7] = {1, 3, 10, 24, 50, 52, 72};
+constexpr int SameQuestKeys[7] = {1, 3, 10, 24, 50, 52, 72};
+constexpr int TurnInReady[7] = {1, 3, 11, 24, 50, 52, 72};
+constexpr int QuestReordered[7] = {3, 1, 10, 24, 50, 52, 72};
+constexpr int QuestCompleted[7] = {1, 3, 10, 24, 50, 52, 0};
+constexpr int InvalidQuestKeys[7] = {1, 3, 10, 128, 50, 52, 72};
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 7) > 0ull);
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 7)
+    == QuestLayout::SelectionSignature(SameQuestKeys, 7));
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 7)
+    != QuestLayout::SelectionSignature(TurnInReady, 7));
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 7)
+    != QuestLayout::SelectionSignature(QuestReordered, 7));
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 7)
+    != QuestLayout::SelectionSignature(QuestCompleted, 6));
+static_assert(QuestLayout::SelectionSignature(QuestKeys, 6)
+    != QuestLayout::SelectionSignature(QuestKeys, 7));
+static_assert(QuestLayout::SelectionSignature(InvalidQuestKeys, 7) == 0ull);
+static_assert(QuestLayout::SelectionSignature(nullptr, 7) == 0ull);
 static_assert(QuestLayout::NormalizePageStart(-1, 3, 7) == 0);
 static_assert(QuestLayout::NormalizePageStart(6, 3, 7) == 6);
 static_assert(QuestLayout::NormalizePageStart(6, 7, 7) == 0);
@@ -119,6 +138,19 @@ int main() {
     assert(metrics.RowHeight+4==metrics.RowStride);
     assert(metrics.PanelHeight==85+metrics.RowStride*metrics.VisibleRows);
    }
+  }
+ }
+ // A ready-state bit flip or a newly tracked contract must invalidate an
+ // earlier compact page even if the number of accepted quests stays seven.
+ for (int Count=1; Count<=QuestLayout::MaxRows; ++Count) {
+  int Keys[7]{1,3,5,7,9,11,13};
+  const auto Before=QuestLayout::SelectionSignature(Keys, Count);
+  assert(Before != 0ull);
+  for (int Row=0; Row<Count; ++Row) {
+   Keys[Row] ^= 1; // Toggle contract ready/not-ready bit.
+   assert(QuestLayout::SelectionSignature(Keys,Count)!=Before);
+   Keys[Row] ^= 1;
+   assert(QuestLayout::SelectionSignature(Keys,Count)==Before);
   }
  }
  for (int I=0; I<ResidentCount; ++I) {
