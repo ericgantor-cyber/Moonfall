@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TimerManager.h"
 #include "MoonfallNorthWeatherActor.generated.h"
 class USceneComponent;
 class UPointLightComponent;
