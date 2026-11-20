@@ -38,7 +38,6 @@ for text in (
     "float VoyageDurationSeconds = 11.f",
     "bool bAutoVoyageInProgress = false",
     "void UpdateAutomaticVoyage()",
-    "void StopAutomaticVoyage()",
     "FTimerHandle AutomaticVoyageTimer",
     "void OnAutomaticVoyageStarted",
     "void OnAutomaticVoyageProgress",
