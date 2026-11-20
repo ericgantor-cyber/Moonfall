@@ -12,7 +12,7 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   Shiverwake or Shiverwake to mainland; no harbor can route to itself.
 - `AMoonfallNorthFerryGate` is an editor-placeable, disabled-by-default,
   collision-triggered ferry deck and text sign. A healthy local player can walk
-  onto the deck to start an **eight-second automatic sailing preview**.
+  onto the deck to start an **eleven-second automatic sailing preview**.
   A Blueprint boarding prompt can also call `BoardFerry`, which now returns
   whether the crossing STARTED, not whether it has already arrived.
   There is no manual steering or separate keyboard-only helm control.
@@ -23,7 +23,7 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
 - Each gate is linked to its own decorative `SailingVessel` actor. A 0.1s
   timer moves the outbound vessel toward the receiving harbor using a smooth
   bounded path and gentle cosmetic wave bob (no Actor Tick, no boat physics).
-  After eight seconds, a healthy nearby player is collision-teleported to
+  After eleven seconds, a healthy nearby player is collision-teleported to
   the receiving harbor. If the traveler leaves the dock, dies, opens a menu,
   the pairing becomes invalid, or landing is blocked, the crossing cancels;
   the ship returns to its initial position and no arrival event fires.
@@ -67,7 +67,7 @@ real player world assets.
 
 This is an **opt-in automatic crossing prototype**, not a complete
 walkable sailing experience. The decorated ship **does** follow an animated
-eight-second route, but the hero **currently remains at the departure dock
+eleven-second route, but the hero **currently remains at the departure dock
 during the ship animation** before being moved to safe land at its destination.
 There is no moving walkable deck, animated cloth/sail rigging, interactive
 captain or crew, dynamic wave physics, camera cutscene, authored ship/water
