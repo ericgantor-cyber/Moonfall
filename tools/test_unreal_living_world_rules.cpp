@@ -18,6 +18,16 @@ int main() {
  assert(WeaponEvolution(10, 1, 0) == WeaponStage::Awakened);
  assert(WeaponEvolution(35, 4, 4) == WeaponStage::Ascendant);
  assert(WeaponEvolution(100, 8, 5) == WeaponStage::Mythic);
+ // Boss-resonance stages are bounded by the persisted 30-boss world ledger.
+ assert(BossResonance(-1, 25, 5) == WeaponStage::Dormant);
+ assert(BossResonance(31, 25, 5) == WeaponStage::Dormant);
+ assert(BossResonance(30, 0, 5) == WeaponStage::Dormant);
+ assert(BossResonance(30, 25, 6) == WeaponStage::Dormant);
+ assert(BossResonance(0, 25, 5) == WeaponStage::Dormant);
+ assert(BossResonance(1, 2, 0) == WeaponStage::Awakened);
+ assert(BossResonance(5, 5, 4) == WeaponStage::Ascendant);
+ assert(BossResonance(15, 9, 5) == WeaponStage::Mythic);
+ assert(BossResonance(15, 8, 5) == WeaponStage::Ascendant);
  // World consequences must not ignore raids.
  assert(SettlementStatus({0, 0, 0, false}) == SettlementTier::Endangered);
  assert(SettlementStatus({3, 3, 0, true}) == SettlementTier::Recovering);
