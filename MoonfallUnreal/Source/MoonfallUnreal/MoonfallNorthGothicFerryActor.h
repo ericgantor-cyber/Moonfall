@@ -7,6 +7,7 @@
 class USceneComponent;
 class UInstancedStaticMeshComponent;
 class UPointLightComponent;
+class UCameraComponent;
 
 // Original dark-gothic ferry *visual prototype* for the isolated Northern
 // Expanse test map. The boarding/landing logic stays in MoonfallNorthFerryGate.
@@ -36,4 +37,9 @@ public:
  TObjectPtr<UPointLightComponent> PortLanternLight;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
  TObjectPtr<UPointLightComponent> StarboardLanternLight;
+
+ // Optional auto-voyage viewpoint follows the vessel without a helm or
+ // player-driven steering. The harbor gate owns restoration on cancel/arrival.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UCameraComponent> VoyageCamera;
 };
