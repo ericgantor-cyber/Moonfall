@@ -127,8 +127,8 @@ def main():
     # Both vessels are decorative, with no player steering or ocean enemies.
     mainland_gate.set_editor_property("sailing_vessel", mainland_ship)
     island_gate.set_editor_property("sailing_vessel", island_ship)
-    mainland_gate.set_editor_property("voyage_duration_seconds", 8.0)
-    island_gate.set_editor_property("voyage_duration_seconds", 8.0)
+    mainland_gate.set_editor_property("voyage_duration_seconds", 11.0)
+    island_gate.set_editor_property("voyage_duration_seconds", 11.0)
     mainland_gate.rerun_construction_scripts()
     island_gate.rerun_construction_scripts()
 
