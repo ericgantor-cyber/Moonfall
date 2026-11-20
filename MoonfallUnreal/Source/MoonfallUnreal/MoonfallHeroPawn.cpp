@@ -921,6 +921,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        Time + (FMath::IsFinite(CombatRecoverySeconds)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  const bool bSpellKillingBlow = Enemy->Health <= 0.f;
   if (ActualSpellDamage > 0.f) {
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
@@ -935,12 +936,6 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        bReduceMotion, bOptionsOpen || bInventoryOpen || bAtlasOpen);
    ImpactCameraOffset = HitFeedback.Offset;
    LastOffensiveImpactAt = HitFeedback.LastAt;
-   // Give authored Blueprints the exact validated hit and spell school.
-   // This is intentionally not fired on traces that miss, healing casts,
-   // or enemies that absorb all HP damage. No debug geometry in gameplay.
-   if (!Hit.ImpactPoint.ContainsNaN())
-    OnSpellImpact(School, Hand == 0, Hit.ImpactPoint, ActualSpellDamage,
-      bCriticalSpell, Enemy->Health <= 0.f);
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
@@ -978,8 +973,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
    ParryCounterUntil = -1.f;
   }
+  // Defer authored VFX/audio callbacks until combat damage, posture, combo
+  // and parry-counter state have all resolved. Blueprint cosmetic work
+  // cannot interrupt those C++ calculations or retroactively reclassify
+  // a killing blow. Misses, healing and absorbed hits emit no success cue.
+  if (ActualSpellDamage > 0.f && !Hit.ImpactPoint.ContainsNaN())
+   OnSpellImpact(School, Hand == 0, Hit.ImpactPoint, ActualSpellDamage,
+     bCriticalSpell, bSpellKillingBlow);
   // No developer wireframe spheres or trace lines in real gameplay.
-  // Real impact VFX/audio are authored through OnSpellImpact above.
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
