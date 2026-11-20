@@ -1,5 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallQuestXP.h"
+#include "MoonfallCombatHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -563,6 +565,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
+ Input->BindAction(TEXT("QuestPage"), IE_Pressed, this, &AMoonfallHeroPawn::CycleQuestTrackerPage);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -795,6 +798,17 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
+}
+
+void AMoonfallHeroPawn::CycleQuestTrackerPage() {
+ // Middle mouse advances only overflowing quest lists, leaving Q to dodge
+ // and normal mouse wheel camera zoom untouched. Gameplay panels remain modal.
+ if (Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bAtlasOpen || bInventoryOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+   HUD->CycleQuestTrackerPage();
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
@@ -1875,7 +1889,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
-  OnHealthChanged(Health, MaxHealth);
+  if (!bDeferQuestLevelHealthNotification) OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
 }
@@ -2679,7 +2693,19 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
  };
  for (const auto& Entry : FactionReputation)
   if (!SaveFactionIds[0].IsNone() &&
@@ -2802,7 +2828,19 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
   };
   for (const auto& Entry : Save->ResidentBonds) {
    bool bKnown = false;
@@ -2994,7 +3032,19 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
   };
   for (FName Key : ValidIds) {
    if (const int32* Value = Save->ResidentBonds.Find(Key))
@@ -3574,8 +3624,16 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
    bResidentTurnInPending = false;
+   // Capture the intended award before a successful turn-in can level up.
+   const int32 LevelBeforeQuest = Level;
+   const int32 RewardXP = MoonfallQuestXP::Reward(
+     Resident->GetContractSalvageCost(), Level);
    bSucceeded = Resident->TurnInResidentQuest(this);
-   Message = bSucceeded ? FText::FromString(TEXT("Contract complete."))
+   Message = bSucceeded
+     ? FText::FromString(RewardXP > 0
+       ? FString::Printf(TEXT("Contract complete. +%d XP%s"), RewardXP,
+           Level > LevelBeforeQuest ? TEXT("  LEVEL UP!") : TEXT(""))
+       : FString(TEXT("Contract complete. MAX LEVEL")))
      : FText::FromString(TEXT("Contract could not be completed."));
   }
  } else {
@@ -3629,7 +3687,19 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+   FName(TEXT("waystation_ashen_scout")),
+   FName(TEXT("waystation_ashen_artisan")),
+   FName(TEXT("waystation_moonveil_scout")),
+   FName(TEXT("waystation_moonveil_scholar")),
+   FName(TEXT("waystation_hollows_scout")),
+   FName(TEXT("waystation_hollows_tinker")),
+   FName(TEXT("waystation_foundry_scout")),
+   FName(TEXT("waystation_foundry_tinker")),
+   FName(TEXT("waystation_frost_scout")),
+   FName(TEXT("waystation_frost_scholar")),
+   FName(TEXT("waystation_eclipse_scout")),
+   FName(TEXT("waystation_eclipse_elder"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;
@@ -3683,14 +3753,30 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const FName Id = Resident->ResidentId;
  const FName Faction = Resident->FactionId;
  if (!IsMoonfallFaction(Faction)) return false;
- // One atomic save: pay salvage, earn 6 bond and 3 faction reputation.
+ // Commit XP with the same one-time quest state and existing leveling path.
+ // A preexisting completed quest (state 2) fails the entry gate above, so
+ // reopening conversations or reloading saves cannot grant XP again.
+ const int32 RewardXP = MoonfallQuestXP::Reward(Cost, Level);
  const int32 PreviousSalvage = Salvage;
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
+ // AwardExperience may cross a level boundary, changing health and spell
+ // strength. Roll back the entire progression state if persistence fails.
+ const int32 PreviousLevel = Level;
+ const int32 PreviousXP = Experience;
+ const int32 PreviousNextXP = ExperienceToNextLevel;
+ const float PreviousMaxHealth = MaxHealth;
+ const float PreviousHealth = Health;
+ const float PreviousMana = Mana;
+ const float PreviousSpellPower = SpellPowerMultiplier;
  Salvage -= Cost;
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
+ // Hold synchronous health/level UI notifications until persistence succeeds.
+ bDeferQuestLevelHealthNotification = true;
+ if (RewardXP > 0) AwardExperience(RewardXP);
+ bDeferQuestLevelHealthNotification = false;
  if (!SaveWorldProgress()) {
   Salvage = PreviousSalvage;
   ResidentQuestStates.Add(Id, 1);
@@ -3698,7 +3784,16 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
   else ResidentBonds.Add(Id, PreviousBond);
   if (PreviousRep == 0) FactionReputation.Remove(Faction);
   else FactionReputation.Add(Faction, PreviousRep);
+  Level = PreviousLevel;
+  Experience = PreviousXP;
+  ExperienceToNextLevel = PreviousNextXP;
+  MaxHealth = PreviousMaxHealth;
+  Health = PreviousHealth;
+  Mana = PreviousMana;
+  SpellPowerMultiplier = PreviousSpellPower;
   return false;
  }
+ // The saved quest state and XP now agree. Notify health UI after commit.
+ if (Level > PreviousLevel) OnHealthChanged(Health, MaxHealth);
  return true;
 }

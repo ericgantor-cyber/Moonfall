@@ -141,7 +141,9 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Available")',hud)
   self.assertIn('TEXT("Active")',hud)
   self.assertIn('TEXT("Completed")',hud)
-  self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
+  self.assertIn('FString::Printf(TEXT("%s | %s | %s")',hud)
+  self.assertIn("*Resident->FactionId.ToString()",hud)
+  self.assertIn("MoonfallQuestXP::RankName(SalvageCost)",hud)
   self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):

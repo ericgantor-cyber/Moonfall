@@ -82,6 +82,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
+ // Nonpersistent middle-mouse action advances compact quest pages in HUD.
+ void CycleQuestTrackerPage();
 
 
 
@@ -326,6 +328,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
+ // Quest XP must be durably saved before broadcasting level-up UI events.
+ bool bDeferQuestLevelHealthNotification = false;
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;

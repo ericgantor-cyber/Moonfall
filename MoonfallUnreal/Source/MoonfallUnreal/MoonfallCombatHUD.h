@@ -9,7 +9,17 @@ class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
  GENERATED_BODY()
 public:
  virtual void DrawHUD() override;
+ // Called on the middle-mouse press when the compact list overflows.
+ // Does not modify any saved quest state or combat input.
+ void CycleQuestTrackerPage();
 private:
+ int32 QuestTrackerPageStart = 0;
+ int32 QuestTrackerPageSize = 0;
+ int32 QuestTrackerTotal = 0;
+ // Only UI state: reset paged rows when saved quest selection/readiness changes
+ // or the player pawn is replaced. Neither field enters the save format.
+ uint64 QuestTrackerSelectionSignature = 0ull;
+ TWeakObjectPtr<const AMoonfallHeroPawn> QuestTrackerLastHero;
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
  float DisplayStamina = -1.f;

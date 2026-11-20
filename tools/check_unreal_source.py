@@ -3735,7 +3735,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GEAR: NO UPGRADE", bag)
         self.assertIn("const bool bCompactAdvisor = PanelWidth < 550.f;", bag)
         self.assertIn("if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;", self.hud)
-        self.assertIn("if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }", self.hud)
+        # Invalid pawns must still clear advisor cache, while the quest
+        # tracker also resets its transient page/signature on replacement.
+        self.assertIn("if (!IsValid(Hero)) {", self.hud)
+        self.assertIn("bAdvisorScoreCached = false;", self.hud)
+        self.assertIn("QuestTrackerLastHero.Reset();", self.hud)
+        self.assertIn("QuestTrackerSelectionSignature = 0ull;", self.hud)
+        self.assertIn("QuestTrackerPageStart = 0;", self.hud)
+        self.assertIn("QuestTrackerLastHero.Get() != Hero", self.hud)
         self.assertIn("int32 CachedAdvisorScore = 0;", hud_header)
         self.assertIn("GEAR ADVISOR: selected gear is an upgrade", bag)
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
@@ -5438,7 +5445,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetNextUnchartedDungeonZone()", tracker)
         self.assertIn("bSanctuaryObjective", tracker)
         self.assertIn("bCanShowQuestTracker", tracker)
-        self.assertIn("Canvas->SizeY >= 520.f", tracker)
+        self.assertIn("Canvas->SizeY >= 420.f", tracker)
         self.assertIn("WORLD QUEST TRACKER", tracker)
         self.assertIn("All 30 dungeon bosses defeated", tracker)
         self.assertIn("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6", tracker)
@@ -5487,8 +5494,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Practice north, then take the south gate", guide)
         self.assertNotIn("Train to the north; then turn in", guide)
 
-        self.assertIn("Canvas->SizeX >= 760.f", guide)
-        self.assertIn("Canvas->SizeY >= 520.f", guide)
+        self.assertIn("Canvas->SizeX >= 600.f", guide)
+        self.assertIn("Canvas->SizeY >= 420.f", guide)
         draw_damage = hud.split("int32 VisibleDamageNumbers = 0;", 1)[1]
         self.assertIn("VisibleDamageNumbers < 32", draw_damage)
         # Distance culling happens in the shared enemy pass, before any
