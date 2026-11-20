@@ -310,10 +310,18 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
   return false;
  Hero->SetBase(SailingVessel->PassengerDeck);
  if (Hero->GetMovementBase() != SailingVessel->PassengerDeck) {
-  // Failed to create a real UE walking base; abort rather than sending an
-  // unparented player over an empty ocean. Prefer the original safe dock.
-  if (!Hero->TeleportTo(DockLocation, DockRotation, false, false))
-   UE_LOG(LogTemp, Error, TEXT("Ferry boarding rejected: cannot return hero to original dock."));
+  // Failed movement-base assignment MUST NOT strand the hero at sea.
+  // Restore the exact dry boarding spot, or a separately traced harbor
+  // fallback if something obstructed the original during the teleport.
+  bool bReturned = Hero->TeleportTo(DockLocation, DockRotation, false, false);
+  if (!bReturned) {
+   FVector SafeHarbor;
+   if (FindSafeDryLanding(Hero, this, SafeHarbor))
+    bReturned = Hero->TeleportTo(SafeHarbor, GetActorRotation(), false, false);
+  }
+  if (!bReturned)
+   UE_LOG(LogTemp, Error,
+       TEXT("Ferry boarding rejected: neither dry boarding location is accessible."));
   return false;
  }
  OriginalBoardingLocation = DockLocation;
