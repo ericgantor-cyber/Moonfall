@@ -64,6 +64,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The panel does not intercept clicks, replaces no existing Atlas/quest controls, and is hidden while Atlas, inventory or options are open. On smaller displays, normal game HUD remains uncluttered.
 - This is a **contextual progression interface**, not actual constructed sanctuary rooms or interactive council votes. World geometry, in-game choice confirmation, and transactional outcomes remain to be implemented and playtested.
 
+## Controller-browsable council previews
+
+- Existing D-pad left/right actions can cycle the three council previews while the hero is near the starting sanctuary, the Council is unlocked and no modal UI is active. Other D-pad input behavior is unchanged.
+- The contextual HUD shows the selected decision title and the bounded, proposed faction/prosperity/threat effects. `SelectCouncilPreview` is also Blueprint-callable for a future fully clickable UI.
+- **No decisions are executed**: selecting a preview never saves, mutates faction standings, creates buildings, or changes threats. Mouse controls and actual world consequences still require separate integration and native playtesting.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
