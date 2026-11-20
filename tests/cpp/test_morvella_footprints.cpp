@@ -1,7 +1,7 @@
-// Build on Linux: g++ -std=c++17 -Wall -Wextra -Werror -I. \
- // tests/cpp/test_morvella_footprints.cpp -o /tmp/test_morvella_footprints
+// Standalone geometry test; compiled by morvella-footprints.yml.
 #include "MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h"
 #include <cassert>
+#include <initializer_list>
 #include <limits>
 using namespace MoonfallDeathGoddessFootprint;
 int main() {
