@@ -2,7 +2,7 @@
 
 **Title:** The Crimson Reaper. **Internal encounter ID:** `death_goddess_crimson_reaper` (kept stable for compatibility).
 
-Status: **partial Unreal C++ implementation on this draft PR**. Morvella now has a default, walkable sixth-region world spawn as well as the optional arena preset, boss identity, four HP-based phases, and phase presentation. Four **distinct named and shaped telegraphed attacks** are now coded in the shared Unreal combat pipeline, but dedicated animations/art, the remaining encounter mechanics, native compile and packaged gameplay are unverified/not implemented.
+Status: **partial Unreal C++ implementation on this draft PR**. Morvella's canonical home is now the Moonlit Necropolis in Gravewind Barrens, Northern Expanse (PR #1074). Her old sixth-region world spawn is disabled by default pending a playable northern landscape; the legacy geometry remains editor-opt-in for testing. Her optional arena preset, boss identity, four HP-based phases, and phase presentation remain. Four **distinct named and shaped telegraphed attacks** are now coded in the shared Unreal combat pipeline, but dedicated animations/art, the remaining encounter mechanics, native compile and packaged gameplay are unverified/not implemented.
 
 ## Visual identity
 The canonical approved portrait is `a_detailed_highly_rendered_fantasy_illustration_o.png` (1199 x 1312), SHA-256 `b5553347b7f555fe646be4150eb9418816ad98d1ce5efb0d00f5cc0afb888af8`. It has been located in the current conversation files but **not committed as a binary asset to GitHub**. See `morvella-art-import.md` for the exact art import procedure.
@@ -45,8 +45,8 @@ Use the approved portrait of Morvella Velmora, the Death Goddess, in the Novembe
 **Acceptance:** boss spawns, phase changes occur exactly once per threshold, player has readable response windows, encounter finishes cleanly, and character reference visuals remain unchanged. No playable-build claim until compiled and verified.
 
 ## Implemented in draft PR #1075
-- Automatically reachable Moonlit Necropolis sanctuary off the sixth-zone public road: static platform, walkway, cover, signs and an independent world-boss spawn.
-- Single-instance authored spawn in the continuous Unreal world (default enabled, editor-toggleable), with a Blueprint class slot to import her approved art without modifying Z or Nyra.
+- Legacy sixth-zone Moonlit Necropolis test platform and world-boss spawn remain in source but are disabled by default. New canonical location: Gravewind Barrens, Northern Expanse. A real accessible northern sanctuary, path, and boss placement are pending.
+- Legacy single-instance spawn is editor-toggleable but default disabled; approved-art Blueprint class slot remains. The northern live spawn must not be enabled until its new zone is built and validated.
 - Permanent Morvella world-boss victory recorded by an optional, backward-compatible save property. Save-loading order is checked in both directions: arena suppresses defeated boss spawns; later hero loading removes already spawned defeated Morvella actors. Existing 30-dungeon victory mask is untouched.
 - New source regression tests in the `Morvella divine attack footprint geometry` workflow check world connectivity and victory save/load references.
 - Opt-in `death_goddess_crimson_reaper` arena preset (does not change default showcase).
