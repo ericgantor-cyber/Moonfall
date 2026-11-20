@@ -159,11 +159,15 @@ assert "bPersistentSaveWritesBlocked = true;" in begin
 assert "AMoonfallNorthPreviewGameMode::StaticClass()" in discovery
 assert "bPreviewOnlyShrine = bPersistentSaveWritesBlocked" in discovery
 assert "(bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)" in discovery
-assert "if (!bPreviewOnlyShrine && !SaveWorldProgress())" in discovery
+assert "if (!bPreviewOnlyShrine) {" in discovery
+assert discovery.index("if (!bPreviewOnlyShrine) {") < discovery.index("if (!SaveWorldProgress())")
+assert "if (!SaveWorldProgress()) {" in discovery
 assert "DiscoveredShrineIds.Add(Shrine->ShrineId)" in discovery
 assert "ActiveShrineId = Shrine->ShrineId" in discovery
 assert "RespawnCheckpointLocation = NewRespawn" in discovery
-assert "if (!bPreviewOnlyShrine) SecondsSinceLastWorldSave = 0.f;" in discovery
+assert "SecondsSinceLastWorldSave = 0.f;" in discovery
+assert discovery.index("if (!SaveWorldProgress()) {") < discovery.index(
+    "SecondsSinceLastWorldSave = 0.f;")
 assert "TeleportTo(RespawnCheckpointLocation" in respawn
 rest = hero.split("void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(", 1)[1].split(
     "int32 AMoonfallHeroPawn::GetDungeonTreasureState(", 1)[0]
