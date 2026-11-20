@@ -55,7 +55,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("!IsNearStartingSanctuary()", toggle)
         self.assertIn("PC->bShowMouseCursor = true;", toggle)
         self.assertIn("bCouncilPointerOpen = false;", hero)
-        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen", toggle)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen", hero)
         click = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
             "void AMoonfallHeroPawn::TalkToNearestNPC()", 1
         )[0]
