@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallImpactFeedback.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -920,10 +921,21 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        Time + (FMath::IsFinite(CombatRecoverySeconds)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  const bool bSpellKillingBlow = Enemy->Health <= 0.f;
   if (ActualSpellDamage > 0.f) {
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   // AAA combat weight with no new asset, tick, debug text or global pause.
+   // Only real HP damage can trigger it. Camera distance uses the already
+   // bounded spring-arm decay, and Reduced Motion disables the impulse.
+   const MoonfallImpactFeedback::FResult HitFeedback =
+     MoonfallImpactFeedback::ConfirmedHit(
+       ImpactCameraOffset, LastOffensiveImpactAt, Time, ActualSpellDamage,
+       HitComboStage, Enemy->bBoss, Enemy->Health <= 0.f,
+       bReduceMotion, bOptionsOpen || bInventoryOpen || bAtlasOpen);
+   ImpactCameraOffset = HitFeedback.Offset;
+   LastOffensiveImpactAt = HitFeedback.LastAt;
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
@@ -961,10 +973,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
    ParryCounterUntil = -1.f;
   }
-  const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
-  const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-  DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  // Defer authored VFX/audio callbacks until combat damage, posture, combo
+  // and parry-counter state have all resolved. Blueprint cosmetic work
+  // cannot interrupt those C++ calculations or retroactively reclassify
+  // a killing blow. Misses, healing and absorbed hits emit no success cue.
+  if (ActualSpellDamage > 0.f && !Hit.ImpactPoint.ContainsNaN())
+   OnSpellImpact(School, Hand == 0, Hit.ImpactPoint, ActualSpellDamage,
+     bCriticalSpell, bSpellKillingBlow);
+  // No developer wireframe spheres or trace lines in real gameplay.
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;

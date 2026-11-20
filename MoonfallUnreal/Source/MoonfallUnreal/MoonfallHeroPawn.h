@@ -325,6 +325,12 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // VFX/audio authoring hook for a REAL hostile hit, never a miss or heal.
+ // The original character artwork and attack animation assets are untouched.
+ // This does not spawn an effect unless a derived Blueprint implements it.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
+   float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
@@ -403,6 +409,9 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ // Transient camera-only hit-response throttle. Never saved or applied to
+ // attack timings, health, input, FOV, time dilation, or character movement.
+ float LastOffensiveImpactAt = -100.f;
  // Gameplay mouse wheel zoom; does not alter the minimap or combat HUD.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;

@@ -1,0 +1,32 @@
+name: UE5 AAA combat hit-feedback policy
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallImpactFeedback.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'tools/test_unreal_impact_feedback.cpp'
+      - 'tools/test_unreal_impact_feedback.py'
+      - '.github/workflows/unreal-impact-feedback.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallImpactFeedback.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'tools/test_unreal_impact_feedback.cpp'
+      - 'tools/test_unreal_impact_feedback.py'
+      - '.github/workflows/unreal-impact-feedback.yml'
+
+jobs:
+  confirmed-hit-feedback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile C++17 combat feedback policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_impact_feedback.cpp -o /tmp/moonfall-impact-feedback
+          /tmp/moonfall-impact-feedback
+      - name: Validate native UE5 hit feedback integration
+        run: python3 -m unittest -v tools.test_unreal_impact_feedback
