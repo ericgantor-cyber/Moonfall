@@ -1,0 +1,31 @@
+name: UE5 six-act storyline policy
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicle.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_chronicle.cpp'
+      - 'tools/test_unreal_chronicle.py'
+      - '.github/workflows/unreal-chronicle.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicle.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_chronicle.cpp'
+      - 'tools/test_unreal_chronicle.py'
+      - '.github/workflows/unreal-chronicle.yml'
+
+jobs:
+  source-storyline-tests:
+    name: UE5 Chronicle content and spoiler gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile all 42 storyline chapters and validate all unlock states
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_chronicle.cpp -o /tmp/moonfall-chronicle
+          /tmp/moonfall-chronicle
+      - name: Test atlas integration without revealing unvisited lore
+        run: python3 -m unittest -v tools.test_unreal_chronicle
