@@ -22,6 +22,14 @@ public:
  // Decorative only. Distinct province landmarks must not block roads/navmesh.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TObjectPtr<UInstancedStaticMeshComponent> ProvinceLandmarks;
+ // Nine optional nonblocking biome surface overlays, each individually tinted.
+ // They never replace or change the existing collision-enabled roads/pads.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
+ TArray<TObjectPtr<UInstancedStaticMeshComponent>> BiomeSurfaceOverlays;
+
+ // Turn off to compare the original greybox or if authored materials replace it.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse")
+ bool bEnableBiomeSurfacePreview=true;
  // One nonblocking region/hub sign per province, generated in editor.
  // Names identify built locations, never hidden quest or divine lore.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
