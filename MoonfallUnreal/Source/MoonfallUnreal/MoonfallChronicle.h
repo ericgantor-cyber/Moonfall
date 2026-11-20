@@ -141,6 +141,31 @@ constexpr FProgress Summarize(int Zone, std::uint32_t Discovered,
  }
  return {true, Revealed, Bosses, Featured, Bosses == 5};
 }
+// Read-only overview for future world-map/quest-journal progress displays.
+// Invalid masks fail closed and report no fabricated progress or rewards.
+struct FWorldProgress {
+ bool Valid;
+ int DungeonsDiscovered;
+ int BossesDefeated;
+ int ActsCompleted;
+ int ChaptersRevealed;
+ bool ChronicleComplete;
+};
+constexpr FWorldProgress SummarizeWorld(std::uint32_t Discovered,
+ std::uint32_t Defeated) {
+ if (!ValidProgress(Discovered, Defeated))
+  return {false, 0, 0, 0, 0, false};
+ int Dungeons = 0, Bosses = 0, Completed = 0, Chapters = 0;
+ for (int Zone = 0; Zone < ActCount; ++Zone) {
+  const FProgress Progress = Summarize(Zone, Discovered, Defeated);
+  Dungeons += PopCount5(ZoneBits(Discovered, Zone));
+  Bosses += Progress.BossesDefeated;
+  Completed += Progress.Complete ? 1 : 0;
+  Chapters += Progress.Revealed;
+ }
+ return {true, Dungeons, Bosses, Completed, Chapters,
+  Completed == ActCount};
+}
 constexpr const FBeat* RevealedBeat(int Zone, int Beat,
  std::uint32_t Discovered, std::uint32_t Defeated) {
  return BeatState(Zone, Beat, Discovered, Defeated) == EBeatState::Hidden
@@ -156,4 +181,14 @@ static_assert(Summarize(0, 31u, 31u).Revealed == 7,
 static_assert(Summarize(0, 31u, 31u).Complete, "Completed act should finish");
 static_assert(RevealedBeat(0, 1, 0u, 0u) == nullptr,
  "Locked dungeon lore must remain hidden");
+static_assert(SummarizeWorld(0u, 0u).ChaptersRevealed == 6,
+ "Fresh world reveals only six regional preludes");
+static_assert(SummarizeWorld(ValidDungeonBits, ValidDungeonBits).ChaptersRevealed == 42,
+ "Clearing all 30 dungeons reveals the full chronicle");
+static_assert(SummarizeWorld(ValidDungeonBits, ValidDungeonBits).ChronicleComplete,
+ "All six completed acts complete the chronicle");
+static_assert(SummarizeWorld(31u, 31u).ActsCompleted == 1,
+ "One cleared region must not complete other acts");
+static_assert(!SummarizeWorld(0u, 1u).Valid,
+ "Invalid progress must fail closed in world overview");
 } // namespace MoonfallChronicle
