@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallDeathGoddess.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -958,17 +959,24 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
   const bool bRegionalBoss = Boss->bBoss && Boss->DungeonBossRank >= 1
     && Boss->DungeonBossRank <= 5 && !Boss->DungeonBossFamily.IsNone();
-  const FString BossTitle = bRegionalBoss && !Boss->DungeonBossTitle.IsEmpty()
-    ? Boss->DungeonBossTitle.ToString() : FString(TEXT("BOSS"));
+  const bool bDivineBoss = !Boss->DivineBossId.IsNone();
+  const FString BossTitle = bDivineBoss && !Boss->DivineBossTitle.IsEmpty()
+    ? Boss->DivineBossTitle.ToString()
+    : (bRegionalBoss && !Boss->DungeonBossTitle.IsEmpty()
+      ? Boss->DungeonBossTitle.ToString() : FString(TEXT("BOSS")));
+  const int32 TotalPhases = MoonfallDeathGoddess::IsDeathGoddess(Boss->DivineBossId) ? 4 : 3;
   const float AlertScale = FMath::Clamp(Hero->BossWarningScale, 1.f, 2.f);
   DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),
     X-6.f,Y-40.f,Width+12.f,120.f);
   DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
   DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
-  DrawText(FString::Printf(TEXT("%s  |  PHASE %d / 3  |  %.0f / %.0f HP"),
-    *BossTitle,Boss->BossPhase,FMath::Max(0.f,Boss->Health),MaxHP),
+  DrawText(FString::Printf(TEXT("%s  |  PHASE %d / %d  |  %.0f / %.0f HP"),
+    *BossTitle,Boss->BossPhase,TotalPhases,FMath::Max(0.f,Boss->Health),MaxHP),
     FLinearColor::White,X,Y-29.f,nullptr,Canvas->SizeX < 850.f ? 0.73f : 0.95f);
-  if (bRegionalBoss) {
+  if (bDivineBoss) {
+   DrawText(TEXT("GODS OF MOONFALL  |  DIVINE FAMILY"),
+     FLinearColor(0.91f,0.80f,0.95f),X,Y-48.f,nullptr,0.76f);
+  } else if (bRegionalBoss) {
    DrawText(FString::Printf(TEXT("REGIONAL BOSS  |  RANK %d / 5"),Boss->DungeonBossRank),
      FLinearColor(0.83f,0.87f,1.f),X,Y-48.f,nullptr,0.76f);
   }
