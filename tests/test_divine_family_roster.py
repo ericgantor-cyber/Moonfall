@@ -49,7 +49,7 @@ class DivineFamilyRosterTests(unittest.TestCase):
         self.assertIn("OnDivineAttackTelegraphed(ActiveDivineMoveId", enemy)
         self.assertIn("OnDivineAttackResolved(ResolvedMove", enemy)
         self.assertIn("CancelDivineSignature()", enemy)
-        self.assertIn("bDeathGoddess ||", enemy)
+        self.assertIn("(bVoidReaper || bEclipseQueen || bDeathGoddess)", enemy)
         # Phase two is caster-centered and should not be attempted from ranged casting distance.
         self.assertIn("SignatureForPhase(BossPhase).bCenteredOnCaster", enemy)
         self.assertIn("CurrentWindup = Move.WarningSeconds", enemy)
