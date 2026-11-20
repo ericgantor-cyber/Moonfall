@@ -62,6 +62,22 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   encounter actors are spawned. The **new passenger floor and four invisible
   rails block only pawn collision**. Hero boarding uses a safe elevated marker
   instead of jumping from the harbor over empty water.
+- **Passenger experience overhaul:** the Gothic Raven itself now carries
+  an illuminated, nonblocking travel sign, showing the destination, current
+  departure / open sea / approach phase and an eleven-to-one-second countdown.
+  The pier sign is still present, but is not the sole source of travel info
+  once aboard. The ship root, walking deck and guard rails explicitly use
+  **Movable** scene-component mobility so CharacterMovement can recognize the
+  vessel as a moving floor. Its pawn-blocking walking deck allows character
+  step-up. Boarding height is calculated from the actual deck collision top
+  plus the player's scaled capsule half-height, with a small clearance.
+  The canceled-voyage emergency deck fallback uses the same capsule-aware
+  placement. This is still unverified until native UE5 Editor playtesting.
+- **Dark-sea ambience:** the existing crimson lantern pair pulses subtly
+  during a voyage, without shadows or new assets. Both lanterns reset on
+  departure cancellation or safe disembark and remain steady under Reduce
+  Motion. The automatic sailing duration remains **11 seconds**. There are
+  no ocean enemies, steering controls or naval battles.
 - The arrival marker is outside its gate's overlap sphere. Place markers on
   collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
@@ -165,7 +181,11 @@ run the Unreal automation framework.
    rail collision, the normal hero camera, and reduced-motion settings.
    Verify the character's movement base remains the ship's
    `PassengerDeck` while grounded and never silently switches to the
-   sea or another collider. Check the same route in reverse.
+   sea or another collider. Confirm the custom-scaled character capsule
+   spawns above the deck instead of clipping through it. Look for the
+   **onboard destination and countdown sign**, and verify crimson lantern
+   pulses and reset under ordinary and Reduce Motion configurations.
+   Check the same route in reverse.
 5. Repeat with low frame rate and uncapped frame rate, including 30
    northbound and return trips. Check 11-second timing, the countdown,
    no unwanted instant-return boarding, loss-of-base cancellation,
