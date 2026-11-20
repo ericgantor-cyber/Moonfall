@@ -86,7 +86,11 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  if (!GetWorld()) return;
  // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
  // the short timer stops entirely when all slots have been considered.
- constexpr int32 MaxLayoutsPerBatch = MoonfallWorldBootstrap::MaxLayoutsPerBatch;
+ // Keep the legacy integration invariant and require the new portable
+ // policy to agree with the established two-layout startup budget.
+ constexpr int32 MaxLayoutsPerBatch = 2;
+ static_assert(MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch,
+   "World startup budget drifted from the legacy two-layout limit");
  int32 Processed = 0;
  while (NextDungeonSlot < TotalDungeons && Processed < MaxLayoutsPerBatch) {
   const int32 Slot = NextDungeonSlot++;
