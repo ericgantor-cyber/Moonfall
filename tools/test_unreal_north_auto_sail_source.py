@@ -97,6 +97,8 @@ assert "VoyagePlayerController.Reset()" in cleanup
 assert "PreviousPlayerViewTarget.Reset()" in cleanup
 assert "bCinematicViewActive = false" in cleanup
 assert "if (!Hero->bReduceMotion)" in tick
+assert "Ship->AnimateCrimsonSails(ElapsedSeconds, Hero->bReduceMotion)" in tick
+assert "Ship->ResetCrimsonSails()" in cleanup
 assert "PendingVoyager.Reset()" in cleanup
 assert "PrimaryActorTick.bCanEverTick = false" in gate_cpp
 for forbidden in (
