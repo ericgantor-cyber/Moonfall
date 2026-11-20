@@ -27,6 +27,20 @@ assert "MoonfallNorth::PrecipitationAt(" in source
 assert "WeatherParticles->AddInstance(" in source
 assert "0.2f,true" in source
 assert "ParticleStep%10==0" in source
+# Reject unnecessary animation while nobody is nearby.
+assert "WeatherActivationRadiusCm=2500.f" in header
+assert "FTimerHandle ProximityTimer" in header
+assert "bWeatherActive=false" in header
+assert "CheckWeatherProximity()" in source
+assert "UGameplayStatics::GetPlayerPawn(this,0)" in source
+assert "FVector::DistSquared(" in source
+assert "FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f)" in source
+assert "&AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true" in source
+assert "GetWorldTimerManager().ClearTimer(ProximityTimer)" in source
+assert "bShouldActivate==bWeatherActive" in source
+assert "HasActorBegunPlay() && !bWeatherActive" in source
+assert "DeactivateWeatherPreview()" in source
+
 
 for forbidden in ("SpawnActor", "SaveGameToSlot", "LoadGameFromSlot",
                   "ExponentialHeightFog", "SetFogDensity", "SetVisibilityDistance",
