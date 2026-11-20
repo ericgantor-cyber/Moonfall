@@ -2,6 +2,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Camera/CameraComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -28,6 +29,17 @@ void Tint(UInstancedStaticMeshComponent* Group, const FLinearColor& Color) {
 AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("GothicFerryRoot")));
+ // Explicitly use this actor's onboard camera when the controller follows
+ // the non-steerable ferry. The preview deck meshes remain nonblocking.
+ bFindCameraComponentWhenViewTarget = true;
+ VoyageCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("GothicRavenVoyageCamera"));
+ VoyageCamera->SetupAttachment(GetRootComponent());
+ // Camera is behind the hull and looks toward the raven figurehead (+X).
+ VoyageCamera->SetRelativeLocation(FVector(-1750.f, 0.f, 795.f));
+ VoyageCamera->SetRelativeRotation(FRotator(-12.f, 0.f, 0.f));
+ VoyageCamera->SetFieldOfView(80.f);
+ VoyageCamera->bUsePawnControlRotation = false;
+ VoyageCamera->bAutoActivate = true;
  auto MakePieces = [this](const FName& Name) -> UInstancedStaticMeshComponent* {
   UInstancedStaticMeshComponent* Pieces = CreateDefaultSubobject<UInstancedStaticMeshComponent>(Name);
   Pieces->SetupAttachment(GetRootComponent());
