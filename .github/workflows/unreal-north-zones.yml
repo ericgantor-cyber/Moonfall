@@ -18,6 +18,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
+      - 'tools/test_unreal_north_weather_actor_source.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
       - 'tools/test_unreal_north_continent_actor_source.py'
@@ -41,6 +45,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
+      - 'tools/test_unreal_north_weather_actor_source.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
       - 'tools/test_unreal_north_continent_actor_source.py'
@@ -68,6 +76,9 @@ jobs:
       - name: Verify connected Northern Expanse actor source
         shell: bash
         run: python tools/test_unreal_north_continent_actor_source.py
+      - name: Verify northern climate preview source
+        shell: bash
+        run: python tools/test_unreal_north_weather_actor_source.py
       - name: Compile and run (Linux GCC)
         if: runner.os == 'Linux'
         shell: bash
