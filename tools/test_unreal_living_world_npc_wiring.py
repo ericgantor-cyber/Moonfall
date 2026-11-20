@@ -40,6 +40,36 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_sanctuary_unlock_uses_saved_firstlight_and_proven_victories(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("bool IsSanctuaryRoomUnlocked(int32 RoomId) const;", header)
+        method = hero.split("bool AMoonfallHeroPawn::IsSanctuaryRoomUnlocked(int32 RoomId) const", 1)[1].split(
+            "FString AMoonfallHeroPawn::PreviewCouncilDecision(", 1
+        )[0]
+        for expected in ('HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))',
+                         "GetTotalDefeatedDungeonBosses()", "Entry.Value == 2",
+                         "MoonfallLivingWorld::SanctuaryRoomUnlocked(",
+                         "RoomId > static_cast<int32>(MoonfallLivingWorld::SanctuaryRoom::Portal)"):
+            self.assertIn(expected, method)
+        self.assertNotIn("SaveWorldProgress(", method)
+        self.assertNotIn("SpawnActor(", method)
+
+    def test_council_choice_is_readonly_preview(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("FString PreviewCouncilDecision(int32 DecisionId) const;", header)
+        method = hero.split("FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const", 1)[1].split(
+            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1
+        )[0]
+        for required in ("MoonfallLivingWorld::Decide(Decision)", "Protect Residents",
+                         "Fund Reconstruction", "Fortify Borders", "preview only",
+                         "Invalid decision"):
+            self.assertIn(required, method)
+        for forbidden in ("SaveWorldProgress(", "ChangeFactionReputation(",
+                          "FactionReputation.Add(", "ResidentQuestStates.Add("):
+            self.assertNotIn(forbidden, method)
+
     def test_mixed_school_cast_is_single_transactional_hit(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
