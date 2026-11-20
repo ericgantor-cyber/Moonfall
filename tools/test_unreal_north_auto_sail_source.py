@@ -98,6 +98,9 @@ assert "DeckSpawn.Z = DeckSurfaceZ" in start
 assert "Hero->TeleportTo(Destination" not in start
 assert "Hero->SetBase(SailingVessel->PassengerDeck)" in start
 assert "Hero->GetMovementBase() != SailingVessel->PassengerDeck" in start
+assert "bool bReturned = Hero->TeleportTo(DockLocation" in start
+assert "FindSafeDryLanding(Hero, this, SafeHarbor)" in start
+assert "bReturned = Hero->TeleportTo(SafeHarbor" in start
 assert "OriginalBoardingLocation = DockLocation" in start
 assert "PendingTargetShip = PairedGate->SailingVessel" in start
 assert "OriginalBoardingRotation = DockRotation" in start
