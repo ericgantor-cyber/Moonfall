@@ -1,4 +1,6 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallChronicle.h"
+#include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -581,6 +583,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
+ Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
@@ -1300,6 +1303,28 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bInventoryScrollbarDragging = false;
 }
 
+void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
+ bAtlasChronicleFocus = !bAtlasChronicleFocus;
+ // An untouched selection follows the recommended revealed chapter. Once a
+ // chapter tab is selected, it stays readable until the region changes.
+ if (bAtlasChronicleFocus && AtlasChronicleChapter < 0) {
+  const auto State = MoonfallChronicle::Summarize(
+    FMath::Clamp(AtlasSelectedRegion, 0, 5),
+    static_cast<uint32>(DiscoveredDungeonMask),
+    static_cast<uint32>(DefeatedDungeonBossMask));
+  AtlasChronicleChapter = State.Valid ? State.FeaturedBeat : 0;
+ }
+}
+void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
+ if (!bAtlasOpen || !bAtlasChronicleFocus || (Direction != -1 && Direction != 1)) return;
+ const auto State = MoonfallChronicle::Summarize(
+   FMath::Clamp(AtlasSelectedRegion, 0, 5),
+   static_cast<uint32>(DiscoveredDungeonMask),
+   static_cast<uint32>(DefeatedDungeonBossMask));
+ AtlasChronicleChapter = MoonfallChronicleUI::NextChapter(
+   AtlasChronicleChapter, State.Valid ? State.FeaturedBeat : 0, Direction);
+}
 void AMoonfallHeroPawn::ToggleAtlas() {
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  // Blueprint and corrupt transient values must never poison projected map pixels.
@@ -1307,6 +1332,8 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  AtlasChronicleChapter = -1;
+  bAtlasChronicleFocus = false;
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1579,7 +1606,12 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
- if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
+ if (bAtlasOpen) {
+  const int32 PreviousRegion = AtlasSelectedRegion;
+  AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
+  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  return;
+ }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
   bResidentTurnInPending = false;
@@ -1596,7 +1628,12 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
- if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
+ if (bAtlasOpen) {
+  const int32 PreviousRegion = AtlasSelectedRegion;
+  AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
+  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  return;
+ }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
   bResidentTurnInPending = false;
@@ -1613,12 +1650,20 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f); return; }
+ if (bAtlasOpen) {
+  if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
+  AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
+  return;
+ }
  if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f); return; }
+ if (bAtlasOpen) {
+  if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
+  AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
+  return;
+ }
  if (bInventoryOpen) return;
  AdjustOption(1);
 }
