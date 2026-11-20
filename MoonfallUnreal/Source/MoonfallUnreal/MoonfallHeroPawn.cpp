@@ -3318,6 +3318,12 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ // Entering dialogue releases already-held gameplay inputs. Merely blocking
+ // new presses leaves sprint/guard latched when conversation begins mid-action.
+ StopJumping();
+ EndSprint();
+ EndGuard();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
