@@ -8,6 +8,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -198,6 +199,22 @@ int main() {
    assert(AbsY>=N::ProvincePadHalfSizeCm+L.HalfWidthCm);
   }
  }
+ // All nine climate labels are explicit and cannot reduce designed visibility
+ // below 80%; no visual color cue may be the only weather indicator.
+ assert(N::ValidClimates());
+ for (int I=0; I<N::ZoneCount; ++I) {
+  const auto* Climate=N::ClimateFor(I);
+  assert(Climate!=nullptr);
+  assert(std::strlen(Climate->Name)>=8);
+  assert(Climate->HasTextCue);
+  assert(Climate->VisibilityFloor>=80 && Climate->VisibilityFloor<=100);
+  assert(Climate->SuggestedWind>=0 && Climate->SuggestedWind<=100);
+  assert(Climate->Red>=125 && Climate->Green>=125 && Climate->Blue>=125);
+  for(int J=I+1; J<N::ZoneCount; ++J)
+   assert(std::strcmp(Climate->Name,N::Climates[J].Name)!=0);
+ }
+ assert(N::ClimateFor(-1)==nullptr);
+ assert(N::ClimateFor(N::ZoneCount)==nullptr);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
