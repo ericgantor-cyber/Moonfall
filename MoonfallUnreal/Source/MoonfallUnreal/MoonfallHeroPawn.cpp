@@ -87,6 +87,27 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
+FString AMoonfallHeroPawn::GetEquippedWeaponResonance() const {
+ // Never infer an evolution from unequipped, unowned or malformed gear.
+ if (!InventoryItemCodes.Contains(EquippedWeaponCode)) return TEXT("Dormant");
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(EquippedWeaponCode, 0, Trait, Rarity, Tier))
+  return TEXT("Dormant");
+ // The existing 30-bit dungeon boss ledger is durable across saves.
+ uint32 Victories = static_cast<uint32>(DefeatedDungeonBossMask) & ((1u << 30) - 1u);
+ int32 DefeatedBosses = 0;
+ while (Victories != 0u) {
+  Victories &= Victories - 1u;
+  ++DefeatedBosses;
+ }
+ switch (MoonfallLivingWorld::BossResonance(DefeatedBosses, Tier, Rarity)) {
+ case MoonfallLivingWorld::WeaponStage::Dormant: return TEXT("Dormant");
+ case MoonfallLivingWorld::WeaponStage::Awakened: return TEXT("Awakened");
+ case MoonfallLivingWorld::WeaponStage::Ascendant: return TEXT("Ascendant");
+ case MoonfallLivingWorld::WeaponStage::Mythic: return TEXT("Mythic");
+ }
+ return TEXT("Dormant");
+}
 int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 {
  // Use the same strict decoder as equipped combat stats. No save mutations.
