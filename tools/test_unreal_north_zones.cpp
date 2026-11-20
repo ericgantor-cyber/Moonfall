@@ -12,6 +12,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthProvinceWeather.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -264,6 +265,20 @@ int main() {
  assert(!N::WithinWeatherRange(false,-1.f,2500.f));
  assert(!N::WithinWeatherRange(false,0.f,799.f));
  assert(!N::WithinWeatherRange(false,0.f,8001.f));
+ // Every province center must map to its own climate; distant locations off.
+ for(int P=0; P<N::ZoneCount; ++P) {
+  const auto& Center=N::ContinentCenters[P];
+  assert(N::ChooseWeatherProvince(Center.Xcm,Center.Ycm,-1)==P);
+  assert(N::ChooseWeatherProvince(Center.Xcm,Center.Ycm,P)==P);
+ }
+ assert(N::ChooseWeatherProvince(999999,999999,2)==-1);
+ // At the edge between Wolfsong and Palehorn, stick to current climate
+ // until the other center is meaningfully closer.
+ assert(N::ChooseWeatherProvince(-7000,13000,1)==1);
+ assert(N::ChooseWeatherProvince(-7000,13000,2)==2);
+ assert(N::ChooseWeatherProvince(-14000,13000,2)==1);
+ assert(N::ChooseWeatherProvince(0,13000,1)==2);
+ assert(N::ProvinceDistSquared(0,0,-1)==-1);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
