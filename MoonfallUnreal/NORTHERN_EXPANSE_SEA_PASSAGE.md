@@ -87,6 +87,11 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   hero's scaled capsule half-height, with a small clearance. If a dock
   disappears during the 11-second trip, arrival is canceled and the
   earlier harbor-rescue logic runs; no first-landing credit is granted.
+  The visibility-traced hit must **also block Pawn collision**: a decorative
+  material that appears to be ground cannot count as safe ferry terrain.
+  This validation is now shared with a portable C++17 policy and edge-case
+  tests on Windows and Linux (including missing collision, steep surfaces,
+  oversized capsules and non-finite coordinates).
   Even the cancellation fallback harbor marker now requires a blocking
   walkable floor; if neither harbor landing is usable, the code attempts
   to restore the hero to the reset vessel instead of placing them over sea.
