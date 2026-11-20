@@ -49,6 +49,12 @@ public:
  float VoyageDurationSeconds = 11.f;
  UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
  bool bAutoVoyageInProgress = false;
+ // Readable voyage progress for future HUD, controller and accessibility UI.
+ // Phase: 0 idle, 1 departing, 2 open sea, 3 approaching dock.
+ UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
+ int32 VoyageSecondsRemaining = 0;
+ UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
+ int32 VoyagePhaseIndex = 0;
  // Transient only. A permanent first-voyage unlock needs a versioned save.
  UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
  bool bReachedIslandThisSession = false;
@@ -61,10 +67,16 @@ public:
  void OnFerryArrival(AMoonfallHeroPawn* Hero, bool bFirstIslandLanding);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Sea Travel")
  void OnAutomaticVoyageStarted(AMoonfallHeroPawn* Hero);
+ // At most once per displayed second or phase change, never on every 0.1s
+ // movement update. Add voiceover, fog and UI cues in an authored Blueprint.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Sea Travel")
+ void OnAutomaticVoyageProgress(AMoonfallHeroPawn* Hero,
+                                int32 SecondsRemaining, int32 PhaseIndex);
 
 private:
  void UpdateAutomaticVoyage();
  void StopAutomaticVoyage();
+ void UpdateVoyagePresentation(AMoonfallHeroPawn* Hero, float ElapsedSeconds);
  FTimerHandle AutomaticVoyageTimer;
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
  TWeakObjectPtr<AMoonfallNorthFerryGate> PendingArrivalGate;
