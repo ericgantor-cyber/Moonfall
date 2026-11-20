@@ -349,9 +349,9 @@ void AMoonfallHeroPawn::BeginPlay() {
  const bool bLoadedWorldProgress = LoadWorldProgress();
  // Recheck once on the next game tick: GameMode may create the arena after
  // this hero's BeginPlay. Neither pass can override a returning player's save.
- if (!bLoadedWorldProgress
+ if (!bLoadedWorldProgress && !bPersistentSaveWritesBlocked
      && !UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)
-     && !bPersistentSaveWritesBlocked && GetWorld()) {
+     && GetWorld()) {
   TryPlaceNewCharacterAtSanctuary();
   GetWorldTimerManager().SetTimerForNextTick(
     this, &AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary);
