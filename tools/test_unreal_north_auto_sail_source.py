@@ -244,7 +244,7 @@ for required in (
     "-ReportExportPath=",
     "index.json",
     "ConvertFrom-Json",
-    "Refusing stale evidence",
+    "refusing stale evidence",
     "Native ferry report directory already exists",
     "Expected exactly one native ferry test result",
     "$test.state -ne 'Success'",
