@@ -1,0 +1,41 @@
+name: Moonfall artwork integrity
+
+on:
+  pull_request:
+    paths:
+      - 'godot-v38/assets/**'
+      - 'engine-comparison/ART_IMPORT_MANIFEST.json'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/**'
+      - 'tools/verify_artwork_inventory.py'
+      - 'tools/test_verify_artwork_inventory.py'
+      - '.github/workflows/artwork-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'godot-v38/assets/**'
+      - 'engine-comparison/ART_IMPORT_MANIFEST.json'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/**'
+      - 'tools/verify_artwork_inventory.py'
+      - 'tools/test_verify_artwork_inventory.py'
+      - '.github/workflows/artwork-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-art:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source and artwork
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test detector against intentionally damaged disposable fixtures
+        run: python -m unittest discover -s tools -p test_verify_artwork_inventory.py -v
+      - name: Verify originals and prototype exports
+        run: python tools/verify_artwork_inventory.py --check-exports
