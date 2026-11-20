@@ -34,8 +34,8 @@ int main() {
    assert(Reverse.Length==Route.Length);
    for (int Step=1; Step<Route.Length; ++Step)
     assert(N::Linked(Route.Stops[Step-1],Route.Stops[Step]));
-   for (int Step=0; Step<Route.Length; ++Step)
-    assert(Route.Stops[Step]==Reverse.Stops[Route.Length-Step-1]);
+   // Multiple equally short routes may be chosen depending on BFS order.
+   // Reverse travel must have equal distance, not necessarily identical stops.
   }
  }
  assert(N::ShortestRoute(-1,0).Length==0);
