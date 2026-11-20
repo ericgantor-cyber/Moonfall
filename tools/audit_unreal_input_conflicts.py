@@ -80,6 +80,35 @@ def main():
         "const float Now = GetWorld()->GetTimeSeconds();",1)[0]
     assert "bOptionsOpen || bInventoryOpen || bAtlasOpen) return false;" in dodge_reward
     assert "bInventoryOpen || bOptionsOpen || bAtlasOpen) return false;" in racial_power
+    # Guard all five shared gamepad buttons against cross-context effects.
+    # Source checks supplement, but never replace, a native controller playtest.
+    def start(signature):
+        return pawn.split(signature,1)[1][:600]
+    for signature in (
+        "void AMoonfallHeroPawn::PickupNearestGroundLoot()",
+        "void AMoonfallHeroPawn::Dodge()",
+        "bool AMoonfallHeroPawn::TryCast(",
+    ):
+        section=start(signature)
+        assert "bInventoryOpen" in section and "bAtlasOpen" in section, signature
+    assert "bInventoryOpen && !bCharacterStatsOpen" in start(
+        "void AMoonfallHeroPawn::SalvageSelectedInventoryItem()")
+    for signature in (
+        "void AMoonfallHeroPawn::AscendSelectedInventoryItem()",
+        "void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()",
+        "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()",
+        "void AMoonfallHeroPawn::EquipBestInventoryAction()",
+    ):
+        assert "!bCharacterStatsOpen" in start(signature), signature
+    for signature in (
+        "bool AMoonfallHeroPawn::AscendInventoryItemRarity(",
+        "int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(",
+        "bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(",
+        "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades(",
+    ):
+        section=start(signature)
+        assert "!bInventoryOpen" in section and "bOptionsOpen" in section, signature
+    print("Five shared gamepad buttons: source context guards PASS; UE5 playtest pending")
     print("Atlas modal combat resource guards: PASS (source verified)")
     print("Contextual Gamepad A: Jump in world, Character Stats in inventory (source verified)")
     print("Safe gameplay Jump button: PASS (no menu binding)")
