@@ -1,5 +1,9 @@
 #include "MoonfallNorthFerryGate.h"
 #include "MoonfallNorthSeaPassage.h"
+#include "MoonfallNorthAutoSail.h"
+#include "MoonfallNorthGothicFerryActor.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 #include "MoonfallHeroPawn.h"
 #include "Components/SphereComponent.h"
 #include "Components/SceneComponent.h"
@@ -57,10 +61,39 @@ void AMoonfallNorthFerryGate::OnConstruction(const FTransform& Transform) {
  }
 }
 
+void AMoonfallNorthFerryGate::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ StopAutomaticVoyage();
+ Super::EndPlay(EndPlayReason);
+}
+
+void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
+ if (GetWorld()) GetWorld()->GetTimerManager().ClearTimer(AutomaticVoyageTimer);
+ if (AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get()) {
+  Ship->SetActorTransform(OriginalShipTransform, false, nullptr, ETeleportType::TeleportPhysics);
+ }
+ PendingShip.Reset();
+ PendingVoyager.Reset();
+ PendingArrivalGate.Reset();
+ bAutoVoyageInProgress = false;
+ if (FerrySign) {
+  FerrySign->SetText(FText::FromString(
+   bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\\nAUTOMATIC BOARDING")
+                 : TEXT("FERRY TO SHIVERWAKE COAST\\nAUTOMATIC BOARDING")));
+ }
+}
+
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
- if (!IsValid(Hero) || !IsValid(PairedGate) || PairedGate == this
+ // The boat sails itself. There is no helm, player acceleration, steering
+ // or enemy encounter code in this finite-duration boarding gate.
+ if (bAutoVoyageInProgress || !IsValid(Hero) || !IsValid(PairedGate)
+     || PairedGate == this || !IsValid(SailingVessel)
+     || !IsValid(PairedGate->SailingVessel) || SailingVessel == PairedGate->SailingVessel
+     || !GetWorld() || Hero->GetWorld() != GetWorld()
      || GetWorld() != PairedGate->GetWorld()
-     || !Hero->IsPlayerControlled()) return false;
+     || SailingVessel->GetWorld() != GetWorld()
+     || PairedGate->SailingVessel->GetWorld() != GetWorld()
+     || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress)
+  return false;
  const bool bMarkerReady = IsValid(PairedGate->ArrivalMarker);
  const FVector Destination = bMarkerReady
      ? PairedGate->ArrivalMarker->GetComponentLocation() : FVector::ZeroVector;
@@ -76,16 +109,85 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
          bEnableSeaPassage && PairedGate->bEnableSeaPassage,
          PairedGate->PairedGate == this,
          FMath::IsFinite(Hero->Health) && Hero->Health > 0.f,
-         bMenuOpen, bLandingUsable)) return false;
- // Unreal's non-test teleport checks for valid destination placement.
- // If blocked, do not unlock or emit a successful arrival event.
- if (!Hero->TeleportTo(Destination, PairedGate->GetActorRotation(), false, false))
+         bMenuOpen, bLandingUsable))
   return false;
- const bool bFirst = MoonfallNorth::IsFirstIslandLanding(
+ if (Hero->GetActorLocation().ContainsNaN()
+     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f))
+  return false;
+ const FVector From = SailingVessel->GetActorLocation();
+ const FVector To = PairedGate->SailingVessel->GetActorLocation();
+ if (From.ContainsNaN() || To.ContainsNaN()
+     || From.SizeSquared() >= 1.0e14f || To.SizeSquared() >= 1.0e14f
+     || FVector::DistSquared(From, To) < FMath::Square(1000.f))
+  return false;
+ const float Duration = MoonfallNorth::ValidAutoSailDuration(VoyageDurationSeconds)
+     ? VoyageDurationSeconds : MoonfallNorth::DefaultAutoSailSeconds;
+ ActiveVoyageDurationSeconds = Duration;
+ SailingFrom = From;
+ SailingTo = To;
+ OriginalShipTransform = SailingVessel->GetActorTransform();
+ PendingShip = SailingVessel;
+ PendingArrivalGate = PairedGate;
+ PendingVoyager = Hero;
+ VoyageStartWorldSeconds = GetWorld()->GetTimeSeconds();
+ bAutoVoyageInProgress = true;
+ if (FerrySign) FerrySign->SetText(FText::FromString(
+  bIslandHarbor ? TEXT("SAILING TO MAINLAND") : TEXT("SAILING TO SHIVERWAKE COAST")));
+ GetWorld()->GetTimerManager().SetTimer(AutomaticVoyageTimer, this,
+     &AMoonfallNorthFerryGate::UpdateAutomaticVoyage,
+     MoonfallNorth::AutoSailUpdateSeconds, true);
+ OnAutomaticVoyageStarted(Hero);
+ return true; // Boarding has begun, NOT proof that arrival is complete.
+}
+
+void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
+ AMoonfallHeroPawn* Hero = PendingVoyager.Get();
+ AMoonfallNorthFerryGate* Arrival = PendingArrivalGate.Get();
+ AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
+ if (!bAutoVoyageInProgress || !GetWorld() || !IsValid(Hero)
+     || !IsValid(Arrival) || !IsValid(Ship)
+     || Arrival->PairedGate != this || !bEnableSeaPassage
+     || !Arrival->bEnableSeaPassage || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->GetWorld() != GetWorld() || Ship->GetWorld() != GetWorld()
+     || Hero->GetActorLocation().ContainsNaN()
+     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f)) {
+  StopAutomaticVoyage();
+  return;
+ }
+ const float ElapsedSeconds = GetWorld()->GetTimeSeconds() - VoyageStartWorldSeconds;
+ if (!FMath::IsFinite(ElapsedSeconds) || ElapsedSeconds < 0.f) {
+  StopAutomaticVoyage();
+  return;
+ }
+ const float Progress = MoonfallNorth::AutoSailEasedProgress(
+     ElapsedSeconds, ActiveVoyageDurationSeconds);
+ FVector Position = FMath::Lerp(SailingFrom, SailingTo, Progress);
+ Position.Z += 16.f * FMath::Sin(ElapsedSeconds * 2.3f)
+     * FMath::Sin(Progress * PI); // cosmetic wave bob, no gameplay movement
+ Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
+
+ if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
+  return;
+ const FVector Destination = IsValid(Arrival->ArrivalMarker)
+     ? Arrival->ArrivalMarker->GetComponentLocation() : FVector::ZeroVector;
+ const bool bDestinationSafe = IsValid(Arrival->ArrivalMarker)
+     && !Destination.ContainsNaN() && Destination.SizeSquared() < 1.0e14f;
+ // The arriving hero only teleports after the voyage timer. Unreal checks
+ // collision without forcing placement; a failed landing grants no progress.
+ const bool bArrived = bDestinationSafe
+     && Hero->TeleportTo(Destination, Arrival->GetActorRotation(), false, false);
+ const MoonfallNorth::ESeaPort Origin = bIslandHarbor
+     ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
+ const MoonfallNorth::ESeaPort Finish = Arrival->bIslandHarbor
+     ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
+ const bool bFirst = bArrived && MoonfallNorth::IsFirstIslandLanding(
      Origin, Finish, bReachedIslandThisSession);
  if (bFirst) bReachedIslandThisSession = true;
- OnFerryArrival(Hero, bFirst);
- return true;
+ StopAutomaticVoyage();
+ if (bArrived) OnFerryArrival(Hero, bFirst);
 }
 
 void AMoonfallNorthFerryGate::OnBoardingOverlap(
