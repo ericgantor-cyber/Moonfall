@@ -31,6 +31,15 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   a menu or encountering blocked landing cancels the crossing without an
   arrival event. On cancellation it attempts to restore the original dry
   dock position, then a nearby fallback; the ship is reset to its origin.
+- **Route integrity and refused-boarding safety:** the departure gate
+  captures both the departure and destination ship identities at boarding.
+  Every travel update checks the bidirectional gate pairing, both original
+  ship references, distinct harbor sides and world ownership. If a Blueprint
+  or map actor rewires the route mid-crossing, the boat cancels safely instead
+  of arriving at a changed port. If boarding succeeds but the walking base
+  cannot be assigned, the hero is returned to their original dry spot; a
+  second, separately ground-validated harbor position is attempted if that
+  return teleport is blocked. Neither case awards arrival or alters saves.
 - **Accessible voyage countdown:** the harbor sign displays "ARRIVAL IN
   11S" and counts down to "1S" during the timed animation. The optional
   `OnAutomaticVoyageProgress(Hero, SecondsRemaining, PhaseIndex)` event
@@ -209,8 +218,9 @@ run the Unreal automation framework.
 5. Repeat with low frame rate and uncapped frame rate, including 30
    northbound and return trips. Check 11-second timing, the countdown,
    no unwanted instant-return boarding, loss-of-base cancellation,
-   disabling a gate mid-voyage, opening a menu, a defeated hero,
-   forced invalid arrival, and off-deck recovery. Remove/disable the
+   disabling or re-pairing a gate mid-voyage, replacing either ship,
+   opening a menu, a defeated hero, forced invalid arrival, failed walking
+   base assignment, and off-deck recovery. Remove/disable the
    destination dock collision **before boarding** and **mid-voyage**:
    boarding should refuse a missing/steep landing, and mid-voyage removal
    should cancel without granting arrival progress. Also verify that
