@@ -37,7 +37,7 @@ def install_shiverwake_shrines(actor_subsystem, shrine_class):
 
     planned = {shrine_id: (label, position)
                for shrine_id, label, position in SHRINE_SITES}
-     migration = {}  # 16 legacy-generated actor IDs -> new zone identity.
+    migration = {}  # 16 legacy-generated actor IDs -> new zone identity.
     for index in range(2, len(LEGACY_SHIVERWAKE_SITES)):
         legacy_id, original_name, original_position = LEGACY_SHIVERWAKE_SITES[index]
         new_id, new_name, new_position = SHRINE_SITES[index]
