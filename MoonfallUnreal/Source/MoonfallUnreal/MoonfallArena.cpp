@@ -274,7 +274,7 @@ void AMoonfallArena::BeginPlay() {
    Enemy->bBoss = true;
    Enemy->DivineBossId = bDeathGoddessEncounter ? MoonfallDeathGoddess::BossId()
      : (bZ ? FName(TEXT("z_void_reaper")) : FName(TEXT("nyra_eclipse_queen")));
-   Enemy->DivineBossTitle = bDeathGoddessEncounter ? FText::FromString(TEXT("The Crimson Reaper"))
+   Enemy->DivineBossTitle = bDeathGoddessEncounter ? FText::FromString(TEXT("Morvella Velmora"))
      : (bZ ? FText::FromString(TEXT("Z, Void Reaper"))
            : FText::FromString(TEXT("Nyra, Eclipse Queen")));
    Enemy->DivineBossRegion = bDeathGoddessEncounter ? FName(TEXT("MoonlitNecropolis"))
