@@ -2428,18 +2428,19 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  RespawnCheckpointLocation = NewRespawn;
  bHasRespawnCheckpointLocation = true;
  // Regular campaign shrines persist atomically; failed saves roll back.
- // The isolated preview, by design, only activates shrines in this session,
+ // The isolated preview activates shrines in memory for this session only,
  // retaining the checkpoint for death without touching campaign save slots.
- if (!bPreviewOnlyShrine && !SaveWorldProgress()) {
-  DiscoveredShrineIds.Remove(Shrine->ShrineId);
-  ActiveShrineId = PreviousShrineId;
-  RespawnCheckpointLocation = PreviousCheckpoint;
-  bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
-  return false;
+ if (!bPreviewOnlyShrine) {
+  if (!SaveWorldProgress()) {
+   DiscoveredShrineIds.Remove(Shrine->ShrineId);
+   ActiveShrineId = PreviousShrineId;
+   RespawnCheckpointLocation = PreviousCheckpoint;
+   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
+   return false;
+  }
+  // Only a successful persistent shrine discovery resets the autosave timer.
+  SecondsSinceLastWorldSave = 0.f;
  }
- // Only permanent shrines wrote the world save. Preview checkpoints remain
- // in memory and must not start the real campaign autosave interval.
- if (!bPreviewOnlyShrine) SecondsSinceLastWorldSave = 0.f;
  // Discovery is rare, so refresh visuals after successful save or
  // session-only activation. Previously discovered shrines stay lit.
  // Old shrines stop showing ACTIVE without a per-frame world scan.
