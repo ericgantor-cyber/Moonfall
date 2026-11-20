@@ -672,13 +672,15 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 19.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
        Hero->GetItemPower(Hero->EquippedArmorCode),
        Hero->GetItemPower(Hero->EquippedAccessoryCode)),
+     FString::Printf(TEXT("Weapon resonance: %s (saved dungeon milestones)"),
+       *Hero->GetEquippedWeaponResonance()),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
