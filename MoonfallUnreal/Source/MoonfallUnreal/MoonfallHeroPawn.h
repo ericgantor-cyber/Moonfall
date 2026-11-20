@@ -251,6 +251,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
  // Transient atlas navigation, never written into save data.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
+ // Read-only lore navigation; these are never serialized with world progress.
+ // -1 follows the region's automatically featured discovered chapter.
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") int32 AtlasChronicleChapter = -1;
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasChronicleFocus = false;
+ void ToggleAtlasChronicleFocus();
+ void StepAtlasChronicle(int32 Direction);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasPanY = -2500.f;
  // Runtime-only shrine cache. Refresh once when the Atlas opens, never in DrawHUD.
