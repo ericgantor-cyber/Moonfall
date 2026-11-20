@@ -142,12 +142,11 @@ def main():
     mainland_gate.rerun_construction_scripts()
     island_gate.rerun_construction_scripts()
 
-    # Eighteen existing Moonfall shrine actors belong only to the Shiverwake
-    # province pad. IDs are unique and discovery/respawn work in this preview
-    # in memory, without loading/writing legacy campaign save slots.
+    # Two shrines on each of nine original connected province pads.
+    # Checkpoints are session-only and never read/write legacy campaign slots.
     added_shrines = install_shiverwake_shrines(actor_subsystem, shrine_class)
     if added_shrines != 18:
-        raise RuntimeError("New Northern preview must place all 18 island shrines")
+        raise RuntimeError("New Northern preview must place exactly 2 shrines per zone (18)")
 
     # Spawn at mainland, walking distance from the boarding deck.
     spawn(
