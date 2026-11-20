@@ -24,6 +24,18 @@ assert "ProvinceLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision)" 
 assert "MoonfallNorth::ValidLandmarks()" in source
 assert "MoonfallNorth::LandmarkCount" in source
 assert "ProvinceLandmarks" in header
+assert "BiomeSurfaceOverlays" in header
+assert "bEnableBiomeSurfacePreview=true" in header
+assert '#include "MoonfallNorthBiomeTones.h"' in source
+assert "MoonfallNorth::ValidBiomeTones()" in source
+assert "MoonfallNorth::BiomeTones[Zone]" in source
+assert "Overlay->SetCollisionEnabled(ECollisionEnabled::NoCollision)" in source
+assert "Overlay->SetGenerateOverlapEvents(false)" in source
+assert "Overlay->SetCastShadow(false)" in source
+assert "Overlay->CreateAndSetMaterialInstanceDynamic(0)" in source
+assert "MID->SetVectorParameterValue(" in source
+assert "BiomeSurfaceOverlays.Num() != MoonfallNorth::ZoneCount" in source
+
 assert "ProvinceSigns" in header
 assert "CreateDefaultSubobject<UTextRenderComponent>" in source
 assert 'ProvinceSigns.Num() != MoonfallNorth::ZoneCount' in source
