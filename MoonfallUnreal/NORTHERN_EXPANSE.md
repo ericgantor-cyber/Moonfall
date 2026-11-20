@@ -58,6 +58,12 @@ The new `AMoonfallNorthSanctumActor` is a UE5 actor that consumes the three test
 
 **Not complete:** No actor has yet been placed in a packaged northern map; no world streaming, navmesh baking, travel connection, or live boss integration is proven. The generated grey-box rectangles are square and their floor contact requires native collision/walk tests. Approved game assets and visuals must be added separately.
 
+### Nine-zone physical prototype overhaul
+
+A new `AMoonfallNorthZoneActor` provides **editor-placeable UE5 greybox geometry for each of the nine provinces**. Designers choose `ProvinceIndex` (0-8) and place the actor in the appropriate World Partition level. `MoonfallNorthZoneGreybox.h` defines a 24-meter-wide town-hub plaza, connected eight-meter-wide northern and southern road sections, a 24-meter dungeon approach forecourt and a broad southern entrance pad. Roads meet exactly at floor boundaries. A nonblocking world-space sign displays the province name, hub and dungeon title. Geometry uses five static mesh instances per province, no Tick, and actor functions expose the dungeon-approach and southern-entrance positions.
+
+The project now includes separate C++17 floor-continuity regression tests and a Python source-policy test in Linux/Windows CI. **These are standalone actors and greybox surfaces, not an interconnected playable continent.** No provinces have been added to the existing six-zone world map, saved discovery ledger, Atlas, roads between individual placed province actors, or World Partition map assets. Designers must place actors at tested coordinates, align roads between zones, add terrains/navmesh and quest/AI/world content, then validate packaged Windows UE5 gameplay.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
