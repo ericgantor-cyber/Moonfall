@@ -1269,6 +1269,47 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
  }
+ // The sanctuary ledger is read-only: display actual unlocks without
+ // swallowing map input or placing imaginary rooms into the world.
+ // Hide it on compact displays so exploration and quests stay readable.
+ if (bSanctuaryObjective && Canvas->SizeX >= 1280.f && Canvas->SizeY >= 700.f
+     && !Hero->bInventoryOpen && !Hero->bAtlasOpen && !Hero->bOptionsOpen) {
+  const float LedgerW = 330.f;
+  const float LedgerX = Canvas->SizeX - LedgerW - 24.f;
+  const float LedgerY = 78.f;
+  const float LedgerH = 254.f;
+  DrawRect(FLinearColor(0.055f, 0.044f, 0.092f, 0.92f),
+    LedgerX, LedgerY, LedgerW, LedgerH);
+  DrawRect(FLinearColor(0.62f, 0.39f, 0.74f, 0.96f),
+    LedgerX, LedgerY, 4.f, LedgerH);
+  DrawText(TEXT("SANCTUARY  |  LIVING WORLD"),
+    FLinearColor(0.91f, 0.82f, 1.f), LedgerX + 14.f, LedgerY + 10.f,
+    nullptr, 0.86f);
+  const TCHAR* RoomNames[6] = {
+    TEXT("Atlas"), TEXT("Armory"), TEXT("Wardrobe"),
+    TEXT("Trophy Hall"), TEXT("Council"), TEXT("Portal")};
+  for (int32 Room = 0; Room < 6; ++Room) {
+   const bool bUnlocked = Hero->IsSanctuaryRoomUnlocked(Room);
+   DrawText(FString::Printf(TEXT("%s: %s"), RoomNames[Room],
+       bUnlocked ? TEXT("UNLOCKED") : TEXT("LOCKED")),
+     bUnlocked ? FLinearColor(0.67f, 0.93f, 0.78f)
+               : FLinearColor(0.67f, 0.67f, 0.73f),
+     LedgerX + 14.f, LedgerY + 39.f + Room * 22.f, nullptr, 0.76f);
+  }
+  DrawText(FString::Printf(TEXT("COMMUNITY: %s"),
+      *Hero->GetWorldCommunityOutlook()),
+    FLinearColor(0.80f, 0.88f, 1.f),
+    LedgerX + 14.f, LedgerY + 180.f, nullptr, 0.75f);
+  DrawText(Hero->IsSanctuaryRoomUnlocked(4)
+      ? TEXT("COUNCIL CHOICES (PREVIEW ONLY)")
+      : TEXT("Complete 3 contracts to unlock council"),
+    FLinearColor(0.93f, 0.77f, 0.64f),
+    LedgerX + 14.f, LedgerY + 205.f, nullptr, 0.70f);
+  if (Hero->IsSanctuaryRoomUnlocked(4))
+   DrawText(TEXT("Protect  |  Rebuild  |  Fortify"),
+     FLinearColor(0.86f, 0.83f, 0.94f),
+     LedgerX + 14.f, LedgerY + 226.f, nullptr, 0.70f);
+ }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
  const float CX = Radius + 25.f;
