@@ -124,6 +124,12 @@ This improves the greybox preview's lifecycle stability only. It does not create
 
 The optional 5Hz precipitation animator now updates the 18 instanced flake/streak transforms on every timer step but recalculates the light pulse and rebuilds text only once every ten steps (approximately two seconds), or immediately when the preview becomes active or changes province. A guard prevents stale animation callbacks from doing extra work when the preview is disabled or its province is invalid. This does not enable weather by default or alter any existing combat/saves. Native UE5 performance still requires verification.
 
+### Single-actor weather that follows a province
+
+The optional `AMoonfallNorthWeatherActor` has a new **`bFollowPlayerProvince` editor option (default false)**. When explicitly enabled with `bEnableWeatherPreview`, the actor looks up one already placed `AMoonfallNorthContinentActor`, follows local player index 0 once per second, and uses the nearest of its nine hub centers to select the weather climate. It stops effects when the player is more than 115 meters horizontally from every northern hub or when no northern continent actor is present. Its weather remains limited to the player's immediate vicinity, does not alter gameplay, and does not affect the existing legacy world by default. This avoids needing nine separate preview weather actors in a simple test level.
+
+Limitations: this is a single-player editor prototype that assumes one northern continent actor; nearest-center selection is not final level-boundary logic and does not support network clients, separate terrain streaming, interior weather, or per-zone weather overlays. The previously static weather option still works when follow mode is off. Native UE5 compile and packaged Windows traversal tests remain required.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
