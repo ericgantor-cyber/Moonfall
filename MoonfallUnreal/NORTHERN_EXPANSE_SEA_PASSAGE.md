@@ -40,6 +40,16 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   cannot be assigned, the hero is returned to their original dry spot; a
   second, separately ground-validated harbor position is attempted if that
   return teleport is blocked. Neither case awards arrival or alters saves.
+- **Movement and callback failure watchdog:** each 0.1-second sailing
+  update now checks whether Unreal accepted the ship's movement and whether
+  the actor actually reached the expected route point (within 10 cm).
+  A ship stuck at its dock must never grant an eleven-second "arrival".
+  The voyage also rechecks its active state after Blueprint callbacks at
+  voyage start and during presentation: a script that cancels the journey,
+  disables a harbor, changes the paired dock, or opens a menu cannot
+  accidentally trigger a later arrival from stale state. Cancellation uses
+  the existing passenger recovery flow. This still requires native UE5
+  Editor and PIE gameplay testing before merge.
 - **Accessible voyage countdown:** the harbor sign displays "ARRIVAL IN
   11S" and counts down to "1S" during the timed animation. The optional
   `OnAutomaticVoyageProgress(Hero, SecondsRemaining, PhaseIndex)` event
