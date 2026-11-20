@@ -8,8 +8,8 @@ from pathlib import Path
 import re
 ROOT=Path(__file__).resolve().parents[1]
 PATH=ROOT/"MoonfallUnreal"/"Config"/"DefaultInput.ini"
-PATTERN=re.compile(r'^\\+ActionMappings=\\(ActionName="([^"]+)",Key=([^,)]+)')
-AXIS=re.compile(r'^\\+AxisMappings=\\(AxisName="([^"]+)",Scale=([^,]+),Key=([^,)]+)')
+PATTERN=re.compile(r'^\+ActionMappings=\(ActionName="([^"]+)",Key=([^,)]+)')
+AXIS=re.compile(r'^\+AxisMappings=\(AxisName="([^"]+)",Scale=([^,]+),Key=([^,)]+)')
 
 def scan(text):
     actions=defaultdict(set)
