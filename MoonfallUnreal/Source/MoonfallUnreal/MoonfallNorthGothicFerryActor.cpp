@@ -1,5 +1,6 @@
 #include "MoonfallNorthGothicFerryActor.h"
 #include "Components/SceneComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Camera/CameraComponent.h"
@@ -40,6 +41,50 @@ AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
  VoyageCamera->SetFieldOfView(80.f);
  VoyageCamera->bUsePawnControlRotation = false;
  VoyageCamera->bAutoActivate = true;
+
+ // Movable, pawn-only walking collision. The visible instanced hull/rigging
+ // remains collision-free so it cannot snag or block players and cameras.
+ PassengerDeck = CreateDefaultSubobject<UBoxComponent>(TEXT("PassengerWalkableDeck"));
+ PassengerDeck->SetupAttachment(GetRootComponent());
+ PassengerDeck->SetRelativeLocation(FVector(30.f, 0.f, 252.f));
+ PassengerDeck->SetBoxExtent(FVector(720.f, 235.f, 23.f));
+ PassengerDeck->SetCollisionObjectType(ECC_WorldDynamic);
+ PassengerDeck->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ PassengerDeck->SetCollisionResponseToAllChannels(ECR_Ignore);
+ PassengerDeck->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+ PassengerDeck->SetGenerateOverlapEvents(false);
+ PassengerDeck->SetCanEverAffectNavigation(false);
+ PassengerDeck->SetHiddenInGame(true);
+
+ PassengerBoardingMarker = CreateDefaultSubobject<USceneComponent>(TEXT("PassengerBoardingMarker"));
+ PassengerBoardingMarker->SetupAttachment(GetRootComponent());
+ // Hero capsule starts above the platform, never inside the floor or rail.
+ PassengerBoardingMarker->SetRelativeLocation(FVector(390.f, 0.f, 390.f));
+
+ auto MakeRail = [this](const FName& Name, const FVector& Position,
+                       const FVector& HalfExtent) -> UBoxComponent* {
+  UBoxComponent* Rail = CreateDefaultSubobject<UBoxComponent>(Name);
+  Rail->SetupAttachment(GetRootComponent());
+  Rail->SetRelativeLocation(Position);
+  Rail->SetBoxExtent(HalfExtent);
+  Rail->SetCollisionObjectType(ECC_WorldDynamic);
+  Rail->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+  Rail->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Rail->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+  Rail->SetGenerateOverlapEvents(false);
+  Rail->SetCanEverAffectNavigation(false);
+  Rail->SetHiddenInGame(true);
+  return Rail;
+ };
+ PortPassengerRail = MakeRail(TEXT("PortSafetyRail"),
+     FVector(30.f,-270.f,410.f), FVector(770.f,28.f,150.f));
+ StarboardPassengerRail = MakeRail(TEXT("StarboardSafetyRail"),
+     FVector(30.f,270.f,410.f), FVector(770.f,28.f,150.f));
+ BowPassengerRail = MakeRail(TEXT("BowSafetyRail"),
+     FVector(790.f,0.f,410.f), FVector(28.f,270.f,150.f));
+ SternPassengerRail = MakeRail(TEXT("SternSafetyRail"),
+     FVector(-730.f,0.f,410.f), FVector(28.f,270.f,150.f));
+
  auto MakePieces = [this](const FName& Name) -> UInstancedStaticMeshComponent* {
   UInstancedStaticMeshComponent* Pieces = CreateDefaultSubobject<UInstancedStaticMeshComponent>(Name);
   Pieces->SetupAttachment(GetRootComponent());
