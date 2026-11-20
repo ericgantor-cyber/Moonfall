@@ -52,6 +52,7 @@ private:
  FTimerHandle WeatherTimer;
  FTimerHandle ProximityTimer;
  bool bWeatherActive=false;
+ bool bWeatherRuntimeInitialized=false;
  void CheckWeatherProximity();
  void DeactivateWeatherPreview();
  int32 WeatherStep=0;
