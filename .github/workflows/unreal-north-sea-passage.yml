@@ -6,12 +6,15 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
       - 'tools/test_unreal_north_sea_gate_source.py'
       - 'tools/test_unreal_north_ferry_preview_source.py'
+      - 'tools/test_unreal_north_gothic_ferry_source.py'
       - 'MoonfallUnreal/NORTHERN_EXPANSE_SEA_PASSAGE.md'
       - '.github/workflows/unreal-north-sea-passage.yml'
   push:
@@ -19,12 +22,15 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
       - 'tools/test_unreal_north_sea_gate_source.py'
       - 'tools/test_unreal_north_ferry_preview_source.py'
+      - 'tools/test_unreal_north_gothic_ferry_source.py'
       - 'MoonfallUnreal/NORTHERN_EXPANSE_SEA_PASSAGE.md'
       - '.github/workflows/unreal-north-sea-passage.yml'
   workflow_dispatch:
@@ -44,6 +50,7 @@ jobs:
         run: |
           python tools/test_unreal_north_preview_map_source.py
           python tools/test_unreal_north_ferry_preview_source.py
+          python tools/test_unreal_north_gothic_ferry_source.py
       - name: GCC C++17 ferry route test
         if: runner.os == 'Linux'
         shell: bash
