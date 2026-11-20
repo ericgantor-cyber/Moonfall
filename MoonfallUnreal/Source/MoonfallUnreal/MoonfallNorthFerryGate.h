@@ -73,6 +73,7 @@ private:
  FVector SailingFrom = FVector::ZeroVector;
  FVector SailingTo = FVector::ZeroVector;
  float VoyageStartWorldSeconds = 0.f;
+ float ActiveVoyageDurationSeconds = 8.f;
  UFUNCTION()
  void OnBoardingOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
