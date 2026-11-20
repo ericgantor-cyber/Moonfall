@@ -115,11 +115,17 @@ void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
  }
 }
 void AMoonfallNorthWeatherActor::AdvanceWeatherPreview() {
+ if(!bWeatherActive || !bEnableWeatherPreview ||
+    !MoonfallNorth::ValidZone(ProvinceIndex)) return;
  ParticleStep=(ParticleStep+1)%MoonfallNorth::PrecipitationSteps;
- // Preserve the original two-second light pulse while animating flakes at 5Hz.
- if(ParticleStep%10==0)
+ // Animate precipitation at 5Hz, but only update light/text every 2s.
+ // Text creation and light color/intensity changes are not needed each step.
+ if(ParticleStep%10==0) {
   WeatherStep=(WeatherStep+1)%MoonfallNorth::WeatherPreviewSteps;
- RefreshWeatherPreview();
+  RefreshWeatherPreview();
+ } else {
+  RefreshWeatherParticles();
+ }
 }
 void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
  if(!IsValid(WeatherLight) || !IsValid(WeatherText) || !IsValid(WeatherParticles)) return;
