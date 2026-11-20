@@ -175,6 +175,22 @@ void AMoonfallCombatHUD::DrawHUD()
         nullptr, Scale * AtlasSideTextScale * 0.75f);
    }
   }
+  // Read-only worldwide Chronicle progress on the Atlas sidebar footer.
+  // Keep the compact label within the sidebar on smaller window sizes.
+  const uint32 ChronicleDiscovered = static_cast<uint32>(Hero->DiscoveredDungeonMask);
+  const uint32 ChronicleDefeated = static_cast<uint32>(Hero->DefeatedDungeonBossMask);
+  const auto WorldChronicle = MoonfallChronicle::SummarizeWorld(
+      ChronicleDiscovered, ChronicleDefeated);
+  if (WorldChronicle.Valid) {
+   const FString WorldLabel = AtlasSidebarWidth < 175.f
+      ? FString::Printf(TEXT("%d/42 | %d/6 ACTS"),
+          WorldChronicle.ChaptersRevealed, WorldChronicle.ActsCompleted)
+      : FString::Printf(TEXT("STORY %d/42 | ACTS %d/6"),
+          WorldChronicle.ChaptersRevealed, WorldChronicle.ActsCompleted);
+   DrawText(WorldLabel, FLinearColor(0.91f, 0.80f, 0.60f),
+       Left + 14.f, Top + Height - 24.f,
+       nullptr, Scale * AtlasSideTextScale * 0.79f);
+  }
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
   const float MapWidth = FMath::Max(40.f, Width - AtlasSidebarWidth - 36.f);
@@ -353,8 +369,6 @@ void AMoonfallCombatHUD::DrawHUD()
   // Full six-act, seven-chapter-per-act Chronicle. The same geometry is
   // shared with ResidentContextMouseClick: tabs NEVER pan the map behind.
   // All 42 chapter titles and prose are gated by saved dungeon discovery.
-  const uint32 ChronicleDiscovered = static_cast<uint32>(Hero->DiscoveredDungeonMask);
-  const uint32 ChronicleDefeated = static_cast<uint32>(Hero->DefeatedDungeonBossMask);
   const MoonfallChronicle::FProgress Chronicle = MoonfallChronicle::Summarize(
     Selected, ChronicleDiscovered, ChronicleDefeated);
   const MoonfallChronicleUI::FCard ChronicleCard = MoonfallChronicleUI::Layout(
