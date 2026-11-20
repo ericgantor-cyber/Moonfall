@@ -123,6 +123,14 @@ def main():
     island_ship.set_actor_rotation(unreal.Rotator(0.0, -90.0, 0.0), False)
     mainland_ship.rerun_construction_scripts()
     island_ship.rerun_construction_scripts()
+    # Each gate owns the visual ship for its outward automatic journey.
+    # Both vessels are decorative, with no player steering or ocean enemies.
+    mainland_gate.set_editor_property("sailing_vessel", mainland_ship)
+    island_gate.set_editor_property("sailing_vessel", island_ship)
+    mainland_gate.set_editor_property("voyage_duration_seconds", 8.0)
+    island_gate.set_editor_property("voyage_duration_seconds", 8.0)
+    mainland_gate.rerun_construction_scripts()
+    island_gate.rerun_construction_scripts()
 
     # Spawn at mainland, walking distance from the boarding deck.
     spawn(
