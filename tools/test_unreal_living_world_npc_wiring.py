@@ -40,6 +40,24 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_weapon_resonance_reads_valid_equipped_gear_and_saved_boss_mask(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("FString GetEquippedWeaponResonance() const;", header)
+        method = hero.split("FString AMoonfallHeroPawn::GetEquippedWeaponResonance() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
+        for required in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
+                         "DecodeEquippedItem(EquippedWeaponCode, 0, Trait, Rarity, Tier)",
+                         "DefeatedDungeonBossMask",
+                         "MoonfallLivingWorld::BossResonance(DefeatedBosses, Tier, Rarity)",
+                         "Victories &= Victories - 1u;",
+                         "Awakened", "Ascendant", "Mythic"):
+            self.assertIn(required, method)
+        for forbidden in ("SaveWorldProgress(", "InventoryItemCodes.Add(", "EquippedWeaponCode ="):
+            self.assertNotIn(forbidden, method)
+        self.assertIn("Hero->GetEquippedWeaponResonance()", hud)
+        self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", hero)
     def test_dialogue_reflects_completed_contract_and_never_grants_bond(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         section = npc.split("bool AMoonfallWorldNPC::TryTalk(", 1)[1].split(
