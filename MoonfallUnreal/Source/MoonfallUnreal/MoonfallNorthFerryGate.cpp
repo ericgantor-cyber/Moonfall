@@ -153,10 +153,11 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
  VoyageSecondsRemaining = 0;
  VoyagePhaseIndex = 0;
  if (FerrySign) {
-  FerrySign->SetText(FText::FromString(
-   (bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND") : TEXT("FERRY TO SHIVERWAKE COAST"))
-   + FString(bEnableSeaPassage ? TEXT("\nAUTOMATIC FERRY BOARDING")
-                               : TEXT("\nNOT YET AVAILABLE"))));
+  const FString Direction = bIslandHarbor
+      ? TEXT("RETURN FERRY TO MAINLAND") : TEXT("FERRY TO SHIVERWAKE COAST");
+  const FString Availability = bEnableSeaPassage
+      ? TEXT("\nAUTOMATIC FERRY BOARDING") : TEXT("\nNOT YET AVAILABLE");
+  FerrySign->SetText(FText::FromString(Direction + Availability));
  }
 }
 
