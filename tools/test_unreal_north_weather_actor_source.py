@@ -17,6 +17,17 @@ assert "MoonfallNorth::PreviewBrightness(" in source
 assert "GetWorldTimerManager().SetTimer(" in source
 assert "GetWorldTimerManager().ClearTimer(" in source
 assert "WeatherText->SetTextRenderColor(Color)" in source
+assert "WeatherParticles" in header
+assert "WeatherParticles->SetCollisionEnabled(ECollisionEnabled::NoCollision)" in source
+assert "WeatherParticles->SetGenerateOverlapEvents(false)" in source
+assert "WeatherParticles->SetCastShadow(false)" in source
+assert "WeatherParticles->ClearInstances()" in source
+assert "MoonfallNorth::PrecipitationInstanceCount" in source
+assert "MoonfallNorth::PrecipitationAt(" in source
+assert "WeatherParticles->AddInstance(" in source
+assert "0.2f,true" in source
+assert "ParticleStep%10==0" in source
+
 for forbidden in ("SpawnActor", "SaveGameToSlot", "LoadGameFromSlot",
                   "ExponentialHeightFog", "SetFogDensity", "SetVisibilityDistance",
                   "SetGlobalTimeDilation", "Damage", "Niagara", "ParticleSystem"):
