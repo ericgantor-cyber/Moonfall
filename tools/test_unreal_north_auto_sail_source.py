@@ -46,7 +46,12 @@ for text in (
     "int32 VoyagePhaseIndex = 0",
     "void UpdateVoyagePresentation",
     "virtual void EndPlay",
-    "bool bUseVoyageCamera = true",
+    "bool bUseVoyageCamera = false",
+    "bool bVoyagerOnDeck = false",
+    "OriginalBoardingLocation",
+    "OriginalBoardingRotation",
+    "bool IsVoyagerAboard(",
+    "void StopAutomaticVoyage(bool bArrived = false)",
     "TWeakObjectPtr<APlayerController> VoyagePlayerController",
     "TWeakObjectPtr<AActor> PreviousPlayerViewTarget",
     "bool bCinematicViewActive = false",
@@ -60,7 +65,15 @@ tick = gate_cpp.split("void AMoonfallNorthFerryGate::UpdateAutomaticVoyage(", 1)
 cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1)[1].split(
     "bool AMoonfallNorthFerryGate::BoardFerry(", 1)[0]
 
-assert "Hero->TeleportTo(" not in start, "Boarding must not bypass timed voyage"
+# Boarding places the hero *on the real ship deck*, but cannot teleport to
+# the destination before the complete eleven-second crossing.
+assert "Hero->TeleportTo(DeckSpawn" in start
+assert "Hero->TeleportTo(Destination" not in start
+assert "Hero->SetBase(SailingVessel->PassengerDeck)" in start
+assert "Hero->GetMovementBase() != SailingVessel->PassengerDeck" in start
+assert "OriginalBoardingLocation = DockLocation" in start
+assert "OriginalBoardingRotation = DockRotation" in start
+assert "bVoyagerOnDeck = true" in start
 assert "GetTimerManager().SetTimer(AutomaticVoyageTimer" in start
 assert "SailingVessel->GetActorLocation()" in start
 assert "PairedGate->SailingVessel->GetActorLocation()" in start
@@ -83,12 +96,23 @@ assert "NextPhase == VoyagePhaseIndex && NextRemaining == VoyageSecondsRemaining
 assert "VoyageSecondsRemaining = 0;" in cleanup
 assert "VoyagePhaseIndex = 0;" in cleanup
 assert "Ship->SetActorLocation(Position" in tick
+assert "!IsVoyagerAboard(Hero, Ship)" in tick
+assert "Hero->SetBase(nullptr)" in tick
+assert "Hero->SetBase(Ship->PassengerDeck)" in tick
+assert "StopAutomaticVoyage(bArrived)" in tick
 assert "MoonfallNorth::AutoSailShouldArrive" in tick
 assert "Hero->TeleportTo(Destination" in tick
 assert "if (bArrived) OnFerryArrival(Hero, bFirst)" in tick
 assert "StopAutomaticVoyage();" in tick
 assert "ClearTimer(AutomaticVoyageTimer)" in cleanup
 assert "Ship->SetActorTransform(OriginalShipTransform" in cleanup
+assert "Hero->TeleportTo(OriginalBoardingLocation" in cleanup
+assert "Hero->TeleportTo(Fallback" in cleanup
+assert "bVoyagerOnDeck = false" in cleanup
+assert "Hero->GetMovementBase() == Ship->PassengerDeck" in cleanup
+assert "Hero->SetBase(nullptr)" in cleanup
+assert "Ship->PassengerBoardingMarker->GetComponentLocation()" in cleanup
+assert "IsVoyagerAboard(" in cleanup
 assert "if (PC->GetViewTarget() == PendingShip.Get())" in cleanup
 assert "ReturnTarget = PreviousPlayerViewTarget.Get()" in cleanup
 assert "ReturnTarget = PendingVoyager.Get()" in cleanup
