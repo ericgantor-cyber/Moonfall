@@ -1,6 +1,7 @@
 #include "MoonfallNorthFerryGate.h"
 #include "MoonfallNorthSeaPassage.h"
 #include "MoonfallNorthAutoSail.h"
+#include "MoonfallNorthDryLandingPolicy.h"
 #include "MoonfallNorthGothicFerryActor.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
@@ -229,17 +230,22 @@ bool AMoonfallNorthFerryGate::FindSafeDryLanding(
  if (!GetWorld()->LineTraceSingleByChannel(
          Ground, TraceTop, TraceBottom, ECC_Visibility, Query)
      || !Ground.bBlockingHit || Ground.ImpactPoint.ContainsNaN()
-     || Ground.ImpactNormal.Z < 0.7f || !IsValid(Ground.GetComponent()))
+     || Ground.ImpactNormal.ContainsNaN() || !IsValid(Ground.GetComponent()))
   return false;
+ // A Visibility-blocking decorative surface may not support a player.
+ // Require the very same physical ground component to block the Pawn too.
+ const bool bPawnBlocks =
+     Ground.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block;
  const float CapsuleHalfHeight =
      Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
- if (!FMath::IsFinite(CapsuleHalfHeight)
-     || CapsuleHalfHeight <= 0.f || CapsuleHalfHeight >= 500.f) return false;
+ if (!MoonfallNorth::ValidDryLandingSample(
+         Ground.bBlockingHit, bPawnBlocks, Ground.ImpactNormal.Z,
+         Anchor.Z, Ground.ImpactPoint.Z, CapsuleHalfHeight))
+  return false;
  const FVector Candidate(Ground.ImpactPoint.X, Ground.ImpactPoint.Y,
-                         Ground.ImpactPoint.Z + CapsuleHalfHeight + 3.f);
- // Avoid snapping to distant or implausible geometry below an empty dock.
- if (Candidate.ContainsNaN() || Candidate.SizeSquared() >= 1.0e14f
-     || FMath::Abs(Candidate.Z - Anchor.Z) > 400.f) return false;
+     Ground.ImpactPoint.Z + CapsuleHalfHeight
+     + MoonfallNorth::DryLandingCapsuleClearanceCm);
+ if (Candidate.ContainsNaN() || Candidate.SizeSquared() >= 1.0e14f) return false;
  OutLandingLocation = Candidate;
  return true;
 }
