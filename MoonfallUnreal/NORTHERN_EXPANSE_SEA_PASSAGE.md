@@ -31,6 +31,13 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   a menu or encountering blocked landing cancels the crossing without an
   arrival event. On cancellation it attempts to restore the original dry
   dock position, then a nearby fallback; the ship is reset to its origin.
+- **Source-dock boarding fix:** a valid destination alone is not
+  sufficient to start sailing. The character must also be actively grounded
+  on a fresh collision-verified departure surface before teleporting aboard.
+  Jumping/falling into the boarding trigger or falling over the dock edge
+  cannot trigger an eleven-second sea crossing. On cancellation, the harbor
+  sign respects `bEnableSeaPassage`: a disabled ferry says **NOT YET
+  AVAILABLE**, rather than incorrectly advertising automatic boarding.
 - **Dock-removal rescue fix:** both cancellation recovery and rejected
   boarding now trace for genuinely walkable ground beneath the character's
   saved original boarding point **before** attempting to return them there.
