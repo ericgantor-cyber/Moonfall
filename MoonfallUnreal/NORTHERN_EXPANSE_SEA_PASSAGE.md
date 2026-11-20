@@ -6,6 +6,52 @@ Moonfall ferry at an authored mainland harbor. The paired return ferry is at
 Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
 **not** a tenth province, a shrine shortcut, or a replacement of existing maps.
 
+## Eighteen Shiverwake Coast shrines (preview integration)
+
+**Exactly 18 named, discoverable shrine actors** are now authored for the
+existing Shiverwake Coast province pad, without creating another zone, moving
+either ferry or changing Z/Nyra art. The shared, source-controlled layout
+`Tools/shiverwake_shrine_layout.py` spaces all 18 on solid province ground
+outside the ferry trigger and landing marker. They reuse the existing
+`AMoonfallCheckpointShrine` actor, including its overlap range, persistent
+lit/active visual while discovered, distinct active respawn marker and Atlas
+display names. Names by island area:
+
+- **Southern shore (6):** Shiverwake Landing, Tideglass Watch, Saltwind Beacon,
+  Ravenrest, Frosttide Hollow, Dawnwatch Bluff.
+- **Central plateau (6):** Moonshard Cairn, Whispering Ice, Blackwater Vigil,
+  Greywake Spire, Silverfall Refuge, Northwind Rise.
+- **Northern ridge (6):** Frostglass Chapel, Stormbreak Cairn, Pale Aurora,
+  Seaborn Sanctuary, Winterthorn, Lastlight Beacon.
+
+**Preview gameplay:** discovered shrines stay lit, the newest discovered
+shrine becomes the active in-memory death checkpoint, and entering any
+previously discovered Shiverwake shrine restores health, mana and stamina.
+Only the isolated `MoonfallNorthPreviewGameMode` grants session-only
+activation; all reads/writes to the player's **main six-zone campaign save**
+remain blocked. Leaving the test preview discards its shrine progress. A
+permanent new-island save format still needs separate review and migration,
+not a silent write to the legacy save slot.
+
+**Authoring:** running `Tools/create_northern_expanse_preview.py` in a
+compiled UE5.4 Editor includes all 18 shrines in a *new* isolated preview.
+If that preview level **already exists**, do not delete or regenerate it.
+Instead run `Tools/add_shiverwake_shrines_to_existing_preview.py`: it
+checks the preview game mode and two harbors, adds only missing named shrines,
+preserves other actors and existing shrine identities, and saves the isolated
+preview map. Re-running the updater is idempotent. Finally run
+`Tools/validate_northern_expanse_preview.py` and confirm 18 IDs, names,
+positions and discovery triggers.
+
+**Native acceptance still needed:** compile UE5.4 Editor; generate/update
+and validate the map; walk between all 18 shrines; confirm visiting one
+activates it without deactivating previous shrines, rest heals HP/mana/stamina,
+death respawns at the most recently discovered valid checkpoint, and neither
+a test session nor reopening the preview changes the main campaign save.
+Verify ferry arrivals do not automatically activate a shrine. Python CI
+uses a fake Unreal editor for layout/idempotence and source assertions;
+it does **not** prove real UE5 physics, saves, map generation or PIE play.
+
 ## What exists in code
 
 - The portable `MoonfallNorthSeaPassage.h` policy only accepts mainland to
