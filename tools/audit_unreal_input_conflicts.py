@@ -65,6 +65,15 @@ def main():
         raise SystemExit("Unexpected shared controller or keyboard actions: "+
                          str({k:v for k,v in conflicts.items()
                               if k not in expected_contextual}))
+    pawn=(ROOT/"MoonfallUnreal"/"Source"/"MoonfallUnreal"/"MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+    jump_section=pawn.split("void AMoonfallHeroPawn::TryJump()",1)[1].split(
+        "void AMoonfallHeroPawn::MoveForward(",1)[0]
+    assert "PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)" in jump_section
+    assert "ToggleCharacterStats();" in jump_section
+    assert "if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen)" in jump_section
+    assert "Jump();" in jump_section
+    assert '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)' not in PATH.read_text(encoding="utf-8")
+    print("Contextual Gamepad A: Jump in world, Character Stats in inventory (source verified)")
     print("Safe gameplay Jump button: PASS (no menu binding)")
     print("Mapping presence: PASS")
     print("Shared action keys needing contextual UE5 testing: %d" % len(conflicts))
