@@ -3,13 +3,17 @@ name: Morvella divine attack footprint geometry
 on:
   pull_request:
     paths:
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/**'
       - 'tests/cpp/test_morvella_footprints.cpp'
+      - 'tests/test_divine_family_roster.py'
+      - 'godot-v38/scripts/native_v11.gd'
       - '.github/workflows/morvella-footprints.yml'
   push:
     paths:
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/**'
       - 'tests/cpp/test_morvella_footprints.cpp'
+      - 'tests/test_divine_family_roster.py'
+      - 'godot-v38/scripts/native_v11.gd'
       - '.github/workflows/morvella-footprints.yml'
 
 jobs:
@@ -21,3 +25,5 @@ jobs:
         run: g++ -std=c++17 -O2 -Wall -Wextra -Werror -I. tests/cpp/test_morvella_footprints.cpp -o /tmp/test_morvella_footprints
       - name: Verify four Morvella telegraph hit shapes
         run: /tmp/test_morvella_footprints
+      - name: Verify divine family roster, world placement and victory persistence
+        run: python3 -m unittest discover -s tests -p test_divine_family_roster.py -v
