@@ -3809,6 +3809,34 @@ FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const {
  }
  return TEXT("Unknown");
 }
+bool AMoonfallHeroPawn::IsSanctuaryRoomUnlocked(int32 RoomId) const {
+ if (RoomId < static_cast<int32>(MoonfallLivingWorld::SanctuaryRoom::Atlas)
+     || RoomId > static_cast<int32>(MoonfallLivingWorld::SanctuaryRoom::Portal))
+  return false;
+ int32 CompletedContracts = 0;
+ for (const auto& Entry : ResidentQuestStates) {
+  if (Entry.Value == 2) ++CompletedContracts;
+ }
+ return MoonfallLivingWorld::SanctuaryRoomUnlocked(
+     static_cast<MoonfallLivingWorld::SanctuaryRoom>(RoomId),
+     HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight"))),
+     GetTotalDefeatedDungeonBosses(), CompletedContracts);
+}
+
+FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const {
+ if (DecisionId < static_cast<int32>(MoonfallLivingWorld::CouncilDecision::ProtectResidents)
+     || DecisionId > static_cast<int32>(MoonfallLivingWorld::CouncilDecision::FortifyBorders))
+  return TEXT("Invalid decision");
+ const auto Decision = static_cast<MoonfallLivingWorld::CouncilDecision>(DecisionId);
+ const auto Outcome = MoonfallLivingWorld::Decide(Decision);
+ const TCHAR* Title = Decision == MoonfallLivingWorld::CouncilDecision::ProtectResidents
+   ? TEXT("Protect Residents")
+   : Decision == MoonfallLivingWorld::CouncilDecision::FundReconstruction
+   ? TEXT("Fund Reconstruction") : TEXT("Fortify Borders");
+ return FString::Printf(TEXT("%s | Faction %+d | Prosperity %+d | Threat %+d (preview only)"),
+    Title, Outcome.factionDelta, Outcome.prosperityDelta, Outcome.threatDelta);
+}
+
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
