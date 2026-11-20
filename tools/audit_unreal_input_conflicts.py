@@ -46,6 +46,26 @@ def main():
     for key,required in required_axes.items():
         if not required.issubset(axes.get(key,set())):
             raise SystemExit("Missing controller axis for "+key)
+    # These five shared buttons remain context-sensitive. Their gameplay
+    # actions and inventory actions must be verified with UE5 runtime input.
+    expected_contextual={
+        "Gamepad_FaceButton_Left": {"InventorySalvage","PickupLoot"},
+        "Gamepad_FaceButton_Right": {"AscendGear","Dodge"},
+        "Gamepad_LeftShoulder": {"CastLeft","ReforgeGear"},
+        "Gamepad_LeftTrigger": {"DualCast","EquipBest"},
+        "Gamepad_RightShoulder": {"CastRight","ForgeFive"},
+    }
+    for key, actions_expected in expected_contextual.items():
+        actual = actions.get(key,set())
+        if not actions_expected.issubset(actual):
+            raise SystemExit("Lost expected contextual bind on "+key+": "+str(sorted(actual)))
+    if len(actions.get("Gamepad_FaceButton_Bottom",set()))!=1:
+        raise SystemExit("Gamepad A must only activate Jump, not a character menu")
+    if set(conflicts)!=set(expected_contextual):
+        raise SystemExit("Unexpected shared controller or keyboard actions: "+
+                         str({k:v for k,v in conflicts.items()
+                              if k not in expected_contextual}))
+    print("Safe gameplay Jump button: PASS (no menu binding)")
     print("Mapping presence: PASS")
     print("Shared action keys needing contextual UE5 testing: %d" % len(conflicts))
     for key,names in conflicts.items():
