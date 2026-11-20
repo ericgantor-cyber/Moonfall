@@ -1,6 +1,7 @@
 // Portable C++17 regression tests for proposed Northern Expanse provinces.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -59,6 +60,27 @@ int main() {
  }
  assert(N::MorvellaAccess(1u<<N::ZoneCount,false)==N::EMorvellaAccess::Invalid);
  assert(!N::HasDiscoveredRoute(0,N::MorvellaProvince,1u<<N::ZoneCount));
+ assert(N::DivineHomesValid());
+ assert(std::strcmp(N::Zones[N::ZProvince].Name,"Starveil Vale")==0);
+ assert(std::strcmp(N::Zones[N::NyraProvince].Name,"Nightspire Dominion")==0);
+ assert(std::strcmp(N::ZEncounterId,"z_void_reaper")==0);
+ assert(std::strcmp(N::NyraEncounterId,"nyra_eclipse_queen")==0);
+ assert(N::ZProvince!=N::NyraProvince && N::ZProvince!=N::MorvellaProvince);
+ for(std::uint32_t Mask=0; Mask<=N::AllProvinceBits; ++Mask) {
+  for(int God=0; God<2; ++God) {
+   const int Province=God==0?N::ZProvince:N::NyraProvince;
+   const auto Status=N::NorthernDivineAccess(Province,Mask,false);
+   const bool Found=(Mask & (1u<<Province))!=0u;
+   const bool Reachable=N::HasDiscoveredRoute(0,Province,Mask);
+   assert(Status==(Found
+    ? (Reachable?N::EDivineAccess::Available:N::EDivineAccess::RouteBlocked)
+    : N::EDivineAccess::Undiscovered));
+   assert(N::NorthernDivineAccess(Province,Mask,true)==N::EDivineAccess::Defeated);
+  }
+ }
+ assert(N::NorthernDivineAccess(-1,0u,false)==N::EDivineAccess::Invalid);
+ assert(N::NorthernDivineAccess(9,0u,false)==N::EDivineAccess::Invalid);
+ assert(N::ZNorthernAccess(1u<<N::ZoneCount,false)==N::EDivineAccess::Invalid);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
