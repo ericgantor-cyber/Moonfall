@@ -1,6 +1,7 @@
 #include "MoonfallNorthWeatherActor.h"
 #include "MoonfallNorthWeatherPreview.h"
 #include "MoonfallNorthPrecipitation.h"
+#include "MoonfallNorthWeatherRange.h"
 #include "Components/SceneComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -98,10 +99,10 @@ void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
  // repeatedly across the activation boundary. Recover invalid editor data.
  const float Radius=FMath::IsFinite(WeatherActivationRadiusCm)
    ? FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f) : 2500.f;
- const float ExitRadius=Radius+250.f;
- const float Limit=bWeatherActive ? ExitRadius : Radius;
  const bool bShouldActivate=IsValid(Player) &&
-   FVector::DistSquared(Player->GetActorLocation(),GetActorLocation()) <= Limit*Limit;
+   MoonfallNorth::WithinWeatherRange(bWeatherActive,
+     static_cast<float>(FVector::DistSquared(
+       Player->GetActorLocation(),GetActorLocation())),Radius);
  if(bShouldActivate==bWeatherActive) return;
  bWeatherActive=bShouldActivate;
  if(bWeatherActive) {
