@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicle.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicleUI.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Config/DefaultInput.ini'
+      - 'tools/test_unreal_chronicle_ui.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'tools/test_unreal_chronicle.cpp'
       - 'tools/test_unreal_chronicle.py'
@@ -11,6 +16,11 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicle.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicleUI.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Config/DefaultInput.ini'
+      - 'tools/test_unreal_chronicle_ui.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - 'tools/test_unreal_chronicle.cpp'
       - 'tools/test_unreal_chronicle.py'
@@ -27,5 +37,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_chronicle.cpp -o /tmp/moonfall-chronicle
           /tmp/moonfall-chronicle
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_chronicle_ui.cpp -o /tmp/moonfall-chronicle-ui
+          /tmp/moonfall-chronicle-ui
       - name: Test atlas integration without revealing unvisited lore
         run: python3 -m unittest -v tools.test_unreal_chronicle
