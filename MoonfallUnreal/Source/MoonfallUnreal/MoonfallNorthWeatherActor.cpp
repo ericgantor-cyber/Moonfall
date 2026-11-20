@@ -44,17 +44,20 @@ void AMoonfallNorthWeatherActor::BeginPlay() {
  Super::BeginPlay();
  WeatherStep=0;
  ParticleStep=0;
+ bWeatherRuntimeInitialized=true;
  SetWeatherPreviewEnabled(bEnableWeatherPreview);
 }
 void AMoonfallNorthWeatherActor::EndPlay(const EEndPlayReason::Type Reason) {
  GetWorldTimerManager().ClearTimer(WeatherTimer);
  GetWorldTimerManager().ClearTimer(ProximityTimer);
+ bWeatherRuntimeInitialized=false;
+ bWeatherActive=false;
  DeactivateWeatherPreview();
  Super::EndPlay(Reason);
 }
 void AMoonfallNorthWeatherActor::SetWeatherPreviewEnabled(bool bEnabled) {
  bEnableWeatherPreview=bEnabled;
- if(!HasActorBegunPlay()) {
+ if(!bWeatherRuntimeInitialized) {
   RefreshWeatherPreview();
   return;
  }
@@ -74,7 +77,7 @@ void AMoonfallNorthWeatherActor::SetWeatherProvinceIndex(int32 NewProvinceIndex)
  ProvinceIndex=NewProvinceIndex;
  WeatherStep=0;
  ParticleStep=0;
- if(HasActorBegunPlay()) SetWeatherPreviewEnabled(bEnableWeatherPreview);
+ if(bWeatherRuntimeInitialized) SetWeatherPreviewEnabled(bEnableWeatherPreview);
  else RefreshWeatherPreview();
 }
 void AMoonfallNorthWeatherActor::DeactivateWeatherPreview() {
@@ -115,7 +118,7 @@ void AMoonfallNorthWeatherActor::AdvanceWeatherPreview() {
 void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
  if(!IsValid(WeatherLight) || !IsValid(WeatherText) || !IsValid(WeatherParticles)) return;
  const auto* Climate=MoonfallNorth::ClimateFor(ProvinceIndex);
- if(!bEnableWeatherPreview || !Climate || (HasActorBegunPlay() && !bWeatherActive)) {
+ if(!bEnableWeatherPreview || !Climate || (bWeatherRuntimeInitialized && !bWeatherActive)) {
   WeatherLight->SetVisibility(false);
   WeatherText->SetVisibility(false);
   WeatherParticles->ClearInstances();
@@ -134,7 +137,7 @@ void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
 void AMoonfallNorthWeatherActor::RefreshWeatherParticles() {
  if(!IsValid(WeatherParticles)) return;
  if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)
-     || (HasActorBegunPlay() && !bWeatherActive)
+     || (bWeatherRuntimeInitialized && !bWeatherActive)
      || !WeatherParticles->GetStaticMesh()) {
   WeatherParticles->ClearInstances();
   return;
