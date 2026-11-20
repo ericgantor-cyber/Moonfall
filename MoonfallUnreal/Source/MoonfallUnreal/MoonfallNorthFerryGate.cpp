@@ -154,8 +154,9 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
  VoyagePhaseIndex = 0;
  if (FerrySign) {
   FerrySign->SetText(FText::FromString(
-   bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\nAUTOMATIC BOARDING")
-                 : TEXT("FERRY TO SHIVERWAKE COAST\nAUTOMATIC BOARDING")));
+   (bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND") : TEXT("FERRY TO SHIVERWAKE COAST"))
+   + FString(bEnableSeaPassage ? TEXT("\nAUTOMATIC FERRY BOARDING")
+                               : TEXT("\nNOT YET AVAILABLE"))));
  }
 }
 
@@ -308,6 +309,14 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // travels, while their normal movement controls remain available on deck.
  const FVector DockLocation = Hero->GetActorLocation();
  const FRotator DockRotation = Hero->GetActorRotation();
+ // The destination check is not enough: do not board a jumping/falling
+ // character or a character near the dock but no longer on walkable land.
+ // Both the actual movement state and a fresh dry-ground trace must pass.
+ const UCharacterMovementComponent* BoardingMovement = Hero->GetCharacterMovement();
+ FVector SafeDeparture;
+ if (!IsValid(BoardingMovement) || !BoardingMovement->IsMovingOnGround()
+     || !FindSafeDryLandingAt(Hero, this, DockLocation, SafeDeparture))
+  return false;
  FVector DeckSpawn = SailingVessel->PassengerBoardingMarker->GetComponentLocation();
  // The static preview marker is intentionally approximate. Place the actual
  // capsule 2 cm above the walkable floor, honoring the hero's real capsule
