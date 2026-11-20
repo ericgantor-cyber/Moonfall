@@ -87,9 +87,9 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
  if (!bArrived && bVoyagerOnDeck && IsValid(Hero)) {
   // Always try a safe port fallback, even when the recorded boarding
   // location was made invalid during the voyage.
-  if (!OriginalBoardingLocation.ContainsNaN()
-      && OriginalBoardingLocation.SizeSquared() < 1.0e14f)
-   bRescued = Hero->TeleportTo(OriginalBoardingLocation,
+  FVector SafeOriginal;
+  if (FindSafeDryLandingAt(Hero, this, OriginalBoardingLocation, SafeOriginal))
+   bRescued = Hero->TeleportTo(SafeOriginal,
        OriginalBoardingRotation, false, false);
   // The return-harbor fallback needs the SAME real-ground validation as
   // a normal landing. Never rescue a player onto an empty-water marker.
@@ -215,11 +215,18 @@ bool AMoonfallNorthFerryGate::FindSafeDryLanding(
     const AMoonfallHeroPawn* Hero, const AMoonfallNorthFerryGate* Harbor,
     FVector& OutLandingLocation) const {
  OutLandingLocation = FVector::ZeroVector;
- if (!GetWorld() || !IsValid(Hero) || !IsValid(Harbor)
-     || !IsValid(Harbor->ArrivalMarker) || !IsValid(Hero->GetCapsuleComponent())
-     || Harbor->GetWorld() != GetWorld()) return false;
+ if (!IsValid(Harbor) || !IsValid(Harbor->ArrivalMarker)) return false;
+ return FindSafeDryLandingAt(Hero, Harbor,
+     Harbor->ArrivalMarker->GetComponentLocation(), OutLandingLocation);
+}
 
- const FVector Anchor = Harbor->ArrivalMarker->GetComponentLocation();
+bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(
+    const AMoonfallHeroPawn* Hero, const AMoonfallNorthFerryGate* Harbor,
+    const FVector& Anchor, FVector& OutLandingLocation) const {
+ OutLandingLocation = FVector::ZeroVector;
+ if (!GetWorld() || !IsValid(Hero) || !IsValid(Harbor)
+     || !IsValid(Hero->GetCapsuleComponent())
+     || Harbor->GetWorld() != GetWorld()) return false;
  if (Anchor.ContainsNaN() || Anchor.SizeSquared() >= 1.0e14f) return false;
  const FVector TraceTop = Anchor + FVector(0.f,0.f,150.f);
  const FVector TraceBottom = Anchor - FVector(0.f,0.f,800.f);
@@ -227,6 +234,10 @@ bool AMoonfallNorthFerryGate::FindSafeDryLanding(
  Query.AddIgnoredActor(Hero);
  Query.AddIgnoredActor(this);
  Query.AddIgnoredActor(Harbor);
+ // A parked or resetting ferry deck is not a dry LANDING surface. Trace
+ // against actual harbor terrain, never either decorative passenger vessel.
+ if (IsValid(SailingVessel)) Query.AddIgnoredActor(SailingVessel);
+ if (IsValid(Harbor->SailingVessel)) Query.AddIgnoredActor(Harbor->SailingVessel);
  FHitResult Ground;
  if (!GetWorld()->LineTraceSingleByChannel(
          Ground, TraceTop, TraceBottom, ECC_Visibility, Query)
@@ -313,7 +324,9 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
   // Failed movement-base assignment MUST NOT strand the hero at sea.
   // Restore the exact dry boarding spot, or a separately traced harbor
   // fallback if something obstructed the original during the teleport.
-  bool bReturned = Hero->TeleportTo(DockLocation, DockRotation, false, false);
+  FVector SafeOriginal;
+  bool bReturned = FindSafeDryLandingAt(Hero, this, DockLocation, SafeOriginal)
+      && Hero->TeleportTo(SafeOriginal, DockRotation, false, false);
   if (!bReturned) {
    FVector SafeHarbor;
    if (FindSafeDryLanding(Hero, this, SafeHarbor))
