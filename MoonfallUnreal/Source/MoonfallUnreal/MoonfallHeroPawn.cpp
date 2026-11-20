@@ -3746,6 +3746,23 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
   return (*Value == 1 || *Value == 2) ? *Value : 0;
  return 0;
 }
+FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const {
+ // Read only the existing durable quest and shrine ledgers. No actor scans,
+ // artificial raid victories, timer-based progress or new save fields.
+ int32 CompletedContracts = 0;
+ for (const auto& Entry : ResidentQuestStates) {
+  if (Entry.Value == 2) ++CompletedContracts;
+ }
+ MoonfallLivingWorld::Settlement Progress;
+ Progress.completedContracts = CompletedContracts;
+ Progress.shrineDiscovered = !DiscoveredShrineIds.IsEmpty();
+ switch (MoonfallLivingWorld::SettlementStatus(Progress)) {
+ case MoonfallLivingWorld::SettlementTier::Endangered: return TEXT("Endangered");
+ case MoonfallLivingWorld::SettlementTier::Recovering: return TEXT("Recovering");
+ case MoonfallLivingWorld::SettlementTier::Flourishing: return TEXT("Flourishing");
+ }
+ return TEXT("Unknown");
+}
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
