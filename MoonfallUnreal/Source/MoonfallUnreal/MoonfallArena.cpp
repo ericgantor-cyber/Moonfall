@@ -311,7 +311,8 @@ void AMoonfallArena::SpawnMorvellaWorldEncounter() {
  CreateBlock(FVector(X - 1000.f, 850.f, 130.f), FVector(1.f, 18.f, 3.6f));
  CreateBlock(FVector(X + 1000.f, 850.f, 130.f), FVector(1.f, 18.f, 3.6f));
  CreateBlock(FVector(X, 1750.f, 130.f), FVector(20.f, 1.f, 3.6f));
- for (const float Side : {-1.f, 1.f}) {
+ const float Sides[] = {-1.f, 1.f};
+ for (const float Side : Sides) {
   CreateBlock(FVector(X + Side * 760.f, 375.f, 70.f), FVector(1.2f,1.2f,2.4f));
   CreateBlock(FVector(X + Side * 760.f, 1360.f, 70.f), FVector(1.2f,1.2f,2.4f));
  }
@@ -340,8 +341,8 @@ void AMoonfallArena::SpawnMorvellaWorldEncounter() {
  // Designers can provide a Blueprint subclass with the exact approved
  // Morvella artwork. Without that import, a standard visible enemy mesh
  // is used only as a temporary combat proxy.
- const TSubclassOf<AMoonfallEnemy> SpawnClass = MorvellaWorldActorClass
-  ? MorvellaWorldActorClass : AMoonfallEnemy::StaticClass();
+ UClass* SpawnClass = MorvellaWorldActorClass
+  ? MorvellaWorldActorClass.Get() : AMoonfallEnemy::StaticClass();
  const FTransform SpawnTransform(FRotator(0.f,-90.f,0.f),
    GetActorTransform().TransformPosition(FVector(X, 1080.f, 60.f)));
  AMoonfallEnemy* Morvella = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
