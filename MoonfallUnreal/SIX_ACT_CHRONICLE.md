@@ -10,12 +10,33 @@ The existing six contiguous zones and their five physical dungeons per zone prov
 ### In-game content in this change
 
 - A self-contained C++17 catalog at `Source/MoonfallUnreal/MoonfallChronicle.h` contains all 42 names and authored lore passages. These are original story materials, not copies of another game's lore.
-- J opens the existing Atlas. The currently selected region previews its active revealed story beat, along with the act title and discovery / victory progress.
+- J opens the existing Atlas. Its **seven numbered Chronicle tabs** now let
+  players revisit each chapter of the selected act, with distinct
+  **LOCKED / DISCOVERED / CLEARED** states and automatic focus on the next
+  discovered, unbeaten chapter. The active act, progress and readable
+  multi-line passages appear in the bottom map reader.
 - Chapter 1 is the publicly available regional prologue. Chapters 2–6 become visible only when their matching dungeon entrance is actually discovered; the corresponding chapter is considered cleared when that dungeon boss is truly recorded as defeated. Chapter 7, the regional epilogue, appears only when all five regional bosses are defeated.
 - Dungeons may be visited out of order. The chronicle features an incomplete discovered chapter first, then the prelude, or the unlocked epilogue once the region is cleared.
 - The system reads `DiscoveredDungeonMask` and `DefeatedDungeonBossMask` from existing saves. It never grants XP, salvage, equipment, reputation or dungeon discoveries. It never scans actors each frame or creates world geometry.
 - Undiscovered narrative chapter titles and prose stay concealed in the Atlas even though the authored catalog exists in source control.
-- No new shortcut, menu click target, queue, storyline checkpoint, cutscene, animation asset, or conversation has been implemented in this pass. The Atlas remains navigable with J, mouse and existing controls.
+- **Mouse:** click one of the seven numbered chapter tabs; clicking a
+  locked chapter shows a spoiler-free discovery hint, never its title or
+  full text. Click **READ** to enter reading mode or **MAP** to leave it.
+  The reader's hit-testing exactly matches the HUD so chapter clicks
+  never pan the underlying map.
+- **Keyboard/controller:** while the Atlas is open, **Tab** or **R3**
+  (controller right-stick press) toggles reading focus. In reading mode,
+  left/right arrows or D-pad select chapters; outside reading mode they
+  retain the existing map pan. Up/down still select regions.
+  J/Esc still close the Atlas, and mouse-wheel zoom is unchanged.
+  Q stays Dodge outside the Atlas. R3 remains Guard during gameplay,
+  with its normal Atlas guard lock preventing interference.
+- **Compact screens:** a normal Atlas card shows a short preview. Reading
+  mode expands it into a larger, bounded passage view with up to five
+  lines, allowing full chapter text at 640x480. At 720p and larger,
+  a three-line reader presents the full authored passage. There are no
+  extra save fields, queue, storyline checkpoint, cutscene, animation
+  asset, or new NPC conversation in this pass.
 
 ## Six acts and 42 chapters
 
@@ -220,13 +241,22 @@ The overarching mystery is intentionally not resolved yet. The six epilogues rev
 ### Native verification before merge
 
 1. Build on a real Windows 10/11 UE5 toolchain, then run in Editor and packaged mode.
-2. Visit J Atlas at 720p, 1080p, 4K, and compact 640x480. Confirm the story card does not hide icons, shrink clickable map regions, or cause text clipping.
-3. Confirm each region shows one prelude on a fresh save. An undiscovered dungeon must reveal neither its title nor its story paragraph.
+2. Visit J Atlas at 720p, 1080p, 4K, and compact 640x480. Confirm the
+   seven tabs and READ/MAP toggle align with their mouse hitboxes,
+   compact reading mode shows the passage without overflow, and the
+   card doesn't leave permanent map markers or break map panning.
+3. Confirm each region shows one prelude on a fresh save. Click
+   every locked chapter; it must show only UNDISCOVERED and a generic
+   hint, never its title or story paragraph. Check grey/amber/green
+   labels and color-independent status text.
 4. Discover dungeon 5 before dungeon 1 and confirm only dungeon 5's chapter becomes available.
 5. Defeat a real tagged dungeon boss and confirm that chapter becomes cleared. Defeating an unrelated enemy must not count.
 6. Defeat all five regional bosses and confirm the regional epilogue appears once and remains available after save and reload.
 7. Load a corrupted/out-of-range progress mask. The chronicle should refuse unsafe disclosure and must not crash or create rewards.
-8. Test mouse region selection, arrows, map hover cards, zoom, J / Escape, and the existing player HUD after closing the Atlas.
+8. Test mouse chapter tabs, READ/MAP toggle, Tab and controller R3 focus,
+   left/right chapter navigation, Up/Down region selection, map click
+   and mouse-wheel zoom, J / Escape, and gameplay Guard/Dodge after closing
+   the Atlas. Hover tooltips must not draw on top of the chapter reader.
 9. Verify the original artwork, animations and divine identities of Z and Nyra have not changed.
 
-Automated C++17 and Python tests confirm catalog size, unique IDs, exact dungeon titles, mask gating, 6x7 progression, and read-only source integration. **These checks do not prove native UE5 compilation or packaged gameplay.**
+Automated C++17 and Python tests confirm catalog size, unique IDs, exact dungeon titles, mask gating, 6x7 progression, exact shared HUD/pointer geometry, the 7-tab reader, compact full-text mode, and read-only source integration. **These checks do not prove native UE5 compilation or packaged gameplay.**
