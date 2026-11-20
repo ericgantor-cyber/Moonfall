@@ -100,6 +100,12 @@ The opt-in `AMoonfallNorthWeatherActor` now renders a bounded animated precipita
 
 This is a simple UE5 *visual prototype*, not textured precipitation, sky/weather simulation, dedicated Niagara emitters, genuine wind physics, or finalized environmental art. Each preview affects only its local actor area, and no preview has been placed into a committed playable UE5 map. A portable regression checks 4,860 location combinations and guards invalid province/slot/step inputs; source safety checks also cover bounded instances and timer behavior. Native UE5 compilation, packaged Windows rendering and performance are still unverified.
 
+### Player-proximity weather optimization
+
+Optional northern weather previews now poll the local player's distance once per second and only animate when that player is within the configured range (default 25 meters, editor-clamped from 8 to 80 meters). When the player leaves range, the 5Hz precipitation animation timer is stopped, all precipitation instances are cleared and the local light and text are hidden. When the player returns, the preview resumes. Disabled or invalid previews do not schedule proximity updates, and timers are cleared on EndPlay. This limits per-actor work in large greybox test worlds, without touching weather in the original six regions.
+
+This initial culling uses local player index 0 and does **not** constitute multiplayer/net-relevance or packaged UE5 performance verification. Native engine builds and gameplay traversal are still prerequisites before merging the draft PR.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
