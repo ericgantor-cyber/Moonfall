@@ -73,6 +73,14 @@ def main():
     assert "if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen)" in jump_section
     assert "Jump();" in jump_section
     assert '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)' not in PATH.read_text(encoding="utf-8")
+    # The Atlas is a modal screen, not a combat resource-farming context.
+    dodge_reward=pawn.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()",1)[1].split(
+        "bool AMoonfallHeroPawn::Apply",1)[0]
+    racial_power=pawn.split("bool AMoonfallHeroPawn::ActivateRacePower()",1)[1].split(
+        "const float Now = GetWorld()->GetTimeSeconds();",1)[0]
+    assert "bOptionsOpen || bInventoryOpen || bAtlasOpen) return false;" in dodge_reward
+    assert "bInventoryOpen || bOptionsOpen || bAtlasOpen) return false;" in racial_power
+    print("Atlas modal combat resource guards: PASS (source verified)")
     print("Contextual Gamepad A: Jump in world, Character Stats in inventory (source verified)")
     print("Safe gameplay Jump button: PASS (no menu binding)")
     print("Mapping presence: PASS")
