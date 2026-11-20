@@ -956,7 +956,7 @@ func _build_ui() -> void:
  choices.position=Vector2(58,108)
  choices.add_theme_constant_override("separation",22)
  start_screen.add_child(choices)
- # Z, Nyra and the Crimson Reaper belong to the divine family, not to playable hero choices.
+ # Z, Nyra and Morvella Velmora belong to the divine family, not to playable hero choices.
  # Legacy z/nyra checkpoint identifiers remain readable until the dedicated
  # save-migration and real boss encounter stages are implemented.
  var divine_lore:=VBoxContainer.new()
@@ -967,7 +967,7 @@ func _build_ui() -> void:
  divine_heading.add_theme_font_size_override("font_size",20)
  divine_lore.add_child(divine_heading)
  var divine_note:=Label.new()
- divine_note.text="THE DIVINE FAMILY\nZ • Void Reaper\nNyra • Eclipse Queen\nCrimson Reaper • Death Goddess\nCreate your own hero; these gods are not playable."
+ divine_note.text="THE DIVINE FAMILY\nZ • Void Reaper\nNyra • Eclipse Queen\nMorvella Velmora • Goddess of Death\nCreate your own hero; these gods are not playable."
  divine_note.custom_minimum_size=Vector2(330,135)
  divine_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  divine_lore.add_child(divine_note)
