@@ -70,6 +70,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The contextual HUD shows the selected decision title and the bounded, proposed faction/prosperity/threat effects. `SelectCouncilPreview` is also Blueprint-callable for a future fully clickable UI.
 - **No decisions are executed**: selecting a preview never saves, mutates faction standings, creates buildings, or changes threats. Mouse controls and actual world consequences still require separate integration and native playtesting.
 
+## F8 Council mouse previews
+
+- At an unlocked Council in the starting sanctuary, press **F8** to show a mouse pointer and the three read-only preview buttons. Left-click Protect, Rebuild or Fortify to change the selected preview; **F8**, **Esc**, or right-click dismisses pointer mode. It closes automatically if the hero leaves the sanctuary or enters another menu.
+- This pointer mode consumes left-clicks without casting spells, and blocks spell casts while active. The hit rectangles match the HUD and the preview logic does not save or modify the kingdom.
+- The controller D-pad remains supported. This is **not a decision-confirmation or persistent council simulation**. Native Windows UE5 compilation, playtesting and mouse/controller accessibility validation are still required.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
