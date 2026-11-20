@@ -1,5 +1,6 @@
 // Portable C++17 regression tests for proposed Northern Expanse provinces.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -45,6 +46,19 @@ int main() {
  assert(std::strcmp(N::Zones[N::MorvellaProvince].Name,"Gravewind Barrens")==0);
  assert(std::strcmp(N::MorvellaSanctum,"Moonlit Necropolis")==0);
  assert(std::strcmp(N::MorvellaEncounterId,"death_goddess_crimson_reaper")==0);
+ // Exhaustively verify 512 discovered-province masks, with/without victory.
+ for (std::uint32_t Mask=0u; Mask<=N::AllProvinceBits; ++Mask) {
+  const auto State=N::MorvellaAccess(Mask,false);
+  const bool HasGravewind=(Mask & (1u<<N::MorvellaProvince))!=0u;
+  const bool Reachable=N::HasDiscoveredRoute(
+   N::NorthernLandingProvince,N::MorvellaProvince,Mask);
+  assert(State==(HasGravewind
+    ? (Reachable?N::EMorvellaAccess::Available:N::EMorvellaAccess::RouteBlocked)
+    : N::EMorvellaAccess::Undiscovered));
+  assert(N::MorvellaAccess(Mask,true)==N::EMorvellaAccess::Defeated);
+ }
+ assert(N::MorvellaAccess(1u<<N::ZoneCount,false)==N::EMorvellaAccess::Invalid);
+ assert(!N::HasDiscoveredRoute(0,N::MorvellaProvince,1u<<N::ZoneCount));
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
