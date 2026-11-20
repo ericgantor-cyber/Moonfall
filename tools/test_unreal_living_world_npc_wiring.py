@@ -40,6 +40,32 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_selection_is_controller_accessible_but_never_commits(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool SelectCouncilPreview(int32 DecisionId);", header)
+        self.assertIn("int32 CouncilPreviewSelection = 0;", header)
+        selection = hero.split("bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId)", 1)[1].split(
+            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1
+        )[0]
+        for required in ("DecisionId < 0 || DecisionId > 2", "IsNearStartingSanctuary()",
+                         "IsSanctuaryRoomUnlocked(4)", "CouncilPreviewSelection = DecisionId;"):
+            self.assertIn(required, selection)
+        for forbidden in ("SaveWorldProgress(", "ChangeFactionReputation(",
+                          "FactionReputation.Add(", "UGameplayStatics::SaveGameToSlot("):
+            self.assertNotIn(forbidden, selection)
+        left = hero.split("void AMoonfallHeroPawn::OptionsLeft()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsRight()", 1
+        )[0]
+        right = hero.split("void AMoonfallHeroPawn::OptionsRight()", 1)[1].split(
+            "void AMoonfallHeroPawn::AdjustOption(", 1
+        )[0]
+        self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 2) % 3)", left)
+        self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 1) % 3)", right)
+        self.assertIn("Hero->PreviewCouncilDecision(Selected)", hud)
+        self.assertIn("D-pad left/right: review only", hud)
+
     def test_sanctuary_hud_uses_actual_progress_and_preserves_small_screens(self):
         hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         block = hud.split("// The sanctuary ledger is read-only:", 1)[1].split(
