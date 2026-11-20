@@ -130,8 +130,16 @@ void AMoonfallCombatHUD::DrawHUD()
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
-  DrawText(TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"), FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f, nullptr, Scale * 0.75f);
-  DrawText(TEXT("Mouse: select a region or pan the chart | Reveals as you explore"), FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f, nullptr, Scale * 0.72f);
+  DrawText(Hero->bAtlasChronicleFocus
+      ? TEXT("J/ESC close | Up/Down: region | Left/Right: chapter")
+      : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"),
+    FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f,
+    nullptr, Scale * 0.75f);
+  DrawText(Hero->bAtlasChronicleFocus
+      ? TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom")
+      : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
+    FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
+    nullptr, Scale * 0.72f);
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
   const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);
   const bool bCompactAtlasRows = AtlasRowGap < 55.f;
