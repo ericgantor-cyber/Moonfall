@@ -1,6 +1,6 @@
 # Death Goddess: The Crimson Reaper
 
-Status: **design specification only**. Not yet implemented or tested in a playable build.
+Status: **partial Unreal C++ implementation on this draft PR**. Arena preset, boss identity, four HP-based phases, and phase presentation are coded. Unique moves, approved runtime art, native compile and packaged gameplay remain unverified/not implemented.
 
 ## Visual identity
 Use the Death Goddess portrait approved in the November 19, 2026 conversation as the **canonical appearance reference**. Keep its face, silver-and-black hair, crimson eyes, ornate black skull armor, hood, crown, dramatic silhouette, and violet scythe consistent. Do not modify existing Z or Nyra artwork. The chat-generated image needs a separately committed, authorized art asset before runtime integration; this document is not that asset.
@@ -39,4 +39,10 @@ Use the Death Goddess portrait approved in the November 19, 2026 conversation as
 5. Test phase boundaries at 75%, 50%, and 25%, invulnerability transitions, death cleanup, checkpoint respawn, controller/mouse controls, save/load, performance, and Windows packaged builds.
 6. Add automated tests where feasible and verify native gameplay before considering a merge.
 
-**Acceptance:** boss spawns, phase changes occur exactly once per threshold, player has readable response windows, encounter finishes cleanly, and character reference visuals remain unchanged. No implementation claim until verified.
+**Acceptance:** boss spawns, phase changes occur exactly once per threshold, player has readable response windows, encounter finishes cleanly, and character reference visuals remain unchanged. No playable-build claim until compiled and verified.
+
+## Implemented in draft PR #1075
+- Opt-in `death_goddess_crimson_reaper` arena preset (does not change default showcase).
+- Boss title and region and dedicated health phase thresholds at 75/50/25 percent.
+- Phase-entered Blueprint callback and phase-number readout reuse existing native hooks.
+- The default shared combat behavior remains until dedicated Death Goddess attacks are developed; **do not mistake this for the complete four-phase fight**.
