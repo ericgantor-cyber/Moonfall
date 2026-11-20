@@ -131,6 +131,7 @@ int main() {
    for (int NewCapacity = 1; NewCapacity <= QuestLayout::MaxRows; ++NewCapacity) {
     for (int OldStart = 0; OldStart < Count; OldStart += OldCapacity) {
      int Page = QuestLayout::NormalizePageStart(OldStart, NewCapacity, Count);
+     const int FirstPage = Page;
      assert(Page == 0 || Page % NewCapacity == 0);
      bool Seen[QuestLayout::MaxRows]{};
      int Iterations = 0;
@@ -145,7 +146,7 @@ int main() {
       Page = QuestLayout::NextPageStart(Page, NewCapacity, Count);
       ++Iterations;
       assert(Iterations <= QuestLayout::MaxRows);
-     } while (Page != 0);
+     } while (Page != FirstPage);
      for (int I = 0; I < Count; ++I) assert(Seen[I]);
     }
    }
