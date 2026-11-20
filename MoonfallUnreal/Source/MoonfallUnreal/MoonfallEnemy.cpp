@@ -626,8 +626,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? -0.35f : 0.f;
   const bool bWithinAttackArc = bDivineSignatureActive || bSpinningSweep || LockedAttackDirection.IsNearlyZero()
     || Difference.IsNearlyZero() || FacingDot >= MinFacingDot;
-  // Z strikes the locked mark; Nyra pulses around her position at cast start.
-  // Both signatures are avoidable by leaving the marked area before impact.
+  // Z and Morvella strike their locked marks; Nyra pulses around her position at cast start.
+  // All divine signatures are avoidable by leaving the marked area before impact.
   const bool bWithinDivineMarker = bDivineSignatureActive
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
   const bool bWithinGuardianFootprint = ActiveGuardianFootprint >= 0 &&
@@ -801,12 +801,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
   if (bDivineSignatureActive) {
    DrawDebugCircle(GetWorld(), DivineSignatureCenter - FVector(0.f,0.f,55.f),
-     DivineSignatureRadius, 32, DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan,
+     DivineSignatureRadius, 32, MoonfallDeathGoddess::IsDeathGoddess(DivineBossId) ? FColor(220, 68, 105)
+       : (DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan),
      false, 0.12f, 0, 3.f * WarningScale, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
    const bool bVoidSignature = DivineBossId == FName(TEXT("z_void_reaper"));
-   const TCHAR* DivineWarningText = bVoidSignature
-     ? (bDivineAlternateGeometry ? TEXT("VOID COLLAPSE") : TEXT("VOID JUDGMENT"))
-     : (bDivineAlternateGeometry ? TEXT("ECLIPSE MARK") : TEXT("ECLIPSE PULSE"));
+   const TCHAR* DivineWarningText = MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
+     ? MoonfallDeathGoddess::WarningForPhase(BossPhase)
+     : (bVoidSignature
+       ? (bDivineAlternateGeometry ? TEXT("VOID COLLAPSE") : TEXT("VOID JUDGMENT"))
+       : (bDivineAlternateGeometry ? TEXT("ECLIPSE MARK") : TEXT("ECLIPSE PULSE")));
    DrawDebugString(GetWorld(), DivineSignatureCenter + FVector(0.f,0.f,120.f),
      DivineWarningText, nullptr, FColor::White, 0.12f, false);
   }
@@ -902,7 +905,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // This checks existing state without adding extra AI ticks or nav queries.
  const bool bDivineSignatureDue = bBoss
    && (DivineBossId == FName(TEXT("z_void_reaper"))
-       || DivineBossId == FName(TEXT("nyra_eclipse_queen")))
+       || DivineBossId == FName(TEXT("nyra_eclipse_queen"))
+       || MoonfallDeathGoddess::IsDeathGoddess(DivineBossId))
    && AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;
  const bool bDivineRangedCastCandidate = bDivineSignatureDue
    && WindupEndsAt < 0.f && Now >= NextAttackAt
@@ -1184,7 +1188,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    bDivineAlternateGeometry = false;
    const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));
    const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));
-   if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % DivineSignatureInterval == 0) {
+   const bool bDeathGoddess = MoonfallDeathGoddess::IsDeathGoddess(DivineBossId);
+   if (bBoss && (bVoidReaper || bEclipseQueen || bDeathGoddess) && AttackSequence % DivineSignatureInterval == 0) {
     bDivineSignatureActive = true;
     BossSpecialMove = 0;
     // Use the number of *resolved* signatures, not attempted windups.
@@ -1203,6 +1208,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ActiveDivineMoveId = bVoidReaper
       ? FName(bDivineAlternateGeometry ? TEXT("VoidCollapse") : TEXT("VoidJudgment"))
       : FName(bDivineAlternateGeometry ? TEXT("EclipseMark") : TEXT("EclipsePulse"));
+    if (bDeathGoddess) {
+     // Morvella has one distinct, dodgeable marked attack for each phase.
+     // Reuse the same interruption, cover, dodge, parry and damage pipeline.
+     const auto Move = MoonfallDeathGoddess::SignatureForPhase(BossPhase);
+     bDivineAlternateGeometry = false;
+     ActiveDivineMoveId = Move.Id;
+     DivineSignatureCenter = Move.bCenteredOnCaster ? GetActorLocation() : HeroPosition;
+     DivineSignatureRadius = Move.Radius;
+     CurrentWindup = Move.WarningSeconds;
+     CurrentAttackMultiplier = Move.DamageMultiplier;
+    }
    }
    if (!bDivineSignatureActive && bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
