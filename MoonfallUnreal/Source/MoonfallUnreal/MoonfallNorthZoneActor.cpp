@@ -40,7 +40,7 @@ void AMoonfallNorthZoneActor::OnConstruction(const FTransform& Transform) {
  }
  const auto& Province=MoonfallNorth::Zones[ProvinceIndex];
  ZoneSign->SetText(FText::FromString(FString::Printf(
-  TEXT("%s\\nHUB: %s\\nDUNGEON: %s"),
+  TEXT("%s\nHUB: %s\nDUNGEON: %s"),
   UTF8_TO_TCHAR(Province.Name), UTF8_TO_TCHAR(Province.Hub),
   UTF8_TO_TCHAR(Province.Dungeon))));
  ZoneSign->SetRelativeLocation(FVector(0.f,0.f,200.f));
