@@ -71,6 +71,14 @@ def main():
     assert "PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)" in jump_section
     assert "ToggleCharacterStats();" in jump_section
     assert "if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen)" in jump_section
+    # A stale/streamed-out NPC must not allow A to fall through to Jump.
+    assert "if (bResidentContextOpen) {" in jump_section
+    resident_block=jump_section.split("if (bResidentContextOpen) {",1)[1].split(
+        "// A has one input binding:",1)[0]
+    assert "FocusedResident.IsValid()" in resident_block
+    assert "ChooseResidentContextAction(ResidentContextSelection);" in resident_block
+    assert "return;" in resident_block
+    assert "Jump();" not in resident_block
     assert "Jump();" in jump_section
     assert '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)' not in PATH.read_text(encoding="utf-8")
     # The Atlas is a modal screen, not a combat resource-farming context.
