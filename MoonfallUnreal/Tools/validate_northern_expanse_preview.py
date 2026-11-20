@@ -5,6 +5,11 @@ Uses editor scene inspection only. This cannot prove PIE movement, weather timin
 collision traversal, frame rate, or controller support, which need human/native QA.
 """
 import unreal
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shiverwake_shrine_layout import SHRINE_SITES, validate_shrine_sites
 
 MAP = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"
 EXPECTED_PROVINCES = 9
@@ -143,15 +148,43 @@ def main():
             "Expected two landmark instances per biome")
     require(len(overlays) == EXPECTED_PROVINCES,
             "Expected one visual overlay per biome")
+    # Exactly 18 uniquely named, checkpoint-capable island shrines.
+    # Verify ACTUAL saved editor actors, not only the Python manifest.
+    validate_shrine_sites()
+    expected_shrines = {site[0]: site for site in SHRINE_SITES}
+    shrine_actors = [actor for actor in actors
+                     if actor.get_class().get_name() == "MoonfallCheckpointShrine"]
+    found = {}
+    for shrine in shrine_actors:
+        shrine_id = str(shrine.get_editor_property("shrine_id"))
+        if shrine_id not in expected_shrines:
+            continue  # Preserve independently authored shrine actors.
+        require(shrine_id not in found, "Duplicate Shiverwake shrine ID: " + shrine_id)
+        found[shrine_id] = shrine
+    require(len(found) == 18 and set(found) == set(expected_shrines),
+            "Expected precisely 18 uniquely identified Shiverwake shrine actors")
+    for shrine_id, (_, display, location) in expected_shrines.items():
+        shrine = found[shrine_id]
+        pos = shrine.get_actor_location()
+        require((pos.x - location[0]) ** 2 + (pos.y - location[1]) ** 2
+                + (pos.z - location[2]) ** 2 < 100.0,
+                "Shiverwake shrine is not on its intended grounded pad: " + shrine_id)
+        require(shrine.get_actor_label() == display,
+                "Shiverwake shrine needs its own readable name: " + shrine_id)
+        require(str(shrine.get_editor_property("map_display_name")) == display,
+                "Shiverwake shrine map title is missing: " + shrine_id)
+        require(shrine.get_editor_property("discovery_range") is not None,
+                "Shiverwake shrine has no discoverable checkpoint trigger: " + shrine_id)
+
     require(weather.get_editor_property("b_follow_player_province"),
             "Player-following weather is disabled")
     require(weather.get_editor_property("b_enable_weather_preview"),
             "Weather preview is disabled")
 
     unreal.log("NORTHERN PREVIEW EDITOR INSPECTION PASS")
-    unreal.log("Map=%s, pads=%d, roads=%d, landmarks=%d, overlays=%d"
+    unreal.log("Map=%s, pads=%d, roads=%d, landmarks=%d, overlays=%d, shrines=%d"
                % (MAP, pads.get_instance_count(), roads.get_instance_count(),
-                  landmarks.get_instance_count(), len(overlays)))
+                  landmarks.get_instance_count(), len(overlays), len(found)))
     unreal.log("PIE movement/collision/weather/controller still require native testing")
 
 
