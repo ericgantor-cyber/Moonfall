@@ -52,3 +52,17 @@ The first command compares all declared original files to the manifest and repor
 5. Do not merge art replacement or delete an original without explicit review. Keep an off-GitHub backup of approved source files as a second recovery location.
 
 **Current gap:** This check has not been run against a native Windows UE5 installation, and the newly designed character/boss artwork has not been reconciled.
+
+## Reconciliation of newer character and boss artwork (2026-11-20)
+
+Passing integrity CI establishes that the **71 recorded source images and 142 recorded prototype exports** match their manifest. It does **not** prove that every recently designed character or environment image has been committed. Default-branch GitHub search is not an exhaustive binary-image or all-branch scan.
+
+| Subject | Confirmed repository evidence | Artwork status | Safe next step |
+| --- | --- | --- | --- |
+| Z | Original WEBP and SHA-256 recorded in baseline | Verified in baseline | Preserve exact image bytes during Unreal import |
+| Nyra | Original PNG and SHA-256 recorded in baseline | Verified in baseline | Preserve exact image bytes during Unreal import |
+| Death Goddess | PR #1075 documents the four-phase boss and explicitly says no image was committed | Design documented; original art not verified | Locate the actual approved original image; record path and SHA-256 |
+| Morvella | Referenced in recent Moonfall work; no confirmed original image in default-branch code search | Unverified, **not declared lost** | Reconcile approved art from source files, uploads, or other branches |
+| Other new bosses, NPCs, zones and scenery | Some older assets are in the verified manifest; new designs may not be | Requires per-design reconciliation | Inventory exact original files without regenerating or replacing artwork |
+
+Never silently replace an approved image with a placeholder. Import copies into UE5 after confirming the visual identity, and add newly approved originals to an **additive** manifest. Do not alter any of the original 71 assets.
