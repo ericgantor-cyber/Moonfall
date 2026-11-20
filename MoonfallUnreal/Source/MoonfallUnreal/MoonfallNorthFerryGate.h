@@ -10,6 +10,7 @@ class UStaticMeshComponent;
 class UTextRenderComponent;
 class AMoonfallHeroPawn;
 class AMoonfallNorthGothicFerryActor;
+class APlayerController;
 
 // Place two mutually linked actors on authored WALKABLE harbor docks in one
 // world. Walking onto a marked deck boards automatically (no new input bind).
@@ -47,6 +48,9 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Sea Travel",
            meta=(ClampMin="4.0", ClampMax="30.0", UIMin="4.0", UIMax="30.0"))
  float VoyageDurationSeconds = 11.f;
+ // Cinematic camera is optional, does not affect ship steering or travel.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Sea Travel")
+ bool bUseVoyageCamera = true;
  UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
  bool bAutoVoyageInProgress = false;
  // Readable voyage progress for future HUD, controller and accessibility UI.
@@ -81,6 +85,11 @@ private:
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
  TWeakObjectPtr<AMoonfallNorthFerryGate> PendingArrivalGate;
  TWeakObjectPtr<AMoonfallNorthGothicFerryActor> PendingShip;
+ // Weak view references guarantee cleanup cannot resurrect a destroyed hero
+ // or override a camera switched by another game system mid-voyage.
+ TWeakObjectPtr<APlayerController> VoyagePlayerController;
+ TWeakObjectPtr<AActor> PreviousPlayerViewTarget;
+ bool bCinematicViewActive = false;
  FTransform OriginalShipTransform = FTransform::Identity;
  FVector SailingFrom = FVector::ZeroVector;
  FVector SailingTo = FVector::ZeroVector;
