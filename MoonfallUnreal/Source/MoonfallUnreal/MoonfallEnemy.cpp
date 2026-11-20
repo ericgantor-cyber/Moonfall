@@ -910,7 +910,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    && AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;
  const bool bDivineRangedCastCandidate = bDivineSignatureDue
    && WindupEndsAt < 0.f && Now >= NextAttackAt
-   && Distance > AttackRange && Distance <= 750.f;
+   && Distance > AttackRange && Distance <= 750.f
+   // Soul Harvest is centered on Morvella: do not waste ranged casts outside its reach.
+   && !(MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
+     && MoonfallDeathGoddess::SignatureForPhase(BossPhase).bCenteredOnCaster);
  // Ranged spells need a clear sightline when the warning begins. Evaluate
  // only ready signatures and cache a result for half a second to avoid
  // extra line traces on every think tick around solid world geometry.
