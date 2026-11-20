@@ -818,8 +818,11 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
-  ChooseResidentContextAction(ResidentContextSelection);
+ // A may confirm a resident choice only while its dialogue modal owns input.
+ // If streaming invalidates the resident, consume the press rather than jump.
+ if (bResidentContextOpen) {
+  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen)
+   ChooseResidentContextAction(ResidentContextSelection);
   return;
  }
  // A has one input binding: Jump in combat, Character Stats while browsing
