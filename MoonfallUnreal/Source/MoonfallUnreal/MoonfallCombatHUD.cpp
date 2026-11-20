@@ -1,4 +1,6 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallChronicle.h"
+#include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -128,8 +130,16 @@ void AMoonfallCombatHUD::DrawHUD()
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
-  DrawText(TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"), FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f, nullptr, Scale * 0.75f);
-  DrawText(TEXT("Mouse: select a region or pan the chart | Reveals as you explore"), FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f, nullptr, Scale * 0.72f);
+  DrawText(Hero->bAtlasChronicleFocus
+      ? TEXT("J/ESC close | Up/Down: region | Left/Right: chapter")
+      : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"),
+    FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f,
+    nullptr, Scale * 0.75f);
+  DrawText(Hero->bAtlasChronicleFocus
+      ? TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom")
+      : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
+    FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
+    nullptr, Scale * 0.72f);
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
   const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);
   const bool bCompactAtlasRows = AtlasRowGap < 55.f;
@@ -164,6 +174,22 @@ void AMoonfallCombatHUD::DrawHUD()
         FLinearColor(0.72f, 0.66f, 0.55f), Left + 23.f, Y + 38.f,
         nullptr, Scale * AtlasSideTextScale * 0.75f);
    }
+  }
+  // Read-only worldwide Chronicle progress on the Atlas sidebar footer.
+  // Keep the compact label within the sidebar on smaller window sizes.
+  const uint32 ChronicleDiscovered = static_cast<uint32>(Hero->DiscoveredDungeonMask);
+  const uint32 ChronicleDefeated = static_cast<uint32>(Hero->DefeatedDungeonBossMask);
+  const auto WorldChronicle = MoonfallChronicle::SummarizeWorld(
+      ChronicleDiscovered, ChronicleDefeated);
+  if (WorldChronicle.Valid) {
+   const FString WorldLabel = AtlasSidebarWidth < 175.f
+      ? FString::Printf(TEXT("%d/42 | %d/6 ACTS"),
+          WorldChronicle.ChaptersRevealed, WorldChronicle.ActsCompleted)
+      : FString::Printf(TEXT("STORY %d/42 | ACTS %d/6"),
+          WorldChronicle.ChaptersRevealed, WorldChronicle.ActsCompleted);
+   DrawText(WorldLabel, FLinearColor(0.91f, 0.80f, 0.60f),
+       Left + 14.f, Top + Height - 24.f,
+       nullptr, Scale * AtlasSideTextScale * 0.79f);
   }
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
@@ -340,9 +366,114 @@ void AMoonfallCombatHUD::DrawHUD()
          nullptr, Scale * 0.67f);
    }
   }
+  // Full six-act, seven-chapter-per-act Chronicle. The same geometry is
+  // shared with ResidentContextMouseClick: tabs NEVER pan the map behind.
+  // All 42 chapter titles and prose are gated by saved dungeon discovery.
+  const MoonfallChronicle::FProgress Chronicle = MoonfallChronicle::Summarize(
+    Selected, ChronicleDiscovered, ChronicleDefeated);
+  const MoonfallChronicleUI::FCard ChronicleCard = MoonfallChronicleUI::Layout(
+    MapLeft, MapTop, MapWidth, MapHeight, Hero->bAtlasChronicleFocus);
+  const int32 ChapterIndex = Hero->AtlasChronicleChapter >= 0
+    && Hero->AtlasChronicleChapter < MoonfallChronicle::BeatsPerAct
+    ? Hero->AtlasChronicleChapter : Chronicle.FeaturedBeat;
+  const MoonfallChronicle::FBeat* ChronicleBeat = Chronicle.Valid
+    ? MoonfallChronicle::RevealedBeat(Selected, ChapterIndex,
+        ChronicleDiscovered, ChronicleDefeated)
+    : nullptr;
+  const bool bChroniclePointer = bAtlasPointerInsideMap
+    && MoonfallChronicleUI::HitCard(ChronicleCard, AtlasPointerX, AtlasPointerY);
+  if (Chronicle.Valid && ChronicleCard.Visible) {
+   const float CL = ChronicleCard.Left, CT = ChronicleCard.Top;
+   const float CW = ChronicleCard.Width, CH = ChronicleCard.Height;
+   DrawRect(FLinearColor(0.038f, 0.041f, 0.067f, 0.97f), CL, CT, CW, CH);
+   DrawRect(FLinearColor(0.73f, 0.56f, 0.32f, 0.96f), CL, CT, 3.f, CH);
+   const FString ActLabel = FString::Printf(TEXT("ACT %d/6  |  %s"),
+     Selected + 1, UTF8_TO_TCHAR(MoonfallChronicle::ActNames[Selected]));
+   DrawText(ActLabel.Left(MapWidth < 420.f ? 24 : 44),
+     FLinearColor(0.96f, 0.84f, 0.62f),
+     CL + 10.f, CT + 5.f, nullptr, Scale * 0.74f);
+   // Reading focus can also be toggled by Tab/controller R3. Mouse tabs
+   // directly select any of seven chapters, including a redacted locked one.
+   DrawRect(Hero->bAtlasChronicleFocus ? FLinearColor(0.33f, 0.27f, 0.17f)
+       : FLinearColor(0.16f, 0.19f, 0.27f),
+     ChronicleCard.ToggleLeft, ChronicleCard.ToggleTop,
+     ChronicleCard.ToggleWidth, ChronicleCard.ToggleHeight);
+   DrawText(Hero->bAtlasChronicleFocus ? TEXT("MAP") : TEXT("READ"),
+     FLinearColor::White, ChronicleCard.ToggleLeft + 8.f,
+     ChronicleCard.ToggleTop + 2.f, nullptr, Scale * 0.66f);
+   for (int32 Chapter = 0; Chapter < MoonfallChronicle::BeatsPerAct; ++Chapter) {
+    const auto ChapterState = MoonfallChronicle::BeatState(
+      Selected, Chapter, ChronicleDiscovered, ChronicleDefeated);
+    const bool bSelected = Chapter == ChapterIndex;
+    const FLinearColor ChapterInk =
+      ChapterState == MoonfallChronicle::EBeatState::Hidden
+        ? FLinearColor(0.29f, 0.29f, 0.32f)
+        : ChapterState == MoonfallChronicle::EBeatState::Cleared
+          ? FLinearColor(0.23f, 0.58f, 0.45f)
+          : FLinearColor(0.67f, 0.48f, 0.24f);
+    const float TabX = ChronicleCard.TabLeft + ChronicleCard.TabWidth * Chapter;
+    DrawRect(bSelected ? ChapterInk : ChapterInk * 0.48f,
+      TabX + 1.f, ChronicleCard.TabTop,
+      ChronicleCard.TabWidth - 2.f, ChronicleCard.TabHeight);
+    if (bSelected)
+     DrawRect(FLinearColor(0.98f, 0.90f, 0.70f),
+       TabX + 1.f, ChronicleCard.TabTop + ChronicleCard.TabHeight - 2.f,
+       ChronicleCard.TabWidth - 2.f, 2.f);
+    DrawText(FString::FromInt(Chapter + 1),
+      ChapterState == MoonfallChronicle::EBeatState::Hidden
+        ? FLinearColor(0.77f, 0.76f, 0.75f) : FLinearColor::White,
+      TabX + (ChronicleCard.TabWidth - 11.f) * 0.5f,
+      ChronicleCard.TabTop + 2.f, nullptr, Scale * 0.75f);
+   }
+   const auto SelectedState = MoonfallChronicle::BeatState(
+     Selected, ChapterIndex, ChronicleDiscovered, ChronicleDefeated);
+   const TCHAR* ChapterStatus =
+     SelectedState == MoonfallChronicle::EBeatState::Hidden ? TEXT("LOCKED")
+       : SelectedState == MoonfallChronicle::EBeatState::Cleared ? TEXT("CLEARED")
+       : TEXT("DISCOVERED");
+   const FString ChapterLabel = ChronicleBeat
+     ? FString::Printf(TEXT("CHAPTER %d/7  |  %s"),
+          ChapterIndex + 1, UTF8_TO_TCHAR(ChronicleBeat->Title))
+     : FString::Printf(TEXT("CHAPTER %d/7  |  UNDISCOVERED"),
+          ChapterIndex + 1);
+   DrawText(ChapterLabel.Left(MapWidth < 400.f ? 38 : 59),
+     FLinearColor::White, CL + 10.f, CT + 51.f, nullptr, Scale * 0.77f);
+   // Never touch Acts[][] for unrevealed chapters. The text must not leak
+   // via titles, labels, pointer tooltips or automatic next-page selection.
+   const FString Lore = ChronicleBeat
+     ? FString(UTF8_TO_TCHAR(ChronicleBeat->Lore))
+     : ChapterIndex == 6
+       ? FString(TEXT("Defeat all five regional dungeon bosses to reveal this chapter."))
+       : FString(TEXT("Discover the corresponding dungeon entrance to reveal this chapter."));
+   const int32 LoreLineLimit = MapWidth >= 480.f ? 78 : 48;
+   const int32 LoreLines = ChronicleCard.LoreLines;
+   int32 LoreCursor = 0;
+   for (int32 Line = 0; Line < LoreLines && LoreCursor < Lore.Len(); ++Line) {
+    int32 End = FMath::Min(LoreCursor + LoreLineLimit, Lore.Len());
+    if (End < Lore.Len()) {
+     int32 WordEnd = End;
+     while (WordEnd > LoreCursor + LoreLineLimit / 2
+         && Lore[WordEnd] != TCHAR(' ')) --WordEnd;
+     if (WordEnd > LoreCursor + LoreLineLimit / 2) End = WordEnd;
+    }
+    FString Segment = Lore.Mid(LoreCursor, End - LoreCursor);
+    if (Line == LoreLines - 1 && End < Lore.Len())
+     Segment = Segment.Left(FMath::Max(0, Segment.Len() - 3)) + TEXT("...");
+    DrawText(Segment, FLinearColor(0.79f, 0.84f, 0.93f),
+       CL + 10.f, CT + 72.f + Line * 17.f, nullptr, Scale * 0.68f);
+    LoreCursor = End;
+    while (LoreCursor < Lore.Len() && Lore[LoreCursor] == TCHAR(' '))
+     ++LoreCursor;
+   }
+   DrawText(FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
+       Chronicle.Revealed, Chronicle.BossesDefeated, ChapterStatus),
+     FLinearColor(0.66f, 0.86f, 0.78f),
+     CL + 10.f, CT + CH - 19.f, nullptr, Scale * 0.67f);
+  }
   // Hover cards are purely informational and keep the mouse optional.
   // Only known markers qualify, and cards remain inside the chart bounds.
-  if (bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f
+  if (bAtlasPointerInsideMap && !bChroniclePointer
+      && MapWidth >= 150.f && MapHeight >= 95.f
       && (bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)) {
    const float TooltipW = FMath::Min(260.f, MapWidth - 12.f);
    // Clip very long authored titles to the information card width.

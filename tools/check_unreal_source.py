@@ -6054,7 +6054,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bHoveredActiveRespawn = bActiveRespawn;", atlas)
         self.assertLess(atlas.index("const bool bActiveRespawn ="),
                         atlas.index("bHoveredActiveRespawn = bActiveRespawn;"))
-        self.assertIn("bAtlasPointerInsideMap && MapWidth >= 150.f && MapHeight >= 95.f", atlas)
+        self.assertIn(
+            "bAtlasPointerInsideMap && !bChroniclePointer", atlas
+        )
+        self.assertIn("MapWidth >= 150.f && MapHeight >= 95.f", atlas)
+        self.assertIn(
+            "MoonfallChronicleUI::HitCard(ChronicleCard, AtlasPointerX, AtlasPointerY)",
+            atlas,
+        )
         self.assertIn("(bHoveredShrine || HoveredDungeonSlot != INDEX_NONE)", atlas)
         self.assertIn("const float TooltipX = FMath::Clamp(", atlas)
         self.assertIn("const float TooltipY = FMath::Clamp(", atlas)
