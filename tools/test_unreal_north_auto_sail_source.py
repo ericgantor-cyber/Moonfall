@@ -92,6 +92,8 @@ assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
 assert "OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase)" in gate_cpp
 assert "Ship->SetPassengerTravelStatus(VoyageMessage)" in gate_cpp
 assert "Ship->ResetPassengerTravelStatus()" in cleanup
+assert "Ship->AnimateCrimsonLanterns(ElapsedSeconds, Hero->bReduceMotion)" in tick
+assert "Ship->ResetCrimsonLanterns()" in cleanup
 assert "FString::Printf(" in gate_cpp
 assert "ARRIVAL IN %dS" in gate_cpp
 assert "DEPARTING HARBOR" in gate_cpp
