@@ -40,6 +40,14 @@ for required in (
     'VoyageCamera->SetFieldOfView(80.f)',
     'VoyageCamera->bUsePawnControlRotation = false',
     'VoyageCamera->bAutoActivate = true',
+    'AMoonfallNorthGothicFerryActor::AnimateCrimsonSails',
+    'AMoonfallNorthGothicFerryActor::ResetCrimsonSails',
+    'CrimsonSails->UpdateInstanceTransform(',
+    'SailRestTransforms[Index]',
+    'bSailsWereAnimated = true',
+    'if (bReduceMotion)',
+    '5.f * FMath::Sin(',
+    'CrimsonSails->GetInstanceTransform(',
 ):
     assert required in cpp, f"Missing gothic ferry guard or detail: {required}"
 for required in (
@@ -48,6 +56,9 @@ for required in (
     'TObjectPtr<UInstancedStaticMeshComponent> HullPieces',
     'TObjectPtr<UInstancedStaticMeshComponent> RavenFigurehead',
     'TObjectPtr<UCameraComponent> VoyageCamera',
+    'void AnimateCrimsonSails(float ElapsedSeconds, bool bReduceMotion)',
+    'void ResetCrimsonSails()',
+    'TArray<FTransform> SailRestTransforms',
 ):
     assert required in header, f"Missing Gothic ferry component: {required}"
 for required in (
