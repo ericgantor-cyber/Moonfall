@@ -93,6 +93,9 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString PreviewCouncilDecision(int32 DecisionId) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilPreviewSelection = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool SelectCouncilPreview(int32 DecisionId);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilPointerOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") void ToggleCouncilPointer();
+ void CloseCouncilPointer();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
 
