@@ -2,6 +2,8 @@
 #include "MoonfallNorthWeatherPreview.h"
 #include "MoonfallNorthPrecipitation.h"
 #include "MoonfallNorthWeatherRange.h"
+#include "MoonfallNorthContinentActor.h"
+#include "MoonfallNorthContinentLayout.h"
 #include "Components/SceneComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -67,7 +69,7 @@ void AMoonfallNorthWeatherActor::SetWeatherPreviewEnabled(bool bEnabled) {
  GetWorldTimerManager().ClearTimer(ProximityTimer);
  bWeatherActive=false;
  DeactivateWeatherPreview();
- if(!bEnabled || !MoonfallNorth::ValidZone(ProvinceIndex)) return;
+ if(!bEnabled || (!bFollowPlayerProvince && !MoonfallNorth::ValidZone(ProvinceIndex))) return;
  CheckWeatherProximity();
  // The 5Hz animation is enabled only near the local player; 1Hz monitoring
  // does not manipulate global weather, cameras or player controls.
@@ -87,7 +89,8 @@ void AMoonfallNorthWeatherActor::DeactivateWeatherPreview() {
  if(IsValid(WeatherParticles)) WeatherParticles->ClearInstances();
 }
 void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
- if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)) {
+ if(!bEnableWeatherPreview ||
+    (!bFollowPlayerProvince && !MoonfallNorth::ValidZone(ProvinceIndex))) {
   bWeatherActive=false;
   GetWorldTimerManager().ClearTimer(WeatherTimer);
   GetWorldTimerManager().ClearTimer(ProximityTimer);
@@ -95,6 +98,45 @@ void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
   return;
  }
  const APawn* Player=UGameplayStatics::GetPlayerPawn(this,0);
+ if(bFollowPlayerProvince) {
+  // Resolve once: no per-second world-wide actor search and no new actors.
+  if(!bContinentLookupAttempted) {
+   bContinentLookupAttempted=true;
+   NorthernContinent=Cast<AMoonfallNorthContinentActor>(
+     UGameplayStatics::GetActorOfClass(this,AMoonfallNorthContinentActor::StaticClass()));
+  }
+  const AMoonfallNorthContinentActor* Continent=NorthernContinent.Get();
+  int32 ClosestProvince=INDEX_NONE;
+  double BestDistanceSq=FMath::Square(11500.0); // keep weather off the legacy world
+  if(IsValid(Player) && IsValid(Continent)) {
+   const FVector PlayerLocation=Player->GetActorLocation();
+   for(int32 Index=0;Index<MoonfallNorth::ZoneCount;++Index) {
+    const double DistanceSq=FVector::DistSquared2D(
+      PlayerLocation,Continent->GetProvinceCenterWorldLocation(Index));
+    if(DistanceSq<BestDistanceSq) {
+     BestDistanceSq=DistanceSq;
+     ClosestProvince=Index;
+    }
+   }
+  }
+  if(ClosestProvince!=INDEX_NONE && IsValid(Player)) {
+   // Effects are local to the player, never collision-enabled.
+   SetActorLocation(Player->GetActorLocation());
+   if(ProvinceIndex!=ClosestProvince) {
+    ProvinceIndex=ClosestProvince;
+    WeatherStep=0;
+    ParticleStep=0;
+    if(bWeatherActive) RefreshWeatherPreview();
+   }
+  } else {
+   if(bWeatherActive) {
+    bWeatherActive=false;
+    GetWorldTimerManager().ClearTimer(WeatherTimer);
+    DeactivateWeatherPreview();
+   }
+   return;
+  }
+ }
  // Hysteresis prevents timer/mesh thrashing when the player moves
  // repeatedly across the activation boundary. Recover invalid editor data.
  const float Radius=FMath::IsFinite(WeatherActivationRadiusCm)
