@@ -190,6 +190,73 @@ except RuntimeError as exc:
 assert [(actor.get_editor_property("shrine_id"), actor.get_actor_label())
         for actor in world.actors] == before
 
+# Regression: a *migrated* target must check every existing authored shrine,
+# not just the new actors to be spawned. No IDs may change on failed preflight.
+world.actors = [custom] + [
+    FakeActor(pos, shrine_id, label, ["ShiverwakePreviewShrine"])
+    for shrine_id, label, pos in LEGACY_SHIVERWAKE_SITES
+]
+target_pos = SHRINE_SITES[2][2]  # First new Wolfsong province shrine.
+occupied = FakeActor(
+    (target_pos[0] + 70.0, target_pos[1], target_pos[2]),
+    "authored_wolfsong_altar", "Authored Wolfsong Altar")
+world.actors.append(occupied)
+ids_before = [actor.get_editor_property("shrine_id") for actor in world.actors]
+try:
+    editor.install_shiverwake_shrines(world, "ShrineActor")
+    raise AssertionError("Migrating shrine overlapped an authored target")
+except RuntimeError as exc:
+    assert "too close" in str(exc)
+assert [actor.get_editor_property("shrine_id") for actor in world.actors] == ids_before
+assert occupied.get_actor_label() == "Authored Wolfsong Altar"
+
+# Regression: Unreal can refuse a location change. A later failure must
+# roll back earlier moves and their IDs, labels and tags, not half-migrate.
+world.actors = [custom] + [
+    FakeActor(pos, shrine_id, label, ["ShiverwakePreviewShrine"])
+    for shrine_id, label, pos in LEGACY_SHIVERWAKE_SITES
+]
+old_positions = {
+    id(actor): (actor.position.x, actor.position.y, actor.position.z)
+    for actor in world.actors
+}
+old_labels = {id(actor): actor.get_actor_label() for actor in world.actors}
+old_ids = {id(actor): actor.get_editor_property("shrine_id") for actor in world.actors}
+old_tags = {id(actor): actor.get_editor_property("tags")[:]
+            for actor in world.actors}
+old_move = FakeActor.set_actor_location
+def refuse_second_move(self, value, sweep, teleport):
+    if self.get_editor_property("shrine_id") == "ravenrest" and value.y > 1000:
+        return False
+    return old_move(self, value, sweep, teleport)
+FakeActor.set_actor_location = refuse_second_move
+try:
+    editor.install_shiverwake_shrines(world, "ShrineActor")
+    raise AssertionError("Ignored Unreal movement failure during shrine migration")
+except RuntimeError as exc:
+    assert "refused shrine relocation" in str(exc)
+finally:
+    FakeActor.set_actor_location = old_move
+for actor in world.actors:
+    assert (actor.position.x, actor.position.y, actor.position.z) == old_positions[id(actor)]
+    assert actor.get_editor_property("shrine_id") == old_ids[id(actor)]
+    assert actor.get_actor_label() == old_labels[id(actor)]
+    assert actor.get_editor_property("tags") == old_tags[id(actor)]
+
+# A generated shrine with a second (designer-added) tag is no longer
+# considered untouched and must not be silently renamed or moved.
+world.actors = [custom] + [
+    FakeActor(pos, shrine_id, label, ["ShiverwakePreviewShrine"])
+    for shrine_id, label, pos in LEGACY_SHIVERWAKE_SITES
+]
+world.actors[4].set_editor_property("tags",
+    ["ShiverwakePreviewShrine", "CustomDesignerTag"])
+try:
+    editor.install_shiverwake_shrines(world, "ShrineActor")
+    raise AssertionError("Migrated designer-tagged shrine")
+except RuntimeError as exc:
+    assert "customized" in str(exc)
+
 builder = (tools / "create_northern_expanse_preview.py").read_text(encoding="utf-8")
 updater = (tools / "add_shiverwake_shrines_to_existing_preview.py").read_text(encoding="utf-8")
 validator = (tools / "validate_northern_expanse_preview.py").read_text(encoding="utf-8")
