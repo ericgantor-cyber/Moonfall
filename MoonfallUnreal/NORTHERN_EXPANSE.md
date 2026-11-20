@@ -136,6 +136,12 @@ Opt-in player-following climate now chooses the active province from **continent
 
 This is a greybox geographic approximation. Authored biome boundaries, interior suppression, multiplayer/weather replication, and packaged UE5 navigation/performance remain unimplemented and unverified.
 
+### Isolated UE5.4 test-map authoring script
+
+`MoonfallUnreal/Tools/create_northern_expanse_preview.py` is a **manual Unreal Editor 5.4 Python script**, not a committed `.umap` or verified packaged game. After installing UE5.4 and compiling the MoonfallUnreal C++ project on Windows, open the project and run it through **Tools > Execute Python Script**. It creates **`/Game/NorthernExpanse/Maps/NorthernExpansePreview`** only if that level does not already exist; existing maps are never overwritten. It places one `AMoonfallNorthContinentActor` with its nine static pads and connected roads, one `AMoonfallNorthWeatherActor` with player-following preview enabled *for this isolated map only*, a `PlayerStart` and a basic directional light. It does **not** spawn Z, Nyra, Morvella or any other boss, edit legacy levels, or change the project's default map.
+
+The script validates required compiled C++ classes and available editor subsystems before attempting to create the map. It has static Python-syntax and no-overwrite checks in Linux/Windows CI, but **the Python APIs have not been executed in Unreal Editor here**. The output level is generated on the machine where the script runs and must be inspected and saved in source control separately if it works. The default game mode must provide a playable pawn, and navmesh, controller accessibility, road collision, lighting readability and packaged Windows performance still require manual verification. The test-map's simple graybox is not final terrain.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
