@@ -1,9 +1,11 @@
-# Death Goddess: The Crimson Reaper
+# Morvella Velmora, Goddess of Death
+
+**Title:** The Crimson Reaper. **Internal encounter ID:** `death_goddess_crimson_reaper` (kept stable for compatibility).
 
 Status: **partial Unreal C++ implementation on this draft PR**. Arena preset, boss identity, four HP-based phases, and phase presentation are coded. Unique moves, approved runtime art, native compile and packaged gameplay remain unverified/not implemented.
 
 ## Visual identity
-Use the Death Goddess portrait approved in the November 19, 2026 conversation as the **canonical appearance reference**. Keep its face, silver-and-black hair, crimson eyes, ornate black skull armor, hood, crown, dramatic silhouette, and violet scythe consistent. Do not modify existing Z or Nyra artwork. The chat-generated image needs a separately committed, authorized art asset before runtime integration; this document is not that asset.
+Use the approved portrait of Morvella Velmora, the Death Goddess, in the November 19, 2026 conversation as the **canonical appearance reference**. Keep its face, silver-and-black hair, crimson eyes, ornate black skull armor, hood, crown, dramatic silhouette, and violet scythe consistent. Do not modify existing Z or Nyra artwork. The chat-generated image needs a separately committed, authorized art asset before runtime integration; this document is not that asset.
 
 ## Role and encounter
 - Type: optional high-tier divine boss; no replacement of existing bosses.
