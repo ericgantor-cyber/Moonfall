@@ -55,6 +55,19 @@ class DivineFamilyRosterTests(unittest.TestCase):
         self.assertIn("CurrentWindup = Move.WarningSeconds", enemy)
         self.assertIn("CurrentAttackMultiplier = Move.DamageMultiplier", enemy)
 
+    def test_distinct_morvella_hit_shapes_are_wired(self):
+        enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
+        header = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddess.h")
+        footprint = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h")
+        self.assertIn("HitsSignature(ActiveDivineMoveId, DivineSignatureOrigin", enemy)
+        self.assertIn("DivineSignatureOrigin = GetActorLocation()", enemy)
+        self.assertIn("FootprintForMove(FName Move)", header)
+        self.assertIn("SoulHarvestSafeFraction = 0.40f", footprint)
+        self.assertIn("EclipseCrossHalfWidthFraction = 0.20f", footprint)
+        self.assertIn('TEXT("SAFE CENTER")', enemy)
+        for shape in ("GraveNeedle", "SoulHarvest", "CrimsonEclipse", "FinalVerdict"):
+            self.assertIn("Shape::" + shape, footprint)
+
     def test_phase_thresholds_and_stable_divine_roles(self):
         rules = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddess.h")
         enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
