@@ -60,8 +60,13 @@ assert '#include "MoonfallNorthContinentActor.h"' in source
 assert "UGameplayStatics::GetActorOfClass(this,AMoonfallNorthContinentActor::StaticClass())" in source
 assert "if(!bContinentLookupAttempted)" in source
 assert "NorthernContinent.Get()" in source
-assert "FVector::DistSquared2D(" in source
-assert "FMath::Square(11500.0)" in source
+assert '#include "MoonfallNorthProvinceWeather.h"' in source
+assert "Continent->GetActorTransform()" in source
+assert ".InverseTransformPosition(Player->GetActorLocation())" in source
+assert "MoonfallNorth::ChooseWeatherProvince(" in source
+assert "bWeatherActive?ProvinceIndex:-1" in source
+assert "FMath::IsFinite(LocalPosition.X)" in source
+assert "FMath::RoundToInt(LocalPosition.X)" in source
 assert "Continent->GetProvinceCenterWorldLocation(Index)" in source
 assert "SetActorLocation(Player->GetActorLocation())" in source
 assert "ProvinceIndex=ClosestProvince" in source
