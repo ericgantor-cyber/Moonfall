@@ -403,6 +403,9 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ // Transient camera-only hit-response throttle. Never saved or applied to
+ // attack timings, health, input, FOV, time dilation, or character movement.
+ float LastOffensiveImpactAt = -100.f;
  // Gameplay mouse wheel zoom; does not alter the minimap or combat HUD.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
