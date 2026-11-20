@@ -32,6 +32,14 @@ for required in (
     'SetCastShadows(false)',
     'SetAttenuationRadius(500.f)',
     'ClearInstances()',
+    'bFindCameraComponentWhenViewTarget = true',
+    'GothicRavenVoyageCamera',
+    'VoyageCamera->SetupAttachment(GetRootComponent())',
+    'VoyageCamera->SetRelativeLocation(',
+    'VoyageCamera->SetRelativeRotation(',
+    'VoyageCamera->SetFieldOfView(80.f)',
+    'VoyageCamera->bUsePawnControlRotation = false',
+    'VoyageCamera->bAutoActivate = true',
 ):
     assert required in cpp, f"Missing gothic ferry guard or detail: {required}"
 for required in (
@@ -39,6 +47,7 @@ for required in (
     'bShowGothicFerry = true',
     'TObjectPtr<UInstancedStaticMeshComponent> HullPieces',
     'TObjectPtr<UInstancedStaticMeshComponent> RavenFigurehead',
+    'TObjectPtr<UCameraComponent> VoyageCamera',
 ):
     assert required in header, f"Missing Gothic ferry component: {required}"
 for required in (
