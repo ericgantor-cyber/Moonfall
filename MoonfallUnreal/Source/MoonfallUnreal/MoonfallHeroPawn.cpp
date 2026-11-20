@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallLivingWorldRules.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -3710,6 +3711,17 @@ int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
  if (const int32* Value = ResidentBonds.Find(ResidentId))
   return FMath::Clamp(*Value, -100, 100);
  return 0;
+}
+FString AMoonfallHeroPawn::GetResidentRelationshipRank(FName ResidentId) const {
+ if (ResidentId.IsNone()) return TEXT("Unknown");
+ switch (MoonfallLivingWorld::RelationshipRank(GetResidentBond(ResidentId))) {
+ case MoonfallLivingWorld::BondRank::Hostile: return TEXT("Hostile");
+ case MoonfallLivingWorld::BondRank::Wary: return TEXT("Wary");
+ case MoonfallLivingWorld::BondRank::Neutral: return TEXT("Neutral");
+ case MoonfallLivingWorld::BondRank::Trusted: return TEXT("Trusted");
+ case MoonfallLivingWorld::BondRank::Devoted: return TEXT("Devoted");
+ }
+ return TEXT("Unknown");
 }
 bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
  if (!IsNamedMoonfallResident(ResidentId) || Delta == 0 || Health <= 0.f) return false;
