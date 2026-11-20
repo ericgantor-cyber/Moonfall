@@ -7,6 +7,11 @@ Never changes the startup map, game mode, legacy map, saves, or characters.
 Refuses to overwrite an existing preview level.
 """
 import unreal
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shiverwake_shrine_editor import install_shiverwake_shrines
 
 LEVEL_PATH = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"
 TAG = "NorthExpansePreview"
@@ -39,6 +44,7 @@ def main():
     weather_class = required_class("MoonfallNorthWeatherActor")
     ferry_class = required_class("MoonfallNorthFerryGate")
     gothic_ship_class = required_class("MoonfallNorthGothicFerryActor")
+    shrine_class = required_class("MoonfallCheckpointShrine")
     preview_game_mode = required_class("MoonfallNorthPreviewGameMode")
     dock_mesh = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cube.Cube")
     if dock_mesh is None:
@@ -135,6 +141,13 @@ def main():
     island_gate.set_editor_property("b_use_voyage_camera", False)
     mainland_gate.rerun_construction_scripts()
     island_gate.rerun_construction_scripts()
+
+    # Eighteen existing Moonfall shrine actors belong only to the Shiverwake
+    # province pad. IDs are unique and discovery/respawn work in this preview
+    # in memory, without loading/writing legacy campaign save slots.
+    added_shrines = install_shiverwake_shrines(actor_subsystem, shrine_class)
+    if added_shrines != 18:
+        raise RuntimeError("New Northern preview must place all 18 island shrines")
 
     # Spawn at mainland, walking distance from the boarding deck.
     spawn(
