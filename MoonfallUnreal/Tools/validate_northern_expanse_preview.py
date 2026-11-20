@@ -80,6 +80,26 @@ def main():
                 - island.get_actor_location().y) > 6000.0,
             "Island and mainland harbors need a separate sea gap")
 
+    # Two gothic boat silhouettes are purely decorative, nonblocking, and
+    # placed out over the sea rather than on either safe landing marker.
+    ships = [actor for actor in actors
+             if actor.get_class().get_name() == "MoonfallNorthGothicFerryActor"]
+    require(len(ships) == 2, "Expected mainland and Shiverwake gothic ferries")
+    for ship in ships:
+        require(ship.get_editor_property("b_show_gothic_ferry"),
+                "The gothic ferry silhouette is disabled")
+        for part in ("hull_pieces", "gothic_ironwork", "crimson_sails",
+                     "raven_figurehead", "crimson_lanterns"):
+            mesh = ship.get_editor_property(part)
+            require(mesh is not None and mesh.get_instance_count() >= 2,
+                    "Missing gothic ship details: " + part)
+            require(mesh.get_collision_enabled() == unreal.CollisionEnabled.NO_COLLISION,
+                    "Gothic ship must not block safe ferry travel: " + part)
+    sea_y_positions = sorted([ship.get_actor_location().y for ship in ships])
+    require(abs(sea_y_positions[0] + 7650.0) < 100.0
+            and abs(sea_y_positions[1] + 2750.0) < 100.0,
+            "Gothic ships must remain offshore at the two test harbors")
+
     pads = continent.get_editor_property("province_pads")
     roads = continent.get_editor_property("province_roads")
     landmarks = continent.get_editor_property("province_landmarks")
