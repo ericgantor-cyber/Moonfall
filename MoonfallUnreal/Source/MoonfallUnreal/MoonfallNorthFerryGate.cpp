@@ -75,11 +75,39 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
  PendingVoyager.Reset();
  PendingArrivalGate.Reset();
  bAutoVoyageInProgress = false;
+ VoyageSecondsRemaining = 0;
+ VoyagePhaseIndex = 0;
  if (FerrySign) {
   FerrySign->SetText(FText::FromString(
    bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\nAUTOMATIC BOARDING")
                  : TEXT("FERRY TO SHIVERWAKE COAST\nAUTOMATIC BOARDING")));
  }
+}
+
+void AMoonfallNorthFerryGate::UpdateVoyagePresentation(
+    AMoonfallHeroPawn* Hero, float ElapsedSeconds) {
+ if (!bAutoVoyageInProgress || !IsValid(Hero)) return;
+ const MoonfallNorth::EAutoSailPhase Phase = MoonfallNorth::AutoSailPhaseAt(
+     ElapsedSeconds, ActiveVoyageDurationSeconds);
+ // Arrival is not a presentation cue until the hero actually lands.
+ if (Phase == MoonfallNorth::EAutoSailPhase::Invalid
+     || Phase == MoonfallNorth::EAutoSailPhase::Arrived) return;
+ const int32 NextPhase = static_cast<int32>(Phase);
+ const int32 NextRemaining = MoonfallNorth::AutoSailSecondsRemaining(
+     ElapsedSeconds, ActiveVoyageDurationSeconds);
+ if (NextPhase == VoyagePhaseIndex && NextRemaining == VoyageSecondsRemaining)
+  return; // Do not rebuild text 10 times a second.
+ VoyagePhaseIndex = NextPhase;
+ VoyageSecondsRemaining = NextRemaining;
+ const TCHAR* Direction = bIslandHarbor
+     ? TEXT("SAILING TO MAINLAND") : TEXT("SAILING TO SHIVERWAKE COAST");
+ const TCHAR* PhaseName = Phase == MoonfallNorth::EAutoSailPhase::Departing
+     ? TEXT("DEPARTING HARBOR")
+     : Phase == MoonfallNorth::EAutoSailPhase::OpenSea
+     ? TEXT("CROSSING THE DARK SEA") : TEXT("APPROACHING HARBOR");
+ if (FerrySign) FerrySign->SetText(FText::FromString(FString::Printf(
+     TEXT("%s\n%s\nARRIVAL IN %dS"), Direction, PhaseName, NextRemaining)));
+ OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase);
 }
 
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
@@ -131,12 +159,15 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  PendingVoyager = Hero;
  VoyageStartWorldSeconds = GetWorld()->GetTimeSeconds();
  bAutoVoyageInProgress = true;
+ VoyageSecondsRemaining = -1; // Force a readable 11S departure cue.
+ VoyagePhaseIndex = 0;
  if (FerrySign) FerrySign->SetText(FText::FromString(
   bIslandHarbor ? TEXT("SAILING TO MAINLAND") : TEXT("SAILING TO SHIVERWAKE COAST")));
  GetWorld()->GetTimerManager().SetTimer(AutomaticVoyageTimer, this,
      &AMoonfallNorthFerryGate::UpdateAutomaticVoyage,
      MoonfallNorth::AutoSailUpdateSeconds, true);
  OnAutomaticVoyageStarted(Hero);
+ UpdateVoyagePresentation(Hero, 0.f);
  return true; // Boarding has begun, NOT proof that arrival is complete.
 }
 
@@ -168,6 +199,7 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  Position.Z += 16.f * FMath::Sin(ElapsedSeconds * 2.3f)
      * FMath::Sin(Progress * PI); // cosmetic wave bob, no gameplay movement
  Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
+ UpdateVoyagePresentation(Hero, ElapsedSeconds);
 
  if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
   return;
