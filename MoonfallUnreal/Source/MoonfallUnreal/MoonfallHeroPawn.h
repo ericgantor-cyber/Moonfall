@@ -91,6 +91,8 @@ public:
  // Council choice preview only. Decisions must not alter reputation or saves
  // without a separate confirmed, transactional gameplay action.
  UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString PreviewCouncilDecision(int32 DecisionId) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilPreviewSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool SelectCouncilPreview(int32 DecisionId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
 
