@@ -11,6 +11,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -248,6 +249,21 @@ int main() {
  assert(N::PrecipitationAt(-1,0,0).Zcm==0);
  assert(N::PrecipitationAt(0,N::PrecipitationInstanceCount,0).Zcm==0);
  assert(N::PrecipitationAt(0,0,-1).Zcm==0);
+ // Weather stays active inside the exit buffer, preventing timer thrashing
+ // around the border while still shutting off outside the wider radius.
+ for(int Radius=800;Radius<=8000;Radius+=200) {
+  assert(N::WithinWeatherRange(false,
+    static_cast<float>(Radius)*Radius,static_cast<float>(Radius)));
+  assert(N::WithinWeatherRange(true,
+    static_cast<float>(Radius+200)*(Radius+200),static_cast<float>(Radius)));
+  assert(!N::WithinWeatherRange(false,
+    static_cast<float>(Radius+1)*(Radius+1),static_cast<float>(Radius)));
+  assert(!N::WithinWeatherRange(true,
+    static_cast<float>(Radius+251)*(Radius+251),static_cast<float>(Radius)));
+ }
+ assert(!N::WithinWeatherRange(false,-1.f,2500.f));
+ assert(!N::WithinWeatherRange(false,0.f,799.f));
+ assert(!N::WithinWeatherRange(false,0.f,8001.f));
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
