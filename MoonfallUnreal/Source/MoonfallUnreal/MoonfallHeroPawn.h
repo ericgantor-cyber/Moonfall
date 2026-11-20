@@ -85,6 +85,12 @@ public:
  // Read-only community outlook from already saved contracts and shrine progress.
  // This does not claim constructed settlements or simulate raids.
  UFUNCTION(BlueprintPure, Category="Moonfall|World|Community") FString GetWorldCommunityOutlook() const;
+ // Sanctuary room access is derived from existing saved Firstlight shrine,
+ // boss victories and contracts. No generated room actors are implied.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Sanctuary") bool IsSanctuaryRoomUnlocked(int32 RoomId) const;
+ // Council choice preview only. Decisions must not alter reputation or saves
+ // without a separate confirmed, transactional gameplay action.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString PreviewCouncilDecision(int32 DecisionId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
 
