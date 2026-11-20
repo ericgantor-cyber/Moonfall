@@ -37,6 +37,19 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   0.1-second boat movement update. A successful landing fires the separate
   `OnFerryArrival` event; a failed landing must **never** announce arrival.
   With no Blueprint implementation, only the dock sign visibly changes.
+- **Gothic Raven cinematic camera:** the ship now has a rear-facing chase
+  viewpoint looking along the black hull toward its raven prow. On starting
+  the automatic crossing the *local* player controller can blend into the
+  ship camera; the normal view is restored when the voyage succeeds, fails
+  or is canceled. The restoration only runs if the ship is still the active
+  view target, so a separate cutscene/camera system is not forcibly reset.
+  The `bUseVoyageCamera` gate option can disable this and keep the existing
+  view. If the hero has **Reduce Motion** enabled, camera switching is
+  immediate instead of blended and decorative wave bob is disabled.
+  No manual steering or input bindings were introduced.
+  **The character remains at the departure dock during the camera ride**;
+  the ship's deck is currently non-colliding geometry, and this is
+  *not* yet a walkable moving-deck feature.
 - The arrival marker is outside its gate's overlap sphere. Place markers on
   collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
@@ -79,7 +92,8 @@ This is an **opt-in automatic crossing prototype**, not a complete
 walkable sailing experience. The decorated ship **does** follow an animated
 eleven-second route, but the hero **currently remains at the departure dock
 during the ship animation** before being moved to safe land at its destination.
-There is no moving walkable deck, animated cloth/sail rigging, interactive
+The new camera follows the animated boat, but the hero is not physically
+attached to it. There is no moving walkable deck, animated cloth/sail rigging, interactive
 captain or crew, dynamic wave physics, camera cutscene, authored ship/water
 assets, streaming between levels, permanent crossing unlock, or final
 playable island landscapes. Per the design direction there will be **no
