@@ -76,6 +76,12 @@ The optional continent greybox now generates **18 biome landmark placeholders**,
 
 These are intentionally untextured cube placeholders, not finished biome artwork or playable environmental hazards. Follow-up UE5 work must replace them with original appropriately licensed art, define terrain/foliage/weather/audio, author distinct silhouettes and test navigation and visibility on Windows packaged builds. C++17 regressions enforce 18 bounded placements away from the nine hub pads. Native engine verification remains outstanding.
 
+### Provincial wayfinding signage
+
+The connected-continent UE5 prototype now has nine **static, nonblocking in-world signs**, one at each provincial hub. Each displays its region name, suggested level and settlement hub, making the separate biomes readable while traversing the greybox. Sign components are created once, updated in editor construction, and do not Tick. They deliberately omit undiscovered dungeon lore, divine sanctum names and other quest spoilers. Source regression checks assert nine components, no collision, and absence of divine site labels.
+
+These signs only become visible after a designer places the continent actor in an actual Unreal map. No world save, quest unlock, fog-of-war, dynamic weather, or packaged map placement is implemented by this update. Level and controller readability must be tested in UE5 before merge.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
