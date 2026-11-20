@@ -8,6 +8,7 @@
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
+#include "InputCoreTypes.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
@@ -819,6 +820,15 @@ void AMoonfallHeroPawn::TryJump()
 {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
   ChooseResidentContextAction(ResidentContextSelection);
+  return;
+ }
+ // A has one input binding: Jump in combat, Character Stats while browsing
+ // inventory. Space remains Jump only and never opens a panel.
+ // Avoid duplicate ActionMappings that invoke BOTH handlers on one A press.
+ if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen) {
+  const APlayerController* PC=Cast<APlayerController>(Controller);
+  if (PC && PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom))
+   ToggleCharacterStats();
   return;
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
