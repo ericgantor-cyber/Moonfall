@@ -25,7 +25,19 @@ void AMoonfallCombatHUD::DrawHUD()
  Super::DrawHUD();
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
- if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }
+ if (!IsValid(Hero)) {
+  bAdvisorScoreCached = false;
+  QuestTrackerLastHero.Reset();
+  QuestTrackerSelectionSignature = 0ull;
+  QuestTrackerPageStart = 0;
+  return;
+ }
+ // A fresh character must never inherit another hero's quest page.
+ if (QuestTrackerLastHero.Get() != Hero) {
+  QuestTrackerPageStart = 0;
+  QuestTrackerSelectionSignature = 0ull;
+  QuestTrackerLastHero = Hero;
+ }
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
@@ -1133,6 +1145,28 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 VisibleQuestCount = QuestSummary.TrackedCount
       + (RegionalGoals.Valid ? RegionalGoals.Count : 0);
+  // Include ordered quest IDs and each contract's turn-in readiness.
+  // The pure 7-bit encoding distinguishes all 25 residents, 12 regional
+  // goals, and ready/not-ready transitions without changing saved state.
+  int QuestSelectionKeys[MoonfallQuestLayout::MaxRows] = {};
+  for (int32 Row = 0; Row < QuestSummary.TrackedCount; ++Row) {
+   const int32 Index = QuestSummary.TrackedIndices[Row];
+   QuestSelectionKeys[Row] = Index * 2
+       + (Hero->Salvage >= MoonfallQuestJournal::Cost(Index) ? 1 : 0);
+  }
+  if (RegionalGoals.Valid) {
+   for (int32 Row = 0; Row < RegionalGoals.Count; ++Row)
+    QuestSelectionKeys[QuestSummary.TrackedCount + Row] =
+      (MoonfallQuestJournal::ResidentCount + RegionalGoals.Indices[Row]) * 2;
+  }
+  const uint64 CurrentSelectionSignature =
+    MoonfallQuestLayout::SelectionSignature(QuestSelectionKeys, VisibleQuestCount);
+  if (QuestTrackerSelectionSignature != CurrentSelectionSignature) {
+   // Avoid hiding newly accepted, newly ready or reordered quests on an
+   // old page. The player's manual MMB page remains until content changes.
+   QuestTrackerPageStart = 0;
+   QuestTrackerSelectionSignature = CurrentSelectionSignature;
+  }
   const bool bQuestList = VisibleQuestCount > 0;
   // Dungeon objectives are a fallback. Skip the thirty-mask scan and
   // allocation-heavy string formatting while tracking accepted contracts.
