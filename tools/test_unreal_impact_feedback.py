@@ -49,6 +49,32 @@ class AAAImpactIntegration(unittest.TestCase):
         self.assertIn("if (bReduceMotion) return {0.f, SafeLast, false};",
                       self.policy)
 
+    def test_spell_impacts_are_blueprint_authored_not_debug_wireframes(self):
+        self.assertIn(
+            "void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,",
+            self.decl)
+        self.assertIn("float AppliedDamage, bool bCritical, bool bKillingBlow);",
+                      self.decl)
+        self.assertIn("BlueprintImplementableEvent", self.decl)
+        start = self.hero.index("bool AMoonfallHeroPawn::TryCast(")
+        end = self.hero.index("void AMoonfallHeroPawn::CastLeft()", start)
+        casting = self.hero[start:end]
+        confirmed = casting.index("if (ActualSpellDamage > 0.f) {")
+        impact = casting.index("OnSpellImpact(School, Hand == 0,")
+        self.assertGreater(impact, confirmed)
+        self.assertLess(impact, casting.index("OnSuccessfulHitCombo(", confirmed))
+        self.assertIn("if (!Hit.ImpactPoint.ContainsNaN())", casting)
+        self.assertIn(
+            "Hit.ImpactPoint, ActualSpellDamage,\n      bCriticalSpell, Enemy->Health <= 0.f",
+            casting)
+        self.assertEqual(casting.count("OnSpellImpact("), 1)
+        self.assertIn("OnSpellCast(School, Hand == 0);", casting)
+        self.assertNotIn("DrawDebugSphere(", casting)
+        self.assertNotIn("DrawDebugLine(", casting)
+        self.assertNotIn("DrawDebugString(", casting)
+        self.assertNotIn("SpawnActor(", casting)
+        self.assertNotIn("SetGlobalTimeDilation(", casting)
+
     def test_no_gameplay_state_or_art_rewrite(self):
         # Read-only presentation path: neither rewarding extra damage nor
         # blocking movement/casts with time dilation.
