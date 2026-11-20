@@ -46,7 +46,7 @@ public:
  TObjectPtr<AMoonfallNorthGothicFerryActor> SailingVessel;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Sea Travel",
            meta=(ClampMin="4.0", ClampMax="30.0", UIMin="4.0", UIMax="30.0"))
- float VoyageDurationSeconds = 8.f;
+ float VoyageDurationSeconds = 11.f;
  UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
  bool bAutoVoyageInProgress = false;
  // Transient only. A permanent first-voyage unlock needs a versioned save.
@@ -73,7 +73,7 @@ private:
  FVector SailingFrom = FVector::ZeroVector;
  FVector SailingTo = FVector::ZeroVector;
  float VoyageStartWorldSeconds = 0.f;
- float ActiveVoyageDurationSeconds = 8.f;
+ float ActiveVoyageDurationSeconds = 11.f;
  UFUNCTION()
  void OnBoardingOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
