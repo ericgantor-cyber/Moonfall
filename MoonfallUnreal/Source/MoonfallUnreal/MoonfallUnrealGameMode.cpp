@@ -3,6 +3,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallCombatHUD.h"
+#include "MoonfallWorldBootstrap.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -34,19 +35,21 @@ void AMoonfallUnrealGameMode::BeginPlay()
 
  // Preserve existing default behavior, but permit an isolated authored
  // continent or integration test map to omit the legacy combat arena.
- if (bGenerateLegacyArena) {
+ const MoonfallWorldBootstrap::FPolicy BootPolicy{
+   bGenerateLegacyArena,bGenerateDungeonWorld};
+ if (BootPolicy.SpawnLegacyArena) {
   bool bHasArena = false;
   for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
    if (IsValid(*It) && !It->IsActorBeingDestroyed()) {
     bHasArena = true;
     break;
    }
-  if (!bHasArena)
+  if (MoonfallWorldBootstrap::ShouldSpawnArena(BootPolicy,bHasArena))
    GetWorld()->SpawnActor<AMoonfallArena>(
      FVector::ZeroVector, FRotator::ZeroRotator);
  }
 
- if (!bGenerateDungeonWorld) return;
+ if (!MoonfallWorldBootstrap::ShouldGenerateDungeons(BootPolicy)) return;
  ReadyDungeonCount = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
  // Inspect authored layouts only once, rather than scanning world actors for
@@ -83,7 +86,7 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  if (!GetWorld()) return;
  // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
  // the short timer stops entirely when all slots have been considered.
- constexpr int32 MaxLayoutsPerBatch = 2;
+ constexpr int32 MaxLayoutsPerBatch = MoonfallWorldBootstrap::MaxLayoutsPerBatch;
  int32 Processed = 0;
  while (NextDungeonSlot < TotalDungeons && Processed < MaxLayoutsPerBatch) {
   const int32 Slot = NextDungeonSlot++;
