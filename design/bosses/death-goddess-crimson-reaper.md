@@ -2,7 +2,7 @@
 
 **Title:** The Crimson Reaper. **Internal encounter ID:** `death_goddess_crimson_reaper` (kept stable for compatibility).
 
-Status: **partial Unreal C++ implementation on this draft PR**. Arena preset, boss identity, four HP-based phases, and phase presentation are coded. Unique moves, approved runtime art, native compile and packaged gameplay remain unverified/not implemented.
+Status: **partial Unreal C++ implementation on this draft PR**. Arena preset, boss identity, four HP-based phases, and phase presentation are coded. Four **distinct named, telegraphed circular attacks** are now coded in the shared Unreal combat pipeline, but dedicated animations/art, the remaining encounter mechanics, native compile and packaged gameplay are unverified/not implemented.
 
 ## Visual identity
 Use the approved portrait of Morvella Velmora, the Death Goddess, in the November 19, 2026 conversation as the **canonical appearance reference**. Keep its face, silver-and-black hair, crimson eyes, ornate black skull armor, hood, crown, dramatic silhouette, and violet scythe consistent. Do not modify existing Z or Nyra artwork. The chat-generated image needs a separately committed, authorized art asset before runtime integration; this document is not that asset.
@@ -47,4 +47,9 @@ Use the approved portrait of Morvella Velmora, the Death Goddess, in the Novembe
 - Opt-in `death_goddess_crimson_reaper` arena preset (does not change default showcase).
 - Boss title and region and dedicated health phase thresholds at 75/50/25 percent.
 - Phase-entered Blueprint callback and phase-number readout reuse existing native hooks.
-- The default shared combat behavior remains until dedicated Death Goddess attacks are developed; **do not mistake this for the complete four-phase fight**.
+- Four opt-in signature attacks are wired to the shared, real damage/defense/tell/cancel path; generic melee moves remain in use between signatures.
+- Phase I: **Grave Needle**, hero-locked 210 cm circular marker, 1.55 s tell, 1.3x base damage.
+- Phase II: **Soul Harvest**, caster-centered 345 cm circular marker, 1.7 s tell, 1.35x base damage. Ranged casting is intentionally disabled for this move.
+- Phase III: **Crimson Eclipse**, hero-locked 310 cm circular marker, 1.35 s tell, 1.55x base damage.
+- Phase IV: **Final Verdict**, hero-locked 400 cm circular marker, 1.85 s tell, 1.9x base damage.
+- This **does not yet** implement teleporting, spawned spectral orbs, chained scythe animations, zone hazards or unique victory loot. The approved artwork also needs to be imported and checked against its reference. The complete encounter is not yet verified.
