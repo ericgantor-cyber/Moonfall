@@ -20,7 +20,7 @@ ast.parse(builder, filename=str(builder_path))
 ast.parse(validation, filename=str(validation_path))
 
 for text in (
-    "DefaultAutoSailSeconds = 8.f",
+    "DefaultAutoSailSeconds = 11.f",
     "AutoSailUpdateSeconds = 0.1f",
     "ValidAutoSailDuration",
     "AutoSailEasedProgress",
@@ -33,7 +33,7 @@ for text in (
 
 for text in (
     "TObjectPtr<AMoonfallNorthGothicFerryActor> SailingVessel",
-    "float VoyageDurationSeconds = 8.f",
+    "float VoyageDurationSeconds = 11.f",
     "bool bAutoVoyageInProgress = false",
     "void UpdateAutomaticVoyage()",
     "void StopAutomaticVoyage()",
@@ -75,7 +75,7 @@ for forbidden in (
 for expected in (
     '"sailing_vessel", mainland_ship',
     '"sailing_vessel", island_ship',
-    '"voyage_duration_seconds", 8.0',
+    '"voyage_duration_seconds", 11.0',
 ):
     assert expected in builder, f"Missing ship route wiring: {expected}"
 for expected in (
