@@ -7,6 +7,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -182,6 +183,21 @@ int main() {
  }
  assert(Edges==N::RoadEdgeCount());
  assert(Edges>=N::ZoneCount-1 && Edges<=20);
+ // Nine distinct province landmark pairs; no collision or road blockage
+ // is implemented by the decorative geometry component.
+ assert(N::ValidLandmarks());
+ assert(N::LandmarkCount==18);
+ for(int P=0; P<N::ZoneCount; ++P) {
+  for(int I=0; I<N::LandmarksPerProvince; ++I) {
+   const auto& L=N::Landmarks[P*N::LandmarksPerProvince+I];
+   assert(L.Province==P);
+   assert(L.HeightCm>=300 && L.HeightCm<=2000);
+   const int AbsX=L.OffsetXcm<0?-L.OffsetXcm:L.OffsetXcm;
+   const int AbsY=L.OffsetYcm<0?-L.OffsetYcm:L.OffsetYcm;
+   assert(AbsX>=N::ProvincePadHalfSizeCm+L.HalfWidthCm);
+   assert(AbsY>=N::ProvincePadHalfSizeCm+L.HalfWidthCm);
+  }
+ }
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
