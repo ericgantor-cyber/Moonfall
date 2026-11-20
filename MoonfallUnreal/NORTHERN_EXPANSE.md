@@ -22,6 +22,12 @@ The two starting paths leave Shiverwake Coast for forest or tundra, reconnect th
 
 The Northern Expanse catalog binds her stable encounter ID (death_goddess_crimson_reaper) to Gravewind Barrens (catalog index 3); this does not spawn a boss or build a level. On the separate Death Goddess draft PR #1075, her former sixth-region world spawn has been disabled by default to prevent the boss appearing in two lands. Full playable relocation requires integrating both draft PRs, authoring accessible northern roads and necropolis terrain, and testing packaged UE5 Windows builds. The legacy test arena remains optional.
 
+### Morvella discovery and victory policy
+
+The portable `MoonfallNorthMorvella.h` access policy supports a future separate nine-bit northern discovery ledger. Morvella remains hidden until Gravewind Barrens itself is discovered and an entire route from Shiverwake Coast through other discovered provinces is connected. A disconnected discovery alone cannot unlock the encounter. When her existing permanent victory flag is set, the access policy returns defeated rather than available. Invalid masks fail closed.
+
+This policy is **not connected to the active save schema, Atlas, UE5 actors, or world travel**. The encounter remains unavailable in the playable Northern Expanse until the continent's actual levels and backward-compatible discovery saves are implemented. All 512 discovery-mask combinations are covered by native-free regression tests.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
