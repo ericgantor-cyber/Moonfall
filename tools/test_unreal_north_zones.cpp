@@ -40,6 +40,11 @@ int main() {
  }
  assert(N::ShortestRoute(-1,0).Length==0);
  assert(N::ShortestRoute(0,N::ZoneCount).Length==0);
+ assert(N::MorvellaHasNorthernHome());
+ assert(N::MorvellaProvince==3);
+ assert(std::strcmp(N::Zones[N::MorvellaProvince].Name,"Gravewind Barrens")==0);
+ assert(std::strcmp(N::MorvellaSanctum,"Moonlit Necropolis")==0);
+ assert(std::strcmp(N::MorvellaEncounterId,"death_goddess_crimson_reaper")==0);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
