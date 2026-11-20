@@ -363,8 +363,15 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
   }
  }
  OnAutomaticVoyageStarted(Hero);
+ // A Blueprint can cancel a trip synchronously (for example, closing the
+ // travel UI, changing level or disabling the harbor). Never publish a
+ // countdown or report boarding success after that cancellation.
+ if (!bAutoVoyageInProgress || PendingVoyager.Get() != Hero
+     || !IsValid(PendingShip.Get()) || PendingShip.Get() != SailingVessel)
+  return false;
  UpdateVoyagePresentation(Hero, 0.f);
- return true; // Boarding has begun, NOT proof that arrival is complete.
+ // The progress event can also cancel travel while boarding is returning.
+ return bAutoVoyageInProgress && PendingVoyager.Get() == Hero;
 }
 
 void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
@@ -401,10 +408,34 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
   Position.Z += 16.f * FMath::Sin(ElapsedSeconds * 2.3f)
       * FMath::Sin(Progress * PI); // cosmetic only; disabled for reduced motion
  }
- Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
+ // Do not award a crossing if the ship failed to traverse its actual
+ // route (e.g. a designer changed actor mobility or a Blueprint blocked
+ // movement). A successful timer alone is not a successful voyage.
+ const bool bShipMoved = Ship->SetActorLocation(
+     Position, false, nullptr, ETeleportType::TeleportPhysics);
+ const FVector ActualPosition = Ship->GetActorLocation();
+ if (!bShipMoved || ActualPosition.ContainsNaN()
+     || FVector::DistSquared(ActualPosition, Position) > FMath::Square(10.f)) {
+  UE_LOG(LogTemp, Warning, TEXT("Northern ferry ship movement failed; aborting crossing."));
+  StopAutomaticVoyage();
+  return;
+ }
  Ship->AnimateCrimsonSails(ElapsedSeconds, Hero->bReduceMotion);
  Ship->AnimateCrimsonLanterns(ElapsedSeconds, Hero->bReduceMotion);
  UpdateVoyagePresentation(Hero, ElapsedSeconds);
+ // User Blueprint progress hooks may synchronously disable the harbor,
+ // replace its ship, change a menu or cancel this voyage. Never complete
+ // arrival using stale actor pointers after such a hook has executed.
+ if (!bAutoVoyageInProgress || !IsValid(Hero) || PendingVoyager.Get() != Hero
+     || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival)
+  return;
+ if (PairedGate != Arrival || Arrival->PairedGate != this
+     || SailingVessel != Ship || Arrival->SailingVessel != PendingTargetShip.Get()
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
+  StopAutomaticVoyage();
+  return;
+ }
 
  if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
   return;
