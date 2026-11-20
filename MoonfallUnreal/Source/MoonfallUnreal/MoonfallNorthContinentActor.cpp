@@ -3,6 +3,7 @@
 #include "MoonfallNorthLandmarks.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallNorthContinentActor::AMoonfallNorthContinentActor() {
@@ -27,6 +28,17 @@ AMoonfallNorthContinentActor::AMoonfallNorthContinentActor() {
  // Decorative biome silhouettes must never obstruct navigation or combat.
  ProvinceLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  ProvinceLandmarks->SetGenerateOverlapEvents(false);
+ // Fixed-size non-ticking sign components. Never create components per frame.
+ for (int32 Zone=0; Zone<MoonfallNorth::ZoneCount; ++Zone) {
+  UTextRenderComponent* Sign=CreateDefaultSubobject<UTextRenderComponent>(
+    FName(*FString::Printf(TEXT("NorthernZoneSign_%d"), Zone)));
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetGenerateOverlapEvents(false);
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(86.f);
+  ProvinceSigns.Add(Sign);
+ }
 }
 void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
@@ -34,10 +46,13 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
  ProvincePads->ClearInstances();
  ProvinceRoads->ClearInstances();
  ProvinceLandmarks->ClearInstances();
+ for (UTextRenderComponent* Sign : ProvinceSigns)
+  if (IsValid(Sign)) Sign->SetText(FText::GetEmpty());
  if (!ProvincePads->GetStaticMesh() || !ProvinceRoads->GetStaticMesh()
      || !ProvinceLandmarks->GetStaticMesh()
      || !MoonfallNorth::ValidContinentCenters()
-     || !MoonfallNorth::ValidLandmarks()) return;
+     || !MoonfallNorth::ValidLandmarks()
+     || ProvinceSigns.Num() != MoonfallNorth::ZoneCount) return;
  // One static plaza per zone, all with the same walkable Z=0 top face.
  for (int32 Zone=0; Zone<MoonfallNorth::ZoneCount; ++Zone) {
   const auto& P=MoonfallNorth::ContinentCenters[Zone];
@@ -45,6 +60,16 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
   ProvincePads->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),-20.f),
     FVector(Half/50.f,Half/50.f,0.4f)));
+  if (UTextRenderComponent* Sign=ProvinceSigns[Zone]) {
+   const auto& Region=MoonfallNorth::Zones[Zone];
+   // No quest titles, locked divine sites or unrevealed dungeon names.
+   Sign->SetText(FText::FromString(FString::Printf(
+     TEXT("%s | LVL %d\n%s"),
+     UTF8_TO_TCHAR(Region.Name), Region.SuggestedLevel,
+     UTF8_TO_TCHAR(Region.Hub))));
+   Sign->SetRelativeLocation(FVector(
+     static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),220.f));
+  }
  }
  // One road per undirected graph edge: no duplicated bridges or actor ticks.
  for (int32 A=0; A<MoonfallNorth::ZoneCount; ++A) {
