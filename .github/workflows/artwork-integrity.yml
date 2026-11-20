@@ -6,6 +6,7 @@ on:
       - 'godot-v38/assets/**'
       - 'engine-comparison/ART_IMPORT_MANIFEST.json'
       - 'tools/verify_artwork_inventory.py'
+      - 'tools/test_verify_artwork_inventory.py'
       - '.github/workflows/artwork-integrity.yml'
   workflow_dispatch:
 
@@ -22,5 +23,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Test detector against intentionally damaged disposable fixtures
+        run: python -m unittest discover -s tools -p test_verify_artwork_inventory.py -v
       - name: Verify originals and prototype exports
         run: python tools/verify_artwork_inventory.py --check-exports
