@@ -67,8 +67,48 @@ constexpr bool FullyConnected() {
    if ((Reached & (1u<<Zone)) != 0u) Reached |= Zones[Zone].NeighborMask;
  return Reached == ((1u<<ZoneCount)-1u);
 }
+// Returns the shortest proposed province-to-province route.
+// This is a read-only navigation plan, not world travel or fast-travel.
+// No heap allocations; invalid destinations return Length=0.
+struct FRoute {
+ int Length;
+ int Stops[ZoneCount];
+};
+constexpr FRoute ShortestRoute(int Start, int Goal) {
+ FRoute Route{};
+ if (!ValidZone(Start) || !ValidZone(Goal)) return Route;
+ int Prev[ZoneCount] = {};
+ bool Seen[ZoneCount] = {};
+ int Queue[ZoneCount] = {};
+ for (int Index=0; Index<ZoneCount; ++Index) Prev[Index] = -1;
+ int Head=0, Tail=0;
+ Queue[Tail++] = Start;
+ Seen[Start] = true;
+ while (Head<Tail && !Seen[Goal]) {
+  const int Current=Queue[Head++];
+  for (int Next=0; Next<ZoneCount; ++Next) {
+   if (!Seen[Next] && Linked(Current,Next)) {
+    Seen[Next] = true;
+    Prev[Next] = Current;
+    Queue[Tail++] = Next;
+   }
+  }
+ }
+ if (!Seen[Goal]) return Route;
+ int Reverse[ZoneCount] = {};
+ int Count=0;
+ for (int Current=Goal; Current!=-1; Current=Prev[Current])
+  Reverse[Count++] = Current;
+ Route.Length = Count;
+ for (int Index=0; Index<Count; ++Index)
+  Route.Stops[Index] = Reverse[Count-Index-1];
+ return Route;
+}
 static_assert(ZoneCount == 9, "Northern continent requires nine regions");
 static_assert(SymmetricLinks(), "Province borders must be bidirectional");
 static_assert(FullyConnected(), "Every northern zone must be reachable");
+static_assert(ShortestRoute(0,0).Length == 1, "Origin must route to itself");
+static_assert(ShortestRoute(0,8).Length >= 3, "Final stronghold requires travel");
+static_assert(ShortestRoute(-1,8).Length == 0, "Invalid origin must fail");
 static_assert(!Linked(-1,0) && !Linked(0,ZoneCount), "Reject invalid regions");
 } // namespace MoonfallNorth
