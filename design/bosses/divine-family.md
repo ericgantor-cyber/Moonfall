@@ -17,5 +17,5 @@ Her presence adds a third god to Moonfall's lore without rewriting Z or Nyra. Th
 - Godot new-hero lore panel names the three members; this does **not** add a playable Godot boss.
 - Unreal optional arena preset `death_goddess_crimson_reaper` instantiates the Death Goddess boss identity.
 - Unreal HP-driven phase progression is defined for four phases; the combat HUD names the divine boss and displays its correct phase count.
-- Four distinct telegraphed circular signature attacks are wired to the shared Unreal damage/defense path; full scythe choreography, soul summons, dedicated runtime artwork, full encounter tuning, packaged builds, and in-engine testing remain pending.
+- Four distinct telegraphed signature footprints (lane, safe-center ring, cross, circle) are wired to the shared Unreal damage/defense path; full scythe choreography, soul summons, dedicated runtime artwork, full encounter tuning, packaged builds, and in-engine testing remain pending.
 - Her encounter is opt-in. The original default arena setup, existing Z/Nyra boss identifiers, existing hero creation and save compatibility remain unchanged.
