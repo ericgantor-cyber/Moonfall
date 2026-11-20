@@ -1,8 +1,11 @@
 #include "MoonfallNorthWeatherActor.h"
 #include "MoonfallNorthWeatherPreview.h"
+#include "MoonfallNorthPrecipitation.h"
 #include "Components/SceneComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "UObject/ConstructorHelpers.h"
 #include "TimerManager.h"
 
 AMoonfallNorthWeatherActor::AMoonfallNorthWeatherActor() {
@@ -23,6 +26,13 @@ AMoonfallNorthWeatherActor::AMoonfallNorthWeatherActor() {
  WeatherText->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  WeatherText->SetGenerateOverlapEvents(false);
  WeatherText->SetVisibility(false);
+ WeatherParticles=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("WeatherParticles"));
+ WeatherParticles->SetupAttachment(GetRootComponent());
+ WeatherParticles->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ WeatherParticles->SetGenerateOverlapEvents(false);
+ WeatherParticles->SetCastShadow(false);
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if(Cube.Succeeded()) WeatherParticles->SetStaticMesh(Cube.Object);
 }
 void AMoonfallNorthWeatherActor::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
@@ -31,10 +41,11 @@ void AMoonfallNorthWeatherActor::OnConstruction(const FTransform& Transform) {
 void AMoonfallNorthWeatherActor::BeginPlay() {
  Super::BeginPlay();
  WeatherStep=0;
+ ParticleStep=0;
  RefreshWeatherPreview();
  if(bEnableWeatherPreview && MoonfallNorth::ValidZone(ProvinceIndex)) {
   GetWorldTimerManager().SetTimer(WeatherTimer,this,
-    &AMoonfallNorthWeatherActor::AdvanceWeatherPreview,2.0f,true);
+    &AMoonfallNorthWeatherActor::AdvanceWeatherPreview,0.2f,true);
  }
 }
 void AMoonfallNorthWeatherActor::EndPlay(const EEndPlayReason::Type Reason) {
@@ -42,15 +53,19 @@ void AMoonfallNorthWeatherActor::EndPlay(const EEndPlayReason::Type Reason) {
  Super::EndPlay(Reason);
 }
 void AMoonfallNorthWeatherActor::AdvanceWeatherPreview() {
- WeatherStep=(WeatherStep+1)%MoonfallNorth::WeatherPreviewSteps;
+ ParticleStep=(ParticleStep+1)%MoonfallNorth::PrecipitationSteps;
+ // Preserve the original two-second light pulse while animating flakes at 5Hz.
+ if(ParticleStep%10==0)
+  WeatherStep=(WeatherStep+1)%MoonfallNorth::WeatherPreviewSteps;
  RefreshWeatherPreview();
 }
 void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
- if(!IsValid(WeatherLight) || !IsValid(WeatherText)) return;
+ if(!IsValid(WeatherLight) || !IsValid(WeatherText) || !IsValid(WeatherParticles)) return;
  const auto* Climate=MoonfallNorth::ClimateFor(ProvinceIndex);
  if(!bEnableWeatherPreview || !Climate) {
   WeatherLight->SetVisibility(false);
   WeatherText->SetVisibility(false);
+  WeatherParticles->ClearInstances();
   return;
  }
  const FColor Color(Climate->Red,Climate->Green,Climate->Blue);
@@ -61,4 +76,20 @@ void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
  WeatherText->SetText(FText::FromString(UTF8_TO_TCHAR(Climate->Name)));
  WeatherText->SetTextRenderColor(Color);
  WeatherText->SetVisibility(true);
+ RefreshWeatherParticles();
+}
+void AMoonfallNorthWeatherActor::RefreshWeatherParticles() {
+ if(!IsValid(WeatherParticles)) return;
+ WeatherParticles->ClearInstances();
+ if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)
+     || !WeatherParticles->GetStaticMesh()) return;
+ for(int32 Slot=0;Slot<MoonfallNorth::PrecipitationInstanceCount;++Slot) {
+  const auto P=MoonfallNorth::PrecipitationAt(ProvinceIndex,Slot,ParticleStep);
+  const FVector Center(static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),
+    static_cast<float>(P.Zcm));
+  const FVector Scale(static_cast<float>(P.HalfWidthCm)/50.f,
+    static_cast<float>(P.HalfDepthCm)/50.f,
+    static_cast<float>(P.HalfHeightCm)/50.f);
+  WeatherParticles->AddInstance(FTransform(FRotator::ZeroRotator,Center,Scale));
+ }
 }
