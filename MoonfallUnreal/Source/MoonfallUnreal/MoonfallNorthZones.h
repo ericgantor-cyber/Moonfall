@@ -67,6 +67,16 @@ constexpr bool FullyConnected() {
    if ((Reached & (1u<<Zone)) != 0u) Reached |= Zones[Zone].NeighborMask;
  return Reached == ((1u<<ZoneCount)-1u);
 }
+// Morvella's relocated story home. This is an authored location binding,
+// not a loaded actor. The legacy sixth-region encounter must be disabled
+// until a playable Gravewind Barrens level and travel integration exist.
+inline constexpr int MorvellaProvince = 3; // Gravewind Barrens
+inline constexpr const char* MorvellaEncounterId = "death_goddess_crimson_reaper";
+inline constexpr const char* MorvellaSanctum = "Moonlit Necropolis";
+constexpr bool MorvellaHasNorthernHome() {
+ return ValidZone(MorvellaProvince)
+   && Zones[MorvellaProvince].Biome == EBiome::Deadlands;
+}
 // Returns the shortest proposed province-to-province route.
 // This is a read-only navigation plan, not world travel or fast-travel.
 // No heap allocations; invalid destinations return Length=0.
@@ -104,6 +114,7 @@ constexpr FRoute ShortestRoute(int Start, int Goal) {
   Route.Stops[Index] = Reverse[Count-Index-1];
  return Route;
 }
+static_assert(MorvellaHasNorthernHome(), "Death Goddess must live in Gravewind Barrens");
 static_assert(ZoneCount == 9, "Northern continent requires nine regions");
 static_assert(SymmetricLinks(), "Province borders must be bidirectional");
 static_assert(FullyConnected(), "Every northern zone must be reachable");
