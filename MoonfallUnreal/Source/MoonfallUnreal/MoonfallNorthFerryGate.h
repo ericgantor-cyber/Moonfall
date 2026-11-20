@@ -87,6 +87,12 @@ private:
  bool FindSafeDryLanding(const AMoonfallHeroPawn* Hero,
                          const AMoonfallNorthFerryGate* Harbor,
                          FVector& OutLandingLocation) const;
+ // For aborts, validate the saved original boarding POSITION itself instead
+ // of trusting a previously safe world location after a dock was removed.
+ bool FindSafeDryLandingAt(const AMoonfallHeroPawn* Hero,
+                           const AMoonfallNorthFerryGate* Harbor,
+                           const FVector& LandingAnchor,
+                           FVector& OutLandingLocation) const;
  void UpdateVoyagePresentation(AMoonfallHeroPawn* Hero, float ElapsedSeconds);
  FTimerHandle AutomaticVoyageTimer;
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
