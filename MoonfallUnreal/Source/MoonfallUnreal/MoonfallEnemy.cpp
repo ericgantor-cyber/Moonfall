@@ -322,6 +322,14 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
      LivingHero->MarkDungeonBossDefeated(this);
     }
    }
+   // A permanent Morvella victory requires a confirmed kill by this unique
+   // spawned world actor; ordinary divine showcases remain unaffected.
+   if (bBoss && MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
+       && Tags.Contains(FName(TEXT("MoonfallMorvellaWorldBoss")))) {
+    if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
+        UGameplayStatics::GetPlayerPawn(this, 0)))
+     LivingHero->MarkMorvellaDefeated(this);
+   }
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
