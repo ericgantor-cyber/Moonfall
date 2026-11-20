@@ -25,6 +25,8 @@ for text in (
     "ValidAutoSailDuration",
     "AutoSailEasedProgress",
     "AutoSailShouldArrive",
+    "AutoSailPhaseAt",
+    "AutoSailSecondsRemaining",
     "Progress must clamp",
 ):
     if text == "Progress must clamp":
@@ -39,6 +41,10 @@ for text in (
     "void StopAutomaticVoyage()",
     "FTimerHandle AutomaticVoyageTimer",
     "void OnAutomaticVoyageStarted",
+    "void OnAutomaticVoyageProgress",
+    "int32 VoyageSecondsRemaining = 0",
+    "int32 VoyagePhaseIndex = 0",
+    "void UpdateVoyagePresentation",
     "virtual void EndPlay",
 ):
     assert text in gate_h, f"Missing voyage gate member: {text}"
@@ -57,6 +63,16 @@ assert "PairedGate->SailingVessel->GetActorLocation()" in start
 assert "OnAutomaticVoyageStarted(Hero)" in start
 assert "MoonfallNorth::MayBoard" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
+assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
+assert "OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase)" in gate_cpp
+assert "FString::Printf(" in gate_cpp
+assert "ARRIVAL IN %dS" in gate_cpp
+assert "DEPARTING HARBOR" in gate_cpp
+assert "CROSSING THE DARK SEA" in gate_cpp
+assert "APPROACHING HARBOR" in gate_cpp
+assert "NextPhase == VoyagePhaseIndex && NextRemaining == VoyageSecondsRemaining" in gate_cpp
+assert "VoyageSecondsRemaining = 0;" in cleanup
+assert "VoyagePhaseIndex = 0;" in cleanup
 assert "Ship->SetActorLocation(Position" in tick
 assert "MoonfallNorth::AutoSailShouldArrive" in tick
 assert "Hero->TeleportTo(Destination" in tick
