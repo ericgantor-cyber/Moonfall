@@ -13,6 +13,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthProvinceWeather.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthBiomeTones.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -279,6 +280,19 @@ int main() {
  assert(N::ChooseWeatherProvince(-14000,13000,2)==1);
  assert(N::ChooseWeatherProvince(0,13000,1)==2);
  assert(N::ProvinceDistSquared(0,0,-1)==-1);
+ assert(N::ValidBiomeTones());
+ for(int A=0;A<N::ZoneCount;++A) {
+  const auto& Tone=N::BiomeTones[A];
+  assert(Tone.Red>=30 && Tone.Red<=160);
+  assert(Tone.Green>=30 && Tone.Green<=160);
+  assert(Tone.Blue>=30 && Tone.Blue<=160);
+  assert(std::strlen(Tone.Surface)>=8);
+  for(int B=A+1;B<N::ZoneCount;++B) {
+   assert(Tone.Red!=N::BiomeTones[B].Red ||
+     Tone.Green!=N::BiomeTones[B].Green ||
+     Tone.Blue!=N::BiomeTones[B].Blue);
+  }
+ }
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
