@@ -47,6 +47,7 @@ for text in (
     "virtual void EndPlay",
     "bool bUseVoyageCamera = false",
     "bool bVoyagerOnDeck = false",
+    "TWeakObjectPtr<AMoonfallNorthGothicFerryActor> PendingTargetShip",
     "OriginalBoardingLocation",
     "OriginalBoardingRotation",
     "bool IsVoyagerAboard(",
@@ -98,6 +99,7 @@ assert "Hero->TeleportTo(Destination" not in start
 assert "Hero->SetBase(SailingVessel->PassengerDeck)" in start
 assert "Hero->GetMovementBase() != SailingVessel->PassengerDeck" in start
 assert "OriginalBoardingLocation = DockLocation" in start
+assert "PendingTargetShip = PairedGate->SailingVessel" in start
 assert "OriginalBoardingRotation = DockRotation" in start
 assert "bVoyagerOnDeck = true" in start
 assert "GetTimerManager().SetTimer(AutomaticVoyageTimer" in start
@@ -130,6 +132,17 @@ assert "!IsVoyagerAboard(Hero, Ship)" in tick
 assert "Hero->SetBase(nullptr)" in tick
 assert "Hero->SetBase(Ship->PassengerDeck)" in tick
 assert "StopAutomaticVoyage(bArrived)" in tick
+for expected in (
+    "PairedGate != Arrival",
+    "Arrival->PairedGate != this",
+    "SailingVessel != Ship",
+    "!IsValid(PendingTargetShip.Get())",
+    "Arrival->SailingVessel != PendingTargetShip.Get()",
+    "PendingTargetShip.Get() == Ship",
+    "Arrival->bIslandHarbor == bIslandHarbor",
+    "Arrival->GetWorld() != GetWorld()",
+):
+    assert expected in tick, f"Mid-voyage harbor route changed without cancel: {expected}"
 assert '#include "GameFramework/CharacterMovementComponent.h"' in gate_cpp
 aboard = gate_cpp.split(
     "bool AMoonfallNorthFerryGate::IsVoyagerAboard(", 1
@@ -166,6 +179,7 @@ assert "if (!Hero->bReduceMotion)" in tick
 assert "Ship->AnimateCrimsonSails(ElapsedSeconds, Hero->bReduceMotion)" in tick
 assert "Ship->ResetCrimsonSails()" in cleanup
 assert "PendingVoyager.Reset()" in cleanup
+assert "PendingTargetShip.Reset()" in cleanup
 assert "PrimaryActorTick.bCanEverTick = false" in gate_cpp
 for forbidden in (
     "SaveWorldProgress(", "LoadWorldProgress(", "BindAxis(",
