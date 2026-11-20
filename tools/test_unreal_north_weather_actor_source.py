@@ -27,6 +27,10 @@ assert "MoonfallNorth::PrecipitationAt(" in source
 assert "WeatherParticles->AddInstance(" in source
 assert "0.2f,true" in source
 assert "ParticleStep%10==0" in source
+assert "if(!bWeatherActive || !bEnableWeatherPreview ||" in source
+assert "  RefreshWeatherPreview();\n } else {\n  RefreshWeatherParticles();" in source
+assert "WeatherStep=(WeatherStep+1)%MoonfallNorth::WeatherPreviewSteps;" in source
+
 # Reject unnecessary animation while nobody is nearby.
 assert "WeatherActivationRadiusCm=2500.f" in header
 assert "FTimerHandle ProximityTimer" in header
