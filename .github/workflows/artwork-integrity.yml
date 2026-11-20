@@ -5,6 +5,18 @@ on:
     paths:
       - 'godot-v38/assets/**'
       - 'engine-comparison/ART_IMPORT_MANIFEST.json'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/**'
+      - 'tools/verify_artwork_inventory.py'
+      - 'tools/test_verify_artwork_inventory.py'
+      - '.github/workflows/artwork-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'godot-v38/assets/**'
+      - 'engine-comparison/ART_IMPORT_MANIFEST.json'
+      - 'engine-comparison/unity/Assets/Resources/MoonfallArt/**'
+      - 'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/**'
       - 'tools/verify_artwork_inventory.py'
       - 'tools/test_verify_artwork_inventory.py'
       - '.github/workflows/artwork-integrity.yml'
