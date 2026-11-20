@@ -7,6 +7,8 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/Pawn.h"
 
 AMoonfallNorthWeatherActor::AMoonfallNorthWeatherActor() {
  PrimaryActorTick.bCanEverTick=false;
@@ -42,15 +44,50 @@ void AMoonfallNorthWeatherActor::BeginPlay() {
  Super::BeginPlay();
  WeatherStep=0;
  ParticleStep=0;
- RefreshWeatherPreview();
+ bWeatherActive=false;
+ DeactivateWeatherPreview();
+ // Proximity is checked at 1Hz; the fast 5Hz animation timer is only
+ // scheduled when the local player is inside range.
  if(bEnableWeatherPreview && MoonfallNorth::ValidZone(ProvinceIndex)) {
-  GetWorldTimerManager().SetTimer(WeatherTimer,this,
-    &AMoonfallNorthWeatherActor::AdvanceWeatherPreview,0.2f,true);
+  CheckWeatherProximity();
+  GetWorldTimerManager().SetTimer(ProximityTimer,this,
+    &AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true);
  }
 }
 void AMoonfallNorthWeatherActor::EndPlay(const EEndPlayReason::Type Reason) {
  GetWorldTimerManager().ClearTimer(WeatherTimer);
+ GetWorldTimerManager().ClearTimer(ProximityTimer);
+ DeactivateWeatherPreview();
  Super::EndPlay(Reason);
+}
+void AMoonfallNorthWeatherActor::DeactivateWeatherPreview() {
+ if(IsValid(WeatherLight)) WeatherLight->SetVisibility(false);
+ if(IsValid(WeatherText)) WeatherText->SetVisibility(false);
+ if(IsValid(WeatherParticles)) WeatherParticles->ClearInstances();
+}
+void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
+ if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)) {
+  if(bWeatherActive) {
+   bWeatherActive=false;
+   GetWorldTimerManager().ClearTimer(WeatherTimer);
+   DeactivateWeatherPreview();
+  }
+  return;
+ }
+ const APawn* Player=UGameplayStatics::GetPlayerPawn(this,0);
+ const float Radius=FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f);
+ const bool bShouldActivate=IsValid(Player) &&
+   FVector::DistSquared(Player->GetActorLocation(),GetActorLocation()) <= Radius*Radius;
+ if(bShouldActivate==bWeatherActive) return;
+ bWeatherActive=bShouldActivate;
+ if(bWeatherActive) {
+  RefreshWeatherPreview();
+  GetWorldTimerManager().SetTimer(WeatherTimer,this,
+    &AMoonfallNorthWeatherActor::AdvanceWeatherPreview,0.2f,true);
+ } else {
+  GetWorldTimerManager().ClearTimer(WeatherTimer);
+  DeactivateWeatherPreview();
+ }
 }
 void AMoonfallNorthWeatherActor::AdvanceWeatherPreview() {
  ParticleStep=(ParticleStep+1)%MoonfallNorth::PrecipitationSteps;
@@ -62,7 +99,7 @@ void AMoonfallNorthWeatherActor::AdvanceWeatherPreview() {
 void AMoonfallNorthWeatherActor::RefreshWeatherPreview() {
  if(!IsValid(WeatherLight) || !IsValid(WeatherText) || !IsValid(WeatherParticles)) return;
  const auto* Climate=MoonfallNorth::ClimateFor(ProvinceIndex);
- if(!bEnableWeatherPreview || !Climate) {
+ if(!bEnableWeatherPreview || !Climate || (HasActorBegunPlay() && !bWeatherActive)) {
   WeatherLight->SetVisibility(false);
   WeatherText->SetVisibility(false);
   WeatherParticles->ClearInstances();
@@ -82,6 +119,7 @@ void AMoonfallNorthWeatherActor::RefreshWeatherParticles() {
  if(!IsValid(WeatherParticles)) return;
  WeatherParticles->ClearInstances();
  if(!bEnableWeatherPreview || !MoonfallNorth::ValidZone(ProvinceIndex)
+     || (HasActorBegunPlay() && !bWeatherActive)
      || !WeatherParticles->GetStaticMesh()) return;
  for(int32 Slot=0;Slot<MoonfallNorth::PrecipitationInstanceCount;++Slot) {
   const auto P=MoonfallNorth::PrecipitationAt(ProvinceIndex,Slot,ParticleStep);
