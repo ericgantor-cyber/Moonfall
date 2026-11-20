@@ -292,8 +292,7 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
      || Hero->GetWorld() != GetWorld() || Ship->GetWorld() != GetWorld()
-     || Hero->GetActorLocation().ContainsNaN()
-     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f)) {
+     || !IsVoyagerAboard(Hero, Ship)) {
   StopAutomaticVoyage();
   return;
  }
@@ -321,8 +320,13 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
      && !Destination.ContainsNaN() && Destination.SizeSquared() < 1.0e14f;
  // The arriving hero only teleports after the voyage timer. Unreal checks
  // collision without forcing placement; a failed landing grants no progress.
+ // Remove the moving-platform base before the dry-land teleport. On failure,
+ // immediately rebase to the boat so cancellation can restore the traveler.
+ if (Hero->GetMovementBase() == Ship->PassengerDeck) Hero->SetBase(nullptr);
  const bool bArrived = bDestinationSafe
      && Hero->TeleportTo(Destination, Arrival->GetActorRotation(), false, false);
+ if (!bArrived && IsValid(Ship->PassengerDeck))
+  Hero->SetBase(Ship->PassengerDeck);
  const MoonfallNorth::ESeaPort Origin = bIslandHarbor
      ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
  const MoonfallNorth::ESeaPort Finish = Arrival->bIslandHarbor
@@ -330,7 +334,7 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  const bool bFirst = bArrived && MoonfallNorth::IsFirstIslandLanding(
      Origin, Finish, bReachedIslandThisSession);
  if (bFirst) bReachedIslandThisSession = true;
- StopAutomaticVoyage();
+ StopAutomaticVoyage(bArrived);
  if (bArrived) OnFerryArrival(Hero, bFirst);
 }
 
