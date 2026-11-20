@@ -1277,7 +1277,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float LedgerW = 330.f;
   const float LedgerX = Canvas->SizeX - LedgerW - 24.f;
   const float LedgerY = 78.f;
-  const float LedgerH = 290.f;
+  const float LedgerH = 330.f;
   DrawRect(FLinearColor(0.055f, 0.044f, 0.092f, 0.92f),
     LedgerX, LedgerY, LedgerW, LedgerH);
   DrawRect(FLinearColor(0.62f, 0.39f, 0.74f, 0.96f),
@@ -1318,9 +1318,23 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(0.82f, 0.90f, 0.94f),
       LedgerX + 14.f, LedgerY + 247.f, nullptr, 0.62f);
    }
-   DrawText(TEXT("D-pad left/right: review only"),
+   // The click rectangles mirror ResidentContextMouseClick's F8 mode.
+   const TCHAR* ChoiceLabels[3] = {TEXT("Protect"), TEXT("Rebuild"), TEXT("Fortify")};
+   for (int32 Choice = 0; Choice < 3; ++Choice) {
+    const float ButtonX = LedgerX + 14.f + Choice * 100.f;
+    DrawRect(Choice == Selected
+        ? FLinearColor(0.33f, 0.24f, 0.45f, 0.98f)
+        : FLinearColor(0.13f, 0.12f, 0.21f, 0.94f),
+      ButtonX, LedgerY + 274.f, 98.f, 25.f);
+    DrawText(ChoiceLabels[Choice],
+      Choice == Selected ? FLinearColor::White : FLinearColor(0.76f, 0.76f, 0.82f),
+      ButtonX + 8.f, LedgerY + 279.f, nullptr, 0.64f);
+   }
+   DrawText(Hero->bCouncilPointerOpen
+       ? TEXT("Click choice | F8 / Esc / right-click: exit")
+       : TEXT("D-pad: browse | F8: mouse preview"),
      FLinearColor(0.68f, 0.78f, 0.88f),
-     LedgerX + 14.f, LedgerY + 270.f, nullptr, 0.64f);
+     LedgerX + 14.f, LedgerY + 308.f, nullptr, 0.63f);
   }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
