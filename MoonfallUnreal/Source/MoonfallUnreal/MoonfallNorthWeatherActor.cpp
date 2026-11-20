@@ -4,6 +4,7 @@
 #include "MoonfallNorthWeatherRange.h"
 #include "MoonfallNorthContinentActor.h"
 #include "MoonfallNorthContinentLayout.h"
+#include "MoonfallNorthProvinceWeather.h"
 #include "Components/SceneComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -107,16 +108,17 @@ void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
   }
   const AMoonfallNorthContinentActor* Continent=NorthernContinent.Get();
   int32 ClosestProvince=INDEX_NONE;
-  double BestDistanceSq=FMath::Square(11500.0); // keep weather off the legacy world
   if(IsValid(Player) && IsValid(Continent)) {
-   const FVector PlayerLocation=Player->GetActorLocation();
-   for(int32 Index=0;Index<MoonfallNorth::ZoneCount;++Index) {
-    const double DistanceSq=FVector::DistSquared2D(
-      PlayerLocation,Continent->GetProvinceCenterWorldLocation(Index));
-    if(DistanceSq<BestDistanceSq) {
-     BestDistanceSq=DistanceSq;
-     ClosestProvince=Index;
-    }
+   // Use continent-local coordinates: translated/rotated/scale-adjusted
+   // editor greybox actors must not select the wrong province.
+   const FVector LocalPosition=Continent->GetActorTransform()
+     .InverseTransformPosition(Player->GetActorLocation());
+   if(FMath::IsFinite(LocalPosition.X) && FMath::IsFinite(LocalPosition.Y)
+      && FMath::Abs(LocalPosition.X)<1000000.0
+      && FMath::Abs(LocalPosition.Y)<1000000.0) {
+    ClosestProvince=MoonfallNorth::ChooseWeatherProvince(
+      FMath::RoundToInt(LocalPosition.X),
+      FMath::RoundToInt(LocalPosition.Y),bWeatherActive?ProvinceIndex:-1);
    }
   }
   if(ClosestProvince!=INDEX_NONE && IsValid(Player)) {
