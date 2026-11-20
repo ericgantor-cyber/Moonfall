@@ -409,7 +409,12 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[0]
         attempt = shrine_cpp.split("void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[1].split(
             "void AMoonfallCheckpointShrine::RetryPendingDiscovery()", 1)[0]
-        self.assertIn("bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)", discover)
+        # Only the isolated Northern preview may discover shrines without
+        # persistent writes; other write-protected campaign worlds still refuse.
+        self.assertIn("(bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)", discover)
+        self.assertIn("AMoonfallNorthPreviewGameMode::StaticClass()", discover)
+        self.assertIn("|| HasDiscoveredShrine(Shrine->ShrineId)", discover)
+        self.assertIn("if (!bPreviewOnlyShrine) {", discover)
         self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId) ||", check)
         self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId))", attempt)
         self.assertNotIn("bPreviouslyDiscovered", discover)
@@ -482,7 +487,9 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(startup.index("LoadWorldProgress();"),
                         startup.index("bWorldProgressInitialized = true;"))
         self.assertIn("!bWorldProgressInitialized || bWorldProgressLoadInProgress", discover)
-        self.assertIn("|| bPersistentSaveWritesBlocked", discover)
+        self.assertIn("(bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)", discover)
+        self.assertIn("AMoonfallNorthPreviewGameMode::StaticClass()", discover)
+        self.assertIn("if (!SaveWorldProgress()) {", discover)
         self.assertIn("ShrineSight.AddIgnoredActor(this)", discover)
         self.assertIn("ShrineSight.AddIgnoredActor(Shrine)", discover)
         self.assertIn("LineTraceTestByChannel(HeroLocation", discover)

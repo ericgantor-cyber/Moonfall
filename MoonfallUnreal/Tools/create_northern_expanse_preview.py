@@ -7,6 +7,11 @@ Never changes the startup map, game mode, legacy map, saves, or characters.
 Refuses to overwrite an existing preview level.
 """
 import unreal
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shiverwake_shrine_editor import install_shiverwake_shrines
 
 LEVEL_PATH = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"
 TAG = "NorthExpansePreview"
@@ -37,7 +42,13 @@ def main():
     # Validate all requirements before replacing the open editor level.
     continent_class = required_class("MoonfallNorthContinentActor")
     weather_class = required_class("MoonfallNorthWeatherActor")
+    ferry_class = required_class("MoonfallNorthFerryGate")
+    gothic_ship_class = required_class("MoonfallNorthGothicFerryActor")
+    shrine_class = required_class("MoonfallCheckpointShrine")
     preview_game_mode = required_class("MoonfallNorthPreviewGameMode")
+    dock_mesh = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cube.Cube")
+    if dock_mesh is None:
+        raise RuntimeError("Engine cube mesh unavailable for the isolated mainland dock")
     actor_subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     level_subsystem = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
     if actor_subsystem is None or level_subsystem is None:
@@ -72,7 +83,76 @@ def main():
     )
     weather.set_editor_property("b_follow_player_province", True)
     weather.set_editor_property("b_enable_weather_preview", True)
-    spawn(actor_subsystem, unreal.PlayerStart, (0.0, 0.0, 190.0), "North Preview Player Start")
+    # A separate, walkable mainland harbor lets the first journey begin off
+    # the island. The ocean gap remains untraversable in this greybox.
+    dock = spawn(
+        actor_subsystem, unreal.StaticMeshActor,
+        (0.0, -10000.0, -20.0), "Mainland Harbor Test Dock"
+    )
+    dock_mesh_component = dock.get_editor_property("static_mesh_component")
+    if dock_mesh_component is None:
+        raise RuntimeError("Mainland dock has no StaticMeshComponent")
+    dock_mesh_component.set_static_mesh(dock_mesh)
+    dock.set_actor_scale3d(unreal.Vector(34.0, 34.0, 0.4))
+
+    # Both gates share this test level and point to one another. No
+    # level streaming, changes to the campaign map, or new save slots.
+    mainland_gate = spawn(
+        actor_subsystem, ferry_class,
+        (0.0, -10000.0, 65.0), "Mainland Ferry To Shiverwake"
+    )
+    island_gate = spawn(
+        actor_subsystem, ferry_class,
+        (0.0, -1200.0, 65.0), "Shiverwake Coast Return Ferry"
+    )
+    mainland_gate.set_editor_property("b_island_harbor", False)
+    island_gate.set_editor_property("b_island_harbor", True)
+    mainland_gate.set_editor_property("paired_gate", island_gate)
+    island_gate.set_editor_property("paired_gate", mainland_gate)
+    mainland_gate.set_editor_property("b_enable_sea_passage", True)
+    island_gate.set_editor_property("b_enable_sea_passage", True)
+    mainland_gate.rerun_construction_scripts()
+    island_gate.rerun_construction_scripts()
+
+    # Gothic Raven ferries are NONBLOCKING decorative ship silhouettes, not
+    # substitute arrival markers or physical ship navigation. Place them in
+    # the sea alongside their docks; boarding still works from the dry gate.
+    mainland_ship = spawn(
+        actor_subsystem, gothic_ship_class,
+        (0.0, -7650.0, -40.0), "Mainland Gothic Raven Ferry"
+    )
+    island_ship = spawn(
+        actor_subsystem, gothic_ship_class,
+        (0.0, -2750.0, -40.0), "Shiverwake Gothic Raven Ferry"
+    )
+    mainland_ship.set_actor_rotation(unreal.Rotator(0.0, 90.0, 0.0), False)
+    island_ship.set_actor_rotation(unreal.Rotator(0.0, -90.0, 0.0), False)
+    mainland_ship.rerun_construction_scripts()
+    island_ship.rerun_construction_scripts()
+    # Each gate owns the visual ship for its outward automatic journey.
+    # Both vessels are decorative, with no player steering or ocean enemies.
+    mainland_gate.set_editor_property("sailing_vessel", mainland_ship)
+    island_gate.set_editor_property("sailing_vessel", island_ship)
+    mainland_gate.set_editor_property("voyage_duration_seconds", 11.0)
+    island_gate.set_editor_property("voyage_duration_seconds", 11.0)
+    # WoW-style passenger transport: move normally on the walking deck while
+    # the ship sails itself. Optional cinematic camera remains opt-in.
+    mainland_gate.set_editor_property("b_use_voyage_camera", False)
+    island_gate.set_editor_property("b_use_voyage_camera", False)
+    mainland_gate.rerun_construction_scripts()
+    island_gate.rerun_construction_scripts()
+
+    # Two shrines on each of nine original connected province pads.
+    # Checkpoints are session-only and never read/write legacy campaign slots.
+    added_shrines = install_shiverwake_shrines(actor_subsystem, shrine_class)
+    if added_shrines != 18:
+        raise RuntimeError("New Northern preview must place exactly 2 shrines per zone (18)")
+
+    # Spawn at mainland, walking distance from the boarding deck.
+    spawn(
+        actor_subsystem, unreal.PlayerStart,
+        (1100.0, -10000.0, 190.0), "North Preview Player Start"
+    )
     spawn(actor_subsystem, unreal.DirectionalLight, (0.0, 0.0, 1500.0), "North Preview Sun")
 
     if not level_subsystem.save_current_level():

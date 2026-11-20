@@ -160,6 +160,9 @@ public:
  // saved shrine was blocked and recovery moved the checkpoint to PlayerStart.
  bool IsCurrentRespawnLocation(const FVector& Location) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Shrines") bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine);
+ // In the isolated Northern preview only, touching ANY previously discovered
+ // island shrine restores resources without touching the campaign save.
+ void RestAtDiscoveredPreviewShrine(AMoonfallCheckpointShrine* Shrine);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Shrines") void OnShrineDiscovered(FName ShrineId);
  // A single permanent world checkpoint. Death never erases experience or items.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();

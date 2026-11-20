@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -306,6 +307,12 @@ void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // Only the isolated northern test GameMode disables persistent saves.
+ // This prevents its prototype dock and continent from reading/writing
+ // the player's legacy six-region campaign slot.
+ if (GetWorld() && GetWorld()->GetAuthGameMode()
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
+  bPersistentSaveWritesBlocked = true;
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
@@ -342,9 +349,9 @@ void AMoonfallHeroPawn::BeginPlay() {
  const bool bLoadedWorldProgress = LoadWorldProgress();
  // Recheck once on the next game tick: GameMode may create the arena after
  // this hero's BeginPlay. Neither pass can override a returning player's save.
- if (!bLoadedWorldProgress
+ if (!bLoadedWorldProgress && !bPersistentSaveWritesBlocked
      && !UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)
-     && !bPersistentSaveWritesBlocked && GetWorld()) {
+     && GetWorld()) {
   TryPlaceNewCharacterAtSanctuary();
   GetWorldTimerManager().SetTimerForNextTick(
     this, &AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary);
@@ -2371,10 +2378,17 @@ bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const 
      && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
 }
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ // The isolated Northern Expanse preview intentionally blocks all campaign
+ // save reads/writes. Allow shrine checkpoints only as session-local state
+ // in that exact preview GameMode, never in any other write-protected world.
+ const bool bPreviewOnlyShrine = bPersistentSaveWritesBlocked && GetWorld()
+     && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass());
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || (bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)
+     || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
@@ -2413,24 +2427,53 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  ActiveShrineId = Shrine->ShrineId;
  RespawnCheckpointLocation = NewRespawn;
  bHasRespawnCheckpointLocation = true;
- // Unlock + checkpoint persist together. Failed saves cannot activate a
- // shrine in memory and silently lose it after quitting.
- if (!SaveWorldProgress()) {
-  DiscoveredShrineIds.Remove(Shrine->ShrineId);
-  ActiveShrineId = PreviousShrineId;
-  RespawnCheckpointLocation = PreviousCheckpoint;
-  bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
-  return false;
+ // Regular campaign shrines persist atomically; failed saves roll back.
+ // The isolated preview activates shrines in memory for this session only,
+ // retaining the checkpoint for death without touching campaign save slots.
+ if (!bPreviewOnlyShrine) {
+  if (!SaveWorldProgress()) {
+   DiscoveredShrineIds.Remove(Shrine->ShrineId);
+   ActiveShrineId = PreviousShrineId;
+   RespawnCheckpointLocation = PreviousCheckpoint;
+   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
+   return false;
+  }
+  // Only a successful persistent shrine discovery resets the autosave timer.
+  SecondsSinceLastWorldSave = 0.f;
  }
- // Shrine discovery saved the world already; restart the autosave interval.
- SecondsSinceLastWorldSave = 0.f;
- // Discovery is rare, so update visual statuses only after a saved change.
+ // Discovery is rare, so refresh visuals after successful save or
+ // session-only activation. Previously discovered shrines stay lit.
  // Old shrines stop showing ACTIVE without a per-frame world scan.
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
   if (IsValid(*It)) It->RefreshShrineDisplay(this);
  OnShrineDiscovered(ActiveShrineId);
  return true;
 }
+void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(AMoonfallCheckpointShrine* Shrine) {
+ // The campaign never receives free shrine heals or preview-only save state.
+ if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld() || !GetWorld()
+     || !IsValid(GetWorld()->GetAuthGameMode())
+     || !GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass())
+     || !bPersistentSaveWritesBlocked
+     || !HasDiscoveredShrine(Shrine->ShrineId) || Health <= 0.f)
+  return;
+ const FVector PlayerPos = GetActorLocation();
+ const FVector ShrinePos = Shrine->GetActorLocation();
+ if (PlayerPos.ContainsNaN() || ShrinePos.ContainsNaN()
+     || FVector::DistSquared2D(PlayerPos, ShrinePos) > FMath::Square(220.f)
+     || FMath::Abs(PlayerPos.Z - ShrinePos.Z) > 200.f)
+  return;
+ if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f
+     || !FMath::IsFinite(MaxMana) || MaxMana < 0.f
+     || !FMath::IsFinite(MaxStamina) || MaxStamina < 0.f)
+  return;
+ // One event on entering a shrine, not a per-frame healing zone.
+ Health = MaxHealth;
+ Mana = MaxMana;
+ Stamina = MaxStamina;
+ OnHealthChanged(Health, MaxHealth);
+}
+
 int32 AMoonfallHeroPawn::GetDungeonTreasureState(int32 Zone, int32 Dungeon, int32 Chamber) const
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
@@ -2758,6 +2801,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ // The northern preview has no production save migration yet.
+ // Never import the campaign checkpoint into a temporary ferry test map.
+ if (GetWorld() && GetWorld()->GetAuthGameMode()
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
+  return false;
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));

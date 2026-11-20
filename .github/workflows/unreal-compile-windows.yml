@@ -68,6 +68,25 @@ jobs:
             Stop-Transcript | Out-Null
           }
 
+      # Only on revisions that contain the ferry smoke harness; otherwise
+      # this remains the standard manually dispatched compile-only workflow.
+      - name: Execute actual UE Editor Gothic Raven ferry component test
+        if: ${{ hashFiles('MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1') != '' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = Join-Path $env:RUNNER_TEMP "MoonfallNorthFerryNative-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          & .\MoonfallUnreal\Build\Test-NorthernFerryNativeAutomation.ps1 -UnrealRoot $env:UE54_ROOT -ProjectPath 'MoonfallUnreal\MoonfallUnreal.uproject' -ReportDirectory $report
+          if (-not $?) { throw 'Native Gothic Raven Unreal component automation failed.' }
+
+      - name: Preserve real Unreal ferry automation report
+        if: ${{ always() && hashFiles('MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-GothicRaven-NativeTest-Report
+          path: ${{ runner.temp }}/MoonfallNorthFerryNative-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Preserve native Editor and Game compile proof
         uses: actions/upload-artifact@v4
         with:
