@@ -68,18 +68,39 @@ void AMoonfallNorthFerryGate::EndPlay(const EEndPlayReason::Type EndPlayReason) 
  Super::EndPlay(EndPlayReason);
 }
 
-void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
+void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
  if (GetWorld()) GetWorld()->GetTimerManager().ClearTimer(AutomaticVoyageTimer);
- // Restore only a camera that this voyage still owns. A cutscene or another
- // system that changed view target in the meantime must not be overridden.
+ AMoonfallHeroPawn* Hero = PendingVoyager.Get();
+ AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
+
+ // Never leave a character based on a ship that is about to be reset.
+ if (bVoyagerOnDeck && IsValid(Hero) && IsValid(Ship)
+     && Hero->GetMovementBase() == Ship->PassengerDeck) {
+  Hero->SetBase(nullptr);
+ }
+ bool bRescued = bArrived;
+ if (!bArrived && bVoyagerOnDeck && IsValid(Hero)
+     && !OriginalBoardingLocation.ContainsNaN()
+     && OriginalBoardingLocation.SizeSquared() < 1.0e14f) {
+  // Failed landing or canceled voyage sends the traveler to the original
+  // collision-validated harbor spot. No save slot, death or reward changes.
+  bRescued = Hero->TeleportTo(OriginalBoardingLocation,
+      OriginalBoardingRotation, false, false);
+  if (!bRescued && IsValid(ArrivalMarker)) {
+   const FVector Fallback = ArrivalMarker->GetComponentLocation();
+   if (!Fallback.ContainsNaN() && Fallback.SizeSquared() < 1.0e14f)
+    bRescued = Hero->TeleportTo(Fallback, GetActorRotation(), false, false);
+  }
+ }
+
+ // Restore only a camera this voyage still owns. Another camera takeover
+ // must never be overridden, including on canceled/invalid crossings.
  if (bCinematicViewActive) {
   if (APlayerController* PC = VoyagePlayerController.Get()) {
-   if (PC->GetViewTarget() == PendingShip.Get()) {
+   if (PC->GetViewTarget() == Ship) {
     AActor* ReturnTarget = PreviousPlayerViewTarget.Get();
-    if (!IsValid(ReturnTarget) || ReturnTarget == PendingShip.Get())
-     ReturnTarget = PendingVoyager.Get();
+    if (!IsValid(ReturnTarget) || ReturnTarget == Ship) ReturnTarget = Hero;
     if (IsValid(ReturnTarget)) {
-     const AMoonfallHeroPawn* Hero = PendingVoyager.Get();
      PC->SetViewTargetWithBlend(ReturnTarget,
          Hero && Hero->bReduceMotion ? 0.f : 0.3f);
     }
@@ -89,13 +110,28 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
  bCinematicViewActive = false;
  VoyagePlayerController.Reset();
  PreviousPlayerViewTarget.Reset();
- if (AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get()) {
+
+ if (IsValid(Ship)) {
   Ship->ResetCrimsonSails();
-  Ship->SetActorTransform(OriginalShipTransform, false, nullptr, ETeleportType::TeleportPhysics);
+  Ship->SetActorTransform(OriginalShipTransform, false, nullptr,
+      ETeleportType::TeleportPhysics);
+  // If both dry dock teleports failed, keep the player on the restored ship
+  // rather than leaving them floating where the vessel just disappeared.
+  if (!bRescued && bVoyagerOnDeck && IsValid(Hero)
+      && IsValid(Ship->PassengerDeck)
+      && IsValid(Ship->PassengerBoardingMarker)) {
+   if (Hero->TeleportTo(Ship->PassengerBoardingMarker->GetComponentLocation(),
+           Ship->GetActorRotation(), false, false)) {
+    Hero->SetBase(Ship->PassengerDeck);
+   } else {
+    UE_LOG(LogTemp, Error, TEXT("Northern ferry could not restore passenger to any safe position."));
+   }
+  }
  }
  PendingShip.Reset();
  PendingVoyager.Reset();
  PendingArrivalGate.Reset();
+ bVoyagerOnDeck = false;
  bAutoVoyageInProgress = false;
  VoyageSecondsRemaining = 0;
  VoyagePhaseIndex = 0;
@@ -104,6 +140,20 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
    bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\nAUTOMATIC BOARDING")
                  : TEXT("FERRY TO SHIVERWAKE COAST\nAUTOMATIC BOARDING")));
  }
+}
+
+bool AMoonfallNorthFerryGate::IsVoyagerAboard(
+    const AMoonfallHeroPawn* Hero,
+    const AMoonfallNorthGothicFerryActor* Ship) const {
+ if (!bVoyagerOnDeck || !IsValid(Hero) || !IsValid(Ship)
+     || !IsValid(Ship->PassengerDeck)) return false;
+ const FVector Local = Ship->GetActorTransform().InverseTransformPosition(
+     Hero->GetActorLocation());
+ // An actual walkable deck: the hero can explore while the boat sails.
+ // Straying outside the guarded rail footprint triggers safe cancellation.
+ return !Local.ContainsNaN() && FMath::Abs(Local.X) <= 770.f
+     && FMath::Abs(Local.Y) <= 270.f
+     && Local.Z >= 260.f && Local.Z <= 800.f;
 }
 
 void AMoonfallNorthFerryGate::UpdateVoyagePresentation(
