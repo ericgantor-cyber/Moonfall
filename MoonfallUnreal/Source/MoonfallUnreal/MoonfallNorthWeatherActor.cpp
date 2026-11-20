@@ -94,9 +94,14 @@ void AMoonfallNorthWeatherActor::CheckWeatherProximity() {
   return;
  }
  const APawn* Player=UGameplayStatics::GetPlayerPawn(this,0);
- const float Radius=FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f);
+ // Hysteresis prevents timer/mesh thrashing when the player moves
+ // repeatedly across the activation boundary. Recover invalid editor data.
+ const float Radius=FMath::IsFinite(WeatherActivationRadiusCm)
+   ? FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f) : 2500.f;
+ const float ExitRadius=Radius+250.f;
+ const float Limit=bWeatherActive ? ExitRadius : Radius;
  const bool bShouldActivate=IsValid(Player) &&
-   FVector::DistSquared(Player->GetActorLocation(),GetActorLocation()) <= Radius*Radius;
+   FVector::DistSquared(Player->GetActorLocation(),GetActorLocation()) <= Limit*Limit;
  if(bShouldActivate==bWeatherActive) return;
  bWeatherActive=bShouldActivate;
  if(bWeatherActive) {
