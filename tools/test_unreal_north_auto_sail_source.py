@@ -96,6 +96,14 @@ for expected in (
 ):
     assert expected in land_guard, f"Missing true walkable landing guard: {expected}"
 assert "FindSafeDryLanding(Hero, PairedGate, Destination)" in start
+# A valid destination is insufficient if the traveler is falling or
+# standing over empty water near the departure trigger.
+assert "const UCharacterMovementComponent* BoardingMovement" in start
+assert "!BoardingMovement->IsMovingOnGround()" in start
+assert "FindSafeDryLandingAt(Hero, this, DockLocation, SafeDeparture)" in start
+assert start.index("FindSafeDryLandingAt(Hero, this, DockLocation, SafeDeparture)") < start.index(
+    "Hero->TeleportTo(DeckSpawn"
+)
 assert "FindSafeDryLanding(Hero, Arrival, Destination)" in tick
 assert "Hero->TeleportTo(DeckSpawn" in start
 assert '#include "Components/CapsuleComponent.h"' in gate_cpp
@@ -156,6 +164,11 @@ assert "APPROACHING HARBOR" in gate_cpp
 assert "NextPhase == VoyagePhaseIndex && NextRemaining == VoyageSecondsRemaining" in gate_cpp
 assert "VoyageSecondsRemaining = 0;" in cleanup
 assert "VoyagePhaseIndex = 0;" in cleanup
+# Cancellation must not advertise automatic boarding when a harbor was
+# disabled during the voyage or by a Blueprint event.
+assert "const FString Availability = bEnableSeaPassage" in cleanup
+assert 'TEXT("\\nNOT YET AVAILABLE")' in cleanup
+assert "FerrySign->SetText(FText::FromString(Direction + Availability))" in cleanup
 assert "const bool bShipMoved = Ship->SetActorLocation(" in tick
 assert "ActualPosition = Ship->GetActorLocation()" in tick
 assert "!bShipMoved || ActualPosition.ContainsNaN()" in tick
