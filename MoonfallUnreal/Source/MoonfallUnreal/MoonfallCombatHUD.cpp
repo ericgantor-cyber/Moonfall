@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallHUDLayout.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -409,12 +410,12 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   return;
  }
- if (Hero->bOptionsOpen) {
+ if (Hero->bOptionsOpen && !Hero->bHUDLayoutEditing) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 9.f;
   const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
   const float FirstRowY = MenuTop + 63.f;
   const bool bCompactOptions = MenuWidth < 420.f;
@@ -441,14 +442,14 @@ void AMoonfallCombatHUD::DrawHUD()
      : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
-     TEXT("Display mode")};
+     TEXT("Display mode"), TEXT("HUD layout editor")};
    const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
-     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode")};
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode"), TEXT("HUD edit")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
-     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen"), TEXT("OPEN")};
    const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    // Options mouse hover is visual only; clicks still choose and adjust explicitly.
@@ -457,7 +458,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bOptionsCursorVisible = PC->bShowMouseCursor
       && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
-   for (int32 i = 0; i < 8; ++i) {
+   for (int32 i = 0; i < 9; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
     const bool bHoveredRow = bOptionsCursorVisible
@@ -495,14 +496,15 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Reduce impact shake and camera motion"),
     TEXT("Scale damage numbers in combat"),
     TEXT("Scale the visibility of boss warnings"),
-    TEXT("Choose Windowed, Borderless or Fullscreen")
+    TEXT("Choose Windowed, Borderless or Fullscreen"),
+    TEXT("Drag resource, quest and boss panels; wheel resizes")
   };
   const FString CompactHelp[] = {
     TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
     TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
-    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
+    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode"), TEXT("Drag & resize the HUD")
   };
-  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 8);
   FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
   // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
   // This is guidance, never a hidden automatic graphics-setting change.
@@ -951,9 +953,13 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
-  const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
-  const float X = (Canvas->SizeX - Width) * 0.5f;
-  const float Y = 72.f;
+  const auto BossRect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Boss,
+    Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Boss],
+    Hero->HudPanelScales[MoonfallHUDLayout::Boss]);
+  const float S = BossRect.Scale;
+  const float Width = FMath::Max(8.f, BossRect.Width - 12.f * S);
+  const float X = BossRect.Left + 6.f * S;
+  const float Y = BossRect.Top + 48.f * S;
   const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
   const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
   const bool bRegionalBoss = Boss->bBoss && Boss->DungeonBossRank >= 1
@@ -962,24 +968,24 @@ void AMoonfallCombatHUD::DrawHUD()
     ? Boss->DungeonBossTitle.ToString() : FString(TEXT("BOSS"));
   const float AlertScale = FMath::Clamp(Hero->BossWarningScale, 1.f, 2.f);
   DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),
-    X-6.f,Y-40.f,Width+12.f,120.f);
-  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
-  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
+    X-6.f*S,Y-40.f*S,Width+12.f*S,120.f*S);
+  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f*S);
+  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f*S);
   DrawText(FString::Printf(TEXT("%s  |  PHASE %d / 3  |  %.0f / %.0f HP"),
     *BossTitle,Boss->BossPhase,FMath::Max(0.f,Boss->Health),MaxHP),
-    FLinearColor::White,X,Y-29.f,nullptr,Canvas->SizeX < 850.f ? 0.73f : 0.95f);
+    FLinearColor::White,X,Y-29.f*S,nullptr,(Canvas->SizeX < 850.f ? 0.73f : 0.95f)*S);
   if (bRegionalBoss) {
    DrawText(FString::Printf(TEXT("REGIONAL BOSS  |  RANK %d / 5"),Boss->DungeonBossRank),
-     FLinearColor(0.83f,0.87f,1.f),X,Y-48.f,nullptr,0.76f);
+     FLinearColor(0.83f,0.87f,1.f),X,Y-48.f*S,nullptr,0.76f*S);
   }
   const bool bBossPostureBroken = Boss->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
   const float BossPostureRatio = FMath::Clamp(Boss->Posture / FMath::Max(1.f, Boss->MaxPosture), 0.f, 1.f);
-  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f,Width,7.f);
+  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f*S,Width,7.f*S);
   DrawRect(bBossPostureBroken ? FLinearColor(1.f,0.77f,0.30f) : FLinearColor(0.84f,0.59f,1.f),
-    X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
+    X,Y+24.f*S,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f*S);
   DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
     bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
-    X,Y+35.f,nullptr,0.78f);
+    X,Y+35.f*S,nullptr,0.78f*S);
   const float WarningRemaining = Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds();
   if (FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f) {
    // Draw a concrete countdown, not just a vague warning. It uses the
@@ -999,26 +1005,26 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* ActionCue = bRedDodge ? TEXT("RED - DODGE ONLY")
      : bBlueParry ? TEXT("BLUE - PARRY / DODGE")
      : TEXT("GUARD / PARRY / DODGE");
-   DrawRect(CueColor,X-6.f,Y+51.f,5.f,22.f);
+   DrawRect(CueColor,X-6.f*S,Y+51.f*S,5.f*S,22.f*S);
    DrawText(FString::Printf(TEXT("%s  |  %.1fs  |  %s"),
       *MoveName, Seconds, ActionCue),CueColor,
-      X+6.f,Y+55.f,nullptr,FMath::Min(1.35f,0.72f * AlertScale));
+      X+6.f*S,Y+55.f*S,nullptr,FMath::Min(1.35f,0.72f * AlertScale)*S);
    // A fixed, non-flashing impact cue remains readable with Reduce Motion.
    if (Seconds <= 0.3f)
-    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f,nullptr,0.78f);
+    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f*S,nullptr,0.78f*S);
    if (bRegionalBoss && FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)
        && Boss->DungeonBossAttackWarningDuration > 0.f) {
     const float WarningProgress = FMath::Clamp(
       Seconds / Boss->DungeonBossAttackWarningDuration, 0.f, 1.f);
-    DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f,Width,4.f);
+    DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f*S,Width,4.f*S);
     DrawRect(CueColor,
-      X,Y+73.f,Width*WarningProgress,4.f);
+      X,Y+73.f*S,Width*WarningProgress,4.f*S);
    }
   }
   if (bRegionalBoss && Canvas->SizeY > 600.f)
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
      Hero->GetTotalDefeatedDungeonBosses(),Hero->GetClearedDungeonZoneCount()),
-     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f,nullptr,0.76f);
+     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f*S,nullptr,0.76f*S);
  }
  // Show only the nearest engaged non-boss posture target to avoid clutter.
  if (PostureTarget && GetOwningPlayerController()) {
@@ -1040,7 +1046,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
- const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
+ const bool bCanShowQuestTracker = (Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f)
+    || (Hero->bHUDLayoutEditing && Canvas->SizeX >= 320.f && Canvas->SizeY >= 300.f);
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
   const int32 Cleared = FMath::Clamp(Hero->GetTotalDefeatedDungeonBosses(), 0, 30);
@@ -1105,42 +1112,46 @@ void AMoonfallCombatHUD::DrawHUD()
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
-  const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
-  const float Left = 20.f;
-  const float Top = 78.f;
+  const auto Rect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Quest,
+    Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Quest],
+    Hero->HudPanelScales[MoonfallHUDLayout::Quest]);
+  const float Width = Rect.Width, Left = Rect.Left, Top = Rect.Top;
+  const float S = FMath::Min(Rect.Scale, Width / 560.f);
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
-    Left, Top, Width, 124.f);
+    Left, Top, Width, Rect.Height);
   DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
-    Left, Top, 4.f, 124.f);
+    Left, Top, 4.f * S, Rect.Height);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
-    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
+    FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f*S, Top + 7.f*S, nullptr, 0.86f*S);
   DrawText(Objective, FLinearColor::White,
-    Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
+    Left + 14.f*S, Top + 33.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.68f : 0.82f)*S);
   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
-    Left + 14.f, Top + 57.f, nullptr, Canvas->SizeX < 1050.f ? 0.65f : 0.75f);
-  // Two stable progress bars: discovering all 30 entrances, then clearing
-  // all 30 bosses. Never conflate visited regions with defeated bosses.
-  const float TrackWidth = FMath::Max(20.f, Width - 28.f);
+    Left + 14.f*S, Top + 57.f*S, nullptr, (Canvas->SizeX < 1050.f ? 0.65f : 0.75f)*S);
+  // Shared progress values; scaling or moving the panel cannot mutate quest state.
+  const float TrackWidth = FMath::Max(12.f, Width - 28.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 81.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.27f, 0.74f, 0.90f),
-    Left + 14.f, Top + 81.f, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f);
+    Left + 14.f*S, Top + 81.f*S, TrackWidth * (static_cast<float>(Discovered) / 30.f), 5.f*S);
   DrawRect(FLinearColor(0.12f, 0.15f, 0.23f),
-    Left + 14.f, Top + 92.f, TrackWidth, 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth, 5.f*S);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
-    Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
+    Left + 14.f*S, Top + 92.f*S, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f*S);
   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
-    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f*S, Top + 102.f*S, nullptr,
+    (Canvas->SizeX < 1050.f ? 0.65f : 0.74f)*S);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
- const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
- const float CX = Radius + 25.f;
- const float CY = Canvas->SizeY - Radius - 25.f;
- const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
+ const auto OrbRect = MoonfallHUDLayout::Geometry(MoonfallHUDLayout::Orb,
+   Canvas->SizeX, Canvas->SizeY, Hero->HudPanelOffsets[MoonfallHUDLayout::Orb],
+   Hero->HudPanelScales[MoonfallHUDLayout::Orb]);
+ const float Radius = OrbRect.Width / 2.5f;
+ const float CX = OrbRect.Left + OrbRect.Width * 0.5f;
+ const float CY = OrbRect.Top + OrbRect.Height * 0.5f;
+ const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.80f);
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
@@ -1241,6 +1252,39 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
+ // Editing is visible only while the Options HUD editor owns all input.
+ // The three outlines reuse the exact same geometry as the pointer handler.
+ if (Hero->bHUDLayoutEditing) {
+  static const TCHAR* PanelNames[] = {TEXT("ORBS"), TEXT("QUEST"), TEXT("BOSS")};
+  for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+   const auto R = MoonfallHUDLayout::Geometry(Panel, Canvas->SizeX, Canvas->SizeY,
+      Hero->HudPanelOffsets[Panel], Hero->HudPanelScales[Panel]);
+   const bool bSelected = Hero->HudSelectedPanel == Panel;
+   const FLinearColor C = bSelected
+      ? FLinearColor(1.f, 0.85f, 0.35f, 0.97f)
+      : FLinearColor(0.48f, 0.85f, 1.f, 0.93f);
+   DrawRect(C, R.Left, R.Top, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top + R.Height - 2.f, R.Width, 2.f);
+   DrawRect(C, R.Left, R.Top, 2.f, R.Height);
+   DrawRect(C, R.Left + R.Width - 2.f, R.Top, 2.f, R.Height);
+   DrawRect(FLinearColor(0.045f,0.05f,0.1f,0.91f), R.Left+3.f, R.Top+3.f,
+     FMath::Min(R.Width-6.f,105.f),20.f);
+   DrawText(FString(PanelNames[Panel]), C, R.Left+9.f, R.Top+4.f, nullptr, 0.75f);
+  }
+  DrawRect(FLinearColor(0.025f,0.035f,0.08f,0.94f), 0.f, 0.f, Canvas->SizeX, 50.f);
+  const int32 Selected = FMath::Clamp(Hero->HudSelectedPanel, 0, 2);
+  const FString EditorHelp = Canvas->SizeX < 650.f ? TEXT("HUD EDIT")
+    : Canvas->SizeX < 1100.f
+      ? FString::Printf(TEXT("HUD EDIT: %s | Wheel: resize | Drag to move"), PanelNames[Selected])
+      : FString::Printf(TEXT("HUD EDIT: %s  %.0f%% | Drag | Wheel / Left-Right: resize | Up-Down: select"),
+          PanelNames[Selected], MoonfallHUDLayout::SafeScale(Hero->HudPanelScales[Selected])*100.f);
+  DrawText(EditorHelp, FLinearColor::White, 12.f, 17.f, nullptr,
+    Canvas->SizeX < 1100.f ? 0.70f : 0.78f);
+  DrawRect(FLinearColor(0.27f,0.24f,0.35f), Canvas->SizeX-214.f, 8.f, 98.f, 36.f);
+  DrawText(TEXT("RESET"), FLinearColor::White, Canvas->SizeX-201.f, 18.f, nullptr, 0.80f);
+  DrawRect(FLinearColor(0.21f,0.42f,0.32f), Canvas->SizeX-106.f, 8.f, 94.f, 36.f);
+  DrawText(TEXT("DONE"), FLinearColor::White, Canvas->SizeX-94.f, 18.f, nullptr, 0.80f);
+ }
  // Reuse one controller lookup for every projected damage label this frame.
  const APlayerController* DamageProjectionPC = GetOwningPlayerController();
  int32 VisibleDamageNumbers = 0;

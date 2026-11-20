@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallHUDLayout.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -323,6 +324,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
  BossWarningScale = FMath::Clamp(FMath::RoundToFloat(BossWarningScale * 4.f) / 4.f, 1.f, 2.f);
+ LoadHUDLayout();
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
  const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
@@ -369,6 +371,22 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Drag updates only while explicitly editing and a mouse press is held.
+ if (bHUDLayoutEditing && HudDraggingPanel >= 0
+     && HudDraggingPanel < MoonfallHUDLayout::PanelCount) {
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+   int32 ViewW = 0, ViewH = 0;
+   float X = 0.f, Y = 0.f;
+   PC->GetViewportSize(ViewW, ViewH);
+   if (ViewW > 0 && ViewH > 0 && PC->bShowMouseCursor
+       && PC->GetMousePosition(X, Y) && FMath::IsFinite(X) && FMath::IsFinite(Y)) {
+    HudPanelOffsets[HudDraggingPanel] = MoonfallHUDLayout::SafeOffset(
+      HudDragStartOffset + FVector2D(
+       (X - HudDragStartMouse.X) / float(ViewW),
+       (Y - HudDragStartMouse.Y) / float(ViewH)));
+   }
+  }
+ }
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
@@ -798,6 +816,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (bHUDLayoutEditing) { AdjustHUDPanelScale(1); return; }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
@@ -807,6 +826,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (bHUDLayoutEditing) { AdjustHUDPanelScale(-1); return; }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
@@ -1251,6 +1271,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  if (bHUDLayoutEditing) SaveHUDLayout();
+  bHUDLayoutEditing = false;
+  HudDraggingPanel = INDEX_NONE;
   bOptionsOpen = false;
   bAtlasOpen = false;
   bInventoryScrollbarDragging = false;
@@ -1552,7 +1575,106 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
  if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
 }
 
+
+void AMoonfallHeroPawn::LoadHUDLayout()
+{
+ for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+  float X = 0.f, Y = 0.f, Scale = 1.f;
+  if (GConfig) {
+   GConfig->GetFloat(TEXT("Moonfall.HUDLayout"),
+     *FString::Printf(TEXT("Panel%dX"), Panel), X, GGameUserSettingsIni);
+   GConfig->GetFloat(TEXT("Moonfall.HUDLayout"),
+     *FString::Printf(TEXT("Panel%dY"), Panel), Y, GGameUserSettingsIni);
+   GConfig->GetFloat(TEXT("Moonfall.HUDLayout"),
+     *FString::Printf(TEXT("Panel%dScale"), Panel), Scale, GGameUserSettingsIni);
+  }
+  HudPanelOffsets[Panel] = MoonfallHUDLayout::SafeOffset(FVector2D(X, Y));
+  HudPanelScales[Panel] = MoonfallHUDLayout::SafeScale(Scale);
+ }
+}
+
+void AMoonfallHeroPawn::SaveHUDLayout() const
+{
+ if (!GConfig) return;
+ for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+  const FVector2D Safe = MoonfallHUDLayout::SafeOffset(HudPanelOffsets[Panel]);
+  GConfig->SetFloat(TEXT("Moonfall.HUDLayout"),
+   *FString::Printf(TEXT("Panel%dX"), Panel), Safe.X, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.HUDLayout"),
+   *FString::Printf(TEXT("Panel%dY"), Panel), Safe.Y, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.HUDLayout"),
+   *FString::Printf(TEXT("Panel%dScale"), Panel),
+   MoonfallHUDLayout::SafeScale(HudPanelScales[Panel]), GGameUserSettingsIni);
+ }
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+void AMoonfallHeroPawn::ResetHUDLayout()
+{
+ if (!bHUDLayoutEditing) return;
+ HudDraggingPanel = INDEX_NONE;
+ for (int32 Panel = 0; Panel < MoonfallHUDLayout::PanelCount; ++Panel) {
+  HudPanelOffsets[Panel] = FVector2D::ZeroVector;
+  HudPanelScales[Panel] = 1.f;
+ }
+ SaveHUDLayout();
+}
+
+void AMoonfallHeroPawn::AdjustHUDPanelScale(int32 Direction)
+{
+ if (!bHUDLayoutEditing || HudSelectedPanel < 0
+     || HudSelectedPanel >= MoonfallHUDLayout::PanelCount) return;
+ const float Current = MoonfallHUDLayout::SafeScale(HudPanelScales[HudSelectedPanel]);
+ HudPanelScales[HudSelectedPanel] = MoonfallHUDLayout::SafeScale(
+   FMath::RoundToFloat((Current + (Direction < 0 ? -0.1f : 0.1f)) * 10.f) / 10.f);
+ SaveHUDLayout();
+}
+
+void AMoonfallHeroPawn::ExitHUDLayoutEditor()
+{
+ if (!bHUDLayoutEditing) return;
+ HudDraggingPanel = INDEX_NONE;
+ SaveHUDLayout();
+ bHUDLayoutEditing = false;
+ bOptionsOpen = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = false;
+}
+
+void AMoonfallHeroPawn::HandleHUDLayoutMousePress()
+{
+ if (!bHUDLayoutEditing || !bOptionsOpen) return;
+ APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return;
+ int32 ViewW = 0, ViewH = 0;
+ float X = 0.f, Y = 0.f;
+ PC->GetViewportSize(ViewW, ViewH);
+ if (ViewW <= 0 || ViewH <= 0 || !PC->GetMousePosition(X, Y)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return;
+ // Toolbar geometry is shared with the combat HUD overlay.
+ if (Y >= 8.f && Y <= 44.f && X >= ViewW - 106.f && X <= ViewW - 12.f) {
+  ExitHUDLayoutEditor();
+  return;
+ }
+ if (Y >= 8.f && Y <= 44.f && X >= ViewW - 214.f && X <= ViewW - 116.f) {
+  ResetHUDLayout();
+  return;
+ }
+ // The last drawn overlapping panel wins, just as on the Canvas.
+ for (int32 Panel = MoonfallHUDLayout::PanelCount - 1; Panel >= 0; --Panel) {
+  const auto R = MoonfallHUDLayout::Geometry(Panel, ViewW, ViewH,
+    HudPanelOffsets[Panel], HudPanelScales[Panel]);
+  if (!R.Contains(X, Y)) continue;
+  HudSelectedPanel = Panel;
+  HudDraggingPanel = Panel;
+  HudDragStartMouse = FVector2D(X, Y);
+  HudDragStartOffset = MoonfallHUDLayout::SafeOffset(HudPanelOffsets[Panel]);
+  return;
+ }
+}
+
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bHUDLayoutEditing) { ExitHUDLayoutEditor(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -1579,6 +1701,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bHUDLayoutEditing) { HudSelectedPanel = (HudSelectedPanel + 2) % 3; return; }
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
@@ -1593,9 +1716,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 8) % 9;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bHUDLayoutEditing) { HudSelectedPanel = (HudSelectedPanel + 1) % 3; return; }
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
@@ -1610,20 +1734,29 @@ void AMoonfallHeroPawn::OptionsDown() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 9;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bHUDLayoutEditing) { AdjustHUDPanelScale(-1); return; }
  if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bHUDLayoutEditing) { AdjustHUDPanelScale(1); return; }
  if (bAtlasOpen) { AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f); return; }
  if (bInventoryOpen) return;
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
- if (!bOptionsOpen || !GEngine) return;
+ if (!bOptionsOpen) return;
+ if (OptionsSelection == 8) {
+  bHUDLayoutEditing = true;
+  HudDraggingPanel = INDEX_NONE;
+  HudSelectedPanel = 0;
+  return;
+ }
+ if (!GEngine) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();
  if (!Settings) return;
  if (OptionsSelection == 0) {
@@ -3374,10 +3507,15 @@ void AMoonfallHeroPawn::CastRightMouse() {
 }
 void AMoonfallHeroPawn::ReleaseInventoryPointer()
 {
+ if (bHUDLayoutEditing && HudDraggingPanel != INDEX_NONE) {
+  HudDraggingPanel = INDEX_NONE;
+  SaveHUDLayout();
+ }
  bInventoryScrollbarDragging = false;
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (bHUDLayoutEditing) { HandleHUDLayoutMousePress(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.
  if (bAtlasOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {
@@ -3450,14 +3588,14 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
     } else {
-     // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
-     const float RowGap = (MenuHeight - 130.f) / 8.f;
+     // Match all nine options rows and +/- button bounds to MoonfallCombatHUD.
+     const float RowGap = (MenuHeight - 130.f) / 9.f;
      const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
      const float FirstRowY = MenuTop + 63.f;
      const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
      const float RowY = FirstRowY + ClickedRow * RowGap;
      if (MouseX >= MenuLeft + 10.f && MouseX <= MenuLeft + MenuWidth - 10.f
-         && ClickedRow >= 0 && ClickedRow < 8
+         && ClickedRow >= 0 && ClickedRow < 9
          && MouseY >= RowY && MouseY <= RowY + RowHeight) {
       OptionsSelection = ClickedRow;
       const float MinusX = MenuLeft + MenuWidth - 145.f;
