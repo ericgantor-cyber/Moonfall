@@ -120,6 +120,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
+ // Personal recognition after completed contracts; no trust farming.
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2) {
+  const FString Rank = Hero->GetResidentRelationshipRank(ResidentId);
+  if (Rank == TEXT("Devoted"))
+   Reaction = FText::FromString(TEXT("You have my lasting loyalty, whatever road you choose."));
+  else if (Rank == TEXT("Trusted"))
+   Reaction = FText::FromString(TEXT("Your deeds earned my trust. I will remember them."));
+ }
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
