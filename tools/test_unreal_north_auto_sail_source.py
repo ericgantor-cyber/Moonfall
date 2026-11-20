@@ -53,6 +53,7 @@ for text in (
     "bool IsVoyagerAboard(",
     "void StopAutomaticVoyage(bool bArrived = false)",
     "bool FindSafeDryLanding(",
+    "bool FindSafeDryLandingAt(",
     "TWeakObjectPtr<APlayerController> VoyagePlayerController",
     "TWeakObjectPtr<AActor> PreviousPlayerViewTarget",
     "bool bCinematicViewActive = false",
@@ -69,14 +70,20 @@ cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1
 # Boarding places the hero *on the real ship deck*, but cannot teleport to
 # the destination before the complete eleven-second crossing.
 land_guard = gate_cpp.split(
-    "bool AMoonfallNorthFerryGate::FindSafeDryLanding(", 1
+    "bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(", 1
 )[1].split("bool AMoonfallNorthFerryGate::BoardFerry(", 1)[0]
+landing_wrapper = gate_cpp.split(
+    "bool AMoonfallNorthFerryGate::FindSafeDryLanding(", 1
+)[1].split("bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(", 1)[0]
+assert "return FindSafeDryLandingAt(Hero, Harbor," in landing_wrapper
 for expected in (
     "LineTraceSingleByChannel(",
     "ECC_Visibility",
     "Query.AddIgnoredActor(Hero)",
     "Query.AddIgnoredActor(this)",
     "Query.AddIgnoredActor(Harbor)",
+    "Query.AddIgnoredActor(SailingVessel)",
+    "Query.AddIgnoredActor(Harbor->SailingVessel)",
     "Ground.bBlockingHit",
     "Ground.ImpactNormal.ContainsNaN()",
     "Ground.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block",
@@ -98,7 +105,8 @@ assert "DeckSpawn.Z = DeckSurfaceZ" in start
 assert "Hero->TeleportTo(Destination" not in start
 assert "Hero->SetBase(SailingVessel->PassengerDeck)" in start
 assert "Hero->GetMovementBase() != SailingVessel->PassengerDeck" in start
-assert "bool bReturned = Hero->TeleportTo(DockLocation" in start
+assert "FindSafeDryLandingAt(Hero, this, DockLocation, SafeOriginal)" in start
+assert "Hero->TeleportTo(SafeOriginal, DockRotation" in start
 assert "FindSafeDryLanding(Hero, this, SafeHarbor)" in start
 assert "bReturned = Hero->TeleportTo(SafeHarbor" in start
 assert "OriginalBoardingLocation = DockLocation" in start
@@ -181,11 +189,15 @@ assert "if (bArrived) OnFerryArrival(Hero, bFirst)" in tick
 assert "StopAutomaticVoyage();" in tick
 assert "ClearTimer(AutomaticVoyageTimer)" in cleanup
 assert "Ship->SetActorTransform(OriginalShipTransform" in cleanup
-assert "Hero->TeleportTo(OriginalBoardingLocation" in cleanup
+assert "FindSafeDryLandingAt(Hero, this, OriginalBoardingLocation, SafeOriginal)" in cleanup
+assert "Hero->TeleportTo(SafeOriginal," in cleanup
 assert "Hero->TeleportTo(Fallback" in cleanup
 assert "FindSafeDryLanding(Hero, this, Fallback)" in cleanup
 assert "if (!bArrived && bVoyagerOnDeck && IsValid(Hero))" in cleanup
-assert "OriginalBoardingLocation.SizeSquared() < 1.0e14f" in cleanup
+assert "OriginalBoardingLocation.SizeSquared() < 1.0e14f" not in cleanup
+# The old raw original-location teleport was unsafe if dock collision vanished.
+assert "Hero->TeleportTo(OriginalBoardingLocation" not in cleanup
+assert "Hero->TeleportTo(DockLocation" not in start
 assert "SafeDeck.Z = DeckTop" in cleanup
 assert "bVoyagerOnDeck = false" in cleanup
 assert "Hero->GetMovementBase() == Ship->PassengerDeck" in cleanup
