@@ -325,6 +325,12 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // VFX/audio authoring hook for a REAL hostile hit, never a miss or heal.
+ // The original character artwork and attack animation assets are untouched.
+ // This does not spawn an effect unless a derived Blueprint implements it.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
+   float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
