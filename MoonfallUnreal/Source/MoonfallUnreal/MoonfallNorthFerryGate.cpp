@@ -90,6 +90,7 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
  VoyagePlayerController.Reset();
  PreviousPlayerViewTarget.Reset();
  if (AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get()) {
+  Ship->ResetCrimsonSails();
   Ship->SetActorTransform(OriginalShipTransform, false, nullptr, ETeleportType::TeleportPhysics);
  }
  PendingShip.Reset();
@@ -238,6 +239,7 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
       * FMath::Sin(Progress * PI); // cosmetic only; disabled for reduced motion
  }
  Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
+ Ship->AnimateCrimsonSails(ElapsedSeconds, Hero->bReduceMotion);
  UpdateVoyagePresentation(Hero, ElapsedSeconds);
 
  if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
