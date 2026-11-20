@@ -338,6 +338,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Mixed-school dual cast only fires after a validated successful hit.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Weaving") void OnSpellWeaved(int32 LeftSchool, int32 RightSchool, int32 HybridType);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
