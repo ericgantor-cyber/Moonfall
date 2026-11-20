@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthAutoSail.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
@@ -12,6 +13,8 @@ on:
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_auto_sail.cpp'
+      - 'tools/test_unreal_north_auto_sail_source.py'
       - 'tools/test_unreal_north_sea_gate_source.py'
       - 'tools/test_unreal_north_ferry_preview_source.py'
       - 'tools/test_unreal_north_gothic_ferry_source.py'
@@ -20,6 +23,7 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthAutoSail.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
@@ -28,6 +32,8 @@ on:
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_auto_sail.cpp'
+      - 'tools/test_unreal_north_auto_sail_source.py'
       - 'tools/test_unreal_north_sea_gate_source.py'
       - 'tools/test_unreal_north_ferry_preview_source.py'
       - 'tools/test_unreal_north_gothic_ferry_source.py'
@@ -51,12 +57,15 @@ jobs:
           python tools/test_unreal_north_preview_map_source.py
           python tools/test_unreal_north_ferry_preview_source.py
           python tools/test_unreal_north_gothic_ferry_source.py
+          python tools/test_unreal_north_auto_sail_source.py
       - name: GCC C++17 ferry route test
         if: runner.os == 'Linux'
         shell: bash
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_sea_passage.cpp -o /tmp/moonfall_north_sea
           /tmp/moonfall_north_sea
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_auto_sail.cpp -o /tmp/moonfall_auto_sail
+          /tmp/moonfall_auto_sail
       - name: Configure MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -67,4 +76,8 @@ jobs:
           cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_north_sea.exe tools/test_unreal_north_sea_passage.cpp
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./moonfall_north_sea.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_auto_sail.exe tools/test_unreal_north_auto_sail.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_auto_sail.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
