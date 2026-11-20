@@ -1,6 +1,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallDeathGoddess.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
@@ -336,6 +337,13 @@ void AMoonfallArena::SpawnMorvellaWorldEncounter() {
   Sign->SetRelativeLocation(Entry.Location);
   Sign->RegisterComponent();
   DivineEncounterSigns.Add(Sign);
+ }
+ // Preserve the empty-but-explorable necropolis after victory. A hero save
+ // may already be loaded when the arena begins; the reverse ordering is
+ // handled by HeroPawn::LoadWorldProgress.
+ if (const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+     UGameplayStatics::GetPlayerPawn(this, 0))) {
+  if (Hero->HasDefeatedMorvella()) return;
  }
  // One authored boss, rather than a generic pack or repeated-wave spawn.
  // Designers can provide a Blueprint subclass with the exact approved
