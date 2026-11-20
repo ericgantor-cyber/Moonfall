@@ -90,9 +90,11 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
       && OriginalBoardingLocation.SizeSquared() < 1.0e14f)
    bRescued = Hero->TeleportTo(OriginalBoardingLocation,
        OriginalBoardingRotation, false, false);
-  if (!bRescued && IsValid(ArrivalMarker)) {
-   const FVector Fallback = ArrivalMarker->GetComponentLocation();
-   if (!Fallback.ContainsNaN() && Fallback.SizeSquared() < 1.0e14f)
+  // The return-harbor fallback needs the SAME real-ground validation as
+  // a normal landing. Never rescue a player onto an empty-water marker.
+  if (!bRescued) {
+   FVector Fallback;
+   if (FindSafeDryLanding(Hero, this, Fallback))
     bRescued = Hero->TeleportTo(Fallback, GetActorRotation(), false, false);
   }
  }
