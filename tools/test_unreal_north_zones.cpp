@@ -23,6 +23,23 @@ int main() {
    }
   }
  }
+ // All 81 routes, including same-zone and reversed travel, must be safe.
+ for (int Start=0; Start<N::ZoneCount; ++Start) {
+  for (int Goal=0; Goal<N::ZoneCount; ++Goal) {
+   const auto Route=N::ShortestRoute(Start,Goal);
+   const auto Reverse=N::ShortestRoute(Goal,Start);
+   assert(Route.Length>=1 && Route.Length<=N::ZoneCount);
+   assert(Route.Stops[0]==Start);
+   assert(Route.Stops[Route.Length-1]==Goal);
+   assert(Reverse.Length==Route.Length);
+   for (int Step=1; Step<Route.Length; ++Step)
+    assert(N::Linked(Route.Stops[Step-1],Route.Stops[Step]));
+   for (int Step=0; Step<Route.Length; ++Step)
+    assert(Route.Stops[Step]==Reverse.Stops[Route.Length-Step-1]);
+  }
+ }
+ assert(N::ShortestRoute(-1,0).Length==0);
+ assert(N::ShortestRoute(0,N::ZoneCount).Length==0);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
