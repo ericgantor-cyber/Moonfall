@@ -38,6 +38,23 @@ class DivineFamilyRosterTests(unittest.TestCase):
         self.assertIn("MoonfallDeathGoddess::IsDeathGoddess", hud)
         self.assertIn(" ? 4 : 3", hud)
 
+    def test_morvella_four_signature_moves_use_existing_damage_pipeline(self):
+        enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
+        rules = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddess.h")
+        names = ("GraveNeedle", "SoulHarvest", "CrimsonEclipse", "FinalVerdict")
+        for name in names:
+            self.assertIn('TEXT("' + name + '")', rules)
+        self.assertIn("MoonfallDeathGoddess::SignatureForPhase(BossPhase)", enemy)
+        self.assertIn("MoonfallDeathGoddess::WarningForPhase(BossPhase)", enemy)
+        self.assertIn("OnDivineAttackTelegraphed(ActiveDivineMoveId", enemy)
+        self.assertIn("OnDivineAttackResolved(ResolvedMove", enemy)
+        self.assertIn("CancelDivineSignature()", enemy)
+        self.assertIn("bDeathGoddess ||", enemy)
+        # Phase two is caster-centered and should not be attempted from ranged casting distance.
+        self.assertIn("SignatureForPhase(BossPhase).bCenteredOnCaster", enemy)
+        self.assertIn("CurrentWindup = Move.WarningSeconds", enemy)
+        self.assertIn("CurrentAttackMultiplier = Move.DamageMultiplier", enemy)
+
     def test_phase_thresholds_and_stable_divine_roles(self):
         rules = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddess.h")
         enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
