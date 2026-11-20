@@ -24,6 +24,18 @@ assert "ProvinceLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision)" 
 assert "MoonfallNorth::ValidLandmarks()" in source
 assert "MoonfallNorth::LandmarkCount" in source
 assert "ProvinceLandmarks" in header
+assert "ProvinceSigns" in header
+assert "CreateDefaultSubobject<UTextRenderComponent>" in source
+assert 'ProvinceSigns.Num() != MoonfallNorth::ZoneCount' in source
+assert 'Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in source
+assert 'Sign->SetGenerateOverlapEvents(false)' in source
+assert 'Region.SuggestedLevel' in source
+assert 'Region.Hub' in source
+assert 'Region.Name' in source
+assert 'ProvinceSigns[Zone]' in source
+assert "Region.Dungeon" not in source
+assert "ZSanctum" not in source and "NyraSanctum" not in source
+
 assert "ECollisionEnabled::QueryAndPhysics" in source
 assert "ValidContinentCenters()" in layout
 assert "RoadEdgeCount()" in layout
