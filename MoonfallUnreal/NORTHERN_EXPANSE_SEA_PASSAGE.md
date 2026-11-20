@@ -33,19 +33,30 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
 This is an **opt-in interactive gate prototype**, not a placed, traversable
 ship journey. There is no real boat movement, sea physics, storms, sea monsters,
 cutscene, ship or water artwork, loading/streaming between separate levels,
-permanent crossing unlock, or generated playable island map. It has not
-been compiled or playtested in Unreal 5.4 on Windows. The existing northern
-preview generator and default game startup are unchanged; merely adding this
-actor to source does not make it appear in-game.
+permanent crossing unlock, or generated final playable island landscapes.
+It has not been compiled or playtested in Unreal 5.4 on Windows. The
+Northern Expanse **editor preview generator now authors a dry mainland test
+dock, a PlayerStart there, and two reciprocal, enabled ferry gates** beside
+the existing connected nine-zone greybox. This creates a ferry path in the
+generated test map only if an Unreal Editor user runs the tool and saves the
+new level. The default main game startup remains unchanged.
 
-### Critical save isolation before an island preview playtest
+### Preview-only campaign save isolation (source implementation)
 
-The current Moonfall hero pawn loads/saves the existing world slot and
-autosaves every two seconds. Do **not** attach the experimental ferry to the
-legacy world or run an experimental continent save against a real player's
-existing save. A dedicated northern preview pawn / separate test save slot
-and versioned world travel persistence must be implemented and verified
-first. This branch does not change any autosave behavior.
+The `AMoonfallHeroPawn` now identifies the dedicated
+`AMoonfallNorthPreviewGameMode` at `BeginPlay`. In that mode it sets
+`bPersistentSaveWritesBlocked` **before** attempting to load progress,
+and `LoadWorldProgress()` refuses to read the campaign slot. Normal
+two-second autosave calls are rejected through the existing write guard,
+as are progress pickups that require successful persistent writes.
+The save-existence check is skipped before the preview tests' new-player
+sanctuary relocation. Death uses in-memory PlayerStart fallback, not the
+campaign slot. The normal game mode retains its previous behavior.
+
+This deliberately makes **preview progress disposable**, not permanently
+saved. Test save isolation in actual UE5 before assuming it works. No
+northern save schema, port unlocks or versioned cross-map persistence
+exists yet. Do not attach experimental gates to a production main map.
 
 ## Native acceptance checklist
 
@@ -53,10 +64,16 @@ first. This branch does not change any autosave behavior.
    the portable Linux/Windows C++17 and source tests.
 2. Compile the complete UE5.4 Editor Win64 target, then inspect both actors,
    component settings, UHT reflections and landing marker positions.
-3. In an **isolated test level and isolated save**, place the connected
-   continent and two mutually paired gates, both enabled, at safe dock floors.
-   Make northbound/return crossings, try blocked landing, disabled gate,
-   missing pair, menus open and a defeated hero.
+3. Run `MoonfallUnreal/Tools/create_northern_expanse_preview.py` **inside
+   UE5 Editor 5.4**. It refuses to overwrite an existing preview map, places
+   the nine-province greybox and an isolated mainland dock at
+   (0, -10000, -20) with separate ferry gates at (0, -10000, 65)
+   and (0, -1200, 65), and starts the hero at the mainland.
+   Run `validate_northern_expanse_preview.py` in Editor and check the
+   2 ferry gates, reciprocal references, dry arrival areas, and safe spacing.
+   Then playtest northbound/return crossings, blocked landing, disabled
+   gate, missing pair, menus open and a defeated hero.
+   **No real player save must be loaded or modified.**
 4. Check controls with mouse, keyboard and controller. Check that entering
    the arrival dock does not immediately bounce the player back to origin.
 5. Only after tests, add actual ship VFX, fade transition, ocean hazards,
