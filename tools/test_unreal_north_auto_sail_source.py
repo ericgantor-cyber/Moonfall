@@ -109,6 +109,15 @@ assert "GetTimerManager().SetTimer(AutomaticVoyageTimer" in start
 assert "SailingVessel->GetActorLocation()" in start
 assert "PairedGate->SailingVessel->GetActorLocation()" in start
 assert "OnAutomaticVoyageStarted(Hero)" in start
+# Blueprints may mutate or cancel state during either synchronous event.
+post_start_event = start.split("OnAutomaticVoyageStarted(Hero);", 1)[1]
+assert "PendingVoyager.Get() != Hero" in post_start_event
+assert "!IsValid(PendingShip.Get())" in post_start_event
+assert "PendingArrivalGate.Get() != PairedGate" in post_start_event
+assert "PairedGate->PairedGate != this" in post_start_event
+assert "StopAutomaticVoyage();" in post_start_event
+assert "UpdateVoyagePresentation(Hero, 0.f)" in post_start_event
+assert "return bAutoVoyageInProgress && PendingVoyager.Get() == Hero" in post_start_event
 assert "MoonfallNorth::MayBoard" in start
 assert "bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)" in start
 assert "PC->IsLocalController()" in start
@@ -117,6 +126,15 @@ assert "PC->SetViewTargetWithBlend(SailingVessel" in start
 assert "Hero->bReduceMotion ? 0.f : 0.35f" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
 assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
+post_tick_event = tick.split("UpdateVoyagePresentation(Hero, ElapsedSeconds);", 1)[1]
+assert "!bAutoVoyageInProgress || !IsValid(Hero)" in post_tick_event
+assert "PendingVoyager.Get() != Hero" in post_tick_event
+assert "PendingShip.Get() != Ship" in post_tick_event
+assert "PairedGate != Arrival" in post_tick_event
+assert "StopAutomaticVoyage();" in post_tick_event
+assert post_tick_event.index("StopAutomaticVoyage();") < post_tick_event.index(
+    "MoonfallNorth::AutoSailShouldArrive"
+)
 assert "OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase)" in gate_cpp
 assert "Ship->SetPassengerTravelStatus(VoyageMessage)" in gate_cpp
 assert "Ship->ResetPassengerTravelStatus()" in cleanup
@@ -130,7 +148,11 @@ assert "APPROACHING HARBOR" in gate_cpp
 assert "NextPhase == VoyagePhaseIndex && NextRemaining == VoyageSecondsRemaining" in gate_cpp
 assert "VoyageSecondsRemaining = 0;" in cleanup
 assert "VoyagePhaseIndex = 0;" in cleanup
-assert "Ship->SetActorLocation(Position" in tick
+assert "const bool bShipMoved = Ship->SetActorLocation(" in tick
+assert "ActualPosition = Ship->GetActorLocation()" in tick
+assert "!bShipMoved || ActualPosition.ContainsNaN()" in tick
+assert "FVector::DistSquared(ActualPosition, Position) > FMath::Square(10.f)" in tick
+assert "StopAutomaticVoyage();" in tick
 assert "!IsVoyagerAboard(Hero, Ship)" in tick
 assert "Hero->SetBase(nullptr)" in tick
 assert "Hero->SetBase(Ship->PassengerDeck)" in tick
