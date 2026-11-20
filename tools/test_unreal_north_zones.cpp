@@ -2,6 +2,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -81,6 +82,32 @@ int main() {
  assert(N::NorthernDivineAccess(-1,0u,false)==N::EDivineAccess::Invalid);
  assert(N::NorthernDivineAccess(9,0u,false)==N::EDivineAccess::Invalid);
  assert(N::ZNorthernAccess(1u<<N::ZoneCount,false)==N::EDivineAccess::Invalid);
+ // Every potential site route must match discovered-only reachability.
+ const N::EDivineSite Sites[] = {
+  N::EDivineSite::Morvella, N::EDivineSite::Z, N::EDivineSite::Nyra
+ };
+ for (const auto Site : Sites) {
+  const auto Entry=N::DivineSite(Site);
+  assert(Entry.EncounterId != nullptr && Entry.Sanctum != nullptr);
+  assert(N::ValidZone(Entry.Province));
+  for (std::uint32_t Mask=0u; Mask<=N::AllProvinceBits; ++Mask) {
+   const auto Route=N::RouteToDivineSite(Site,Mask);
+   const bool Reachable=N::HasDiscoveredRoute(0,Entry.Province,Mask);
+   assert((Route.Length>0)==Reachable);
+   if (!Reachable) continue;
+   assert(Route.Length<=N::ZoneCount && Route.Stops[0]==0);
+   assert(Route.Stops[Route.Length-1]==Entry.Province);
+   for (int Step=0; Step<Route.Length; ++Step) {
+    const int Province=Route.Stops[Step];
+    assert(N::ValidZone(Province));
+    assert((Mask & (1u<<Province))!=0u);
+    if (Step>0) assert(N::Linked(Route.Stops[Step-1],Province));
+   }
+  }
+ }
+ assert(N::DiscoveredRoute(-1,0,N::AllProvinceBits).Length==0);
+ assert(N::DiscoveredRoute(0,9,N::AllProvinceBits).Length==0);
+ assert(N::DiscoveredRoute(0,3,1u<<N::ZoneCount).Length==0);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
