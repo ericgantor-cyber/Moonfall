@@ -120,6 +120,10 @@ The player-proximity weather preview now applies a tested **2.5-meter exit hyste
 
 This improves the greybox preview's lifecycle stability only. It does not create a complete weather system or validate a native Unreal Engine build.
 
+### Weather refresh throttling
+
+The optional 5Hz precipitation animator now updates the 18 instanced flake/streak transforms on every timer step but recalculates the light pulse and rebuilds text only once every ten steps (approximately two seconds), or immediately when the preview becomes active or changes province. A guard prevents stale animation callbacks from doing extra work when the preview is disabled or its province is invalid. This does not enable weather by default or alter any existing combat/saves. Native UE5 performance still requires verification.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
