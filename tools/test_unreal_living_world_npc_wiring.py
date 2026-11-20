@@ -40,6 +40,40 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_pointer_click_preview_is_modal_and_safe(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (SOURCE.parents[2] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CouncilPointer",Key=F8', inputs)
+        self.assertIn('BindAction(TEXT("CouncilPointer")', hero)
+        self.assertIn("bool bCouncilPointerOpen = false;", header)
+        toggle = hero.split("void AMoonfallHeroPawn::ToggleCouncilPointer()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SelectCouncilPreview(", 1
+        )[0]
+        self.assertIn("!IsSanctuaryRoomUnlocked(4)", toggle)
+        self.assertIn("!IsNearStartingSanctuary()", toggle)
+        self.assertIn("PC->bShowMouseCursor = true;", toggle)
+        self.assertIn("bCouncilPointerOpen = false;", toggle)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen", toggle)
+        click = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()", 1
+        )[0]
+        mode = click.split("if (bCouncilPointerOpen) {", 1)[1].split(
+            "if (!bResidentContextOpen) { CastLeft(); return; }", 1
+        )[0]
+        for expected in ("PC->bShowMouseCursor", "ViewW < 1280 || ViewH < 700",
+                         "PointerY >= RowY && PointerY <= RowY + 25.f",
+                         "SelectCouncilPreview(Choice);"):
+            self.assertIn(expected, mode)
+        self.assertNotIn("CastLeft();", mode)
+        self.assertNotIn("SaveWorldProgress(", mode)
+        self.assertIn("bCouncilPointerOpen && (Health <= 0.f || !IsNearStartingSanctuary()", hero)
+        self.assertIn("bResidentContextOpen || bCouncilPointerOpen || !GetWorld()", hero)
+        self.assertIn('if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }', hero)
+        self.assertIn('const TCHAR* ChoiceLabels[3]', hud)
+        self.assertIn('LedgerY + 274.f, 98.f, 25.f', hud)
+
     def test_council_selection_is_controller_accessible_but_never_commits(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
