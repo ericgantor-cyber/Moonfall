@@ -67,8 +67,12 @@ constexpr unsigned long long SelectionSignature(const int* Keys, int Count) {
  return Signature;
 }
 constexpr int NormalizePageStart(int Start, int Capacity, int Count) {
+ // Only starts at 0, Capacity, 2*Capacity, ... are valid. Resizing from,
+ // e.g., four rows to three can leave an old Start=4, which otherwise
+ // hides quest #4 from every MMB page until a content change resets it.
+ // Reset to page one rather than skipping an entry or overlapping pages.
  return Count <= 0 || Capacity <= 0 || Capacity >= Count
-     || Start < 0 || Start >= Count ? 0 : Start;
+     || Start < 0 || Start >= Count || Start % Capacity != 0 ? 0 : Start;
 }
 constexpr int NextPageStart(int Start, int Capacity, int Count) {
  if (Count <= 0 || Capacity <= 0 || Capacity >= Count) return 0;
@@ -120,6 +124,13 @@ static_assert(NextPageStart(0, 4, 7) == 4);
 static_assert(NextPageStart(4, 4, 7) == 0);
 static_assert(NormalizePageStart(6, 7, 7) == 0);
 static_assert(NormalizePageStart(-1, 3, 7) == 0);
+static_assert(NormalizePageStart(4, 3, 7) == 0, "Resize 4->3 must reset");
+static_assert(NormalizePageStart(3, 4, 7) == 0, "Resize 3->4 must reset");
+static_assert(NormalizePageStart(6, 4, 7) == 0, "Unaligned page must reset");
+static_assert(NormalizePageStart(4, 4, 7) == 4);
+static_assert(NormalizePageStart(3, 3, 7) == 3);
+static_assert(NextPageStart(4, 3, 7) == 0);
+static_assert(NextPageStart(3, 4, 7) == 0);
 static_assert(NextPageStart(6, 3, 5) == 0);
 static_assert(SafeVisibleRows(600, 420, 7) == 3, "Minimum window shows three safe rows");
 static_assert(SafeVisibleRows(640, 480, 7) == 4, "Small window shows four safe rows");
