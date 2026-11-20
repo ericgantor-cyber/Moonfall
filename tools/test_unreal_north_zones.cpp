@@ -9,6 +9,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -215,6 +216,22 @@ int main() {
  }
  assert(N::ClimateFor(-1)==nullptr);
  assert(N::ClimateFor(N::ZoneCount)==nullptr);
+ // Check both full ambience cycles for every province and fail-closed indices.
+ assert(N::ValidWeatherPreview());
+ for(int Province=0; Province<N::ZoneCount; ++Province) {
+  for(int Step=0; Step<2*N::WeatherPreviewSteps; ++Step) {
+   const int Intensity=N::PreviewIntensityPercent(Province,Step);
+   assert(Intensity>=15 && Intensity<=75);
+   assert(N::PreviewBrightness(Province,Step)>=200);
+   assert(N::PreviewBrightness(Province,Step)<=575);
+   assert(Intensity==N::PreviewIntensityPercent(
+     Province,Step+N::WeatherPreviewSteps));
+  }
+ }
+ assert(N::PreviewIntensityPercent(-1,0)==0);
+ assert(N::PreviewIntensityPercent(N::ZoneCount,0)==0);
+ assert(N::PreviewBrightness(-1,0)==0);
+ assert(N::PreviewIntensityPercent(0,-1)==0);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
