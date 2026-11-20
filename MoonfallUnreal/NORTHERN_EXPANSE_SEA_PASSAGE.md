@@ -27,6 +27,16 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   the receiving harbor. If the traveler leaves the dock, dies, opens a menu,
   the pairing becomes invalid, or landing is blocked, the crossing cancels;
   the ship returns to its initial position and no arrival event fires.
+- **Accessible voyage countdown:** the harbor sign displays "ARRIVAL IN
+  11S" and counts down to "1S" during the timed animation. The optional
+  `OnAutomaticVoyageProgress(Hero, SecondsRemaining, PhaseIndex)` event
+  supports future subtitles, narration, sound and camera transitions:
+  1 = departing harbor (first quarter), 2 = crossing the dark sea (middle
+  half), 3 = approaching harbor (final quarter). Countdown and cues are
+  published only when the displayed second or phase changes, not every
+  0.1-second boat movement update. A successful landing fires the separate
+  `OnFerryArrival` event; a failed landing must **never** announce arrival.
+  With no Blueprint implementation, only the dock sign visibly changes.
 - The arrival marker is outside its gate's overlap sphere. Place markers on
   collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
