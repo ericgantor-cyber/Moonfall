@@ -37,9 +37,7 @@ def install_shiverwake_shrines(actor_subsystem, shrine_class):
 
     planned = {shrine_id: (label, position)
                for shrine_id, label, position in SHRINE_SITES}
-    legacy = {shrine_id: (label, position)
-              for shrine_id, label, position in LEGACY_SHIVERWAKE_SITES[2:]}
-    migration = {}  # 16 legacy-generated actor IDs -> new zone identity.
+     migration = {}  # 16 legacy-generated actor IDs -> new zone identity.
     for index in range(2, len(LEGACY_SHIVERWAKE_SITES)):
         legacy_id, original_name, original_position = LEGACY_SHIVERWAKE_SITES[index]
         new_id, new_name, new_position = SHRINE_SITES[index]
@@ -50,9 +48,8 @@ def install_shiverwake_shrines(actor_subsystem, shrine_class):
             raise RuntimeError("Both old and new generated IDs exist: " + new_id)
         if (actor.get_actor_label() != original_name
                 or not _position_matches(actor, original_position)
-                or LEGACY_SHRINE_TAG not in [
-                    str(tag) for tag in actor.get_editor_property("tags")
-                ]):
+                or [str(tag) for tag in actor.get_editor_property("tags")]
+                   != [LEGACY_SHRINE_TAG]):
             raise RuntimeError(
                 "Old Shiverwake shrine was customized; refusing to move: " + legacy_id)
         migration[legacy_id] = (actor, new_id, new_name, new_position)
@@ -67,13 +64,17 @@ def install_shiverwake_shrines(actor_subsystem, shrine_class):
             raise RuntimeError("Existing Northern shrine was moved; refusing overwrite: "
                                + shrine_id)
 
+    # Every new destination, INCLUDING one served by a migrating actor,
+    # must avoid existing authored shrines. Older code skipped migrating
+    # destinations, allowing a renamed checkpoint to overlap player edits.
     for shrine_id, (label, position) in planned.items():
-        if shrine_id in existing or any(new_id == shrine_id
-                                      for _, new_id, _, _ in migration.values()):
+        if shrine_id in existing:
             continue
         for other_id, actor in existing.items():
-            if other_id in planned or other_id in migration:
-                continue
+            if other_id in migration:
+                continue  # This actor will leave its original island site.
+            if other_id in planned:
+                continue  # Planned site distances were validated in manifest.
             p = actor.get_actor_location()
             if (p.x - position[0])**2 + (p.y - position[1])**2 < 300.0**2:
                 raise RuntimeError("Authored shrine too close to " + shrine_id)
@@ -82,13 +83,43 @@ def install_shiverwake_shrines(actor_subsystem, shrine_class):
     # Preview checkpoints are session-only, so these identities have never
     # been written to the player's original campaign slot.
     migrated = 0
-    for legacy_id, (actor, new_id, name, position) in migration.items():
-        actor.set_actor_location(unreal.Vector(*position), False, False)
-        actor.set_editor_property("shrine_id", unreal.Name(new_id))
-        actor.set_editor_property("map_display_name", unreal.Text(name))
-        actor.set_editor_property("tags", [SHRINE_TAG])
-        actor.set_actor_label(name)
-        migrated += 1
+    moved_actors = []
+    try:
+        for legacy_id, (actor, new_id, name, position) in migration.items():
+            original = actor.get_actor_location()
+            before_position = (original.x, original.y, original.z)
+            before_id = actor.get_editor_property("shrine_id")
+            before_name = actor.get_editor_property("map_display_name")
+            before_tags = list(actor.get_editor_property("tags"))
+            before_label = actor.get_actor_label()
+            # Record the current state BEFORE movement so any later failure
+            # restores the previous map's shrine actors in memory.
+            moved_actors.append((
+                actor, before_position, before_id, before_name,
+                before_tags, before_label))
+            success = actor.set_actor_location(
+                unreal.Vector(*position), False, False)
+            if success is False or not _position_matches(actor, position):
+                raise RuntimeError("Unreal refused shrine relocation: " + legacy_id)
+            actor.set_editor_property("shrine_id", unreal.Name(new_id))
+            actor.set_editor_property("map_display_name", unreal.Text(name))
+            actor.set_editor_property("tags", [SHRINE_TAG])
+            actor.set_actor_label(name)
+            if (str(actor.get_editor_property("shrine_id")) != new_id
+                    or actor.get_actor_label() != name
+                    or not _position_matches(actor, position)):
+                raise RuntimeError("Unreal did not retain migrated shrine: " + new_id)
+            migrated += 1
+    except Exception:
+        # Restore ALL touched actor properties and positions in reverse order;
+        # never save a partially renamed/moved 18-shrine layout.
+        for actor, pos, old_id, old_name, tags, label in reversed(moved_actors):
+            actor.set_editor_property("shrine_id", old_id)
+            actor.set_editor_property("map_display_name", old_name)
+            actor.set_editor_property("tags", tags)
+            actor.set_actor_label(label)
+            actor.set_actor_location(unreal.Vector(*pos), False, False)
+        raise
 
     created = 0
     for shrine_id, (label, position) in planned.items():
