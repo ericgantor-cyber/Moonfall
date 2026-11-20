@@ -1,0 +1,121 @@
+name: UE5 Northern Expanse catalog validation
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.cpp'
+      - 'tools/test_unreal_north_zone_actor_source.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthBiomeTones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthProvinceWeather.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
+      - 'tools/test_unreal_north_weather_actor_source.py'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPreviewGameMode.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPreviewGameMode.cpp'
+      - 'MoonfallUnreal/NORTHERN_EXPANSE_NATIVE_QA.md'
+      - 'tools/test_unreal_north_preview_map_source.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
+      - 'tools/test_unreal_north_continent_actor_source.py'
+      - 'tools/test_unreal_north_actor_source.py'
+      - 'tools/test_unreal_north_zones.cpp'
+      - '.github/workflows/unreal-north-zones.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.cpp'
+      - 'tools/test_unreal_north_zone_actor_source.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthBiomeTones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthProvinceWeather.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
+      - 'tools/test_unreal_north_weather_actor_source.py'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPreviewGameMode.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPreviewGameMode.cpp'
+      - 'MoonfallUnreal/NORTHERN_EXPANSE_NATIVE_QA.md'
+      - 'tools/test_unreal_north_preview_map_source.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
+      - 'tools/test_unreal_north_continent_actor_source.py'
+      - 'tools/test_unreal_north_actor_source.py'
+      - 'tools/test_unreal_north_zones.cpp'
+      - '.github/workflows/unreal-north-zones.yml'
+  workflow_dispatch:
+
+jobs:
+  portable-zone-catalog:
+    name: C++17 zone adjacency tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal sanctum actor source integration
+        shell: bash
+        run: python tools/test_unreal_north_actor_source.py
+      - name: Verify northern zone greybox actor source
+        shell: bash
+        run: python tools/test_unreal_north_zone_actor_source.py
+      - name: Verify connected Northern Expanse actor source
+        shell: bash
+        run: python tools/test_unreal_north_continent_actor_source.py
+      - name: Verify northern climate preview source
+        shell: bash
+        run: python tools/test_unreal_north_weather_actor_source.py
+      - name: Validate isolated UE5 Northern Expanse preview map authoring script
+        shell: bash
+        run: python tools/test_unreal_north_preview_map_source.py
+      - name: Compile and run (Linux GCC)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_zones.cpp -o /tmp/moonfall_north_test
+          /tmp/moonfall_north_test
+      - name: Set up MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run (Windows MSVC)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_north_test.exe tools/test_unreal_north_zones.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_north_test.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
