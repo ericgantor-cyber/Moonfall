@@ -6,6 +6,7 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   push:
@@ -13,6 +14,7 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   workflow_dispatch:
