@@ -7,6 +7,7 @@
 #include "MoonfallNorthGothicFerryActor.h"
 #include "MoonfallNorthFerryGate.h"
 #include "MoonfallNorthAutoSail.h"
+#include "MoonfallNorthDryLandingPolicy.h"
 #include "Components/BoxComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SceneComponent.h"
@@ -81,6 +82,14 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  TestTrue(TEXT("Eleven-second voyage starts at eleven"), MoonfallNorth::AutoSailSecondsRemaining(0.f, 11.f) == 11);
  TestTrue(TEXT("Voyage cannot finish early"), !MoonfallNorth::AutoSailShouldArrive(10.99f, 11.f));
  TestTrue(TEXT("Voyage finishes at eleven seconds"), MoonfallNorth::AutoSailShouldArrive(11.f, 11.f));
+ TestTrue(TEXT("Solid, gentle dock accepts capsule"),
+          MoonfallNorth::ValidDryLandingSample(true,true,1.f,130.f,0.f,88.f));
+ TestFalse(TEXT("Visibility-only material must not count as walkable dock"),
+           MoonfallNorth::ValidDryLandingSample(true,false,1.f,130.f,0.f,88.f));
+ TestFalse(TEXT("Steep rock cannot receive passenger"),
+           MoonfallNorth::ValidDryLandingSample(true,true,0.5f,130.f,0.f,88.f));
+ TestFalse(TEXT("Destroyed dock cannot receive passenger"),
+           MoonfallNorth::ValidDryLandingSample(false,true,1.f,130.f,0.f,88.f));
  return true;
 }
 #endif // WITH_DEV_AUTOMATION_TESTS
