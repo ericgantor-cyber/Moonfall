@@ -88,6 +88,24 @@ def main():
     for ship in ships:
         require(ship.get_editor_property("b_show_gothic_ferry"),
                 "The gothic ferry silhouette is disabled")
+        # Ship render instances remain decorative. Only a dedicated movable
+        # walking floor and safety rails block the player capsule.
+        passenger_deck = ship.get_editor_property("passenger_deck")
+        boarding_marker = ship.get_editor_property("passenger_boarding_marker")
+        require(passenger_deck is not None and boarding_marker is not None,
+                "Gothic ferry is missing the walkable passenger deck or boarding marker")
+        require(passenger_deck.get_collision_enabled()
+                == unreal.CollisionEnabled.QUERY_AND_PHYSICS,
+                "Passenger deck collision is not active")
+        require(passenger_deck.get_collision_response_to_channel(
+                unreal.CollisionChannel.ECC_PAWN) == unreal.CollisionResponse.CR_BLOCK,
+                "Gothic ferry deck must support the character capsule")
+        for rail_name in ("port_passenger_rail", "starboard_passenger_rail",
+                          "bow_passenger_rail", "stern_passenger_rail"):
+            rail = ship.get_editor_property(rail_name)
+            require(rail is not None and rail.get_collision_enabled()
+                    == unreal.CollisionEnabled.QUERY_AND_PHYSICS,
+                    "Passenger safety railing missing pawn collision: " + rail_name)
         for part in ("hull_pieces", "gothic_ironwork", "crimson_sails",
                      "raven_figurehead", "crimson_lanterns"):
             mesh = ship.get_editor_property(part)
