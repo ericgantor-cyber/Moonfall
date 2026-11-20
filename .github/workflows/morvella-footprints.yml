@@ -1,0 +1,23 @@
+name: Morvella divine attack footprint geometry
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h'
+      - 'tests/cpp/test_morvella_footprints.cpp'
+      - '.github/workflows/morvella-footprints.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddessFootprint.h'
+      - 'tests/cpp/test_morvella_footprints.cpp'
+      - '.github/workflows/morvella-footprints.yml'
+
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile standalone C++ geometry checks
+        run: g++ -std=c++17 -O2 -Wall -Wextra -Werror -I. tests/cpp/test_morvella_footprints.cpp -o /tmp/test_morvella_footprints
+      - name: Verify four Morvella telegraph hit shapes
+        run: /tmp/test_morvella_footprints
