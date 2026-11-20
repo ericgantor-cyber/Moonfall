@@ -1004,7 +1004,8 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen || bAtlasOpen || bInventoryOpen || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  // A different-school weave is a SINGLE bounded hostile attack.
  // Preserve the existing doubled same-school spell path below.
  if (LeftSpell != RightSpell) {
