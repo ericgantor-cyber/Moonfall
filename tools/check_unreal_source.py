@@ -3735,7 +3735,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GEAR: NO UPGRADE", bag)
         self.assertIn("const bool bCompactAdvisor = PanelWidth < 550.f;", bag)
         self.assertIn("if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;", self.hud)
-        self.assertIn("if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }", self.hud)
+        # Invalid pawns must still clear advisor cache, while the quest
+        # tracker also resets its transient page/signature on replacement.
+        self.assertIn("if (!IsValid(Hero)) {", self.hud)
+        self.assertIn("bAdvisorScoreCached = false;", self.hud)
+        self.assertIn("QuestTrackerLastHero.Reset();", self.hud)
+        self.assertIn("QuestTrackerSelectionSignature = 0ull;", self.hud)
+        self.assertIn("QuestTrackerPageStart = 0;", self.hud)
+        self.assertIn("QuestTrackerLastHero.Get() != Hero", self.hud)
         self.assertIn("int32 CachedAdvisorScore = 0;", hud_header)
         self.assertIn("GEAR ADVISOR: selected gear is an upgrade", bag)
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
