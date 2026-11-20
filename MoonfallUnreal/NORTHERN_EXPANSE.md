@@ -88,6 +88,12 @@ These signs only become visible after a designer places the continent actor in a
 
 **Not yet implemented:** no dynamic atmosphere, changing weather, gameplay penalties, particles, sky/fog control or runtime visibility enforcement. The numerical visibility values are constraints for future implementation, not a claim that current weather rendering exists. God characters, divine entrances, world collision and save data remain untouched.
 
+### Optional live climate-light preview
+
+The new editor-placeable `AMoonfallNorthWeatherActor` provides a **localized animated point-light and accessible weather-text preview**, one province at a time. Choose `ProvinceIndex` 0-8 and opt in with `bEnableWeatherPreview` (default false). A 2-second timer cycles through eight bounded brightness steps; the local point light reaches only 650 cm, casts no shadows, and has no collision. The weather name is always shown as text when enabled. The actor has no Tick and stops its timer during EndPlay. It neither changes combat visibility nor modifies regional saves, gods, skies, weather particles or global fog.
+
+This is a lightweight **in-engine atmosphere prototype**, not falling snow/rain, physical wind, weather hazards, a volumetric effect, or a complete regional weather system. It must be placed and native-compiled in a UE5 test level and checked for collision, visual readability and performance before merging. Portable C++17 and source-structure checks validate the preview bounds and safety assumptions, not rendering.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
