@@ -1,5 +1,6 @@
 #include "MoonfallNorthContinentActor.h"
 #include "MoonfallNorthContinentLayout.h"
+#include "MoonfallNorthLandmarks.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -11,23 +12,32 @@ AMoonfallNorthContinentActor::AMoonfallNorthContinentActor() {
  ProvincePads->SetupAttachment(GetRootComponent());
  ProvinceRoads=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ProvinceRoads"));
  ProvinceRoads->SetupAttachment(GetRootComponent());
+ ProvinceLandmarks=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ProvinceLandmarks"));
+ ProvinceLandmarks->SetupAttachment(GetRootComponent());
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
   ProvincePads->SetStaticMesh(Cube.Object);
   ProvinceRoads->SetStaticMesh(Cube.Object);
+  ProvinceLandmarks->SetStaticMesh(Cube.Object);
  }
  ProvincePads->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  ProvinceRoads->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  ProvincePads->SetCollisionResponseToAllChannels(ECR_Block);
  ProvinceRoads->SetCollisionResponseToAllChannels(ECR_Block);
+ // Decorative biome silhouettes must never obstruct navigation or combat.
+ ProvinceLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ ProvinceLandmarks->SetGenerateOverlapEvents(false);
 }
 void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
- if (!IsValid(ProvincePads) || !IsValid(ProvinceRoads)) return;
+ if (!IsValid(ProvincePads) || !IsValid(ProvinceRoads) || !IsValid(ProvinceLandmarks)) return;
  ProvincePads->ClearInstances();
  ProvinceRoads->ClearInstances();
+ ProvinceLandmarks->ClearInstances();
  if (!ProvincePads->GetStaticMesh() || !ProvinceRoads->GetStaticMesh()
-     || !MoonfallNorth::ValidContinentCenters()) return;
+     || !ProvinceLandmarks->GetStaticMesh()
+     || !MoonfallNorth::ValidContinentCenters()
+     || !MoonfallNorth::ValidLandmarks()) return;
  // One static plaza per zone, all with the same walkable Z=0 top face.
  for (int32 Zone=0; Zone<MoonfallNorth::ZoneCount; ++Zone) {
   const auto& P=MoonfallNorth::ContinentCenters[Zone];
@@ -52,6 +62,18 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
    ProvinceRoads->AddInstance(FTransform(Rotation,Midpoint,
      FVector(Length/100.f,MoonfallNorth::RoadHalfWidthCm/50.f,0.4f)));
   }
+ }
+ // Fixed decorative silhouettes per biome: 18 non-colliding instances total.
+ // Replace these cubes with authored environmental meshes/materials in the editor.
+ for (int32 Index=0; Index<MoonfallNorth::LandmarkCount; ++Index) {
+  const auto& L=MoonfallNorth::Landmarks[Index];
+  const auto& P=MoonfallNorth::ContinentCenters[L.Province];
+  const float HalfHeight=static_cast<float>(L.HeightCm)*0.5f;
+  ProvinceLandmarks->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector(static_cast<float>(P.Xcm+L.OffsetXcm),
+      static_cast<float>(P.Ycm+L.OffsetYcm),HalfHeight),
+    FVector(static_cast<float>(L.HalfWidthCm)/50.f,
+      static_cast<float>(L.HalfWidthCm)/50.f,HalfHeight/50.f)));
  }
 }
 FVector AMoonfallNorthContinentActor::GetProvinceCenterWorldLocation(int32 ProvinceIndex) const {
