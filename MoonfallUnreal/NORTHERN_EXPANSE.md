@@ -130,6 +130,12 @@ The optional `AMoonfallNorthWeatherActor` has a new **`bFollowPlayerProvince` ed
 
 Limitations: this is a single-player editor prototype that assumes one northern continent actor; nearest-center selection is not final level-boundary logic and does not support network clients, separate terrain streaming, interior weather, or per-zone weather overlays. The previously static weather option still works when follow mode is off. Native UE5 compile and packaged Windows traversal tests remain required.
 
+### Climate boundary fix for the nine northern provinces
+
+Opt-in player-following climate now chooses the active province from **continent-local XY positions**, so moving, scaling or rotating the test continent actor does not produce mismatched world-space weather. A portable deterministic selector keeps the previous province when two hubs are nearly equally close, preventing repeated climate swaps at midpoint boundaries. Region detection shuts off beyond 115m from every northern hub and rejects invalid coordinates. The pure C++17 selector has coverage for every province center, the shared Wolfsong/Palehorn midpoint, far-away locations, and invalid province indices. The UE5 actor still follows only local player 0 and is disabled by default.
+
+This is a greybox geographic approximation. Authored biome boundaries, interior suppression, multiplayer/weather replication, and packaged UE5 navigation/performance remain unimplemented and unverified.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
