@@ -106,6 +106,14 @@ Optional northern weather previews now poll the local player's distance once per
 
 This initial culling uses local player index 0 and does **not** constitute multiplayer/net-relevance or packaged UE5 performance verification. Native engine builds and gameplay traversal are still prerequisites before merging the draft PR.
 
+### Fix pass: weather timer lifecycle and instancing
+
+The weather preview now exposes Blueprint-callable `SetWeatherPreviewEnabled(bool)` and `SetWeatherProvinceIndex(int32)`, and keeps those editor properties read-only in Blueprint so runtime toggles go through timer-safe functions. Enabling or changing a province restarts proximity monitoring; disabling, invalid provinces, moving away, or ending play stops the 5Hz animation and hides/clears effects. An explicit runtime-initialization flag avoids relying on Unreal's BeginPlay flag timing.
+
+Precipitation now updates the transforms of its 18 instanced meshes in place and marks render state dirty only once per batch. A full `ClearInstances` rebuild occurs only if the instance count is not correct, or during shutdown/deactivation. This removes repeated creation/removal of mesh instances during each active animation step.
+
+These fixes are source reviewed with dedicated regression checks; the automation tests are not native UE5 packaged gameplay validation. A Windows UE5 compiler, navigation/collision test and native performance capture are still required before merging.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
