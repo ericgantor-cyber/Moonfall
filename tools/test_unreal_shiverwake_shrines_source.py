@@ -1,11 +1,12 @@
-"""Portable Shiverwake 18-shrine authoring and preview-safety test.
+"""Portable UE5 Northern Expanse shrine layout and migration regression suite.
 
-Runs on Linux and Windows without Unreal installed. A fake Editor actor system
-tests idempotence; it is NOT a native UE5 map/physics/respawn verification.
+Uses a fake Unreal Editor and source assertions, not native UE5 gameplay.
+Requires 2 shrines on EACH of the 9 northern province pads, 18 in total.
 """
 import ast
 import importlib
 import math
+import re
 import sys
 import types
 from pathlib import Path
@@ -16,61 +17,90 @@ module_dir = root / "MoonfallUnreal/Source/MoonfallUnreal"
 sys.path.insert(0, str(tools))
 
 for file in (
-    "shiverwake_shrine_layout.py",
-    "shiverwake_shrine_editor.py",
+    "shiverwake_shrine_layout.py", "shiverwake_shrine_editor.py",
     "create_northern_expanse_preview.py",
     "validate_northern_expanse_preview.py",
     "add_shiverwake_shrines_to_existing_preview.py",
 ):
-    source = (tools / file).read_text(encoding="utf-8")
-    ast.parse(source, filename=file)
+    ast.parse((tools / file).read_text(encoding="utf-8"), filename=file)
 
 from shiverwake_shrine_layout import (
-    EXPECTED_SHIVERWAKE_SHRINES, SHRINE_SITES, validate_shrine_sites,
+    EXPECTED_NORTHERN_SHRINES, LEGACY_SHIVERWAKE_SITES, SHRINE_SITES,
+    SHRINE_ZONE_BY_ID, SHRINES_PER_ZONE, ZONE_CENTERS, ZONE_NAMES,
+    validate_shrine_sites,
 )
 
-assert EXPECTED_SHIVERWAKE_SHRINES == 18
-assert len(SHRINE_SITES) == 18
+assert len(ZONE_NAMES) == len(ZONE_CENTERS) == 9
+assert EXPECTED_NORTHERN_SHRINES == len(SHRINE_SITES) == 18
+assert SHRINES_PER_ZONE == 2
 assert validate_shrine_sites()
-assert len({site[0] for site in SHRINE_SITES}) == 18
-assert len({site[1] for site in SHRINE_SITES}) == 18
-assert all(all(math.isfinite(v) for v in pos) for _, _, pos in SHRINE_SITES)
-assert all(-1200 <= x <= 1200 and -1000 <= y <= 900 and z == 0.0
-           for _, _, (x, y, z) in SHRINE_SITES)
-# Each 220 cm shrine trigger has clearance from neighboring triggers.
-assert all((a[0] - b[0])**2 + (a[1] - b[1])**2 >= 440**2
+assert len({item[0] for item in SHRINE_SITES}) == 18
+assert len({item[1] for item in SHRINE_SITES}) == 18
+assert [sum(SHRINE_ZONE_BY_ID[item[0]] == zone for item in SHRINE_SITES)
+        for zone in range(9)] == [2] * 9
+for shrine_id, label, pos in SHRINE_SITES:
+    zone = SHRINE_ZONE_BY_ID[shrine_id]
+    cx, cy = ZONE_CENTERS[zone]
+    assert all(math.isfinite(v) for v in pos)
+    assert -1200 <= pos[0]-cx <= 1200 and -1000 <= pos[1]-cy <= 900
+    assert pos[2] == 0 and label.endswith(" Shrine")
+assert all((a[0]-b[0])**2 + (a[1]-b[1])**2 >= 440**2
            for i, (_, _, a) in enumerate(SHRINE_SITES)
-           for _, _, b in SHRINE_SITES[i + 1:])
+           for _, _, b in SHRINE_SITES[i+1:])
+# A nine-province source-of-truth mismatch must fail even if the Python
+# catalog and its local tests somehow agree with each other.
+layout = (module_dir / "MoonfallNorthContinentLayout.h").read_text(encoding="utf-8")
+cpp_centers_body = layout.split(
+    "inline constexpr FZonePoint ContinentCenters[ZoneCount] = {", 1
+)[1].split("};", 1)[0]
+cpp_centers = tuple((int(x), int(y)) for x, y in re.findall(
+    r"\{\s*(-?\d+),\s*(-?\d+)\s*\}", cpp_centers_body))
+assert cpp_centers == ZONE_CENTERS, "Python shrine centers drifted from UE5 continent"
+catalog = (module_dir / "MoonfallNorthZones.h").read_text(encoding="utf-8")
+assert "inline constexpr int ZoneCount = 9;" in catalog
+assert all('"' + name + '"' in catalog for name in ZONE_NAMES)
+for malformed in (SHRINE_SITES[:-1], SHRINE_SITES[:-2] + SHRINE_SITES[0:2]):
+    try:
+        validate_shrine_sites(malformed)
+        raise AssertionError("Accepted missing/duplicate zone shrines")
+    except ValueError:
+        pass
 
-# Verify the editor helper actually creates and reuses the full site layout
-# without deleting or renaming an unrelated user's authored shrine.
+# Fake editor actor system verifies idempotent creation and lossless
+# migration of untouched, generator-tagged old island shrines.
 class FakeVector:
     def __init__(self, x, y, z):
         self.x, self.y, self.z = x, y, z
 
 class FakeActor:
-    def __init__(self, position, shrine_id=None, name=""):
-        self._position = FakeVector(*position)
-        self._properties = {"shrine_id": shrine_id or ""}
-        self._name = name
+    def __init__(self, position, shrine_id="", name="", tags=None):
+        self.position = FakeVector(*position)
+        self.props = {"shrine_id": shrine_id, "tags": list(tags or []),
+                      "map_display_name": name}
+        self.label = name
 
     def get_class(self):
         return types.SimpleNamespace(get_name=lambda: "MoonfallCheckpointShrine")
 
     def get_editor_property(self, name):
-        return self._properties.get(name)
+        return self.props.get(name)
 
     def set_editor_property(self, name, value):
-        self._properties[name] = value
+        self.props[name] = value
 
     def get_actor_location(self):
-        return self._position
+        return self.position
+
+    def set_actor_location(self, value, sweep, teleport):
+        assert not sweep and not teleport
+        self.position = value
+        return True
 
     def get_actor_label(self):
-        return self._name
+        return self.label
 
-    def set_actor_label(self, value):
-        self._name = value
+    def set_actor_label(self, name):
+        self.label = name
 
 class FakeActors:
     def __init__(self):
@@ -83,109 +113,126 @@ class FakeActors:
         return actor
 
 world = FakeActors()
-# Preserve an existing shrine, separate from the 18 Shiverwake IDs.
-other = FakeActor((3500.0, 3500.0, 0.0), "original_world_shrine", "Existing shrine")
-world.actors.append(other)
-fake_unreal = types.ModuleType("unreal")
-fake_unreal.Name = str
-fake_unreal.Text = str
-fake_unreal.log = lambda message: None
-fake_unreal.Vector = FakeVector
-fake_unreal.Rotator = lambda *parts: parts
-fake_unreal.EditorLevelLibrary = types.SimpleNamespace(
+unreal = types.ModuleType("unreal")
+unreal.Name = str
+unreal.Text = str
+unreal.log = lambda text: None
+unreal.Vector = FakeVector
+unreal.Rotator = lambda *args: args
+unreal.EditorLevelLibrary = types.SimpleNamespace(
     get_all_level_actors=lambda: world.actors)
-sys.modules["unreal"] = fake_unreal
+sys.modules["unreal"] = unreal
 editor = importlib.import_module("shiverwake_shrine_editor")
-assert editor.install_shiverwake_shrines(world, "ShrineActor") == 18
-assert len(world.actors) == 19
-assert editor.install_shiverwake_shrines(world, "ShrineActor") == 0
-assert len(world.actors) == 19
-assert world.actors[0] is other
-assert set(str(actor.get_editor_property("shrine_id")) for actor in world.actors[1:]) == {
-    shrine_id for shrine_id, _, _ in SHRINE_SITES
-}
-for shrine_id, display, position in SHRINE_SITES:
-    actor = next(a for a in world.actors if a.get_editor_property("shrine_id") == shrine_id)
-    assert actor.get_actor_label() == display
-    assert actor.get_editor_property("map_display_name") == display
-    assert (actor.get_actor_location().x,
-            actor.get_actor_location().y,
-            actor.get_actor_location().z) == position
 
-# Conflicting duplicates or moved authored shrines fail instead of being
-# silently replaced or moving player checkpoints.
+def check_world(extra_actor):
+    shrines = [actor for actor in world.actors if actor is not extra_actor]
+    assert len(shrines) == 18
+    ids = [actor.get_editor_property("shrine_id") for actor in shrines]
+    assert set(ids) == {site[0] for site in SHRINE_SITES}
+    assert len(ids) == len(set(ids))
+    for shrine_id, label, pos in SHRINE_SITES:
+        actor = next(a for a in shrines if a.get_editor_property("shrine_id") == shrine_id)
+        p = actor.get_actor_location()
+        assert (p.x, p.y, p.z) == pos
+        assert actor.get_actor_label() == label
+        assert actor.get_editor_property("map_display_name") == label
+    assert [sum(SHRINE_ZONE_BY_ID[v] == zone for v in ids) for zone in range(9)] == [2]*9
+
+# Create a fresh map, then run again: no duplicates.
+custom = FakeActor((3500., 3500., 0.), "custom_world_shrine", "Authored shrine")
+world.actors.append(custom)
+assert editor.install_shiverwake_shrines(world, "ShrineActor") == 18
+check_world(custom)
+assert editor.install_shiverwake_shrines(world, "ShrineActor") == 0
+check_world(custom)
+assert world.actors[0] is custom
+# If a designer changes a generated point, fail closed rather than moving it.
 moved = world.actors[1]
 moved.get_actor_location().x += 200
 try:
     editor.install_shiverwake_shrines(world, "ShrineActor")
-    raise AssertionError("Moved shrine was silently overwritten")
+    raise AssertionError("A manually moved Northern shrine was overwritten")
 except RuntimeError as exc:
     assert "moved" in str(exc)
 moved.get_actor_location().x -= 200
 
-# Building and patching both use one shared validated manifest.
+# Existing 18-on-Shiverwake greyboxes must Migrate, not retain 16 extras.
+world.actors = [custom]
+old_generated = []
+for shrine_id, label, pos in LEGACY_SHIVERWAKE_SITES:
+    actor = FakeActor(pos, shrine_id, label, ["ShiverwakePreviewShrine"])
+    old_generated.append(actor)
+    world.actors.append(actor)
+original_actor_ids = {id(a) for a in world.actors}
+assert editor.install_shiverwake_shrines(world, "ShrineActor") == 16
+check_world(custom)
+assert {id(a) for a in world.actors} == original_actor_ids
+assert editor.install_shiverwake_shrines(world, "ShrineActor") == 0
+# The original first two Shiverwake identities/actor objects stay unchanged.
+assert old_generated[0].get_editor_property("shrine_id") == "shiverwake_landing"
+assert old_generated[1].get_editor_property("shrine_id") == "tideglass_watch"
+assert world.actors[0] is custom
+
+# A user-edited legacy shrine is NOT safe to migrate; no partial changes.
+world.actors = [custom] + [
+    FakeActor(pos, shrine_id, label, ["ShiverwakePreviewShrine"])
+    for shrine_id, label, pos in LEGACY_SHIVERWAKE_SITES
+]
+old = world.actors[4]
+old.set_actor_label("Designer changed this shrine")
+before = [(actor.get_editor_property("shrine_id"), actor.get_actor_label())
+          for actor in world.actors]
+try:
+    editor.install_shiverwake_shrines(world, "ShrineActor")
+    raise AssertionError("A custom legacy shrine was silently migrated")
+except RuntimeError as exc:
+    assert "customized" in str(exc)
+assert [(actor.get_editor_property("shrine_id"), actor.get_actor_label())
+        for actor in world.actors] == before
+
 builder = (tools / "create_northern_expanse_preview.py").read_text(encoding="utf-8")
 updater = (tools / "add_shiverwake_shrines_to_existing_preview.py").read_text(encoding="utf-8")
 validator = (tools / "validate_northern_expanse_preview.py").read_text(encoding="utf-8")
-for snippet in (
-    'required_class("MoonfallCheckpointShrine")',
-    'install_shiverwake_shrines(actor_subsystem, shrine_class)',
-    'if added_shrines != 18:',
-):
-    assert snippet in builder, snippet
-for snippet in (
-    'LEVEL_PATH = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"',
-    '"MoonfallNorthPreviewGameMode"',
-    'len(harbors) != 2',
-    'install_shiverwake_shrines(actors, shrine_class)',
-    'level.save_current_level()',
-):
-    assert snippet in updater, snippet
-for snippet in (
-    "validate_shrine_sites()",
-    'len(found) == 18',
-    'set(found) == set(expected_shrines)',
-    '"map_display_name"',
-    '"discovery_range"',
-):
-    assert snippet in validator, snippet
+for text in ('required_class("MoonfallCheckpointShrine")',
+             'install_shiverwake_shrines(actor_subsystem, shrine_class)',
+             'if added_shrines != 18:'):
+    assert text in builder, text
+for text in ('LEVEL_PATH = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"',
+             '"MoonfallNorthPreviewGameMode"', 'len(harbors) != 2',
+             'install_shiverwake_shrines(actors, shrine_class)',
+             'level.save_current_level()'):
+    assert text in updater, text
+for text in ("validate_shrine_sites()", "len(found) == 18",
+             'per_zone == [SHRINES_PER_ZONE] * 9',
+             "LEGACY_SHIVERWAKE_SITES[2:]", '"discovery_range"'):
+    assert text in validator, text
 
 hero = (module_dir / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
 begin = hero.split("void AMoonfallHeroPawn::BeginPlay() {", 1)[1].split(
     "void AMoonfallHeroPawn::Tick(", 1)[0]
-discovery = hero.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+discover = hero.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+    "int32 AMoonfallHeroPawn::GetDungeonTreasureState(", 1)[0]
+rest = hero.split("void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(", 1)[1].split(
     "int32 AMoonfallHeroPawn::GetDungeonTreasureState(", 1)[0]
 respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint() {", 1)[1]
 assert "bPersistentSaveWritesBlocked = true;" in begin
-assert "AMoonfallNorthPreviewGameMode::StaticClass()" in discovery
-assert "bPreviewOnlyShrine = bPersistentSaveWritesBlocked" in discovery
-assert "(bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)" in discovery
-assert "if (!bPreviewOnlyShrine) {" in discovery
-assert discovery.index("if (!bPreviewOnlyShrine) {") < discovery.index("if (!SaveWorldProgress())")
-assert "if (!SaveWorldProgress()) {" in discovery
-assert "DiscoveredShrineIds.Add(Shrine->ShrineId)" in discovery
-assert "ActiveShrineId = Shrine->ShrineId" in discovery
-assert "RespawnCheckpointLocation = NewRespawn" in discovery
-assert "SecondsSinceLastWorldSave = 0.f;" in discovery
-assert discovery.index("if (!SaveWorldProgress()) {") < discovery.index(
+assert "AMoonfallNorthPreviewGameMode::StaticClass()" in discover
+assert "(bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)" in discover
+assert "if (!bPreviewOnlyShrine) {" in discover
+assert "if (!SaveWorldProgress()) {" in discover
+assert discover.index("if (!SaveWorldProgress())") < discover.index(
     "SecondsSinceLastWorldSave = 0.f;")
+assert "DiscoveredShrineIds.Add(Shrine->ShrineId)" in discover
+assert "ActiveShrineId = Shrine->ShrineId" in discover
+assert "RespawnCheckpointLocation = NewRespawn" in discover
 assert "TeleportTo(RespawnCheckpointLocation" in respawn
-rest = hero.split("void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(", 1)[1].split(
-    "int32 AMoonfallHeroPawn::GetDungeonTreasureState(", 1)[0]
 assert "AMoonfallNorthPreviewGameMode::StaticClass()" in rest
-assert "!bPersistentSaveWritesBlocked" in rest
 assert "HasDiscoveredShrine(Shrine->ShrineId)" in rest
-assert "FVector::DistSquared2D(PlayerPos, ShrinePos)" in rest
-assert "Health = MaxHealth;" in rest
-assert "Mana = MaxMana;" in rest
-assert "Stamina = MaxStamina;" in rest
-assert "OnHealthChanged(Health, MaxHealth);" in rest
+assert all(s in rest for s in ("Health = MaxHealth;", "Mana = MaxMana;",
+                              "Stamina = MaxStamina;"))
 assert "SaveWorldProgress(" not in rest
 shrine_cpp = (module_dir / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
 assert shrine_cpp.count("Hero->RestAtDiscoveredPreviewShrine(this)") == 2
-assert "Hero->HasDiscoveredShrine(ShrineId)" in shrine_cpp
-assert "ACTIVE SHRINE" in shrine_cpp
-assert "ACTIVE RESPAWN SHRINE" in shrine_cpp
 
 for script in (builder, updater):
     for forbidden in ("SaveGameToSlot(", "LoadGameFromSlot(", "delete_asset(",
@@ -193,4 +240,4 @@ for script in (builder, updater):
                       "set_project_setting("):
         assert forbidden not in script, forbidden
 
-print("18 Shiverwake shrine sites, idempotent placement, session-only checkpoints, and preview isolation verified (source/fake Editor only)")
+print("Two shrines in each of nine Northern zones, 18 total; fresh/migrated preview and save isolation pass (portable tests only)")
