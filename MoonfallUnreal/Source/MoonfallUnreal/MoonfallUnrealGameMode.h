@@ -13,12 +13,17 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
 public:
  AMoonfallUnrealGameMode();
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
  static constexpr int32 DungeonZoneCount = 6;
  static constexpr int32 DungeonsPerZone = 5;
  static constexpr int32 TotalDungeons = DungeonZoneCount * DungeonsPerZone;
  static constexpr float DungeonLaneSpacing = 1350.f;
 
+ // Per-map world bootstrap flags. Existing gameplay retains both defaults.
+ // Authored testing worlds can disable the arena without touching saves.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|World|Startup")
+ bool bGenerateLegacyArena = true;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
