@@ -52,6 +52,20 @@ constexpr FMetrics Compute(int ViewHeight, int TrackedRows, int ViewWidth = 1280
 }
 // Move through a tracked list in fixed, nonoverlapping pages on compact
 // windows. These are display offsets only, never persisted quest indices.
+// An exact, collision-free fingerprint of the current ordered seven-slot
+// selection. Each key fits in 7 bits: resident IDs 0..24 or regional IDs
+// 25..36, doubled with a bit recording turn-in readiness. We include count
+// so additions, completions, reordering and ready-state changes all invalidate
+// an old compact page. No saved state, hashing allocation or world scan.
+constexpr unsigned long long SelectionSignature(const int* Keys, int Count) {
+ if (!Keys || Count < 0 || Count > MaxRows) return 0ull;
+ unsigned long long Signature = static_cast<unsigned long long>(Count + 1);
+ for (int I = 0; I < Count; ++I) {
+  if (Keys[I] < 0 || Keys[I] > 127) return 0ull;
+  Signature = (Signature << 7) | static_cast<unsigned long long>(Keys[I]);
+ }
+ return Signature;
+}
 constexpr int NormalizePageStart(int Start, int Capacity, int Count) {
  return Count <= 0 || Capacity <= 0 || Capacity >= Count
      || Start < 0 || Start >= Count ? 0 : Start;
@@ -85,6 +99,20 @@ constexpr bool ClearsHealthOrb(int ViewWidth, int ViewHeight, int TrackedRows) {
   < ViewHeight - Radius * 2.f - 25.f;
 }
 static_assert(MaxRows == 7, "Seven quest slots supported");
+inline constexpr int ExampleSelection[7] = {3, 11, 4, 50, 52, 54, 56};
+inline constexpr int ReadySelection[7] = {3, 11, 5, 50, 52, 54, 56};
+inline constexpr int ReorderedSelection[7] = {11, 3, 4, 50, 52, 54, 56};
+static_assert(SelectionSignature(ExampleSelection, 7) != 0ull);
+static_assert(SelectionSignature(ExampleSelection, 7)
+    == SelectionSignature(ExampleSelection, 7));
+static_assert(SelectionSignature(ExampleSelection, 7)
+    != SelectionSignature(ReadySelection, 7));
+static_assert(SelectionSignature(ExampleSelection, 7)
+    != SelectionSignature(ReorderedSelection, 7));
+static_assert(SelectionSignature(ExampleSelection, 6)
+    != SelectionSignature(ExampleSelection, 7));
+static_assert(SelectionSignature(nullptr, 7) == 0ull);
+static_assert(SelectionSignature(ExampleSelection, 8) == 0ull);
 static_assert(NextPageStart(0, 3, 7) == 3);
 static_assert(NextPageStart(3, 3, 7) == 6);
 static_assert(NextPageStart(6, 3, 7) == 0);
