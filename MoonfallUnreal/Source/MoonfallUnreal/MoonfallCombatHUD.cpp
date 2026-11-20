@@ -714,7 +714,7 @@ void AMoonfallCombatHUD::DrawHUD()
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 1 || Row == 2 || Row == 6 || Row == 9 || Row == 13 || Row == 17 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
