@@ -182,6 +182,36 @@ saved. Test save isolation in actual UE5 before assuming it works. No
 northern save schema, port unlocks or versioned cross-map persistence
 exists yet. Do not attach experimental gates to a production main map.
 
+## Native UE5 ferry test runner (configured, NOT yet executed)
+
+The repository already contains a **manually dispatched** trusted Windows
+compile workflow at `.github/workflows/unreal-compile-windows.yml`.
+This branch adds `MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1`
+as an opt-in native post-compile smoke step. The workflow requires a
+**trusted self-hosted Windows x64 runner labeled `unreal-5-4`** with
+`UE54_ROOT` pointing to a licensed UE 5.4 installation. Ordinary GitHub
+Windows runners do **not** include this engine.
+
+Once the PR branch is reviewed and the trusted runner is available,
+an authorized maintainer can select **Actions → Moonfall Unreal C++
+compile (trusted Windows runner) → Run workflow** and select the
+`feature/north-sea-passage-20261119` branch. This manually builds
+the real UE Editor and Game targets, then invokes
+`UnrealEditor-Cmd.exe` to execute
+`Moonfall.NorthernExpanse.Ferry.ComponentContract`. The step
+**fails** unless Unreal outputs a fresh `index.json` containing
+exactly that test in the `Success` state, with zero failed/not-run
+tests, and archives the evidence as
+`MoonfallUnreal-GothicRaven-NativeTest-Report`.
+
+**Do not interpret this as native verification until an actual successful
+workflow execution and its report exist.** A successful component
+contract is also distinct from *PIE gameplay testing*: characters walking
+and jumping on the 11-second moving ship, collisions, cameras, controller
+input and reverse voyages must still be verified interactively.
+The workflow is manually dispatched only; never automatically
+execute unreviewed PR code on a licensed self-hosted runner.
+
 ## Native Unreal ferry verification (NOT yet executed)
 
 The new `MoonfallNorthFerryNativeTests.cpp` adds a real
