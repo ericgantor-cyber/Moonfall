@@ -28,6 +28,28 @@ never create offensive camera feedback.
   rejected/sanitized; backwards world clock changes cannot permanently
   disable new impact response.
 
+## Spell impact presentation, ready for authored effects
+
+All six offensive schools now expose a **BlueprintImplementableEvent**
+`OnSpellImpact(School, bLeftHand, ImpactPoint, AppliedDamage, bCritical,
+bKillingBlow)` on `AMoonfallHeroPawn`. It only fires for actual hostile HP
+damage with a valid impact position. The original `OnSpellCast` event is
+unchanged; healing, misses and invulnerable/fully absorbed impacts do not
+produce a false success cue.
+
+The previous `DrawDebugSphere` and `DrawDebugLine` spell-trace artifacts
+have been removed from runtime casting. A derived hero Blueprint can now
+author the appropriate VFX and audio by school, including different critical
+and finishing hit variants, without changing C++ damage math or source
+artwork.
+
+**Important:** This is an authoring API, not a claim that an existing
+Niagara or sound asset has been connected. An unimplemented Blueprint
+event deliberately draws no effect. Hook real authored assets to the
+event in the UE5 Editor and test all six offensive schools before release.
+No combat text, countdown, unrequested camera actors or global time
+dilation has been added.
+
 ## Verification
 
 Automated GitHub regression:
@@ -48,6 +70,10 @@ Before merging, use a UE5 Windows 10/11 development build and verify:
 6. No motion sickness symptoms, clipping, FOV changes, gameplay stun,
    above-hero damage numbers or combat countdown text.
 7. Z and Nyra's existing art and all original assets remain unchanged.
+8. Implement and visually test `OnSpellImpact` in derived hero Blueprints:
+   confirm school colors, left/right hand, critical and killing-blow variants,
+   no world-space debug spheres/lines, no false cues for misses, healing,
+   absorbed hits or corrupted impact positions.
 
 This is one concrete polish improvement, **not** a claim that the overall
 Moonfall game has reached full AAA content or production quality. Full AAA
