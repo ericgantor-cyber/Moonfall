@@ -9,6 +9,7 @@ class UInstancedStaticMeshComponent;
 class UPointLightComponent;
 class UCameraComponent;
 class UBoxComponent;
+class UTextRenderComponent;
 
 // Original dark-gothic ferry *visual prototype* for the isolated Northern
 // Expanse test map. The boarding/landing logic stays in MoonfallNorthFerryGate.
@@ -23,6 +24,10 @@ public:
  // colliding or affecting the automatic course or travel timer.
  void AnimateCrimsonSails(float ElapsedSeconds, bool bReduceMotion);
  void ResetCrimsonSails();
+ // Passenger-facing noncombat progress sign attached to the *moving vessel*.
+ // The pier sign alone is no longer visible once the hero boards.
+ void SetPassengerTravelStatus(const FString& Status);
+ void ResetPassengerTravelStatus();
 
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|North Ferry")
  bool bShowGothicFerry = true;
@@ -53,6 +58,8 @@ public:
  TObjectPtr<UBoxComponent> PassengerDeck;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
  TObjectPtr<USceneComponent> PassengerBoardingMarker;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UTextRenderComponent> PassengerTravelSign;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
  TObjectPtr<UBoxComponent> PortPassengerRail;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
