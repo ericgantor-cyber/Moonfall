@@ -18,6 +18,9 @@ public:
  TObjectPtr<UInstancedStaticMeshComponent> ProvincePads;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TObjectPtr<UInstancedStaticMeshComponent> ProvinceRoads;
+ // Decorative only. Distinct province landmarks must not block roads/navmesh.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
+ TObjectPtr<UInstancedStaticMeshComponent> ProvinceLandmarks;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Northern Expanse")
  FVector GetProvinceCenterWorldLocation(int32 ProvinceIndex) const;
 };
