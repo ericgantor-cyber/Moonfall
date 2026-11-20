@@ -89,6 +89,18 @@ def main():
         section=pawn.split(signature,1)[1].split("\n}",1)[0]
         assert "bResidentContextOpen" in section.split("return;",1)[0], signature
     assert "bResidentContextOpen" in racial_power
+    # Opening an NPC conversation must release existing held inputs, not just
+    # prevent new ones. All cleanup must precede modal activation/callback.
+    resident_open=pawn.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+        "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+    acquired=resident_open.split("AMoonfallWorldNPC* Resident = GetNearestResidentNPC();",1)[1]
+    before_modal=acquired.split("bResidentContextOpen = true;",1)[0]
+    for cleanup in ("StopJumping();", "EndSprint();", "EndGuard();",
+                    "GetCharacterMovement()->StopMovementImmediately();"):
+        assert cleanup in before_modal, cleanup
+    assert acquired.index("EndSprint();") < acquired.index("FocusedResident = Resident;")
+    assert acquired.index("EndGuard();") < acquired.index("FocusedResident = Resident;")
+    print("Resident dialogue releases held sprint, guard, jump and movement: PASS (source verified)")
     print("Resident dialogue blocks sprint, guard and racial powers: PASS (source verified)")
     # Guard all five shared gamepad buttons against cross-context effects.
     # Source checks supplement, but never replace, a native controller playtest.
