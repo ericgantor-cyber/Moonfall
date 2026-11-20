@@ -5,6 +5,8 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "MoonfallHeroPawn.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -68,6 +70,25 @@ void AMoonfallNorthFerryGate::EndPlay(const EEndPlayReason::Type EndPlayReason) 
 
 void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
  if (GetWorld()) GetWorld()->GetTimerManager().ClearTimer(AutomaticVoyageTimer);
+ // Restore only a camera that this voyage still owns. A cutscene or another
+ // system that changed view target in the meantime must not be overridden.
+ if (bCinematicViewActive) {
+  if (APlayerController* PC = VoyagePlayerController.Get()) {
+   if (PC->GetViewTarget() == PendingShip.Get()) {
+    AActor* ReturnTarget = PreviousPlayerViewTarget.Get();
+    if (!IsValid(ReturnTarget) || ReturnTarget == PendingShip.Get())
+     ReturnTarget = PendingVoyager.Get();
+    if (IsValid(ReturnTarget)) {
+     const AMoonfallHeroPawn* Hero = PendingVoyager.Get();
+     PC->SetViewTargetWithBlend(ReturnTarget,
+         Hero && Hero->bReduceMotion ? 0.f : 0.3f);
+    }
+   }
+  }
+ }
+ bCinematicViewActive = false;
+ VoyagePlayerController.Reset();
+ PreviousPlayerViewTarget.Reset();
  if (AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get()) {
   Ship->SetActorTransform(OriginalShipTransform, false, nullptr, ETeleportType::TeleportPhysics);
  }
@@ -166,6 +187,22 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  GetWorld()->GetTimerManager().SetTimer(AutomaticVoyageTimer, this,
      &AMoonfallNorthFerryGate::UpdateAutomaticVoyage,
      MoonfallNorth::AutoSailUpdateSeconds, true);
+ // Auto-sailing camera only: the hero stays on the protected dock until the
+ // collision-checked arrival. This is not yet a playable moving deck.
+ if (bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)) {
+  if (APlayerController* PC = Cast<APlayerController>(Hero->GetController())) {
+   if (PC->IsLocalController()) {
+    AActor* Before = PC->GetViewTarget();
+    if (IsValid(Before) && Before != SailingVessel) {
+     VoyagePlayerController = PC;
+     PreviousPlayerViewTarget = Before;
+     bCinematicViewActive = true;
+     PC->SetViewTargetWithBlend(SailingVessel,
+         Hero->bReduceMotion ? 0.f : 0.35f);
+    }
+   }
+  }
+ }
  OnAutomaticVoyageStarted(Hero);
  UpdateVoyagePresentation(Hero, 0.f);
  return true; // Boarding has begun, NOT proof that arrival is complete.
@@ -196,8 +233,10 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  const float Progress = MoonfallNorth::AutoSailEasedProgress(
      ElapsedSeconds, ActiveVoyageDurationSeconds);
  FVector Position = FMath::Lerp(SailingFrom, SailingTo, Progress);
- Position.Z += 16.f * FMath::Sin(ElapsedSeconds * 2.3f)
-     * FMath::Sin(Progress * PI); // cosmetic wave bob, no gameplay movement
+ if (!Hero->bReduceMotion) {
+  Position.Z += 16.f * FMath::Sin(ElapsedSeconds * 2.3f)
+      * FMath::Sin(Progress * PI); // cosmetic only; disabled for reduced motion
+ }
  Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
  UpdateVoyagePresentation(Hero, ElapsedSeconds);
 
