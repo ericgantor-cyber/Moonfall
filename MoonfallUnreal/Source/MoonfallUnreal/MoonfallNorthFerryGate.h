@@ -50,7 +50,7 @@ public:
  float VoyageDurationSeconds = 11.f;
  // Cinematic camera is optional, does not affect ship steering or travel.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Sea Travel")
- bool bUseVoyageCamera = true;
+ bool bUseVoyageCamera = false;
  UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category="Moonfall|Sea Travel")
  bool bAutoVoyageInProgress = false;
  // Readable voyage progress for future HUD, controller and accessibility UI.
@@ -79,7 +79,9 @@ public:
 
 private:
  void UpdateAutomaticVoyage();
- void StopAutomaticVoyage();
+ void StopAutomaticVoyage(bool bArrived = false);
+ bool IsVoyagerAboard(const AMoonfallHeroPawn* Hero,
+                     const AMoonfallNorthGothicFerryActor* Ship) const;
  void UpdateVoyagePresentation(AMoonfallHeroPawn* Hero, float ElapsedSeconds);
  FTimerHandle AutomaticVoyageTimer;
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
@@ -90,6 +92,9 @@ private:
  TWeakObjectPtr<APlayerController> VoyagePlayerController;
  TWeakObjectPtr<AActor> PreviousPlayerViewTarget;
  bool bCinematicViewActive = false;
+ bool bVoyagerOnDeck = false;
+ FVector OriginalBoardingLocation = FVector::ZeroVector;
+ FRotator OriginalBoardingRotation = FRotator::ZeroRotator;
  FTransform OriginalShipTransform = FTransform::Identity;
  FVector SailingFrom = FVector::ZeroVector;
  FVector SailingTo = FVector::ZeroVector;
