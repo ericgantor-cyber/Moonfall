@@ -77,6 +77,22 @@ constexpr bool MorvellaHasNorthernHome() {
  return ValidZone(MorvellaProvince)
    && Zones[MorvellaProvince].Biome == EBiome::Deadlands;
 }
+// Proposed Northern Expanse sanctums for the original gods.
+// These are ADDITIONAL future narrative locations, not character replacements,
+// new boss instances, or changes to existing arena placements or artwork.
+inline constexpr int ZProvince = 7; // Starveil Vale
+inline constexpr const char* ZEncounterId = "z_void_reaper";
+inline constexpr const char* ZSanctum = "The Void Observatory";
+inline constexpr int NyraProvince = 8; // Nightspire Dominion
+inline constexpr const char* NyraEncounterId = "nyra_eclipse_queen";
+inline constexpr const char* NyraSanctum = "Eclipse Throne of Nyra";
+constexpr bool DivineHomesValid() {
+ return MorvellaHasNorthernHome()
+  && ValidZone(ZProvince) && Zones[ZProvince].Biome == EBiome::CrystalValley
+  && ValidZone(NyraProvince) && Zones[NyraProvince].Biome == EBiome::EclipseCitadel
+  && ZProvince != NyraProvince && ZProvince != MorvellaProvince
+  && NyraProvince != MorvellaProvince;
+}
 // Returns the shortest proposed province-to-province route.
 // This is a read-only navigation plan, not world travel or fast-travel.
 // No heap allocations; invalid destinations return Length=0.
@@ -114,6 +130,7 @@ constexpr FRoute ShortestRoute(int Start, int Goal) {
   Route.Stops[Index] = Reverse[Count-Index-1];
  return Route;
 }
+static_assert(DivineHomesValid(), "All three gods need distinct northern homes");
 static_assert(MorvellaHasNorthernHome(), "Death Goddess must live in Gravewind Barrens");
 static_assert(ZoneCount == 9, "Northern continent requires nine regions");
 static_assert(SymmetricLinks(), "Province borders must be bidirectional");
