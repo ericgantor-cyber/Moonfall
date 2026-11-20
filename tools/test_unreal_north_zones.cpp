@@ -6,6 +6,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -163,6 +164,24 @@ int main() {
  }
  assert(!N::PlanZoneGreybox(-1).Valid);
  assert(!N::PlanZoneGreybox(9).Valid);
+ // One contiguous nine-province greybox layout; every road maps to a
+ // unique reciprocal adjacency and no province pad overlaps another.
+ assert(N::ValidContinentCenters());
+ int Edges=0;
+ for (int A=0; A<N::ZoneCount; ++A) {
+  for(int B=A+1; B<N::ZoneCount; ++B) {
+   const auto DX=N::ContinentCenters[A].Xcm-N::ContinentCenters[B].Xcm;
+   const auto DY=N::ContinentCenters[A].Ycm-N::ContinentCenters[B].Ycm;
+   const auto DistanceSquared=DX*DX+DY*DY;
+   assert(DistanceSquared >= 10000*10000);
+   if (N::Linked(A,B)) {
+    ++Edges;
+    assert(DistanceSquared <= 20000*20000);
+   }
+  }
+ }
+ assert(Edges==N::RoadEdgeCount());
+ assert(Edges>=N::ZoneCount-1 && Edges<=20);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
