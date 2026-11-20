@@ -137,6 +137,49 @@ saved. Test save isolation in actual UE5 before assuming it works. No
 northern save schema, port unlocks or versioned cross-map persistence
 exists yet. Do not attach experimental gates to a production main map.
 
+## Native Unreal ferry verification (NOT yet executed)
+
+The new `MoonfallNorthFerryNativeTests.cpp` adds a real
+`Moonfall.NorthernExpanse.Ferry.ComponentContract` Unreal automation test
+under `WITH_DEV_AUTOMATION_TESTS`. It checks actor defaults, the
+11-second route, a dedicated pawn-blocking deck and rails, nonblocking
+decorative meshes, and the elevated boarding marker. This test requires a
+**native UE5.4 Editor build** to compile and run. GitHub's portable
+Windows/Linux jobs only confirm its source contract; they do **not**
+run the Unreal automation framework.
+
+**Native QA steps (in a throwaway preview world):**
+
+1. Build the UE5.4 `MoonfallUnrealEditor` Win64 Development target.
+   Resolve compiler/UHT issues before judging ferry functionality.
+2. Run **Tools → Debug → Session Frontend → Automation** (or the Editor
+   automation testing interface) and execute
+   `Moonfall.NorthernExpanse.Ferry.ComponentContract`. Confirm a real green
+   result from Unreal, not merely a Python source-test result.
+3. Generate a new preview with `create_northern_expanse_preview.py`
+   and inspect it with `validate_northern_expanse_preview.py`. These
+   scripts will not overwrite an existing map.
+4. In PIE, walk into the mainland boarding trigger, then move across the
+   Gothic Raven's actual deck while the 11-second route moves. Test
+   keyboard, mouse and controller, stationary riding, turning, jumping,
+   rail collision, the normal hero camera, and reduced-motion settings.
+   Verify the character's movement base remains the ship's
+   `PassengerDeck` while grounded and never silently switches to the
+   sea or another collider. Check the same route in reverse.
+5. Repeat with low frame rate and uncapped frame rate, including 30
+   northbound and return trips. Check 11-second timing, the countdown,
+   no unwanted instant-return boarding, loss-of-base cancellation,
+   disabling a gate mid-voyage, opening a menu, a defeated hero,
+   forced invalid arrival, and off-deck recovery.
+6. Confirm a bad landing never earns first-arrival credit, no player
+   becomes stranded at sea, no controller loses camera ownership and
+   no existing campaign save is read or written. The editor preview
+   is isolated and progress intentionally disposable.
+
+**Unverified:** this entire native QA matrix, true moving-base
+behavior on every frame rate, and a packaged Windows build. Keep both
+PR #1074 and PR #1077 draft until those gates are satisfied.
+
 ## Native acceptance checklist
 
 1. Integrate PR #1074 and this stacked PR in a throwaway checkout, run
