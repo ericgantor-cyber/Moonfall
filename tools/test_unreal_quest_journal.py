@@ -226,13 +226,14 @@ class WorldQuestJournal(unittest.TestCase):
                                         or normalized % new_capacity == 0)
                         visited = []
                         start = normalized
+                        first_page = start
                         for _ in range(7):
                             visited.extend(range(start, min(start + new_capacity, total)))
                             if new_capacity >= total or start + new_capacity >= total:
                                 start = 0
                             else:
                                 start += new_capacity
-                            if start == 0:
+                            if start == first_page:
                                 break
                         self.assertEqual(len(visited), total)
                         self.assertEqual(sorted(visited), list(range(total)),
