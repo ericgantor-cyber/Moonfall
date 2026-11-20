@@ -148,6 +148,12 @@ The connected `AMoonfallNorthContinentActor` now adds **nine independently tinta
 
 **This is an initial visual consistency pass, not finished graphics parity.** The North still uses UE built-in cube meshes and a basic material; there are no imported production terrain meshes, PBR materials, foliage, decals, landscape layers, dedicated lighting/postprocess assets, or effects matching an actually validated existing game scene. Material `Color` parameter support and in-engine appearance must be checked in UE5.4; if the selected material lacks this parameter, color overrides will not display. To truly match the rest of Moonfall, the visual director must bring the project's actual environment material library, intended detail density, lighting and terrain style into the Northern Expanse and verify a Windows render comparison. Never alter original Z/Nyra/Morvella art for that pass. Native UE5 build and scene rendering remain unverified.
 
+### Native playable-map verification gate
+
+The preview map generator now selects **`AMoonfallNorthPreviewGameMode` on the new level only**. This dedicated `AGameModeBase` uses Moonfall's existing pawn but deliberately avoids the normal game mode's automatically spawned arena and 30 old dungeons, allowing an isolated nine-province playtest without changing the default project map. A second read-only editor script at `MoonfallUnreal/Tools/validate_northern_expanse_preview.py` must be run **inside compiled UE5.4** to verify that the saved `.umap` exists and opens, the preview game mode is attached, and the expected pads, roads, landmarks, weather, and player start are present. Its editor-API calls have not yet been run on a native UE5 installation.
+
+See **`MoonfallUnreal/NORTHERN_EXPANSE_NATIVE_QA.md`** for the remaining bidirectional road traversal, weather transitions, XInput controller, keyboard/mouse, native build, Windows packaged playtest and legacy regression requirements. A CI pass only establishes Python syntax/source guardrails and portable geometry catalog validity. The actual `.umap` has not been generated or confirmed in this environment; the PR must remain unmerged until those native tasks pass.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
