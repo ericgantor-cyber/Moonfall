@@ -26,6 +26,12 @@ These pieces are **not a complete version** of the six proposed systems.
 
 `tools/test_unreal_living_world_rules.cpp` verifies boundaries, relationships, reversibility, combat eligibility and progression gates without Unreal headers. CI executes this as a standalone C++17 test.
 
+## First UE5 gameplay integration committed
+
+- `AMoonfallHeroPawn::GetResidentRelationshipRank` now exposes read-only Hostile/Wary/Neutral/Trusted/Devoted tiers to Blueprint and UI, derived from saved `ResidentBonds`.
+- Named world NPCs now recognize Trusted and Devoted bonds in dialogue **after an existing one-time contract is completed**. Talking cannot farm trust, and the existing quest/salvage transaction and save format remain unchanged.
+- Python source regressions verify the bridge reads persisted bonds and does not save or award points while talking. Native UE5 compilation and runtime gameplay testing are still needed.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
