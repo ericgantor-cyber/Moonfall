@@ -93,6 +93,12 @@ static_assert(QuestLayout::NextPageStart(0, 4, 7) == 4);
 static_assert(QuestLayout::NextPageStart(4, 4, 7) == 0);
 static_assert(QuestLayout::NextPageStart(0, 7, 7) == 0);
 static_assert(QuestLayout::NextPageStart(6, 3, 5) == 0);
+static_assert(QuestLayout::NormalizePageStart(4, 3, 7) == 0);
+static_assert(QuestLayout::NormalizePageStart(3, 4, 7) == 0);
+static_assert(QuestLayout::NormalizePageStart(6, 4, 7) == 0);
+static_assert(QuestLayout::NormalizePageStart(4, 4, 7) == 4);
+static_assert(QuestLayout::NextPageStart(4, 3, 7) == 0);
+static_assert(QuestLayout::NextPageStart(3, 4, 7) == 0);
 static_assert(QuestLayout::Compute(420, 7, 600).Top == 18);
 static_assert(QuestLayout::Compute(420, 7, 600).VisibleRows == 3);
 static_assert(QuestLayout::Compute(420, 7, 600).PanelHeight == 265);
@@ -117,6 +123,34 @@ static_assert(QuestLayout::ClearsHealthOrb(1920, 1080, 7));
 static_assert(QuestLayout::ClearsHealthOrb(3840, 2160, 7));
 
 int main() {
+ // Reproduce compact-window resizing while viewing later pages. Regardless
+ // of the previous page size, one complete MMB cycle must visit every quest
+ // exactly once, including the partial final page.
+ for (int Count = 1; Count <= QuestLayout::MaxRows; ++Count) {
+  for (int OldCapacity = 1; OldCapacity <= QuestLayout::MaxRows; ++OldCapacity) {
+   for (int NewCapacity = 1; NewCapacity <= QuestLayout::MaxRows; ++NewCapacity) {
+    for (int OldStart = 0; OldStart < Count; OldStart += OldCapacity) {
+     int Page = QuestLayout::NormalizePageStart(OldStart, NewCapacity, Count);
+     assert(Page == 0 || Page % NewCapacity == 0);
+     bool Seen[QuestLayout::MaxRows]{};
+     int Iterations = 0;
+     do {
+      assert(Page >= 0 && Page < Count);
+      const int PageEnd = Page + NewCapacity < Count
+        ? Page + NewCapacity : Count;
+      for (int I = Page; I < PageEnd; ++I) {
+       assert(!Seen[I] && "Quest skipped or rendered twice on resize");
+       Seen[I] = true;
+      }
+      Page = QuestLayout::NextPageStart(Page, NewCapacity, Count);
+      ++Iterations;
+      assert(Iterations <= QuestLayout::MaxRows);
+     } while (Page != 0);
+     for (int I = 0; I < Count; ++I) assert(Seen[I]);
+    }
+   }
+  }
+ }
  for (int width : {600, 640, 760, 1280, 1920, 3840}) {
   for (int height : {420, 480, 519, 520, 720, 1080, 2160}) {
    for (int rows=1; rows<=QuestLayout::MaxRows; ++rows) {
