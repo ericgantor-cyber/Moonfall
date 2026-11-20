@@ -18,6 +18,8 @@ public:
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
  // Nonblocking starter directions share the same no-Tick text approach as zone signs.
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> SanctuaryGuideSigns;
+ // Separate static world-direction signs for Morvella, without per-frame Tick.
+ UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DivineEncounterSigns;
  // Keeps the new-player sanctuary on the same continuous world map.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
  bool bEnableStartingSanctuary = true;
