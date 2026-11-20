@@ -92,6 +92,9 @@ private:
  TWeakObjectPtr<AMoonfallHeroPawn> PendingVoyager;
  TWeakObjectPtr<AMoonfallNorthFerryGate> PendingArrivalGate;
  TWeakObjectPtr<AMoonfallNorthGothicFerryActor> PendingShip;
+ // Lock both ship endpoints for the entire crossing: level editing,
+ // scripts or an unexpected port rewire must cancel, never reroute.
+ TWeakObjectPtr<AMoonfallNorthGothicFerryActor> PendingTargetShip;
  // Weak view references guarantee cleanup cannot resurrect a destroyed hero
  // or override a camera switched by another game system mid-voyage.
  TWeakObjectPtr<APlayerController> VoyagePlayerController;
