@@ -93,6 +93,8 @@ AMoonfallNorthGothicFerryActor::AMoonfallNorthGothicFerryActor() {
 
 void AMoonfallNorthGothicFerryActor::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
+ SailRestTransforms.Reset();
+ bSailsWereAnimated = false;
  for (UInstancedStaticMeshComponent* Group :
       {HullPieces.Get(), GothicIronwork.Get(), CrimsonSails.Get(),
        RavenFigurehead.Get(), CrimsonLanterns.Get()}) {
@@ -177,4 +179,52 @@ void AMoonfallNorthGothicFerryActor::OnConstruction(const FTransform& Transform)
  Tint(CrimsonSails, FLinearColor(0.26f,0.015f,0.035f,1.f));
  Tint(RavenFigurehead, FLinearColor(0.020f,0.021f,0.035f,1.f));
  Tint(CrimsonLanterns, FLinearColor(1.f,0.025f,0.045f,1.f));
+}
+
+void AMoonfallNorthGothicFerryActor::ResetCrimsonSails() {
+ if (!bSailsWereAnimated || !IsValid(CrimsonSails)) return;
+ if (CrimsonSails->GetInstanceCount() == SailRestTransforms.Num()) {
+  for (int32 Index = 0; Index < SailRestTransforms.Num(); ++Index) {
+   const bool bFlushRender = Index == SailRestTransforms.Num() - 1;
+   CrimsonSails->UpdateInstanceTransform(
+       Index, SailRestTransforms[Index], false, bFlushRender);
+  }
+ }
+ bSailsWereAnimated = false;
+}
+
+void AMoonfallNorthGothicFerryActor::AnimateCrimsonSails(
+    float ElapsedSeconds, bool bReduceMotion) {
+ if (!IsValid(CrimsonSails) || !FMath::IsFinite(ElapsedSeconds)
+     || ElapsedSeconds < 0.f || CrimsonSails->GetInstanceCount() <= 0) return;
+ if (bReduceMotion) {
+  ResetCrimsonSails();
+  return;
+ }
+ const int32 Count = CrimsonSails->GetInstanceCount();
+ // Lazily cache local instance transforms. Never compound rotations across
+ // timer updates; this avoids accumulated drift and preserves exact rest art.
+ if (SailRestTransforms.Num() != Count) {
+  SailRestTransforms.Reset(Count);
+  for (int32 Index = 0; Index < Count; ++Index) {
+   FTransform SailTransform;
+   if (!CrimsonSails->GetInstanceTransform(Index, SailTransform, false)) {
+    SailRestTransforms.Reset();
+    return;
+   }
+   SailRestTransforms.Add(SailTransform);
+  }
+ }
+ // Restrict motion to a small yaw offset, simulating wind without cloth
+ // physics, expensive per-frame updates, collision, or combat side effects.
+ for (int32 Index = 0; Index < Count; ++Index) {
+  FTransform SailTransform = SailRestTransforms[Index];
+  const float YawOffset = 5.f * FMath::Sin(ElapsedSeconds * 2.1f
+      + static_cast<float>(Index) * 0.7f);
+  SailTransform.SetRotation(FRotator(0.f, YawOffset, 0.f).Quaternion()
+      * SailTransform.GetRotation());
+  const bool bFlushRender = Index == Count - 1;
+  CrimsonSails->UpdateInstanceTransform(Index, SailTransform, false, bFlushRender);
+ }
+ bSailsWereAnimated = true;
 }
