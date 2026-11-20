@@ -591,6 +591,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("CouncilPointer"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCouncilPointer);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -1627,6 +1628,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -3413,6 +3415,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
@@ -3610,6 +3613,35 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  return;
+ }
+ if (bCouncilPointerOpen) {
+  // The pointer is modal. Clicking outside never casts a hostile spell.
+  if (Health <= 0.f || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen) {
+   CloseCouncilPointer();
+   return;
+  }
+  APlayerController* PC = Cast<APlayerController>(Controller);
+  if (!PC || !PC->bShowMouseCursor) { CloseCouncilPointer(); return; }
+  int32 ViewW = 0, ViewH = 0;
+  float PointerX = 0.f, PointerY = 0.f;
+  PC->GetViewportSize(ViewW, ViewH);
+  if (ViewW < 1280 || ViewH < 700
+      || !PC->GetMousePosition(PointerX, PointerY)
+      || !FMath::IsFinite(PointerX) || !FMath::IsFinite(PointerY)) {
+   CloseCouncilPointer();
+   return;
+  }
+  const float PanelX = static_cast<float>(ViewW) - 330.f - 24.f;
+  const float RowY = 78.f + 274.f;
+  // Exact hit rectangles shared with the Canvas Council buttons.
+  if (PointerY >= RowY && PointerY <= RowY + 25.f
+      && PointerX >= PanelX + 14.f && PointerX < PanelX + 314.f) {
+   const int32 Choice = FMath::Clamp(
+      FMath::FloorToInt((PointerX - PanelX - 14.f) / 100.f), 0, 2);
+   SelectCouncilPreview(Choice);
+  }
   return;
  }
  if (!bResidentContextOpen) { CastLeft(); return; }
@@ -3837,6 +3869,27 @@ FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const {
    ? TEXT("Fund Reconstruction") : TEXT("Fortify Borders");
  return FString::Printf(TEXT("%s | Faction %+d | Prosperity %+d | Threat %+d (preview only)"),
     Title, Outcome.factionDelta, Outcome.prosperityDelta, Outcome.threatDelta);
+}
+
+void AMoonfallHeroPawn::CloseCouncilPointer() {
+ if (!bCouncilPointerOpen) return;
+ bCouncilPointerOpen = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen;
+}
+void AMoonfallHeroPawn::ToggleCouncilPointer() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4))
+  return;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  bCouncilPointerOpen = true;
+  PC->bShowMouseCursor = true;
+  EndSprint();
+  EndGuard();
+ }
 }
 
 bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId) {
