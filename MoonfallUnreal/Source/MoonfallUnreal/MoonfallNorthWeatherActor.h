@@ -32,6 +32,15 @@ public:
    meta=(ClampMin="800.0",ClampMax="8000.0",UIMin="800.0",UIMax="8000.0"))
  float WeatherActivationRadiusCm=2500.f;
 
+ // Blueprint-safe runtime controls: restart or stop proximity/animation
+ // timers immediately when weather settings change during a session.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Northern Expanse")
+ void SetWeatherPreviewEnabled(bool bEnabled);
+
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Northern Expanse")
+ void SetWeatherProvinceIndex(int32 NewProvinceIndex);
+
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TObjectPtr<UPointLightComponent> WeatherLight;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
