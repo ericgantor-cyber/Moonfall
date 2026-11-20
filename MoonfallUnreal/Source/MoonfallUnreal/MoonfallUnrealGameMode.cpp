@@ -32,12 +32,19 @@ void AMoonfallUnrealGameMode::BeginPlay()
  Super::BeginPlay();
  if (!GetWorld()) return;
 
- // Preserve an arena already placed by a designer.
- bool bHasArena = false;
- for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
-  if (IsValid(*It)) { bHasArena = true; break; }
- if (!bHasArena)
-  GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
+ // Preserve existing default behavior, but permit an isolated authored
+ // continent or integration test map to omit the legacy combat arena.
+ if (bGenerateLegacyArena) {
+  bool bHasArena = false;
+  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
+   if (IsValid(*It) && !It->IsActorBeingDestroyed()) {
+    bHasArena = true;
+    break;
+   }
+  if (!bHasArena)
+   GetWorld()->SpawnActor<AMoonfallArena>(
+     FVector::ZeroVector, FRotator::ZeroRotator);
+ }
 
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
@@ -63,6 +70,12 @@ void AMoonfallUnrealGameMode::BeginPlay()
  if (NextDungeonSlot < TotalDungeons)
   GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
+}
+
+void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+ GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
+ Super::EndPlay(EndPlayReason);
 }
 
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
