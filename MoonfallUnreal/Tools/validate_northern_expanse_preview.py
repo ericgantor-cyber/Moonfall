@@ -124,6 +124,8 @@ def main():
             and island.get_editor_property("sailing_vessel") == island_ship,
             "Both automatic ferry routes need their own offshore visual ship")
     for gate in (mainland, island):
+        require(not gate.get_editor_property("b_use_voyage_camera"),
+                "Walkable ferry preview should use the regular hero camera")
         require(abs(gate.get_editor_property("voyage_duration_seconds") - 11.0) < 0.01,
                 "The test crossing should take eleven seconds")
         require(not gate.get_editor_property("b_auto_voyage_in_progress"),
