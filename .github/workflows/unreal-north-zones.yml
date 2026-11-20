@@ -1,0 +1,39 @@
+name: UE5 Northern Expanse catalog validation
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'tools/test_unreal_north_zones.cpp'
+      - '.github/workflows/unreal-north-zones.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'tools/test_unreal_north_zones.cpp'
+      - '.github/workflows/unreal-north-zones.yml'
+  workflow_dispatch:
+
+jobs:
+  portable-zone-catalog:
+    name: C++17 zone adjacency tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run (Linux GCC)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_zones.cpp -o /tmp/moonfall_north_test
+          /tmp/moonfall_north_test
+      - name: Compile and run (Windows MSVC)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_north_test.exe tools/test_unreal_north_zones.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_north_test.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
