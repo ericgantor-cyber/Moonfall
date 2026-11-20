@@ -28,6 +28,18 @@ The portable `MoonfallNorthMorvella.h` access policy supports a future separate 
 
 This policy is **not connected to the active save schema, Atlas, UE5 actors, or world travel**. The encounter remains unavailable in the playable Northern Expanse until the continent's actual levels and backward-compatible discovery saves are implemented. All 512 discovery-mask combinations are covered by native-free regression tests.
 
+## The other two gods: Z and Nyra
+
+Z and Nyra now have **proposed additional Northern Expanse sanctums**, alongside Morvella. These are new narrative destinations, not changes to their current boss locations or art.
+
+- **Z, the Void Reaper:** **Starveil Vale** (province 8), at **The Void Observatory**. His existing encounter ID remains `z_void_reaper`.
+- **Nyra, the Eclipse Queen:** **Nightspire Dominion** (province 9), at the **Eclipse Throne of Nyra**. Her existing encounter ID remains `nyra_eclipse_queen`.
+- **Morvella, the Crimson Reaper:** **Gravewind Barrens** (province 4), at the **Moonlit Necropolis**, unchanged from her planned relocation.
+
+These sanctums are optional divine destinations, independent of the regular region dungeon bosses. Their placement catalog and new `MoonfallNorthDivine.h` policy refuse invalid discovery masks and only report a site as accessible when the province and an unbroken route from Shiverwake Coast are discovered. Existing victory state can be supplied to prevent repeat availability, but NO victory persistence, new boss actors, Atlas destinations, geometry or save fields are added here. The policy is not live gameplay.
+
+**Important:** Z and Nyra keep their original approved artwork and appearances, their divine identities, and their existing world/arena encounters. Avoid duplicate instances until designers explicitly choose a migration strategy and verify all save/load and victory behavior. Morvella's old sixth-region spawn remains disabled by default in the separate PR #1075.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
