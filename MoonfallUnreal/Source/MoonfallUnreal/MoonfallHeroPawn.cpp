@@ -2378,10 +2378,17 @@ bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const 
      && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
 }
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ // The isolated Northern Expanse preview intentionally blocks all campaign
+ // save reads/writes. Allow shrine checkpoints only as session-local state
+ // in that exact preview GameMode, never in any other write-protected world.
+ const bool bPreviewOnlyShrine = bPersistentSaveWritesBlocked && GetWorld()
+     && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass());
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || (bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)
+     || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
@@ -2420,18 +2427,21 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  ActiveShrineId = Shrine->ShrineId;
  RespawnCheckpointLocation = NewRespawn;
  bHasRespawnCheckpointLocation = true;
- // Unlock + checkpoint persist together. Failed saves cannot activate a
- // shrine in memory and silently lose it after quitting.
- if (!SaveWorldProgress()) {
+ // Regular campaign shrines persist atomically; failed saves roll back.
+ // The isolated preview, by design, only activates shrines in this session,
+ // retaining the checkpoint for death without touching campaign save slots.
+ if (!bPreviewOnlyShrine && !SaveWorldProgress()) {
   DiscoveredShrineIds.Remove(Shrine->ShrineId);
   ActiveShrineId = PreviousShrineId;
   RespawnCheckpointLocation = PreviousCheckpoint;
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
   return false;
  }
- // Shrine discovery saved the world already; restart the autosave interval.
- SecondsSinceLastWorldSave = 0.f;
- // Discovery is rare, so update visual statuses only after a saved change.
+ // Only permanent shrines wrote the world save. Preview checkpoints remain
+ // in memory and must not start the real campaign autosave interval.
+ if (!bPreviewOnlyShrine) SecondsSinceLastWorldSave = 0.f;
+ // Discovery is rare, so refresh visuals after successful save or
+ // session-only activation. Previously discovered shrines stay lit.
  // Old shrines stop showing ACTIVE without a per-frame world scan.
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
   if (IsValid(*It)) It->RefreshShrineDisplay(this);
