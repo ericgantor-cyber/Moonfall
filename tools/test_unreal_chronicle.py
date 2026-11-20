@@ -13,11 +13,14 @@ class ChronicleIntegration(unittest.TestCase):
         cls.story = (SRC / "MoonfallChronicle.h").read_text(encoding="utf-8")
         cls.hud = (SRC / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         cls.hero = (SRC / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        cls.pawn = (SRC / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        cls.ui = (SRC / "MoonfallChronicleUI.h").read_text(encoding="utf-8")
+        cls.keys = (ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         cls.atlas = cls.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
             "if (Hero->bOptionsOpen) {", 1
         )[0]
         cls.preview = cls.atlas.split(
-            "// Six-act / 42-chapter Chronicle.", 1
+            "// Full six-act, seven-chapter-per-act Chronicle.", 1
         )[1].split("// Hover cards are purely informational", 1)[0]
 
     def test_42_original_beats_are_stable_and_unique(self):
@@ -80,43 +83,115 @@ class ChronicleIntegration(unittest.TestCase):
         self.assertIn("static_cast<uint32>(Hero->DefeatedDungeonBossMask)", self.preview)
         self.assertIn("MoonfallChronicle::Summarize(", self.preview)
         self.assertIn("MoonfallChronicle::RevealedBeat(", self.preview)
-        self.assertIn("Chronicle.Valid && ChronicleBeat", self.preview)
+        self.assertIn("Chronicle.Valid && ChronicleCard.Visible", self.preview)
         self.assertNotIn("MoonfallChronicle::Acts[Selected]", self.preview)
 
-    def test_atlas_preview_is_passive_and_small_window_safe(self):
+    def test_atlas_reader_is_spoiler_safe_and_window_adaptive(self):
         for token in (
-            "MapWidth >= 295.f && MapHeight >= 185.f",
-            "bCompactChronicle = MapHeight < 390.f",
-            "MapTop + MapHeight - ChronicleHeight - 8.f",
-            "STORY ACT %d/6",
-            "CHAPTER %d/7",
-            "%d/7 REVEALED",
+            "MoonfallChronicleUI::Layout(",
+            "Chronicle.Valid && ChronicleCard.Visible",
+            "const int32 ChapterIndex = Hero->AtlasChronicleChapter >= 0",
+            "MoonfallChronicle::BeatState(",
+            "const bool bSelected = Chapter == ChapterIndex",
+            "ChapterState == MoonfallChronicle::EBeatState::Hidden",
+            "ChapterState == MoonfallChronicle::EBeatState::Cleared",
+            "ChronicleCard.TabLeft + ChronicleCard.TabWidth * Chapter",
+            "ChronicleCard.ToggleLeft",
+            'Hero->bAtlasChronicleFocus ? TEXT("MAP") : TEXT("READ")',
+            'TEXT("LOCKED")',
+            'TEXT("CLEARED")',
+            'TEXT("DISCOVERED")',
+            'TEXT("CHAPTER %d/7  |  UNDISCOVERED")',
+            "const FString Lore = ChronicleBeat",
             "ChronicleBeat->Lore",
             "LoreLineLimit = MapWidth >= 480.f ? 78 : 48",
-            "LoreLines = bCompactChronicle ? 1 : 3",
+            "LoreLines = ChronicleCard.LoreLines",
             "Lore[WordEnd] != TCHAR(' ')",
             "for (int32 Line = 0; Line < LoreLines && LoreCursor < Lore.Len(); ++Line)",
             "Lore.Mid(LoreCursor, End - LoreCursor)",
-            "ChronicleTop + 45.f + Line * 17.f",
-            "ChronicleTop + 105.f",
-            "Scale * 0.68f",
+            "CT + 72.f + Line * 17.f",
+            "CT + CH - 19.f",
+            "bAtlasPointerInsideMap && !bChroniclePointer",
         ):
-            self.assertIn(token, self.preview)
-        # At 720p and wider, all authored lore passages (<= 189 chars)
-        # fit within the 3 x 78-character word-wrapped display budget.
-        self.assertGreaterEqual(3 * 78, 189)
-        self.assertIn("ChronicleHeight = bCompactChronicle ? 68.f : 127.f",
-                      self.preview)
+            self.assertIn(token, self.preview + self.atlas)
         for forbidden in (
             "SpawnActor(", "SaveWorldProgress(", "ResidentQuestStates.Add(",
             "AwardExperience(", "GetAllActorsOfClass(", "TActorIterator",
             "LastHitAmount", "SetGlobalTimeDilation(", "NewObject<",
+            "MoonfallChronicle::Acts[Selected]",
         ):
             self.assertNotIn(forbidden, self.preview)
         self.assertIn("const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);",
                       self.atlas)
         self.assertIn('J/ESC close | Arrows: region / pan | Wheel: zoom', self.atlas)
         self.assertIn("Mouse: select a region or pan the chart", self.atlas)
+        self.assertIn("bool Visible", self.ui)
+        self.assertIn("Compact=MapHeight<390.f", self.ui)
+        self.assertIn("Visible=MapWidth>=295.f && MapHeight>=185.f", self.ui)
+        self.assertIn("Expanded?(Height>=198.f?5:3):(Compact?1:3)", self.ui)
+
+    def test_mouse_hit_and_keyboard_controller_reader_focus(self):
+        for declaration in (
+            "AtlasChronicleChapter = -1;",
+            "bAtlasChronicleFocus = false;",
+            "void ToggleAtlasChronicleFocus();",
+            "void StepAtlasChronicle(int32 Direction);",
+        ):
+            self.assertIn(declaration, self.hero)
+        self.assertIn('#include "MoonfallChronicleUI.h"', self.hud)
+        self.assertIn('#include "MoonfallChronicleUI.h"', self.pawn)
+        self.assertIn("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", self.pawn)
+        self.assertIn("void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction)", self.pawn)
+        self.assertIn("if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }",
+                      self.pawn)
+        self.assertIn("if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }",
+                      self.pawn)
+        self.assertIn('BindAction(TEXT("ChronicleFocus"), IE_Pressed,', self.pawn)
+        self.assertIn('ActionName="ChronicleFocus",Key=Tab', self.keys)
+        self.assertIn('ActionName="ChronicleFocus",Key=Gamepad_RightThumbstick',
+                      self.keys)
+        self.assertIn('ActionName="Dodge",Key=Q', self.keys)
+        self.assertIn('ActionName="Atlas",Key=J', self.keys)
+        self.assertIn('ActionName="Guard",Key=Gamepad_RightThumbstick', self.keys)
+        self.assertIn("bInventoryOpen || bAtlasOpen || Health <= 0.f", self.pawn)
+        click = self.pawn.split(
+            "void AMoonfallHeroPawn::ResidentContextMouseClick()", 1
+        )[1].split("if (bOptionsOpen)", 1)[0]
+        for term in (
+            "MoonfallChronicleUI::Layout(",
+            "MoonfallChronicleUI::HitToggle(",
+            "MoonfallChronicleUI::HitChapter(",
+            "MoonfallChronicleUI::HitCard(",
+            "AtlasChronicleChapter = ClickedBeat",
+            "bAtlasChronicleFocus = true",
+            "if (MoonfallChronicleUI::HitCard(ChronicleCard, MouseX, MouseY))",
+        ):
+            self.assertIn(term, click)
+        self.assertLess(click.index("MoonfallChronicleUI::HitCard("),
+                        click.index("// Clicking the parchment chart pans"))
+        self.assertNotIn("AwardExperience(", click)
+        self.assertNotIn("SaveWorldProgress(", click)
+
+    def test_chapter_navigation_is_transient_and_region_safe(self):
+        self.assertIn(
+            "UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category=\"Moonfall|Atlas|Chronicle\") int32 AtlasChronicleChapter = -1;",
+            self.hero,
+        )
+        self.assertIn("AtlasChronicleChapter = -1;", self.pawn)
+        self.assertIn("if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1",
+                      self.pawn)
+        self.assertIn(
+            "if (AtlasSelectedRegion != Slot / 5) AtlasChronicleChapter = -1",
+            self.pawn,
+        )
+        self.assertIn(
+            "if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1",
+            self.pawn,
+        )
+        self.assertIn("NextChapter(", self.ui)
+        self.assertIn("return (Base+Direction+Tabs)%Tabs;", self.ui)
+        self.assertNotIn("SaveWorldProgress(", self.preview)
+        self.assertNotIn("Save->AtlasChronicleChapter", self.pawn)
 
 
 if __name__ == "__main__":
