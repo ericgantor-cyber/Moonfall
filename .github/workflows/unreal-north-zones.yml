@@ -25,6 +25,8 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
       - 'tools/test_unreal_north_weather_actor_source.py'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'tools/test_unreal_north_preview_map_source.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
       - 'tools/test_unreal_north_continent_actor_source.py'
@@ -55,6 +57,8 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherActor.cpp'
       - 'tools/test_unreal_north_weather_actor_source.py'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'tools/test_unreal_north_preview_map_source.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentActor.cpp'
       - 'tools/test_unreal_north_continent_actor_source.py'
@@ -85,6 +89,9 @@ jobs:
       - name: Verify northern climate preview source
         shell: bash
         run: python tools/test_unreal_north_weather_actor_source.py
+      - name: Validate isolated UE5 Northern Expanse preview map authoring script
+        shell: bash
+        run: python tools/test_unreal_north_preview_map_source.py
       - name: Compile and run (Linux GCC)
         if: runner.os == 'Linux'
         shell: bash
