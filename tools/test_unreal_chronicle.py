@@ -92,10 +92,21 @@ class ChronicleIntegration(unittest.TestCase):
             "CHAPTER %d/7",
             "%d/7 REVEALED",
             "ChronicleBeat->Lore",
-            "Lore.Len() > MaxLoreChars",
+            "LoreLineLimit = MapWidth >= 480.f ? 78 : 48",
+            "LoreLines = bCompactChronicle ? 1 : 3",
+            "Lore[WordEnd] != TCHAR(' ')",
+            "for (int32 Line = 0; Line < LoreLines && LoreCursor < Lore.Len(); ++Line)",
+            "Lore.Mid(LoreCursor, End - LoreCursor)",
+            "ChronicleTop + 45.f + Line * 17.f",
+            "ChronicleTop + 105.f",
             "Scale * 0.68f",
         ):
             self.assertIn(token, self.preview)
+        # At 720p and wider, all authored lore passages (<= 189 chars)
+        # fit within the 3 x 78-character word-wrapped display budget.
+        self.assertGreaterEqual(3 * 78, 189)
+        self.assertIn("ChronicleHeight = bCompactChronicle ? 68.f : 127.f",
+                      self.preview)
         for forbidden in (
             "SpawnActor(", "SaveWorldProgress(", "ResidentQuestStates.Add(",
             "AwardExperience(", "GetAllActorsOfClass(", "TActorIterator",
