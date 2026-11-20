@@ -52,6 +52,12 @@ A new portable layout catalog defines three independently bounded, accessible en
 
 This is **authoring data, not instantiated UE5 collision or a navigable landscape**. The next implementation step is to consume these plans within real level-building code, place them into World Partition with authored zone coordinates and validate navmesh, animation, performance and actual boss spawn rules. Existing boss actors must not be duplicated and original divine art must stay unchanged.
 
+### Editor-placeable UE5 sanctum geometry prototype
+
+The new `AMoonfallNorthSanctumActor` is a UE5 actor that consumes the three tested native-free layouts and constructs five instanced static-mesh collision blocks: entrance corridor floor, arena floor, two side walls, and back wall. Place one actor in a real level, choose `DivineSiteIndex` 0 (Morvella), 1 (Z), or 2 (Nyra), and position/rotate the actor in the target province. The editor rebuilds instances on construction without a Tick. It exposes entrance and boss marker positions but deliberately spawns no gods, creates no saves and does not modify their artwork.
+
+**Not complete:** No actor has yet been placed in a packaged northern map; no world streaming, navmesh baking, travel connection, or live boss integration is proven. The generated grey-box rectangles are square and their floor contact requires native collision/walk tests. Approved game assets and visuals must be added separately.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
