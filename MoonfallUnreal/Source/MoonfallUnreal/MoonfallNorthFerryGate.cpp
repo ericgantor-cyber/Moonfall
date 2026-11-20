@@ -145,6 +145,7 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
   }
  }
  PendingShip.Reset();
+ PendingTargetShip.Reset();
  PendingVoyager.Reset();
  PendingArrivalGate.Reset();
  bVoyagerOnDeck = false;
@@ -325,6 +326,7 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  SailingTo = To;
  OriginalShipTransform = SailingVessel->GetActorTransform();
  PendingShip = SailingVessel;
+ PendingTargetShip = PairedGate->SailingVessel;
  PendingArrivalGate = PairedGate;
  PendingVoyager = Hero;
  VoyageStartWorldSeconds = GetWorld()->GetTimeSeconds();
@@ -363,8 +365,14 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
  if (!bAutoVoyageInProgress || !GetWorld() || !IsValid(Hero)
      || !IsValid(Arrival) || !IsValid(Ship)
-     || Arrival->PairedGate != this || !bEnableSeaPassage
-     || !Arrival->bEnableSeaPassage || !Hero->IsPlayerControlled()
+     || PairedGate != Arrival || Arrival->PairedGate != this
+     || SailingVessel != Ship || !IsValid(PendingTargetShip.Get())
+     || Arrival->SailingVessel != PendingTargetShip.Get()
+     || PendingTargetShip.Get() == Ship
+     || Arrival->bIslandHarbor == bIslandHarbor
+     || Arrival->GetWorld() != GetWorld()
+     || !bEnableSeaPassage || !Arrival->bEnableSeaPassage
+     || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
