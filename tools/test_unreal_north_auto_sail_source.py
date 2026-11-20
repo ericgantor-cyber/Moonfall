@@ -112,9 +112,9 @@ assert "Hero->GetMovementBase() == Ship->PassengerDeck" in cleanup
 assert "Hero->SetBase(nullptr)" in cleanup
 assert "Ship->PassengerBoardingMarker->GetComponentLocation()" in cleanup
 assert "IsVoyagerAboard(" in cleanup
-assert "if (PC->GetViewTarget() == PendingShip.Get())" in cleanup
+assert "if (PC->GetViewTarget() == Ship)" in cleanup
 assert "ReturnTarget = PreviousPlayerViewTarget.Get()" in cleanup
-assert "ReturnTarget = PendingVoyager.Get()" in cleanup
+assert "ReturnTarget = Hero" in cleanup
 assert "PC->SetViewTargetWithBlend(ReturnTarget" in cleanup
 assert "VoyagePlayerController.Reset()" in cleanup
 assert "PreviousPlayerViewTarget.Reset()" in cleanup
