@@ -232,4 +232,34 @@ for expected in (
     assert expected in policyLanding, f"Dry landing policy missing: {expected}"
 assert '#include "MoonfallNorthDryLandingPolicy.h"' in gate_cpp
 assert "FindSafeDryLanding(Hero, this, Fallback)" in cleanup
-print("Automatic voyage, dry landing and native UE source contracts passed (native execution pending)")
+# A passing portable workflow must never be mistaken for real native Editor
+# evidence. The manually dispatched trusted UE5 workflow has to execute the
+# automation harness and confirm an actual JSON test Success result.
+native_runner = (root / "MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1").read_text(encoding="utf-8")
+native_workflow = (root / ".github/workflows/unreal-compile-windows.yml").read_text(encoding="utf-8")
+for required in (
+    "UnrealEditor-Cmd.exe",
+    "Moonfall.NorthernExpanse.Ferry.ComponentContract",
+    "Automation RunTest ",
+    "-ReportExportPath=",
+    "index.json",
+    "ConvertFrom-Json",
+    "Refusing stale evidence",
+    "Native ferry report directory already exists",
+    "Expected exactly one native ferry test result",
+    "$test.state -ne 'Success'",
+    "[int]$data.failed -ne 0",
+    "[int]$data.notRun -ne 0",
+    "Native ferry component test PASSED",
+    "NOT a PIE walkable-deck gameplay test",
+):
+    assert required in native_runner, f"Native Unreal execution proof missing: {required}"
+for required in (
+    "runs-on: [self-hosted, Windows, X64, unreal-5-4]",
+    "Test-NorthernFerryNativeAutomation.ps1",
+    "Execute actual UE Editor Gothic Raven ferry component test",
+    "Preserve real Unreal ferry automation report",
+    "MoonfallUnreal-GothicRaven-NativeTest-Report",
+):
+    assert required in native_workflow, f"Trusted native workflow missing: {required}"
+print("Automatic voyage and real UE5 smoke-runner source contracts passed (native execution pending)")
