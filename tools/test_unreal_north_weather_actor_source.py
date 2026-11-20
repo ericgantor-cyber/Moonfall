@@ -53,6 +53,20 @@ assert "void AMoonfallNorthWeatherActor::SetWeatherPreviewEnabled(bool bEnabled)
 assert "void AMoonfallNorthWeatherActor::SetWeatherProvinceIndex(int32 NewProvinceIndex)" in source
 assert "SetWeatherPreviewEnabled(bEnableWeatherPreview);" in source
 assert "SetWeatherPreviewEnabled" in header and "SetWeatherProvinceIndex" in header
+assert "bool bFollowPlayerProvince=false" in header
+assert "TWeakObjectPtr<AMoonfallNorthContinentActor>" in header
+assert "bContinentLookupAttempted=false" in header
+assert '#include "MoonfallNorthContinentActor.h"' in source
+assert "UGameplayStatics::GetActorOfClass(this,AMoonfallNorthContinentActor::StaticClass())" in source
+assert "if(!bContinentLookupAttempted)" in source
+assert "NorthernContinent.Get()" in source
+assert "FVector::DistSquared2D(" in source
+assert "FMath::Square(11500.0)" in source
+assert "Continent->GetProvinceCenterWorldLocation(Index)" in source
+assert "SetActorLocation(Player->GetActorLocation())" in source
+assert "ProvinceIndex=ClosestProvince" in source
+assert "ClosestProvince!=INDEX_NONE" in source
+
 assert "WeatherParticles->GetInstanceCount()" in source
 assert "WeatherParticles->UpdateInstanceTransform(" in source
 assert "if(bInitialBuild) WeatherParticles->ClearInstances();" in source
