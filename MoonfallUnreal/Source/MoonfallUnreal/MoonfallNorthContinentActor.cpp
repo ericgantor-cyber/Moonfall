@@ -1,6 +1,7 @@
 #include "MoonfallNorthContinentActor.h"
 #include "MoonfallNorthContinentLayout.h"
 #include "MoonfallNorthLandmarks.h"
+#include "MoonfallNorthClimate.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -62,11 +63,15 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
     FVector(Half/50.f,Half/50.f,0.4f)));
   if (UTextRenderComponent* Sign=ProvinceSigns[Zone]) {
    const auto& Region=MoonfallNorth::Zones[Zone];
-   // No quest titles, locked divine sites or unrevealed dungeon names.
+   // Text first: climate remains legible without perceiving tint alone.
+   // Does not alter actual UE5 sky, fog, weather particles or damage.
+   const MoonfallNorth::FClimate* Climate=MoonfallNorth::ClimateFor(Zone);
+   if (!Climate) continue;
    Sign->SetText(FText::FromString(FString::Printf(
-     TEXT("%s | LVL %d\n%s"),
+     TEXT("%s | LVL %d\n%s\n%s"),
      UTF8_TO_TCHAR(Region.Name), Region.SuggestedLevel,
-     UTF8_TO_TCHAR(Region.Hub))));
+     UTF8_TO_TCHAR(Region.Hub), UTF8_TO_TCHAR(Climate->Name))));
+   Sign->SetTextRenderColor(FColor(Climate->Red, Climate->Green, Climate->Blue));
    Sign->SetRelativeLocation(FVector(
      static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),220.f));
   }
