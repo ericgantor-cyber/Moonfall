@@ -1,0 +1,49 @@
+name: Northern Expanse reversible ferry policy
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_sea_gate_source.py'
+      - '.github/workflows/unreal-north-sea-passage.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_sea_gate_source.py'
+      - '.github/workflows/unreal-north-sea-passage.yml'
+  workflow_dispatch:
+
+jobs:
+  portable-ferry-contract:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ferry actor source boundaries
+        run: python tools/test_unreal_north_sea_gate_source.py
+      - name: GCC C++17 ferry route test
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_sea_passage.cpp -o /tmp/moonfall_north_sea
+          /tmp/moonfall_north_sea
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: MSVC C++17 ferry route test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_north_sea.exe tools/test_unreal_north_sea_passage.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_north_sea.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
