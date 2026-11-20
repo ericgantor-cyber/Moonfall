@@ -165,6 +165,22 @@ assert "ActiveShrineId = Shrine->ShrineId" in discovery
 assert "RespawnCheckpointLocation = NewRespawn" in discovery
 assert "if (!bPreviewOnlyShrine) SecondsSinceLastWorldSave = 0.f;" in discovery
 assert "TeleportTo(RespawnCheckpointLocation" in respawn
+rest = hero.split("void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(", 1)[1].split(
+    "int32 AMoonfallHeroPawn::GetDungeonTreasureState(", 1)[0]
+assert "AMoonfallNorthPreviewGameMode::StaticClass()" in rest
+assert "!bPersistentSaveWritesBlocked" in rest
+assert "HasDiscoveredShrine(Shrine->ShrineId)" in rest
+assert "FVector::DistSquared2D(PlayerPos, ShrinePos)" in rest
+assert "Health = MaxHealth;" in rest
+assert "Mana = MaxMana;" in rest
+assert "Stamina = MaxStamina;" in rest
+assert "OnHealthChanged(Health, MaxHealth);" in rest
+assert "SaveWorldProgress(" not in rest
+shrine_cpp = (module_dir / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+assert shrine_cpp.count("Hero->RestAtDiscoveredPreviewShrine(this)") == 2
+assert "Hero->HasDiscoveredShrine(ShrineId)" in shrine_cpp
+assert "ACTIVE SHRINE" in shrine_cpp
+assert "ACTIVE RESPAWN SHRINE" in shrine_cpp
 
 for script in (builder, updater):
     for forbidden in ("SaveGameToSlot(", "LoadGameFromSlot(", "delete_asset(",
