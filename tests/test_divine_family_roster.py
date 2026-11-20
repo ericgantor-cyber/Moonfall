@@ -17,7 +17,7 @@ class DivineFamilyRosterTests(unittest.TestCase):
     def test_godot_new_game_lore_has_three_divine_members(self):
         text = read("godot-v38/scripts/native_v11.gd")
         for label in ("Z • Void Reaper", "Nyra • Eclipse Queen",
-                      "Crimson Reaper • Death Goddess"):
+                      "Morvella Velmora • Goddess of Death"):
             self.assertIn(label, text)
         self.assertIn("these gods are not playable", text)
 
@@ -33,6 +33,7 @@ class DivineFamilyRosterTests(unittest.TestCase):
     def test_unreal_hud_uses_divine_title_and_four_phase_total(self):
         hud = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp")
         self.assertIn("Boss->DivineBossTitle", hud)
+        self.assertIn('TEXT("Morvella Velmora")', read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp"))
         self.assertIn("GODS OF MOONFALL", hud)
         self.assertIn("MoonfallDeathGoddess::IsDeathGoddess", hud)
         self.assertIn(" ? 4 : 3", hud)
