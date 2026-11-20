@@ -64,6 +64,12 @@ A new `AMoonfallNorthZoneActor` provides **editor-placeable UE5 greybox geometry
 
 The project now includes separate C++17 floor-continuity regression tests and a Python source-policy test in Linux/Windows CI. **These are standalone actors and greybox surfaces, not an interconnected playable continent.** No provinces have been added to the existing six-zone world map, saved discovery ledger, Atlas, roads between individual placed province actors, or World Partition map assets. Designers must place actors at tested coordinates, align roads between zones, add terrains/navmesh and quest/AI/world content, then validate packaged Windows UE5 gameplay.
 
+### One connected continent prototype
+
+In addition to individual province actors, `AMoonfallNorthContinentActor` is a new **editor-placeable UE5 connected-continent greybox actor**. It consumes `MoonfallNorthContinentLayout.h` and builds a single collision-enabled floor pad for each of the nine provinces, plus one rotated road segment per undirected zone link (13 roads in the current graph). The pads and roads share the same top elevation and physically overlap at each end. Geometry is static, uses two instanced-mesh components, and does not Tick. A Blueprint-callable getter exposes province center positions so designers can later attach shrines, settlements, dungeon entrances and sanctums.
+
+This is the first codepath that can produce a connected *physical* nine-zone road network inside a real Unreal map when an editor user places the actor. It **does not** mean the asset is already placed in a committed .umap or available in a packaged game. Terrain materials, biome landmarks, authored collision/navmesh validation, streaming, enemy/quest populations, Atlas discovery, and final coordinate separation from the legacy world remain outstanding. Use a separate Northern Expanse test map and never spawn a second copy of Z, Nyra or Morvella from this geometry actor.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
