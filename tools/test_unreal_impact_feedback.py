@@ -62,11 +62,22 @@ class AAAImpactIntegration(unittest.TestCase):
         confirmed = casting.index("if (ActualSpellDamage > 0.f) {")
         impact = casting.index("OnSpellImpact(School, Hand == 0,")
         self.assertGreater(impact, confirmed)
-        self.assertLess(impact, casting.index("OnSuccessfulHitCombo(", confirmed))
-        self.assertIn("if (!Hit.ImpactPoint.ContainsNaN())", casting)
+        self.assertGreater(impact, casting.index("OnSuccessfulHitCombo(", confirmed))
+        self.assertGreater(impact, casting.index("ParryCounterUntil = -1.f;", confirmed))
+        self.assertLess(impact, casting.index("Mana -= Costs[School] * Multiplier;"))
         self.assertIn(
-            "Hit.ImpactPoint, ActualSpellDamage,\n      bCriticalSpell, Enemy->Health <= 0.f",
-            casting)
+            "if (ActualSpellDamage > 0.f && !Hit.ImpactPoint.ContainsNaN())",
+            casting,
+        )
+        self.assertIn("const bool bSpellKillingBlow = Enemy->Health <= 0.f;", casting)
+        self.assertLess(
+            casting.index("const bool bSpellKillingBlow"),
+            casting.index("OnSuccessfulHitCombo(", confirmed),
+        )
+        self.assertIn(
+            "Hit.ImpactPoint, ActualSpellDamage,\n     bCriticalSpell, bSpellKillingBlow",
+            casting,
+        )
         self.assertEqual(casting.count("OnSpellImpact("), 1)
         self.assertIn("OnSpellCast(School, Hand == 0);", casting)
         self.assertNotIn("DrawDebugSphere(", casting)
