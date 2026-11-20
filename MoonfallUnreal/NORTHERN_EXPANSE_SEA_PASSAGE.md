@@ -87,6 +87,9 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   hero's scaled capsule half-height, with a small clearance. If a dock
   disappears during the 11-second trip, arrival is canceled and the
   earlier harbor-rescue logic runs; no first-landing credit is granted.
+  Even the cancellation fallback harbor marker now requires a blocking
+  walkable floor; if neither harbor landing is usable, the code attempts
+  to restore the hero to the reset vessel instead of placing them over sea.
   **This is a source implementation, not a native UE5 walkability proof.**
   The authored mainland dock and Shiverwake pad have collision enabled,
   but must be confirmed in Unreal Editor.
