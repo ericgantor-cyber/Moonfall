@@ -31,6 +31,14 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   a menu or encountering blocked landing cancels the crossing without an
   arrival event. On cancellation it attempts to restore the original dry
   dock position, then a nearby fallback; the ship is reset to its origin.
+- **Dock-removal rescue fix:** both cancellation recovery and rejected
+  boarding now trace for genuinely walkable ground beneath the character's
+  saved original boarding point **before** attempting to return them there.
+  A dock that vanishes mid-voyage cannot leave a successful but unsupported
+  teleport floating over water. The raycast explicitly ignores both ferries,
+  so the Gothic Raven's moving passenger floor cannot masquerade as land.
+  The separate, collision-verified harbor marker remains a secondary fallback,
+  followed by the restored ship platform if both dry-land options fail.
 - **Route integrity and refused-boarding safety:** the departure gate
   captures both the departure and destination ship identities at boarding.
   Every travel update checks the bidirectional gate pairing, both original
