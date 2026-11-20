@@ -44,6 +44,14 @@ These pieces are **not a complete version** of the six proposed systems.
 - This is **global boss resonance**, not per-weapon victory tracking or physical weapon evolution. It does not change stats, visuals, ownership, item codes, or save versions.
 - Unreal-independent C++ rule tests cover impossible and boundary progression; Python source checks verify the exact saved-ledger, equipped-item and HUD wiring.
 
+## Mixed-school spell weaving integration
+
+- The existing controller **DualCast** action now attempts a guarded offensive hybrid when the two equipped schools differ and both are in the current supported 0–2 set.
+- A successful hybrid delivers **one** hostile `TryCast` using the left school's damage/targeting with a bounded 1.25 multiplier, spends its base 1.25× mana **plus 0.5× the right school cost**, and applies both hand cooldowns. Invalid targets charge nothing.
+- Successful casts dispatch the new optional `OnSpellWeaved(LeftSchool, RightSchool, HybridType)` Blueprint VFX/UI hook. Specific bespoke hybrid particles, animations, sound, and secondary effects are **not bound yet**; a cast currently uses the left spell's visuals. Same-school doubled spells remain unchanged.
+- Only three offensive schools are supported in this first implementation; healing and other schools cannot weave. Current IDs 0,1,2 are confirmed offensive, but the original conceptual hybrid names are placeholders until the visual school definitions are verified.
+- New source regressions cover billing/cooldown order, the existing same-school path, and the no-write promise. Native UE5 compilation, visual testing, and balance playtesting remain unverified.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
