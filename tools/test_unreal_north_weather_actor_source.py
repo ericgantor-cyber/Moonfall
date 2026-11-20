@@ -34,7 +34,10 @@ assert "bWeatherActive=false" in header
 assert "CheckWeatherProximity()" in source
 assert "UGameplayStatics::GetPlayerPawn(this,0)" in source
 assert "FVector::DistSquared(" in source
+assert "FMath::IsFinite(WeatherActivationRadiusCm)" in source
 assert "FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f)" in source
+assert "const float ExitRadius=Radius+250.f;" in source
+assert "const float Limit=bWeatherActive ? ExitRadius : Radius;" in source
 assert "&AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true" in source
 assert "GetWorldTimerManager().ClearTimer(ProximityTimer)" in source
 assert "bShouldActivate==bWeatherActive" in source
