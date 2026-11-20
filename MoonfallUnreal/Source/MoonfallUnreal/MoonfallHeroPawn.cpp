@@ -1318,7 +1318,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  // Blueprint and corrupt transient values must never poison projected map pixels.
  AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
- if (FocusedResident.IsValid()) CloseResidentContext();
+ if (bResidentContextOpen || FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
@@ -1359,7 +1359,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
 }
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
- if (FocusedResident.IsValid()) CloseResidentContext();
+ if (bResidentContextOpen || FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
   StopJumping();
