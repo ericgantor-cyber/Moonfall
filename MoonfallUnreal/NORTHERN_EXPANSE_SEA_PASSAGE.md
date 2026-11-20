@@ -47,6 +47,12 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   view. If the hero has **Reduce Motion** enabled, camera switching is
   immediate instead of blended and decorative wave bob is disabled.
   No manual steering or input bindings were introduced.
+- **Crimson sail animation:** six existing sail panels receive a small,
+  lightweight, timer-driven sway during the crossing, without cloth physics.
+  Each local rest transform is cached before animating and restored on any
+  completion/cancellation. Reduced Motion stops sail flutter immediately
+  and the movement handler already disables ship bob under that setting.
+  No new collision, damage or naval-encounter actor is spawned.
   **The character remains at the departure dock during the camera ride**;
   the ship's deck is currently non-colliding geometry, and this is
   *not* yet a walkable moving-deck feature.
