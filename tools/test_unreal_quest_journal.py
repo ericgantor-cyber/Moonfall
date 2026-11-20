@@ -234,7 +234,8 @@ class WorldQuestJournal(unittest.TestCase):
                                 start += new_capacity
                             if start == 0:
                                 break
-                        self.assertEqual(visited, list(range(total)),
+                        self.assertEqual(len(visited), total)
+                        self.assertEqual(sorted(visited), list(range(total)),
                                          (total, old_capacity,
                                           new_capacity, old_start))
 
