@@ -935,6 +935,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        bReduceMotion, bOptionsOpen || bInventoryOpen || bAtlasOpen);
    ImpactCameraOffset = HitFeedback.Offset;
    LastOffensiveImpactAt = HitFeedback.LastAt;
+   // Give authored Blueprints the exact validated hit and spell school.
+   // This is intentionally not fired on traces that miss, healing casts,
+   // or enemies that absorb all HP damage. No debug geometry in gameplay.
+   if (!Hit.ImpactPoint.ContainsNaN())
+    OnSpellImpact(School, Hand == 0, Hit.ImpactPoint, ActualSpellDamage,
+      bCriticalSpell, Enemy->Health <= 0.f);
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
@@ -972,10 +978,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
    ParryCounterUntil = -1.f;
   }
-  const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
-  const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-  DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  // No developer wireframe spheres or trace lines in real gameplay.
+  // Real impact VFX/audio are authored through OnSpellImpact above.
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
