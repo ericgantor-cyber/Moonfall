@@ -114,6 +114,12 @@ Precipitation now updates the transforms of its 18 instanced meshes in place and
 
 These fixes are source reviewed with dedicated regression checks; the automation tests are not native UE5 packaged gameplay validation. A Windows UE5 compiler, navigation/collision test and native performance capture are still required before merging.
 
+### Weather boundary stability repair
+
+The player-proximity weather preview now applies a tested **2.5-meter exit hysteresis**: it activates inside its configured radius, remains active while the player is only slightly outside that boundary, and stops after the player crosses the larger exit radius. This reduces repeated timer starts, render instance destruction, and reactivation when hovering around a zone edge. Invalid nonfinite activation radii fall back to a safe 25-meter default. The shared portable policy `MoonfallNorthWeatherRange.h` has deterministic boundary tests covering the supported activation radius range on Linux and Windows.
+
+This improves the greybox preview's lifecycle stability only. It does not create a complete weather system or validate a native Unreal Engine build.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
