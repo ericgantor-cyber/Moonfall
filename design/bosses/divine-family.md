@@ -6,7 +6,7 @@ The **Divine Family** is the in-world pantheon of powerful gods. The title descr
 | --- | --- | --- |
 | Z | Void Reaper | Existing divine world boss |
 | Nyra | Eclipse Queen | Existing divine world boss |
-| Morvella Velmora (The Crimson Reaper) | Goddess of Death | Default reachable Moonlit Necropolis world boss in the Unreal draft |
+| Morvella Velmora (The Crimson Reaper) | Goddess of Death | Canonical Moonlit Necropolis in Gravewind Barrens (Northern Expanse); not yet playable there |
 
 ## Morvella Velmora, The Crimson Reaper
 Morvella Velmora, known as **The Crimson Reaper**, is an alluring, formidable goddess of death associated with the Moonlit Necropolis. She carries a violet-glowing scythe and commands grave and soul magic. The approved portrait from the conversation on November 19, 2026 is the canonical visual reference. An approved image asset still has to be imported; no new art is substituted for it.
@@ -18,4 +18,4 @@ Her presence adds a third god to Moonfall's lore without rewriting Z or Nyra. Th
 - Unreal optional arena preset `death_goddess_crimson_reaper` instantiates the Death Goddess boss identity.
 - Unreal HP-driven phase progression is defined for four phases; the combat HUD names the divine boss and displays its correct phase count.
 - Four distinct telegraphed signature footprints (lane, safe-center ring, cross, circle) are wired to the shared Unreal damage/defense path; full scythe choreography, soul summons, dedicated runtime artwork, full encounter tuning, packaged builds, and in-engine testing remain pending.
-- Her separate world encounter is enabled by default (editor-toggleable), while the original one-god arena preset remains optional. The sixth-zone road connects to her necropolis without a teleport. A dedicated saved-victory flag prevents respawn after defeat without changing the legacy 30-dungeon victory ledger. The original Z/Nyra boss IDs, appearances, hero creation, and earlier saves remain unchanged.
+- Her old sixth-region encounter is disabled by default (editor-toggleable as a legacy test scene), while the original arena preset remains optional. Her new canonical Moonlit Necropolis is in Gravewind Barrens, Northern Expanse; its playable road and actual boss actor placement are still to be implemented. A dedicated saved-victory flag prevents respawn after defeat without changing the legacy 30-dungeon victory ledger. The original Z/Nyra boss IDs, appearances, hero creation, and earlier saves remain unchanged.
