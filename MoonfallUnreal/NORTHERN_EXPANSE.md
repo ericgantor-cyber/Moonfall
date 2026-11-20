@@ -40,6 +40,12 @@ These sanctums are optional divine destinations, independent of the regular regi
 
 **Important:** Z and Nyra keep their original approved artwork and appearances, their divine identities, and their existing world/arena encounters. Avoid duplicate instances until designers explicitly choose a migration strategy and verify all save/load and victory behavior. Morvella's old sixth-region spawn remains disabled by default in the separate PR #1075.
 
+### Sanctum layout foundations
+
+A new portable layout catalog defines three independently bounded, accessible encounter spaces: Morvella's 32-meter approach with a 12.5-meter clear arena radius; Z's 28-meter approach and 14-meter radius; Nyra's 36-meter approach and 15-meter radius. All main entrances are at least 5 meters wide, all provide a return path, and static cover budgets are capped. A regression test rejects blocked returns, narrow entrances, and placement in the wrong province.
+
+**These are design dimensions, not placed UE5 geometry or verified traversal.** Before a playable implementation, author actual landscapes, collision, entrance roads, enemy AI, visible warning cues, shrines, respawn logic and navigation meshes. Test mouse/controller accessibility and emergency exit behavior at all phases. Never duplicate an existing god actor or replace original Z/Nyra art.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
