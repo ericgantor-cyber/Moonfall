@@ -52,6 +52,34 @@ def main():
     for key, count in required.items():
         require(count == 1, "Expected one %s, found %d" % (key, count))
 
+    # Two explicit, reciprocal harbors in the isolated test map.
+    gates = [actor for actor in actors
+             if actor.get_class().get_name() == "MoonfallNorthFerryGate"]
+    docks = [actor for actor in actors
+             if actor.get_actor_label() == "Mainland Harbor Test Dock"]
+    require(len(gates) == 2, "Expected two linked Northern Expanse ferry gates")
+    require(len(docks) == 1, "Expected exactly one walkable mainland harbor dock")
+    mainland = [gate for gate in gates
+                if not gate.get_editor_property("b_island_harbor")]
+    island = [gate for gate in gates
+              if gate.get_editor_property("b_island_harbor")]
+    require(len(mainland) == 1 and len(island) == 1,
+            "Ferry gates must contain one mainland and one island endpoint")
+    mainland, island = mainland[0], island[0]
+    require(mainland.get_editor_property("paired_gate") == island
+            and island.get_editor_property("paired_gate") == mainland,
+            "Ferry gates must be mutually paired")
+    require(mainland.get_editor_property("b_enable_sea_passage")
+            and island.get_editor_property("b_enable_sea_passage"),
+            "Preview ferry gates must be explicitly enabled")
+    require(abs(mainland.get_actor_location().y + 10000.0) < 100.0,
+            "Mainland harbor deck is no longer near the QA dock")
+    require(abs(island.get_actor_location().y + 1200.0) < 100.0,
+            "Island ferry gate must remain at Shiverwake Coast")
+    require(abs(mainland.get_actor_location().y
+                - island.get_actor_location().y) > 6000.0,
+            "Island and mainland harbors need a separate sea gap")
+
     pads = continent.get_editor_property("province_pads")
     roads = continent.get_editor_property("province_roads")
     landmarks = continent.get_editor_property("province_landmarks")
