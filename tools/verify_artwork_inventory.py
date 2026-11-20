@@ -29,6 +29,7 @@ def check():
         print("FAIL: assets must be a list", file=sys.stderr)
         return 1
     seen = set()
+    seen_exports = set()
     source_root = ROOT / "godot-v38" / "assets"
 
     def verify_file(path_text, expected, label):
@@ -37,7 +38,8 @@ def check():
             return
         relative = Path(path_text)
         path = ROOT / relative
-        if relative.is_absolute() or ".." in relative.parts or not path.is_file():
+        if (relative.is_absolute() or ".." in relative.parts or not path.is_file()
+                or not path.resolve().is_relative_to(ROOT.resolve())):
             errors.append(f"{label}: missing or invalid path: {path_text}")
             return
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -56,17 +58,45 @@ def check():
             errors.append(f"duplicate source: {source}")
         seen.add(source)
         verify_file(source, item.get("source_sha256"), "source")
-        if args.check_exports:
-            for output in item.get("outputs", []):
-                if not isinstance(output, dict):
-                    errors.append(f"invalid export for {source}")
-                    continue
-                verify_file(output.get("path"), output.get("sha256"), "export")
+        outputs = item.get("outputs")
+        if not isinstance(outputs, list) or len(outputs) != 2:
+            errors.append(f"expected two conversion exports for {source}")
+            continue
+        engines = set()
+        for output in outputs:
+            if not isinstance(output, dict):
+                errors.append(f"invalid export for {source}")
+                continue
+            engine = output.get("engine")
+            dest = output.get("path")
+            if engine not in ("unity", "unreal_source_art"):
+                errors.append(f"unexpected export engine for {source}: {engine!r}")
+            if engine in engines:
+                errors.append(f"duplicate export engine for {source}: {engine}")
+            engines.add(engine)
+            if not isinstance(dest, str):
+                errors.append(f"invalid export destination for {source}")
+                continue
+            if dest in seen_exports:
+                errors.append(f"duplicate export destination: {dest}")
+            seen_exports.add(dest)
+            expected_prefix = {
+                "unity": "engine-comparison/unity/Assets/Resources/MoonfallArt/",
+                "unreal_source_art": "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallArt/",
+            }.get(engine)
+            if expected_prefix and not dest.startswith(expected_prefix):
+                errors.append(f"unexpected export location for {source}: {dest}")
+            if args.check_exports:
+                verify_file(dest, output.get("sha256"), "export")
+        if engines != {"unity", "unreal_source_art"}:
+            errors.append(f"missing required export engine for {source}")
 
     if manifest.get("source_count") != len(assets):
         errors.append("source_count does not match manifest entries")
-    if args.check_exports and manifest.get("imported_files") != sum(len(a.get("outputs", [])) for a in assets if isinstance(a, dict)):
+    if manifest.get("imported_files") != len(seen_exports):
         errors.append("imported_files does not match manifest outputs")
+    if not source_root.is_dir():
+        errors.append("missing source artwork directory")
     for path in source_root.rglob("*"):
         if path.is_file() and path.suffix.lower() in IMAGES:
             name = path.relative_to(ROOT).as_posix()
