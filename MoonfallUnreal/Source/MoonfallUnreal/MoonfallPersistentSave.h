@@ -24,6 +24,8 @@ public:
  UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  // One permanent defeat bit per dungeon; older saves default to no victories.
  UPROPERTY() int32 DefeatedDungeonBossMask = 0;
+ // Optional V12 property: older saves load this as false, preserving all progress.
+ UPROPERTY() bool bMorvellaDefeated = false;
  // 30 dungeons * 14 rooms. 0: ungenerated, positive: pending, -1: collected.
  UPROPERTY() TArray<int32> DungeonTreasureStates;
  UPROPERTY() int32 DiscoveredDungeonMask = 0;

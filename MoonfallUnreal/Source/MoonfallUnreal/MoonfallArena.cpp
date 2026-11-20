@@ -1,5 +1,7 @@
 #include "MoonfallArena.h"
+#include "MoonfallDeathGoddess.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
@@ -192,7 +194,8 @@ void AMoonfallArena::BeginPlay() {
  }
  const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
  const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
- const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter;
+ const bool bDeathGoddessEncounter = MoonfallDeathGoddess::IsDeathGoddess(FeaturedDivineBossId);
+ const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter || bDeathGoddessEncounter;
  if (bSingleDivineEncounter) {
   // Sparse, fixed arena cover: preserves the open central fighting area.
   // Pillars break sight for ranged spells and offer deliberate positioning.
@@ -270,12 +273,15 @@ void AMoonfallArena::BeginPlay() {
    const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;
    Enemy->bElite = true;
    Enemy->bBoss = true;
-   Enemy->DivineBossId = bZ ? FName(TEXT("z_void_reaper")) : FName(TEXT("nyra_eclipse_queen"));
-   Enemy->DivineBossTitle = bZ ? FText::FromString(TEXT("Z, Void Reaper"))
-                              : FText::FromString(TEXT("Nyra, Eclipse Queen"));
-   Enemy->DivineBossRegion = bZ ? FName(TEXT("ShatteredRuins")) : FName(TEXT("EclipseCitadel"));
+   Enemy->DivineBossId = bDeathGoddessEncounter ? MoonfallDeathGoddess::BossId()
+     : (bZ ? FName(TEXT("z_void_reaper")) : FName(TEXT("nyra_eclipse_queen")));
+   Enemy->DivineBossTitle = bDeathGoddessEncounter ? FText::FromString(TEXT("Morvella Velmora"))
+     : (bZ ? FText::FromString(TEXT("Z, Void Reaper"))
+           : FText::FromString(TEXT("Nyra, Eclipse Queen")));
+   Enemy->DivineBossRegion = bDeathGoddessEncounter ? FName(TEXT("MoonlitNecropolis"))
+     : (bZ ? FName(TEXT("ShatteredRuins")) : FName(TEXT("EclipseCitadel")));
    Enemy->Tags.Add(FName(TEXT("DivineWorldBoss")));
-   Enemy->Health *= bZ ? 4.f : 4.5f;
+   Enemy->Health *= bDeathGoddessEncounter ? 4.25f : (bZ ? 4.f : 4.5f);
    Enemy->AttackCooldown *= 1.15f;
   } else if (!bSingleDivineEncounter && Count == 4 && i == Count - 1) {
    // Keep the old four-enemy prototype setup valid.
@@ -286,4 +292,85 @@ void AMoonfallArena::BeginPlay() {
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
  }
+ // By default, Z and Nyra keep their existing showcase slots while Morvella
+ // gains a third, separate reachable location off the sixth-zone public road.
+ // The single-Morvella test preset already spawns her and must not duplicate.
+ if (bSpawnMorvellaInWorld && bEnableStartingSanctuary && !bDeathGoddessEncounter)
+  SpawnMorvellaWorldEncounter();
+}
+
+void AMoonfallArena::SpawnMorvellaWorldEncounter() {
+ if (!GetWorld()) return;
+ // Center of the sixth five-dungeon region: (27 - 14.5) * 1350 cm.
+ // A broad spur overlaps the existing road at Y=-2500; the necropolis is
+ // directly walkable without loading doors, teleports or extra levels.
+ constexpr float X = 16875.f;
+ CreateBlock(FVector(X, -1050.f, -20.f), FVector(5.5f, 34.f, 0.4f));
+ CreateBlock(FVector(X, 850.f, -20.f), FVector(20.f, 18.f, 0.4f));
+ // Low walls and four plinths shape a readable arena. The south approach
+ // stays open and the floor remains navigable during every boss phase.
+ CreateBlock(FVector(X - 1000.f, 850.f, 130.f), FVector(1.f, 18.f, 3.6f));
+ CreateBlock(FVector(X + 1000.f, 850.f, 130.f), FVector(1.f, 18.f, 3.6f));
+ CreateBlock(FVector(X, 1750.f, 130.f), FVector(20.f, 1.f, 3.6f));
+ const float Sides[] = {-1.f, 1.f};
+ for (const float Side : Sides) {
+  CreateBlock(FVector(X + Side * 760.f, 375.f, 70.f), FVector(1.2f,1.2f,2.4f));
+  CreateBlock(FVector(X + Side * 760.f, 1360.f, 70.f), FVector(1.2f,1.2f,2.4f));
+ }
+ struct FNecropolisSign { const TCHAR* Name; const TCHAR* Label; FVector Location; };
+ const FNecropolisSign Signs[] = {
+  {TEXT("MorvellaRoadSign"), TEXT("MOONLIT NECROPOLIS\nMORVELLA VELMORA  -  GODDESS OF DEATH"),
+   FVector(X,-2170.f,145.f)},
+  {TEXT("MorvellaSanctumSign"), TEXT("THE CRIMSON REAPER\nDEATH'S EMBRACE"),
+   FVector(X,1540.f,160.f)}
+ };
+ for (const FNecropolisSign& Entry : Signs) {
+  UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(this, FName(Entry.Name));
+  if (!IsValid(Sign)) continue;
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetGenerateOverlapEvents(false);
+  Sign->SetText(FText::FromString(Entry.Label));
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(43.f);
+  Sign->SetTextRenderColor(FColor(235,180,207));
+  Sign->SetRelativeLocation(Entry.Location);
+  Sign->RegisterComponent();
+  DivineEncounterSigns.Add(Sign);
+ }
+ // Preserve the empty-but-explorable necropolis after victory. A hero save
+ // may already be loaded when the arena begins; the reverse ordering is
+ // handled by HeroPawn::LoadWorldProgress.
+ if (const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+     UGameplayStatics::GetPlayerPawn(this, 0))) {
+  if (Hero->HasDefeatedMorvella()) return;
+ }
+ // One authored boss, rather than a generic pack or repeated-wave spawn.
+ // Designers can provide a Blueprint subclass with the exact approved
+ // Morvella artwork. Without that import, a standard visible enemy mesh
+ // is used only as a temporary combat proxy.
+ UClass* SpawnClass = MorvellaWorldActorClass
+  ? MorvellaWorldActorClass.Get() : AMoonfallEnemy::StaticClass();
+ const FTransform SpawnTransform(FRotator(0.f,-90.f,0.f),
+   GetActorTransform().TransformPosition(FVector(X, 1080.f, 60.f)));
+ AMoonfallEnemy* Morvella = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+   SpawnClass, SpawnTransform, this, nullptr,
+   ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
+ if (!IsValid(Morvella)) {
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall: Morvella world boss failed to spawn"));
+  return;
+ }
+ Morvella->bBoss = true;
+ Morvella->bElite = true;
+ Morvella->DivineBossId = MoonfallDeathGoddess::BossId();
+ Morvella->DivineBossTitle = FText::FromString(TEXT("Morvella Velmora"));
+ Morvella->DivineBossRegion = FName(TEXT("MoonlitNecropolis"));
+ Morvella->Tags.AddUnique(FName(TEXT("DivineWorldBoss")));
+ Morvella->Tags.AddUnique(FName(TEXT("MoonfallMorvellaWorldBoss")));
+ Morvella->Health = 340.f;
+ Morvella->AttackDamage = 12.f;
+ Morvella->AttackRange = 170.f;
+ Morvella->AttackCooldown = 1.45f;
+ Morvella->ChaseSpeed = 155.f;
+ UGameplayStatics::FinishSpawningActor(Morvella, SpawnTransform);
 }

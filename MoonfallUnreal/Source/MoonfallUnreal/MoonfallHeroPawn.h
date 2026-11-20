@@ -115,6 +115,14 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon") int32 DiscoveredDungeonMask = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
  int32 DefeatedDungeonBossMask = 0;
+ // Single permanent divine boss victory, independent of the 30 dungeon bits.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Divine")
+ bool bMorvellaDefeated = false;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Divine") bool HasDefeatedMorvella() const;
+ // Kill-path only: requires the genuine defeated, world-tagged Morvella actor.
+ bool MarkMorvellaDefeated(AMoonfallEnemy* DefeatedBoss);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Divine")
+ void OnMorvellaVictory();
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
  bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
  // Internal kill-path API only: never allow a generic Blueprint event

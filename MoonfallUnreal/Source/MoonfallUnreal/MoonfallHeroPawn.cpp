@@ -18,6 +18,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallDeathGoddess.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
@@ -2501,6 +2502,31 @@ int32 AMoonfallHeroPawn::GetClearedDungeonZoneCount() const
  return Cleared;
 }
 
+bool AMoonfallHeroPawn::HasDefeatedMorvella() const { return bMorvellaDefeated; }
+
+bool AMoonfallHeroPawn::MarkMorvellaDefeated(AMoonfallEnemy* DefeatedBoss)
+{
+ // A genuine killing blow must originate from the correct, tagged world boss,
+ // not from an arbitrary actor or a Blueprint setter.
+ if (!IsValid(DefeatedBoss) || DefeatedBoss->GetWorld() != GetWorld()
+     || !DefeatedBoss->bBoss || !FMath::IsFinite(DefeatedBoss->Health)
+     || DefeatedBoss->Health > 0.f
+     || !MoonfallDeathGoddess::IsDeathGoddess(DefeatedBoss->DivineBossId)
+     || !DefeatedBoss->Tags.Contains(FName(TEXT("MoonfallMorvellaWorldBoss")))
+     || bMorvellaDefeated || !bWorldProgressInitialized
+     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)
+  return false;
+ bMorvellaDefeated = true;
+ // Persist atomically with the existing world-save payload. If disk writes
+ // fail, preserve the previous victory flag and never issue reward callbacks.
+ if (!SaveWorldProgress()) {
+  bMorvellaDefeated = false;
+  return false;
+ }
+ OnMorvellaVictory();
+ return true;
+}
+
 bool AMoonfallHeroPawn::MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss)
 {
  // A raw dungeon ID is not proof of victory. The actual dead, tagged boss
@@ -2734,6 +2760,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->ExploredZoneFogMasks = ExploredZoneFogMasks;
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
  Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;
+ Save->bMorvellaDefeated = bMorvellaDefeated;
  Save->DungeonTreasureStates = DungeonTreasureStates;
  Save->PendingWorldLoot = PendingWorldLoot;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
@@ -2964,6 +2991,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ExploredZoneFogMasks = Save->Version >= 12 ? Save->ExploredZoneFogMasks : TArray<int64>();
  DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
  DefeatedDungeonBossMask = Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;
+ // Older saves have no Morvella victory field and deserialize to false.
+ bMorvellaDefeated = Save->bMorvellaDefeated;
  DungeonTreasureStates = Save->Version >= 9
    ? Save->DungeonTreasureStates : TArray<int32>();
  PendingWorldLoot = Save->Version >= 11
@@ -3057,6 +3086,17 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  bWorldProgressLoadInProgress = false;
+ // Arena and pawn BeginPlay can run in either order. Also remove a boss
+ // already spawned before the saved victory was restored, without granting
+ // a second reward or disturbing Z/Nyra's existing encounters.
+ if (bMorvellaDefeated && GetWorld()) {
+  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+   AMoonfallEnemy* Enemy = *It;
+   if (IsValid(Enemy) && Enemy->Tags.Contains(FName(TEXT("MoonfallMorvellaWorldBoss")))
+       && MoonfallDeathGoddess::IsDeathGoddess(Enemy->DivineBossId))
+    Enemy->Destroy();
+  }
+ }
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {

@@ -167,6 +167,8 @@ private:
  bool bDivineAlternateGeometry = false;
  int32 DivineSignatureCastCount = 0;
  FVector DivineSignatureCenter = FVector::ZeroVector;
+ // Morvella locks her cast origin to keep lane geometry consistent during windup.
+ FVector DivineSignatureOrigin = FVector::ZeroVector;
  float DivineSignatureRadius = 0.f;
  float CurrentWindup = 0.5f;
  float CurrentAttackMultiplier = 1.f;

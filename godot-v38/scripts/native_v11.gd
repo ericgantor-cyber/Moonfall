@@ -956,19 +956,19 @@ func _build_ui() -> void:
  choices.position=Vector2(58,108)
  choices.add_theme_constant_override("separation",22)
  start_screen.add_child(choices)
- # Z and Nyra are gods/bosses, not new-game playable avatars.
+ # Z, Nyra and Morvella Velmora belong to the divine family, not to playable hero choices.
  # Legacy z/nyra checkpoint identifiers remain readable until the dedicated
  # save-migration and real boss encounter stages are implemented.
  var divine_lore:=VBoxContainer.new()
- divine_lore.custom_minimum_size=Vector2(335,180)
+ divine_lore.custom_minimum_size=Vector2(335,210)
  choices.add_child(divine_lore)
  var divine_heading:=Label.new()
- divine_heading.text="Z & NYRA • GODS OF MOONFALL"
+ divine_heading.text="GODS OF MOONFALL"
  divine_heading.add_theme_font_size_override("font_size",20)
  divine_lore.add_child(divine_heading)
  var divine_note:=Label.new()
- divine_note.text="Your journey begins with your own hero. Z and Nyra are world powers, not playable characters."
- divine_note.custom_minimum_size=Vector2(330,90)
+ divine_note.text="THE DIVINE FAMILY\nZ • Void Reaper\nNyra • Eclipse Queen\nMorvella Velmora • Goddess of Death\nCreate your own hero; these gods are not playable."
+ divine_note.custom_minimum_size=Vector2(330,135)
  divine_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  divine_lore.add_child(divine_note)
  # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
