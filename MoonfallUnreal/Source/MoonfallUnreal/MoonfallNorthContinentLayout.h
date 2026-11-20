@@ -22,11 +22,11 @@ constexpr int RoadEdgeCount() {
 constexpr bool ValidContinentCenters() {
  for(int A=0; A<ZoneCount; ++A) {
   for(int B=A+1; B<ZoneCount; ++B) {
-   const auto DX=ContinentCenters[A].Xcm-ContinentCenters[B].Xcm;
-   const auto DY=ContinentCenters[A].Ycm-ContinentCenters[B].Ycm;
-   const auto DistSq=DX*DX+DY*DY;
-   if(DistSq < 10000*10000) return false;
-   if(Linked(A,B) && DistSq > 20000*20000) return false;
+   const std::int64_t DX=static_cast<std::int64_t>(ContinentCenters[A].Xcm)-ContinentCenters[B].Xcm;
+   const std::int64_t DY=static_cast<std::int64_t>(ContinentCenters[A].Ycm)-ContinentCenters[B].Ycm;
+   const std::int64_t DistSq=DX*DX+DY*DY;
+   if(DistSq < 10000LL*10000LL) return false;
+   if(Linked(A,B) && DistSq > 20000LL*20000LL) return false;
   }
  }
  return FullyConnected() && RoadEdgeCount()>8 && RoadEdgeCount()<=20
