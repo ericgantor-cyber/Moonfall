@@ -56,7 +56,7 @@ void AMoonfallNorthFerryGate::OnConstruction(const FTransform& Transform) {
       ? TEXT("RETURN FERRY TO MAINLAND")
       : TEXT("FERRY TO SHIVERWAKE COAST");
   FerrySign->SetText(FText::FromString(Direction
-      + (bEnableSeaPassage ? TEXT("\nWALK ONTO DECK TO BOARD")
+      + (bEnableSeaPassage ? TEXT("\nAUTOMATIC FERRY BOARDING")
                            : TEXT("\nNOT YET AVAILABLE"))));
  }
 }
@@ -77,8 +77,8 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage() {
  bAutoVoyageInProgress = false;
  if (FerrySign) {
   FerrySign->SetText(FText::FromString(
-   bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\\nAUTOMATIC BOARDING")
-                 : TEXT("FERRY TO SHIVERWAKE COAST\\nAUTOMATIC BOARDING")));
+   bIslandHarbor ? TEXT("RETURN FERRY TO MAINLAND\nAUTOMATIC BOARDING")
+                 : TEXT("FERRY TO SHIVERWAKE COAST\nAUTOMATIC BOARDING")));
  }
 }
 
