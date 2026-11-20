@@ -23,6 +23,37 @@ constexpr bool AutoSailShouldArrive(float ElapsedSeconds, float DurationSeconds)
  return ValidAutoSailDuration(DurationSeconds)
      && ElapsedSeconds >= DurationSeconds;
 }
+// Short, accessible phases for audio, mist and sail cues. These are
+// PRESENTATION phases only: no enemies, steering or encounter spawns.
+enum class EAutoSailPhase : unsigned char {
+ Invalid, Departing, OpenSea, Approaching, Arrived
+};
+constexpr EAutoSailPhase AutoSailPhaseAt(float ElapsedSeconds, float DurationSeconds) {
+ if (!ValidAutoSailDuration(DurationSeconds) || !(ElapsedSeconds >= 0.f))
+  return EAutoSailPhase::Invalid;
+ if (ElapsedSeconds >= DurationSeconds) return EAutoSailPhase::Arrived;
+ const float Progress = AutoSailProgress(ElapsedSeconds, DurationSeconds);
+ if (Progress < 0.25f) return EAutoSailPhase::Departing;
+ if (Progress < 0.75f) return EAutoSailPhase::OpenSea;
+ return EAutoSailPhase::Approaching;
+}
+// Ceiling with no library dependencies; called only for bounded durations.
+// A countdown showing 1 sec never displays 'arrived' before safe disembark.
+constexpr int AutoSailSecondsRemaining(float ElapsedSeconds, float DurationSeconds) {
+ if (!ValidAutoSailDuration(DurationSeconds) || !(ElapsedSeconds >= 0.f)
+     || ElapsedSeconds >= DurationSeconds) return 0;
+ const float Remaining = DurationSeconds - ElapsedSeconds;
+ const int Whole = static_cast<int>(Remaining);
+ return Whole + (Remaining > static_cast<float>(Whole) ? 1 : 0);
+}
+static_assert(AutoSailSecondsRemaining(0.f,11.f) == 11, "Starts at eleven");
+static_assert(AutoSailSecondsRemaining(1.f,11.f) == 10, "Countdown updates per second");
+static_assert(AutoSailSecondsRemaining(10.1f,11.f) == 1, "Last second is readable");
+static_assert(AutoSailSecondsRemaining(11.f,11.f) == 0, "No early arrival");
+static_assert(AutoSailPhaseAt(0.f,11.f) == EAutoSailPhase::Departing, "Depart cue");
+static_assert(AutoSailPhaseAt(5.5f,11.f) == EAutoSailPhase::OpenSea, "Open sea cue");
+static_assert(AutoSailPhaseAt(9.f,11.f) == EAutoSailPhase::Approaching, "Arrival cue");
+static_assert(AutoSailPhaseAt(11.f,11.f) == EAutoSailPhase::Arrived, "Complete phase");
 static_assert(ValidAutoSailDuration(DefaultAutoSailSeconds), "Auto crossing needs a bounded duration");
 static_assert(!ValidAutoSailDuration(0.f), "Zero-time crossings are not animated");
 static_assert(AutoSailProgress(-1.f,DefaultAutoSailSeconds) == 0.f, "Time cannot run backward");
