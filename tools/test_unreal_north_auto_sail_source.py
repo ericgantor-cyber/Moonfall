@@ -141,6 +141,7 @@ assert "ClearTimer(AutomaticVoyageTimer)" in cleanup
 assert "Ship->SetActorTransform(OriginalShipTransform" in cleanup
 assert "Hero->TeleportTo(OriginalBoardingLocation" in cleanup
 assert "Hero->TeleportTo(Fallback" in cleanup
+assert "FindSafeDryLanding(Hero, this, Fallback)" in cleanup
 assert "if (!bArrived && bVoyagerOnDeck && IsValid(Hero))" in cleanup
 assert "OriginalBoardingLocation.SizeSquared() < 1.0e14f" in cleanup
 assert "SafeDeck.Z = DeckTop" in cleanup
