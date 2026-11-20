@@ -207,6 +207,37 @@ class WorldQuestJournal(unittest.TestCase):
                         break
                 self.assertEqual(seen, list(range(total)))
 
+    def test_resizing_compact_pages_never_hides_a_quest(self):
+        # Previously a 4-row page at index 4 could survive a resize to
+        # 3-row pages and make quest index 3 unreachable by MMB.
+        self.assertIn("Start % Capacity != 0", self.layout)
+        self.assertIn("QuestTrackerPageStart = MoonfallQuestLayout::NormalizePageStart(",
+                      self.hud)
+        self.assertIn("QuestTrackerPageSize = AvailableLayout.VisibleRows",
+                      self.hud)
+        for total in range(1, 8):
+            for old_capacity in range(1, 8):
+                for new_capacity in range(1, 8):
+                    for old_start in range(0, total, old_capacity):
+                        normalized = (0 if new_capacity >= total
+                                      or old_start % new_capacity != 0
+                                      else old_start)
+                        self.assertTrue(normalized == 0
+                                        or normalized % new_capacity == 0)
+                        visited = []
+                        start = normalized
+                        for _ in range(7):
+                            visited.extend(range(start, min(start + new_capacity, total)))
+                            if new_capacity >= total or start + new_capacity >= total:
+                                start = 0
+                            else:
+                                start += new_capacity
+                            if start == 0:
+                                break
+                        self.assertEqual(visited, list(range(total)),
+                                         (total, old_capacity,
+                                          new_capacity, old_start))
+
     def test_page_resets_on_new_or_ready_quests_without_saving(self):
         section = self.hud.split("// World-wide quest tracker", 1)[1].split(
             "// Compact circular resource HUD", 1)[0]
