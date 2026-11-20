@@ -108,6 +108,15 @@ def main():
         assert cleanup in before_modal, cleanup
     assert acquired.index("EndSprint();") < acquired.index("FocusedResident = Resident;")
     assert acquired.index("EndGuard();") < acquired.index("FocusedResident = Resident;")
+    # An NPC may stream out between input events. Opening B/J must clear the
+    # modal flag even when its weak actor pointer is already invalid.
+    for signature, next_signature in (
+        ("void AMoonfallHeroPawn::ToggleInventory()", "void AMoonfallHeroPawn::EquipSelectedInventoryItem()"),
+        ("void AMoonfallHeroPawn::ToggleAtlas()", "void AMoonfallHeroPawn::Atlas"),
+    ):
+        section=pawn.split(signature,1)[1].split(next_signature,1)[0]
+        assert "if (bResidentContextOpen || FocusedResident.IsValid()) CloseResidentContext();" in section, signature
+    print("Inventory/Atlas clear streamed-out NPC dialogue state: PASS (source verified)")
     # Neither timed auto-loot nor manual pickup should mutate world loot
     # while a dialogue choice is active. The timer must reset in that state.
     auto_loot=pawn.split("// Throttled automatic pickup",1)[1].split(
