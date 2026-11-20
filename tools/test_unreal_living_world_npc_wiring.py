@@ -44,7 +44,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        inputs = (SOURCE.parents[2] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        inputs = (SOURCE.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="CouncilPointer",Key=F8', inputs)
         self.assertIn('BindAction(TEXT("CouncilPointer")', hero)
         self.assertIn("bool bCouncilPointerOpen = false;", header)
