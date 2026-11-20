@@ -6,10 +6,10 @@ The **Divine Family** is the in-world pantheon of powerful gods. The title descr
 | --- | --- | --- |
 | Z | Void Reaper | Existing divine world boss |
 | Nyra | Eclipse Queen | Existing divine world boss |
-| The Crimson Reaper | Goddess of Death | New optional death-goddess encounter being developed |
+| Morvella Velmora (The Crimson Reaper) | Goddess of Death | New optional death-goddess encounter being developed |
 
-## The Crimson Reaper
-An alluring, formidable goddess of death associated with the Moonlit Necropolis. She carries a violet-glowing scythe and commands grave and soul magic. The approved portrait from the conversation on November 19, 2026 is the canonical visual reference. An approved image asset still has to be imported; no new art is substituted for it.
+## Morvella Velmora, The Crimson Reaper
+Morvella Velmora, known as **The Crimson Reaper**, is an alluring, formidable goddess of death associated with the Moonlit Necropolis. She carries a violet-glowing scythe and commands grave and soul magic. The approved portrait from the conversation on November 19, 2026 is the canonical visual reference. An approved image asset still has to be imported; no new art is substituted for it.
 
 Her presence adds a third god to Moonfall's lore without rewriting Z or Nyra. The relationship between the three is open for future story development. All three are world powers, **not selectable heroes**.
 
