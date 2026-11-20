@@ -82,13 +82,13 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
   Hero->SetBase(nullptr);
  }
  bool bRescued = bArrived;
- if (!bArrived && bVoyagerOnDeck && IsValid(Hero)
-     && !OriginalBoardingLocation.ContainsNaN()
-     && OriginalBoardingLocation.SizeSquared() < 1.0e14f) {
-  // Failed landing or canceled voyage sends the traveler to the original
-  // collision-validated harbor spot. No save slot, death or reward changes.
-  bRescued = Hero->TeleportTo(OriginalBoardingLocation,
-      OriginalBoardingRotation, false, false);
+ if (!bArrived && bVoyagerOnDeck && IsValid(Hero)) {
+  // Always try a safe port fallback, even when the recorded boarding
+  // location was made invalid during the voyage.
+  if (!OriginalBoardingLocation.ContainsNaN()
+      && OriginalBoardingLocation.SizeSquared() < 1.0e14f)
+   bRescued = Hero->TeleportTo(OriginalBoardingLocation,
+       OriginalBoardingRotation, false, false);
   if (!bRescued && IsValid(ArrivalMarker)) {
    const FVector Fallback = ArrivalMarker->GetComponentLocation();
    if (!Fallback.ContainsNaN() && Fallback.SizeSquared() < 1.0e14f)
@@ -124,7 +124,14 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
   if (!bRescued && bVoyagerOnDeck && IsValid(Hero)
       && IsValid(Ship->PassengerDeck)
       && IsValid(Ship->PassengerBoardingMarker)) {
-   if (Hero->TeleportTo(Ship->PassengerBoardingMarker->GetComponentLocation(),
+   FVector SafeDeck = Ship->PassengerBoardingMarker->GetComponentLocation();
+   if (IsValid(Hero->GetCapsuleComponent())) {
+    const float DeckTop = Ship->PassengerDeck->GetComponentLocation().Z
+        + Ship->PassengerDeck->GetScaledBoxExtent().Z;
+    SafeDeck.Z = DeckTop
+        + Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.f;
+   }
+   if (!SafeDeck.ContainsNaN() && Hero->TeleportTo(SafeDeck,
            Ship->GetActorRotation(), false, false)) {
     Hero->SetBase(Ship->PassengerDeck);
    } else {
