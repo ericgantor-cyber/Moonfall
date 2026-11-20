@@ -8,6 +8,7 @@
 #include "MoonfallNorthFerryGate.h"
 #include "MoonfallNorthAutoSail.h"
 #include "Components/BoxComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -33,6 +34,9 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  if (!TestNotNull(TEXT("Passenger walking deck"), Deck)
      || !TestNotNull(TEXT("Passenger boarding marker"), Boarding))
   return false;
+ TestTrue(TEXT("Movable ship root"), Ship->GetRootComponent()->Mobility == EComponentMobility::Movable);
+ TestTrue(TEXT("Movable walking base"), Deck->Mobility == EComponentMobility::Movable);
+ TestTrue(TEXT("Deck permits step-up"), Deck->CanCharacterStepUpOn == ECB_Yes);
  TestTrue(TEXT("Deck blocks Pawn"), Deck->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block);
  TestTrue(TEXT("Deck has query and physics collision"),
           Deck->GetCollisionEnabled() == ECollisionEnabled::QueryAndPhysics);
@@ -44,6 +48,11 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  TestTrue(TEXT("Boarding point remains within safe rail footprint"),
           FMath::Abs(Boarding->GetRelativeLocation().X) < 720.f
               && FMath::Abs(Boarding->GetRelativeLocation().Y) < 235.f);
+ const UTextRenderComponent* Sign = Ship->PassengerTravelSign.Get();
+ if (!TestNotNull(TEXT("Moving ship passenger progress sign"), Sign)) return false;
+ TestTrue(TEXT("Onboard sign cannot block passenger"),
+          Sign->GetCollisionEnabled() == ECollisionEnabled::NoCollision);
+ TestTrue(TEXT("Onboard sign follows ferry root"), Sign->GetAttachParent() == Ship->GetRootComponent());
 
  const UBoxComponent* Rails[] = {
      Ship->PortPassengerRail.Get(), Ship->StarboardPassengerRail.Get(),
@@ -52,6 +61,7 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  for (int32 Index=0; Index<4; ++Index) {
   if (!TestNotNull(TEXT("Passenger rail"), Rails[Index])) return false;
   TestTrue(TEXT("Rail blocks Pawn"), Rails[Index]->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block);
+  TestTrue(TEXT("Rail moves with ship"), Rails[Index]->Mobility == EComponentMobility::Movable);
  }
  const UInstancedStaticMeshComponent* RenderComponents[] = {
      Ship->HullPieces.Get(), Ship->GothicIronwork.Get(),
