@@ -51,6 +51,7 @@ for text in (
     "OriginalBoardingRotation",
     "bool IsVoyagerAboard(",
     "void StopAutomaticVoyage(bool bArrived = false)",
+    "bool FindSafeDryLanding(",
     "TWeakObjectPtr<APlayerController> VoyagePlayerController",
     "TWeakObjectPtr<AActor> PreviousPlayerViewTarget",
     "bool bCinematicViewActive = false",
@@ -66,6 +67,24 @@ cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1
 
 # Boarding places the hero *on the real ship deck*, but cannot teleport to
 # the destination before the complete eleven-second crossing.
+land_guard = gate_cpp.split(
+    "bool AMoonfallNorthFerryGate::FindSafeDryLanding(", 1
+)[1].split("bool AMoonfallNorthFerryGate::BoardFerry(", 1)[0]
+for expected in (
+    "LineTraceSingleByChannel(",
+    "ECC_Visibility",
+    "Query.AddIgnoredActor(Hero)",
+    "Query.AddIgnoredActor(this)",
+    "Query.AddIgnoredActor(Harbor)",
+    "Ground.bBlockingHit",
+    "Ground.ImpactNormal.Z < 0.7f",
+    "GetScaledCapsuleHalfHeight()",
+    "FMath::Abs(Candidate.Z - Anchor.Z) > 400.f",
+    "OutLandingLocation = Candidate",
+):
+    assert expected in land_guard, f"Missing true walkable landing guard: {expected}"
+assert "FindSafeDryLanding(Hero, PairedGate, Destination)" in start
+assert "FindSafeDryLanding(Hero, Arrival, Destination)" in tick
 assert "Hero->TeleportTo(DeckSpawn" in start
 assert '#include "Components/CapsuleComponent.h"' in gate_cpp
 assert "Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()" in start
