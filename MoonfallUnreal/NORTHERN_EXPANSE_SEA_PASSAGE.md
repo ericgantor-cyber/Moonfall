@@ -78,6 +78,18 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   departure cancellation or safe disembark and remain steady under Reduce
   Motion. The automatic sailing duration remains **11 seconds**. There are
   no ocean enemies, steering controls or naval battles.
+- **Ground-verified disembark:** both boarding and the moment of arrival
+  now require a **real blocking floor** beneath the receiving harbor's
+  arrival marker, using a short downward Unreal visibility trace. Invalid
+  collision, steep slopes (normal Z below 0.7), missing ground or faraway
+  platforms reject the crossing rather than treating an editor marker as
+  walkable terrain. Valid landings use the actual floor hit plus the
+  hero's scaled capsule half-height, with a small clearance. If a dock
+  disappears during the 11-second trip, arrival is canceled and the
+  earlier harbor-rescue logic runs; no first-landing credit is granted.
+  **This is a source implementation, not a native UE5 walkability proof.**
+  The authored mainland dock and Shiverwake pad have collision enabled,
+  but must be confirmed in Unreal Editor.
 - The arrival marker is outside its gate's overlap sphere. Place markers on
   collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
@@ -190,7 +202,11 @@ run the Unreal automation framework.
    northbound and return trips. Check 11-second timing, the countdown,
    no unwanted instant-return boarding, loss-of-base cancellation,
    disabling a gate mid-voyage, opening a menu, a defeated hero,
-   forced invalid arrival, and off-deck recovery.
+   forced invalid arrival, and off-deck recovery. Remove/disable the
+   destination dock collision **before boarding** and **mid-voyage**:
+   boarding should refuse a missing/steep landing, and mid-voyage removal
+   should cancel without granting arrival progress. Also verify that
+   grounded arrival uses the *real floor height*, not the marker's height.
 6. Confirm a bad landing never earns first-arrival credit, no player
    becomes stranded at sea, no controller loses camera ownership and
    no existing campaign save is read or written. The editor preview
