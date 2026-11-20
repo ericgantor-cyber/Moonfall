@@ -16,6 +16,12 @@ An original nine-province northern continent designed around Northrend-style geo
 
 The two starting paths leave Shiverwake Coast for forest or tundra, reconnect through burial plains, basin and storm mountains, and converge toward the final fortress. Every province has reciprocal graph neighbors and the continent graph is connected.
 
+## Morvella's relocated home
+
+**Gravewind Barrens** is now the canonical home of **Morvella Velmora, the Crimson Reaper**. Her Moonlit Necropolis is a divine side-sanctum in this province, reached through a future authored graveyard approach from Lantern Rest. She remains the Goddess of Death, with the same four-phase encounter identity, original approved appearance, and separate permanent victory flag.
+
+The Northern Expanse catalog binds her stable encounter ID (death_goddess_crimson_reaper) to Gravewind Barrens (catalog index 3); this does not spawn a boss or build a level. On the separate Death Goddess draft PR #1075, her former sixth-region world spawn has been disabled by default to prevent the boss appearing in two lands. Full playable relocation requires integrating both draft PRs, authoring accessible northern roads and necropolis terrain, and testing packaged UE5 Windows builds. The legacy test arena remains optional.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
