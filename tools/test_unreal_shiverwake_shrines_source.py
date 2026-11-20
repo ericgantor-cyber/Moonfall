@@ -89,6 +89,7 @@ world.actors.append(other)
 fake_unreal = types.ModuleType("unreal")
 fake_unreal.Name = str
 fake_unreal.Text = str
+fake_unreal.log = lambda message: None
 fake_unreal.Vector = FakeVector
 fake_unreal.Rotator = lambda *parts: parts
 fake_unreal.EditorLevelLibrary = types.SimpleNamespace(
