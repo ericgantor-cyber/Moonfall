@@ -71,7 +71,7 @@ class DivineFamilyRosterTests(unittest.TestCase):
     def test_world_spawn_connects_necropolis_and_preserves_existing_gods(self):
         arena = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp")
         header = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.h")
-        self.assertIn("bool bSpawnMorvellaInWorld = true;", header)
+        self.assertIn("bool bSpawnMorvellaInWorld = false;", header)
         self.assertIn("MorvellaWorldActorClass", header)
         self.assertIn("SpawnMorvellaWorldEncounter()", arena)
         self.assertIn("bEnableStartingSanctuary && !bDeathGoddessEncounter", arena)
