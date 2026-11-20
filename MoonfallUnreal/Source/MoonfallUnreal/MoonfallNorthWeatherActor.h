@@ -19,12 +19,12 @@ public:
  virtual void BeginPlay() override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
- UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse",
+ UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse",
    meta=(ClampMin="0",ClampMax="8",UIMin="0",UIMax="8"))
  int32 ProvinceIndex=0;
 
  // Off by default to preserve existing UE5 maps and player experience.
- UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse")
+ UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  bool bEnableWeatherPreview=false;
 
  // Maximum range of this local preview. Effects stop outside range.
