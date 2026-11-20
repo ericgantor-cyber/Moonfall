@@ -74,9 +74,10 @@ jobs:
         run: |
           python tools/test_unreal_north_preview_map_source.py
           python tools/test_unreal_north_ferry_preview_source.py
-          python tools/test_unreal_shiverwake_shrines_source.py
           python tools/test_unreal_north_gothic_ferry_source.py
           python tools/test_unreal_north_auto_sail_source.py
+      - name: Test all 18 Shiverwake shrines and preview checkpoint isolation
+        run: python tools/test_unreal_shiverwake_shrines_source.py
       - name: GCC C++17 ferry route test
         if: runner.os == 'Linux'
         shell: bash
