@@ -9,6 +9,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -114,6 +116,7 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
 
  if (IsValid(Ship)) {
   Ship->ResetCrimsonSails();
+  Ship->ResetPassengerTravelStatus();
   Ship->SetActorTransform(OriginalShipTransform, false, nullptr,
       ETeleportType::TeleportPhysics);
   // If both dry dock teleports failed, keep the player on the restored ship
@@ -185,8 +188,13 @@ void AMoonfallNorthFerryGate::UpdateVoyagePresentation(
      ? TEXT("DEPARTING HARBOR")
      : Phase == MoonfallNorth::EAutoSailPhase::OpenSea
      ? TEXT("CROSSING THE DARK SEA") : TEXT("APPROACHING HARBOR");
- if (FerrySign) FerrySign->SetText(FText::FromString(FString::Printf(
-     TEXT("%s\n%s\nARRIVAL IN %dS"), Direction, PhaseName, NextRemaining)));
+ const FString VoyageMessage = FString::Printf(
+     TEXT("%s\n%s\nARRIVAL IN %dS"), Direction, PhaseName, NextRemaining);
+ if (FerrySign) FerrySign->SetText(FText::FromString(VoyageMessage));
+ // Dock signs are no longer visible once the character boards: keep the
+ // exact same stage and countdown on the moving Gothic Raven passenger deck.
+ if (AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get())
+  Ship->SetPassengerTravelStatus(VoyageMessage);
  OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase);
 }
 
@@ -222,7 +230,8 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  if (Hero->GetActorLocation().ContainsNaN()
      || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f)
      || !IsValid(SailingVessel->PassengerDeck)
-     || !IsValid(SailingVessel->PassengerBoardingMarker))
+     || !IsValid(SailingVessel->PassengerBoardingMarker)
+     || !IsValid(Hero->GetCapsuleComponent()))
   return false;
  const FVector From = SailingVessel->GetActorLocation();
  const FVector To = PairedGate->SailingVessel->GetActorLocation();
@@ -235,7 +244,14 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // travels, while their normal movement controls remain available on deck.
  const FVector DockLocation = Hero->GetActorLocation();
  const FRotator DockRotation = Hero->GetActorRotation();
- const FVector DeckSpawn = SailingVessel->PassengerBoardingMarker->GetComponentLocation();
+ FVector DeckSpawn = SailingVessel->PassengerBoardingMarker->GetComponentLocation();
+ // The static preview marker is intentionally approximate. Place the actual
+ // capsule 2 cm above the walkable floor, honoring the hero's real capsule
+ // scale instead of relying on the same height for every character.
+ const float DeckSurfaceZ = SailingVessel->PassengerDeck->GetComponentLocation().Z
+     + SailingVessel->PassengerDeck->GetScaledBoxExtent().Z;
+ DeckSpawn.Z = DeckSurfaceZ
+     + Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.f;
  if (DeckSpawn.ContainsNaN() || DeckSpawn.SizeSquared() >= 1.0e14f
      || !Hero->TeleportTo(DeckSpawn, SailingVessel->GetActorRotation(), false, false))
   return false;
@@ -243,7 +259,8 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  if (Hero->GetMovementBase() != SailingVessel->PassengerDeck) {
   // Failed to create a real UE walking base; abort rather than sending an
   // unparented player over an empty ocean. Prefer the original safe dock.
-  Hero->TeleportTo(DockLocation, DockRotation, false, false);
+  if (!Hero->TeleportTo(DockLocation, DockRotation, false, false))
+   UE_LOG(LogTemp, Error, TEXT("Ferry boarding rejected: cannot return hero to original dock."));
   return false;
  }
  OriginalBoardingLocation = DockLocation;
