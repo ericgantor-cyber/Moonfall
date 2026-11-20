@@ -11,6 +11,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.cpp'
+      - 'tools/test_unreal_north_zone_actor_source.py'
       - 'tools/test_unreal_north_actor_source.py'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
@@ -24,6 +28,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneActor.cpp'
+      - 'tools/test_unreal_north_zone_actor_source.py'
       - 'tools/test_unreal_north_actor_source.py'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
@@ -42,6 +50,9 @@ jobs:
       - name: Verify Unreal sanctum actor source integration
         shell: bash
         run: python tools/test_unreal_north_actor_source.py
+      - name: Verify northern zone greybox actor source
+        shell: bash
+        run: python tools/test_unreal_north_zone_actor_source.py
       - name: Compile and run (Linux GCC)
         if: runner.os == 'Linux'
         shell: bash
