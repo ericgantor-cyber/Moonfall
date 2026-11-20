@@ -38,7 +38,20 @@ assert "FMath::Clamp(WeatherActivationRadiusCm,800.f,8000.f)" in source
 assert "&AMoonfallNorthWeatherActor::CheckWeatherProximity,1.0f,true" in source
 assert "GetWorldTimerManager().ClearTimer(ProximityTimer)" in source
 assert "bShouldActivate==bWeatherActive" in source
-assert "HasActorBegunPlay() && !bWeatherActive" in source
+assert "bWeatherRuntimeInitialized && !bWeatherActive" in source
+assert "bWeatherRuntimeInitialized=true;" in source
+assert "bWeatherRuntimeInitialized=false;" in source
+assert "void AMoonfallNorthWeatherActor::SetWeatherPreviewEnabled(bool bEnabled)" in source
+assert "void AMoonfallNorthWeatherActor::SetWeatherProvinceIndex(int32 NewProvinceIndex)" in source
+assert "SetWeatherPreviewEnabled(bEnableWeatherPreview);" in source
+assert "SetWeatherPreviewEnabled" in header and "SetWeatherProvinceIndex" in header
+assert "WeatherParticles->GetInstanceCount()" in source
+assert "WeatherParticles->UpdateInstanceTransform(" in source
+assert "if(bInitialBuild) WeatherParticles->ClearInstances();" in source
+assert "if(bInitialBuild) {" in source
+assert "Slot==MoonfallNorth::PrecipitationInstanceCount-1" in source
+assert "GetWorldTimerManager().ClearTimer(WeatherTimer);" in source
+
 assert "DeactivateWeatherPreview()" in source
 
 
