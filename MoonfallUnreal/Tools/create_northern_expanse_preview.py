@@ -38,6 +38,7 @@ def main():
     continent_class = required_class("MoonfallNorthContinentActor")
     weather_class = required_class("MoonfallNorthWeatherActor")
     ferry_class = required_class("MoonfallNorthFerryGate")
+    gothic_ship_class = required_class("MoonfallNorthGothicFerryActor")
     preview_game_mode = required_class("MoonfallNorthPreviewGameMode")
     dock_mesh = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cube.Cube")
     if dock_mesh is None:
@@ -106,6 +107,22 @@ def main():
     island_gate.set_editor_property("b_enable_sea_passage", True)
     mainland_gate.rerun_construction_scripts()
     island_gate.rerun_construction_scripts()
+
+    # Gothic Raven ferries are NONBLOCKING decorative ship silhouettes, not
+    # substitute arrival markers or physical ship navigation. Place them in
+    # the sea alongside their docks; boarding still works from the dry gate.
+    mainland_ship = spawn(
+        actor_subsystem, gothic_ship_class,
+        (0.0, -7650.0, -40.0), "Mainland Gothic Raven Ferry"
+    )
+    island_ship = spawn(
+        actor_subsystem, gothic_ship_class,
+        (0.0, -2750.0, -40.0), "Shiverwake Gothic Raven Ferry"
+    )
+    mainland_ship.set_actor_rotation(unreal.Rotator(0.0, 90.0, 0.0), False)
+    island_ship.set_actor_rotation(unreal.Rotator(0.0, -90.0, 0.0), False)
+    mainland_ship.rerun_construction_scripts()
+    island_ship.rerun_construction_scripts()
 
     # Spawn at mainland, walking distance from the boarding deck.
     spawn(
