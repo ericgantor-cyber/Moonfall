@@ -207,6 +207,43 @@ class WorldQuestJournal(unittest.TestCase):
                         break
                 self.assertEqual(seen, list(range(total)))
 
+    def test_page_resets_on_new_or_ready_quests_without_saving(self):
+        section = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        self.assertIn("SelectionSignature(const int* Keys, int Count)", self.layout)
+        self.assertIn("Keys[I] < 0 || Keys[I] > 127", self.layout)
+        self.assertIn("Signature << 7", self.layout)
+        self.assertIn("QuestTrackerSelectionSignature = 0ull;", self.hud_header)
+        self.assertIn("TWeakObjectPtr<const AMoonfallHeroPawn> QuestTrackerLastHero", self.hud_header)
+        self.assertIn("if (QuestTrackerLastHero.Get() != Hero)", self.hud)
+        self.assertIn("QuestTrackerLastHero = Hero;", self.hud)
+        self.assertIn("QuestTrackerPageStart = 0;", section)
+        self.assertIn("QuestTrackerSelectionSignature = CurrentSelectionSignature", section)
+        self.assertIn(
+            "if (QuestTrackerSelectionSignature != CurrentSelectionSignature)", section
+        )
+        self.assertIn("int QuestSelectionKeys[MoonfallQuestLayout::MaxRows]", section)
+        self.assertIn(
+            "Hero->Salvage >= MoonfallQuestJournal::Cost(Index) ? 1 : 0", section
+        )
+        self.assertIn(
+            "MoonfallQuestJournal::ResidentCount + RegionalGoals.Indices[Row]", section
+        )
+        self.assertIn(
+            "MoonfallQuestLayout::SelectionSignature(QuestSelectionKeys, VisibleQuestCount)",
+            section,
+        )
+        # The signature must be calculated before the page is normalized and
+        # before display row indices are consumed, avoiding stale pages.
+        self.assertLess(
+            section.index("QuestTrackerSelectionSignature != CurrentSelectionSignature"),
+            section.index("MoonfallQuestLayout::NormalizePageStart("),
+        )
+        self.assertNotIn("QuestTrackerSelectionSignature", self.hero_header)
+        self.assertNotIn("QuestTrackerLastHero", self.hero_header)
+        for banned in ("SaveWorldProgress(", "ResidentQuestStates.Add(", "SpawnActor("):
+            self.assertNotIn(banned, section)
+
     def test_npc_dialogue_matches_world_quest_title(self):
         panel = self.hud.split("// Native Canvas resident menu.", 1)[1].split(
             "if (Hero->bAtlasOpen)", 1)[0]
