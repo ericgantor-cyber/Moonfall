@@ -68,6 +68,51 @@ class DivineFamilyRosterTests(unittest.TestCase):
         for shape in ("GraveNeedle", "SoulHarvest", "CrimsonEclipse", "FinalVerdict"):
             self.assertIn("Shape::" + shape, footprint)
 
+    def test_world_spawn_connects_necropolis_and_preserves_existing_gods(self):
+        arena = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp")
+        header = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.h")
+        self.assertIn("bool bSpawnMorvellaInWorld = true;", header)
+        self.assertIn("MorvellaWorldActorClass", header)
+        self.assertIn("SpawnMorvellaWorldEncounter()", arena)
+        self.assertIn("bEnableStartingSanctuary && !bDeathGoddessEncounter", arena)
+        self.assertIn("constexpr float X = 16875.f;", arena)
+        self.assertIn("FVector(X, -1050.f, -20.f), FVector(5.5f, 34.f, 0.4f)", arena)
+        self.assertIn("FVector(X, 850.f, -20.f), FVector(20.f, 18.f, 0.4f)", arena)
+        self.assertIn("Morvella->DivineBossId = MoonfallDeathGoddess::BossId();", arena)
+        self.assertIn("Morvella->Tags.AddUnique(FName(TEXT(\"MoonfallMorvellaWorldBoss\")))", arena)
+        self.assertIn("Morvella->Health = 340.f;", arena)
+        self.assertIn("UGameplayStatics::FinishSpawningActor(Morvella, SpawnTransform)", arena)
+        # The public road is Y -2500 with 450cm half-width. The new
+        # 3400cm walkway and 1800cm-wide necropolis platform overlap it.
+        road_min, road_max = -2950, -2050
+        walkway_min, walkway_max = -1050 - 1700, -1050 + 1700
+        arena_min, arena_max = 850 - 900, 850 + 900
+        self.assertLessEqual(walkway_min, road_max)
+        self.assertGreaterEqual(walkway_max, road_min)
+        self.assertLessEqual(arena_min, walkway_max)
+        self.assertGreaterEqual(arena_max, walkway_min)
+        self.assertIn('TEXT("z_void_reaper")', arena)
+        self.assertIn('TEXT("nyra_eclipse_queen")', arena)
+
+    def test_morvella_victory_survives_old_save_schema_and_load_order(self):
+        save = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h")
+        hero_header = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h")
+        hero = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp")
+        enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
+        arena = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp")
+        self.assertIn("int32 Version = 12;", save)
+        self.assertIn("bool bMorvellaDefeated = false;", save)
+        self.assertIn("bool MarkMorvellaDefeated(AMoonfallEnemy* DefeatedBoss);", hero_header)
+        self.assertIn("Save->bMorvellaDefeated = bMorvellaDefeated;", hero)
+        self.assertIn("bMorvellaDefeated = Save->bMorvellaDefeated;", hero)
+        self.assertIn("MarkMorvellaDefeated(this);", enemy)
+        self.assertIn("OnMorvellaVictory();", hero)
+        self.assertIn("if (!SaveWorldProgress()) {", hero)
+        self.assertIn("bMorvellaDefeated = false;", hero)
+        self.assertIn("MoonfallDeathGoddess::IsDeathGoddess(Enemy->DivineBossId)", hero)
+        self.assertIn("if (Hero->HasDefeatedMorvella()) return;", arena)
+        self.assertIn("TActorIterator<AMoonfallEnemy>", hero)
+
     def test_phase_thresholds_and_stable_divine_roles(self):
         rules = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallDeathGoddess.h")
         enemy = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp")
