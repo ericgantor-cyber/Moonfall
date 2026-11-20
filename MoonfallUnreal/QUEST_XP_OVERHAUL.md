@@ -103,6 +103,13 @@ catalog to identify each resident's expected contract cost and home.
   tracked quests even when the gameplay cursor is hidden; the last page
   can be shorter so it doesn't leave empty decorative rows. Every quest
   remains tracked and can be viewed in a compact window without resizing.
+  When a contract becomes ready to turn in, a quest is completed or
+  accepted, a regional objective takes a free slot, or a different hero
+  is loaded, the HUD automatically returns to page one to surface the
+  newly prioritized objectives. Otherwise, manual MMB page selection is
+  stable while progress counts and XP forecasts update in place. The HUD
+  uses an exact, allocation-free signature of the seven ordered quest IDs
+  plus each contract's ready/not-ready state, not save fields or world scans.
   The full seven appear at 720p+ without page navigation. The original
   discovery and boss bars stay beneath the currently visible rows.
   These limits come from pure C++17 viewport geometry
@@ -218,7 +225,12 @@ visiting a new zone or defeating a boss advances the relevant goals.
     At all 30 discovered and 30 defeated, verify regional goals vanish.
     At 600x420 and 640x480, press MMB to cycle through all seven
     objectives, verifying absolute row numbers and a shorter last page.
-    Mouse-wheel camera zoom, Q dodge, and J/B/C menu controls must retain
+    From page two, make another contract ready to turn in or complete
+    a quest and verify the tracker automatically returns to page one
+    with the new ready-first ordering. Check that ordinary incremental
+    progress does not needlessly reset the page. Changing hero must
+    reset to page one. Mouse-wheel camera zoom, Q dodge, and J/B/C
+    menu controls must retain
     their existing behavior. Test MMB while a modal menu or NPC dialogue
     is open; it must not change quest pages.
 11. Profile menu/journal rendering and level-up tests in a real packaged
