@@ -1020,7 +1020,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        # Gamepad A now routes to Character Stats only while inventory is open;
+        # duplicate action bindings used to open the sheet during Jump.
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward(", 1)[0]
+        self.assertIn("PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)", jump)
+        self.assertIn("ToggleCharacterStats();", jump)
+        self.assertIn("if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen)", jump)
+        self.assertIn("Jump();", jump)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
