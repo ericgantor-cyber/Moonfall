@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from shiverwake_shrine_layout import SHRINE_SITES, validate_shrine_sites
+from shiverwake_shrine_layout import (
+    SHRINE_SITES, SHRINE_ZONE_BY_ID, SHRINES_PER_ZONE, ZONE_NAMES,
+    LEGACY_SHIVERWAKE_SITES, validate_shrine_sites,
+)
 
 MAP = "/Game/NorthernExpanse/Maps/NorthernExpansePreview"
 EXPECTED_PROVINCES = 9
@@ -148,7 +151,7 @@ def main():
             "Expected two landmark instances per biome")
     require(len(overlays) == EXPECTED_PROVINCES,
             "Expected one visual overlay per biome")
-    # Exactly 18 uniquely named, checkpoint-capable island shrines.
+    # Exactly two checkpoints on each of the nine Northern provinces.
     # Verify ACTUAL saved editor actors, not only the Python manifest.
     validate_shrine_sites()
     expected_shrines = {site[0]: site for site in SHRINE_SITES}
@@ -162,9 +165,15 @@ def main():
         require(shrine_id not in found, "Duplicate Shiverwake shrine ID: " + shrine_id)
         found[shrine_id] = shrine
     require(len(found) == 18 and set(found) == set(expected_shrines),
-            "Expected precisely 18 uniquely identified Shiverwake shrine actors")
+            "Expected 18 unique Northern shrines, exactly two in each of nine zones")
+    legacy_ids = {item[0] for item in LEGACY_SHIVERWAKE_SITES[2:]}
+    require(not legacy_ids.intersection(
+        str(actor.get_editor_property("shrine_id")) for actor in shrine_actors),
+        "Old all-on-Shiverwake generated shrines require safe migration")
+    per_zone = [0] * len(ZONE_NAMES)
     for shrine_id, (_, display, location) in expected_shrines.items():
         shrine = found[shrine_id]
+        per_zone[SHRINE_ZONE_BY_ID[shrine_id]] += 1
         pos = shrine.get_actor_location()
         require((pos.x - location[0]) ** 2 + (pos.y - location[1]) ** 2
                 + (pos.z - location[2]) ** 2 < 100.0,
@@ -175,6 +184,9 @@ def main():
                 "Shiverwake shrine map title is missing: " + shrine_id)
         require(shrine.get_editor_property("discovery_range") is not None,
                 "Shiverwake shrine has no discoverable checkpoint trigger: " + shrine_id)
+
+    require(per_zone == [SHRINES_PER_ZONE] * 9,
+            "Each Northern Expanse province must have exactly two shrines")
 
     require(weather.get_editor_property("b_follow_player_province"),
             "Player-following weather is disabled")
