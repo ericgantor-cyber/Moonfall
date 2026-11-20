@@ -46,6 +46,12 @@ A new portable layout catalog defines three independently bounded, accessible en
 
 **These are design dimensions, not placed UE5 geometry or verified traversal.** Before a playable implementation, author actual landscapes, collision, entrance roads, enemy AI, visible warning cues, shrines, respawn logic and navigation meshes. Test mouse/controller accessibility and emergency exit behavior at all phases. Never duplicate an existing god actor or replace original Z/Nyra art.
 
+### Divine sanctum geometry authoring plans
+
+`MoonfallNorthSanctumGeometry.h` now emits bounded, deterministic local block plans for each of the three divine sanctums. Each has a broad connected entrance floor, an unobstructed arena floor, two side walls, a back wall and nonblocking entrance/boss position markers. The front edge remains open for a safe retreat. Geometry plans are tested for floor continuity, minimum width and nonblocking markers in Linux/Windows C++17 CI.
+
+This is **authoring data, not instantiated UE5 collision or a navigable landscape**. The next implementation step is to consume these plans within real level-building code, place them into World Partition with authored zone coordinates and validate navmesh, animation, performance and actual boss spawn rules. Existing boss actors must not be duplicated and original divine art must stay unchanged.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
