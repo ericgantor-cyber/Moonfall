@@ -170,13 +170,13 @@ int main() {
  int Edges=0;
  for (int A=0; A<N::ZoneCount; ++A) {
   for(int B=A+1; B<N::ZoneCount; ++B) {
-   const auto DX=N::ContinentCenters[A].Xcm-N::ContinentCenters[B].Xcm;
-   const auto DY=N::ContinentCenters[A].Ycm-N::ContinentCenters[B].Ycm;
-   const auto DistanceSquared=DX*DX+DY*DY;
-   assert(DistanceSquared >= 10000*10000);
+   const std::int64_t DX=static_cast<std::int64_t>(N::ContinentCenters[A].Xcm)-N::ContinentCenters[B].Xcm;
+   const std::int64_t DY=static_cast<std::int64_t>(N::ContinentCenters[A].Ycm)-N::ContinentCenters[B].Ycm;
+   const std::int64_t DistanceSquared=DX*DX+DY*DY;
+   assert(DistanceSquared >= 10000LL*10000LL);
    if (N::Linked(A,B)) {
     ++Edges;
-    assert(DistanceSquared <= 20000*20000);
+    assert(DistanceSquared <= 20000LL*20000LL);
    }
   }
  }
