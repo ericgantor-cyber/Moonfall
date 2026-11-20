@@ -1703,6 +1703,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
   return;
  }
  if (bInventoryOpen) return;
+ if (SelectCouncilPreview((CouncilPreviewSelection + 2) % 3)) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
@@ -1712,6 +1713,7 @@ void AMoonfallHeroPawn::OptionsRight() {
   return;
  }
  if (bInventoryOpen) return;
+ if (SelectCouncilPreview((CouncilPreviewSelection + 1) % 3)) return;
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -3835,6 +3837,16 @@ FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const {
    ? TEXT("Fund Reconstruction") : TEXT("Fortify Borders");
  return FString::Printf(TEXT("%s | Faction %+d | Prosperity %+d | Threat %+d (preview only)"),
     Title, Outcome.factionDelta, Outcome.prosperityDelta, Outcome.threatDelta);
+}
+
+bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId) {
+ if (DecisionId < 0 || DecisionId > 2 || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4))
+  return false;
+ // Pure UI state. No council choice is applied, saved, or rewarded.
+ CouncilPreviewSelection = DecisionId;
+ return true;
 }
 
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
