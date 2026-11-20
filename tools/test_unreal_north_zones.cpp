@@ -10,6 +10,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -232,6 +233,21 @@ int main() {
  assert(N::PreviewIntensityPercent(N::ZoneCount,0)==0);
  assert(N::PreviewBrightness(-1,0)==0);
  assert(N::PreviewIntensityPercent(0,-1)==0);
+ // Exhaustive precipitation bounds for 9 provinces, 18 slots, 30 steps.
+ assert(N::ValidPrecipitation());
+ for(int Province=0; Province<N::ZoneCount; ++Province)
+  for(int Slot=0;Slot<N::PrecipitationInstanceCount;++Slot)
+   for(int Step=0;Step<N::PrecipitationSteps;++Step) {
+    const auto P=N::PrecipitationAt(Province,Slot,Step);
+    assert(P.Xcm>=-400 && P.Xcm<=400);
+    assert(P.Ycm>=-400 && P.Ycm<=400);
+    assert(P.Zcm>=120 && P.Zcm<620);
+    assert(P.HalfWidthCm>0 && P.HalfHeightCm>0 && P.HalfHeightCm<=14);
+    assert(P.Zcm==N::PrecipitationAt(Province,Slot,Step+N::PrecipitationSteps).Zcm);
+   }
+ assert(N::PrecipitationAt(-1,0,0).Zcm==0);
+ assert(N::PrecipitationAt(0,N::PrecipitationInstanceCount,0).Zcm==0);
+ assert(N::PrecipitationAt(0,0,-1).Zcm==0);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
