@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   push:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   workflow_dispatch:
