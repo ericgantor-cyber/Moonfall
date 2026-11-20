@@ -3370,6 +3370,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    // Right-click dialogue must release held combat inputs just like D-pad Up.
+    StopJumping();
+    EndSprint();
+    EndGuard();
+    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
