@@ -12,15 +12,23 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   Shiverwake or Shiverwake to mainland; no harbor can route to itself.
 - `AMoonfallNorthFerryGate` is an editor-placeable, disabled-by-default,
   collision-triggered ferry deck and text sign. A healthy local player can walk
-  onto the deck to board. A Blueprint boarding prompt can also call `BoardFerry`.
-  There is no need for a separate keyboard-only control.
+  onto the deck to start an **eight-second automatic sailing preview**.
+  A Blueprint boarding prompt can also call `BoardFerry`, which now returns
+  whether the crossing STARTED, not whether it has already arrived.
+  There is no manual steering or separate keyboard-only helm control.
 - Designers place **two** actors in the same loaded UE5 world, set
   `bIslandHarbor=false` at the mainland and `true` on the island, set
   each `PairedGate` to the other and explicitly enable both. A failed,
   missing, disabled or non-reciprocal pairing refuses travel.
-- The arrival marker is outside its gate's overlap sphere. Place the markers
-  on collision-tested safe ground, not above water or overlapping a boarding
-  trigger. Successful Unreal `TeleportTo` returns control at the other harbor.
+- Each gate is linked to its own decorative `SailingVessel` actor. A 0.1s
+  timer moves the outbound vessel toward the receiving harbor using a smooth
+  bounded path and gentle cosmetic wave bob (no Actor Tick, no boat physics).
+  After eight seconds, a healthy nearby player is collision-teleported to
+  the receiving harbor. If the traveler leaves the dock, dies, opens a menu,
+  the pairing becomes invalid, or landing is blocked, the crossing cancels;
+  the ship returns to its initial position and no arrival event fires.
+- The arrival marker is outside its gate's overlap sphere. Place markers on
+  collision-tested safe ground, not over water or other boarding triggers.
 - `OnFerryArrival(Hero, bFirstIslandLanding)` permits future sound, camera,
   cinematic and journal hooks. First island landing is tracked **only for the
   current session** and is deliberately not written to the legacy save slot.
@@ -43,8 +51,10 @@ The isolated Northern Expanse preview generator now places **two separate
 decorative ships offshore**: a mainland vessel near (0, -7650, -40) and a
 Shiverwake vessel near (0, -2750, -40). The actual boarding trigger stays
 on safe dry land at its respective harbor. No ship parts generate collision
-or overlaps; there is no ship Tick or ocean movement. The optional
-`bShowGothicFerry` flag can hide geometry without changing the ferry gates.
+or overlaps; the ship moves on a **bounded ten-updates-per-second timer
+only while its ferry crossing is active**, not a permanent Tick. The optional
+`bShowGothicFerry` flag can hide geometry but the voyage requires the
+assigned visual ship actor to remain valid.
 
 This ship visual was added only to the Northern Expanse **draft PR**. The
 generator must be run in Unreal Editor 5.4 to create a real map asset.
@@ -55,10 +65,15 @@ real player world assets.
 
 ## What does NOT yet exist
 
-This is an **opt-in interactive gate prototype**, not a placed, traversable
-ship journey. There is no real boat movement, sea physics, storms, sea monsters,
-cutscene, ship or water artwork, loading/streaming between separate levels,
-permanent crossing unlock, or generated final playable island landscapes.
+This is an **opt-in automatic crossing prototype**, not a complete
+walkable sailing experience. The decorated ship **does** follow an animated
+eight-second route, but the hero **currently remains at the departure dock
+during the ship animation** before being moved to safe land at its destination.
+There is no moving walkable deck, animated cloth/sail rigging, interactive
+captain or crew, dynamic wave physics, camera cutscene, authored ship/water
+assets, streaming between levels, permanent crossing unlock, or final
+playable island landscapes. Per the design direction there will be **no
+ghost-ship fights, sea monsters, naval combat or ocean encounters**.
 It has not been compiled or playtested in Unreal 5.4 on Windows. The
 Northern Expanse **editor preview generator now authors a dry mainland test
 dock, a PlayerStart there, and two reciprocal, enabled ferry gates** beside
@@ -101,7 +116,9 @@ exists yet. Do not attach experimental gates to a production main map.
    **No real player save must be loaded or modified.**
 4. Check controls with mouse, keyboard and controller. Check that entering
    the arrival dock does not immediately bounce the player back to origin.
-5. Only after tests, add actual ship VFX, fade transition, ocean hazards,
-   return-voyage skip, save-backed discovery and packaging to Windows 10/11.
+5. Only after tests, add a walkable sailing deck, genuine sail animations,
+   ambient storm visuals and sounds, camera transitions, safe docking,
+   return-voyage skip, save-backed discovery and Windows 10/11 packaging.
+   Keep the voyage automatic and **do not add ocean battles or encounters**.
    Preserve original Z and Nyra visuals exactly; do not merge without
    native verification and review.
