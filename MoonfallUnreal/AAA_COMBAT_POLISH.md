@@ -30,12 +30,15 @@ never create offensive camera feedback.
 
 ## Spell impact presentation, ready for authored effects
 
-All six offensive schools now expose a **BlueprintImplementableEvent**
+The five offensive spell schools (of six total, including healing) now
+expose a **BlueprintImplementableEvent**
 `OnSpellImpact(School, bLeftHand, ImpactPoint, AppliedDamage, bCritical,
 bKillingBlow)` on `AMoonfallHeroPawn`. It only fires for actual hostile HP
-damage with a valid impact position. The original `OnSpellCast` event is
-unchanged; healing, misses and invulnerable/fully absorbed impacts do not
-produce a false success cue.
+damage with a valid impact position. The event fires **after** C++ damage,
+combo, posture and parry processing. The killing-blow result is captured at
+hit resolution, not recomputed after Blueprint callbacks. The original
+`OnSpellCast` event is unchanged; healing, misses and invulnerable/fully
+absorbed impacts do not produce a false success cue.
 
 The previous `DrawDebugSphere` and `DrawDebugLine` spell-trace artifacts
 have been removed from runtime casting. A derived hero Blueprint can now
