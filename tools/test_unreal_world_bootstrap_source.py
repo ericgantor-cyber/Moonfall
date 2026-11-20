@@ -14,7 +14,8 @@ assert "ShouldGenerateDungeons(BootPolicy)" in cpp
 assert "IsActorBeingDestroyed()" in cpp
 assert "ClearTimer(DungeonSpawnTimer)" in cpp
 assert "Super::EndPlay(EndPlayReason)" in cpp
-assert "MaxLayoutsPerBatch = MoonfallWorldBootstrap::MaxLayoutsPerBatch" in cpp
+assert "constexpr int32 MaxLayoutsPerBatch = 2;" in cpp
+assert "MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch" in cpp
 assert "constexpr FPolicy IsolatedWorldPolicy()" in policy
 assert "static_assert(TotalDungeons==30)" in policy
 assert "GetWorld()->SpawnActor<AMoonfallArena>" in cpp
