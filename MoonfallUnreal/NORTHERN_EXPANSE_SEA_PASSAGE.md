@@ -28,6 +28,31 @@ Shiverwake Coast, close to Tideglass Haven. It is an alternative crossing edge,
   original Godot world, UE5 six-zone gameplay, Z/Nyra artwork, Morvella actor,
   dungeon state and saved IDs are unchanged.
 
+## Gothic Raven ferry visual (editor greybox)
+
+`AMoonfallNorthGothicFerryActor` constructs an original dark-gothic
+vessel silhouette in the editor using lightweight instanced engine cubes:
+layered black hull and ribs, cathedral-style deck pavilion and spires,
+ironwork/rails, five torn crimson sail panels, raven-head prow and beak,
+crimson eyes, four hanging lanterns, and two modest non-shadowing red lights.
+Optional built-in material tints are provisional. The full detailed concept
+painting is **visual direction**, not a shipped or imported high-resolution
+ship mesh, textured asset or animated ship.
+
+The isolated Northern Expanse preview generator now places **two separate
+decorative ships offshore**: a mainland vessel near (0, -7650, -40) and a
+Shiverwake vessel near (0, -2750, -40). The actual boarding trigger stays
+on safe dry land at its respective harbor. No ship parts generate collision
+or overlaps; there is no ship Tick or ocean movement. The optional
+`bShowGothicFerry` flag can hide geometry without changing the ferry gates.
+
+This ship visual was added only to the Northern Expanse **draft PR**. The
+generator must be run in Unreal Editor 5.4 to create a real map asset.
+If an older preview `.umap` already exists, the generator refuses to
+overwrite it. An editor user may place the two visual actors manually
+rather than deleting an existing preview map. Do not rerun creation against
+real player world assets.
+
 ## What does NOT yet exist
 
 This is an **opt-in interactive gate prototype**, not a placed, traversable
