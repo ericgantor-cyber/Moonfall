@@ -8,6 +8,7 @@ class USceneComponent;
 class UInstancedStaticMeshComponent;
 class UPointLightComponent;
 class UCameraComponent;
+class UBoxComponent;
 
 // Original dark-gothic ferry *visual prototype* for the isolated Northern
 // Expanse test map. The boarding/landing logic stays in MoonfallNorthFerryGate.
@@ -46,6 +47,20 @@ public:
  // player-driven steering. The harbor gate owns restoration on cancel/arrival.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
  TObjectPtr<UCameraComponent> VoyageCamera;
+ // Gameplay-only collision. Unlike the original nonblocking render instances,
+ // this movable deck supports CharacterMovement-based passengers.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UBoxComponent> PassengerDeck;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<USceneComponent> PassengerBoardingMarker;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UBoxComponent> PortPassengerRail;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UBoxComponent> StarboardPassengerRail;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UBoxComponent> BowPassengerRail;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|North Ferry")
+ TObjectPtr<UBoxComponent> SternPassengerRail;
 
 private:
  TArray<FTransform> SailRestTransforms;
