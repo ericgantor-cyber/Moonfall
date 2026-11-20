@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallDeathGoddess.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallGuardianFootprint.h"
@@ -242,7 +243,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
-   const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
+   const int32 NewPhase = MoonfallDeathGoddess::IsDeathGoddess(DivineBossId)
+     ? MoonfallDeathGoddess::PhaseForHealthRatio(HealthRatio)
+     : (HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1));
    if (NewPhase > BossPhase) {
     BossPhase = NewPhase;
     CancelDivineSignature();
@@ -256,7 +259,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     // tests the pre-increment attack sequence when deciding ranged casts.
     // Generic bosses keep their normal fresh-cycle opening.
     const bool bDivinePhase = DivineBossId == FName(TEXT("z_void_reaper"))
-      || DivineBossId == FName(TEXT("nyra_eclipse_queen"));
+      || DivineBossId == FName(TEXT("nyra_eclipse_queen"))
+      || MoonfallDeathGoddess::IsDeathGoddess(DivineBossId);
     const int32 NewDivineInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);
     AttackSequence = bDivinePhase ? NewDivineInterval - 1 : 0;
     BossSpecialMove = 0;
@@ -454,7 +458,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 230.f),
-    BossPhase == 3 ? TEXT("BOSS PHASE 3") : TEXT("BOSS PHASE 2"),
+    *FString::Printf(TEXT("BOSS PHASE %d"), BossPhase),
     nullptr, FColor::Purple, 0.12f, false);
  }
  if (IsValid(Body)) {
