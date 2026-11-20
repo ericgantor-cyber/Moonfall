@@ -103,6 +103,10 @@ catalog to identify each resident's expected contract cost and home.
   tracked quests even when the gameplay cursor is hidden; the last page
   can be shorter so it doesn't leave empty decorative rows. Every quest
   remains tracked and can be viewed in a compact window without resizing.
+  **Resizing a compact window also resets invalid page boundaries:** for
+  example, moving from four rows to three must never strand the fourth
+  quest between pages. Source and C++17 tests cover every page size from
+  one to seven, old/new row capacities and partial final pages.
   When a contract becomes ready to turn in, a quest is completed or
   accepted, a regional objective takes a free slot, or a different hero
   is loaded, the HUD automatically returns to page one to surface the
@@ -211,7 +215,8 @@ visiting a new zone or defeating a boss advances the relevant goals.
    All seven should remain tracked. With no accepted contracts, the
    original Firstlight introduction should return. Test 600x420,
    640x480, 720p, 1080p and 4K. Compact views must show a truthful
-   SHOWING X/7 count, keep rows above the health orb, and retain readable
+   1-3/7 MMB NEXT-style page range, keep rows above the health orb,
+   and retain readable
    title/NPC/reward lines and 3px salvage bars. Verify actual visuals
    and mouse accessibility in native Unreal gameplay.
 8. Complete all tracked contracts. Confirm the original exploration tracker
@@ -225,6 +230,9 @@ visiting a new zone or defeating a boss advances the relevant goals.
     At all 30 discovered and 30 defeated, verify regional goals vanish.
     At 600x420 and 640x480, press MMB to cycle through all seven
     objectives, verifying absolute row numbers and a shorter last page.
+    Resize from four visible rows to three while on the second page,
+    and from three rows to four. Confirm no quest becomes inaccessible
+    or appears twice while cycling all pages.
     From page two, make another contract ready to turn in or complete
     a quest and verify the tracker automatically returns to page one
     with the new ready-first ordering. Check that ordinary incremental
