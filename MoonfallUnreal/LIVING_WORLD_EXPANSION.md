@@ -32,6 +32,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Named world NPCs now recognize Trusted and Devoted bonds in dialogue **after an existing one-time contract is completed**. Talking cannot farm trust, and the existing quest/salvage transaction and save format remain unchanged.
 - Python source regressions verify the bridge reads persisted bonds and does not save or award points while talking. Native UE5 compilation and runtime gameplay testing are still needed.
 
+## Read-only community progression adapter
+
+- `AMoonfallHeroPawn::GetWorldCommunityOutlook()` now derives Endangered, Recovering or Flourishing from the **already saved** completed resident contracts and whether any shrine has been discovered. This is a world-level summary, not yet a per-settlement simulator.
+- The query never changes persistent data, spawns actors, grants rewards or fabricates raids/restored buildings. `SettlementStatus` can later accept those events once their data is reliably recorded.
+- An additional source regression test protects read-only behavior and authentic save-field wiring. No native Unreal build is claimed.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
