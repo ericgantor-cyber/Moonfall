@@ -5,6 +5,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -146,6 +147,22 @@ int main() {
   Broken.Parts[6].Solid=true;
   assert(!N::SafeSanctumPlan(Broken));
  }
+ // Greybox province terrain: nine hubs, dungeon approaches and safe exits.
+ for (int Province=0; Province<N::ZoneCount; ++Province) {
+  const auto Plan=N::PlanZoneGreybox(Province);
+  assert(N::ValidZoneGreybox(Plan));
+  assert(Plan.Province==Province && Plan.Count==5);
+  assert(Plan.Pieces[0].HalfXcm>=1200);
+  assert(Plan.Pieces[1].HalfXcm>=400);
+  auto Broken=Plan;
+  Broken.Pieces[1].Ycm+=1;
+  assert(!N::ValidZoneGreybox(Broken));
+  Broken=Plan;
+  Broken.Pieces[3].HalfXcm=100;
+  assert(!N::ValidZoneGreybox(Broken));
+ }
+ assert(!N::PlanZoneGreybox(-1).Valid);
+ assert(!N::PlanZoneGreybox(9).Valid);
  assert(!N::Linked(-1,0) && !N::Linked(0,9));
  std::cout<<"Moonfall northern 9-zone catalog connectivity passed\n";
 }
