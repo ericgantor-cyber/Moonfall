@@ -9,6 +9,9 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'tools/test_unreal_north_actor_source.py'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   push:
@@ -19,6 +22,9 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumActor.cpp'
+      - 'tools/test_unreal_north_actor_source.py'
       - 'tools/test_unreal_north_zones.cpp'
       - '.github/workflows/unreal-north-zones.yml'
   workflow_dispatch:
@@ -33,6 +39,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Unreal sanctum actor source integration
+        shell: bash
+        run: python tools/test_unreal_north_actor_source.py
       - name: Compile and run (Linux GCC)
         if: runner.os == 'Linux'
         shell: bash
