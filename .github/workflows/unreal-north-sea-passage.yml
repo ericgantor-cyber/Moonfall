@@ -14,6 +14,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_layout.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_editor.py'
+      - 'MoonfallUnreal/Tools/add_shiverwake_shrines_to_existing_preview.py'
+      - 'tools/test_unreal_shiverwake_shrines_source.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
       - 'tools/test_unreal_north_auto_sail.cpp'
       - 'tools/test_unreal_north_dry_landing.cpp'
@@ -38,6 +42,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
       - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_layout.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_editor.py'
+      - 'MoonfallUnreal/Tools/add_shiverwake_shrines_to_existing_preview.py'
+      - 'tools/test_unreal_shiverwake_shrines_source.py'
       - 'tools/test_unreal_north_sea_passage.cpp'
       - 'tools/test_unreal_north_auto_sail.cpp'
       - 'tools/test_unreal_north_dry_landing.cpp'
@@ -66,6 +74,7 @@ jobs:
         run: |
           python tools/test_unreal_north_preview_map_source.py
           python tools/test_unreal_north_ferry_preview_source.py
+          python tools/test_unreal_shiverwake_shrines_source.py
           python tools/test_unreal_north_gothic_ferry_source.py
           python tools/test_unreal_north_auto_sail_source.py
       - name: GCC C++17 ferry route test
