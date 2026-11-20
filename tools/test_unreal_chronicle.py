@@ -79,8 +79,10 @@ class ChronicleIntegration(unittest.TestCase):
             self.assertIn(expression, self.story)
         self.assertIn("int32 DiscoveredDungeonMask = 0;", self.hero)
         self.assertIn("DefeatedDungeonBossMask = 0;", self.hero)
-        self.assertIn("static_cast<uint32>(Hero->DiscoveredDungeonMask)", self.preview)
-        self.assertIn("static_cast<uint32>(Hero->DefeatedDungeonBossMask)", self.preview)
+        # Progress is read above the card and reused by the card and sidebar.
+        self.assertIn("const uint32 ChronicleDiscovered = static_cast<uint32>(Hero->DiscoveredDungeonMask);", self.atlas)
+        self.assertIn("const uint32 ChronicleDefeated = static_cast<uint32>(Hero->DefeatedDungeonBossMask);", self.atlas)
+        self.assertIn("Selected, ChronicleDiscovered, ChronicleDefeated", self.preview)
         self.assertIn("MoonfallChronicle::Summarize(", self.preview)
         self.assertIn("MoonfallChronicle::RevealedBeat(", self.preview)
         self.assertIn("Chronicle.Valid && ChronicleCard.Visible", self.preview)
