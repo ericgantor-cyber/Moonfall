@@ -212,7 +212,9 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
          bMenuOpen, bLandingUsable))
   return false;
  if (Hero->GetActorLocation().ContainsNaN()
-     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f))
+     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(400.f)
+     || !IsValid(SailingVessel->PassengerDeck)
+     || !IsValid(SailingVessel->PassengerBoardingMarker))
   return false;
  const FVector From = SailingVessel->GetActorLocation();
  const FVector To = PairedGate->SailingVessel->GetActorLocation();
@@ -220,6 +222,25 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
      || From.SizeSquared() >= 1.0e14f || To.SizeSquared() >= 1.0e14f
      || FVector::DistSquared(From, To) < FMath::Square(1000.f))
   return false;
+ // Start the eleven-second trip by *actually boarding* the vessel.
+ // CharacterMovement's moving-platform base carries the hero as the boat
+ // travels, while their normal movement controls remain available on deck.
+ const FVector DockLocation = Hero->GetActorLocation();
+ const FRotator DockRotation = Hero->GetActorRotation();
+ const FVector DeckSpawn = SailingVessel->PassengerBoardingMarker->GetComponentLocation();
+ if (DeckSpawn.ContainsNaN() || DeckSpawn.SizeSquared() >= 1.0e14f
+     || !Hero->TeleportTo(DeckSpawn, SailingVessel->GetActorRotation(), false, false))
+  return false;
+ Hero->SetBase(SailingVessel->PassengerDeck);
+ if (Hero->GetMovementBase() != SailingVessel->PassengerDeck) {
+  // Failed to create a real UE walking base; abort rather than sending an
+  // unparented player over an empty ocean. Prefer the original safe dock.
+  Hero->TeleportTo(DockLocation, DockRotation, false, false);
+  return false;
+ }
+ OriginalBoardingLocation = DockLocation;
+ OriginalBoardingRotation = DockRotation;
+ bVoyagerOnDeck = true;
  const float Duration = MoonfallNorth::ValidAutoSailDuration(VoyageDurationSeconds)
      ? VoyageDurationSeconds : MoonfallNorth::DefaultAutoSailSeconds;
  ActiveVoyageDurationSeconds = Duration;
@@ -238,8 +259,8 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  GetWorld()->GetTimerManager().SetTimer(AutomaticVoyageTimer, this,
      &AMoonfallNorthFerryGate::UpdateAutomaticVoyage,
      MoonfallNorth::AutoSailUpdateSeconds, true);
- // Auto-sailing camera only: the hero stays on the protected dock until the
- // collision-checked arrival. This is not yet a playable moving deck.
+ // Normal third-person hero camera is the default so players can walk on
+ // deck. Designers may opt into the ship-wide cinematic camera instead.
  if (bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)) {
   if (APlayerController* PC = Cast<APlayerController>(Hero->GetController())) {
    if (PC->IsLocalController()) {
