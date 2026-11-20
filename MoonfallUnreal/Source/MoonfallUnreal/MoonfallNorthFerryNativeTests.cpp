@@ -34,8 +34,8 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  if (!TestNotNull(TEXT("Passenger walking deck"), Deck)
      || !TestNotNull(TEXT("Passenger boarding marker"), Boarding))
   return false;
- TestTrue(TEXT("Movable ship root"), Ship->GetRootComponent()->Mobility == EComponentMobility::Movable);
- TestTrue(TEXT("Movable walking base"), Deck->Mobility == EComponentMobility::Movable);
+ TestTrue(TEXT("Movable ship root"), Ship->GetRootComponent()->GetMobility() == EComponentMobility::Movable);
+ TestTrue(TEXT("Movable walking base"), Deck->GetMobility() == EComponentMobility::Movable);
  TestTrue(TEXT("Deck permits step-up"), Deck->CanCharacterStepUpOn == ECB_Yes);
  TestTrue(TEXT("Deck blocks Pawn"), Deck->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block);
  TestTrue(TEXT("Deck has query and physics collision"),
@@ -61,7 +61,7 @@ bool FMoonfallNorthFerryComponentContract::RunTest(const FString& Parameters) {
  for (int32 Index=0; Index<4; ++Index) {
   if (!TestNotNull(TEXT("Passenger rail"), Rails[Index])) return false;
   TestTrue(TEXT("Rail blocks Pawn"), Rails[Index]->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block);
-  TestTrue(TEXT("Rail moves with ship"), Rails[Index]->Mobility == EComponentMobility::Movable);
+  TestTrue(TEXT("Rail moves with ship"), Rails[Index]->GetMobility() == EComponentMobility::Movable);
  }
  const UInstancedStaticMeshComponent* RenderComponents[] = {
      Ship->HullPieces.Get(), Ship->GothicIronwork.Get(),
