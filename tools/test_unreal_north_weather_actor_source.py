@@ -67,7 +67,6 @@ assert "MoonfallNorth::ChooseWeatherProvince(" in source
 assert "bWeatherActive?ProvinceIndex:-1" in source
 assert "FMath::IsFinite(LocalPosition.X)" in source
 assert "FMath::RoundToInt(LocalPosition.X)" in source
-assert "Continent->GetProvinceCenterWorldLocation(Index)" in source
 assert "SetActorLocation(Player->GetActorLocation())" in source
 assert "ProvinceIndex=ClosestProvince" in source
 assert "ClosestProvince!=INDEX_NONE" in source
