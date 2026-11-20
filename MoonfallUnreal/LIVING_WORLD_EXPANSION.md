@@ -52,6 +52,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Only three offensive schools are supported in this first implementation; healing and other schools cannot weave. Current IDs 0,1,2 are confirmed offensive, but the original conceptual hybrid names are placeholders until the visual school definitions are verified.
 - New source regressions cover billing/cooldown order, the existing same-school path, and the no-write promise. Native UE5 compilation, visual testing, and balance playtesting remain unverified.
 
+## Sanctuary progression and council UI adapters
+
+- Blueprint/UI can call `IsSanctuaryRoomUnlocked(RoomId)` (0=Atlas, 1=Armory, 2=Wardrobe, 3=Trophy Hall, 4=Council, 5=Portal). Only the durable `sanctuary_firstlight` discovery unlocks the initial three; verified dungeon bosses and completed resident contracts determine later access. Invalid room numbers are rejected. These are **access policies only**, not placed architectural rooms.
+- `PreviewCouncilDecision(DecisionId)` (0=Protect Residents, 1=Fund Reconstruction, 2=Fortify Borders) returns constrained faction/prosperity/threat outcomes for UI preview. **No choice is executed**, and no faction reputation, game save, or world simulation state is mutated.
+- Native UE5 compilation, room geometry and navigation, UI bindings, controller focus, council confirmation and transactional persistence remain outstanding.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
