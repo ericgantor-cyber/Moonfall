@@ -76,6 +76,8 @@ public:
  // One save-slot relationship per authored resident ID, never per spawned actor instance.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
+ // Read-only UI adapter: derives social rank from the existing persisted bond.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") FString GetResidentRelationshipRank(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
