@@ -116,6 +116,7 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
 
  if (IsValid(Ship)) {
   Ship->ResetCrimsonSails();
+  Ship->ResetCrimsonLanterns();
   Ship->ResetPassengerTravelStatus();
   Ship->SetActorTransform(OriginalShipTransform, false, nullptr,
       ETeleportType::TeleportPhysics);
@@ -342,6 +343,7 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  }
  Ship->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
  Ship->AnimateCrimsonSails(ElapsedSeconds, Hero->bReduceMotion);
+ Ship->AnimateCrimsonLanterns(ElapsedSeconds, Hero->bReduceMotion);
  UpdateVoyagePresentation(Hero, ElapsedSeconds);
 
  if (!MoonfallNorth::AutoSailShouldArrive(ElapsedSeconds, ActiveVoyageDurationSeconds))
