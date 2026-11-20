@@ -67,6 +67,10 @@ cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1
 # Boarding places the hero *on the real ship deck*, but cannot teleport to
 # the destination before the complete eleven-second crossing.
 assert "Hero->TeleportTo(DeckSpawn" in start
+assert '#include "Components/CapsuleComponent.h"' in gate_cpp
+assert "Hero->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()" in start
+assert "SailingVessel->PassengerDeck->GetScaledBoxExtent().Z" in start
+assert "DeckSpawn.Z = DeckSurfaceZ" in start
 assert "Hero->TeleportTo(Destination" not in start
 assert "Hero->SetBase(SailingVessel->PassengerDeck)" in start
 assert "Hero->GetMovementBase() != SailingVessel->PassengerDeck" in start
@@ -86,6 +90,8 @@ assert "Hero->bReduceMotion ? 0.f : 0.35f" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
 assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
 assert "OnAutomaticVoyageProgress(Hero, NextRemaining, NextPhase)" in gate_cpp
+assert "Ship->SetPassengerTravelStatus(VoyageMessage)" in gate_cpp
+assert "Ship->ResetPassengerTravelStatus()" in cleanup
 assert "FString::Printf(" in gate_cpp
 assert "ARRIVAL IN %dS" in gate_cpp
 assert "DEPARTING HARBOR" in gate_cpp
@@ -114,6 +120,9 @@ assert "ClearTimer(AutomaticVoyageTimer)" in cleanup
 assert "Ship->SetActorTransform(OriginalShipTransform" in cleanup
 assert "Hero->TeleportTo(OriginalBoardingLocation" in cleanup
 assert "Hero->TeleportTo(Fallback" in cleanup
+assert "if (!bArrived && bVoyagerOnDeck && IsValid(Hero))" in cleanup
+assert "OriginalBoardingLocation.SizeSquared() < 1.0e14f" in cleanup
+assert "SafeDeck.Z = DeckTop" in cleanup
 assert "bVoyagerOnDeck = false" in cleanup
 assert "Hero->GetMovementBase() == Ship->PassengerDeck" in cleanup
 assert "Hero->SetBase(nullptr)" in cleanup
@@ -162,6 +171,11 @@ for requirement in (
     'RenderComponents[Index]->GetCollisionEnabled() == ECollisionEnabled::NoCollision',
     'AutoSailShouldArrive(10.99f, 11.f)',
     'AutoSailShouldArrive(11.f, 11.f)',
+    'Movable walking base',
+    'Moving ship passenger progress sign',
+    'Deck permits step-up',
+    'Rail moves with ship',
+    'Onboard sign cannot block passenger',
 ):
     assert requirement in native, f"Native test missing contract: {requirement}"
 print("Automatic sailing and native UE test source contract passed (native execution pending)")
