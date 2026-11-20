@@ -94,6 +94,12 @@ The new editor-placeable `AMoonfallNorthWeatherActor` provides a **localized ani
 
 This is a lightweight **in-engine atmosphere prototype**, not falling snow/rain, physical wind, weather hazards, a volumetric effect, or a complete regional weather system. It must be placed and native-compiled in a UE5 test level and checked for collision, visual readability and performance before merging. Portable C++17 and source-structure checks validate the preview bounds and safety assumptions, not rendering.
 
+### Optional instanced snow, rain and ash preview
+
+The opt-in `AMoonfallNorthWeatherActor` now renders a bounded animated precipitation proxy using up to **18 noncolliding cube mesh instances** per placed preview actor. `MoonfallNorthPrecipitation.h` defines deterministic 3D positions and shape differences: falling streaks in warm rain and mountain storms, lighter flakes and motes in the other provincial climates. A shared 0.2-second timer advances the small mesh set at 5 Hz while retaining the original two-second accent-light cadence. All meshes cast no shadows, have no collision or overlaps, and impose no damage or global weather effect. The optional preview remains **disabled by default**.
+
+This is a simple UE5 *visual prototype*, not textured precipitation, sky/weather simulation, dedicated Niagara emitters, genuine wind physics, or finalized environmental art. Each preview affects only its local actor area, and no preview has been placed into a committed playable UE5 map. A portable regression checks 4,860 location combinations and guards invalid province/slot/step inputs; source safety checks also cover bounded instances and timer behavior. Native UE5 compilation, packaged Windows rendering and performance are still unverified.
+
 ## Current implementation
 
 - Original read-only nine-zone C++17 catalog under Source/MoonfallUnreal/MoonfallNorthZones.h.
