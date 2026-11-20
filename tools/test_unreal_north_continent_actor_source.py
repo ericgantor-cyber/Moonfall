@@ -18,6 +18,12 @@ assert "B=A+1" in source
 assert "MoonfallNorth::Linked(A,B)" in source
 assert "ProvincePads->AddInstance(" in source
 assert "ProvinceRoads->AddInstance(" in source
+assert "ProvinceLandmarks->AddInstance(" in source
+assert "ProvinceLandmarks->ClearInstances()" in source
+assert "ProvinceLandmarks->SetCollisionEnabled(ECollisionEnabled::NoCollision)" in source
+assert "MoonfallNorth::ValidLandmarks()" in source
+assert "MoonfallNorth::LandmarkCount" in source
+assert "ProvinceLandmarks" in header
 assert "ECollisionEnabled::QueryAndPhysics" in source
 assert "ValidContinentCenters()" in layout
 assert "RoadEdgeCount()" in layout
