@@ -25,6 +25,21 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", body)
         self.assertNotIn("DecodeEquippedItem(CurrentCode", body)
 
+    def test_projected_set_bonus_reuses_validated_equipped_slot(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
+        self.assertIn("GetEquipmentSlotCode(Slot)", body)
+        self.assertIn("CurrentCode > 0", body)
+        self.assertNotIn("EquippedWeaponCode", body)
+
+    def test_right_click_does_not_equip_behind_character_details(self):
+        body = self.source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split(
+            "if (bResidentContextOpen)", 1)[0]
+        self.assertIn("if (bInventoryOpen) {", body)
+        self.assertIn("if (bCharacterStatsOpen) return;", body)
+        self.assertLess(body.index("if (bCharacterStatsOpen) return;"),
+                        body.index("EquipInventoryItem(HitIndex);"))
+
     def test_stat_bonuses_validate_ownership(self):
         for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
                       "InventoryItemCodes.Contains(EquippedAccessoryCode)",
