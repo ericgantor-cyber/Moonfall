@@ -40,6 +40,31 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_world_labels_only_refresh_on_policy_changes(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
+        arena = (SOURCE / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn("UTextRenderComponent* CouncilAssignmentSign;", header)
+        self.assertIn("void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);", header)
+        self.assertIn('CreateDefaultSubobject<UTextRenderComponent>(TEXT("CouncilAssignmentSign"))', npc)
+        method = npc.split("void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetCouncilAssignment(", 1
+        )[0]
+        for expected in ("ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)",
+                         "CouncilAssignmentSign->SetVisibility(false)", "CouncilAssignmentSign->SetVisibility(true)",
+                         'SettlementId == FName(TEXT("Crossroads"))', "Hero->CouncilDecisionId >= 0",
+                         "GetCouncilAssignment(Hero).Left(36)"):
+            self.assertIn(expected, npc)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "SetActorLocation(", "GetTimerManager()"):
+            self.assertNotIn(forbidden, method)
+        refresh = arena.split("void AMoonfallArena::RefreshCouncilSettlementVisuals()", 1)[1].split(
+            "void AMoonfallArena::CreateBlock(", 1
+        )[0]
+        self.assertLess(refresh.index("if (Policy == LastDisplayedCouncilDecision) return;"),
+                        refresh.index("TActorIterator<AMoonfallWorldNPC>"))
+        self.assertIn("It->RefreshCouncilAssignmentSign(Hero);", refresh)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
+
     def test_council_assignments_are_readonly_role_based_and_visible_in_npc_menu(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
