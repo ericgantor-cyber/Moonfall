@@ -3826,6 +3826,16 @@ bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
  if (!Stock.valid) { bResidentTradePending = false; return false; }
  const int32 Price = bMerchant ? Stock.merchantCost : Stock.tinkerCost;
  const int32 ItemCode = Stock.code;
+ // Recipes require actual character progression, not a fake material count.
+ // Validate before confirmation and again before any salvage mutation.
+ const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(ResidentCatalogSelection);
+ if (bTinker && Level < RequiredLevel) {
+  bResidentTradePending = false;
+  ResidentFeedbackMessage = FString::Printf(
+      TEXT("Crafting requires level %d. Current level: %d."), RequiredLevel, Level);
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
  if (Salvage < Price || InventoryItemCodes.Num() >= 10000) {
   bResidentTradePending = false;
   ResidentFeedbackMessage = TEXT("Insufficient salvage or inventory full.");
