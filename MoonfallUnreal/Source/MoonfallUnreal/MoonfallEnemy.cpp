@@ -964,7 +964,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
-     CachedWaypoint = (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1)
+     // Partial routes still provide reachable path corners around walls.
+     // Use their first actual waypoint instead of rushing toward the far
+     // projected target; keep the existing single cached nav query.
+     CachedWaypoint = (IsValid(Path) && Path->PathPoints.Num() > 1)
        ? Path->PathPoints[1] : Point.Location;
     } else {
      CachedWaypoint = Target;
