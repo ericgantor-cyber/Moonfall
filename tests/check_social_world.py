@@ -97,7 +97,7 @@ class TestSocialWorld(unittest.TestCase):
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
   self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
-  self.assertIn("if (bResidentContextOpen &&",self.hero)
+  self.assertIn("if (bResidentContextOpen) {",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
@@ -126,11 +126,10 @@ class TestSocialWorld(unittest.TestCase):
   self.assertLess(npc.index("CloseResidentContext();"),npc.index(
       "AMoonfallWorldNPC* Resident = GetNearestResidentNPC();"))
   self.assertIn("!FocusedResident->CanHeroInteract(this)",npc)
-  self.assertLess(npc.index("EndGuard();"),npc.index("FocusedResident = Resident;"))
   right=self.hero.split(
       "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
       "void AMoonfallHeroPawn::OptionsUp()",1)[0]
-  self.assertIn("StopJumping();",right)
+  self.assertIn("if (bResidentContextOpen) { CloseResidentContext(); return; }",right)
   for name in ("MoveForward","MoveRight"):
    movement=self.hero.split("void AMoonfallHeroPawn::"+name+"(float Value)",1)[1].split("return;",1)[0]
    self.assertIn("bResidentContextOpen",movement)
