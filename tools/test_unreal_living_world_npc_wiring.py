@@ -40,6 +40,28 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_work_effects_are_role_specific_and_hide_on_interruption(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        movement = npc.split("void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetCouncilWorkPhase()", 1
+        )[0]
+        for required in ("Hero->FocusedResident.Get() == this",
+                         "CouncilWorkMarker->SetVisibility(false);",
+                         "PlayerForPause.ContainsNaN()",
+                         "FMath::Square(300.f)",
+                         'SocialRole == FName(TEXT("Scout"))',
+                         "FVector(0.18f, 0.18f, 0.06f)",
+                         "FVector(0.10f, 0.10f, 0.22f)",
+                         "10.f * FMath::Sin(CouncilWorkVisualPhase)",
+                         "45.f * FMath::Sin(CouncilWorkVisualPhase)"):
+            self.assertIn(required, movement)
+        self.assertLess(movement.index("PlayerForPause.ContainsNaN()"),
+                        movement.index("CouncilWorkHoldSeconds - StepSeconds"))
+        self.assertLess(movement.index("CouncilWorkMarker->SetVisibility(false);"),
+                        movement.index("CouncilWorkMarker->SetVisibility(bWorking)"))
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "ChangeFactionReputation("):
+            self.assertNotIn(forbidden, movement)
+
     def test_council_work_marker_animates_only_during_work_stops(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
