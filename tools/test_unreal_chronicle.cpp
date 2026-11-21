@@ -36,6 +36,16 @@ constexpr bool EqualText(const char* A, const char* B) {
  return *A == *B;
 }
 static_assert(I::ChapterCount == 7);
+static_assert(I::SeaJourneyState(false,false)==I::ESeaJourney::Locked);
+static_assert(I::SeaJourneyState(true,false)==I::ESeaJourney::SailToIsle);
+static_assert(I::SeaJourneyState(true,true)==I::ESeaJourney::Arrived);
+static_assert(I::SeaJourneyState(false,true)==I::ESeaJourney::Locked);
+static_assert(EqualText(I::SeaJourneyObjective(I::SeaJourneyState(false,false)),
+                        "Defeat Emberfall Crypt boss"));
+static_assert(EqualText(I::SeaJourneyObjective(I::SeaJourneyState(true,false)),
+                        "Board Nightferry to Gothic Isle"));
+static_assert(EqualText(I::SeaJourneyObjective(I::SeaJourneyState(true,true)),
+                        "Raven's Landing discovered"));
 static_assert(I::NextReadableChapter(-1,1,false,false,{0,0,0,0,0},false)==-1);
 static_assert(I::NextReadableChapter(-1,1,true,false,{0,0,0,0,0},false)==0);
 static_assert(I::NextReadableChapter(0,1,true,false,{0,0,0,0,0},false)==0);
