@@ -344,7 +344,11 @@ void AMoonfallArena::BeginPlay() {
    if (CouncilMobileResidents.Num() < 4
        && (Person->SocialRole == FName(TEXT("Guard"))
            || Person->SocialRole == FName(TEXT("Scout")))
-       && Person->ConfigureCouncilWorkRoute(FVector(0.f, 100.f, 0.f)))
+       // Guards inspect the eastern watch lane; scouts survey a western lane.
+       // These short authored offsets keep residents inside the Crossroads.
+       && Person->ConfigureCouncilWorkRoute(
+           Person->SocialRole == FName(TEXT("Guard"))
+           ? FVector(100.f, 0.f, 0.f) : FVector(-100.f, 0.f, 0.f)))
     CouncilMobileResidents.Add(Person);
   }
  }
