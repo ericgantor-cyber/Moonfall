@@ -25,7 +25,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         self.assertIn("FString GetWorldCommunityOutlook() const;", header)
         outlook = hero.split("FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const", 1)[1].split(
-            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1)[0]
+            "bool AMoonfallHeroPawn::IsSanctuaryRoomUnlocked(", 1)[0]
         for expected in (
             "for (const auto& Entry : ResidentQuestStates)",
             "if (Entry.Value == 2) ++CompletedContracts;",
@@ -81,7 +81,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("bool SelectCouncilPreview(int32 DecisionId);", header)
         self.assertIn("int32 CouncilPreviewSelection = 0;", header)
         selection = hero.split("bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId)", 1)[1].split(
-            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1
+            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1
         )[0]
         for required in ("DecisionId < 0 || DecisionId > 2", "IsNearStartingSanctuary()",
                          "IsSanctuaryRoomUnlocked(4)", "CouncilPreviewSelection = DecisionId;"):
