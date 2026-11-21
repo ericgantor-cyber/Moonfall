@@ -924,20 +924,32 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 WornPieces = WornAffix > 0 ? Hero->GetSetPieceCount(WornAffix) : 0;
     const int32 ProjectedWornPieces = WornAffix > 0
       ? Hero->GetProjectedSetPieceCount(WornAffix, SelectedCode) : 0;
+    const int32 ProjectedSelectedPieces = bValidDetail && SelectedAffix > 0
+      ? Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode) : 0;
     const bool bLosesSetBonus = bValidDetail && WornAffix > 0
-      && (WornPieces >= 2 && ProjectedWornPieces < 2
-        || WornPieces >= 3 && ProjectedWornPieces < 3);
+      && ((WornPieces >= 2 && ProjectedWornPieces < 2)
+        || (WornPieces >= 3 && ProjectedWornPieces < 3));
+    const bool bGainsSetBonus = bValidDetail && SelectedAffix > 0
+      && ((SetPieces < 2 && ProjectedSelectedPieces >= 2)
+        || (SetPieces < 3 && ProjectedSelectedPieces >= 3));
+    // Show both changes when swapping between sets. A single warning must
+    // not hide a bonus unlocked by the replacement item.
+    const FString LossText = bLosesSetBonus
+      ? FString::Printf(TEXT("LOSE %s %d->%d"), DetailTraits[WornAffix],
+          WornPieces, ProjectedWornPieces) : FString();
+    const FString GainText = bGainsSetBonus
+      ? FString::Printf(TEXT("GAIN %s %d->%d"), DetailTraits[SelectedAffix],
+          SetPieces, ProjectedSelectedPieces) : FString();
     // Preview is read-only; projected counts never equip or save anything.
     const FString SetLine = !bValidDetail
       ? TEXT("SET PREVIEW: INVALID ITEM")
-      : bLosesSetBonus
-      ? FString::Printf(TEXT("SET BONUS LOSS: %s %d/3 -> %d/3"),
-          DetailTraits[WornAffix], WornPieces, ProjectedWornPieces)
+      : bLosesSetBonus || bGainsSetBonus
+      ? FString::Printf(TEXT("SET BONUSES: %s%s%s"), *LossText,
+          bLosesSetBonus && bGainsSetBonus ? TEXT("  |  ") : TEXT(""), *GainText)
       : SelectedAffix > 0
       ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
-          Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
-          SetEffects[SelectedAffix])
+          ProjectedSelectedPieces, SetEffects[SelectedAffix])
       : TEXT("SET PREVIEW: no set trait on this item");
     DrawText(SetLine, bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
       : FLinearColor(0.59f,0.95f,0.77f),
