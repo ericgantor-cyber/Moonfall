@@ -1,0 +1,98 @@
+#pragma once
+// An original Gothic Isle story bridge to the existing Six Roads Chronicle.
+// Read only: uses previously saved shrine discovery and resident quest states.
+// Does not extend the six-act/42-beat dungeon save masks or invent a boss kill.
+#include "MoonfallChronicle.h"
+
+namespace MoonfallIsleChronicle {
+inline constexpr int ChapterCount = 7;
+inline constexpr const char* Title = "The Seventh Witness";
+struct FChapter { const char* Id; const char* Title; const char* Lore; };
+inline constexpr FChapter Chapters[ChapterCount] = {
+ {"isle_ch1", "The Nightferry's Wake",
+  "Raven's Landing receives travelers whom the six roads have forgotten. Beneath the dock bell lies a ledger of boats that sailed after the moon fractured, though nobody remembers seeing them return."},
+ {"isle_ch2", "Mara's Missing Tide",
+  "Mara Vesper has kept the harbor's ruined manifests. One ship bore a message copied from every mainland capital, each copy arriving on the same impossible night."},
+ {"isle_ch3", "The Blackbell Testament",
+  "Brother Corvin guards a bell that has not been rung since the catastrophe. Its inner rim names six witnesses and leaves a seventh place empty. The absence may be deliberate."},
+ {"isle_ch4", "Names Beneath the Ash",
+  "Veyra Ash protects graves without bodies. Their memorials describe people who crossed the sea carrying records, not treasure, and were struck from the histories of their homes."},
+ {"isle_ch5", "The Last Lantern",
+  "Rook Thorn watches a coast where false beacons once guided ships onto the rocks. His surviving signal codes match the forged orders discovered in the Iron Foundry."},
+ {"isle_ch6", "Roots of the Unsaid",
+  "Elias Briar has found roots wrapped around fragments of a star chart. The markings echo Frostbound Reach, but point toward an island rather than an eclipse in the sky."},
+ {"isle_ch7", "The Seventh Witness",
+  "The harbor, bell, graves, watch and grove tell one story: the six mainland records were not the only testimony. The seventh witness must be heard before anyone judges the gods."}
+};
+enum class EState : int { Hidden = 0, Uncovered = 1, Cleared = 2 };
+struct FProgress {
+ bool Valid;
+ int Revealed;
+ int CompletedContracts;
+ int FeaturedChapter;
+ bool EpilogueReady;
+};
+constexpr bool ValidQuestState(int State) { return State >= 0 && State <= 2; }
+constexpr bool ValidQuests(const int (&Quests)[5]) {
+ for (int I = 0; I < 5; ++I)
+  if (!ValidQuestState(Quests[I])) return false;
+ return true;
+}
+constexpr bool AllContractsComplete(const int (&Quests)[5]) {
+ for (int I = 0; I < 5; ++I)
+  if (Quests[I] != 2) return false;
+ return true;
+}
+constexpr EState ChapterState(int Chapter, bool HarborDiscovered,
+ bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
+ if (Chapter < 0 || Chapter >= ChapterCount || !ValidQuests(Quests))
+  return EState::Hidden;
+ // Island evidence stays unavailable on a fresh mainland save.
+ if (!HarborDiscovered && !CathedralDiscovered)
+  return EState::Hidden;
+ if (Chapter == 0) return EState::Uncovered;
+ if (Chapter == 6)
+  return CathedralDiscovered && MainlandComplete && AllContractsComplete(Quests)
+   ? EState::Uncovered : EState::Hidden;
+ return Quests[Chapter - 1] == 2 ? EState::Cleared
+   : Quests[Chapter - 1] == 1 ? EState::Uncovered : EState::Hidden;
+}
+constexpr FProgress Summarize(bool HarborDiscovered, bool CathedralDiscovered,
+ const int (&Quests)[5], bool MainlandComplete) {
+ if (!ValidQuests(Quests)) return {false, 0, 0, 0, false};
+ int Count = 0, Complete = 0, Featured = 0;
+ bool FoundUnfinished = false;
+ for (int Chapter = 0; Chapter < ChapterCount; ++Chapter) {
+  const EState State = ChapterState(Chapter, HarborDiscovered,
+    CathedralDiscovered, Quests, MainlandComplete);
+  if (State != EState::Hidden) ++Count;
+  if (Chapter >= 1 && Chapter <= 5 && State == EState::Cleared) ++Complete;
+  if (!FoundUnfinished && Chapter >= 1 && Chapter <= 5
+      && State == EState::Uncovered) {
+   Featured = Chapter;
+   FoundUnfinished = true;
+  }
+ }
+ const bool Epilogue = ChapterState(6, HarborDiscovered, CathedralDiscovered,
+   Quests, MainlandComplete) != EState::Hidden;
+ if (Epilogue) Featured = 6;
+ return {true, Count, Complete, Featured, Epilogue};
+}
+constexpr const FChapter* RevealedChapter(int Chapter, bool HarborDiscovered,
+ bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
+ return ChapterState(Chapter, HarborDiscovered, CathedralDiscovered,
+   Quests, MainlandComplete) == EState::Hidden ? nullptr : &Chapters[Chapter];
+}
+static_assert(ChapterCount == 7, "Seven original Gothic Isle chapters");
+static_assert(MoonfallChronicle::TotalBeats == 42, "Keep mainland 42 beats");
+static_assert(Summarize(false, false, {0, 0, 0, 0, 0}, false).Revealed == 0,
+ "Fresh mainland saves do not reveal Gothic Isle");
+static_assert(Summarize(true, false, {0, 0, 0, 0, 0}, false).Revealed == 1,
+ "Harbor discovery reveals the prologue");
+static_assert(Summarize(true, true, {2, 2, 2, 2, 2}, true).EpilogueReady,
+ "All evidence and mainland completion reveal the final witness");
+static_assert(!Summarize(true, true, {2, 2, 2, 2, 2}, false).EpilogueReady,
+ "Isle epilogue cannot skip the mainland story");
+static_assert(!Summarize(true, true, {3, 0, 0, 0, 0}, true).Valid,
+ "Invalid quest state fails closed");
+} // namespace MoonfallIsleChronicle

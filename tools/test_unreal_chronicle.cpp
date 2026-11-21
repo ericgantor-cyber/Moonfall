@@ -1,5 +1,6 @@
 // Native-free regression suite for Moonfall's six-act, 42-beat storyline.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallChronicle.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallIsleChronicle.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -25,7 +26,65 @@ static_assert(!S::ValidProgress(0u, 1u));
 static_assert(!S::ValidProgress(1u << 30, 0u));
 static_assert(S::RevealedBeat(2, 5, 0u, 0u) == nullptr);
 
+namespace I = MoonfallIsleChronicle;
+static_assert(I::ChapterCount == 7);
+static_assert(I::ChapterState(0, false, false, {0,0,0,0,0}, false)
+  == I::EState::Hidden);
+static_assert(I::ChapterState(0, true, false, {0,0,0,0,0}, false)
+  == I::EState::Uncovered);
+static_assert(I::ChapterState(1, true, false, {1,0,0,0,0}, false)
+  == I::EState::Uncovered);
+static_assert(I::ChapterState(1, true, false, {2,0,0,0,0}, false)
+  == I::EState::Cleared);
+static_assert(I::ChapterState(6, true, true, {2,2,2,2,2}, false)
+  == I::EState::Hidden);
+static_assert(I::ChapterState(6, true, true, {2,2,2,2,2}, true)
+  == I::EState::Uncovered);
+static_assert(I::Summarize(true, true, {2,2,2,2,2}, true).Revealed == 7);
+static_assert(!I::Summarize(true, true, {-1,0,0,0,0}, true).Valid);
+static_assert(I::RevealedChapter(3, true, true, {0,0,0,0,0}, true) == nullptr);
+
 int main() {
+ int IsleEntries = 0;
+ for (int Chapter = 0; Chapter < I::ChapterCount; ++Chapter) {
+  const auto& Entry = I::Chapters[Chapter];
+  assert(std::strlen(Entry.Id) >= 7);
+  assert(std::strlen(Entry.Title) >= 8);
+  assert(std::strlen(Entry.Lore) >= 90);
+  for (int Other = 0; Other < Chapter; ++Other) {
+   assert(std::strcmp(Entry.Id, I::Chapters[Other].Id) != 0);
+   assert(std::strcmp(Entry.Title, I::Chapters[Other].Title) != 0);
+  }
+  ++IsleEntries;
+ }
+ assert(IsleEntries == 7);
+ // Exhaust valid combinations to protect new chapter spoilers and ledger.
+ for (int Q0 = 0; Q0 <= 2; ++Q0)
+ for (int Q1 = 0; Q1 <= 2; ++Q1)
+ for (int Q2 = 0; Q2 <= 2; ++Q2)
+ for (int Q3 = 0; Q3 <= 2; ++Q3)
+ for (int Q4 = 0; Q4 <= 2; ++Q4) {
+  const int Quests[5] = {Q0,Q1,Q2,Q3,Q4};
+  const auto NoIsland = I::Summarize(false,false,Quests,false);
+  assert(NoIsland.Revealed == 0);
+  for (int Ch=0; Ch<I::ChapterCount; ++Ch)
+   assert(I::RevealedChapter(Ch,false,false,Quests,false)==nullptr);
+  const auto Started = I::Summarize(true,true,Quests,false);
+  assert(Started.Valid);
+  assert(!Started.EpilogueReady);
+  assert(I::RevealedChapter(6,true,true,Quests,false)==nullptr);
+  int Completed = 0, StartedQuests = 0;
+  for(int j=0; j<5; ++j) {
+   Completed += Quests[j] == 2;
+   StartedQuests += Quests[j] >= 1;
+   assert((I::RevealedChapter(j+1,true,true,Quests,false)!=nullptr)
+      ==(Quests[j]>=1));
+  }
+  assert(Started.CompletedContracts==Completed);
+  assert(Started.Revealed==1+StartedQuests);
+  const auto WithMainland = I::Summarize(true,true,Quests,true);
+  assert(WithMainland.EpilogueReady==(Completed==5));
+ }
  int Total = 0;
  for (int Act=0; Act<S::ActCount; ++Act) {
   assert(std::strlen(S::RegionNames[Act]) >= 5);

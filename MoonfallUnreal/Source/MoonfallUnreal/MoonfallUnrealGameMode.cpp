@@ -1,6 +1,7 @@
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallArena.h"
+#include "MoonfallExpandedWorld.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallCombatHUD.h"
 #include "Engine/World.h"
@@ -39,6 +40,15 @@ void AMoonfallUnrealGameMode::BeginPlay()
  if (!bHasArena)
   GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
 
+ // Do not replace existing authored outdoor worlds, and keep dungeon
+ // generation independently controlled by its original option.
+ if (bGenerateExpandedOverworld) {
+  bool bHasExpandedWorld = false;
+  for (TActorIterator<AMoonfallExpandedWorld> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) { bHasExpandedWorld = true; break; }
+  if (!bHasExpandedWorld)
+   GetWorld()->SpawnActor<AMoonfallExpandedWorld>(FVector::ZeroVector, FRotator::ZeroRotator);
+ }
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);

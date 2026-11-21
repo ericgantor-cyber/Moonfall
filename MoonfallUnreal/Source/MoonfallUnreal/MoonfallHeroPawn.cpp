@@ -22,6 +22,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
+#include "MoonfallGothicFerry.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -370,6 +371,12 @@ void AMoonfallHeroPawn::BeginPlay() {
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
+ // Held swim ascent must be reapplied each frame, not just on key press.
+ // Keep combat, dialogue, menu and defeated input locks authoritative.
+ if (bSwimAscendHeld && Health > 0.f && !bOptionsOpen && !bInventoryOpen
+     && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
+  AddMovementInput(FVector::UpVector, 1.f);
  Super::Tick(DeltaSeconds);
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
@@ -566,7 +573,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
- Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
@@ -832,15 +839,29 @@ void AMoonfallHeroPawn::TryJump()
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ // Track held jump before entering the water, too. A player who
+ // jumps/falls into the sea while holding Jump should immediately ascend
+ // once swimming starts without releasing and pressing the key again.
+ bSwimAscendHeld = true;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
+  return;
  Jump();
+}
+void AMoonfallHeroPawn::ReleaseJump()
+{
+ bSwimAscendHeld = false;
+ StopJumping();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
-  const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
-  AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X), Value);
+  // Swim towards the camera's pitch; normal walking stays yaw-only.
+  const FRotator Rotation = GetCharacterMovement() && GetCharacterMovement()->IsSwimming()
+     ? Controller->GetControlRotation()
+     : FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f);
+  AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::X), Value);
  }
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
@@ -2735,7 +2756,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // or clamping values on the next load.
  static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
+  FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
+  FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
+  FName(TEXT("Thornwraith"))};
  static const FName SaveResidentIds[] = {
   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
@@ -2743,14 +2767,19 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("GothicRavenHarbormaster")),
+  FName(TEXT("GothicBlackbellKeeper")),
+  FName(TEXT("GothicGraveWarden")),
+  FName(TEXT("GothicDuskwatchSentinel")),
+  FName(TEXT("GothicThornwraithScholar"))
  };
- for (const auto& Entry : FactionReputation)
-  if (!SaveFactionIds[0].IsNone() &&
-      !((Entry.Key == SaveFactionIds[0]) || (Entry.Key == SaveFactionIds[1])
-       || (Entry.Key == SaveFactionIds[2]) || (Entry.Key == SaveFactionIds[3])
-       || (Entry.Key == SaveFactionIds[4])) || Entry.Value < -100 || Entry.Value > 100)
-   return false;
+ for (const auto& Entry : FactionReputation) {
+  bool bKnownFaction = false;
+  for (const FName Id : SaveFactionIds)
+   if (Entry.Key == Id) { bKnownFaction = true; break; }
+  if (!bKnownFaction || Entry.Value < -100 || Entry.Value > 100) return false;
+ }
  for (const auto& Entry : ResidentBonds) {
   bool bKnownResident = false;
   for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
@@ -2847,7 +2876,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (Save->Version >= 4) {
   static const FName AllowedFactionIds[] = {FName(TEXT("Wanderers")),
    FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
+   FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
+   FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
+   FName(TEXT("Thornwraith"))};
   for (const auto& Entry : Save->FactionReputation) {
    bool bKnown = false;
    for (const FName Id : AllowedFactionIds) if (Entry.Key == Id) { bKnown = true; break; }
@@ -2866,7 +2898,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("GothicRavenHarbormaster")),
+   FName(TEXT("GothicBlackbellKeeper")),
+   FName(TEXT("GothicGraveWarden")),
+   FName(TEXT("GothicDuskwatchSentinel")),
+   FName(TEXT("GothicThornwraithScholar"))
   };
   for (const auto& Entry : Save->ResidentBonds) {
    bool bKnown = false;
@@ -3377,7 +3414,18 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // Controller D-pad Up near either ferry dock boards the Nightferry.
+  // This is an input-driven check, never a per-tick world actor scan.
+  for (TActorIterator<AMoonfallGothicFerry> It(GetWorld()); It; ++It) {
+   AMoonfallGothicFerry* Ferry = *It;
+   if (IsValid(Ferry) && !Ferry->IsUnderway() && Ferry->TryBoard(this)) {
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+    return;
+   }
+  }
+  return;
+ }
  // A conversation should release held combat movement immediately.
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -3422,6 +3470,15 @@ void AMoonfallHeroPawn::CastRightMouse() {
   }
  }
  if (bHit) {
+  if (AMoonfallGothicFerry* Ferry = Cast<AMoonfallGothicFerry>(Hit.GetActor())) {
+   // Targeted right-click boards ONLY when in range of a moored ferry.
+   // Aimed at any other world object, right-click remains a spell.
+   if (Ferry->TryBoard(this))
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+   else
+    OnResidentQuestFeedback(FText::FromString(TEXT("Approach the dock to board.")), false);
+   return;
+  }
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
@@ -3693,7 +3750,12 @@ bool IsMoonfallFaction(FName Faction) {
     || Faction == FName(TEXT("VerdantCircle"))
     || Faction == FName(TEXT("StoneHearth"))
     || Faction == FName(TEXT("MoonCoven"))
-    || Faction == FName(TEXT("AshenClans"));
+    || Faction == FName(TEXT("AshenClans"))
+    || Faction == FName(TEXT("GothicHarbor"))
+    || Faction == FName(TEXT("BlackbellOrder"))
+    || Faction == FName(TEXT("Gravewardens"))
+    || Faction == FName(TEXT("Duskwatch"))
+    || Faction == FName(TEXT("Thornwraith"));
 }
 }
 int32 AMoonfallHeroPawn::GetFactionReputation(FName Faction) const {
@@ -3725,7 +3787,12 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("GothicRavenHarbormaster")),
+  FName(TEXT("GothicBlackbellKeeper")),
+  FName(TEXT("GothicGraveWarden")),
+  FName(TEXT("GothicDuskwatchSentinel")),
+  FName(TEXT("GothicThornwraithScholar"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;

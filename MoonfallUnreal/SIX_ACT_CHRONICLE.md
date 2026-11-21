@@ -232,6 +232,45 @@ At the Eclipse Throne, the six threads of evidence converge on a chamber still w
 
 With the six roads explored and the Eclipse Wastes quiet, the chronicle ends at a choice still unwritten. The gods remain themselves; the next confrontation deserves its own authored quest.
 
+## Gothic Isle story bridge: The Seventh Witness
+
+Gothic Isle now has a **separate seven-chapter narrative companion** to
+the six mainland acts. It does **not** change the original 6 x 7 = 42
+mainland chapters, overwrite dungeon progression, modify Z/Nyra, or
+change the save format. The original island residents and shrines in the
+expanded world supply its existing, persistent progression evidence.
+
+| Chapter | Title | Unlock |
+| --- | --- | --- |
+| 1 | The Nightferry's Wake | Discover Raven's Landing or Blackbell shrine |
+| 2 | Mara's Missing Tide | Accept Mara Vesper's existing contract |
+| 3 | The Blackbell Testament | Accept Brother Corvin's contract |
+| 4 | Names Beneath the Ash | Accept Veyra Ash's contract |
+| 5 | The Last Lantern | Accept Rook Thorn's contract |
+| 6 | Roots of the Unsaid | Accept Elias Briar's contract |
+| 7 | The Seventh Witness | Discover Blackbell shrine, complete all five contracts, and finish all six mainland acts |
+
+Resident chapters change from DISCOVERED to CLEARED when their
+existing contracts are completed. The final chapter is evidence for a
+future divine main-story confrontation, not a claim that a final boss
+scene, island dungeon, or cinematic ending already exists.
+
+Island residents and their five factions are registered in both the live
+quest/reputation validators and the save/load allowlists, so accepted
+contracts, bond progress and faction rewards can persist with the
+existing save format. Unknown IDs are still rejected.
+
+The **J Atlas** sidebar shows a read-only `ISLE x/7` progress line
+(and completed contract count on noncompact layouts), using the
+existing saved shrine and contract states. The island's full prose
+exists in `MoonfallIsleChronicle.h` and is spoiler-gated by a
+native-free access API; **a separate in-game seven-tab island reader
+has not yet been wired into the Atlas**. The existing six-act reader,
+its mouse/controller controls, and all mainland lore stay unchanged.
+Source tests cover every valid five-contract state combination, fresh
+save spoiler protection, and preservation of the 42-chapter contract.
+Native Unreal Windows gameplay testing is still required.
+
 ## Gameplay and narrative direction after this pass
 
 The seven chapters of an act are not seven new quests: they are **42 lore beats tied to existing progression**, so the player discovers the story while enjoying the connected world. A future full narrative implementation can connect them to voiced NPC scenes, unique encounters, branching faction responses, in-world artifacts, journal history and authored cinematic transitions.

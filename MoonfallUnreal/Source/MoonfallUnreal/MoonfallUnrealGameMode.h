@@ -19,6 +19,10 @@ public:
  static constexpr int32 TotalDungeons = DungeonZoneCount * DungeonsPerZone;
  static constexpr float DungeonLaneSpacing = 1350.f;
 
+ // Independent of the existing dungeon toggle: outdoor regions can be
+ // tested without changing authored arenas, saves or the 30 dungeon lanes.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Overworld")
+ bool bGenerateExpandedOverworld = true;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
