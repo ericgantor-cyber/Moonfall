@@ -277,6 +277,19 @@ Source tests cover every valid five-contract state combination, fresh
 save spoiler protection, and preservation of the 42-chapter contract.
 Native Unreal Windows gameplay testing is still required.
 
+### November bloat/performance follow-up
+
+The Gothic Isle service spawner now catalogs existing shrine IDs and
+resident IDs in **two world actor scans total**, instead of repeating
+an actor scan for each of the seven island services. It still checks
+stable IDs before spawning and adds successfully spawned services to
+the same local deduplication sets.
+
+The island Atlas progress summary now validates quest states once and
+counts five contracts in a single pass. The per-chapter visibility API
+is retained for future spoiler-safe readers. These are bounded source
+optimizations, not claims of measured UE5 frame-rate improvements.
+
 ## Gameplay and narrative direction after this pass
 
 The seven chapters of an act are not seven new quests: they are **42 lore beats tied to existing progression**, so the player discovers the story while enjoying the connected world. A future full narrative implementation can connect them to voiced NPC scenes, unique encounters, branching faction responses, in-world artifacts, journal history and authored cinematic transitions.
