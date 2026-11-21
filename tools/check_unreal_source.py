@@ -2042,8 +2042,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f) return;", begin)
-        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f) return;"),
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;", begin)
+        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;"),
                         begin.index("bSprintHeld = true;"))
 
     def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
@@ -5836,7 +5836,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         guarded = {
             "CastBoth": "if (bOptionsOpen || bAtlasOpen) return;",
             "BeginGuard": "bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f",
-            "BeginSprint": "if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f) return;",
+            "BeginSprint": "if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;",
             "Dodge": "bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid()",
         }
         for method, guard in guarded.items():
