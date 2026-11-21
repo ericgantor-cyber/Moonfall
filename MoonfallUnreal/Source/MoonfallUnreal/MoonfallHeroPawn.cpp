@@ -2756,7 +2756,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // or clamping values on the next load.
  static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
+  FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
+  FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
+  FName(TEXT("Thornwraith"))};
  static const FName SaveResidentIds[] = {
   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
@@ -2771,12 +2774,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("GothicDuskwatchSentinel")),
   FName(TEXT("GothicThornwraithScholar"))
  };
- for (const auto& Entry : FactionReputation)
-  if (!SaveFactionIds[0].IsNone() &&
-      !((Entry.Key == SaveFactionIds[0]) || (Entry.Key == SaveFactionIds[1])
-       || (Entry.Key == SaveFactionIds[2]) || (Entry.Key == SaveFactionIds[3])
-       || (Entry.Key == SaveFactionIds[4])) || Entry.Value < -100 || Entry.Value > 100)
-   return false;
+ for (const auto& Entry : FactionReputation) {
+  bool bKnownFaction = false;
+  for (const FName Id : SaveFactionIds)
+   if (Entry.Key == Id) { bKnownFaction = true; break; }
+  if (!bKnownFaction || Entry.Value < -100 || Entry.Value > 100) return false;
+ }
  for (const auto& Entry : ResidentBonds) {
   bool bKnownResident = false;
   for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
