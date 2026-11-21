@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallChronicle.h"
+#include "MoonfallIsleChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
@@ -1335,6 +1336,24 @@ void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
  // chapter tab is selected, it stays readable until the region changes.
+ if (bAtlasChronicleFocus && bAtlasIsleReader) {
+  const int Quests[5] = {
+   GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto Mainland = MoonfallChronicle::SummarizeWorld(
+   static_cast<uint32>(DiscoveredDungeonMask),
+   static_cast<uint32>(DefeatedDungeonBossMask));
+  AtlasChronicleChapter = MoonfallIsleChronicle::NextReadableChapter(
+   AtlasChronicleChapter, 0,
+   HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+   HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+   Quests, Mainland.Valid && Mainland.ChronicleComplete);
+  return;
+ }
  if (bAtlasChronicleFocus && AtlasChronicleChapter < 0) {
   const auto State = MoonfallChronicle::Summarize(
     FMath::Clamp(AtlasSelectedRegion, 0, 5),
@@ -1345,6 +1364,24 @@ void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
 }
 void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
  if (!bAtlasOpen || !bAtlasChronicleFocus || (Direction != -1 && Direction != 1)) return;
+ if (bAtlasIsleReader) {
+  const int Quests[5] = {
+   GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto Mainland = MoonfallChronicle::SummarizeWorld(
+   static_cast<uint32>(DiscoveredDungeonMask),
+   static_cast<uint32>(DefeatedDungeonBossMask));
+  AtlasChronicleChapter = MoonfallIsleChronicle::NextReadableChapter(
+   AtlasChronicleChapter, Direction,
+   HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+   HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+   Quests, Mainland.Valid && Mainland.ChronicleComplete);
+  return;
+ }
  const auto State = MoonfallChronicle::Summarize(
    FMath::Clamp(AtlasSelectedRegion, 0, 5),
    static_cast<uint32>(DiscoveredDungeonMask),
@@ -1361,6 +1398,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (!bAtlasOpen) {
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
+  bAtlasIsleReader = false;
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
