@@ -55,6 +55,15 @@ def main():
         "Gamepad_LeftTrigger": {"DualCast","EquipBest"},
         "Gamepad_RightShoulder": {"CastRight","ForgeFive"},
     }
+    # Current Atlas uses RightThumbstick for Chronicle focus, while combat
+    # uses the same button for Guard. Only this exact pair is permitted.
+    # The branch can also run before Chronicle lands from main.
+    thumb_actions = actions.get("Gamepad_RightThumbstick", set())
+    if thumb_actions == {"ChronicleFocus", "Guard"}:
+        expected_contextual["Gamepad_RightThumbstick"] = {"ChronicleFocus", "Guard"}
+    elif thumb_actions != {"Guard"}:
+        raise SystemExit("Unexpected RightThumbstick action mapping: " +
+                         str(sorted(thumb_actions)))
     for key, actions_expected in expected_contextual.items():
         actual = actions.get(key,set())
         if not actions_expected.issubset(actual):
@@ -66,6 +75,17 @@ def main():
                          str({k:v for k,v in conflicts.items()
                               if k not in expected_contextual}))
     pawn=(ROOT/"MoonfallUnreal"/"Source"/"MoonfallUnreal"/"MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+    if "ChronicleFocus" in thumb_actions:
+        # Both mapped callbacks execute on the same press; the Atlas focus
+        # callback must be disabled in gameplay, Guard disabled in Atlas.
+        chronicle=pawn.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[1].split(
+            "void AMoonfallHeroPawn::StepAtlasChronicle(",1)[0]
+        guard=pawn.split("void AMoonfallHeroPawn::BeginGuard()",1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()",1)[0]
+        if "if (!bAtlasOpen" not in chronicle.split("return;",1)[0]:
+            raise SystemExit("Chronicle focus must be disabled outside the Atlas")
+        if "bAtlasOpen" not in guard.split("return;",1)[0]:
+            raise SystemExit("Guard must be disabled inside the Atlas")
     jump_section=pawn.split("void AMoonfallHeroPawn::TryJump()",1)[1].split(
         "void AMoonfallHeroPawn::MoveForward(",1)[0]
     assert "PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)" in jump_section
