@@ -759,7 +759,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         defeat = self.hero_cpp.split("if (Health <= 0.f) {\n  CloseResidentContext();", 1)[1].split("\n }", 1)[0]
-        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;", close)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;", close)
         self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid())", escape)
         self.assertIn("bInventoryOpen = false;", defeat)
         self.assertIn("bCharacterStatsOpen = false;", defeat)
