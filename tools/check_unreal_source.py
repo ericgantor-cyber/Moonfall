@@ -641,18 +641,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", hud)
         self.assertIn("const bool bWornValid = bValidDetail && Hero->InventoryItemCodes.Contains(CurrentlyWorn)", hud)
         self.assertIn("Hero->GetProjectedSetPieceCount(WornAffix, SelectedCode)", hud)
-        self.assertIn("WornPieces >= 2 && ProjectedWornPieces < 2", hud)
-        self.assertIn("WornPieces >= 3 && ProjectedWornPieces < 3", hud)
-        self.assertIn("SetPieces < 2 && ProjectedSelectedPieces >= 2", hud)
-        self.assertIn("SetPieces < 3 && ProjectedSelectedPieces >= 3", hud)
+        self.assertIn('#include "MoonfallSetBonusThresholds.h"', self.hud)
+        self.assertIn("MoonfallSetBonusThresholds::Lost(WornPieces, ProjectedWornPieces)", hud)
+        self.assertIn("MoonfallSetBonusThresholds::Gained(SetPieces, ProjectedSelectedPieces)", hud)
+        self.assertIn("const bool bLosesSetBonus = LostThreshold > 0;", hud)
+        self.assertIn("const bool bGainsSetBonus = GainedThreshold > 0;", hud)
+
+
+
+
         self.assertIn('TEXT("2pc +3% crit")', hud)
         self.assertIn('TEXT("3pc +4% mastery")', hud)
         self.assertIn('TEXT("2pc +3% versatility")', hud)
         self.assertIn('TEXT("3pc +2.5% protection")', hud)
         self.assertIn('TEXT("2pc +4% haste")', hud)
         self.assertIn('TEXT("3pc +6% mana regen")', hud)
-        self.assertIn("WornPieces >= 3 && ProjectedWornPieces < 3", hud)
-        self.assertIn("SetPieces < 3 && ProjectedSelectedPieces >= 3", hud)
+
+
         self.assertIn('TEXT("LOSE %s %s")', hud)
         self.assertIn('TEXT("GAIN %s %s")', hud)
         self.assertIn("const bool bTwoSetChanges = bLosesSetBonus && bGainsSetBonus;", hud)
