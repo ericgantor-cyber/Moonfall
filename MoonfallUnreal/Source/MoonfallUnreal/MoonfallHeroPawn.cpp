@@ -46,7 +46,7 @@ namespace {
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ if (Code <= 0 || !MoonfallEquipmentSlots::IsKnownSlot(ExpectedSlot)) return false;
  const int32 Trait = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
@@ -82,8 +82,13 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
  if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
- // New slots have no corresponding persistent or validated gear codes yet.
- if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return 0;
+ // Additional slots are validated against the V13 array and ownership.
+ if (MoonfallEquipmentSlots::IsFutureSlot(Slot)) {
+  if (EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount) return 0;
+  const int32 ExtraCode = EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+  return ExtraCode > 0 && MoonfallEquipmentSlots::IsCanonicalForSlot(ExtraCode, Slot)
+      && InventoryItemCodes.Contains(ExtraCode) ? ExtraCode : 0;
+ }
  const int32 Codes[MoonfallEquipmentSlots::LegacyCount] = {
   EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode
  };
@@ -107,7 +112,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
  // Use the same strict decoder as equipped combat stats. No save mutations.
  if (ItemCode <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
  return Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0);
@@ -2803,14 +2808,21 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
- // Keep the equipped references consistent with the bag; otherwise the loader
- // would silently clear an equipped slot on the next launch.
+ // Validate both legacy references and V13 extended slots BEFORE writing.
  const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::LegacyCount; ++Slot) {
   const int32 Code = WornCodes[Slot];
   if (Code != 0 && (!ValidMoonfallItemCode(Code)
       || ((Code / 10000) % 10) != Slot || !InventoryItemCodes.Contains(Code)))
    return false;
+ }
+ if (EquippedExtraItemCodes.Num() != 0
+     && EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount) return false;
+ for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Code = EquippedExtraItemCodes.IsEmpty()
+      ? 0 : EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+  if (Code != 0 && (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)
+      || !InventoryItemCodes.Contains(Code))) return false;
  }
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
@@ -2855,6 +2867,24 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ // Only create a V13 save when extra-slot items need preservation.
+ // Otherwise write V12 for maximum backward compatibility.
+ bool bNeedsV13 = false;
+ for (const int32 Code : InventoryItemCodes)
+  if (MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)) { bNeedsV13 = true; break; }
+ if (!bNeedsV13)
+  for (const int32 Code : EquippedExtraItemCodes)
+   if (Code > 0) { bNeedsV13 = true; break; }
+ if (bNeedsV13) {
+  Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion;
+  Save->ExpandedEquippedCodes.Init(0, MoonfallEquipmentSlots::SlotCount);
+  Save->ExpandedEquippedCodes[0] = EquippedWeaponCode;
+  Save->ExpandedEquippedCodes[1] = EquippedArmorCode;
+  Save->ExpandedEquippedCodes[2] = EquippedAccessoryCode;
+  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+   Save->ExpandedEquippedCodes[Slot] = EquippedExtraItemCodes.IsEmpty()
+       ? 0 : EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+ } // V12 stays unchanged when there are no extra-slot items.
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
@@ -2863,7 +2893,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedSaveVersion) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2950,6 +2980,29 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
    return false;
   }
+ }
+ // Validate V13's full equipment snapshot before changing any live state.
+ // Old saves have no nine-slot field, so any unexpected extra data fails closed.
+ if (Save->Version >= MoonfallEquipmentSlots::ExpandedSaveVersion) {
+  if (Save->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+   const int32 Code = Save->ExpandedEquippedCodes[Slot];
+   if (Slot < MoonfallEquipmentSlots::LegacyCount && Code != SavedWornCodes[Slot]) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+   if (Code != 0 && (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)
+       || !Save->InventoryItemCodes.Contains(Code))) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ } else if (!Save->ExpandedEquippedCodes.IsEmpty()) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
  }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
@@ -3150,6 +3203,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ EquippedExtraItemCodes.Init(0, MoonfallEquipmentSlots::FutureCount);
+ if (Save->Version >= MoonfallEquipmentSlots::ExpandedSaveVersion) {
+  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+   EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount] =
+     Save->ExpandedEquippedCodes[Slot];
+ }
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
