@@ -42,6 +42,9 @@ public:
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UStaticMeshComponent> Hull;
+ // Collision-enabled moving platform; player movement remains enabled onboard.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
+ TObjectPtr<UStaticMeshComponent> Deck;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UStaticMeshComponent> Mast;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
