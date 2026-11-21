@@ -3921,7 +3921,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
         self.assertIn("bShowAllSlots ? 22.f : 18.f", page)
         self.assertIn("const bool bShowAllSlots = PanelHeight >= 520.f;", page)
-        self.assertIn("const bool bUseSlotGrid = PanelHeight >= 700.f && PanelWidth >= 550.f;", page)
+        self.assertIn("const bool bUseSlotGrid = PanelHeight >= 640.f && PanelWidth >= 550.f;", page)
+        # A 1280x720 viewport gives a 614px-wide, 696px-high panel.
+        viewport_w, viewport_h = 1280, 720
+        panel_w = min(720.0, max(280.0, min(viewport_w - 24.0, viewport_w * 0.48)))
+        panel_h = min(860.0, max(280.0, viewport_h - 24.0))
+        self.assertGreaterEqual(panel_w, 550.0)
+        self.assertGreaterEqual(panel_h, 640.0)
+        self.assertLess(panel_h, 700.0)
         self.assertIn("VisibleCharacterRows = bUseSlotGrid ? 18", page)
         self.assertIn("bShowAllSlots ? UE_ARRAY_COUNT(CharacterLines) : 18", page)
         self.assertIn("EQUIPMENT SLOTS  |  3 EQUIPPABLE, 6 FUTURE", page)
@@ -3955,7 +3962,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("(PanelHeight - (bUseSlotGrid ? 350.f : 145.f))", page)
         # With the minimum full-grid height, five equipment rows stop well
         # above the footer and stats have a separate reserved region.
-        for height in (700, 860):
+        for height in (640, 696, 860):
             grid_top = height - 225
             fifth_tile_bottom = grid_top + 22 + 4 * 31 + 27
             footer_top = height - 29
