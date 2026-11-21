@@ -50,6 +50,9 @@ class GothicFerryContracts(unittest.TestCase):
             self.assertIn(requirement, boarding, requirement)
         self.assertLess(boarding.index("FMath::Square(DockReach)"),
                         boarding.index("Hero->SetActorLocation(BoardingLocation"))
+        self.assertIn("GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation())", boarding)
+        self.assertLess(boarding.index("FindTeleportSpot(Hero, BoardingLocation"),
+                        boarding.index("Hero->SetActorLocation(BoardingLocation"))
         self.assertIn("Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform)", boarding)
         self.assertIn("Movement->StopMovementImmediately();", boarding)
         self.assertIn("Movement->DisableMovement();", boarding)
