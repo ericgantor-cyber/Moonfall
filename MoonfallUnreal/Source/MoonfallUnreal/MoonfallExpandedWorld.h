@@ -41,8 +41,8 @@ private:
  UPROPERTY(Transient) TMap<int32, TObjectPtr<AMoonfallOverworldTile>> ResidentTiles;
  FTimerHandle StreamingTimer;
  FTimerHandle SeaSwimmingTimer;
- // Maximum one nearby non-boss enemy per Gothic Isle landmark. A defeated
- // encounter stays cleared until the player leaves that district.
+ // Five bounded district encounters plus one separate cathedral guardian.
+ // Each defeated encounter stays cleared until the player leaves its site.
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> IslandEncounters;
  TSet<int32> ClearedIslandEncounters;
  void UpdateGothicIsleEncounters(const FVector& PlayerPosition);
