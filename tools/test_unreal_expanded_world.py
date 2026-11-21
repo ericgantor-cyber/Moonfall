@@ -84,6 +84,32 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertNotIn("SetCollisionEnabled(", section)
         self.assertIn("MaxResidentTiles = 25;", self.world_h)
 
+    def test_gothic_isle_uses_existing_persistent_shrines_and_npc_quests(self):
+        island = self.world.split("void AMoonfallExpandedWorld::SpawnGothicIsleServices()", 1)[1].split(
+            "void AMoonfallExpandedWorld::BeginPlay()", 1)[0]
+        self.assertIn("SpawnGothicIsleServices();", self.world)
+        self.assertIn('MoonfallCheckpointShrine.h', self.world)
+        self.assertIn('MoonfallWorldNPC.h', self.world)
+        for name in ("gothic_ravens_landing", "gothic_blackbell"):
+            self.assertIn(name, island)
+        for name in ("GothicRavenHarbormaster", "GothicBlackbellKeeper",
+                     "GothicGraveWarden", "GothicDuskwatchSentinel",
+                     "GothicThornwraithScholar"):
+            self.assertIn(name, island)
+        self.assertEqual(island.count("Shrine->ShrineId = StableId;"), 1)
+        self.assertEqual(island.count("NPC->ResidentId = StableId;"), 1)
+        self.assertIn("Shrine->CheckHeroAtSpawn(Hero);", island)
+        self.assertIn("NPC->FactionId = FName(Spec.Faction);", island)
+        self.assertIn("NPC->SettlementId = FName(TEXT(\"GothicIsle\"));", island)
+        self.assertIn("NPC->SocialRole = FName(Spec.Role);", island)
+        self.assertIn("NPC->RaceId = Spec.Race;", island)
+        self.assertIn("TActorIterator<AMoonfallCheckpointShrine>", island)
+        self.assertIn("TActorIterator<AMoonfallWorldNPC>", island)
+        self.assertEqual(island.count("ESpawnActorCollisionHandlingMethod::AlwaysSpawn"), 2)
+        self.assertNotIn("PrimaryActorTick", island)
+        self.assertNotIn("SetTimer(", island)
+        self.assertNotIn("SaveGameToSlot", island)
+
     def test_walkable_tile_ground_but_decorations_do_not_collide(self):
         self.assertIn("Terrain->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)", self.tile)
         self.assertIn("Terrain->SetCollisionResponseToAllChannels(ECR_Block)", self.tile)
