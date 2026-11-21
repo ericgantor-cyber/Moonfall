@@ -224,6 +224,7 @@ class GothicFerryContracts(unittest.TestCase):
         swimming = self.world.split("void AMoonfallExpandedWorld::UpdateSeaSwimming()", 1)[1].split(
             "void AMoonfallExpandedWorld::RefreshNearbyTiles()", 1)[0]
         self.assertIn("TWeakObjectPtr<class AMoonfallHeroPawn> SeaSwimmer;", world_header)
+        self.assertIn("FMath::Abs(Position.X) < 1300.f", swimming)
         self.assertIn("Position.Y > 238000.f && Position.Y < 246000.f", swimming)
         self.assertIn("Position.Z < -40.f", swimming)
         self.assertIn("const bool bLeaveWater = !bSeaGap || Position.Z > 60.f;", swimming)
