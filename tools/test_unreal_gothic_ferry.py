@@ -71,9 +71,14 @@ class GothicFerryContracts(unittest.TestCase):
                         completion.index("Movement->SetMovementMode(MOVE_Walking)"))
         self.assertLess(completion.index("Rider->DetachFromActor("),
                         completion.index("Rider->SetActorLocation(Landing"))
-        # Safe landfall is also in interaction range, so the reverse
-        # trip can be started by controller without precision positioning.
-        self.assertLessEqual(800.0, 950.0)
+        # Read the actual C++ constants rather than re-asserting literals:
+        # safe landfall must stay within controller boarding reach.
+        reach = re.search(r"DockReach = (\\d+)\\.f;", self.h)
+        landing = re.search(r"IntoLand = bAtIsland \\? (\\d+)\\.f : -(\\d+)\\.f;", completion)
+        self.assertIsNotNone(reach)
+        self.assertIsNotNone(landing)
+        self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
+                             int(reach.group(1)))
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) FinishCrossing(false);", self.boat)
         self.assertIn("GetWorldTimerManager().ClearTimer(CrossingTimer);", self.boat)
