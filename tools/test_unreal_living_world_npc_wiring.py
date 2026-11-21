@@ -90,6 +90,34 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("if (Row == 3", hero)
         self.assertIn("if (Choice == 3) return PurchaseResidentWorkItem();", hero)
 
+    def test_moral_consequences_use_read_only_character_meter_and_saved_npc_markers(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        sheet = hud.split("if (Hero->bCharacterStatsOpen)", 1)[1].split(
+            "// Identical button rectangle to HitTestInventorySortButton", 1
+        )[0]
+        for expected in ("Good / Evil: %s (%+d)", "FMath::Clamp(Hero->MoralAlignment, -100, 100)",
+                         "MoralScore < 0", "FMath::Abs(MoralScore) / 200.f",
+                         "MoralMeterWidth"):
+            self.assertIn(expected, sheet)
+        for forbidden in ("SetActorLocation(", "SaveWorldProgress(", "SetMaterial(", "SpawnActor("):
+            self.assertNotIn(forbidden, sheet)
+        sign = npc.split("void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(", 1)[1].split(
+            "void AMoonfallWorldNPC::RefreshCouncilStationActivity(", 1
+        )[0]
+        for required in ("ResidentMoralChoices.Find(ResidentId)", "[HELPED]",
+                         "[THREATENED]", "FColor(125, 231, 164)",
+                         "FColor(232, 123, 133)"):
+            self.assertIn(required, sign)
+        choice = hero.split("bool AMoonfallHeroPawn::CommitResidentMoralChoice()", 1)[1].split(
+            "bool AMoonfallHeroPawn::PurchaseResidentWorkItem()", 1
+        )[0]
+        self.assertLess(choice.index("if (!SaveWorldProgress())"),
+                        choice.index("Resident->RefreshCouncilAssignmentSign(this);"))
+        self.assertIn("I remember the help you gave me.", npc)
+        self.assertIn("I remember how you threatened me.", npc)
+
     def test_good_evil_choices_persist_and_rollback_atomically(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -325,7 +353,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         for expected in ("ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)",
                          "CouncilAssignmentSign->SetVisibility(false)", "CouncilAssignmentSign->SetVisibility(true)",
                          'SettlementId == FName(TEXT("Crossroads"))', "Hero->CouncilDecisionId >= 0",
-                         "GetCouncilAssignment(Hero).Left(36)"):
+                         "GetCouncilAssignment(Hero).Left(24)"):
             self.assertIn(expected, npc)
         for forbidden in ("SaveWorldProgress(", "SpawnActor(", "SetActorLocation(", "GetTimerManager()"):
             self.assertNotIn(forbidden, method)
