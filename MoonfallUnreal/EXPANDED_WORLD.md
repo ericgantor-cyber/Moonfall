@@ -188,6 +188,18 @@ native builds and representative Windows machines can be profiled.
 - The 11-second duration matches the Gothic Raven prototype in PR #1077.
   Reconcile both ferry implementations before merging.
 
+## Region-level streaming cull (source optimization)
+
+The 0.35-second terrain refresh now skips a whole 5x5 region when
+the player's X or Y distance from its center exceeds the existing
+46,000cm tile-loading radius plus the maximum 40,000cm tile-center
+offset. The filter is deliberately conservative: it cannot discard
+any candidate tile that meets the original circular load-radius test.
+All seven region centers, the 25 resident-tile limit, three-tile
+spawn budget, and unload hysteresis remain unchanged. The source
+regression checks the boundary and a broad coordinate sample; actual
+runtime CPU/frame-time benefits still need UE5 profiling.
+
 ## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
