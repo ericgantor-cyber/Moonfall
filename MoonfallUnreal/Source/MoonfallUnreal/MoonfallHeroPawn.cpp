@@ -626,12 +626,18 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // never change. Original position is the stable tie-breaker for duplicates.
  Order.Sort([this](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
-  const int32 SlotA = CodeA > 0 ? (CodeA / 10000) % 10 : 99;
-  const int32 SlotB = CodeB > 0 ? (CodeB / 10000) % 10 : 99;
-  const int32 RarityA = CodeA > 0 ? (CodeA / 1000) % 10 : -1;
-  const int32 RarityB = CodeB > 0 ? (CodeB / 1000) % 10 : -1;
-  const int32 TierA = CodeA > 0 ? CodeA % 1000 : -1;
-  const int32 TierB = CodeB > 0 ? CodeB % 1000 : -1;
+  // The shared equipped-item decoder rejects malformed rarity/slot/tier/trait
+  // encodings. An invalid code must never outrank real gear in quality sort.
+  const bool bValidA = GetItemPower(CodeA) > 0;
+  const bool bValidB = GetItemPower(CodeB) > 0;
+  if (bValidA != bValidB) return bValidA;
+  if (!bValidA) return A < B;
+  const int32 SlotA = (CodeA / 10000) % 10;
+  const int32 SlotB = (CodeB / 10000) % 10;
+  const int32 RarityA = (CodeA / 1000) % 10;
+  const int32 RarityB = (CodeB / 1000) % 10;
+  const int32 TierA = CodeA % 1000;
+  const int32 TierB = CodeB % 1000;
   if (InventorySortMode == 1) {
    if (RarityA != RarityB) return RarityA > RarityB;
    if (TierA != TierB) return TierA > TierB;
