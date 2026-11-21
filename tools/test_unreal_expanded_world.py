@@ -141,6 +141,17 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertLess(combat.index("if (!bHeroReady ||"), combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertLess(combat.index("if (DistanceSquared > FMath::Square(18000.f))"),
                         combat.index("if (!bHeroReady ||"))
+        self.assertIn("SiteColumn = FMath::FloorToInt(", combat)
+        self.assertIn("SiteRow = FMath::FloorToInt(", combat)
+        self.assertIn("AMoonfallOverworldTile::TileSize", combat)
+        self.assertIn("const int32 SiteTileId = 6 * TilesPerRegion", combat)
+        self.assertIn("ResidentTiles.Find(SiteTileId)", combat)
+        self.assertIn("!IsValid(GroundTile->Get())", combat)
+        self.assertIn("GroundTile->Get()->IsActorBeingDestroyed()", combat)
+        self.assertLess(combat.index("ResidentTiles.Find(SiteTileId)"),
+                        combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertLess(self.world.index("UpdateGothicIsleEncounters(PlayerPosition);"),
+                        self.world.index("// Unload beyond a wider hysteresis radius"))
         self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
         self.assertIn("IslandEncounters.Empty();", self.world)
         self.assertNotIn("SetTimer(", combat)
