@@ -378,6 +378,8 @@ void AMoonfallCombatHUD::DrawHUD()
   for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations) {
    const FString ShrineTitle = Hero->AtlasDiscoveredShrineNames.IsValidIndex(AtlasShrineIndex)
        ? Hero->AtlasDiscoveredShrineNames[AtlasShrineIndex] : FString(TEXT("Discovered Shrine"));
+   const bool bPendingFastTravel = Hero->AtlasDiscoveredShrineIds.IsValidIndex(AtlasShrineIndex)
+       && Hero->AtlasFastTravelPendingShrine == Hero->AtlasDiscoveredShrineIds[AtlasShrineIndex];
    ++AtlasShrineIndex;
    if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
    const float ShrineX = ProjectX(ShrinePos.X);
@@ -392,7 +394,9 @@ void AMoonfallCombatHUD::DrawHUD()
     bHoveredActiveRespawn = bActiveRespawn;
     HoveredShrineTitle = ShrineTitle;
    }
-   DrawRect(bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f) : FLinearColor(0.32f, 0.91f, 0.91f),
+   DrawRect(bPendingFastTravel ? FLinearColor(1.f, 0.83f, 0.35f)
+       : bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f)
+       : FLinearColor(0.32f, 0.91f, 0.91f),
        ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
    DrawRect(FLinearColor(0.025f, 0.035f, 0.085f), ShrineX - 2.f, ShrineY - 2.f, 4.f, 4.f);
   }
@@ -559,7 +563,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(bHoveredActiveRespawn ? TEXT("Active respawn shrine") : TEXT("Discovered Shrine"),
         FLinearColor(0.82f, 0.80f, 0.75f), TooltipX + 7.f, TooltipY + 22.f,
         nullptr, Scale * 0.68f);
-    DrawText(TEXT("Permanent discovery"), FLinearColor(0.76f, 0.76f, 0.72f),
+    DrawText(TEXT("Click twice to fast travel"), FLinearColor(0.76f, 0.76f, 0.72f),
         TooltipX + 7.f, TooltipY + 37.f, nullptr, Scale * 0.60f);
    } else {
     const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
