@@ -821,7 +821,12 @@ void AMoonfallHeroPawn::TryJump()
  // A may confirm a resident choice only while its dialogue modal owns input.
  // If streaming invalidates the resident, consume the press rather than jump.
  if (bResidentContextOpen) {
-  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen)
+  // A must close a streamed-out NPC conversation, not trigger a world jump.
+  if (!FocusedResident.IsValid()) {
+   CloseResidentContext();
+   return;
+  }
+  if (!bOptionsOpen && !bInventoryOpen && !bAtlasOpen)
    ChooseResidentContextAction(ResidentContextSelection);
   return;
  }
@@ -1593,9 +1598,12 @@ void AMoonfallHeroPawn::OpenOptions() {
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
-  bResidentTurnInPending = false;
+ if (bResidentContextOpen) {
+  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
+  if (!bOptionsOpen && !bInventoryOpen) {
+   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+   bResidentTurnInPending = false;
+  }
   return;
  }
  if (bInventoryOpen) {
@@ -1610,9 +1618,12 @@ void AMoonfallHeroPawn::OptionsUp() {
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
-  bResidentTurnInPending = false;
+ if (bResidentContextOpen) {
+  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
+  if (!bOptionsOpen && !bInventoryOpen) {
+   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+   bResidentTurnInPending = false;
+  }
   return;
  }
  if (bInventoryOpen) {
@@ -3315,7 +3326,13 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
- if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
+ if (bResidentContextOpen) {
+  // Consume the D-pad Up press when a resident streams out or moves away.
+  // Do not silently acquire a different NPC behind the old dialogue.
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
   bResidentTurnInPending = false;
   return;
