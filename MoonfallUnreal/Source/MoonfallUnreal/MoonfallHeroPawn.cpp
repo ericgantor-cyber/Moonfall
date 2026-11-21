@@ -3299,8 +3299,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  bResidentContextOpen = false;
  FocusedResident.Reset();
  // Return cursor ownership to whichever native modal is still active.
+ // Atlas must keep its cursor even if dialogue closes from streaming callbacks.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
-  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
