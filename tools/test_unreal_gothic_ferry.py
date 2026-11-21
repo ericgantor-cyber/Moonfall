@@ -78,22 +78,25 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation())", boarding)
         self.assertLess(boarding.index("FindTeleportSpot(Hero, BoardingLocation"),
                         boarding.index("Hero->SetActorLocation(BoardingLocation"))
-        self.assertIn("Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform)", boarding)
+        self.assertIn("Hero->SetBase(Deck);", boarding)
+        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", boarding)
+        self.assertNotIn("Movement->DisableMovement();", boarding)
+        self.assertNotIn("Hero->AttachToActor(", boarding)
         self.assertIn("Movement->StopMovementImmediately();", boarding)
-        self.assertIn("Movement->DisableMovement();", boarding)
+        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", boarding)
         self.assertIn("Passenger = Hero;", boarding)
         self.assertIn("const FVector OriginalLocation = Hero->GetActorLocation();", boarding)
         self.assertIn("Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);", boarding)
-        self.assertLess(boarding.index("Hero->AttachToActor("),
-                        boarding.index("Hero->SetActorLocation(OriginalLocation"))
+        self.assertLess(boarding.index("Hero->SetActorLocation(BoardingLocation"),
+                        boarding.index("Hero->SetBase(Deck)"))
 
     def test_hero_moves_with_ship_then_lands_safely_and_regains_movement(self):
         completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
             "void AMoonfallGothicFerry::EndPlay(", 1)[0]
-        self.assertIn("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform)", completion)
+        self.assertIn("Rider->SetBase(nullptr);", completion)
         self.assertIn("const float IntoLand = bDestinationIsland ? 800.f : -800.f;", completion)
         self.assertIn("if (!GetWorld()->FindTeleportSpot(Rider, Landing, Rider->GetActorRotation()))", completion)
-        self.assertIn("Rider->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);", completion)
+        self.assertNotIn("Rider->AttachToActor(", completion)
         self.assertIn("until the blocking obstruction is cleared", completion)
         self.assertIn("!Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics)", completion)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", completion)
@@ -101,9 +104,9 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertLess(completion.index("Rider->Health > 0.f"),
                         completion.index("Movement->SetMovementMode(MOVE_Walking)"))
         self.assertLess(completion.index("GetWorld()->FindTeleportSpot("),
-                        completion.index("Rider->DetachFromActor("))
-        self.assertLess(completion.index("Rider->DetachFromActor("),
-                        completion.index("Rider->SetActorLocation(Landing"))
+                        completion.index("Rider->SetBase(nullptr)"))
+        self.assertLess(completion.index("Rider->SetActorLocation(Landing"),
+                        completion.index("Rider->SetBase(nullptr)"))
         # Read the actual C++ constants rather than re-asserting literals:
         # safe landfall must stay within controller boarding reach.
         reach = re.search(r"DockReach = ([0-9]+)[.]f;", self.h)
@@ -114,7 +117,7 @@ class GothicFerryContracts(unittest.TestCase):
                              int(reach.group(1)))
         self.assertIn("} else if (IsValid(Rider)) {", completion)
         self.assertIn("The respawn/death", completion)
-        self.assertGreaterEqual(completion.count("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);"), 2)
+        self.assertGreaterEqual(completion.count("Rider->SetBase(nullptr);"), 2)
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) {", self.boat)
         self.assertIn("Passenger.Reset();", self.boat)
@@ -127,13 +130,13 @@ class GothicFerryContracts(unittest.TestCase):
         teardown = self.boat.split("void AMoonfallGothicFerry::EndPlay(", 1)[1]
         executable = "\n".join(line for line in teardown.splitlines() if not line.strip().startswith("//"))
         self.assertNotIn("FinishCrossing(false)", executable)
-        self.assertIn("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);", teardown)
+        self.assertIn("Rider->SetBase(nullptr);", teardown)
         self.assertIn("GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation())", teardown)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", teardown)
         self.assertIn("Passenger.Reset();", teardown)
         self.assertIn("bUnderway = false;", teardown)
         self.assertLess(teardown.index("ClearTimer(CrossingTimer)"),
-                        teardown.index("Rider->DetachFromActor("))
+                        teardown.index("Rider->SetBase(nullptr)"))
 
     def test_ship_interaction_keeps_mouse_and_controller_combat_actions(self):
         mouse = self.hero.split("void AMoonfallHeroPawn::CastRightMouse() {", 1)[1].split(
@@ -158,6 +161,11 @@ class GothicFerryContracts(unittest.TestCase):
 
     def test_interaction_mesh_uses_visibility_only_not_blocking_character(self):
         self.assertIn("Hull->SetCollisionEnabled(ECollisionEnabled::QueryOnly);", self.boat)
+        self.assertIn("Deck->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", self.boat)
+        self.assertIn("Deck->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);", self.boat)
+        self.assertIn("TObjectPtr<UStaticMeshComponent> Deck;", self.h)
+        self.assertIn("Hero->SetBase(Deck);", self.boat)
+        self.assertNotIn("Movement->DisableMovement();", self.boat)
         for name in ("Hull", "Mast", "Sail"):
             self.assertIn(name + "->SetCollisionResponseToAllChannels(ECR_Ignore);", self.boat)
             self.assertIn(name + "->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);", self.boat)
