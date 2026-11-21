@@ -776,6 +776,12 @@ void AMoonfallCombatHUD::DrawHUD()
       CenterX + 12.f, GridTop + 134.f, nullptr, 0.61f);
     // Left: five armor slots. Right: weapon, hands, ring and accessory.
     // Keep the immutable legacy slot indices; only visual order differs.
+    // Quality tint comes from validated equipped codes, not bag selection.
+    const FLinearColor EquippedRarityColors[] = {
+      FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
+      FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
+      FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
+    };
     const int32 ACSlotOrder[] = {3, 4, 1, 6, 7, 0, 5, 8, 2};
     for (int32 DisplayIndex = 0; DisplayIndex < UE_ARRAY_COUNT(ACSlotOrder); ++DisplayIndex) {
      const int32 Slot = ACSlotOrder[DisplayIndex];
@@ -785,10 +791,13 @@ void AMoonfallCombatHUD::DrawHUD()
      const float Y = GridTop + 22.f + ColumnRow * 31.f;
      const int32 Code = Hero->GetEquipmentSlotCode(Slot);
      const bool bFutureSlot = Slot >= 3;
+     const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;
+     const bool bValidRarity = Code > 0
+       && Rarity >= 0 && Rarity < UE_ARRAY_COUNT(EquippedRarityColors);
      const FLinearColor BorderColor = bFutureSlot
        ? FLinearColor(0.21f,0.23f,0.30f,1.f)
-       : Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)
-                  : FLinearColor(0.39f,0.32f,0.46f,1.f);
+       : bValidRarity ? EquippedRarityColors[Rarity]
+                      : FLinearColor(0.39f,0.32f,0.46f,1.f);
      DrawRect(BorderColor, X, Y, TileWidth, 27.f);
      DrawRect(FLinearColor(0.07f,0.07f,0.13f,0.98f),
        X + 1.f, Y + 1.f, TileWidth - 2.f, 25.f);
@@ -799,8 +808,8 @@ void AMoonfallCombatHUD::DrawHUD()
        : Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)
        : TEXT("EMPTY");
      DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
-         : Code > 0 ? FLinearColor(0.77f,0.94f,0.66f)
-                    : FLinearColor(0.82f,0.75f,0.83f),
+         : bValidRarity ? EquippedRarityColors[Rarity]
+                        : FLinearColor(0.82f,0.75f,0.83f),
        X + TileWidth - 53.f, Y + 6.f, nullptr, 0.56f);
     }
    }
