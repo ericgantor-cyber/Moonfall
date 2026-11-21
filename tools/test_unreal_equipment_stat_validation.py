@@ -67,6 +67,34 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", body)
         self.assertNotIn("InventoryItemCodes.Contains(Codes[Slot])", body)
 
+    def test_worn_armor_crafting_preserves_validated_previous_tier(self):
+        # The inventory code is rewritten before re-equip, so the old worn
+        # code is no longer owned. Without the pre-mutation tier override,
+        # changing the affix/rarity grants free armor max health.
+        functions = (
+            ("UpgradeInventoryItem", "ReforgeInventoryItemAffix"),
+            ("ReforgeInventoryItemAffix", "ReforgeSelectedInventoryItem"),
+            ("AscendInventoryItemRarity", "AscendSelectedInventoryItem"),
+        )
+        for name, next_name in functions:
+            body = self.source.split(
+                "AMoonfallHeroPawn::" + name + "(", 1
+            )[1].split("AMoonfallHeroPawn::" + next_name + "(", 1)[0]
+            self.assertIn("PreviousEquippedTier", body, name)
+            self.assertIn("GetValidatedEquippedTier(Slot)", body, name)
+            self.assertIn("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)", body, name)
+            self.assertLess(body.index("GetValidatedEquippedTier(Slot)"),
+                            body.index("InventoryItemCodes[InventoryIndex] = NewCode"), name)
+            self.assertNotIn("!EquipInventoryItem(InventoryIndex)", body, name)
+
+        equip = self.source.split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
+        )[1].split("namespace {", 1)[0]
+        self.assertIn("return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);", equip)
+        self.assertIn("const int32 PreviousTier = PreviousTierOverride >= 0", equip)
+        self.assertIn("FMath::Clamp(PreviousTierOverride, 0, 25)", equip)
+        self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
+
     def test_stat_bonuses_validate_ownership(self):
         tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
