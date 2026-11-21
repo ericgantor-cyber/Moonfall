@@ -115,6 +115,14 @@ native builds and representative Windows machines can be profiled.
   passenger. The 11-second sailing clock is not paused for a fall.
   Behavior after a fall, death, and shore arrival needs native gameplay testing.
   In particular, verify how the game's existing death/respawn flow handles water.
+- **WoW Forever-style water entry prototype:** a character falling below
+  the sea surface in the 80m ferry gap is switched from falling to swimming
+  movement without any rescue teleport, and exits swimming when leaving the
+  water. The overworld's existing 0.35s refresh timer handles this without
+  a new per-frame actor Tick. This is **not yet a complete ocean system**:
+  native UE5.4 must verify swimming physics, buoyancy, shoreline transitions,
+  and whether a proper water physics volume is required. Fatigue, drowning
+  and actual water rendering are not implemented by this change.
 - Native UE5.4 tests must verify that the hero stays grounded while the boat
   moves, can steer in all directions, does not slip/fall through collision,
   and transfers off the deck correctly at both shore landings.
