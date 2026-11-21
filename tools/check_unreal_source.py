@@ -594,6 +594,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode", block)
         self.assertIn("InventoryItemCodes.Contains(Code)", block)
         self.assertIn("GetItemPower(Code) > 0", block)
+        self.assertIn("(Code / 10000) % 10 == Slot", block)
         for forbidden in ("SaveWorldProgress(", "EquipInventoryItem(", "InventoryItemCodes.Add("):
             self.assertNotIn(forbidden, block)
         slots = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
@@ -3918,7 +3919,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 18.f", page)
+        self.assertIn("bShowAllSlots ? 22.f : 18.f", page)
+        self.assertIn("const bool bShowAllSlots = PanelHeight >= 520.f;", page)
+        self.assertIn("VisibleCharacterRows = bShowAllSlots ? UE_ARRAY_COUNT(CharacterLines) : 18", page)
+        self.assertIn("EQUIPMENT SLOTS  |  3 EQUIPPABLE, 6 FUTURE", page)
+        for line in ("SlotLine(0)", "SlotLine(3)", "SlotLine(6)"):
+            self.assertIn(line, page)
+        self.assertIn("Hero->GetEquipmentSlotCode(Slot)", page)
+        self.assertNotIn("EquipInventoryItem(", page)
+        self.assertNotIn("SaveWorldProgress(", page)
         self.assertIn("Equipment power: %d", page)
 
 
@@ -4816,7 +4825,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
         self.assertIn("Hero->GetEquipmentPower()", self.hud)
-        self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
+        self.assertIn("Hero->GetItemPower(Hero->GetEquipmentSlotCode(0))", self.hud)
         self.assertNotIn("SaveWorldProgress()", item + score)
 
 
