@@ -103,6 +103,19 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("NPC->SettlementId = FName(TEXT(\"GothicIsle\"));", island)
         self.assertIn("NPC->SocialRole = FName(Spec.Role);", island)
         self.assertIn("NPC->RaceId = Spec.Race;", island)
+        self.assertIn("NPC->CompletedStoryClue = FText::FromString(Spec.StoryClue);", island)
+        for clue in ("harbor manifests name six cities",
+                     "seventh name was erased",
+                     "graves hold no bodies",
+                     "wreckers copied a forged signal",
+                     "roots shelter a star chart"):
+            self.assertIn(clue, island)
+        npc_h = read(SOURCE / "MoonfallWorldNPC.h")
+        npc_cpp = read(SOURCE / "MoonfallWorldNPC.cpp")
+        self.assertIn("FText CompletedStoryClue;", npc_h)
+        self.assertIn('Hero->GetResidentQuestState(ResidentId) == 2', npc_cpp)
+        self.assertIn('Reaction = CompletedStoryClue.IsEmpty()', npc_cpp)
+        self.assertIn('LastSpokenLine = Reaction;', npc_cpp)
         self.assertIn("TActorIterator<AMoonfallCheckpointShrine>", island)
         self.assertIn("TActorIterator<AMoonfallWorldNPC>", island)
         self.assertEqual(island.count("ESpawnActorCollisionHandlingMethod::AlwaysSpawn"), 2)
