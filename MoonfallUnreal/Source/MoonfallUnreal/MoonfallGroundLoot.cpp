@@ -122,12 +122,11 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
    1.25f + 0.11f * Rarity));
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
- const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  // Match the HUD's quality order. Emerald is Moonfall-exclusive.
  const FColor QualityColor = MoonfallItemQuality::WorldColor(Rarity);
  ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
-   QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
+   MoonfallItemQuality::Name(Rarity), TraitNames[Affix], SlotNames[Slot], Tier)));
  ItemLabel->SetTextRenderColor(QualityColor);
  // Colored beacon and object communicate rarity without transient effects or tick.
  if (UMaterialInstanceDynamic* BeaconMaterial = RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
