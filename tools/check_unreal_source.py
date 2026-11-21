@@ -601,7 +601,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('bIsTraitSwap ? TEXT("TRAIT SWAP") : TEXT("SIDEGRADE")', block)
         self.assertIn('!bSelectedValid ? TEXT("INVALID ITEM")', block)
         self.assertIn('TEXT("Compare: INVALID ITEM  |  cannot compare malformed gear")', block)
-        self.assertIn("const FString PowerCompareLine = bSelectedValid", block)
+        self.assertIn("const FString PowerCompareLine = bSelectedValid && !bIsEquipped", block)
         self.assertIn('    : CompareLine;', block)
         self.assertIn("!bSelectedValid ? FLinearColor(1.f,0.48f,0.46f)", block)
         self.assertIn("!bEquippedValid ? TEXT(\"EMPTY SLOT\")", block)
