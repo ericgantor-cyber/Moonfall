@@ -2743,6 +2743,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
+ if (CouncilDecisionId < -1 || CouncilDecisionId > 2) return false;
  const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;
  for (const int64 Mask : ExploredZoneFogMasks)
   if ((static_cast<uint64>(Mask) & ~AllowedFogBits) != 0ULL) return false;
@@ -2856,13 +2857,14 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
+ Save->CouncilDecisionId = CouncilDecisionId;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 13) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -3030,6 +3032,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // V13: reject unknown Council decisions before applying any saved data.
+ if (Save->Version >= 13 && (Save->CouncilDecisionId < -1
+     || Save->CouncilDecisionId > 2)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3076,6 +3084,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
    if (IsValid(*It)) It->RefreshShrineDisplay(this);
  }
+ CouncilDecisionId = Save->Version >= 13 ? Save->CouncilDecisionId : -1;
+ bCouncilDecisionConfirmArmed = false;
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
