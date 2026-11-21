@@ -197,6 +197,12 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
  // A defeated encounter stays cleared until the player leaves its district.
  UWorld* World = GetWorld();
  if (!World || PlayerPosition.ContainsNaN()) return;
+ // Keep range-based cleanup active even during defeat, but never spawn
+ // a new hostile encounter around a dead or unloaded player pawn.
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ const bool bHeroReady = IsValid(Hero) && FMath::IsFinite(Hero->Health)
+   && Hero->Health > 0.f;
  struct FIslandEncounterSpec {
   const TCHAR* Tag;
   FVector Offset;
@@ -236,7 +242,7 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
     IslandEncounters.Remove(Index);
    }
   }
-  if (DistanceSquared > FMath::Square(11000.f)
+  if (!bHeroReady || DistanceSquared > FMath::Square(11000.f)
       || ClearedIslandEncounters.Contains(Index)
       || IslandEncounters.Contains(Index)) continue;
   const FTransform Transform(FRotator::ZeroRotator, Site);
