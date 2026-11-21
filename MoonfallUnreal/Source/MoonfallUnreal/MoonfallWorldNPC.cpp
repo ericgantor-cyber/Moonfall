@@ -148,10 +148,20 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
      || Hero->CouncilDecisionId > 2 || Hero->Health <= 0.f
      || !FMath::IsFinite(StepSeconds) || StepSeconds <= 0.f || StepSeconds > 0.25f
      || Hero->bInventoryOpen || Hero->bOptionsOpen || Hero->bAtlasOpen
-     || (Hero->bResidentContextOpen && Hero->FocusedResident.Get() == this))
+     || (Hero->bResidentContextOpen && Hero->FocusedResident.Get() == this)) {
+  if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
   return;
+ }
  // Arrival pauses are advanced only by this shared, bounded 0.2s timer.
  // While paused, no actor transform updates or collision queries are needed.
+ // Do not animate through nearby conversations or reveal work props while
+ // the player is watching an NPC stand still. Resume the pause afterwards.
+ const FVector PlayerForPause = Hero->GetActorLocation();
+ if (PlayerForPause.ContainsNaN()
+     || FVector::DistSquared2D(GetActorLocation(), PlayerForPause) < FMath::Square(300.f)) {
+  if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
+  return;
+ }
  if (CouncilWorkHoldSeconds > 0.f) {
   CouncilWorkHoldSeconds = FMath::Max(0.f, CouncilWorkHoldSeconds - StepSeconds);
   const bool bWorking = bCouncilWorkAtPost && CouncilWorkHoldSeconds > 0.f;
@@ -162,10 +172,18 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
     // arena timer, never a per-NPC Tick or skeletal mesh replacement.
     CouncilWorkVisualPhase = FMath::Fmod(
         CouncilWorkVisualPhase + StepSeconds * 2.f, 2.f * PI);
-    CouncilWorkMarker->SetRelativeLocation(FVector(50.f, 0.f,
-        85.f + 8.f * FMath::Sin(CouncilWorkVisualPhase)));
+    const bool bScout = SocialRole == FName(TEXT("Scout"));
+    // Scouts sweep a low compass marker side-to-side, guards keep a tall
+    // rotating watch beacon. Both use existing primitive mesh geometry.
+    CouncilWorkMarker->SetRelativeScale3D(bScout
+        ? FVector(0.18f, 0.18f, 0.06f)
+        : FVector(0.10f, 0.10f, 0.22f));
+    CouncilWorkMarker->SetRelativeLocation(bScout
+        ? FVector(50.f, 10.f * FMath::Sin(CouncilWorkVisualPhase), 80.f)
+        : FVector(50.f, 0.f, 85.f + 8.f * FMath::Sin(CouncilWorkVisualPhase)));
     CouncilWorkMarker->SetRelativeRotation(
-        FRotator(0.f, FMath::RadiansToDegrees(CouncilWorkVisualPhase), 0.f));
+        FRotator(0.f, bScout ? 45.f * FMath::Sin(CouncilWorkVisualPhase)
+        : FMath::RadiansToDegrees(CouncilWorkVisualPhase), 0.f));
    }
   }
   if (CouncilWorkHoldSeconds <= 0.f) {
