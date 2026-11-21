@@ -115,7 +115,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("until the blocking obstruction is cleared", completion)
         self.assertIn("!Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics)", completion)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", completion)
-        self.assertIn("FMath::IsFinite(Rider->Health) && Rider->Health > 0.f", completion)
+        self.assertIn("bRiderOnDeck && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f", completion)
         self.assertLess(completion.index("Rider->Health > 0.f"),
                         completion.index("Movement->SetMovementMode(MOVE_Walking)"))
         self.assertLess(completion.index("GetWorld()->FindTeleportSpot("),
@@ -141,13 +141,26 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("!IsValid(Rider)", self.boat)
         self.assertIn("FinishCrossing(false);", self.boat)
 
+    def test_arrival_only_lands_rider_still_standing_on_deck(self):
+        completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
+            "void AMoonfallGothicFerry::EndPlay(", 1)[0]
+        self.assertIn("const bool bRiderOnDeck = IsValid(Rider) && Rider->GetMovementBase() == Deck;", completion)
+        self.assertIn("if (bRiderOnDeck && FMath::IsFinite(Rider->Health)", completion)
+        self.assertIn("} else if (IsValid(Rider) && bRiderOnDeck) {", completion)
+        self.assertLess(completion.index("if (bRiderOnDeck && FMath::IsFinite(Rider->Health)"),
+                        completion.index("Rider->SetActorLocation(Landing"))
+        self.assertNotIn("SafeDeck", completion)
+
     def test_actor_teardown_releases_passenger_even_when_shore_blocked(self):
         teardown = self.boat.split("void AMoonfallGothicFerry::EndPlay(", 1)[1]
         executable = "\n".join(line for line in teardown.splitlines() if not line.strip().startswith("//"))
         self.assertNotIn("FinishCrossing(false)", executable)
         self.assertIn("Rider->SetBase(nullptr);", teardown)
-        self.assertIn("GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation())", teardown)
-        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", teardown)
+        self.assertNotIn("SafeShore", teardown)
+        self.assertNotIn("Rider->SetActorLocation(", teardown)
+        self.assertIn("if (Rider->GetMovementBase() == Deck)", teardown)
+        self.assertIn("Movement->SetMovementMode(MOVE_Falling);", teardown)
+        self.assertNotIn("Movement->SetMovementMode(MOVE_Walking);", teardown)
         self.assertIn("Passenger.Reset();", teardown)
         self.assertIn("bUnderway = false;", teardown)
         self.assertLess(teardown.index("ClearTimer(CrossingTimer)"),
