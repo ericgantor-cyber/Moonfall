@@ -41,6 +41,12 @@ static_assert(I::ChapterState(6, true, true, {2,2,2,2,2}, false)
 static_assert(I::ChapterState(6, true, true, {2,2,2,2,2}, true)
   == I::EState::Uncovered);
 static_assert(I::Summarize(true, true, {2,2,2,2,2}, true).Revealed == 7);
+static_assert(I::Summarize(true, false, {2,2,2,2,2}, true).Revealed == 6);
+static_assert(!I::Summarize(true, false, {2,2,2,2,2}, true).EpilogueReady);
+static_assert(I::Summarize(false, true, {1,0,1,0,0}, false).Revealed == 3);
+static_assert(I::Summarize(false, true, {1,0,1,0,0}, false).FeaturedChapter == 1);
+static_assert(I::Summarize(true, true, {2,0,1,0,0}, false).FeaturedChapter == 3);
+static_assert(I::Summarize(false, false, {2,2,2,2,2}, true).CompletedContracts == 0);
 static_assert(!I::Summarize(true, true, {-1,0,0,0,0}, true).Valid);
 static_assert(I::RevealedChapter(3, true, true, {0,0,0,0,0}, true) == nullptr);
 
