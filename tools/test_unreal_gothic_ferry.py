@@ -187,7 +187,8 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("Deck->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", self.boat)
         self.assertIn("Deck->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);", self.boat)
         self.assertIn("TObjectPtr<UStaticMeshComponent> Deck;", self.h)
-        self.assertIn("Hero->SetBase(Deck);", self.boat)
+        self.assertIn("Hero->GetMovementBase() != Deck", self.boat)
+        self.assertNotIn("Hero->SetBase(Deck);", self.boat)
         self.assertNotIn("Movement->DisableMovement();", self.boat)
         for name in ("Hull", "Mast", "Sail"):
             self.assertIn(name + "->SetCollisionResponseToAllChannels(ECR_Ignore);", self.boat)
