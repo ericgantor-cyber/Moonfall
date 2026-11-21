@@ -123,6 +123,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -I MoonfallUnreal/Source/MoonfallUnreal \
             tools/test_unreal_equipment_slots.cpp -o /tmp/moonfall_equipment_slots_test
           /tmp/moonfall_equipment_slots_test
+          # Also exercise asserts in optimized builds with NDEBUG defined.
+          g++ -std=c++17 -O2 -DNDEBUG -Wall -Wextra -Werror -I MoonfallUnreal/Source/MoonfallUnreal \
+            tools/test_unreal_equipment_slots.cpp -o /tmp/moonfall_equipment_slots_release_test
+          /tmp/moonfall_equipment_slots_release_test
 
       - name: Verify combat HUD scan regressions
         shell: bash
