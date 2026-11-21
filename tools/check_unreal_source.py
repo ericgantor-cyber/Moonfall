@@ -652,7 +652,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
         self.assertIn("PanelHeight >= 500.f", hud)
         self.assertIn("bValidDetail", hud)
-        self.assertIn("ItemQualityColors[SelectedRarity]", hud)
+        self.assertIn("MoonfallItemQuality::Color(SelectedRarity)", hud)
         self.assertIn("Hero->GetSetPieceCount(SelectedAffix)", hud)
         self.assertIn('TEXT("SET PREVIEW: INVALID ITEM")', hud)
         self.assertIn('TEXT("SET PREVIEW: no set trait on this item")', hud)
@@ -1245,10 +1245,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('TEXT("Emerald"), TEXT("Legendary")', ground)
         self.assertIn('TEXT("Emerald"), TEXT("Legendary")', hud)
-        self.assertIn("FColor(0,214,179)", ground)
-        self.assertIn("FColor(255,128,0)", ground)
-        self.assertIn("FLinearColor(0.f,0.84f,0.70f)", hud)
-        self.assertIn("FLinearColor(1.f,0.502f,0.f)", hud)
+        self.assertIn("MoonfallItemQuality::WorldColor(Rarity)", ground)
+        self.assertIn("MoonfallItemQuality::WorldColor(Rarity)", ground)
+        self.assertIn("FLinearColor(0.f,0.84f,0.70f)", (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8"))
+        self.assertIn("FLinearColor(1.f,0.502f,0.f)", (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8"))
         self.assertIn("Rarity > 5", ground)
         self.assertIn("Rarity > 5", self.hero_cpp)
         self.assertIn("Rarity >= 5", self.hero_cpp)
@@ -3913,9 +3913,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_rarity_colors_match_wow_forever_across_equipment_ui(self):
         import re
-        # Fixed order is the persistent 0..5 rarity encoding. The fifth
-        # position is Moonfall's extra Emerald tier, not a WoW rarity.
-        quality = self.hud.split("static const FLinearColor ItemQualityColors[] = {", 1)[1].split("};", 1)[0]
+        policy = (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8")
+        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        self.assertIn("static constexpr int32 Count = 6;", policy)
+        self.assertIn("return Rarity >= 0 && Rarity < Count;", policy)
+        quality = policy.split("static const FLinearColor Colors[Count] = {", 1)[1].split("};", 1)[0]
         colors = [tuple(float(v.strip().rstrip("f")) for v in values.split(","))
                   for values in re.findall(r"FLinearColor\(([^)]+)\)", quality)]
         self.assertEqual(colors, [
@@ -3924,22 +3926,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             (0.0, 0.84, 0.70), (1.0, 0.502, 0.0)
         ])
         self.assertEqual(len(colors), len(set(colors)))
-        # Loot actor names, beacons, and inventory must agree in rarity order.
-        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        palette = ground.split("const FColor Colors[] = {", 1)[1].split("};", 1)[0]
-        ground_rgb = [tuple(int(v) for v in values)
-                      for values in re.findall(r"FColor\((\d+),(\d+),(\d+)\)", palette)]
-        self.assertEqual(ground_rgb, [
+        # World loot uses the same float palette without gamma conversion.
+        rgb = [tuple(int(v * 255 + 0.5) for v in row) for row in colors]
+        self.assertEqual(rgb, [
             (255, 255, 255), (30, 255, 0), (0, 112, 221),
             (163, 53, 238), (0, 214, 179), (255, 128, 0)
         ])
-        self.assertIn("const FColor QualityColor = Colors[Rarity];", ground)
-        self.assertEqual(self.hud.count("static const FLinearColor ItemQualityColors[]"), 1)
-        self.assertIn("DrawText(Row, bValid ? ItemQualityColors[Rarity]", self.hud)
-        self.assertIn("bValidDetail ? ItemQualityColors[SelectedRarity]", self.hud)
-        self.assertIn("bValidRarity ? ItemQualityColors[Rarity]", self.hud)
-        self.assertNotIn("Index == Selected ? FLinearColor::Yellow", self.hud)
+        self.assertIn("return Color(Rarity).ToFColor(false);", policy)
+        self.assertIn("return IsValid(Rarity) ? Colors[Rarity] : FLinearColor::White;", policy)
+        self.assertIn("return IsValid(Rarity) ? Marks[Rarity] : TEXT(\"?\");", policy)
+        self.assertIn('#include "MoonfallItemQuality.h"', ground)
+        self.assertIn('#include "MoonfallItemQuality.h"', self.hud)
+        self.assertIn("const FColor QualityColor = MoonfallItemQuality::WorldColor(Rarity);", ground)
+        self.assertIn("DrawText(Row, bValid ? MoonfallItemQuality::Color(Rarity)", self.hud)
+        self.assertIn("bValidDetail ? MoonfallItemQuality::Color(SelectedRarity)", self.hud)
+        self.assertIn("bValidRarity ? MoonfallItemQuality::Color(Rarity)", self.hud)
+        self.assertIn("MoonfallItemQuality::Abbreviation(Rarity)", self.hud)
         self.assertNotIn("const FLinearColor DetailColors[]", self.hud)
+        self.assertNotIn("static const FLinearColor ItemQualityColors[]", self.hud)
+        self.assertNotIn("const FColor Colors[]", ground)
+        self.assertNotIn("Index == Selected ? FLinearColor::Yellow", self.hud)
 
     def test_character_page_shows_30_dungeon_exploration_progress(self):
         page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
@@ -3974,20 +3980,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetEquipmentPower()", page)
         self.assertIn('TEXT("READ ONLY")', page)
         self.assertIn("const bool bFutureSlot = Slot >= 3;", page)
-        self.assertIn("static const FLinearColor ItemQualityColors[]", self.hud)
+        self.assertIn("MoonfallItemQuality::Color(Rarity)", self.hud)
         self.assertNotIn("const FLinearColor EquippedRarityColors[]", page)
         self.assertIn("const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;", page)
-        self.assertIn("Rarity < UE_ARRAY_COUNT(ItemQualityColors)", page)
-        self.assertIn("bValidRarity ? ItemQualityColors[Rarity]", page)
+        self.assertIn("Rarity < MoonfallItemQuality::Count", page)
+        self.assertIn("bValidRarity ? MoonfallItemQuality::Color(Rarity)", page)
         self.assertNotIn("Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)", page)
         self.assertIn('bFutureSlot ? TEXT("FUTURE")', page)
         self.assertIn('TEXT("RARITY: C U R E Em L")', page)
-        self.assertIn("const TCHAR* EquippedRarityMarks[]", page)
+        self.assertIn("MoonfallItemQuality::Abbreviation(Rarity)", page)
         for mark in ('TEXT("C")', 'TEXT("U")', 'TEXT("R")',
                      'TEXT("E")', 'TEXT("Em")', 'TEXT("L")'):
             self.assertIn(mark, page)
         self.assertIn('bValidRarity ? FString::Printf(TEXT("T%d %s"), Code % 1000,', page)
-        self.assertIn("EquippedRarityMarks[Rarity]", page)
+        self.assertIn("const bool bValidRarity", page)
         self.assertIn("const float GridTop = Top + PanelHeight - 225.f;", page)
         self.assertIn("GridTop + 22.f + ColumnRow * 31.f", page)
         self.assertIn("(PanelHeight - (bUseSlotGrid ? 350.f : 145.f))", page)
