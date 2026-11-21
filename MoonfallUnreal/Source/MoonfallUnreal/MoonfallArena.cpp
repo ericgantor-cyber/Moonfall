@@ -332,6 +332,11 @@ void AMoonfallArena::BeginPlay() {
    Person->SocialRole = FName(Resident.Role);
   }
  }
+ // BeginPlay builds resident actors after the first policy refresh.
+ // Force one post-spawn refresh so a loaded policy is visible immediately,
+ // even when it was already resolved at the start of BeginPlay.
+ LastDisplayedCouncilDecision = -2;
+ RefreshCouncilSettlementVisuals();
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
