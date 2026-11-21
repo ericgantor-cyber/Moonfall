@@ -652,7 +652,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
         self.assertIn("PanelHeight >= 500.f", hud)
         self.assertIn("bValidDetail", hud)
-        self.assertIn("DetailColors[SelectedRarity]", hud)
+        self.assertIn("ItemQualityColors[SelectedRarity]", hud)
         self.assertIn("Hero->GetSetPieceCount(SelectedAffix)", hud)
         self.assertIn('TEXT("SET PREVIEW: INVALID ITEM")', hud)
         self.assertIn('TEXT("SET PREVIEW: no set trait on this item")', hud)
@@ -3911,6 +3911,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetDiscoveredDungeonCount(Zone) < 5", next_zone)
         self.assertIn("return INDEX_NONE;", next_zone)
 
+    def test_rarity_colors_match_wow_forever_across_equipment_ui(self):
+        import re
+        # Fixed order is the persistent 0..5 rarity encoding. The fifth
+        # position is Moonfall's extra Emerald tier, not a WoW rarity.
+        quality = self.hud.split("static const FLinearColor ItemQualityColors[] = {", 1)[1].split("};", 1)[0]
+        colors = [tuple(float(v.strip().rstrip("f")) for v in values.split(","))
+                  for values in re.findall(r"FLinearColor\\(([^)]+)\\)", quality)]
+        self.assertEqual(colors, [
+            (1.0, 1.0, 1.0), (0.118, 1.0, 0.0),
+            (0.0, 0.439, 0.867), (0.639, 0.208, 0.933),
+            (0.0, 0.84, 0.70), (1.0, 0.502, 0.0)
+        ])
+        self.assertEqual(len(colors), len(set(colors)))
+        self.assertEqual(self.hud.count("static const FLinearColor ItemQualityColors[]"), 1)
+        self.assertIn("DrawText(Row, bValid ? ItemQualityColors[Rarity]", self.hud)
+        self.assertIn("bValidDetail ? ItemQualityColors[SelectedRarity]", self.hud)
+        self.assertIn("bValidRarity ? ItemQualityColors[Rarity]", self.hud)
+        self.assertNotIn("Index == Selected ? FLinearColor::Yellow", self.hud)
+        self.assertNotIn("const FLinearColor DetailColors[]", self.hud)
+
     def test_character_page_shows_30_dungeon_exploration_progress(self):
         page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
             "// Identical button rectangle", 1)[0]
@@ -3944,10 +3964,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetEquipmentPower()", page)
         self.assertIn('TEXT("READ ONLY")', page)
         self.assertIn("const bool bFutureSlot = Slot >= 3;", page)
-        self.assertIn("const FLinearColor EquippedRarityColors[]", page)
+        self.assertIn("static const FLinearColor ItemQualityColors[]", self.hud)
+        self.assertNotIn("const FLinearColor EquippedRarityColors[]", page)
         self.assertIn("const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;", page)
-        self.assertIn("Rarity < UE_ARRAY_COUNT(EquippedRarityColors)", page)
-        self.assertIn("bValidRarity ? EquippedRarityColors[Rarity]", page)
+        self.assertIn("Rarity < UE_ARRAY_COUNT(ItemQualityColors)", page)
+        self.assertIn("bValidRarity ? ItemQualityColors[Rarity]", page)
         self.assertNotIn("Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)", page)
         self.assertIn('bFutureSlot ? TEXT("FUTURE")', page)
         self.assertIn('TEXT("RARITY: C U R E Em L")', page)
