@@ -232,6 +232,7 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
    }
    IslandEncounters.Remove(Index);
    ClearedIslandEncounters.Remove(Index);
+   IslandSpawnRetryAt.Remove(Index);
    continue;
   }
   if (TWeakObjectPtr<AMoonfallEnemy>* Existing = IslandEncounters.Find(Index)) {
@@ -259,11 +260,20 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
   const TObjectPtr<AMoonfallOverworldTile>* GroundTile = ResidentTiles.Find(SiteTileId);
   if (!GroundTile || !IsValid(GroundTile->Get())
       || GroundTile->Get()->IsActorBeingDestroyed()) continue;
+  // Collision failures must not trigger a spawn attempt every 0.35s.
+  const float Now = World->GetTimeSeconds();
+  if (!FMath::IsFinite(Now)) continue;
+  if (const float* RetryAt = IslandSpawnRetryAt.Find(Index)) {
+   if (Now < *RetryAt) continue;
+  }
   const FTransform Transform(FRotator::ZeroRotator, Site);
   AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
     AMoonfallEnemy::StaticClass(), Transform, this, nullptr,
     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
-  if (!IsValid(Enemy)) continue;
+  if (!IsValid(Enemy)) {
+   IslandSpawnRetryAt.Add(Index, Now + 2.5f);
+   continue;
+  }
   // This is a generic island boss, NOT a dungeon-ledger or divine boss.
   // No original hero or boss character artwork is modified.
   Enemy->RaceId = Encounters[Index].Race;
@@ -271,8 +281,10 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
   Enemy->bBoss = Encounters[Index].bBoss;
   Enemy->Tags.AddUnique(FName(Encounters[Index].Tag));
   Enemy->FinishSpawning(Transform);
-  if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed())
+  if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) {
+   IslandSpawnRetryAt.Remove(Index);
    IslandEncounters.Add(Index, Enemy);
+  } else IslandSpawnRetryAt.Add(Index, Now + 2.5f);
  }
 }
 
@@ -311,6 +323,7 @@ void AMoonfallExpandedWorld::EndPlay(const EEndPlayReason::Type Reason)
  }
  IslandEncounters.Empty();
  ClearedIslandEncounters.Empty();
+ IslandSpawnRetryAt.Empty();
  ResidentTiles.Empty();
  Super::EndPlay(Reason);
 }
