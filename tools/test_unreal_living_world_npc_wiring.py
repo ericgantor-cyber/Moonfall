@@ -80,7 +80,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         for required in ("bCouncilWorkAtPost && CouncilWorkHoldSeconds > 0.f",
                          "CouncilWorkMarker->SetVisibility(bWorking)",
                          "CouncilWorkVisualPhase + StepSeconds * 2.f",
-                         "SetRelativeLocation(FVector(50.f, 0.f,",
+                         "CouncilWorkMarker->SetRelativeLocation(bScout",
                          "CouncilWorkMarker->SetRelativeRotation(",
                          "CouncilWorkMarker->SetVisibility(false)"):
             self.assertIn(required, movement)
