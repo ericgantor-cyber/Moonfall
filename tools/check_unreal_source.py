@@ -3989,9 +3989,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('bFutureSlot ? TEXT("FUTURE")', page)
         self.assertIn('TEXT("RARITY: C U R E Em L")', page)
         self.assertIn("MoonfallItemQuality::Abbreviation(Rarity)", page)
+        quality_policy = (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8")
         for mark in ('TEXT("C")', 'TEXT("U")', 'TEXT("R")',
                      'TEXT("E")', 'TEXT("Em")', 'TEXT("L")'):
-            self.assertIn(mark, page)
+            self.assertIn(mark, quality_policy)
         self.assertIn('bValidRarity ? FString::Printf(TEXT("T%d %s"), Code % 1000,', page)
         self.assertIn("const bool bValidRarity", page)
         self.assertIn("const float GridTop = Top + PanelHeight - 225.f;", page)
