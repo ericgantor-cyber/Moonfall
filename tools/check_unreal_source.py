@@ -4350,6 +4350,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         arena = startup.split("for (TActorIterator<AMoonfallArena>", 1)[1].split(
             "if (!bHasArena)", 1)[0]
         self.assertIn("IsValid(*It) && !It->IsActorBeingDestroyed()", arena)
+        # The validity and teardown guard must run before treating an authored
+        # arena as present, or a dying arena can suppress the fallback spawn.
+        self.assertLess(arena.index("IsValid(*It) && !It->IsActorBeingDestroyed()"),
+                        arena.index("bHasArena = true;"))
+        # Disabling generated dungeons must still leave authored content alone.
+        self.assertLess(startup.index("if (!bGenerateDungeonWorld) return;"),
+                        startup.index("for (TActorIterator<AMoonfallDungeonLayout>"))
         dungeon = startup.split("for (TActorIterator<AMoonfallDungeonLayout>", 1)[1].split(
             "NextDungeonSlot = 0;", 1)[0]
         self.assertIn("if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;", dungeon)
