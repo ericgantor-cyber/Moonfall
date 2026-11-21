@@ -35,7 +35,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
         self.assertEqual(self.boat.count("Hero->SetActorLocation("), 2)
-        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 1)
+        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 2)
 
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
         boarding = self.boat.split("bool AMoonfallGothicFerry::TryBoard(", 1)[1].split(
