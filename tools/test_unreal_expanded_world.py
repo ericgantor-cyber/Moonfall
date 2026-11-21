@@ -38,7 +38,7 @@ class ExpandedOverworldTests(unittest.TestCase):
         # Region centers, in centimeters (Unreal's default world unit).
         center_section = self.world.split("static const FVector Centers[RegionCount] =", 1)[1].split("};", 1)[0]
         centers = re.findall(
-            r"FVector\\((-?[0-9]+)\\.f,\\s*(-?[0-9]+)\\.f,\\s*0\\.f\\)", center_section
+            r"FVector\(\s*(-?\d+)\.f,\s*(-?\d+)\.f,\s*0\.f\s*\)", center_section
         )
         self.assertEqual(len(centers), 7)
         centers = [(int(x), int(y)) for x, y in centers]
