@@ -338,6 +338,14 @@ void AMoonfallExpandedWorld::EndPlay(const EEndPlayReason::Type Reason)
  IslandEncounters.Empty();
  ClearedIslandEncounters.Empty();
  IslandSpawnRetryAt.Empty();
+ // Streamed tile actors are owned by this manager but are not guaranteed
+ // to disappear when the owner ends play. Explicitly reclaim them so a
+ // manager restart cannot leave orphaned collision and scenery behind.
+ for (const TPair<int32, TObjectPtr<AMoonfallOverworldTile>>& Entry : ResidentTiles) {
+  AMoonfallOverworldTile* Tile = Entry.Value.Get();
+  if (IsValid(Tile) && !Tile->IsActorBeingDestroyed())
+   Tile->Destroy();
+ }
  ResidentTiles.Empty();
  Super::EndPlay(Reason);
 }
