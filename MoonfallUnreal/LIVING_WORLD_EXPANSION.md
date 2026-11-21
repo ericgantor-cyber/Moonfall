@@ -180,6 +180,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The existing hero Tick accumulates a **0.5-second** bounded timer and only updates transforms and visibility if the alignment threshold or accessibility Reduce Motion setting changes. There is **no spinning/pulsing animation**, extra spawned NPCs or per-frame effect transform manipulation. Reduce Motion lowers light intensity to 90 rather than 210.
 - Z and Nyra's original artwork is preserved. These are stylized **primitive placeholder silhouettes**, not authentic wing/horn assets, full-body morphs, new materials or finished UE5 effects. They still require native Unreal compilation and art/gameplay review.
 
+## Moral equipment identity, without changing original art
+
+- Valid equipped gear owned by the player receives a **read-only thematic identity** derived from saved alignment: Unmarked at neutral, Hallowed/Radiant for growing/strong Good alignment, and Shadowmarked/Dreadbound for growing/strong Evil alignment. Unowned, malformed, absent or wrong-slot gear always reports no equipped identity.
+- The full-height native character sheet (820px or taller) displays the three equipment slots' moral theme and a text description of the associated visual motif. Compact character sheets omit these optional lines to avoid colliding with gameplay stats. The previous original stats, weapon resonance and equipment set bonuses remain unaffected.
+- These are **text-only cosmetic identity previews**, not item mesh/material recolors or 111 new artwork assets. This is deliberate: original Z/Nyra art, inventory item codes, rarity/tier, combat calculations and V14 save data remain untouched. Pure C++17 tests cover the five alignment states and the no-gear case; source-contract tests prohibit mutation in preview code.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
