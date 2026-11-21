@@ -1671,7 +1671,7 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 3) % 4;
   bResidentTurnInPending = false;
   return;
  }
@@ -1693,7 +1693,7 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 1) % 4;
   bResidentTurnInPending = false;
   return;
  }
@@ -3405,6 +3405,8 @@ void AMoonfallHeroPawn::CloseResidentContext() {
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
+ bResidentTradePending = false;
+ ResidentTradeConfirmUntil = 0.f;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
  ResidentFeedbackMessage.Empty();
@@ -3417,7 +3419,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 3) % 4;
   bResidentTurnInPending = false;
   return;
  }
@@ -3686,10 +3688,13 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  // Shared exact row bounds with the Canvas HUD renderer.
- for (int32 Row = 0; Row < 3; ++Row) {
+ for (int32 Row = 0; Row < 4; ++Row) {
   const float RowTop = Top + 122.f + Row * 53.f;
   if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
-   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
+   if (ResidentContextSelection != Row) {
+    bResidentTurnInPending = false;
+    bResidentTradePending = false;
+   }
    ResidentContextSelection = Row;
    if (Row == 2) CloseResidentContext();
    else ChooseResidentContextAction(Row);
@@ -3713,6 +3718,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
+ if (Choice == 3) return PurchaseResidentWorkItem();
  if (Choice == 0) {
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
@@ -3758,6 +3764,61 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (bSucceeded) OnResidentContextOpened(Resident, Resident->DisplayName,
       GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
  return bSucceeded;
+}
+
+bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || !GetWorld() || bPersistentSaveWritesBlocked || bWorldProgressLoadInProgress
+     || !bWorldProgressInitialized || Health <= 0.f) {
+  bResidentTradePending = false;
+  return false;
+ }
+ const bool bMerchant = Resident->SocialRole == FName(TEXT("Merchant"));
+ const bool bTinker = Resident->SocialRole == FName(TEXT("Tinker"));
+ if (Resident->SettlementId != FName(TEXT("Crossroads"))
+     || (!bMerchant && !bTinker) || CouncilDecisionId < 0
+     || CouncilDecisionId > 2) { bResidentTradePending = false; return false; }
+ // Published single-item stock: a common weapon or a tinker-made uncommon
+ // weapon. Both codes meet the existing inventory item encoding invariants.
+ const int32 Price = bMerchant ? 12 : 20;
+ const int32 ItemCode = bMerchant ? 1001 : 2001;
+ if (Salvage < Price || InventoryItemCodes.Num() >= 10000) {
+  bResidentTradePending = false;
+  ResidentFeedbackMessage = TEXT("Insufficient salvage or inventory full.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!bResidentTradePending || Now > ResidentTradeConfirmUntil) {
+  bResidentTradePending = true;
+  ResidentTradeConfirmUntil = Now + 6.f;
+  ResidentFeedbackMessage = FString::Printf(
+      TEXT("Confirm %s for %d salvage: choose Trade/Craft again."),
+      bMerchant ? TEXT("purchase") : TEXT("crafting"), Price);
+  ResidentFeedbackUntil = Now + 6.f;
+  return false;
+ }
+ bResidentTradePending = false;
+ const int32 PreviousSalvage = Salvage;
+ const int32 OldSelection = InventorySelection;
+ const int32 NewIndex = InventoryItemCodes.Add(ItemCode);
+ Salvage -= Price;
+ // Commit both sides in one synchronous transaction; never report success
+ // or retain an acquired item if the save slot cannot be written.
+ if (!SaveWorldProgress()) {
+  InventoryItemCodes.RemoveAt(NewIndex);
+  Salvage = PreviousSalvage;
+  InventorySelection = OldSelection;
+  ResidentFeedbackMessage = TEXT("Transaction failed; salvage and items unchanged.");
+  ResidentFeedbackUntil = Now + 4.f;
+  return false;
+ }
+ ResidentFeedbackMessage = FString::Printf(
+     TEXT("%s complete: %d salvage spent."),
+     bMerchant ? TEXT("Purchase") : TEXT("Crafting"), Price);
+ ResidentFeedbackUntil = Now + 4.f;
+ return true;
 }
 
 // Bounded, persistent faction relationship API. No free reputation on repeated talk.
