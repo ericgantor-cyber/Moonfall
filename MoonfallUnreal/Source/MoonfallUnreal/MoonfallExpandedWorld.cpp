@@ -185,8 +185,12 @@ void AMoonfallExpandedWorld::UpdateSeaSwimming()
    Movement->SetMovementMode(MOVE_Walking);
    SeaSwimmer.Reset();
   } else if (bLeaveWater) {
-   // Outside the sea area, normal falling/ground contact takes over.
-   Movement->SetMovementMode(MOVE_Falling);
+   // If shoreline collision already gives the hero a non-ferry movement
+   // base, keep their walking movement. Otherwise fall normally until
+   // ground contact. Neither path repositions the player.
+   const bool bOnShoreSurface = IsValid(Hero->GetMovementBase())
+     && !bOnFerry;
+   Movement->SetMovementMode(bOnShoreSurface ? MOVE_Walking : MOVE_Falling);
    SeaSwimmer.Reset();
   }
  }
