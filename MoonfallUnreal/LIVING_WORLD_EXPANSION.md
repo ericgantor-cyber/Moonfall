@@ -160,6 +160,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Residents add contextual lines when the player reaches very Good or Evil standing, preserving faction disposition and quest dialogue. This is **not** a copy of Fable's graphics, character morphing, wing effects, town rebuilding or royal treasury. Future choices, visual morphs and settlement outcomes require separate art/behaviour implementation and native UE5 gameplay validation.
 - Updated pure C++17 and Python source-contract tests cover alignment bounds, decision outcomes, save versions, confirmation and rollback. Native Windows Unreal compilation, saved-game migration and mouse/controller playtests remain unverified.
 
+## Read-only moral feedback in the world and character screen
+
+- The existing character-sheet panel now shows a **color-and-text morality meter**, centered at zero, with negative alignment extending left and positive alignment right. The textual title and numeric score preserve accessibility without relying on color alone. The meter is read-only, creates no actors or materials, and does not touch original character artwork.
+- A resident who has been aided displays **[HELPED]** in their existing Council assignment sign with a green tint, while a resident who has been extorted displays **[THREATENED]** in a red tint. The single affected label is refreshed only after the confirmed transaction saves successfully; a failed transaction retains the original sign. These markers are visible only in Crossroads when a Council policy is confirmed, using the pre-existing noncolliding sign.
+- NPC Talk lines now individually acknowledge prior one-time aid/extortion decisions. Reputation, quests, inventories, and saved player appearance are not modified by the read-only UI feedback. **Angelic/demonic body morphs, world remodelling, crowd reactions, weapon appearance changes, and native UE5 gameplay validation are still outstanding.**
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
