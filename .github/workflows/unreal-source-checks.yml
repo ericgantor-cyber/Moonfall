@@ -116,6 +116,14 @@ jobs:
             tools/test_unreal_set_bonus_thresholds.cpp -o /tmp/moonfall_set_bonus_test
           /tmp/moonfall_set_bonus_test
 
+      - name: Verify nine-slot legacy mapping (portable C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -I MoonfallUnreal/Source/MoonfallUnreal \
+            tools/test_unreal_equipment_slots.cpp -o /tmp/moonfall_equipment_slots_test
+          /tmp/moonfall_equipment_slots_test
+
       - name: Verify combat HUD scan regressions
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_hud_scan
