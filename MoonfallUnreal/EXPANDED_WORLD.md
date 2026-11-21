@@ -233,6 +233,15 @@ island encounter cleanup, and normal per-refresh unload behavior are
 unchanged. This is verified by source-regression assertions; native
 UE5 manager teardown/restart still requires gameplay testing.
 
+## Encounter-to-terrain refresh ordering
+
+Gothic Isle encounter updates run **after** expired resident terrain is
+removed, but **before** the 25-tile-capacity early return. Enemy spawn
+checks therefore use the pruned resident-tile registry and remain active
+when all available terrain slots are occupied. Existing defeat clearing,
+spawn retries, and encounter distances are unchanged. Verify encounter
+spawning and tile-boundary movement in a native UE5 session before merge.
+
 ## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
