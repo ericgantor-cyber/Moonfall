@@ -219,6 +219,21 @@ class GothicFerryContracts(unittest.TestCase):
             "void AMoonfallGothicFerry::EndPlay(", 1)[0]
         self.assertIn("SetGangplankDeployed(true)", completion)
 
+    def test_swimming_controls_reuse_camera_and_jump_without_new_combat_bindings(self):
+        jump = self.hero.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward(", 1)[0]
+        forward = self.hero.split("void AMoonfallHeroPawn::MoveForward(", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveRight(", 1)[0]
+        self.assertIn("GetCharacterMovement()->IsSwimming()", jump)
+        self.assertIn("AddMovementInput(FVector::UpVector, 1.f);", jump)
+        self.assertLess(jump.index("AddMovementInput(FVector::UpVector, 1.f);"), jump.index("Jump();"))
+        self.assertIn("GetCharacterMovement()->IsSwimming()", forward)
+        self.assertIn("Controller->GetControlRotation()", forward)
+        self.assertIn("FRotationMatrix(Rotation).GetUnitAxis(EAxis::X)", forward)
+        self.assertIn('ActionName="Jump",Key=SpaceBar', self.inputs)
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', self.inputs)
+        self.assertIn('AxisName="MoveForward",Scale=1.000000,Key=Gamepad_LeftY', self.inputs)
+
     def test_wow_forever_style_water_entry_uses_swimming_not_rescue(self):
         world_header = (SRC / "MoonfallExpandedWorld.h").read_text(encoding="utf-8")
         swimming = self.world.split("void AMoonfallExpandedWorld::UpdateSeaSwimming()", 1)[1].split(
