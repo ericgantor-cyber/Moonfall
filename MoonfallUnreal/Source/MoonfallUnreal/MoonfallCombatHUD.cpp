@@ -410,12 +410,21 @@ void AMoonfallCombatHUD::DrawHUD()
     Selected, ChronicleDiscovered, ChronicleDefeated);
   const MoonfallChronicleUI::FCard ChronicleCard = MoonfallChronicleUI::Layout(
     MapLeft, MapTop, MapWidth, MapHeight, Hero->bAtlasChronicleFocus);
+  const bool bReadingIsle = Hero->bAtlasIsleReader && IsleStory.Valid
+    && IsleStory.Revealed > 0;
   const int32 ChapterIndex = Hero->AtlasChronicleChapter >= 0
     && Hero->AtlasChronicleChapter < MoonfallChronicle::BeatsPerAct
-    ? Hero->AtlasChronicleChapter : Chronicle.FeaturedBeat;
-  const MoonfallChronicle::FBeat* ChronicleBeat = Chronicle.Valid
+    ? Hero->AtlasChronicleChapter
+    : bReadingIsle ? IsleStory.FeaturedChapter : Chronicle.FeaturedBeat;
+  const MoonfallChronicle::FBeat* ChronicleBeat = !bReadingIsle && Chronicle.Valid
     ? MoonfallChronicle::RevealedBeat(Selected, ChapterIndex,
         ChronicleDiscovered, ChronicleDefeated)
+    : nullptr;
+  const MoonfallIsleChronicle::FChapter* IsleBeat = bReadingIsle
+    ? MoonfallIsleChronicle::RevealedChapter(ChapterIndex,
+        Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+        Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+        IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete)
     : nullptr;
   const bool bChroniclePointer = bAtlasPointerInsideMap
     && MoonfallChronicleUI::HitCard(ChronicleCard, AtlasPointerX, AtlasPointerY);
@@ -424,8 +433,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const float CW = ChronicleCard.Width, CH = ChronicleCard.Height;
    DrawRect(FLinearColor(0.038f, 0.041f, 0.067f, 0.97f), CL, CT, CW, CH);
    DrawRect(FLinearColor(0.73f, 0.56f, 0.32f, 0.96f), CL, CT, 3.f, CH);
-   const FString ActLabel = FString::Printf(TEXT("ACT %d/6  |  %s"),
-     Selected + 1, UTF8_TO_TCHAR(MoonfallChronicle::ActNames[Selected]));
+   const FString ActLabel = bReadingIsle
+     ? FString(TEXT("GOTHIC ISLE | THE SEVENTH WITNESS"))
+     : FString::Printf(TEXT("ACT %d/6  |  %s"),
+         Selected + 1, UTF8_TO_TCHAR(MoonfallChronicle::ActNames[Selected]));
    DrawText(ActLabel.Left(MapWidth < 420.f ? 24 : 44),
      FLinearColor(0.96f, 0.84f, 0.62f),
      CL + 10.f, CT + 5.f, nullptr, Scale * 0.74f);
@@ -439,15 +450,18 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor::White, ChronicleCard.ToggleLeft + 8.f,
      ChronicleCard.ToggleTop + 2.f, nullptr, Scale * 0.66f);
    for (int32 Chapter = 0; Chapter < MoonfallChronicle::BeatsPerAct; ++Chapter) {
-    const auto ChapterState = MoonfallChronicle::BeatState(
-      Selected, Chapter, ChronicleDiscovered, ChronicleDefeated);
+    const auto ChapterState = bReadingIsle
+      ? static_cast<int32>(MoonfallIsleChronicle::ChapterState(Chapter,
+          Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+          Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+          IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete))
+      : static_cast<int32>(MoonfallChronicle::BeatState(
+          Selected, Chapter, ChronicleDiscovered, ChronicleDefeated));
     const bool bSelected = Chapter == ChapterIndex;
     const FLinearColor ChapterInk =
-      ChapterState == MoonfallChronicle::EBeatState::Hidden
-        ? FLinearColor(0.29f, 0.29f, 0.32f)
-        : ChapterState == MoonfallChronicle::EBeatState::Cleared
-          ? FLinearColor(0.23f, 0.58f, 0.45f)
-          : FLinearColor(0.67f, 0.48f, 0.24f);
+      ChapterState == 0 ? FLinearColor(0.29f, 0.29f, 0.32f)
+        : ChapterState == 2 ? FLinearColor(0.23f, 0.58f, 0.45f)
+        : FLinearColor(0.67f, 0.48f, 0.24f);
     const float TabX = ChronicleCard.TabLeft + ChronicleCard.TabWidth * Chapter;
     DrawRect(bSelected ? ChapterInk : ChapterInk * 0.48f,
       TabX + 1.f, ChronicleCard.TabTop,
@@ -457,31 +471,35 @@ void AMoonfallCombatHUD::DrawHUD()
        TabX + 1.f, ChronicleCard.TabTop + ChronicleCard.TabHeight - 2.f,
        ChronicleCard.TabWidth - 2.f, 2.f);
     DrawText(FString::FromInt(Chapter + 1),
-      ChapterState == MoonfallChronicle::EBeatState::Hidden
+      ChapterState == 0
         ? FLinearColor(0.77f, 0.76f, 0.75f) : FLinearColor::White,
       TabX + (ChronicleCard.TabWidth - 11.f) * 0.5f,
       ChronicleCard.TabTop + 2.f, nullptr, Scale * 0.75f);
    }
-   const auto SelectedState = MoonfallChronicle::BeatState(
-     Selected, ChapterIndex, ChronicleDiscovered, ChronicleDefeated);
-   const TCHAR* ChapterStatus =
-     SelectedState == MoonfallChronicle::EBeatState::Hidden ? TEXT("LOCKED")
-       : SelectedState == MoonfallChronicle::EBeatState::Cleared ? TEXT("CLEARED")
-       : TEXT("DISCOVERED");
-   const FString ChapterLabel = ChronicleBeat
-     ? FString::Printf(TEXT("CHAPTER %d/7  |  %s"),
-          ChapterIndex + 1, UTF8_TO_TCHAR(ChronicleBeat->Title))
-     : FString::Printf(TEXT("CHAPTER %d/7  |  UNDISCOVERED"),
-          ChapterIndex + 1);
+   const int32 SelectedState = bReadingIsle
+     ? static_cast<int32>(MoonfallIsleChronicle::ChapterState(ChapterIndex,
+         Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+         Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+         IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete))
+     : static_cast<int32>(MoonfallChronicle::BeatState(
+         Selected, ChapterIndex, ChronicleDiscovered, ChronicleDefeated));
+   const TCHAR* ChapterStatus = SelectedState == 0 ? TEXT("LOCKED")
+     : SelectedState == 2 ? TEXT("CLEARED") : TEXT("DISCOVERED");
+   const FString ChapterLabel = (bReadingIsle && IsleBeat) || ChronicleBeat
+     ? FString::Printf(TEXT("CHAPTER %d/7  |  %s"), ChapterIndex + 1,
+          UTF8_TO_TCHAR(bReadingIsle ? IsleBeat->Title : ChronicleBeat->Title))
+     : FString::Printf(TEXT("CHAPTER %d/7  |  UNDISCOVERED"), ChapterIndex + 1);
    DrawText(ChapterLabel.Left(MapWidth < 400.f ? 38 : 59),
      FLinearColor::White, CL + 10.f, CT + 51.f, nullptr, Scale * 0.77f);
    // Never touch Acts[][] for unrevealed chapters. The text must not leak
    // via titles, labels, pointer tooltips or automatic next-page selection.
-   const FString Lore = ChronicleBeat
-     ? FString(UTF8_TO_TCHAR(ChronicleBeat->Lore))
-     : ChapterIndex == 6
-       ? FString(TEXT("Defeat all five regional dungeon bosses to reveal this chapter."))
-       : FString(TEXT("Discover the corresponding dungeon entrance to reveal this chapter."));
+   const FString Lore = bReadingIsle
+     ? IsleBeat ? FString(UTF8_TO_TCHAR(IsleBeat->Lore))
+       : FString(TEXT("Complete the corresponding island contract to uncover this evidence."))
+     : ChronicleBeat ? FString(UTF8_TO_TCHAR(ChronicleBeat->Lore))
+       : ChapterIndex == 6
+         ? FString(TEXT("Defeat all five regional dungeon bosses to reveal this chapter."))
+         : FString(TEXT("Discover the corresponding dungeon entrance to reveal this chapter."));
    const int32 LoreLineLimit = MapWidth >= 480.f ? 78 : 48;
    const int32 LoreLines = ChronicleCard.LoreLines;
    int32 LoreCursor = 0;
@@ -502,8 +520,11 @@ void AMoonfallCombatHUD::DrawHUD()
     while (LoreCursor < Lore.Len() && Lore[LoreCursor] == TCHAR(' '))
      ++LoreCursor;
    }
-   DrawText(FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
-       Chronicle.Revealed, Chronicle.BossesDefeated, ChapterStatus),
+   DrawText(bReadingIsle
+       ? FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 CONTRACTS  |  %s"),
+           IsleStory.Revealed, IsleStory.CompletedContracts, ChapterStatus)
+       : FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
+           Chronicle.Revealed, Chronicle.BossesDefeated, ChapterStatus),
      FLinearColor(0.66f, 0.86f, 0.78f),
      CL + 10.f, CT + CH - 19.f, nullptr, Scale * 0.67f);
   }
