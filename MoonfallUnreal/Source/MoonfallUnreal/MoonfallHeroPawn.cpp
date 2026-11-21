@@ -1673,6 +1673,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 3) % 4;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -1695,6 +1696,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 1) % 4;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -3421,6 +3423,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
   ResidentContextSelection = (ResidentContextSelection + 3) % 4;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
@@ -3720,6 +3723,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 3) return PurchaseResidentWorkItem();
  if (Choice == 0) {
+  bResidentTradePending = false;
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
@@ -3727,6 +3731,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ bResidentTradePending = false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
  FText Message;
