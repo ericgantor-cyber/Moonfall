@@ -415,18 +415,15 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  if (PlayerPosition.ContainsNaN()) return;
  UpdateGothicIsleEncounters(PlayerPosition);
 
- // Unload beyond a wider hysteresis radius, preventing churn at tile edges.
- TArray<int32> ExpiredIds;
- for (const TPair<int32, TObjectPtr<AMoonfallOverworldTile>>& Entry : ResidentTiles) {
-  const AMoonfallOverworldTile* Tile = Entry.Value.Get();
-  if (!IsValid(Tile) || FVector::DistSquared2D(PlayerPosition,
-       Tile->GetActorLocation()) > FMath::Square(UnloadRadius))
-   ExpiredIds.Add(Entry.Key);
- }
- for (const int32 Id : ExpiredIds) {
-  if (TObjectPtr<AMoonfallOverworldTile>* Tile = ResidentTiles.Find(Id))
-   if (IsValid(Tile->Get())) Tile->Get()->Destroy();
-  ResidentTiles.Remove(Id);
+ // Remove expired tiles in place: one map walk, no temporary ID array
+ // or second lookup. The wider radius still prevents tile-edge churn.
+ for (auto It = ResidentTiles.CreateIterator(); It; ++It) {
+  AMoonfallOverworldTile* Tile = It.Value().Get();
+  if (IsValid(Tile) && FVector::DistSquared2D(PlayerPosition,
+       Tile->GetActorLocation()) <= FMath::Square(UnloadRadius))
+   continue;
+  if (IsValid(Tile)) Tile->Destroy();
+  It.RemoveCurrent();
  }
  // Unloading and island encounters must run even at capacity. Only skip
  // new-candidate generation when there is no room to spawn another tile.
