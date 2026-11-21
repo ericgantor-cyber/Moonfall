@@ -81,7 +81,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);", header)
         self.assertIn('CreateDefaultSubobject<UTextRenderComponent>(TEXT("CouncilAssignmentSign"))', npc)
         method = npc.split("void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(", 1)[1].split(
-            "FString AMoonfallWorldNPC::GetCouncilAssignment(", 1
+            "bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(", 1
         )[0]
         for expected in ("ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)",
                          "CouncilAssignmentSign->SetVisibility(false)", "CouncilAssignmentSign->SetVisibility(true)",
