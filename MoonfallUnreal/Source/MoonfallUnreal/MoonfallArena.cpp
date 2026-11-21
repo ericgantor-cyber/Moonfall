@@ -2,6 +2,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallMoralityRules.h"
 #include "TimerManager.h"
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
@@ -29,8 +30,11 @@ AMoonfallArena::AMoonfallArena() {
  CouncilProtectionDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilProtectionDecor"));
  CouncilReconstructionDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilReconstructionDecor"));
  CouncilFortificationDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilFortificationDecor"));
+ HopeSettlementDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("HopeSettlementDecor"));
+ ShadowSettlementDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ShadowSettlementDecor"));
  UInstancedStaticMeshComponent* Sets[] = {
-  CouncilProtectionDecor, CouncilReconstructionDecor, CouncilFortificationDecor};
+  CouncilProtectionDecor, CouncilReconstructionDecor, CouncilFortificationDecor,
+  HopeSettlementDecor, ShadowSettlementDecor};
  for (UInstancedStaticMeshComponent* Set : Sets) {
   Set->SetupAttachment(GetRootComponent());
   Set->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -51,21 +55,32 @@ void AMoonfallArena::StepCouncilWorkRoutes() {
 }
 void AMoonfallArena::RefreshCouncilSettlementVisuals() {
  if (!GetWorld() || !CouncilProtectionDecor || !CouncilReconstructionDecor
-     || !CouncilFortificationDecor) return;
+     || !CouncilFortificationDecor || !HopeSettlementDecor
+     || !ShadowSettlementDecor) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  const int32 Policy = IsValid(Hero) && Hero->CouncilDecisionId >= 0
      && Hero->CouncilDecisionId <= 2 ? Hero->CouncilDecisionId : -1;
+ // Save-backed morality silhouettes change only when a threshold is crossed.
+ const int32 MoralTier = IsValid(Hero)
+     ? MoonfallMorality::WorldTier(Hero->MoralAlignment) : 0;
  // Stationary residents reuse the existing two-second Council refresh.
  // A bounded authored list avoids a recurring global actor scan.
  for (const TWeakObjectPtr<AMoonfallWorldNPC>& Resident : CouncilStationResidents) {
   if (Resident.IsValid()) Resident->RefreshCouncilStationActivity(Hero);
  }
- if (Policy == LastDisplayedCouncilDecision) return;
+ if (Policy == LastDisplayedCouncilDecision
+     && MoralTier == LastDisplayedMoralityTier) return;
+ const bool bPolicyChanged = Policy != LastDisplayedCouncilDecision;
  LastDisplayedCouncilDecision = Policy;
+ LastDisplayedMoralityTier = MoralTier;
+ HopeSettlementDecor->SetVisibility(MoralTier > 0);
+ ShadowSettlementDecor->SetVisibility(MoralTier < 0);
  // A policy change is rare. Update authored resident labels once per
  // transition, not in NPC Tick or a per-frame resident scan.
- for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It) {
-  if (IsValid(*It)) It->RefreshCouncilAssignmentSign(Hero);
+ if (bPolicyChanged) {
+  for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It) {
+   if (IsValid(*It)) It->RefreshCouncilAssignmentSign(Hero);
+  }
  }
  CouncilProtectionDecor->SetVisibility(Policy == 0);
  CouncilReconstructionDecor->SetVisibility(Policy == 1);
@@ -75,7 +90,10 @@ void AMoonfallArena::RefreshCouncilSettlementVisuals() {
       : Policy == 1 ? TEXT("REBUILD THE CROSSROADS | COUNCIL WORKS")
       : Policy == 2 ? TEXT("FORTIFY THE BORDERS | COUNCIL WATCH")
       : TEXT("CROSSROADS COUNCIL | POLICY UNDECIDED");
-  CouncilWorldSign->SetText(FText::FromString(Title));
+  const FString MoralSuffix = IsValid(Hero)
+      ? FString::Printf(TEXT(" | %s"), ANSI_TO_TCHAR(
+          MoonfallMorality::WorldState(Hero->MoralAlignment))) : TEXT("");
+  CouncilWorldSign->SetText(FText::FromString(FString(Title) + MoralSuffix));
   CouncilWorldSign->SetTextRenderColor(
       Policy == 0 ? FColor(118, 225, 196)
       : Policy == 1 ? FColor(245, 192, 120)
@@ -107,6 +125,24 @@ FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
+ // The two morality sets use fixed authored shapes. No player morphs,
+ // skeletal replacements, spawned actors, mesh assets, or new collision.
+ if (HopeSettlementDecor && ShadowSettlementDecor) {
+  const FVector HopePosts[] = {
+    FVector(-1160.f,-840.f,60.f), FVector(-1160.f,0.f,60.f),
+    FVector(-1160.f,840.f,60.f), FVector(1050.f,0.f,60.f)};
+  const FVector ShadowSpikes[] = {
+    FVector(1120.f,-850.f,75.f), FVector(1120.f,0.f,75.f),
+    FVector(1120.f,850.f,75.f), FVector(-970.f,0.f,75.f)};
+  for (const FVector& Pos : HopePosts) {
+   HopeSettlementDecor->AddInstance(FTransform(FRotator(0.f,45.f,0.f),
+       Pos, FVector(0.60f,0.60f,1.65f)));
+  }
+  for (const FVector& Pos : ShadowSpikes) {
+   ShadowSettlementDecor->AddInstance(FTransform(FRotator(0.f,24.f,0.f),
+       Pos, FVector(0.75f,0.75f,2.20f)));
+  }
+ }
  // Council choices update the Crossroads' appearance, not its collision
  // geometry. Sparse instanced props avoid actors, dynamic materials and Tick.
  if (CouncilProtectionDecor && CouncilReconstructionDecor && CouncilFortificationDecor) {
