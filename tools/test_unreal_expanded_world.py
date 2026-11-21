@@ -172,7 +172,7 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertLess(combat.index("ResidentTiles.Find(SiteTileId)"),
                         combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertLess(self.world.index("UpdateGothicIsleEncounters(PlayerPosition);"),
-                        self.world.index("// Unload beyond a wider hysteresis radius"))
+                        self.world.index("ResidentTiles.CreateIterator()"))
         self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
         self.assertIn("IslandEncounters.Empty();", self.world)
         self.assertIn("TMap<int32, float> IslandSpawnRetryAt;", self.world_h)
