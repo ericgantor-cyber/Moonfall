@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallResidentCatalog.h"
+#include "MoonfallMoralityRules.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallLivingWorldRules.h"
@@ -2755,6 +2756,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
  if (CouncilDecisionId < -1 || CouncilDecisionId > 2) return false;
+ if (MoralAlignment < -100 || MoralAlignment > 100 || ResidentMoralChoices.Num() > 13)
+  return false;
+ for (const auto& Entry : ResidentMoralChoices)
+  if (!IsNamedMoonfallResident(Entry.Key)
+      || !MoonfallMorality::IsValidAction(Entry.Value)) return false;
  const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;
  for (const int64 Mask : ExploredZoneFogMasks)
   if ((static_cast<uint64>(Mask) & ~AllowedFogBits) != 0ULL) return false;
@@ -2869,13 +2875,15 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  Save->CouncilDecisionId = CouncilDecisionId;
+ Save->MoralAlignment = MoralAlignment;
+ Save->ResidentMoralChoices = ResidentMoralChoices;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 13) {
+ if (!Save || Save->Version < 1 || Save->Version > 14) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -3049,6 +3057,22 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   return false;
  }
+ // V14 morality ledger must be complete, named and in range; rejecting bad
+ // input protects newer/corrupted saves against the two-second autosave.
+ if (Save->Version >= 14) {
+  if (Save->MoralAlignment < -100 || Save->MoralAlignment > 100
+      || Save->ResidentMoralChoices.Num() > 13) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (const auto& Entry : Save->ResidentMoralChoices) {
+   if (!IsNamedMoonfallResident(Entry.Key)
+       || !MoonfallMorality::IsValidAction(Entry.Value)) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3096,6 +3120,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    if (IsValid(*It)) It->RefreshShrineDisplay(this);
  }
  CouncilDecisionId = Save->Version >= 13 ? Save->CouncilDecisionId : -1;
+ // Existing Council policies from V13 seed the initial Good alignment once;
+ // V14 saves persist their exact accumulated moral score and action ledger.
+ MoralAlignment = Save->Version >= 14
+     ? Save->MoralAlignment : MoonfallMorality::CouncilDelta(CouncilDecisionId);
+ ResidentMoralChoices = Save->Version >= 14
+     ? Save->ResidentMoralChoices : TMap<FName, int32>();
  bCouncilDecisionConfirmArmed = false;
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
