@@ -95,7 +95,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bResidentContextOpen = false;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",close)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
   self.assertIn("if (bResidentContextOpen &&",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
@@ -126,13 +126,21 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("Confirm spending %d salvage",self.hero)
   self.assertIn("Confirm turn-in",hud)
   self.assertIn("Resident->TurnInResidentQuest(this)",self.hero)
- def test_opening_dialogue_does_not_force_stop_movement(self):
-  source=self.hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
-    "void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[0]
-  self.assertNotIn("StopJumping();",source)
-  self.assertNotIn("StopMovementImmediately();",source)
-  self.assertNotIn("EndSprint();",source)
-  self.assertNotIn("EndGuard();",source)
+ def test_opening_dialogue_releases_held_combat_input(self):
+  # Both D-pad Up and right-click must clear latched movement/combat state
+  # before making an NPC conversation active.
+  for start,end in (
+    ("void AMoonfallHeroPawn::OpenFocusedResidentContext()",
+     "void AMoonfallHeroPawn::CastRightMouse()"),
+    ("void AMoonfallHeroPawn::CastRightMouse()",
+     "void AMoonfallHeroPawn::ReleaseInventoryPointer()"),
+  ):
+   source=self.hero.split(start,1)[1].split(end,1)[0]
+   opening=source.split("FocusedResident = Resident;",1)[0]
+   for cleanup in ("StopJumping();","EndSprint();","EndGuard();",
+                   "GetCharacterMovement()->StopMovementImmediately();"):
+    self.assertIn(cleanup,opening)
+   self.assertIn("bResidentContextOpen = true;",source)
  def test_hover_and_quest_status_ui(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("GetMousePosition(CursorX, CursorY)",hud)
@@ -142,7 +150,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Active")',hud)
   self.assertIn('TEXT("Completed")',hud)
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",self.hero)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)

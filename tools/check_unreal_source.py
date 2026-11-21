@@ -392,7 +392,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
+        # Verify both movement axes reject every modal, defeated and invalid
+        # input state without depending on order inside the same early-return.
+        for axis in ("MoveForward", "MoveRight"):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
+                "void AMoonfallHeroPawn::", 1)[0]
+            guard = body.split("if (", 1)[1].split("return;", 1)[0]
+            for condition in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen",
+                              "bAtlasOpen", "bResidentContextOpen",
+                              "FocusedResident.IsValid()", "!FMath::IsFinite(Value)"):
+                self.assertIn(condition, guard, (axis, condition))
+            self.assertLess(body.index("if ("), body.index("AddMovementInput("))
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -749,7 +759,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         defeat = self.hero_cpp.split("if (Health <= 0.f) {\n  CloseResidentContext();", 1)[1].split("\n }", 1)[0]
-        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;", close)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;", close)
         self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid())", escape)
         self.assertIn("bInventoryOpen = false;", defeat)
         self.assertIn("bCharacterStatsOpen = false;", defeat)
@@ -1020,7 +1030,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        # Gamepad A now routes to Character Stats only while inventory is open;
+        # duplicate action bindings used to open the sheet during Jump.
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward(", 1)[0]
+        self.assertIn("PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)", jump)
+        self.assertIn("ToggleCharacterStats();", jump)
+        self.assertIn("if (bInventoryOpen && !bOptionsOpen && !bAtlasOpen)", jump)
+        self.assertIn("Jump();", jump)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -1927,7 +1946,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
+            guard = body.split("if (", 1)[1].split("return;", 1)[0]
+            for condition in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen",
+                              "bAtlasOpen", "bResidentContextOpen",
+                              "FocusedResident.IsValid()", "!FMath::IsFinite(Value)"):
+                self.assertIn(condition, guard, (axis, condition))
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
             self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
@@ -1969,6 +1992,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        # A streamed-out resident may leave the dialogue modal open briefly.
+        # The modal flag, not just the NPC weak pointer, must block dodge
+        # before stamina, cooldown or invulnerability can be granted.
+        modal_guard = dodge.split("return;", 1)[0]
+        self.assertIn("bResidentContextOpen", modal_guard)
+        self.assertIn("FocusedResident.IsValid()", modal_guard)
+        self.assertLess(dodge.index("bResidentContextOpen"), dodge.index(
+            "Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
         for value in ("Now", "NextDodgeAt", "DamageImmunityUntil"):
             self.assertIn(f"!FMath::IsFinite({value})", dodge)
             self.assertLess(dodge.index(f"!FMath::IsFinite({value})"),
@@ -2033,9 +2064,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;", begin)
-        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;"),
-                        begin.index("bSprintHeld = true;"))
+        guard = begin.split("if (", 1)[1].split("return;", 1)[0]
+        for condition in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                          "Health <= 0.f", "bResidentContextOpen"):
+            self.assertIn(condition, guard)
+        self.assertLess(begin.index("if ("), begin.index("bSprintHeld = true;"))
 
     def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -5826,8 +5859,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
         guarded = {
             "CastBoth": "if (bOptionsOpen || bAtlasOpen) return;",
-            "BeginGuard": "bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f",
-            "BeginSprint": "if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;",
+            "BeginGuard": "bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f",
             "Dodge": "bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid()",
         }
         for method, guard in guarded.items():
@@ -5836,6 +5868,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 self.assertIn(guard, body)
                 self.assertLess(body.index(guard), body.index("return;"))
 
+        # Sprint may add more safety conditions without breaking its source
+        # contract; all five locks still must precede the first return.
+        sprint = method_body("BeginSprint").split("return;", 1)[0]
+        for condition in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                          "Health <= 0.f", "bResidentContextOpen"):
+            self.assertIn(condition, sprint)
         right = method_body("CastRightMouse")
         self.assertLess(right.index("if (bAtlasOpen) return;"), right.index("if (bInventoryOpen) {"))
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", right)
@@ -5877,7 +5915,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(interaction.index("bAtlasOpen"), interaction.index("GetNearestResidentNPC()"))
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "\n}", 1)[0]
-        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", pickup)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld()", pickup)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
             "\n}", 1)[0]
         self.assertIn("Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen", toggle)
@@ -6168,7 +6206,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(cancel, enemy_modal)
         self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {", tick)
+        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
