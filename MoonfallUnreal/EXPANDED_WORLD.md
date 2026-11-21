@@ -101,10 +101,12 @@ native builds and representative Windows machines can be profiled.
 - Added a collision-enabled, dock-only **gangplank** connected to the deck.
   It faces the current shore, and is hidden with collision disabled while
   the boat sails. Characters can approach it physically while docked.
-- **Departure still uses the existing right-click or controller interaction**,
-  which briefly repositions the player onto the deck. Automatic departure
-  after walking onto the deck is not implemented yet; full walk-on boarding
-  must not be claimed until native collision and control playtests pass.
+- **Departure still uses the existing right-click or controller interaction**.
+  If the hero has physically walked onto the deck, the departure now keeps
+  the hero's current position instead of repositioning them to the center.
+  Characters interacting from the pier are still placed onto the deck.
+  Automatic departure on walking aboard is not implemented; native
+  moving-platform and gangplank tests remain necessary.
 - Native UE5.4 tests must verify that the hero stays grounded while the boat
   moves, can steer in all directions, does not slip/fall through collision,
   and transfers off the deck correctly at both shore landings.
