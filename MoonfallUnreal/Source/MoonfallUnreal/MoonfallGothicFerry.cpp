@@ -80,6 +80,19 @@ float AMoonfallGothicFerry::GetCrossingProgress() const
  return FMath::Clamp(Elapsed / CrossingDuration, 0.f, 1.f);
 }
 
+FText AMoonfallGothicFerry::GetDestinationName() const
+{
+ return bAtIsland ? FText::FromString(TEXT("Mainland Harbor"))
+                  : FText::FromString(TEXT("Gothic Isle"));
+}
+
+float AMoonfallGothicFerry::GetSecondsUntilArrival() const
+{
+ if (!bUnderway || !GetWorld()) return 0.f;
+ const float Elapsed = GetWorld()->GetTimeSeconds() - CrossingStartedAt;
+ return FMath::Clamp(CrossingDuration - Elapsed, 0.f, CrossingDuration);
+}
+
 bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
 {
  if (!IsValid(Hero) || !GetWorld() || bUnderway || Passenger.IsValid()
