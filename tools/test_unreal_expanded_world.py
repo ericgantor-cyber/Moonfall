@@ -177,8 +177,8 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("GroundTile->Get()->IsActorBeingDestroyed()", combat)
         self.assertLess(combat.index("ResidentTiles.Find(SiteTileId)"),
                         combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
-        self.assertLess(self.world.index("UpdateGothicIsleEncounters(PlayerPosition);"),
-                        self.world.index("ResidentTiles.CreateIterator()"))
+        self.assertLess(self.world.index("ResidentTiles.CreateIterator()"),
+                        self.world.index("UpdateGothicIsleEncounters(PlayerPosition);"))
         self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
         self.assertIn("IslandEncounters.Empty();", self.world)
         self.assertIn("TMap<int32, float> IslandSpawnRetryAt;", self.world_h)
@@ -220,6 +220,8 @@ class ExpandedOverworldTests(unittest.TestCase):
         cap_guard = "if (ResidentTiles.Num() >= MaxResidentTiles) return;"
         self.assertIn(cap_guard, streaming)
         # Capacity cannot short-circuit encounter cleanup or unloading.
+        self.assertLess(streaming.index("It.RemoveCurrent();"),
+                        streaming.index("UpdateGothicIsleEncounters(PlayerPosition);"))
         self.assertLess(streaming.index("UpdateGothicIsleEncounters(PlayerPosition);"),
                         streaming.index(cap_guard))
         self.assertIn("ResidentTiles.CreateIterator()", streaming)
