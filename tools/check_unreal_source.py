@@ -661,7 +661,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Top + PanelHeight - 177.f", hud)
         self.assertIn("bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)", hud)
         self.assertIn("Top + PanelHeight - 230.f", hud)
-        self.assertIn("Top + PanelHeight - 207.f", hud)
+        self.assertIn("Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f)", hud)
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
             self.assertNotIn(forbidden, hud)
 
