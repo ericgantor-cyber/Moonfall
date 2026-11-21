@@ -265,6 +265,10 @@ public:
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FVector> AtlasDiscoveredShrineLocations;
  // Parallel names for the discovered-shrine cache. Never a persisted location leak.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FString> AtlasDiscoveredShrineNames;
+ // IDs are cached only for displayed, already discovered shrine markers.
+ UPROPERTY(Transient) TArray<FName> AtlasDiscoveredShrineIds;
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FName AtlasFastTravelPendingShrine = NAME_None;
+ bool TryAtlasFastTravel(FName ShrineId);
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FVector AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasHasActiveRespawnShrineLocation = false;
  // V12 permanent explored-world cells: six 8-by-7 grids, bounded to 56 bits each.
