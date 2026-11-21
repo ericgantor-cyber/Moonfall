@@ -17,6 +17,21 @@ class EnemyPathBudgetTests(unittest.TestCase):
             self.source.index("Nav->FindPathToLocationSynchronously("),
         )
 
+    def test_partial_nav_routes_follow_reachable_waypoints(self):
+        # Unreal may produce a useful partial route when the target is behind
+        # an unreachable doorway. Follow its first corner rather than the
+        # projected destination that may be on the opposite side of a wall.
+        path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1)[0]
+        self.assertIn("IsValid(Path) && Path->PathPoints.Num() > 1", path)
+        self.assertIn("? Path->PathPoints[1] : Point.Location;", path)
+        self.assertNotIn("!Path->IsPartial()", path)
+        # Preserve one cached query with no extra navigation probes.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertLess(path.index("IsValid(Path) &&"), path.index("Path->PathPoints[1]"))
+        self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
+
     def test_far_mobs_only_receive_lower_repath_frequency(self):
         self.assertIn("(!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f", self.source)
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
