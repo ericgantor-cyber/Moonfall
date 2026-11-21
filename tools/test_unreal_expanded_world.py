@@ -110,6 +110,29 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertNotIn("SetTimer(", island)
         self.assertNotIn("SaveGameToSlot", island)
 
+    def test_isle_encounters_are_bounded_near_landmarks_and_not_instantly_respawned(self):
+        combat = self.world.split("void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(", 1)[1].split(
+            "void AMoonfallExpandedWorld::BeginPlay()", 1)[0]
+        for tag in ("GothicHarborReaver", "GothicBlackbellPenitent",
+                    "GothicGraveSentinel", "GothicDuskwatchOutcast",
+                    "GothicThornwraithStalker"):
+            self.assertIn(tag, combat)
+        self.assertIn("TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> IslandEncounters;", self.world_h)
+        self.assertIn("TSet<int32> ClearedIslandEncounters;", self.world_h)
+        self.assertIn("DistanceSquared > FMath::Square(18000.f)", combat)
+        self.assertIn("DistanceSquared > FMath::Square(11000.f)", combat)
+        self.assertIn("ClearedIslandEncounters.Add(Index);", combat)
+        self.assertIn("ClearedIslandEncounters.Remove(Index);", combat)
+        self.assertIn("IslandEncounters.Contains(Index)", combat)
+        self.assertIn("Enemy->Destroy();", combat)
+        self.assertIn("Enemy->bBoss = false;", combat)
+        self.assertIn("Enemy->bElite = Encounters[Index].bElite;", combat)
+        self.assertIn("ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding", combat)
+        self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
+        self.assertIn("IslandEncounters.Empty();", self.world)
+        self.assertNotIn("SetTimer(", combat)
+        self.assertNotIn("PrimaryActorTick", combat)
+
     def test_walkable_tile_ground_but_decorations_do_not_collide(self):
         self.assertIn("Terrain->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)", self.tile)
         self.assertIn("Terrain->SetCollisionResponseToAllChannels(ECR_Block)", self.tile)
