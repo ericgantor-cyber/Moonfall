@@ -135,6 +135,12 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertNotIn('nyra_eclipse_queen', combat)
         self.assertIn("Enemy->bElite = Encounters[Index].bElite;", combat)
         self.assertIn("ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding", combat)
+        self.assertIn("const bool bHeroReady = IsValid(Hero) && FMath::IsFinite(Hero->Health)", combat)
+        self.assertIn("&& Hero->Health > 0.f;", combat)
+        self.assertIn("if (!bHeroReady || DistanceSquared > FMath::Square(11000.f)", combat)
+        self.assertLess(combat.index("if (!bHeroReady ||"), combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertLess(combat.index("if (DistanceSquared > FMath::Square(18000.f))"),
+                        combat.index("if (!bHeroReady ||"))
         self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
         self.assertIn("IslandEncounters.Empty();", self.world)
         self.assertNotIn("SetTimer(", combat)
