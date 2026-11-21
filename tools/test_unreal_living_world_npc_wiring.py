@@ -40,6 +40,28 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_111_named_gear_and_tinker_level_requirements(self):
+        catalog = (SOURCE / "MoonfallResidentCatalog.h").read_text(encoding="utf-8")
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        for expected in ("constexpr const char* Epithets[37]",
+                         "constexpr const char* SlotTitles[3]",
+                         "constexpr const char* NamePrefix(int index)",
+                         "constexpr const char* NameSuffix(int index)",
+                         "constexpr int CraftLevelRequired(int index)",
+                         "1 + (item.tier - 1) / 5"):
+            self.assertIn(expected, catalog)
+        trade = hero.split("bool AMoonfallHeroPawn::PurchaseResidentWorkItem()", 1)[1].split(
+            "// Bounded, persistent faction relationship API.", 1
+        )[0]
+        self.assertIn("MoonfallResidentCatalog::CraftLevelRequired(ResidentCatalogSelection)", trade)
+        self.assertIn("if (bTinker && Level < RequiredLevel)", trade)
+        self.assertLess(trade.index("if (bTinker && Level < RequiredLevel)"),
+                        trade.index("const int32 NewIndex = InventoryItemCodes.Add(ItemCode)"))
+        self.assertIn("MoonfallResidentCatalog::NamePrefix(Hero->ResidentCatalogSelection)", hud)
+        self.assertIn("MoonfallResidentCatalog::NameSuffix(Hero->ResidentCatalogSelection)", hud)
+        self.assertIn("Hero->Level < RequiredLevel", hud)
+
     def test_111_catalog_selection_mouse_controller_and_confirmation_integrity(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
