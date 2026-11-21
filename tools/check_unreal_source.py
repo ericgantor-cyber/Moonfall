@@ -635,6 +635,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("SET PREVIEW: INVALID ITEM")', hud)
         self.assertIn('TEXT("SET PREVIEW: no set trait on this item")', hud)
         self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", hud)
+        self.assertIn("const bool bWornValid = bValidDetail && Hero->InventoryItemCodes.Contains(CurrentlyWorn)", hud)
+        self.assertIn("Hero->GetProjectedSetPieceCount(WornAffix, SelectedCode)", hud)
+        self.assertIn("WornPieces >= 2 && ProjectedWornPieces < 2", hud)
+        self.assertIn("WornPieces >= 3 && ProjectedWornPieces < 3", hud)
+        self.assertIn('TEXT("SET BONUS LOSS: %s %d/3 -> %d/3")', hud)
+        self.assertIn("bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)", hud)
         self.assertIn("Top + PanelHeight - 230.f", hud)
         self.assertIn("Top + PanelHeight - 207.f", hud)
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
