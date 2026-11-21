@@ -57,7 +57,7 @@ class ExpandedOverworldTests(unittest.TestCase):
                       "GOTHIC ISLE"):
             self.assertIn('TEXT("' + label + '")', self.world)
         self.assertIn("FRandomStream Random(3907 + RegionIndex * 911", self.tile)
-        self.assertIn("const int32 PropsPerTile = 18;", self.tile)
+        self.assertIn("constexpr int32 PropsPerTile = 18;", self.tile)
         self.assertIn("if (Column == 2 && Row == 2)", self.tile)
         self.assertIn("Buildings->AddInstance(", self.tile)
         self.assertIn("RegionSign->SetText(", self.tile)
