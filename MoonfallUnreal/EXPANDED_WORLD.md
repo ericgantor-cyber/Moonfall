@@ -126,7 +126,9 @@ native builds and representative Windows machines can be profiled.
   independently of the 0.35-second terrain streaming timer, without a
   per-frame actor Tick. This is **not yet a complete ocean system**:
   Swimming movement now follows camera pitch when pressing forward, and the
-  existing keyboard/controller Jump action supplies upward swim movement.
+  existing keyboard/controller Jump action supplies continuous upward swim
+  movement while held; releasing Jump stops ascent without changing the
+  existing land jump behavior.
   Normal land movement retains yaw-only direction; no combat/input remapping
   or automatic rescue was added. Descending uses camera-directed forward
   movement, not a dedicated descend button. A full underwater control scheme
