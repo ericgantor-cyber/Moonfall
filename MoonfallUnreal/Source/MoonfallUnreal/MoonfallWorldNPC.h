@@ -18,6 +18,9 @@ public:
  // Tiny collision-free animated activity prop, separate from original NPC body art.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UStaticMeshComponent* CouncilWorkMarker;
  float CouncilWorkVisualPhase = 0.f;
+ // Stationary professions reuse the primitive marker; no AI movement or Tick.
+ void RefreshCouncilStationActivity(const AMoonfallHeroPawn* Hero);
+ int32 CouncilStationVisualStep = 0;
  void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);
  // Short authored two-point workplace patrol. No NPC Tick or AI controller.
  // Returns false if a walkable route or safe endpoints cannot be confirmed.
