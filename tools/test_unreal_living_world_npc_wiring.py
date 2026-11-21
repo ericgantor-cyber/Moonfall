@@ -98,7 +98,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 2) % 3)", left)
         self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 1) % 3)", right)
         self.assertIn("Hero->PreviewCouncilDecision(Selected)", hud)
-        self.assertIn("D-pad left/right: review only", hud)
+        self.assertIn("D-pad: browse | F8: mouse preview", hud)
 
     def test_sanctuary_hud_uses_actual_progress_and_preserves_small_screens(self):
         hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
