@@ -35,7 +35,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
         self.assertEqual(self.boat.count("Hero->SetActorLocation("), 1)
-        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 3)
+        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 2)
 
     def test_destination_and_arrival_countdown_for_accessible_ui(self):
         self.assertIn("FText GetDestinationName() const;", self.h)
@@ -92,26 +92,18 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertLess(boarding.index("Hero->SetActorLocation(BoardingLocation"),
                         boarding.index("Hero->SetBase(Deck)"))
 
-    def test_overboard_fall_recovery_checks_clearance_before_rebasing(self):
+    def test_no_automatic_overboard_recovery_or_timer_pause(self):
         crossing = self.boat.split("void AMoonfallGothicFerry::AdvanceCrossing()", 1)[1].split(
             "void AMoonfallGothicFerry::FinishCrossing(", 1)[0]
-        self.assertIn("float LastCrossingUpdateAt = 0.f;", self.h)
-        self.assertIn("LastCrossingUpdateAt = CrossingStartedAt;", self.boat)
-        self.assertIn("const float UpdateDelta = FMath::Max(0.f, Now - LastCrossingUpdateAt);", crossing)
-        self.assertIn("LastCrossingUpdateAt = Now;", crossing)
-        self.assertEqual(crossing.count("CrossingStartedAt += UpdateDelta;"), 2)
-        self.assertLess(crossing.index("CrossingStartedAt += UpdateDelta;"),
-                        crossing.index("const float Alpha = GetCrossingProgress();"))
-        self.assertIn("const bool bOverboard =", crossing)
-        self.assertIn("FMath::Square(700.f)", crossing)
-        self.assertIn("RiderLocation.Z < BoatLocation.Z - 250.f", crossing)
-        self.assertIn("if (bOverboard)", crossing)
-        self.assertIn("GetWorld()->FindTeleportSpot(Rider, SafeDeck, Rider->GetActorRotation())", crossing)
-        self.assertIn("Rider->SetActorLocation(SafeDeck, false, nullptr, ETeleportType::TeleportPhysics)", crossing)
-        self.assertIn("Rider->SetBase(Deck);", crossing)
-        self.assertLess(crossing.index("FindTeleportSpot(Rider, SafeDeck"), crossing.index("Rider->SetActorLocation(SafeDeck"))
-        self.assertLess(crossing.index("Rider->SetActorLocation(SafeDeck"), crossing.index("Rider->SetBase(Deck)"))
-        self.assertLess(crossing.index("if (bOverboard)"), crossing.index("SetActorLocation(FMath::Lerp(From, To, Eased));"))
+        self.assertNotIn("bOverboard", crossing)
+        self.assertNotIn("SafeDeck", crossing)
+        self.assertNotIn("FindTeleportSpot", crossing)
+        self.assertNotIn("Rider->SetActorLocation(", crossing)
+        self.assertNotIn("Rider->SetBase(Deck)", crossing)
+        self.assertNotIn("CrossingStartedAt +=", crossing)
+        self.assertNotIn("LastCrossingUpdateAt", self.h)
+        self.assertNotIn("LastCrossingUpdateAt", self.boat)
+        self.assertIn("SetActorLocation(FMath::Lerp(From, To, Eased));", crossing)
 
     def test_hero_moves_with_ship_then_lands_safely_and_regains_movement(self):
         completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
