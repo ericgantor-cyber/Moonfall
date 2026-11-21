@@ -151,6 +151,15 @@ These pieces are **not a complete version** of the six proposed systems.
 - Tinker crafting requires level **1 through 5** according to the selected item's tier (`1 + (tier - 1) / 5`). The menu marks recipes locked if the player does not meet this requirement; attempting a locked recipe does not spend salvage, add items or change the save. Merchant buying remains available based on existing salvage/interaction checks.
 - C++17 tests check every catalogue entry, progression thresholds and out-of-range cases. No new save schema or changes to Z/Nyra artwork. Full Unreal Editor compile and gameplay testing remain outstanding.
 
+## Good / Evil morality foundation (Fable III-inspired, original Moonfall design)
+
+- A persistent Good/Evil alignment score ranges from **-100 to +100**. The read-only native NPC conversation panel shows the score and a standing label (Dreaded, Cruel, Unaligned, Kind, Exalted). This does not overwrite independent faction reputation or personal resident bonds.
+- The existing once-per-save Council decision contributes **+10 Good** for Protect Residents, **+8 Good** for Fund Reconstruction and **0** for Fortify Borders (a defensive policy is not automatically evil). Completing a real resident contract earns **+4 Good** and remains a single atomic save with its original salvage/reputation/bond consequences.
+- Crossroads residents offer two new voluntary one-time actions through a **fifth NPC menu row** (D-pad up/down + A or mouse, left/right switches the action). **Aid:** donate 10 salvage, gain 10 Good, +6 personal trust and +2 faction reputation. **Extort:** take 5 salvage, gain 10 Evil, lose 6 personal trust and 4 faction reputation. Both require a second confirmation within six seconds. Each resident remembers one decision, stored by stable resident ID, preventing repeat farming.
+- **Save V14** stores MoralAlignment and ResidentMoralChoices. V1-V13 saves remain readable; existing V13 Council decisions seed initial morality. Corrupt/unsupported values are rejected before mutating progress; all moral consequences and currency are rolled back when a save write fails.
+- Residents add contextual lines when the player reaches very Good or Evil standing, preserving faction disposition and quest dialogue. This is **not** a copy of Fable's graphics, character morphing, wing effects, town rebuilding or royal treasury. Future choices, visual morphs and settlement outcomes require separate art/behaviour implementation and native UE5 gameplay validation.
+- Updated pure C++17 and Python source-contract tests cover alignment bounds, decision outcomes, save versions, confirmation and rollback. Native Windows Unreal compilation, saved-game migration and mouse/controller playtests remain unverified.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
