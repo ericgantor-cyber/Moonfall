@@ -120,8 +120,9 @@ native builds and representative Windows machines can be profiled.
   movement without any rescue teleport. A 100cm entry/exit hysteresis band
   avoids rapid state changes while crossing the surface. Leaving the sea area
   exits swimming; death or movement states owned by other systems do not
-  trigger a forced rescue. The overworld's existing 0.35s refresh timer handles this without
-  a new per-frame actor Tick. This is **not yet a complete ocean system**:
+  trigger a forced rescue. A dedicated 0.1-second timer checks water movement
+  independently of the 0.35-second terrain streaming timer, without a
+  per-frame actor Tick. This is **not yet a complete ocean system**:
   native UE5.4 must verify swimming physics, buoyancy, shoreline transitions,
   and whether a proper water physics volume is required. Fatigue, drowning
   and actual water rendering are not implemented by this change.
