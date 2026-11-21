@@ -95,6 +95,13 @@ class GothicFerryContracts(unittest.TestCase):
     def test_overboard_fall_recovery_checks_clearance_before_rebasing(self):
         crossing = self.boat.split("void AMoonfallGothicFerry::AdvanceCrossing()", 1)[1].split(
             "void AMoonfallGothicFerry::FinishCrossing(", 1)[0]
+        self.assertIn("float LastCrossingUpdateAt = 0.f;", self.h)
+        self.assertIn("LastCrossingUpdateAt = CrossingStartedAt;", self.boat)
+        self.assertIn("const float UpdateDelta = FMath::Max(0.f, Now - LastCrossingUpdateAt);", crossing)
+        self.assertIn("LastCrossingUpdateAt = Now;", crossing)
+        self.assertEqual(crossing.count("CrossingStartedAt += UpdateDelta;"), 2)
+        self.assertLess(crossing.index("CrossingStartedAt += UpdateDelta;"),
+                        crossing.index("const float Alpha = GetCrossingProgress();"))
         self.assertIn("const bool bOverboard =", crossing)
         self.assertIn("FMath::Square(700.f)", crossing)
         self.assertIn("RiderLocation.Z < BoatLocation.Z - 250.f", crossing)
