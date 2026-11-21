@@ -40,6 +40,22 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_completed_contract_npcs_acknowledge_durable_council_policy(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        method = npc.split("bool AMoonfallWorldNPC::TryTalk(", 1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(", 1
+        )[0]
+        for phrase in ("Hero->GetResidentQuestState(ResidentId) == 2",
+                       "Hero->CouncilDecisionId >= 0",
+                       "switch (Hero->CouncilDecisionId)",
+                       "The council chose to protect our people.",
+                       "The council funded rebuilding.",
+                       "The council ordered stronger borders."):
+            self.assertIn(phrase, method)
+        for forbidden in ("ChangeFactionReputation(", "ChangeResidentBond(",
+                          "SaveWorldProgress(", "SpawnActor("):
+            self.assertNotIn(forbidden, method)
+
     def test_council_v13_commit_is_single_shot_and_save_rollback_safe(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
