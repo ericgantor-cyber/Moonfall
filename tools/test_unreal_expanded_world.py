@@ -211,6 +211,16 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("Spawns >= MaxSpawnsPerRefresh", self.world)
         self.assertIn("Candidates.Sort(", self.world)
         streaming = self.world.split("void AMoonfallExpandedWorld::RefreshNearbyTiles()", 1)[1]
+        cap_guard = "if (ResidentTiles.Num() >= MaxResidentTiles) return;"
+        self.assertIn(cap_guard, streaming)
+        # Capacity cannot short-circuit encounter cleanup or unloading.
+        self.assertLess(streaming.index("UpdateGothicIsleEncounters(PlayerPosition);"),
+                        streaming.index(cap_guard))
+        self.assertLess(streaming.index("ResidentTiles.Remove(Id);"),
+                        streaming.index(cap_guard))
+        self.assertLess(streaming.index(cap_guard),
+                        streaming.index("TArray<TPair<float, int32>> Candidates;"))
+        self.assertLess(streaming.index(cap_guard), streaming.index("Candidates.Sort("))
         self.assertIn("const FVector Center = RegionCenter(Region);", streaming)
         self.assertIn("2.f * AMoonfallOverworldTile::TileSize", streaming)
         self.assertIn("const float CandidateReach = LoadRadius + MaxTileCenterOffset;", streaming)
