@@ -2764,7 +2764,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("GothicRavenHarbormaster")),
+  FName(TEXT("GothicBlackbellKeeper")),
+  FName(TEXT("GothicGraveWarden")),
+  FName(TEXT("GothicDuskwatchSentinel")),
+  FName(TEXT("GothicThornwraithScholar"))
  };
  for (const auto& Entry : FactionReputation)
   if (!SaveFactionIds[0].IsNone() &&
@@ -3734,7 +3739,12 @@ bool IsMoonfallFaction(FName Faction) {
     || Faction == FName(TEXT("VerdantCircle"))
     || Faction == FName(TEXT("StoneHearth"))
     || Faction == FName(TEXT("MoonCoven"))
-    || Faction == FName(TEXT("AshenClans"));
+    || Faction == FName(TEXT("AshenClans"))
+    || Faction == FName(TEXT("GothicHarbor"))
+    || Faction == FName(TEXT("BlackbellOrder"))
+    || Faction == FName(TEXT("Gravewardens"))
+    || Faction == FName(TEXT("Duskwatch"))
+    || Faction == FName(TEXT("Thornwraith"));
 }
 }
 int32 AMoonfallHeroPawn::GetFactionReputation(FName Faction) const {
