@@ -41,15 +41,42 @@ class EnemyPathBudgetTests(unittest.TestCase):
         )[0]
         self.assertIn("Target = CachedWaypoint;", waypoint)
         self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
-        self.assertIn("NextPathRefreshAt = 0.f;", waypoint)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", waypoint)
+        self.assertIn("NextPathRefreshAt > Now + 0.25f", waypoint)
+        self.assertIn("!FMath::IsFinite(NextPathRefreshAt)", waypoint)
         self.assertLess(waypoint.index("Target = CachedWaypoint;"),
                         waypoint.index("if (ToWaypoint.SizeSquared()"))
         self.assertLess(waypoint.index("if (ToWaypoint.SizeSquared()"),
-                        waypoint.index("NextPathRefreshAt = 0.f;"))
+                        waypoint.index("NextPathRefreshAt = Now + 0.25f;"))
+        self.assertNotIn("NextPathRefreshAt = 0.f;", waypoint)
         self.assertNotIn("else {", waypoint)
         # Refresh is scheduled, not performed again in the same frame.
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_partial_path_retry_deadline_is_not_sliding(self):
+        waypoint = self.source.split("if (!CachedWaypoint.IsNearlyZero()) {", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        arrived = waypoint.split("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", 1)[1]
+        # The strict deadline comparison ensures repeated 0.1-second AI
+        # ticks do not postpone an already scheduled retry forever.
+        self.assertIn("|| NextPathRefreshAt > Now + 0.25f)", arrived)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", arrived)
+        self.assertLess(arrived.index("NextPathRefreshAt > Now + 0.25f"),
+                        arrived.index("NextPathRefreshAt = Now + 0.25f;"))
+        # A pre-existing urgent retry stays urgent; invalid deadlines
+        # become short bounded retries instead of immediate query loops.
+        def next_retry(now, scheduled):
+            if scheduled != scheduled or scheduled > now + 0.25:
+                return now + 0.25
+            return scheduled
+        scheduled = next_retry(5.0, 5.8)
+        for now in (5.1, 5.2):
+            self.assertEqual(next_retry(now, scheduled), scheduled)
+        self.assertEqual(next_retry(5.0, 0.0), 0.0)
+        self.assertEqual(next_retry(5.0, float("nan")), 5.25)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
 
     def test_far_mobs_only_receive_lower_repath_frequency(self):
         self.assertIn("(!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f", self.source)
