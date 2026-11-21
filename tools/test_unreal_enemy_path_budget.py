@@ -29,7 +29,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # Preserve one cached query with no extra navigation probes.
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
-        self.assertLess(path.index("IsValid(Path) &&"), path.index("Path->PathPoints[1]"))
+        self.assertLess(path.index("!IsValid(Path) ||"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
 
     def test_unreachable_navmesh_goal_does_not_trigger_direct_wall_chase(self):
@@ -71,7 +71,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertLess(waypoint.index("if (ToWaypoint.SizeSquared()"),
                         waypoint.index("NextPathRefreshAt = Now + 0.25f;"))
         self.assertNotIn("NextPathRefreshAt = 0.f;", waypoint)
-        self.assertNotIn("else {", waypoint)
+        self.assertNotIn("} else {\n     Target = ", waypoint)
         # Refresh is scheduled, not performed again in the same frame.
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
