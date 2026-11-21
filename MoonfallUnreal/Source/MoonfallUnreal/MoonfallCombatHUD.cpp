@@ -77,8 +77,17 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
        Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
-   if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
+   // A policy-aware job is visible in the native NPC menu without
+   // claiming that residents are actually walking/building offscreen.
+   const bool bShowResidentFeedback = Hero->GetWorld()
+       && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil;
+   if (bShowResidentFeedback)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
+        L + 18.f, T + 99.f, nullptr, 0.72f);
+   else
+    DrawText(FString::Printf(TEXT("Assignment: %s"),
+        *Resident->GetCouncilAssignment(Hero)).Left(57),
+        FLinearColor(0.72f,0.89f,0.86f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
