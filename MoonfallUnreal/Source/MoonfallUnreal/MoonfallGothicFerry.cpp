@@ -178,6 +178,23 @@ void AMoonfallGothicFerry::AdvanceCrossing()
   FinishCrossing(false);
   return;
  }
+ // Protect a passenger who walks beyond the deck edge or falls into
+ // open water. Ordinary footsteps and small jumps should remain free.
+ // Never move the vessel forward while the passenger lacks a safe deck spot.
+ const FVector RiderLocation = Rider->GetActorLocation();
+ const FVector BoatLocation = GetActorLocation();
+ const bool bOverboard = FVector::DistSquared2D(RiderLocation, BoatLocation)
+      > FMath::Square(700.f) || RiderLocation.Z < BoatLocation.Z - 250.f;
+ if (bOverboard) {
+  FVector SafeDeck = BoatLocation + FVector(0.f, 0.f, 190.f);
+  if (!GetWorld()->FindTeleportSpot(Rider, SafeDeck, Rider->GetActorRotation()))
+   return;
+  if (!Rider->SetActorLocation(SafeDeck, false, nullptr, ETeleportType::TeleportPhysics))
+   return;
+  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
+   Movement->SetMovementMode(MOVE_Walking);
+  Rider->SetBase(Deck);
+ }
  const float Alpha = GetCrossingProgress();
  // A genuine moving boat for eleven seconds, not a world swap or a
  // teleporter. Ease at both shores to avoid abrupt camera motion.
