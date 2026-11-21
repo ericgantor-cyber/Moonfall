@@ -166,6 +166,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - A resident who has been aided displays **[HELPED]** in their existing Council assignment sign with a green tint, while a resident who has been extorted displays **[THREATENED]** in a red tint. The single affected label is refreshed only after the confirmed transaction saves successfully; a failed transaction retains the original sign. These markers are visible only in Crossroads when a Council policy is confirmed, using the pre-existing noncolliding sign.
 - NPC Talk lines now individually acknowledge prior one-time aid/extortion decisions. Reputation, quests, inventories, and saved player appearance are not modified by the read-only UI feedback. **Angelic/demonic body morphs, world remodelling, crowd reactions, weapon appearance changes, and native UE5 gameplay validation are still outstanding.**
 
+## Morality-driven Crossroads and economy (expanded)
+
+- The saved Good/Evil alignment now has **five world tiers** at -60, -25, 0, +25, and +60. Crossroads swaps between collision-free **Hope** plinths and **Shadow** spires using two fixed four-instance meshes already available in Unreal. This does not mutate level terrain, hero meshes, authored Z/Nyra artwork, collision, faction scores or saved geometry. The Council sign includes an on-demand morality-world label.
+- The arena reuses its existing two-second Council visual refresh. It compares both the saved Council policy and the derived morality tier before changing displays, with no per-frame scan. Global NPC sign scans remain limited to **policy transitions**, not every morality change. The individual changed resident is refreshed after its moral transaction saves.
+- Merchants and tinkers now quote and charge the **same morality-adjusted salvage price**: at +25 Good a 5% rounded-up discount, at +60 Good a 10% rounded-up discount, at -25 Evil a 10% rounded-up surcharge, and at -60 Evil a 20% rounded-up surcharge; otherwise full price. No free/negative prices. The native shop preview labels a Good-standing or Feared adjustment. Existing confirmation and synchronous save rollback stay intact.
+- This is a real **world visual and trading consequence**, not yet Fable-style physical player morphing, NPC crowds, town rebuilds, new architecture assets, or a dynamic society simulation. Native UE5 Windows compile and in-game readability/collision checks are still unverified.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
