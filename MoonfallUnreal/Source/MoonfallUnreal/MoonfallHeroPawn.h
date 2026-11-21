@@ -51,6 +51,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void OpenFocusedResidentContext();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CastRightMouse();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool ChooseResidentContextAction(int32 Choice);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Trade") bool PurchaseResidentWorkItem();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CloseResidentContext();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextOpened(AMoonfallWorldNPC* Resident, FText ResidentName, int32 QuestState, int32 SalvageCost);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextClosed();
@@ -61,6 +62,8 @@ public:
  bool bResidentContextOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Trade") bool bResidentTradePending = false;
+ float ResidentTradeConfirmUntil = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
  float ResidentTurnInConfirmAfter = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString ResidentFeedbackMessage;
