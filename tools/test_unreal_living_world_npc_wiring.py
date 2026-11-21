@@ -40,6 +40,33 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_work_at_post_has_bounded_rest_and_ui_feedback(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("FString GetCouncilWorkPhase() const;", header)
+        move = npc.split("void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetCouncilWorkPhase()", 1
+        )[0]
+        for required in ("CouncilWorkHoldSeconds > 0.f",
+                         "CouncilWorkHoldSeconds - StepSeconds",
+                         "bCouncilWorkReturning = !bCouncilWorkReturning",
+                         "CouncilWorkHoldSeconds = bCouncilWorkAtPost ? 5.f : 2.f",
+                         "Hero->FocusedResident.Get() == this"):
+            self.assertIn(required, move)
+        self.assertLess(move.index("CouncilWorkHoldSeconds > 0.f"),
+                        move.index("SetActorLocation(Next, true, &Blocked"))
+        phase = npc.split("FString AMoonfallWorldNPC::GetCouncilWorkPhase()", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetCouncilAssignment(", 1
+        )[0]
+        for expected in ("At assigned station", "Working at post",
+                         "Resting at home", "Returning to station",
+                         "Walking to work"):
+            self.assertIn(expected, phase)
+        self.assertIn("Resident->GetCouncilWorkPhase()", hud)
+        self.assertNotIn("SaveWorldProgress(", move + phase)
+        self.assertNotIn("SpawnActor(", move + phase)
+
     def test_council_work_routes_are_navmesh_validated_and_rate_limited(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
