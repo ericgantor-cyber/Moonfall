@@ -63,18 +63,23 @@ class GothicFerryContracts(unittest.TestCase):
         completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
             "void AMoonfallGothicFerry::EndPlay(", 1)[0]
         self.assertIn("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform)", completion)
-        self.assertIn("const float IntoLand = bAtIsland ? 800.f : -800.f;", completion)
-        self.assertIn("Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics);", completion)
+        self.assertIn("const float IntoLand = bDestinationIsland ? 800.f : -800.f;", completion)
+        self.assertIn("if (!GetWorld()->FindTeleportSpot(Rider, Landing, Rider->GetActorRotation()))", completion)
+        self.assertIn("Rider->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);", completion)
+        self.assertIn("until the blocking obstruction is cleared", completion)
+        self.assertIn("!Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics)", completion)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", completion)
         self.assertIn("FMath::IsFinite(Rider->Health) && Rider->Health > 0.f", completion)
         self.assertLess(completion.index("Rider->Health > 0.f"),
                         completion.index("Movement->SetMovementMode(MOVE_Walking)"))
+        self.assertLess(completion.index("GetWorld()->FindTeleportSpot("),
+                        completion.index("Rider->DetachFromActor("))
         self.assertLess(completion.index("Rider->DetachFromActor("),
                         completion.index("Rider->SetActorLocation(Landing"))
         # Read the actual C++ constants rather than re-asserting literals:
         # safe landfall must stay within controller boarding reach.
         reach = re.search(r"DockReach = ([0-9]+)[.]f;", self.h)
-        landing = re.search(r"IntoLand = bAtIsland [?] ([0-9]+)[.]f : -([0-9]+)[.]f;", completion)
+        landing = re.search(r"IntoLand = bDestinationIsland [?] ([0-9]+)[.]f : -([0-9]+)[.]f;", completion)
         self.assertIsNotNone(reach)
         self.assertIsNotNone(landing)
         self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
@@ -82,6 +87,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) FinishCrossing(false);", self.boat)
         self.assertIn("GetWorldTimerManager().ClearTimer(CrossingTimer);", self.boat)
+        self.assertLess(completion.index("FindTeleportSpot"), completion.index("ClearTimer(CrossingTimer)"))
         self.assertIn("!IsValid(Rider)", self.boat)
         self.assertIn("FinishCrossing(false);", self.boat)
 
