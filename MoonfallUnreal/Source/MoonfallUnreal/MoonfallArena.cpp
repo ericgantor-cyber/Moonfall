@@ -40,6 +40,15 @@ AMoonfallArena::AMoonfallArena() {
  }
 
 }
+void AMoonfallArena::StepCouncilWorkRoutes() {
+ if (!GetWorld() || CouncilMobileResidents.IsEmpty()) return;
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+     UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || Hero->CouncilDecisionId < 0) return;
+ for (const TWeakObjectPtr<AMoonfallWorldNPC>& Resident : CouncilMobileResidents) {
+  if (Resident.IsValid()) Resident->AdvanceCouncilWorkStep(Hero, 0.2f);
+ }
+}
 void AMoonfallArena::RefreshCouncilSettlementVisuals() {
  if (!GetWorld() || !CouncilProtectionDecor || !CouncilReconstructionDecor
      || !CouncilFortificationDecor) return;
@@ -330,7 +339,19 @@ void AMoonfallArena::BeginPlay() {
    Person->FactionId = FName(Resident.Faction);
    Person->SettlementId = FName(TEXT("Crossroads"));
    Person->SocialRole = FName(Resident.Role);
+   // At most four authored guard/scout patrols. A missing/invalid NavMesh
+   // disables movement while leaving residents at their quest locations.
+   if (CouncilMobileResidents.Num() < 4
+       && (Person->SocialRole == FName(TEXT("Guard"))
+           || Person->SocialRole == FName(TEXT("Scout")))
+       && Person->ConfigureCouncilWorkRoute(FVector(0.f, 100.f, 0.f)))
+    CouncilMobileResidents.Add(Person);
   }
+ }
+ if (!CouncilMobileResidents.IsEmpty()) {
+  FTimerHandle CouncilWorkTimer;
+  GetWorld()->GetTimerManager().SetTimer(CouncilWorkTimer,
+     this, &AMoonfallArena::StepCouncilWorkRoutes, 0.2f, true);
  }
  // BeginPlay builds resident actors after the first policy refresh.
  // Force one post-spawn refresh so a loaded policy is visible immediately,
