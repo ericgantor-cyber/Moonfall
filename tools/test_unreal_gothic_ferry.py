@@ -73,8 +73,8 @@ class GothicFerryContracts(unittest.TestCase):
                         completion.index("Rider->SetActorLocation(Landing"))
         # Read the actual C++ constants rather than re-asserting literals:
         # safe landfall must stay within controller boarding reach.
-        reach = re.search(r"DockReach = (\\d+)\\.f;", self.h)
-        landing = re.search(r"IntoLand = bAtIsland \\? (\\d+)\\.f : -(\\d+)\\.f;", completion)
+        reach = re.search(r"DockReach = ([0-9]+)[.]f;", self.h)
+        landing = re.search(r"IntoLand = bAtIsland [?] ([0-9]+)[.]f : -([0-9]+)[.]f;", completion)
         self.assertIsNotNone(reach)
         self.assertIsNotNone(landing)
         self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
