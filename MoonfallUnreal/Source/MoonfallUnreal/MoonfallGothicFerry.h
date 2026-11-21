@@ -48,6 +48,9 @@ public:
  TObjectPtr<UStaticMeshComponent> Sail;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UTextRenderComponent> VesselName;
+ // World-space countdown visible without opening a menu.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
+ TObjectPtr<UTextRenderComponent> VoyageStatus;
 
 private:
  FTimerHandle CrossingTimer;
@@ -55,6 +58,8 @@ private:
  float CrossingStartedAt = 0.f;
  bool bUnderway = false;
  bool bAtIsland = false;
+ int32 LastDisplayedSeconds = -1;
+ void UpdateVoyageStatus();
  void AdvanceCrossing();
  void FinishCrossing(bool bArrived);
 };
