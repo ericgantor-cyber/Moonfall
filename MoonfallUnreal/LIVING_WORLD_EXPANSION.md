@@ -138,6 +138,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - Both operations require a second explicit selection within six seconds. They check inventory capacity, the resident's live interaction range, player state, and the existing persistence write block. Item addition and salvage deduction are saved synchronously in one world-save call; failure rolls back both.
 - These are deliberately **small fixed-item transactions**, not an item catalog, buy-back, economy simulation, recipe discovery, crafting preview or finished merchant shop. They make no auto-equip or faction changes. Native UE5 mouse/controller and actual saving still require in-game testing.
 
+## 111-entry merchant and tinker catalogue
+
+- The fourth NPC menu row now browses **111 deterministic equipment entries**. Each one is a distinct valid encoded gear code across the existing **weapon, armor and accessory** slots, with 37 tier/rarity combinations per slot. No new SaveGame schema or fictional item codes.
+- **D-pad left/right** while the Trade/Craft row is selected, or the clickable left/right edges of that row, moves through the entries with wraparound. The menu previews the item number (1/111), slot, tier, rarity, encoded item code, and the price. The center/A action still requires two explicit selections within six seconds.
+- Browsing clears pending purchase confirmation, and buying/crafting persists item code and salvage together with rollback on save failure. A pure C++17 regression loop exhaustively checks 111 unique valid item codes, prices and navigation bounds.
+- This is an **initial numerical equipment catalogue**, not 111 unique 3D models, icons, individual item names or distinct crafting animations. Merchant and tinker draw from the same 111 underlying designs, with separate prices. Native UE5 compilation, pointer layout and save/interaction playtesting remain unverified.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
