@@ -183,11 +183,11 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
  // leave a passenger attached when this actor is actually being destroyed.
  if (GetWorld()) GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bUnderway) {
-  if (AMoonfallHeroPawn* Rider = Passenger.Get()) {
+  if (AMoonfallHeroPawn* Rider = Passenger.Get(); IsValid(Rider)) {
    Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
    // Recover a living passenger at the original dock if possible. If level
    // teardown has removed collision, still release movement/attachment.
-   if (IsValid(Rider) && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
+   if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
     FVector SafeShore = DockLocation(bAtIsland)
       + FVector(0.f, bAtIsland ? 800.f : -800.f, 125.f);
     if (GetWorld() && GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation()))
