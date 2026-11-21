@@ -1929,7 +1929,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         controls = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[1].split(
             "bool AMoonfallHeroPawn::TryCast(", 1)[0]
         self.assertIn('BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);', controls)
-        self.assertIn('BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);', controls)
+        self.assertIn('BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);', controls)
+        release = controls.split("void AMoonfallHeroPawn::ReleaseJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("bSwimAscendHeld = false;", release)
+        self.assertIn("StopJumping();", release)
+        self.assertLess(release.index("bSwimAscendHeld = false;"), release.index("StopJumping();"))
         self.assertIn("void TryJump();", self.hero_h)
         jump = controls.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
             "void AMoonfallHeroPawn::MoveForward", 1)[0]
