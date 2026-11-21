@@ -84,6 +84,25 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("Click twice to fast travel", hud)
         self.assertIn("AtlasFastTravelPendingShrine = NAME_None;", hero)
 
+    def test_context_controller_atlas_open_preserves_npc_and_ferry_actions(self):
+        hero = read(SOURCE / "MoonfallHeroPawn.cpp")
+        keys = read(ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini")
+        self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', keys)
+        self.assertIn('ActionName="Options",Key=Gamepad_Special_Right', keys)
+        context = hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastRightMouse()", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen)", context)
+        self.assertIn("AMoonfallWorldNPC* Resident = GetNearestResidentNPC();", context)
+        self.assertIn("Ferry->TryBoard(this)", context)
+        self.assertIn("ToggleAtlas();", context)
+        self.assertLess(context.index("GetNearestResidentNPC()"),
+                        context.index("Ferry->TryBoard(this)"))
+        self.assertLess(context.index("Ferry->TryBoard(this)"),
+                        context.index("ToggleAtlas();"))
+        self.assertIn("if (bAtlasOpen) { ToggleAtlas(); return; }", hero)
+        self.assertNotIn("SaveWorldProgress(", context)
+        self.assertNotIn("TeleportTo(", context)
+
     def test_controller_fast_travel_cycles_loaded_shrines_without_save_mutations(self):
         hero = read(SOURCE / "MoonfallHeroPawn.cpp")
         header = read(SOURCE / "MoonfallHeroPawn.h")
