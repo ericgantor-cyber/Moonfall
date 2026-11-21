@@ -116,8 +116,10 @@ def main():
         nav=pawn.split(f"void AMoonfallHeroPawn::{nav_name}()",1)[1].split(
             f"void AMoonfallHeroPawn::{next_name}()",1)[0]
         assert "if (bResidentContextOpen) {" in nav
-        assert "if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }" in nav
-        assert nav.index("CloseResidentContext(); return;") < nav.index(
+        assert "if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {" in nav
+        assert nav.index("!FocusedResident->CanHeroInteract(this)") < nav.index(
+            "CloseResidentContext();")
+        assert nav.index("CloseResidentContext();") < nav.index(
             "ResidentContextSelection =")
     print("Stale NPC dialogue closes on A and D-pad without leaking input: PASS (source verified)")
     # Dialogue is modal even if its NPC weak pointer becomes invalid after
