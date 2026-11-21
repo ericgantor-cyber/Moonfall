@@ -94,6 +94,9 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+      - name: Verify six-region waystation geometry and NPC/shrine save contracts
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_regional_waystations
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
