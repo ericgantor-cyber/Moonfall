@@ -1424,6 +1424,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("invalid resident bond"),
                         load.index("bWorldProgressLoadInProgress = true;"))
 
+    def test_gothic_isle_residents_and_factions_are_valid_for_save_and_reload(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        faction_runtime = self.hero_cpp.split("bool IsMoonfallFaction(FName Faction)", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetFactionReputation", 1)[0]
+        residents_runtime = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetResidentBond", 1)[0]
+        factions_loaded = load.split("static const FName AllowedFactionIds[]", 1)[1].split("};", 1)[0]
+        residents_loaded = load.split("static const FName AllowedResidentIds[]", 1)[1].split("};", 1)[0]
+        for faction in ("GothicHarbor", "BlackbellOrder", "Gravewardens",
+                        "Duskwatch", "Thornwraith"):
+            marker = f'FName(TEXT("{faction}"))'
+            self.assertIn(marker, faction_runtime)
+            self.assertIn(marker, factions_loaded)
+        for resident in ("GothicRavenHarbormaster", "GothicBlackbellKeeper",
+                         "GothicGraveWarden", "GothicDuskwatchSentinel",
+                         "GothicThornwraithScholar"):
+            marker = f'FName(TEXT("{resident}"))'
+            self.assertIn(marker, residents_runtime)
+            self.assertIn(marker, residents_loaded)
+        self.assertIn("IsNamedMoonfallResident(Entry.Key)", self.hero_cpp)
+        self.assertIn("if (!IsMoonfallFaction(Faction)) return false;", self.hero_cpp)
+
     def test_resident_quest_state_save_and_load_reject_lossy_records(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
