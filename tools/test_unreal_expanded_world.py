@@ -91,7 +91,9 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("Tile->FinishSpawning(TileTransform)", self.world)
         self.assertIn("Tile->RegionIndex = Region;", self.world)
         self.assertIn("ResidentTiles.Remove(Id);", self.world)
-        self.assertIn("if (GetWorld()) GetWorldTimerManager().ClearTimer(StreamingTimer)", self.world)
+        self.assertIn("GetWorldTimerManager().ClearTimer(StreamingTimer);", self.world)
+        self.assertIn("GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);", self.world)
+        self.assertIn("if (GetWorld()) {", self.world)
         self.assertNotIn("SetLifeSpan(", self.world)
 
     def test_existing_arena_and_thirty_dungeons_remain_in_place(self):
