@@ -223,6 +223,16 @@ load nearby terrain on the same refresh. No respawn/overboard
 behavior or original art changes are introduced. Native UE5 runtime
 profiling is still needed before claiming a measured gain.
 
+## Streamed tile lifecycle on manager shutdown
+
+The expanded-world manager now explicitly destroys live, non-destroying
+terrain tile actors before clearing its resident-tile registry during
+`EndPlay`. This prevents orphaned scenery/collision when the manager is
+replaced or ended while the game world remains alive. Timer shutdown,
+island encounter cleanup, and normal per-refresh unload behavior are
+unchanged. This is verified by source-regression assertions; native
+UE5 manager teardown/restart still requires gameplay testing.
+
 ## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
