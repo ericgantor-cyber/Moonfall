@@ -998,7 +998,7 @@ void AMoonfallCombatHUD::DrawHUD()
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
    // Bad inventory data has no meaningful power delta. Keep the error
    // visible instead of appending a misleading "+0 gear power" score.
-   const FString PowerCompareLine = bSelectedValid
+   const FString PowerCompareLine = bSelectedValid && !bIsEquipped
      ? CompareLine + FString::Printf(TEXT("  |  %+d gear power"), PowerDelta)
      : CompareLine;
    DrawText(PowerCompareLine,
