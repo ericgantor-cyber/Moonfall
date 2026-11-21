@@ -673,13 +673,35 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
+   // Taller character sheets can show all nine slots without taking space
+   // from combat stats or overlapping the short-window close controls.
+   const bool bShowAllSlots = PanelHeight >= 520.f;
+   const float RowHeight = FMath::Clamp(
+     (PanelHeight - 145.f) / (bShowAllSlots ? 22.f : 18.f), 8.f, 26.f);
    const float StartY = Top + 96.f;
+   const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+     TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
+   const TCHAR* CompactSlotNames[] = {TEXT("W"), TEXT("A"), TEXT("Acc"),
+     TEXT("Hd"), TEXT("Sh"), TEXT("Hn"), TEXT("Lg"), TEXT("Ft"), TEXT("Rg")};
+   const TCHAR* const* DisplayNames = PanelWidth < 550.f ? CompactSlotNames : SlotNames;
+   const auto SlotLabel = [Hero](int32 Slot) -> FString {
+     const int32 ItemCode = Hero->GetEquipmentSlotCode(Slot);
+     return ItemCode > 0 ? FString::Printf(TEXT("T%d"), ItemCode % 1000)
+       : FString(TEXT("--"));
+   };
+   const auto SlotLine = [&](int32 StartSlot) -> FString {
+     const FString A = SlotLabel(StartSlot);
+     const FString B = SlotLabel(StartSlot + 1);
+     const FString C = SlotLabel(StartSlot + 2);
+     return FString::Printf(TEXT("%s %s  |  %s %s  |  %s %s"),
+       DisplayNames[StartSlot], *A, DisplayNames[StartSlot + 1], *B,
+       DisplayNames[StartSlot + 2], *C);
+   };
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
-       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
-       Hero->GetItemPower(Hero->EquippedArmorCode),
-       Hero->GetItemPower(Hero->EquippedAccessoryCode)),
+       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(1)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(2))),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -709,13 +731,20 @@ void AMoonfallCombatHUD::DrawHUD()
      TEXT("DUNGEON CAMPAIGN"),
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
        Hero->GetTotalDefeatedDungeonBosses(),
-       Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons())
+       Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons()),
+     TEXT("EQUIPMENT SLOTS  |  3 ACTIVE, 6 FUTURE"),
+     SlotLine(0),
+     SlotLine(3),
+     SlotLine(6)
    };
-   for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
+   const int32 VisibleCharacterRows = bShowAllSlots ? UE_ARRAY_COUNT(CharacterLines) : 18;
+   const float CharacterTextScale = PanelHeight < 360.f ? 0.55f :
+     RowHeight < 19.f ? 0.62f : Canvas->SizeX < 900.f ? 0.75f : 0.90f;
+   for (int32 Row = 0; Row < VisibleCharacterRows; ++Row)
     DrawText(CharacterLines[Row],
-      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
-      Left + 18.f, StartY + Row * RowHeight, nullptr,
-      PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 || Row == 18
+        ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Left + 18.f, StartY + Row * RowHeight, nullptr, CharacterTextScale);
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
