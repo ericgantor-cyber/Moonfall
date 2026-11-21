@@ -268,6 +268,8 @@ public:
  // IDs are cached only for displayed, already discovered shrine markers.
  UPROPERTY(Transient) TArray<FName> AtlasDiscoveredShrineIds;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FName AtlasFastTravelPendingShrine = NAME_None;
+ // A selection expires after five real-time seconds; never persisted.
+ UPROPERTY(Transient) float AtlasFastTravelConfirmUntil = 0.f;
  bool TryAtlasFastTravel(FName ShrineId);
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FVector AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasHasActiveRespawnShrineLocation = false;
