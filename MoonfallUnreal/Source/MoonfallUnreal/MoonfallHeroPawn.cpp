@@ -22,6 +22,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
+#include "MoonfallGothicFerry.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -3377,7 +3378,18 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // Controller D-pad Up near either ferry dock boards the Nightferry.
+  // This is an input-driven check, never a per-tick world actor scan.
+  for (TActorIterator<AMoonfallGothicFerry> It(GetWorld()); It; ++It) {
+   AMoonfallGothicFerry* Ferry = *It;
+   if (IsValid(Ferry) && !Ferry->IsUnderway() && Ferry->TryBoard(this)) {
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+    return;
+   }
+  }
+  return;
+ }
  // A conversation should release held combat movement immediately.
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -3422,6 +3434,15 @@ void AMoonfallHeroPawn::CastRightMouse() {
   }
  }
  if (bHit) {
+  if (AMoonfallGothicFerry* Ferry = Cast<AMoonfallGothicFerry>(Hit.GetActor())) {
+   // Targeted right-click boards ONLY when in range of a moored ferry.
+   // Aimed at any other world object, right-click remains a spell.
+   if (Ferry->TryBoard(this))
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+   else
+    OnResidentQuestFeedback(FText::FromString(TEXT("Approach the dock to board.")), false);
+   return;
+  }
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
