@@ -2,6 +2,7 @@
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
+#include "MoonfallSetBonusThresholds.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -926,12 +927,12 @@ void AMoonfallCombatHUD::DrawHUD()
       ? Hero->GetProjectedSetPieceCount(WornAffix, SelectedCode) : 0;
     const int32 ProjectedSelectedPieces = bValidDetail && SelectedAffix > 0
       ? Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode) : 0;
-    const bool bLosesSetBonus = bValidDetail && WornAffix > 0
-      && ((WornPieces >= 2 && ProjectedWornPieces < 2)
-        || (WornPieces >= 3 && ProjectedWornPieces < 3));
-    const bool bGainsSetBonus = bValidDetail && SelectedAffix > 0
-      && ((SetPieces < 2 && ProjectedSelectedPieces >= 2)
-        || (SetPieces < 3 && ProjectedSelectedPieces >= 3));
+    const int32 LostThreshold = bValidDetail && WornAffix > 0
+      ? MoonfallSetBonusThresholds::Lost(WornPieces, ProjectedWornPieces) : 0;
+    const int32 GainedThreshold = bValidDetail && SelectedAffix > 0
+      ? MoonfallSetBonusThresholds::Gained(SetPieces, ProjectedSelectedPieces) : 0;
+    const bool bLosesSetBonus = LostThreshold > 0;
+    const bool bGainsSetBonus = GainedThreshold > 0;
     // Describe the actual threshold crossed rather than only piece counts.
     // One equipment swap changes each set by at most one piece, so only one
     // threshold can be crossed per affected trait.
@@ -939,12 +940,10 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc +3% versatility"), TEXT("2pc +4% haste")};
     const TCHAR* ThreePiecePerks[] = {TEXT(""), TEXT("3pc +4% mastery"),
       TEXT("3pc +2.5% protection"), TEXT("3pc +6% mana regen")};
-    const TCHAR* LostPerk = bLosesSetBonus
-      ? (WornPieces >= 3 && ProjectedWornPieces < 3
-          ? ThreePiecePerks[WornAffix] : TwoPiecePerks[WornAffix]) : TEXT("");
-    const TCHAR* GainedPerk = bGainsSetBonus
-      ? (SetPieces < 3 && ProjectedSelectedPieces >= 3
-          ? ThreePiecePerks[SelectedAffix] : TwoPiecePerks[SelectedAffix]) : TEXT("");
+    const TCHAR* LostPerk = LostThreshold == 3 ? ThreePiecePerks[WornAffix]
+      : LostThreshold == 2 ? TwoPiecePerks[WornAffix] : TEXT("");
+    const TCHAR* GainedPerk = GainedThreshold == 3 ? ThreePiecePerks[SelectedAffix]
+      : GainedThreshold == 2 ? TwoPiecePerks[SelectedAffix] : TEXT("");
     // Show both changes when swapping between sets.
     const FString LossText = bLosesSetBonus
       ? FString::Printf(TEXT("LOSE %s %s"), DetailTraits[WornAffix], LostPerk) : FString();
