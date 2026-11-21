@@ -713,8 +713,23 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 19.f, 8.f, 26.f);
-   const float StartY = Top + 96.f;
+   // Read-only alignment ribbon: no modifications to hero models, materials,
+   // attachments or save state. Works without any additional art assets.
+   const int32 MoralScore = FMath::Clamp(Hero->MoralAlignment, -100, 100);
+   const float MoralMeterWidth = FMath::Max(90.f, PanelWidth - 36.f);
+   const float MoralMeterX = Left + 18.f, MoralMeterY = Top + 93.f;
+   DrawText(FString::Printf(TEXT("Good / Evil: %s (%+d)"),
+       *Hero->GetMoralTitle(), MoralScore),
+       FLinearColor(0.86f,0.85f,0.97f), MoralMeterX, Top + 76.f, nullptr,
+       PanelWidth < 550.f ? 0.67f : 0.82f);
+   DrawRect(FLinearColor(0.18f,0.17f,0.23f), MoralMeterX, MoralMeterY,
+       MoralMeterWidth, 6.f);
+   DrawRect(MoralScore < 0 ? FLinearColor(0.78f,0.25f,0.35f)
+            : FLinearColor(0.30f,0.75f,0.52f),
+       MoralMeterX + MoralMeterWidth * 0.5f,
+       MoralMeterY, MoralMeterWidth * FMath::Abs(MoralScore) / 200.f, 6.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 165.f) / 19.f, 8.f, 26.f);
+   const float StartY = Top + 111.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
