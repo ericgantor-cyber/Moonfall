@@ -63,6 +63,27 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("RegionSign->SetText(", self.tile)
         self.assertIn("if (FMath::Abs(X) < 1800.f || FMath::Abs(Y) < 1800.f) continue;", self.tile)
 
+    def test_gothic_isle_reuses_mainland_tiles_with_new_named_districts(self):
+        # The island extends the same deterministic 25-tile streamer rather
+        # than creating eager or always-ticking settlement actors.
+        section = self.tile.split("if (RegionIndex == 6) {", 1)[1].split(
+            "// Each province gets a recognizable town/landmark cluster", 1)[0]
+        self.assertIn("constexpr int32 IslandOutpostProps = 6;", section)
+        self.assertIn("Buildings->AddInstance(", section)
+        self.assertIn("RegionSign->SetText(FText::FromString(Landmark));", section)
+        for label in ("BLACKBELL CATHEDRAL", "RAVEN'S LANDING",
+                      "ASHEN GRAVES", "DUSKWATCH KEEP", "THORNWRAITH GROVE"):
+            self.assertIn(label, section)
+        for marker in ("Column == 2 && Row == 2", "Column == 2 && Row == 0",
+                       "Column == 4 && Row == 2", "Column == 0 && Row == 2",
+                       "Column == 2 && Row == 4"):
+            self.assertIn(marker, section)
+        self.assertIn("if (RegionIndex != 6)", self.tile)
+        self.assertIn("if (FMath::Abs(X) < 1800.f || FMath::Abs(Y) < 1800.f) continue;", self.tile)
+        self.assertNotIn("SpawnActor<", section)
+        self.assertNotIn("SetCollisionEnabled(", section)
+        self.assertIn("MaxResidentTiles = 25;", self.world_h)
+
     def test_walkable_tile_ground_but_decorations_do_not_collide(self):
         self.assertIn("Terrain->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)", self.tile)
         self.assertIn("Terrain->SetCollisionResponseToAllChannels(ECR_Block)", self.tile)
