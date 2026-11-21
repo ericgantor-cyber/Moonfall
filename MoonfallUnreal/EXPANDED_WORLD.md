@@ -87,7 +87,10 @@ it is not a dungeon boss and does not affect dungeon completion or
 Z/Nyra divine identities. The Warden follows the same 110m activation,
 180m unloading, and no-immediate-respawn rules. New encounters never spawn
 while the player is defeated or has no valid living pawn; distant-enemy
-cleanup continues during those states. All encounter meshes
+cleanup continues during those states. New island enemies and the guardian
+also wait until their exact 200m collision-ground tile is loaded and valid;
+if the ground has not streamed in, encounter creation retries on a later
+world-refresh cycle instead of spawning over missing terrain. All encounter meshes
 are temporary proxies, not original creature artwork or a finished boss.
 These are **source-level gameplay integrations**, not verified in a native
 Unreal build. There are no newly authored merchant inventories, custom
