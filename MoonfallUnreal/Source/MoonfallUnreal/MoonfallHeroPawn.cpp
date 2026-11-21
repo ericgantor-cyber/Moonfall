@@ -4063,13 +4063,17 @@ bool AMoonfallHeroPawn::ConfirmCouncilDecision() {
   return false;
  }
  const int32 OldDecision = CouncilDecisionId;
+ const int32 OldMorality = MoralAlignment;
  const int32 Selected = CouncilPreviewSelection;
  CouncilDecisionId = Selected;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::CouncilDelta(Selected));
  bCouncilDecisionConfirmArmed = false;
  // The outcome is stored as one policy. Later world/settlement integrations
  // derive effects from this policy; do not mutate arbitrary faction records.
  if (!SaveWorldProgress()) {
   CouncilDecisionId = OldDecision;
+  MoralAlignment = OldMorality;
   return false;
  }
  CloseCouncilPointer();
@@ -4132,12 +4136,16 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const int32 PreviousSalvage = Salvage;
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
+ const int32 PreviousMorality = MoralAlignment;
  Salvage -= Cost;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::QuestCompletionDelta());
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
  if (!SaveWorldProgress()) {
   Salvage = PreviousSalvage;
+  MoralAlignment = PreviousMorality;
   ResidentQuestStates.Add(Id, 1);
   if (PreviousBond == 0) ResidentBonds.Remove(Id);
   else ResidentBonds.Add(Id, PreviousBond);
