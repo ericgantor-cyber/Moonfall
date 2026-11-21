@@ -3547,6 +3547,10 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
     return;
    }
   }
+  // Context-sensitive controller Atlas shortcut: D-pad Up opens J's map
+  // only if no resident or dock action handled the input. The existing
+  // controller Start/Options button closes it through OpenOptions().
+  ToggleAtlas();
   return;
  }
  // A conversation should release held combat movement immediately.
