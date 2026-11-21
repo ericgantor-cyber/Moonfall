@@ -52,6 +52,11 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CastRightMouse();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool ChooseResidentContextAction(int32 Choice);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Trade") bool PurchaseResidentWorkItem();
+ // Browse 111 deterministic equipment designs in the existing NPC menu.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Trade") int32 ResidentCatalogSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Trade") bool StepResidentCatalog(int32 Direction);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Trade") int32 GetResidentCatalogItemCode() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Trade") int32 GetResidentCatalogPrice(bool bMerchant) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CloseResidentContext();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextOpened(AMoonfallWorldNPC* Resident, FText ResidentName, int32 QuestState, int32 SalvageCost);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextClosed();
