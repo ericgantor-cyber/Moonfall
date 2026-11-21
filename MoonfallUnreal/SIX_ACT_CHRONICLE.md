@@ -62,7 +62,11 @@ next-objective hint, sourced from already saved shrine and NPC contract
 progress. An already **active contract takes priority** over unaccepted NPC
 leads so the objective stays useful when contracts are accepted out of
 order. The five-contract priority has exhaustive 243-state regression
-coverage. It does not award XP, activate quests, grant items or show
+coverage. When all five contracts and the mainland story are complete
+and Blackbell has been discovered, the Atlas now says the Seventh Witness
+evidence is unlocked, rather than offering a nonexistent island chapter
+reading action. The full island chapter reader is still planned.
+The objective system does not award XP, activate quests, grant items or show
 hidden chapter passages. Narrow Atlas sidebars retain the existing
 progress-only label instead of overlapping the map.
 
