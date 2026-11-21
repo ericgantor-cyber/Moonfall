@@ -40,6 +40,37 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_merchant_and_tinker_transactions_are_confirmed_and_atomic(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool PurchaseResidentWorkItem();", header)
+        self.assertIn("bool bResidentTradePending = false;", header)
+        self.assertIn("if (Choice == 3) return PurchaseResidentWorkItem();", hero)
+        method = hero.split("bool AMoonfallHeroPawn::PurchaseResidentWorkItem()", 1)[1].split(
+            "// Bounded, persistent faction relationship API.", 1
+        )[0]
+        for expected in ("Resident->CanHeroInteract(this)",
+                         "bPersistentSaveWritesBlocked", "CouncilDecisionId < 0",
+                         "InventoryItemCodes.Num() >= 10000", "const int32 Price = bMerchant ? 12 : 20",
+                         "const int32 ItemCode = bMerchant ? 1001 : 2001",
+                         "bResidentTradePending = true;", "ResidentTradeConfirmUntil = Now + 6.f",
+                         "Salvage -= Price;", "InventoryItemCodes.Add(ItemCode)",
+                         "if (!SaveWorldProgress())", "InventoryItemCodes.RemoveAt(NewIndex)",
+                         "Salvage = PreviousSalvage;", "InventorySelection = OldSelection;"):
+            self.assertIn(expected, method)
+        self.assertLess(method.index("InventoryItemCodes.Add(ItemCode)"),
+                        method.index("if (!SaveWorldProgress())"))
+        for forbidden in ("ChangeFactionReputation(", "ResidentBonds.Add(", "EquipInventoryItem("):
+            self.assertNotIn(forbidden, method)
+        self.assertIn("const FString Names[4]", hud)
+        self.assertIn("for (int32 Row = 0; Row < 4; ++Row)", hud)
+        self.assertIn("for (int32 Row = 0; Row < 4; ++Row)", hero)
+        self.assertIn("ResidentContextSelection = (ResidentContextSelection + 3) % 4", hero)
+        self.assertIn("ResidentContextSelection = (ResidentContextSelection + 1) % 4", hero)
+        self.assertIn("FMath::Min(400.f, FMath::Max(320.f, Canvas->SizeY - 24.f))", hud)
+        self.assertIn("FMath::Min(400.f, FMath::Max(320.f, Height - 24.f))", hero)
+
     def test_stationary_professions_use_existing_refresh_without_save_effects(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
