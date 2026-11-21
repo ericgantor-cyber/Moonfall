@@ -1,5 +1,6 @@
 #include "MoonfallEquipmentSlots.h"
 #include <cassert>
+#include <string>
 int main() {
  using namespace MoonfallEquipmentSlots;
  constexpr LegacyCodes oldCodes{{101, 20102, 30203}};
@@ -17,6 +18,18 @@ int main() {
  }
  assert(!IsKnownSlot(-1) && !IsKnownSlot(9));
  assert(!IsLegacySlot(-1) && !IsLegacySlot(3));
+ constexpr const char* expectedNames[SlotCount] = {
+  "Weapon", "Armor", "Accessory", "Head", "Shoulders",
+  "Hands", "Legs", "Feet", "Ring"
+ };
+ for (int slot = 0; slot < SlotCount; ++slot) {
+  assert(std::string(SlotName(slot)) == expectedNames[slot]);
+  assert(IsFutureSlot(slot) == (slot >= LegacyCount));
+ }
+ assert(std::string(SlotName(-1)) == "Unknown");
+ assert(std::string(SlotName(SlotCount)) == "Unknown");
+ assert(!IsFutureSlot(-1) && !IsFutureSlot(SlotCount));
+
  // Future-only equipment cannot contaminate the existing serialized fields.
  ExpandedCodes expanded = migrated;
  expanded[Head] = 40001;
