@@ -122,8 +122,9 @@ native builds and representative Windows machines can be profiled.
   to swim beside the 26m-wide docks without mistaking shore areas for water.
   A 100cm entry/exit hysteresis band
   avoids rapid state changes while crossing the surface. Leaving the sea area
-  exits swimming; death or movement states owned by other systems do not
-  trigger a forced rescue. A dedicated 0.1-second timer checks water movement
+  exits swimming; if the character is already standing on the ferry deck,
+  walking mode is restored without teleporting or attaching them.
+  Death or movement states owned by other systems do not trigger a forced rescue. A dedicated 0.1-second timer checks water movement
   independently of the 0.35-second terrain streaming timer, without a
   per-frame actor Tick. This is **not yet a complete ocean system**:
   Swimming movement now follows camera pitch when pressing forward, and the
