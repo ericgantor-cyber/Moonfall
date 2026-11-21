@@ -40,8 +40,8 @@ The coast has two separate walkable docks. The new **Nightferry**
 source implements a reversible, 11-second continuous crossing over the
 80-meter open-water gap with safe landing and no teleport between coasts.
 The ship is a primitive gothic-boat silhouette, not finished artwork.
-Right-click the vessel to board it, or stand near either dock and press
-controller D-pad Up when not interacting with an NPC. A separate controller
+Walk over the gangplank onto the deck, then right-click the vessel or
+press controller D-pad Up to depart (when not interacting with an NPC). A separate controller
 input or new keyboard button was deliberately not added. The voyage
 is **source-implemented but not verified in a native Unreal build**.
 Blueprints can still query `GetDestinationName()` and `GetSecondsUntilArrival()`
@@ -101,12 +101,12 @@ native builds and representative Windows machines can be profiled.
 - Added a collision-enabled, dock-only **gangplank** connected to the deck.
   It faces the current shore, and is hidden with collision disabled while
   the boat sails. Characters can approach it physically while docked.
-- **Departure still uses the existing right-click or controller interaction**.
-  If the hero has physically walked onto the deck, the departure now keeps
-  the hero's current position instead of repositioning them to the center.
-  Characters interacting from the pier are still placed onto the deck.
-  Automatic departure on walking aboard is not implemented; native
-  moving-platform and gangplank tests remain necessary.
+- **Walk-on boarding only:** the hero must cross the gangplank and stand on
+  the deck before the existing right-click or controller interaction starts
+  the crossing. Interacting from the pier no longer teleports anyone aboard.
+  Characters keep their chosen standing position when departure begins.
+  Automatic departure on walking aboard is not implemented. Native
+  moving-platform and gangplank collision tests remain necessary.
 - No automatic overboard teleport or recovery runs while sailing. Players who
   fall or move off the deck are **not** forcibly returned to the boat.
   At arrival, only passengers whose movement base is still the deck are
