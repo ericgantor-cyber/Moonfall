@@ -77,9 +77,14 @@ and returning no selection before the first island shrine is discovered.
 It uses existing shrine and NPC quest states, adds no save fields, and
 does not change the six mainland Chronicle controls. Exhaustive
 native-free tests check both navigation directions across all 243
-contract-state combinations. The actual clickable/controller-driven
-island chapter card is **not implemented yet**; the helper is a tested
-prerequisite, not a claim that the reader is playable.
+contract-state combinations. The island chapter card now reuses the mainland Atlas Chronicle layout:
+click the discovered **ISLE** story footer to switch into the island reader,
+click unlocked numbered chapter tabs, and use the existing Tab / R3 reading
+focus plus left/right or D-pad page navigation. Locked chapters cannot be
+selected with mouse or D-pad, and their prose remains hidden. Region
+selection returns to the mainland card. All reader mode/page fields remain
+transient and do not change saves. Native UE5 mouse/controller rendering
+and narrow-screen testing are still required.
 
 **Release gates:** PR #1084 remains a draft until a native UE5.4 C++
 Editor/Win64 build, startup map generation and navigation inspection,
