@@ -74,7 +74,7 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("GetEquipmentSlotCode(Slot)", tier)
         self.assertIn("ValidEquippedTier(Code, Slot)", tier)
 
-        body = self.source.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
+        body = "int32 AMoonfallHeroPawn::GetMight()" + self.source.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
             "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
         expected = {
             "GetMight": "GetValidatedEquippedTier(0)",
