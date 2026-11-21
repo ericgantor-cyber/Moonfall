@@ -55,6 +55,11 @@ void AMoonfallArena::RefreshCouncilSettlementVisuals() {
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  const int32 Policy = IsValid(Hero) && Hero->CouncilDecisionId >= 0
      && Hero->CouncilDecisionId <= 2 ? Hero->CouncilDecisionId : -1;
+ // Stationary residents reuse the existing two-second Council refresh.
+ // A bounded authored list avoids a recurring global actor scan.
+ for (const TWeakObjectPtr<AMoonfallWorldNPC>& Resident : CouncilStationResidents) {
+  if (Resident.IsValid()) Resident->RefreshCouncilStationActivity(Hero);
+ }
  if (Policy == LastDisplayedCouncilDecision) return;
  LastDisplayedCouncilDecision = Policy;
  // A policy change is rare. Update authored resident labels once per
@@ -339,6 +344,9 @@ void AMoonfallArena::BeginPlay() {
    Person->FactionId = FName(Resident.Faction);
    Person->SettlementId = FName(TEXT("Crossroads"));
    Person->SocialRole = FName(Resident.Role);
+   if (Person->SocialRole == FName(TEXT("Merchant"))
+       || Person->SocialRole == FName(TEXT("Tinker")))
+    CouncilStationResidents.Add(Person);
    // At most four authored guard/scout patrols. A missing/invalid NavMesh
    // disables movement while leaving residents at their quest locations.
    if (CouncilMobileResidents.Num() < 4
