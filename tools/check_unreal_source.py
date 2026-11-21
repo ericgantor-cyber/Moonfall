@@ -720,7 +720,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("// The X and Esc must back out of character details the same way.", mouse)
         self.assertIn("OpenOptions();", mouse)
         self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
-        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
+        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 4; ++Row)"))
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
         self.assertIn("if (bCharacterStatsOpen)", options)
@@ -767,7 +767,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bCharacterStatsOpen)", escape)
         self.assertIn("bCharacterStatsOpen = false;", escape)
         self.assertIn("ToggleInventory();", escape)
-        self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;", mouse)
+        self.assertIn("if (ResidentContextSelection != Row) {", mouse)
+        self.assertIn("bResidentTurnInPending = false;", mouse)
+        self.assertIn("bResidentTradePending = false;", mouse)
         self.assertNotIn("if (ResidentContextSelection != Row)   if", mouse)
 
     def test_options_mouse_selects_all_visible_settings_rows(self):
