@@ -622,14 +622,20 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  Order.Reserve(Count);
  for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
  if (InventorySortMode == 0) return Order;
+ // Validate each item once before sorting. Re-decoding in every comparison
+ // would be expensive for large bags rendered by the HUD.
+ TArray<uint8> ValidItems;
+ ValidItems.SetNumUninitialized(Count);
+ for (int32 Index = 0; Index < Count; ++Index)
+  ValidItems[Index] = GetItemPower(InventoryItemCodes[Index]) > 0 ? 1 : 0;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
- Order.Sort([this](int32 A, int32 B) {
+ Order.Sort([this, &ValidItems](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
   // The shared equipped-item decoder rejects malformed rarity/slot/tier/trait
   // encodings. An invalid code must never outrank real gear in quality sort.
-  const bool bValidA = GetItemPower(CodeA) > 0;
-  const bool bValidB = GetItemPower(CodeB) > 0;
+  const bool bValidA = ValidItems[A] != 0;
+  const bool bValidB = ValidItems[B] != 0;
   if (bValidA != bValidB) return bValidA;
   if (!bValidA) return A < B;
   const int32 SlotA = (CodeA / 10000) % 10;
