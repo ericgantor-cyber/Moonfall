@@ -5,6 +5,7 @@
 #include "MoonfallExpandedWorld.generated.h"
 
 class AMoonfallOverworldTile;
+class AMoonfallEnemy;
 class UInstancedStaticMeshComponent;
 
 // Physically connected outdoor blockout. 6 regions + 1 offshore island.
@@ -40,6 +41,11 @@ private:
  UPROPERTY(Transient) TMap<int32, TObjectPtr<AMoonfallOverworldTile>> ResidentTiles;
  FTimerHandle StreamingTimer;
  FTimerHandle SeaSwimmingTimer;
+ // Maximum one nearby non-boss enemy per Gothic Isle landmark. A defeated
+ // encounter stays cleared until the player leaves that district.
+ TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> IslandEncounters;
+ TSet<int32> ClearedIslandEncounters;
+ void UpdateGothicIsleEncounters(const FVector& PlayerPosition);
  // Lightweight sea-gap movement state; water does not automatically rescue
  // or reposition characters who leave the Nightferry.
  TWeakObjectPtr<class AMoonfallHeroPawn> SeaSwimmer;
