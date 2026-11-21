@@ -115,6 +115,11 @@ These pieces are **not a complete version** of the six proposed systems.
 - The NPC conversation pane displays the resident's work phase: walking, working at post, returning, resting, or stationed when no NavMesh patrol exists. The phase is descriptive; no repairs or defensive combat effects are granted.
 - The existing menu, player-proximity and conversation pauses take priority over workplace progression. This remains subject to native UE5 testing for placement, collision and visual legibility.
 
+## Visible work activity indicators
+
+- The existing Council guard/scout patrols now show a tiny non-colliding mesh glyph during their validated five-second workplace stop. It bobs and rotates at the existing 0.2-second arena update cadence, then hides while walking or resting. No added NPC actors, skeletal replacement, per-frame Tick, animations assets or save fields.
+- The primitive work glyph is an early visual activity cue, **not a finished weapon/repair animation or simulated construction**. Native Unreal build, visual placement and controller/interaction tests are still required; original hero artwork remains untouched.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
