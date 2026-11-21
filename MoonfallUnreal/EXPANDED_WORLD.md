@@ -79,7 +79,9 @@ native builds and representative Windows machines can be profiled.
    click or use controller D-pad Up nearby; validate that the character
    visibly rides for 14 seconds, lands on the Gothic Isle, and can
    return on the same boat. Confirm spell casting and NPC interactions
-   remain unchanged elsewhere. Test interruption/death during transit.
+   remain unchanged elsewhere. Test interruption/death during transit,
+   blocked shore disembarkation and recovery after removing an obstacle.
+   Confirm death detaches the passenger without overriding respawn.
 6. Run the new Python source regression suites:
    `python -m unittest -v tools.test_unreal_expanded_world tools.test_unreal_gothic_ferry`.
    Source checks do **not** substitute for real Win64 compilation.
