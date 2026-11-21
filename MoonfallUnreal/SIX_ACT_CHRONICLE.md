@@ -38,6 +38,26 @@ The existing six contiguous zones and their five physical dungeons per zone prov
   extra save fields, queue, storyline checkpoint, cutscene, animation
   asset, or new NPC conversation in this pass.
 
+## Mainland-to-island quest: The Nightferry's Wake
+
+A first cross-region **discovery quest** is now connected to real saved
+gameplay records. Defeating the first Ashen Wilds dungeon boss
+(Emberfall Crypt, zone 0 / dungeon 0) makes the Atlas display
+**ISLE QUEST: SAIL NORTH** until the player discovers Raven's Landing
+Shrine on Gothic Isle. The player must physically reach the ferry,
+walk aboard and sail the crossing. The real shrine-discovery record
+changes the journey stage to arrived; simply opening the Atlas or
+getting near the ferry does not complete it.
+
+The pure C++17 stage function handles all four combinations of the
+mainland-boss and island-shrine flags, including saves where the island
+was discovered first. This uses existing persistent records and does
+not alter rewards, ferry controls, mainland boss state or character art.
+
+**Scope:** this is one linked, playable exploration/discovery objective,
+not a new reward-bearing questline, quest journal entry, or confirmed
+round-trip. It still requires a native UE5 ferry, shrine and UI playtest.
+
 ## Ten-upgrade implementation roadmap (November 2026)
 
 The ten requested upgrades are **approved scope**, not a claim that each
