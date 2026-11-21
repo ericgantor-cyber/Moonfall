@@ -34,7 +34,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("UGameplayStatics::OpenLevel(", self.boat)
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
-        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 1)
+        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 0)
         # Only a rider still on the ship can be placed on shore.
         self.assertEqual(self.boat.count("Rider->SetActorLocation("), 1)
 
@@ -74,24 +74,17 @@ class GothicFerryContracts(unittest.TestCase):
             "FMath::Square(DockReach)", "FMath::Abs(Hero->GetActorLocation().Z - Dock.Z) > 350.f",
         ):
             self.assertIn(requirement, boarding, requirement)
-        self.assertLess(boarding.index("FMath::Square(DockReach)"),
-                        boarding.index("Hero->SetActorLocation(BoardingLocation"))
-        self.assertIn("GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation())", boarding)
-        self.assertLess(boarding.index("FindTeleportSpot(Hero, BoardingLocation"),
-                        boarding.index("Hero->SetActorLocation(BoardingLocation"))
-        self.assertIn("Hero->SetBase(Deck);", boarding)
-        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", boarding)
+        # A character must physically walk onto the deck first.
+        self.assertIn("Hero->GetMovementBase() != Deck", boarding)
+        self.assertIn("Movement->IsMovingOnGround()", boarding)
+        self.assertNotIn("FindTeleportSpot", boarding)
+        self.assertNotIn("Hero->SetActorLocation(", boarding)
+        self.assertNotIn("Hero->SetBase(Deck)", boarding)
         self.assertNotIn("Movement->DisableMovement();", boarding)
         self.assertNotIn("Hero->AttachToActor(", boarding)
-        self.assertIn("Movement->StopMovementImmediately();", boarding)
-        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", boarding)
         self.assertIn("Passenger = Hero;", boarding)
-        self.assertIn("const bool bAlreadyOnDeck = Hero->GetMovementBase() == Deck;", boarding)
-        self.assertIn("if (!bAlreadyOnDeck) {", boarding)
-        self.assertLess(boarding.index("if (!bAlreadyOnDeck) {"), boarding.index("Hero->SetActorLocation(BoardingLocation"))
-        self.assertNotIn("Hero->SetActorLocation(OriginalLocation", boarding)
-        self.assertLess(boarding.index("Hero->SetActorLocation(BoardingLocation"),
-                        boarding.index("Hero->SetBase(Deck)"))
+        self.assertLess(boarding.index("Hero->GetMovementBase() != Deck"),
+                        boarding.index("Passenger = Hero;"))
 
     def test_no_automatic_overboard_recovery_or_timer_pause(self):
         crossing = self.boat.split("void AMoonfallGothicFerry::AdvanceCrossing()", 1)[1].split(
