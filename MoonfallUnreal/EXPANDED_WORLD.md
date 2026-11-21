@@ -44,6 +44,9 @@ Right-click the vessel to board it, or stand near either dock and press
 controller D-pad Up when not interacting with an NPC. A separate controller
 input or new keyboard button was deliberately not added. The voyage
 is **source-implemented but not verified in a native Unreal build**.
+Blueprints can query `GetDestinationName()` and `GetSecondsUntilArrival()`
+to show Gothic Isle/Mainland Harbor and a clamped voyage countdown.
+No on-screen countdown widget has been added yet; native UI wiring is pending.
 
 `AMoonfallExpandedWorld` has no Tick. A 0.35-second timer checks the
 hero's location and generates up to three nearest 200m tiles per update.
