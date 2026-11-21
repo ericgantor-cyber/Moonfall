@@ -116,8 +116,16 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn('Hero->GetResidentQuestState(ResidentId) == 2', npc_cpp)
         self.assertIn('Reaction = CompletedStoryClue.IsEmpty()', npc_cpp)
         self.assertIn('LastSpokenLine = Reaction;', npc_cpp)
-        self.assertIn("TActorIterator<AMoonfallCheckpointShrine>", island)
-        self.assertIn("TActorIterator<AMoonfallWorldNPC>", island)
+        self.assertEqual(island.count("TActorIterator<AMoonfallCheckpointShrine>"), 1)
+        self.assertEqual(island.count("TActorIterator<AMoonfallWorldNPC>"), 1)
+        self.assertIn("ExistingShrineIds.Contains(StableId)", island)
+        self.assertIn("ExistingResidentIds.Contains(StableId)", island)
+        self.assertIn("ExistingShrineIds.Add(StableId);", island)
+        self.assertIn("ExistingResidentIds.Add(StableId);", island)
+        self.assertLess(island.index("ExistingShrineIds.Contains(StableId)"),
+                        island.index("SpawnActorDeferred<AMoonfallCheckpointShrine>"))
+        self.assertLess(island.index("ExistingResidentIds.Contains(StableId)"),
+                        island.index("SpawnActorDeferred<AMoonfallWorldNPC>"))
         self.assertEqual(island.count("ESpawnActorCollisionHandlingMethod::AlwaysSpawn"), 2)
         self.assertNotIn("PrimaryActorTick", island)
         self.assertNotIn("SetTimer(", island)
