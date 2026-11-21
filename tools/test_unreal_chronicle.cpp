@@ -27,21 +27,29 @@ static_assert(!S::ValidProgress(1u << 30, 0u));
 static_assert(S::RevealedBeat(2, 5, 0u, 0u) == nullptr);
 
 namespace I = MoonfallIsleChronicle;
+constexpr bool EqualText(const char* A, const char* B) {
+ while (*A && *B) {
+  if (*A != *B) return false;
+  ++A;
+  ++B;
+ }
+ return *A == *B;
+}
 static_assert(I::ChapterCount == 7);
-static_assert(std::strcmp(I::NextObjective(false, false, {0,0,0,0,0}, false),
-                          "Discover an island shrine") == 0);
-static_assert(std::strcmp(I::NextObjective(true, false, {0,0,0,0,0}, false),
-                          "Find Mara Vesper at the harbor") == 0);
-static_assert(std::strcmp(I::NextObjective(true, true, {2,1,2,2,2}, true),
+static_assert(EqualText(I::NextObjective(false, false, {0,0,0,0,0}, false),
+                          "Discover an island shrine"));
+static_assert(EqualText(I::NextObjective(true, false, {0,0,0,0,0}, false),
+                          "Find Mara Vesper at the harbor"));
+static_assert(EqualText(I::NextObjective(true, true, {2,1,2,2,2}, true),
                           "Finish Corvin's salvage contract") == 0);
-static_assert(std::strcmp(I::NextObjective(true, false, {2,2,2,2,2}, true),
-                          "Discover the Blackbell shrine") == 0);
-static_assert(std::strcmp(I::NextObjective(true, true, {2,2,2,2,2}, false),
-                          "Complete the six mainland acts") == 0);
-static_assert(std::strcmp(I::NextObjective(true, true, {2,2,2,2,2}, true),
-                          "Read the Seventh Witness") == 0);
-static_assert(std::strcmp(I::NextObjective(true, true, {-1,2,2,2,2}, true),
-                          "Island records unavailable") == 0);
+static_assert(EqualText(I::NextObjective(true, false, {2,2,2,2,2}, true),
+                          "Discover the Blackbell shrine"));
+static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, false),
+                          "Complete the six mainland acts"));
+static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, true),
+                          "Read the Seventh Witness"));
+static_assert(EqualText(I::NextObjective(true, true, {-1,2,2,2,2}, true),
+                          "Island records unavailable"));
 static_assert(I::ChapterState(0, false, false, {0,0,0,0,0}, false)
   == I::EState::Hidden);
 static_assert(I::ChapterState(0, true, false, {0,0,0,0,0}, false)
