@@ -94,6 +94,9 @@ public:
  void RefreshMoralPresenceVisuals();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") TMap<FName, int32> ResidentMoralChoices;
  UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralTitle() const;
+ // Read-only gear motif based on current morality and actually owned equipment.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality|Gear") FString GetMoralGearTitle(int32 Slot) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality|Gear") FString GetMoralGearMotif(int32 Slot) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralActionDescription() const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralChoiceAid = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralActionPending = false;
