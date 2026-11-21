@@ -1,5 +1,7 @@
 #include "MoonfallExpandedWorld.h"
 #include "MoonfallOverworldTile.h"
+#include "MoonfallGothicFerry.h"
+#include "EngineUtils.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -89,8 +91,8 @@ void AMoonfallExpandedWorld::BuildConnectingRoads()
  for (const float X : Columns)
   AddRoad(FVector(X, RowCenters[0], 0.f),
           FVector(X, RowCenters[1], 0.f), 1600.f);
- // The mainland and island have DISTINCT shore docks. Do not fake a
- // walkable sea crossing or pretend ferry gameplay has shipped.
+ // Distinct mainland and island shore docks. The Nightferry actor
+ // travels visibly through the open-water gap; no false walkable sea bridge.
  AddRoad(FVector(0.f, 228000.f, 0.f), FVector(0.f, 238000.f, 0.f), 2600.f);
  AddRoad(FVector(0.f, 246000.f, 0.f), FVector(0.f, 256000.f, 0.f), 2600.f);
 }
@@ -99,6 +101,14 @@ void AMoonfallExpandedWorld::BeginPlay()
 {
  Super::BeginPlay();
  BuildConnectingRoads();
+ // One boat serves both shore docks and reverses on the next boarding.
+ // Preserve a designer-authored ferry rather than duplicating it.
+ bool bFerryAlreadyExists = false;
+ for (TActorIterator<AMoonfallGothicFerry> It(GetWorld()); It; ++It)
+  if (IsValid(*It)) { bFerryAlreadyExists = true; break; }
+ if (!bFerryAlreadyExists && GetWorld())
+  GetWorld()->SpawnActor<AMoonfallGothicFerry>(
+    AMoonfallGothicFerry::DockLocation(false), FRotator::ZeroRotator);
  RefreshNearbyTiles();
  // The timer owns all scenery streaming; the manager and each tile do NOT Tick.
  GetWorldTimerManager().SetTimer(StreamingTimer, this,
