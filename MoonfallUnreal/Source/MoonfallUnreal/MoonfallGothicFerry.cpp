@@ -79,6 +79,7 @@ void AMoonfallGothicFerry::BeginPlay()
  // Authored placement may override this location in a future native map.
  // All current crossings use the two fixed, verified dock coordinates.
  SetActorLocation(DockLocation(bAtIsland));
+ UpdateVoyageStatus();
 }
 
 float AMoonfallGothicFerry::GetCrossingProgress() const
@@ -105,8 +106,12 @@ void AMoonfallGothicFerry::UpdateVoyageStatus()
 {
  if (!VoyageStatus) return;
  if (!bUnderway) {
+  // Stationary label invites players to board without a separate menu.
+  // Mouse and controller both use existing bindings.
   LastDisplayedSeconds = -1;
-  VoyageStatus->SetText(FText::GetEmpty());
+  VoyageStatus->SetText(FText::FromString(FString::Printf(
+   TEXT("TO %s | RIGHT-CLICK / D-PAD UP"),
+   *GetDestinationName().ToString())));
   return;
  }
  // Only redraw when the displayed whole second changes, not 20 times/sec.
