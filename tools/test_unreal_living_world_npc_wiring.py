@@ -40,6 +40,34 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_111_catalog_selection_mouse_controller_and_confirmation_integrity(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        catalog = (SOURCE / "MoonfallResidentCatalog.h").read_text(encoding="utf-8")
+        self.assertIn("constexpr int Count = 111;", catalog)
+        self.assertIn("int32 ResidentCatalogSelection = 0;", header)
+        self.assertIn("bool StepResidentCatalog(int32 Direction);", header)
+        for source in (hero, hud):
+            self.assertIn('#include "MoonfallResidentCatalog.h"', source)
+        browse = hero.split("bool AMoonfallHeroPawn::StepResidentCatalog(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetResidentCatalogItemCode()", 1
+        )[0]
+        for expected in ("ResidentContextSelection != 3",
+                         "MoonfallResidentCatalog::Next(ResidentCatalogSelection, Direction)",
+                         "bResidentTradePending = false;",
+                         "ResidentTradeConfirmUntil = 0.f"):
+            self.assertIn(expected, browse)
+        self.assertIn("StepResidentCatalog(-1)", hero)
+        self.assertIn("StepResidentCatalog(1)", hero)
+        self.assertIn("Hero->ResidentCatalogSelection + 1", hud)
+        self.assertIn("Catalog.tier, Catalog.rarity, Catalog.code", hud)
+        self.assertIn("GetResidentCatalogPrice(bMerchant)", hud)
+        self.assertIn("MouseX < Left + 61.f", hero)
+        self.assertIn("MouseX > Left + PanelW - 61.f", hero)
+        self.assertIn("if (Row == 3", hero)
+        self.assertIn("if (Choice == 3) return PurchaseResidentWorkItem();", hero)
+
     def test_merchant_and_tinker_transactions_are_confirmed_and_atomic(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -52,8 +80,9 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         )[0]
         for expected in ("Resident->CanHeroInteract(this)",
                          "bPersistentSaveWritesBlocked", "CouncilDecisionId < 0",
-                         "InventoryItemCodes.Num() >= 10000", "const int32 Price = bMerchant ? 12 : 20",
-                         "const int32 ItemCode = bMerchant ? 1001 : 2001",
+                         "InventoryItemCodes.Num() >= 10000", "const auto Stock = MoonfallResidentCatalog::Get(ResidentCatalogSelection)",
+                         "const int32 Price = bMerchant ? Stock.merchantCost : Stock.tinkerCost",
+                         "const int32 ItemCode = Stock.code",
                          "bResidentTradePending = true;", "ResidentTradeConfirmUntil = Now + 6.f",
                          "Salvage -= Price;", "InventoryItemCodes.Add(ItemCode)",
                          "if (!SaveWorldProgress())", "InventoryItemCodes.RemoveAt(NewIndex)",
