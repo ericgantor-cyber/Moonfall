@@ -150,6 +150,36 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("CatalogPrice < BasePrice", hud)
         self.assertIn("CatalogPrice > BasePrice", hud)
 
+    def test_moral_equipment_identity_requires_owned_valid_gear_and_remains_cosmetic(self):
+        cpp = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        rules = (SOURCE / "MoonfallMoralityRules.h").read_text(encoding="utf-8")
+        for required in ("GearTheme(int alignment, bool equippedAndOwned)",
+                         "GearVisualPromise(int alignment, bool equippedAndOwned)",
+                         '"Radiant"', '"Hallowed"', '"Dreadbound"', '"Shadowmarked"'):
+            self.assertIn(required, rules)
+        for required in ("FString GetMoralGearTitle(int32 Slot) const;",
+                         "FString GetMoralGearMotif(int32 Slot) const;"):
+            self.assertIn(required, header)
+        part = cpp.split("FString AMoonfallHeroPawn::GetMoralGearTitle(", 1)[1].split(
+            "FString AMoonfallHeroPawn::GetMoralTitle()", 1
+        )[0]
+        for required in ("Slot < 0 || Slot > 2", "InventoryItemCodes.Contains(Code)",
+                         "GetItemPower(Code) > 0",
+                         "MoonfallMorality::GearTheme(MoralAlignment, bOwned)",
+                         "MoonfallMorality::GearVisualPromise(MoralAlignment, bOwned)"):
+            self.assertIn(required, part)
+        for forbidden in ("SaveWorldProgress(", "SetMaterial(", "InventoryItemCodes.Add(",
+                          "EquipInventoryItem(", "SpawnActor(", "AwardExperience("):
+            self.assertNotIn(forbidden, part)
+        panel = hud.split("if (Hero->bCharacterStatsOpen)", 1)[1].split(
+            "// Identical button rectangle to HitTestInventorySortButton", 1
+        )[0]
+        self.assertIn("if (PanelHeight >= 820.f)", panel)
+        self.assertIn("Hero->GetMoralGearTitle(Slot)", panel)
+        self.assertIn("Hero->GetMoralGearMotif(Slot)", panel)
+
     def test_hero_morality_motifs_do_not_modify_character_artwork(self):
         cpp = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
