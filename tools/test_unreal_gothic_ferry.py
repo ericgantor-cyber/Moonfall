@@ -22,7 +22,7 @@ class GothicFerryContracts(unittest.TestCase):
 
     def test_reversible_80m_crossing_uses_moving_boat_not_teleport(self):
         self.assertIn("CrossingDuration = 14.f;", self.h)
-        self.assertIn("DockReach = 700.f;", self.h)
+        self.assertIn("DockReach = 950.f;", self.h)
         self.assertIn("bIsland ? 246400.f : 237600.f", self.boat)
         self.assertIn("const FVector From = DockLocation(bAtIsland);", self.boat)
         self.assertIn("const FVector To = DockLocation(!bAtIsland);", self.boat)
@@ -71,6 +71,9 @@ class GothicFerryContracts(unittest.TestCase):
                         completion.index("Movement->SetMovementMode(MOVE_Walking)"))
         self.assertLess(completion.index("Rider->DetachFromActor("),
                         completion.index("Rider->SetActorLocation(Landing"))
+        # Safe landfall is also in interaction range, so the reverse
+        # trip can be started by controller without precision positioning.
+        self.assertLessEqual(800.0, 950.0)
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) FinishCrossing(false);", self.boat)
         self.assertIn("GetWorldTimerManager().ClearTimer(CrossingTimer);", self.boat)
