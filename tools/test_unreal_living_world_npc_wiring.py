@@ -90,6 +90,51 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("if (Row == 3", hero)
         self.assertIn("if (Choice == 3) return PurchaseResidentWorkItem();", hero)
 
+    def test_good_evil_choices_persist_and_rollback_atomically(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        save = (SOURCE / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 14;", save)
+        self.assertIn("UPROPERTY() int32 MoralAlignment = 0;", save)
+        self.assertIn("UPROPERTY() TMap<FName, int32> ResidentMoralChoices;", save)
+        self.assertIn("Save->MoralAlignment = MoralAlignment;", hero)
+        self.assertIn("Save->ResidentMoralChoices = ResidentMoralChoices;", hero)
+        self.assertIn("Save->Version >= 14", hero)
+        self.assertIn("Save->Version > 14", hero)
+        self.assertIn("MoonfallMorality::IsValidAction(Entry.Value)", hero)
+        self.assertIn("ResidentMoralChoices.Num() > 13", hero)
+        self.assertIn("bool CommitResidentMoralChoice();", header)
+        self.assertIn("if (Choice == 4) return CommitResidentMoralChoice();", hero)
+        self.assertIn("const FString Names[5]", hud)
+        self.assertIn("for (int32 Row = 0; Row < 5; ++Row)", hud)
+        self.assertIn("for (int32 Row = 0; Row < 5; ++Row)", hero)
+        self.assertIn("Hero->MoralAlignment", hud)
+        self.assertIn("People have heard of your kindness.", npc)
+        self.assertIn("People fear what you might do next.", npc)
+        choice = hero.split("bool AMoonfallHeroPawn::CommitResidentMoralChoice()", 1)[1].split(
+            "bool AMoonfallHeroPawn::PurchaseResidentWorkItem()", 1
+        )[0]
+        for required in ("Resident->CanHeroInteract(this)",
+                         "ResidentMoralChoices.Contains(Resident->ResidentId)",
+                         "ResidentMoralConfirmUntil = Now + 6.f;",
+                         "MoonfallMorality::ResidentActionDelta(bAid)",
+                         "MoonfallMorality::ResidentSalvageDelta(bAid)",
+                         "MoonfallMorality::ResidentBondDelta(bAid)",
+                         "MoonfallMorality::ResidentReputationDelta(bAid)",
+                         "ResidentMoralChoices.Add(Id, bAid ? 1 : -1)",
+                         "if (!SaveWorldProgress())",
+                         "MoralAlignment = PreviousMorality;",
+                         "Salvage = PreviousSalvage;",
+                         "ResidentMoralChoices.Remove(Id);"):
+            self.assertIn(required, choice)
+        self.assertLess(choice.index("ResidentMoralChoices.Add(Id, bAid ? 1 : -1)"),
+                        choice.index("if (!SaveWorldProgress())"))
+        self.assertIn("bResidentMoralActionPending = false;", hero)
+        self.assertIn("ToggleResidentMoralChoice(-1)", hero)
+        self.assertIn("ToggleResidentMoralChoice(1)", hero)
+
     def test_merchant_and_tinker_transactions_are_confirmed_and_atomic(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
