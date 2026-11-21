@@ -41,7 +41,7 @@ static_assert(EqualText(I::NextObjective(false, false, {0,0,0,0,0}, false),
 static_assert(EqualText(I::NextObjective(true, false, {0,0,0,0,0}, false),
                           "Find Mara Vesper at the harbor"));
 static_assert(EqualText(I::NextObjective(true, true, {2,1,2,2,2}, true),
-                          "Finish Corvin's salvage contract") == 0);
+                          "Finish Corvin's salvage contract"));
 static_assert(EqualText(I::NextObjective(true, false, {2,2,2,2,2}, true),
                           "Discover the Blackbell shrine"));
 static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, false),
