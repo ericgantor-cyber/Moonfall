@@ -6,6 +6,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -89,6 +91,68 @@ void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* He
      : FColor(174, 197, 240));
  CouncilAssignmentSign->SetVisibility(true);
 }
+bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
+ bCouncilWorkRouteValid = false;
+ if (!GetWorld() || SettlementId != FName(TEXT("Crossroads"))
+     || !(SocialRole == FName(TEXT("Guard")) || SocialRole == FName(TEXT("Scout")))
+     || EndOffset.ContainsNaN() || EndOffset.SizeSquared2D() > FMath::Square(140.f)
+     || FMath::Abs(EndOffset.Z) > 1.f) return false;
+ const FVector Home = GetActorLocation();
+ const FVector Destination = Home + EndOffset;
+ if (Home.ContainsNaN() || Destination.ContainsNaN()) return false;
+ // Require a genuine, short NavMesh path. If the project has no baked NavMesh,
+ // the resident stays put rather than walking through walls or off terrain.
+ UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+ if (!Nav) return false;
+ FNavLocation NavHome;
+ FNavLocation NavEnd;
+ if (!Nav->ProjectPointToNavigation(Home, NavHome, FVector(70.f,70.f,150.f))
+     || !Nav->ProjectPointToNavigation(Destination, NavEnd, FVector(70.f,70.f,150.f))
+     || FVector::DistSquared2D(NavHome.Location, Home) > FMath::Square(80.f)
+     || FVector::DistSquared2D(NavEnd.Location, Destination) > FMath::Square(80.f))
+  return false;
+ UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
+     GetWorld(), NavHome.Location, NavEnd.Location, this);
+ if (!IsValid(Path) || !Path->IsValid() || Path->IsPartial()
+     || Path->PathPoints.Num() < 2 || Path->GetPathLength() > 240.f) return false;
+ // Avoid arbitrary offsets/height changes after route validation.
+ CouncilWorkHome = Home;
+ CouncilWorkDestination = Destination;
+ bCouncilWorkReturning = false;
+ bCouncilWorkRouteValid = true;
+ return true;
+}
+
+void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds) {
+ if (!bCouncilWorkRouteValid || !IsValid(Hero) || Hero->CouncilDecisionId < 0
+     || Hero->CouncilDecisionId > 2 || Hero->Health <= 0.f
+     || !FMath::IsFinite(StepSeconds) || StepSeconds <= 0.f || StepSeconds > 0.25f
+     || Hero->bInventoryOpen || Hero->bOptionsOpen || Hero->bAtlasOpen
+     || (Hero->bResidentContextOpen && Hero->FocusedResident.Get() == this))
+  return;
+ const FVector Current = GetActorLocation();
+ const FVector Player = Hero->GetActorLocation();
+ if (Current.ContainsNaN() || Player.ContainsNaN()
+     || FVector::DistSquared2D(Current, Player) < FMath::Square(300.f)) return;
+ const FVector Target = bCouncilWorkReturning ? CouncilWorkHome : CouncilWorkDestination;
+ const FVector ToTarget = Target - Current;
+ if (ToTarget.SizeSquared2D() < FMath::Square(8.f)) {
+  bCouncilWorkReturning = !bCouncilWorkReturning;
+  return;
+ }
+ const float Distance = FMath::Sqrt(ToTarget.SizeSquared2D());
+ const float Travel = FMath::Min(Distance, 55.f * StepSeconds);
+ const FVector Next = Current + FVector(ToTarget.X, ToTarget.Y, 0.f) * (Travel / Distance);
+ // Never leave the initial 140-unit authored workplace corridor.
+ if (FVector::DistSquared2D(Next, CouncilWorkHome) > FMath::Square(145.f)) {
+  bCouncilWorkRouteValid = false;
+  return;
+ }
+ FHitResult Blocked;
+ if (!SetActorLocation(Next, true, &Blocked, ETeleportType::None) || Blocked.bBlockingHit)
+  bCouncilWorkRouteValid = false;
+}
+
 FString AMoonfallWorldNPC::GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const {
  // Crossroads is the only authored settlement with Council decorations.
  // Other NPCs retain their ordinary schedule until their regions are built.
