@@ -196,7 +196,10 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
  // exists. A blocked landing must not put a rider inside scenery or enable
  // walking while they are still attached to the vessel.
  const bool bDestinationIsland = bArrived ? !bAtIsland : bAtIsland;
- if (IsValid(Rider) && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
+ // Only a passenger actually standing on the deck receives shore placement.
+ // Never rescue an overboard character when the ferry reaches its destination.
+ const bool bRiderOnDeck = IsValid(Rider) && Rider->GetMovementBase() == Deck;
+ if (bRiderOnDeck && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
   const float IntoLand = bDestinationIsland ? 800.f : -800.f;
   FVector Landing = DockLocation(bDestinationIsland) + FVector(0.f, IntoLand, 125.f);
   if (!GetWorld()->FindTeleportSpot(Rider, Landing, Rider->GetActorRotation())) {
@@ -214,8 +217,9 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
   Rider->SetBase(nullptr);
   if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
    Movement->SetMovementMode(MOVE_Walking);
- } else if (IsValid(Rider)) {
-  // The death pipeline owns movement for an incapacitated hero.
+ } else if (IsValid(Rider) && bRiderOnDeck) {
+  // A dead passenger can release the deck; someone who fell off remains
+  // wherever their own movement/death pipeline has taken them.
   Rider->SetBase(nullptr);
  }
  GetWorldTimerManager().ClearTimer(CrossingTimer);
@@ -234,16 +238,14 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
  if (GetWorld()) GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bUnderway) {
   if (AMoonfallHeroPawn* Rider = Passenger.Get(); IsValid(Rider)) {
-   Rider->SetBase(nullptr);
-   // Recover a living passenger at the original dock if possible. If level
-   // teardown has removed collision, still release movement/attachment.
-   if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
-    FVector SafeShore = DockLocation(bAtIsland)
-      + FVector(0.f, bAtIsland ? 800.f : -800.f, 125.f);
-    if (GetWorld() && GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation()))
-     Rider->SetActorLocation(SafeShore, false, nullptr, ETeleportType::TeleportPhysics);
-    if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
-     Movement->SetMovementMode(MOVE_Walking);
+   // Teardown releases only a character still standing on this deck.
+   // Do not teleport an overboard character back to land or onto the ferry.
+   if (Rider->GetMovementBase() == Deck) {
+    Rider->SetBase(nullptr);
+    if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
+     if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
+      Movement->SetMovementMode(MOVE_Falling);
+    }
    }
   }
   Passenger.Reset();
