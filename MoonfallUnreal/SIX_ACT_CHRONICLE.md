@@ -63,10 +63,9 @@ progress. An already **active contract takes priority** over unaccepted NPC
 leads so the objective stays useful when contracts are accepted out of
 order. The five-contract priority has exhaustive 243-state regression
 coverage. When all five contracts and the mainland story are complete
-and Blackbell has been discovered, the Atlas now says the Seventh Witness
-evidence is unlocked, rather than offering a nonexistent island chapter
-reading action. The full island chapter reader is still planned.
-The objective system does not award XP, activate quests, grant items or show
+and Blackbell has been discovered, the Atlas directs players to read the
+unlocked Seventh Witness chapter. This reader is now wired to the existing
+Atlas card. The objective system does not award XP, activate quests, grant items or show
 hidden chapter passages. Narrow Atlas sidebars retain the existing
 progress-only label instead of overlapping the map.
 
@@ -77,7 +76,9 @@ and returning no selection before the first island shrine is discovered.
 It uses existing shrine and NPC quest states, adds no save fields, and
 does not change the six mainland Chronicle controls. Exhaustive
 native-free tests check both navigation directions across all 243
-contract-state combinations. When the seventh chapter becomes available, the next objective says **Read the Seventh Witness** because the Atlas now supports that interaction.\n\nThe island chapter card now reuses the mainland Atlas Chronicle layout:
+contract-state combinations. When the seventh chapter becomes available, the next objective says **Read the Seventh Witness** because the Atlas now supports that interaction.
+
+The island chapter card now reuses the mainland Atlas Chronicle layout:
 click the discovered **ISLE** story footer to switch into the island reader,
 click unlocked numbered chapter tabs, and use the existing Tab / R3 reading
 focus plus left/right or D-pad page navigation. Locked chapters cannot be
