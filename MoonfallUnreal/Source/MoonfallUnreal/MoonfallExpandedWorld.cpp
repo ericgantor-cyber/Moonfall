@@ -245,6 +245,20 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
   if (!bHeroReady || DistanceSquared > FMath::Square(11000.f)
       || ClearedIslandEncounters.Contains(Index)
       || IslandEncounters.Contains(Index)) continue;
+  // The island is streamed in 200m tiles. Never instantiate a hostile
+  // enemy over terrain that has not finished loading beneath its site.
+  // The next 0.35s refresh will retry after the terrain tile is ready.
+  const int32 SiteColumn = FMath::FloorToInt(
+    (Encounters[Index].Offset.X + 50000.f) / AMoonfallOverworldTile::TileSize);
+  const int32 SiteRow = FMath::FloorToInt(
+    (Encounters[Index].Offset.Y + 50000.f) / AMoonfallOverworldTile::TileSize);
+  if (SiteColumn < 0 || SiteColumn >= AMoonfallOverworldTile::TilesPerSide
+      || SiteRow < 0 || SiteRow >= AMoonfallOverworldTile::TilesPerSide) continue;
+  const int32 SiteTileId = 6 * TilesPerRegion
+    + SiteRow * AMoonfallOverworldTile::TilesPerSide + SiteColumn;
+  const TObjectPtr<AMoonfallOverworldTile>* GroundTile = ResidentTiles.Find(SiteTileId);
+  if (!GroundTile || !IsValid(GroundTile->Get())
+      || GroundTile->Get()->IsActorBeingDestroyed()) continue;
   const FTransform Transform(FRotator::ZeroRotator, Site);
   AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
     AMoonfallEnemy::StaticClass(), Transform, this, nullptr,
