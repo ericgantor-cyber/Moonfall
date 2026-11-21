@@ -32,7 +32,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
-   const float H = FMath::Min(400.f, FMath::Max(320.f, Canvas->SizeY - 24.f));
+   const float H = FMath::Min(520.f, FMath::Max(390.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
@@ -61,17 +61,18 @@ void AMoonfallCombatHUD::DrawHUD()
        ? FString::Printf(TEXT("< %03d/111 %s %ds >"),
            Hero->ResidentCatalogSelection + 1, SlotNames[Catalog.slot], CatalogPrice)
        : TEXT("Trade/Craft unavailable");
-   const FString Names[4] = { TEXT("Talk"),
+   const FString Names[5] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close"), WorkLabel };
+     TEXT("Close"), WorkLabel,
+     FString::Printf(TEXT("< %s >"), *Hero->GetMoralActionDescription()) };
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
-   for (int32 Row = 0; Row < 4; ++Row) {
+   for (int32 Row = 0; Row < 5; ++Row) {
     const float Y = T + 122.f + Row * 53.f;
     const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
       CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
@@ -89,18 +90,21 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(Hero->ResidentCatalogSelection);
     DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | ID %d"),
        *GearName, Catalog.tier, Catalog.rarity, Catalog.code),
-       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 316.f, nullptr, 0.70f);
+       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 390.f, nullptr, 0.70f);
     DrawText(FString::Printf(TEXT("%s | %d salvage%s"),
        bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"), CatalogPrice,
        bMerchant ? TEXT("") : *FString::Printf(TEXT(" | Requires level %d%s"),
            RequiredLevel, Hero->Level < RequiredLevel ? TEXT(" (locked)") : TEXT(""))),
-       FLinearColor(0.75f,0.86f,0.75f), L + 18.f, T + 336.f, nullptr, 0.67f);
+       FLinearColor(0.75f,0.86f,0.75f), L + 18.f, T + 411.f, nullptr, 0.67f);
    }
    const FString ContractStatus = Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
      *ContractStatus, *Resident->FactionId.ToString()),
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
+   DrawText(FString::Printf(TEXT("Alignment: %s (%+d)"),
+       *Hero->GetMoralTitle(), Hero->MoralAlignment),
+       FLinearColor(0.86f,0.79f,0.95f), L + 18.f, T + H - 75.f, nullptr, 0.78f);
    DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
        Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
@@ -117,7 +121,7 @@ void AMoonfallCombatHUD::DrawHUD()
         *Resident->GetCouncilWorkPhase()).Left(57),
         FLinearColor(0.72f,0.89f,0.86f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice | D-pad up/down + A | Trade: left/right | Esc/RMB: close"),
+   DrawText(TEXT("Click | D-pad up/down + A | Trade/Morality: left/right | Esc/RMB"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    return;
