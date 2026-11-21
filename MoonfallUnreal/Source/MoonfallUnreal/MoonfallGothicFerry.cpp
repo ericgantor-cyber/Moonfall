@@ -28,6 +28,13 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  Deck->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
  Deck->SetGenerateOverlapEvents(false);
  Deck->SetCanEverAffectNavigation(false);
+ Gangplank = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WalkOnGangplank"));
+ Gangplank->SetupAttachment(GetRootComponent());
+ Gangplank->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ Gangplank->SetCollisionResponseToAllChannels(ECR_Ignore);
+ Gangplank->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+ Gangplank->SetCanEverAffectNavigation(false);
+ Gangplank->SetGenerateOverlapEvents(false);
 
  Mast = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BlackMast"));
  Mast->SetupAttachment(GetRootComponent());
@@ -55,6 +62,7 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  if (Cube.Succeeded()) {
   Hull->SetStaticMesh(Cube.Object);
   Deck->SetStaticMesh(Cube.Object);
+  Gangplank->SetStaticMesh(Cube.Object);
   Mast->SetStaticMesh(Cube.Object);
   Sail->SetStaticMesh(Cube.Object);
  }
@@ -65,6 +73,9 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  // A 7m x 12m moving platform with its top at approximately Z=95cm.
  Deck->SetRelativeLocation(FVector(0.f, 0.f, 82.5f));
  Deck->SetRelativeScale3D(FVector(7.f, 12.f, 0.25f));
+ // Dock-to-deck bridge: 5m long, 2.5m wide, shallow slope to Z=95cm.
+ // It is only deployed while moored and faces the current shore.
+ Gangplank->SetRelativeScale3D(FVector(2.5f, 5.f, 0.2f));
  Mast->SetRelativeLocation(FVector(0.f, 0.f, 205.f));
  Mast->SetRelativeScale3D(FVector(0.55f, 0.55f, 4.f));
  Sail->SetRelativeLocation(FVector(0.f, -100.f, 210.f));
@@ -84,6 +95,20 @@ void AMoonfallGothicFerry::BeginPlay()
  // Authored placement may override this location in a future native map.
  // All current crossings use the two fixed, verified dock coordinates.
  SetActorLocation(DockLocation(bAtIsland));
+ SetGangplankDeployed(true);
+}
+
+void AMoonfallGothicFerry::SetGangplankDeployed(bool bDeployed)
+{
+ if (!Gangplank) return;
+ if (bDeployed) {
+  const float Direction = bAtIsland ? -1.f : 1.f;
+  Gangplank->SetRelativeLocation(FVector(0.f, Direction * 650.f, 42.f));
+  Gangplank->SetRelativeRotation(FRotator(0.f, 0.f, -Direction * 11.f));
+ }
+ Gangplank->SetHiddenInGame(!bDeployed);
+ Gangplank->SetCollisionEnabled(bDeployed ? ECollisionEnabled::QueryAndPhysics
+                                        : ECollisionEnabled::NoCollision);
 }
 
 float AMoonfallGothicFerry::GetCrossingProgress() const
@@ -143,6 +168,7 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
  bUnderway = true;
+ SetGangplankDeployed(false);
  GetWorldTimerManager().SetTimer(CrossingTimer, this,
    &AMoonfallGothicFerry::AdvanceCrossing, 0.05f, true);
  return true;
@@ -201,6 +227,7 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
  SetActorLocation(DockLocation(bAtIsland));
  bUnderway = false;
  Passenger.Reset();
+ SetGangplankDeployed(true);
 }
 
 void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -226,5 +253,6 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
   Passenger.Reset();
   bUnderway = false;
  }
+ SetGangplankDeployed(false);
  Super::EndPlay(EndPlayReason);
 }
