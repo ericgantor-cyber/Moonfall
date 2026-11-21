@@ -20,6 +20,10 @@ public:
  // Returns false if a walkable route or safe endpoints cannot be confirmed.
  bool ConfigureCouncilWorkRoute(const FVector& EndOffset);
  void AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Council") FString GetCouncilWorkPhase() const;
+ // Short, observable pause at a verified post rather than immediate ping-pong.
+ float CouncilWorkHoldSeconds = 0.f;
+ bool bCouncilWorkAtPost = false;
  UPROPERTY(Transient) bool bCouncilWorkRouteValid = false;
  FVector CouncilWorkHome = FVector::ZeroVector;
  FVector CouncilWorkDestination = FVector::ZeroVector;
