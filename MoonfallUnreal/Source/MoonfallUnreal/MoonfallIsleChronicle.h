@@ -77,6 +77,35 @@ constexpr FProgress Summarize(bool HarborDiscovered, bool CathedralDiscovered,
  }
  return {true, Count, Complete, Featured, Epilogue};
 }
+// Single, spoiler-safe next action for the optional island storyline.
+// Reads existing shrine and contract save data; grants no progression.
+constexpr const char* NextObjective(bool HarborDiscovered,
+ bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
+ if (!ValidQuests(Quests)) return "Island records unavailable";
+ if (!HarborDiscovered && !CathedralDiscovered)
+  return "Discover an island shrine";
+ for (int Index = 0; Index < 5; ++Index) {
+  if (Quests[Index] == 0) {
+   constexpr const char* Leads[5] = {
+    "Find Mara Vesper at the harbor", "Find Brother Corvin at Blackbell",
+    "Find Veyra Ash in the graves", "Find Rook Thorn at Duskwatch",
+    "Find Elias Briar in the grove"
+   };
+   return Leads[Index];
+  }
+  if (Quests[Index] == 1) {
+   constexpr const char* TurnIns[5] = {
+    "Finish Mara's salvage contract", "Finish Corvin's salvage contract",
+    "Finish Veyra's salvage contract", "Finish Rook's salvage contract",
+    "Finish Elias's salvage contract"
+   };
+   return TurnIns[Index];
+  }
+ }
+ if (!CathedralDiscovered) return "Discover the Blackbell shrine";
+ if (!MainlandComplete) return "Complete the six mainland acts";
+ return "Read the Seventh Witness";
+}
 constexpr const FChapter* RevealedChapter(int Chapter, bool HarborDiscovered,
  bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
  return ChapterState(Chapter, HarborDiscovered, CathedralDiscovered,
