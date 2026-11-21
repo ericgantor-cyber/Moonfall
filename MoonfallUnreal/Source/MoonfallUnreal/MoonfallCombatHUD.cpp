@@ -4,6 +4,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallSetBonusThresholds.h"
 #include "MoonfallItemQuality.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -737,7 +738,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
        Hero->GetTotalDefeatedDungeonBosses(),
        Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons()),
-     TEXT("EQUIPMENT SLOTS  |  3 EQUIPPABLE, 6 FUTURE"),
+     TEXT("EQUIPMENT SLOTS  |  9 EQUIPPABLE"),
      SlotLine(0),
      SlotLine(3),
      SlotLine(6)
@@ -756,7 +757,7 @@ void AMoonfallCombatHUD::DrawHUD()
     // labels keep equipped tiers readable. No character art is substituted.
     // This remains read-only until versioned save and equip support is ready.
     const float GridTop = Top + PanelHeight - 225.f;
-    DrawText(TEXT("EQUIPMENT  |  3 EQUIPPABLE / 6 FUTURE"),
+    DrawText(TEXT("EQUIPMENT  |  9 SLOTS"),
       FLinearColor(0.52f,0.91f,0.76f), Left + 18.f, GridTop, nullptr, 0.75f);
     const float TileGap = 10.f;
     const float TileWidth = FMath::Clamp(PanelWidth * 0.29f, 150.f, 207.f);
@@ -773,7 +774,7 @@ void AMoonfallCombatHUD::DrawHUD()
       GridTop + 62.f, nullptr, 1.30f);
     DrawText(TEXT("RARITY: C U R E Em L"), FLinearColor(0.76f,0.80f,0.88f),
       CenterX + 12.f, GridTop + 108.f, nullptr, 0.64f);
-    DrawText(TEXT("READ ONLY"), FLinearColor(0.58f,0.76f,0.69f),
+    DrawText(TEXT("BAG: RMB EQUIP"), FLinearColor(0.58f,0.76f,0.69f),
       CenterX + 12.f, GridTop + 134.f, nullptr, 0.61f);
     // Left: five armor slots. Right: weapon, hands, ring and accessory.
     // Keep the immutable legacy slot indices; only visual order differs.
@@ -786,7 +787,7 @@ void AMoonfallCombatHUD::DrawHUD()
      const float X = bLeftColumn ? Left + 18.f : CenterX + CenterWidth + TileGap;
      const float Y = GridTop + 22.f + ColumnRow * 31.f;
      const int32 Code = Hero->GetEquipmentSlotCode(Slot);
-     const bool bFutureSlot = Slot >= 3;
+     const bool bFutureSlot = false; // All nine slots are now equippable.
      const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;
      const bool bValidRarity = Code > 0
        && Rarity >= 0 && Rarity < MoonfallItemQuality::Count;
@@ -859,14 +860,15 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Slot = (Code / 10000) % 10;
    const int32 Rarity = (Code / 1000) % 10;
    const int32 Tier = Code % 1000;
-   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+     TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
 
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+   const bool bValid = Code > 0 && MoonfallEquipmentSlots::IsKnownSlot(Slot)
+     && Affix >= 0 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Affix == 0)
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
-     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bEquipped = bValid && Code == Hero->GetEquipmentSlotCode(Slot);
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -956,30 +958,31 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedSlot = (SelectedCode / 10000) % 10;
    const int32 SelectedAffix = SelectedCode / 100000;
    const bool bForgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier < 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2
+     && MoonfallEquipmentSlots::IsKnownSlot(SelectedSlot)
      && SelectedRarity >= 0 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bAscendable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 5
+     && MoonfallEquipmentSlots::IsKnownSlot(SelectedSlot) && SelectedRarity >= 0 && SelectedRarity < 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bReforgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 2 && SelectedRarity <= 5
+     && MoonfallEquipmentSlots::IsKnownSlot(SelectedSlot) && SelectedRarity >= 2 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    // A dedicated, read-only selected-item summary above crafting and comparison.
    // Keep this area hidden on very short viewports to avoid covering bag rows.
    if (PanelHeight >= 500.f) {
-    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+      TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
 
     const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-    const bool bValidDetail = SelectedCode > 0 && SelectedSlot >= 0 && SelectedSlot <= 2
+    const bool bValidDetail = SelectedCode > 0 && MoonfallEquipmentSlots::IsKnownSlot(SelectedSlot)
       && SelectedRarity >= 0 && SelectedRarity <= 5
       && SelectedAffix >= 0 && SelectedAffix <= 3 && SelectedTier >= 1 && SelectedTier <= 25
       && (SelectedRarity != 0 || SelectedAffix == 0)
@@ -1000,9 +1003,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
     // Warn when replacing this slot would cross an active set threshold.
     // This includes replacing set gear with a traitless item or a new trait.
-    const int32 CurrentlyWorn = SelectedSlot == 0 ? Hero->EquippedWeaponCode
-      : SelectedSlot == 1 ? Hero->EquippedArmorCode
-      : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+    const int32 CurrentlyWorn = Hero->GetEquipmentSlotCode(SelectedSlot);
     const bool bWornValid = bValidDetail && Hero->InventoryItemCodes.Contains(CurrentlyWorn)
       && Hero->GetItemPower(CurrentlyWorn) > 0
       && (CurrentlyWorn / 10000) % 10 == SelectedSlot;
@@ -1098,9 +1099,7 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
    // Compare the highlighted item against the currently equipped item in
    // the same slot. This is informational only and never changes gear.
-   const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
-     : SelectedSlot == 1 ? Hero->EquippedArmorCode
-     : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+   const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
    // An externally stale equipped code is not actual worn gear.
    // Use the same validated power calculation for labels, colors and delta,
    // including the small but real contribution of an item's affix.
