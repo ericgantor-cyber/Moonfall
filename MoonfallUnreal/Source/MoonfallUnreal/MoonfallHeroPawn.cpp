@@ -1287,6 +1287,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
+  AtlasDiscoveredShrineIds.Reset();
+  AtlasFastTravelPendingShrine = NAME_None;
   bAtlasHasActiveRespawnShrineLocation = false;
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
@@ -1408,6 +1410,8 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   // per Atlas opening. No per-frame world actor scan or new save fields.
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
+  AtlasDiscoveredShrineIds.Reset();
+  AtlasFastTravelPendingShrine = NAME_None;
   bAtlasHasActiveRespawnShrineLocation = false;
   AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
   if (GetWorld()) {
@@ -1425,6 +1429,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
     const FString ShrineTitle = Shrine->GetMapDisplayName();
     AtlasDiscoveredShrineLocations.Add(ShrinePos);
     AtlasDiscoveredShrineNames.Add(ShrineTitle.Left(36));
+    AtlasDiscoveredShrineIds.Add(Shrine->ShrineId);
     if (ActiveShrineId == Shrine->ShrineId
         && IsCurrentRespawnLocation(Shrine->GetRespawnLocation())) {
      AtlasActiveRespawnShrineLocation = ShrinePos;
@@ -2490,6 +2495,53 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
  return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
 }
 // Touching a new shrine sets the next death checkpoint, not every autosave.
+bool AMoonfallHeroPawn::TryAtlasFastTravel(FName ShrineId) {
+ // Only a loaded, previously discovered actor can be a fast-travel
+ // destination. Two separate clicks on the same marker confirm the action.
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || ShrineId.IsNone() || !HasDiscoveredShrine(ShrineId)
+     || !AtlasDiscoveredShrineIds.Contains(ShrineId) || !GetWorld()) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  return false;
+ }
+ if (AtlasFastTravelPendingShrine != ShrineId) {
+  AtlasFastTravelPendingShrine = ShrineId;
+  OnResidentQuestFeedback(FText::FromString(
+    TEXT("Click this discovered shrine again to fast travel.")), true);
+  return false;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AMoonfallCheckpointShrine* Target = nullptr;
+ for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
+  if (IsValid(*It) && !It->IsActorBeingDestroyed()
+      && It->ShrineId == ShrineId) { Target = *It; break; }
+ }
+ if (!Target) return false;
+ const FVector Landing = Target->GetRespawnLocation();
+ if (Landing.ContainsNaN() || Landing.SizeSquared() >= 1.0e14f) return false;
+ const UCapsuleComponent* Capsule = GetCapsuleComponent();
+ if (!Capsule) return false;
+ float Radius = 0.f, HalfHeight = 0.f;
+ Capsule->GetScaledCapsuleSize(Radius, HalfHeight);
+ if (!FMath::IsFinite(Radius) || !FMath::IsFinite(HalfHeight)
+     || Radius <= 0.f || HalfHeight < Radius) return false;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAtlasFastTravel), false);
+ Params.AddIgnoredActor(this);
+ Params.AddIgnoredActor(Target);
+ if (GetWorld()->OverlapBlockingTestByChannel(Landing, GetActorQuat(),
+     ECC_Pawn, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params))
+  return false;
+ // Do not change the discovered-shrine ledger or active respawn point.
+ StopJumping();
+ EndSprint();
+ EndGuard();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ if (!TeleportTo(Landing, GetActorRotation(), false, false)) return false;
+ ToggleAtlas();
+ OnResidentQuestFeedback(FText::FromString(TEXT("Fast travel complete.")), true);
+ return true;
+}
 bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
  return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
 }
