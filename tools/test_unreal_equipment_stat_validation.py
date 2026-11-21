@@ -57,6 +57,16 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("DecodeEquippedItem(Code, Slot", body)
         self.assertNotIn("EquippedWeaponCode", body)
 
+    def test_set_piece_count_rejects_invalid_equipped_slots(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetMight(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::LegacyCount", body)
+        self.assertIn("GetEquipmentSlotCode(Slot)", body)
+        self.assertIn("if (Code <= 0) continue;", body)
+        self.assertIn("DecodeEquippedItem(Code, Slot", body)
+        self.assertNotIn("EquippedWeaponCode", body)
+        self.assertNotIn("InventoryItemCodes.Contains(Codes[Slot])", body)
+
     def test_stat_bonuses_validate_ownership(self):
         for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
                       "InventoryItemCodes.Contains(EquippedAccessoryCode)",
