@@ -98,9 +98,13 @@ native builds and representative Windows machines can be profiled.
 - Added a separate collision-enabled walking deck. The hero is based on the
   moving deck via `SetBase(Deck)` and retains normal CharacterMovement walking
   instead of being attached to the ferry root with movement disabled.
-- **Boarding still uses a short reposition** from the right-click or controller
-  interaction. A true walk-on gangplank and automatic boarding trigger are
-  not implemented yet. Do not describe this as completed walk-on boarding.
+- Added a collision-enabled, dock-only **gangplank** connected to the deck.
+  It faces the current shore, and is hidden with collision disabled while
+  the boat sails. Characters can approach it physically while docked.
+- **Departure still uses the existing right-click or controller interaction**,
+  which briefly repositions the player onto the deck. Automatic departure
+  after walking onto the deck is not implemented yet; full walk-on boarding
+  must not be claimed until native collision and control playtests pass.
 - Native UE5.4 tests must verify that the hero stays grounded while the boat
   moves, can steer in all directions, does not slip/fall through collision,
   and transfers off the deck correctly at both shore landings.
