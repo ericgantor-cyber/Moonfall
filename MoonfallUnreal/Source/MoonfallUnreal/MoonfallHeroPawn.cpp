@@ -2409,6 +2409,7 @@ namespace {
 const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 // Defined with the faction/relationship helpers below; shared by save migration.
 bool IsNamedMoonfallResident(FName Id);
+bool IsMoonfallFaction(FName Faction);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
  const int32 Trait = Code / 100000;
@@ -2754,37 +2755,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
    return false;
  // Reputation and bond maps must round-trip without silently dropping keys
  // or clamping values on the next load.
- static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
-  FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
-  FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
-  FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
-  FName(TEXT("Thornwraith"))};
- static const FName SaveResidentIds[] = {
-  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale")),
-  FName(TEXT("GothicRavenHarbormaster")),
-  FName(TEXT("GothicBlackbellKeeper")),
-  FName(TEXT("GothicGraveWarden")),
-  FName(TEXT("GothicDuskwatchSentinel")),
-  FName(TEXT("GothicThornwraithScholar"))
- };
- for (const auto& Entry : FactionReputation) {
-  bool bKnownFaction = false;
-  for (const FName Id : SaveFactionIds)
-   if (Entry.Key == Id) { bKnownFaction = true; break; }
-  if (!bKnownFaction || Entry.Value < -100 || Entry.Value > 100) return false;
- }
- for (const auto& Entry : ResidentBonds) {
-  bool bKnownResident = false;
-  for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
-  if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
- }
+ // Single canonical allowlists handle both saving and loading.
+ for (const auto& Entry : FactionReputation)
+  if (!IsMoonfallFaction(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)
+   return false;
+ for (const auto& Entry : ResidentBonds)
+  if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)
+   return false;
  TSet<FGuid> UniqueWorldDrops;
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
   if (!Record.DropId.IsValid() || UniqueWorldDrops.Contains(Record.DropId)
@@ -2874,16 +2851,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Reputation and bond records must be valid before restoration; otherwise
  // the allowlist/clamping below would silently alter the next saved version.
  if (Save->Version >= 4) {
-  static const FName AllowedFactionIds[] = {FName(TEXT("Wanderers")),
-   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
-   FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
-   FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
-   FName(TEXT("Thornwraith"))};
   for (const auto& Entry : Save->FactionReputation) {
-   bool bKnown = false;
-   for (const FName Id : AllowedFactionIds) if (Entry.Key == Id) { bKnown = true; break; }
-   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+   if (!IsMoonfallFaction(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid faction reputation; original save protected."));
     return false;
@@ -2891,24 +2860,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
  }
  if (Save->Version >= 5) {
-  static const FName AllowedResidentIds[] = {
-   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale")),
-   FName(TEXT("GothicRavenHarbormaster")),
-   FName(TEXT("GothicBlackbellKeeper")),
-   FName(TEXT("GothicGraveWarden")),
-   FName(TEXT("GothicDuskwatchSentinel")),
-   FName(TEXT("GothicThornwraithScholar"))
-  };
   for (const auto& Entry : Save->ResidentBonds) {
-   bool bKnown = false;
-   for (const FName Id : AllowedResidentIds) if (Entry.Key == Id) { bKnown = true; break; }
-   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+   if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident bond; original save protected."));
     return false;
