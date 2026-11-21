@@ -117,6 +117,10 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_expanded_world
 
+      - name: Verify Nightferry crossing and mouse/controller safety contracts
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_gothic_ferry
+
       - name: Verify cooked content gates for Windows installer
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
