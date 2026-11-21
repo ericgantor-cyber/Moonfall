@@ -1673,9 +1673,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 3) % 4;
+  ResidentContextSelection = (ResidentContextSelection + 4) % 5;
   bResidentTurnInPending = false;
   bResidentTradePending = false;
+  bResidentMoralActionPending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -1696,9 +1697,10 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 1) % 4;
+  ResidentContextSelection = (ResidentContextSelection + 1) % 5;
   bResidentTurnInPending = false;
   bResidentTradePending = false;
+  bResidentMoralActionPending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -1712,6 +1714,8 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bResidentContextOpen && ResidentContextSelection == 4
+     && ToggleResidentMoralChoice(-1)) return;
  if (bResidentContextOpen && ResidentContextSelection == 3
      && StepResidentCatalog(-1)) return;
  if (bAtlasOpen) {
@@ -1724,6 +1728,8 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bResidentContextOpen && ResidentContextSelection == 4
+     && ToggleResidentMoralChoice(1)) return;
  if (bResidentContextOpen && ResidentContextSelection == 3
      && StepResidentCatalog(1)) return;
  if (bAtlasOpen) {
@@ -3443,6 +3449,8 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  bResidentTradePending = false;
+ bResidentMoralActionPending = false;
+ ResidentMoralConfirmUntil = 0.f;
  ResidentTradeConfirmUntil = 0.f;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
@@ -3456,7 +3464,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
-  ResidentContextSelection = (ResidentContextSelection + 3) % 4;
+  ResidentContextSelection = (ResidentContextSelection + 4) % 5;
   bResidentTurnInPending = false;
   bResidentTradePending = false;
   return;
@@ -3713,7 +3721,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
- const float PanelH = FMath::Min(400.f, FMath::Max(320.f, Height - 24.f));
+ const float PanelH = FMath::Min(520.f, FMath::Max(390.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
  const float NpcCloseX = Left + PanelW - 42.f;
  if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
@@ -3726,12 +3734,13 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  // Shared exact row bounds with the Canvas HUD renderer.
- for (int32 Row = 0; Row < 4; ++Row) {
+ for (int32 Row = 0; Row < 5; ++Row) {
   const float RowTop = Top + 122.f + Row * 53.f;
   if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
    if (ResidentContextSelection != Row) {
     bResidentTurnInPending = false;
     bResidentTradePending = false;
+    bResidentMoralActionPending = false;
    }
    ResidentContextSelection = Row;
    // Left and right ends of the fourth row are catalog navigation,
@@ -3742,6 +3751,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    }
    if (Row == 3 && MouseX > Left + PanelW - 61.f) {
     StepResidentCatalog(1);
+    return;
+   }
+   if (Row == 4 && (MouseX < Left + 61.f
+       || MouseX > Left + PanelW - 61.f)) {
+    ToggleResidentMoralChoice(MouseX < Left + 61.f ? -1 : 1);
     return;
    }
    if (Row == 2) CloseResidentContext();
@@ -3767,7 +3781,9 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 3) return PurchaseResidentWorkItem();
+ if (Choice == 4) return CommitResidentMoralChoice();
  if (Choice == 0) {
+  bResidentMoralActionPending = false;
   bResidentTradePending = false;
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
@@ -3776,6 +3792,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ bResidentMoralActionPending = false;
  bResidentTradePending = false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
@@ -3936,6 +3953,7 @@ bool AMoonfallHeroPawn::CommitResidentMoralChoice() {
 }
 
 bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
+ bResidentMoralActionPending = false;
  AMoonfallWorldNPC* Resident = FocusedResident.Get();
  if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
      || !GetWorld() || bPersistentSaveWritesBlocked || bWorldProgressLoadInProgress
