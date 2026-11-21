@@ -912,17 +912,35 @@ void AMoonfallCombatHUD::DrawHUD()
     const TCHAR* SetEffects[] = {TEXT("No set trait"), TEXT("2pc: +3% crit  |  3pc: +4% mastery"),
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
-    // Invalid inventory codes must not masquerade as ordinary traitless gear.
-    // Preview is read-only; projected counts do not equip or save anything.
+    // Warn when replacing this slot would cross an active set threshold.
+    // This includes replacing set gear with a traitless item or a new trait.
+    const int32 CurrentlyWorn = SelectedSlot == 0 ? Hero->EquippedWeaponCode
+      : SelectedSlot == 1 ? Hero->EquippedArmorCode
+      : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+    const bool bWornValid = bValidDetail && Hero->InventoryItemCodes.Contains(CurrentlyWorn)
+      && Hero->GetItemPower(CurrentlyWorn) > 0
+      && (CurrentlyWorn / 10000) % 10 == SelectedSlot;
+    const int32 WornAffix = bWornValid ? CurrentlyWorn / 100000 : 0;
+    const int32 WornPieces = WornAffix > 0 ? Hero->GetSetPieceCount(WornAffix) : 0;
+    const int32 ProjectedWornPieces = WornAffix > 0
+      ? Hero->GetProjectedSetPieceCount(WornAffix, SelectedCode) : 0;
+    const bool bLosesSetBonus = bValidDetail && WornAffix > 0
+      && (WornPieces >= 2 && ProjectedWornPieces < 2
+        || WornPieces >= 3 && ProjectedWornPieces < 3);
+    // Preview is read-only; projected counts never equip or save anything.
     const FString SetLine = !bValidDetail
       ? TEXT("SET PREVIEW: INVALID ITEM")
+      : bLosesSetBonus
+      ? FString::Printf(TEXT("SET BONUS LOSS: %s %d/3 -> %d/3"),
+          DetailTraits[WornAffix], WornPieces, ProjectedWornPieces)
       : SelectedAffix > 0
       ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
           SetEffects[SelectedAffix])
       : TEXT("SET PREVIEW: no set trait on this item");
-    DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
+    DrawText(SetLine, bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
+      : FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
    // Read-only five-tier projection from the same forge cost schedule.
