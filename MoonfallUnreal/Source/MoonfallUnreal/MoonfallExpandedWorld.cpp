@@ -179,7 +179,13 @@ void AMoonfallExpandedWorld::UpdateSeaSwimming()
   // tracking state rather than overriding their chosen movement mode.
   if (Movement->MovementMode != MOVE_Swimming) {
    SeaSwimmer.Reset();
-  } else if (bLeaveWater || bOnFerry) {
+  } else if (bOnFerry) {
+   // The player is already physically standing on the vessel.
+   // Return to walking on that existing moving base, never force a rescue.
+   Movement->SetMovementMode(MOVE_Walking);
+   SeaSwimmer.Reset();
+  } else if (bLeaveWater) {
+   // Outside the sea area, normal falling/ground contact takes over.
    Movement->SetMovementMode(MOVE_Falling);
    SeaSwimmer.Reset();
   }
