@@ -91,11 +91,23 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("The respawn/death", completion)
         self.assertGreaterEqual(completion.count("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);"), 2)
         self.assertIn("Passenger.Reset();", completion)
-        self.assertIn("if (bUnderway) FinishCrossing(false);", self.boat)
+        self.assertIn("if (bUnderway) {", self.boat)
+        self.assertIn("Passenger.Reset();", self.boat)
         self.assertIn("GetWorldTimerManager().ClearTimer(CrossingTimer);", self.boat)
         self.assertLess(completion.index("FindTeleportSpot"), completion.index("ClearTimer(CrossingTimer)"))
         self.assertIn("!IsValid(Rider)", self.boat)
         self.assertIn("FinishCrossing(false);", self.boat)
+
+    def test_actor_teardown_releases_passenger_even_when_shore_blocked(self):
+        teardown = self.boat.split("void AMoonfallGothicFerry::EndPlay(", 1)[1]
+        self.assertNotIn("FinishCrossing(false)", teardown)
+        self.assertIn("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);", teardown)
+        self.assertIn("GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation())", teardown)
+        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", teardown)
+        self.assertIn("Passenger.Reset();", teardown)
+        self.assertIn("bUnderway = false;", teardown)
+        self.assertLess(teardown.index("ClearTimer(CrossingTimer)"),
+                        teardown.index("Rider->DetachFromActor("))
 
     def test_ship_interaction_keeps_mouse_and_controller_combat_actions(self):
         mouse = self.hero.split("void AMoonfallHeroPawn::CastRightMouse() {", 1)[1].split(
