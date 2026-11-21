@@ -107,6 +107,11 @@ native builds and representative Windows machines can be profiled.
   Characters interacting from the pier are still placed onto the deck.
   Automatic departure on walking aboard is not implemented; native
   moving-platform and gangplank tests remain necessary.
+- Added a guarded overboard recovery path: when a passenger moves more
+  than 7m from the boat center or falls 2.5m below it, the crossing checks
+  a clear deck position before returning the hero to the moving platform.
+  If recovery cannot find a clear spot, that timer update does not advance
+  the ship. This is source-only and needs a runtime fall/obstruction test.
 - Native UE5.4 tests must verify that the hero stays grounded while the boat
   moves, can steer in all directions, does not slip/fall through collision,
   and transfers off the deck correctly at both shore landings.
