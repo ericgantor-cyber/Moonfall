@@ -132,13 +132,11 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  const int32 CandidatePower = GetItemPower(ItemCode);
  if (CandidatePower <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- int32 Trait = 0, Rarity = 0, Tier = 0;
- const bool bCurrentOwnedAndValid = InventoryItemCodes.Contains(CurrentCode)
-     && DecodeEquippedItem(CurrentCode, Slot, Trait, Rarity, Tier);
- return CandidatePower - (bCurrentOwnedAndValid ? GetItemPower(CurrentCode) : 0);
+ if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return 0;
+ // Share validation with the nine-slot HUD accessor: stale, unowned or
+ // incorrectly slotted equipment is an empty slot for comparison purposes.
+ const int32 CurrentCode = GetEquipmentSlotCode(Slot);
+ return CandidatePower - (CurrentCode > 0 ? GetItemPower(CurrentCode) : 0);
 }
 
 int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
