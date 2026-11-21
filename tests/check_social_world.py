@@ -95,7 +95,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bResidentContextOpen = false;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",close)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
   self.assertIn("if (bResidentContextOpen &&",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
@@ -150,7 +150,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Active")',hud)
   self.assertIn('TEXT("Completed")',hud)
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",self.hero)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
