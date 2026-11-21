@@ -61,6 +61,7 @@ private:
  float CrossingStartedAt = 0.f;
  bool bUnderway = false;
  bool bAtIsland = false;
+ void SetGangplankDeployed(bool bDeployed);
  void AdvanceCrossing();
  void FinishCrossing(bool bArrived);
 };
