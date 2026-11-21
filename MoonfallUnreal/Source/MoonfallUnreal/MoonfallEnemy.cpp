@@ -981,11 +981,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // Retry only at the existing cached navigation cadence.
      // Reject corrupt path corners before storing or steering toward them.
      // FVector::ContainsNaN also detects infinite components.
-     bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1
-       || Path->PathPoints[1].ContainsNaN();
-     bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;
-     CachedWaypoint = bHasCachedNavigationWaypoint
+     const bool bHasPathSegment = IsValid(Path) && Path->PathPoints.Num() > 1;
+     const FVector FirstCorner = bHasPathSegment
        ? Path->PathPoints[1] : FVector::ZeroVector;
+     bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();
+     bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;
+     // A first corner almost on top of the enemy is already reached. Advance
+     // to the next finite corner of this same route rather than wasting the
+     // cached path-refresh budget on a zero-length pursuit step.
+     const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint
+       && Path->PathPoints.Num() > 2
+       && FVector::DistSquared2D(GetActorLocation(), FirstCorner) < FMath::Square(65.f)
+       && !Path->PathPoints[2].ContainsNaN();
+     CachedWaypoint = bHasCachedNavigationWaypoint
+       ? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)
+       : FVector::ZeroVector;
     } else {
      // The target cannot be projected onto the current navigation mesh.
      bNavigationRouteUnavailable = true;
