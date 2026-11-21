@@ -1992,6 +1992,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        # A streamed-out resident may leave the dialogue modal open briefly.
+        # The modal flag, not just the NPC weak pointer, must block dodge
+        # before stamina, cooldown or invulnerability can be granted.
+        modal_guard = dodge.split("return;", 1)[0]
+        self.assertIn("bResidentContextOpen", modal_guard)
+        self.assertIn("FocusedResident.IsValid()", modal_guard)
+        self.assertLess(dodge.index("bResidentContextOpen"), dodge.index(
+            "Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
         for value in ("Now", "NextDodgeAt", "DamageImmunityUntil"):
             self.assertIn(f"!FMath::IsFinite({value})", dodge)
             self.assertLess(dodge.index(f"!FMath::IsFinite({value})"),
