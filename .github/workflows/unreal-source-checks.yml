@@ -113,6 +113,10 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_enemy_path_budget
 
+      - name: Verify six-province world sizing and streaming contracts
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_expanded_world
+
       - name: Verify cooked content gates for Windows installer
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
