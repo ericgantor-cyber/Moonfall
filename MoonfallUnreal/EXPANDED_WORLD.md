@@ -37,7 +37,7 @@ and three north/south roads connect the two rows. All these roads are
 real collision-enabled ground, without load doors or scripted teleportation.
 
 The coast has two separate walkable docks. The new **Nightferry**
-source implements a reversible, 14-second continuous crossing over the
+source implements a reversible, 11-second continuous crossing over the
 80-meter open-water gap with safe landing and no teleport between coasts.
 The ship is a primitive gothic-boat silhouette, not finished artwork.
 Right-click the vessel to board it, or stand near either dock and press
@@ -77,7 +77,7 @@ native builds and representative Windows machines can be profiled.
    use, multi-floor steering, and return travel to the sanctuary.
 5. At the mainland dock, target the **Nightferry** with right mouse
    click or use controller D-pad Up nearby; validate that the character
-   visibly rides for 14 seconds, lands on the Gothic Isle, and can
+   visibly rides for 11 seconds, lands on the Gothic Isle, and can
    return on the same boat. Confirm spell casting and NPC interactions
    remain unchanged elsewhere. Test interruption/death during transit,
    blocked shore disembarkation and recovery after removing an obstacle.
@@ -86,7 +86,7 @@ native builds and representative Windows machines can be profiled.
    `python -m unittest -v tools.test_unreal_expanded_world tools.test_unreal_gothic_ferry`.
    Source checks do **not** substitute for real Win64 compilation.
 
-## Next major upgrades
+## WoW-style boat follow-up (not implemented)\n\n- The current ship still uses a fixed boarding reposition and disables rider\n  movement while attached. It is **not yet** a freely walkable ship deck.\n- Before enabling deck walking, add a collision-enabled moving deck,\n  gangplank/walk-on boarding, secure moving-platform character movement,\n  fall recovery, and controller/mouse boarding tests in native UE5.\n- Keep the 11-second duration consistent with the Gothic Raven prototype in\n  PR #1077; reconcile those implementations before any integration.\n\n## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
   towns, trees, geological cliffs, snowy mountains, foundries and landmarks.
