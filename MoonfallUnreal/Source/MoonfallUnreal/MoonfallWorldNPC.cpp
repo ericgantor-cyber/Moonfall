@@ -2,6 +2,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
@@ -15,6 +16,15 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
  Body->SetCollisionResponseToAllChannels(ECR_Ignore);
  Body->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+ CouncilAssignmentSign = CreateDefaultSubobject<UTextRenderComponent>(TEXT("CouncilAssignmentSign"));
+ CouncilAssignmentSign->SetupAttachment(Body);
+ CouncilAssignmentSign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ CouncilAssignmentSign->SetGenerateOverlapEvents(false);
+ CouncilAssignmentSign->SetRelativeLocation(FVector(0.f, 0.f, 130.f));
+ CouncilAssignmentSign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+ CouncilAssignmentSign->SetWorldSize(24.f);
+ CouncilAssignmentSign->SetTextRenderColor(FColor(185, 222, 206));
+ CouncilAssignmentSign->SetVisibility(false);
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
@@ -61,6 +71,23 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (SocialRole == FName(TEXT("Tinker"))) return Shift == 2 ? TEXT("Repairing") : TEXT("Inventing");
  if (SocialRole == FName(TEXT("Elder"))) return Shift == 2 ? TEXT("Reflecting") : TEXT("Advising");
  return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
+}
+void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero) {
+ if (!IsValid(CouncilAssignmentSign)) return;
+ const bool bShow = IsValid(Hero) && SettlementId == FName(TEXT("Crossroads"))
+     && Hero->CouncilDecisionId >= 0 && Hero->CouncilDecisionId <= 2
+     && !ResidentId.IsNone();
+ if (!bShow) {
+  CouncilAssignmentSign->SetVisibility(false);
+  return;
+ }
+ // Only set the text on a policy transition, not every frame.
+ CouncilAssignmentSign->SetText(FText::FromString(GetCouncilAssignment(Hero).Left(36)));
+ CouncilAssignmentSign->SetTextRenderColor(
+     Hero->CouncilDecisionId == 0 ? FColor(120, 232, 196)
+     : Hero->CouncilDecisionId == 1 ? FColor(240, 191, 119)
+     : FColor(174, 197, 240));
+ CouncilAssignmentSign->SetVisibility(true);
 }
 FString AMoonfallWorldNPC::GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const {
  // Crossroads is the only authored settlement with Council decorations.
