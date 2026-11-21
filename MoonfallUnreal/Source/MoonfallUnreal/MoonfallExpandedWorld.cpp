@@ -145,6 +145,7 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
   const TCHAR* Id;
   const TCHAR* Name;
   const TCHAR* Greeting;
+  const TCHAR* StoryClue;
   const TCHAR* Role;
   const TCHAR* Faction;
   FVector Offset;
@@ -153,18 +154,23 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
  const FIslandResidentSpec Residents[] = {
   {TEXT("GothicRavenHarbormaster"), TEXT("Mara Vesper"),
    TEXT("The tide has carried stranger things than you. Welcome to Raven's Landing."),
+   TEXT("The harbor manifests name six cities, but every ship arrived on the same impossible night."),
    TEXT("Scout"), TEXT("GothicHarbor"), FVector(-620.f, -40000.f, 60.f), 1},
   {TEXT("GothicBlackbellKeeper"), TEXT("Brother Corvin"),
    TEXT("The Blackbell rings for the living and the lost."),
+   TEXT("Six witnesses are carved inside the bell. The seventh name was erased."),
    TEXT("Elder"), TEXT("BlackbellOrder"), FVector(-620.f, 0.f, 60.f), 3},
   {TEXT("GothicGraveWarden"), TEXT("Veyra Ash"),
    TEXT("Do not disturb the names beneath these stones."),
+   TEXT("These graves hold no bodies, only the names of those who carried evidence across the sea."),
    TEXT("Guard"), TEXT("Gravewardens"), FVector(40000.f, -620.f, 60.f), 4},
   {TEXT("GothicDuskwatchSentinel"), TEXT("Rook Thorn"),
    TEXT("Duskwatch keeps its lanterns lit until dawn."),
+   TEXT("The wreckers copied a forged signal from the same command that corrupted the foundry."),
    TEXT("Guard"), TEXT("Duskwatch"), FVector(-40000.f, -620.f, 60.f), 6},
   {TEXT("GothicThornwraithScholar"), TEXT("Elias Briar"),
    TEXT("The grove remembers every footstep."),
+   TEXT("The roots shelter a star chart pointing toward this island, not toward the eclipse."),
    TEXT("Scholar"), TEXT("Thornwraith"), FVector(-620.f, 40000.f, 60.f), 8}
  };
  for (const FIslandResidentSpec& Spec : Residents) {
@@ -182,6 +188,7 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
   NPC->ResidentId = StableId;
   NPC->DisplayName = FText::FromString(Spec.Name);
   NPC->Greeting = FText::FromString(Spec.Greeting);
+  NPC->CompletedStoryClue = FText::FromString(Spec.StoryClue);
   NPC->SocialRole = FName(Spec.Role);
   NPC->FactionId = FName(Spec.Faction);
   NPC->SettlementId = FName(TEXT("GothicIsle"));
