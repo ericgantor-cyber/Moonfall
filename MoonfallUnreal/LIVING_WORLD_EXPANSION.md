@@ -126,6 +126,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Work cues are hidden immediately when the player approaches within 300 units, a conversation/other modal interrupts, or a route stops being valid. The existing five-second work hold pauses while the player is nearby, then resumes.
 - These are **lightweight role-distinguishing animations**, not skeletal actor animations, repaired buildings, or combat-changing patrols. Native UE5 compilation and in-world visibility still need testing.
 
+## Stationary merchant and tinker workplace equipment
+
+- Existing Crossroads merchants display low, non-colliding primitive supply crates and the tinker displays a narrow, periodically repositioned equipment marker. The saved Council policy determines the tinker marker's proportions. These are simple **visual workplace props**, not finished tool animation or stock management.
+- The arena maintains a bounded list of authored merchant and tinker NPCs, updating their marker states through the pre-existing two-second Council settlement timer. No new actor spawns, inventory grants, physics collisions, NPC Tick, save fields, or alterations to original character models.
+- Markers hide when there is no confirmed Council policy. Native Unreal compilation and in-game visual placement remain to be verified.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
