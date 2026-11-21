@@ -820,8 +820,14 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
-  ChooseResidentContextAction(ResidentContextSelection);
+ // A or Space cannot leak into Jump while dialogue is still open.
+ if (bResidentContextOpen) {
+  if (!FocusedResident.IsValid()) {
+   CloseResidentContext();
+   return;
+  }
+  if (!bOptionsOpen && !bInventoryOpen && !bAtlasOpen)
+   ChooseResidentContextAction(ResidentContextSelection);
   return;
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
@@ -830,7 +836,7 @@ void AMoonfallHeroPawn::TryJump()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -839,7 +845,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -1007,7 +1013,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
@@ -1049,7 +1055,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1068,7 +1074,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -1612,9 +1618,15 @@ void AMoonfallHeroPawn::OptionsUp() {
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
  }
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
-  bResidentTurnInPending = false;
+ if (bResidentContextOpen) {
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
+  if (!bOptionsOpen && !bInventoryOpen) {
+   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+   bResidentTurnInPending = false;
+  }
   return;
  }
  if (bInventoryOpen) {
@@ -1634,9 +1646,15 @@ void AMoonfallHeroPawn::OptionsDown() {
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
  }
- if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
-  bResidentTurnInPending = false;
+ if (bResidentContextOpen) {
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
+  if (!bOptionsOpen && !bInventoryOpen) {
+   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+   bResidentTurnInPending = false;
+  }
   return;
  }
  if (bInventoryOpen) {
@@ -3331,8 +3349,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  bResidentContextOpen = false;
  FocusedResident.Reset();
  // Return cursor ownership to whichever native modal is still active.
+ // The Atlas must keep its cursor if streaming closes a dialogue.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
-  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
@@ -3346,13 +3365,23 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
- if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
+ if (bResidentContextOpen) {
+  // Do not select another resident behind a stale conversation.
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
   bResidentTurnInPending = false;
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ // A conversation should release held combat movement immediately.
+ StopJumping();
+ EndSprint();
+ EndGuard();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -3399,6 +3428,10 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    StopJumping();
+    EndSprint();
+    EndGuard();
+    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
