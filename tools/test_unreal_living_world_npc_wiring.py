@@ -25,7 +25,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         self.assertIn("FString GetWorldCommunityOutlook() const;", header)
         outlook = hero.split("FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const", 1)[1].split(
-            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[0]
+            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1)[0]
         for expected in (
             "for (const auto& Entry : ResidentQuestStates)",
             "if (Entry.Value == 2) ++CompletedContracts;",
@@ -81,7 +81,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("bool SelectCouncilPreview(int32 DecisionId);", header)
         self.assertIn("int32 CouncilPreviewSelection = 0;", header)
         selection = hero.split("bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId)", 1)[1].split(
-            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1
+            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1
         )[0]
         for required in ("DecisionId < 0 || DecisionId > 2", "IsNearStartingSanctuary()",
                          "IsSanctuaryRoomUnlocked(4)", "CouncilPreviewSelection = DecisionId;"):
@@ -98,7 +98,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 2) % 3)", left)
         self.assertIn("SelectCouncilPreview((CouncilPreviewSelection + 1) % 3)", right)
         self.assertIn("Hero->PreviewCouncilDecision(Selected)", hud)
-        self.assertIn("D-pad: browse | F8: mouse preview", hud)
+        self.assertIn("D-pad: preview | F8: mouse | F9 twice: save", hud)
 
     def test_sanctuary_hud_uses_actual_progress_and_preserves_small_screens(self):
         hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -110,7 +110,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
                          "!Hero->bOptionsOpen", "Hero->IsSanctuaryRoomUnlocked(Room)",
                          "Hero->GetWorldCommunityOutlook()",
                          "Hero->IsSanctuaryRoomUnlocked(4)",
-                         "COUNCIL CHOICES (PREVIEW ONLY)"):
+                         "COUNCIL CHOICES (PREVIEW / CONFIRM)"):
             self.assertIn(expected, block)
         for forbidden in ("SaveWorldProgress(", "SpawnActor(", "ChangeFactionReputation(",
                           "ResidentQuestStates.Add("):
@@ -136,7 +136,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         self.assertIn("FString PreviewCouncilDecision(int32 DecisionId) const;", header)
         method = hero.split("FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const", 1)[1].split(
-            "bool AMoonfallHeroPawn::AcceptResidentQuest(", 1
+            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1
         )[0]
         for required in ("MoonfallLivingWorld::Decide(Decision)", "Protect Residents",
                          "Fund Reconstruction", "Fortify Borders", "preview only",
