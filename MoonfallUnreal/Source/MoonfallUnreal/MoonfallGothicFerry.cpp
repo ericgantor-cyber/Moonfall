@@ -118,6 +118,12 @@ void AMoonfallGothicFerry::UpdateVoyageStatus()
  const int32 Seconds = FMath::CeilToInt(GetSecondsUntilArrival());
  if (Seconds == LastDisplayedSeconds) return;
  LastDisplayedSeconds = Seconds;
+ if (Seconds == 0) {
+  // Arrival retries can continue while the dock is obstructed. Do not
+  // mislead the passenger with a permanent zero-second countdown.
+  VoyageStatus->SetText(FText::FromString(TEXT("WAITING FOR CLEAR DOCK")));
+  return;
+ }
  VoyageStatus->SetText(FText::FromString(FString::Printf(
   TEXT("TO %s  |  %ds"), *GetDestinationName().ToString(), Seconds)));
 }
