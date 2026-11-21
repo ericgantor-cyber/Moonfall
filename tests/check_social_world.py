@@ -97,12 +97,36 @@ class TestSocialWorld(unittest.TestCase):
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
   self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
-  self.assertIn("if (bResidentContextOpen &&",self.hero)
+  self.assertIn("if (bResidentContextOpen) {",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+ def test_stale_npc_modal_consumes_a_and_dpad_without_moving_selection(self):
+  # Tests source-level ordering. UE5 controller gameplay is still required.
+  jump=self.hero.split("void AMoonfallHeroPawn::TryJump()",1)[1].split(
+      "void AMoonfallHeroPawn::MoveForward(",1)[0]
+  dialog=jump.split("if (bResidentContextOpen) {",1)[1].split(
+      "// A has one input binding:",1)[0]
+  self.assertIn("if (!FocusedResident.IsValid()) {",dialog)
+  self.assertLess(dialog.index("CloseResidentContext();"),dialog.index(
+      "ChooseResidentContextAction(ResidentContextSelection);"))
+  self.assertNotIn("Jump();",dialog)
+  dpad=self.hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  self.assertIn("if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this))",dpad)
+  self.assertLess(dpad.index("CloseResidentContext();"),dpad.index(
+      "AMoonfallWorldNPC* Resident = GetNearestResidentNPC();"))
+  for name,next_name in (("OptionsUp","OptionsDown"),("OptionsDown","OptionsLeft")):
+   nav=self.hero.split("void AMoonfallHeroPawn::"+name+"()",1)[1].split(
+       "void AMoonfallHeroPawn::"+next_name+"()",1)[0]
+   self.assertIn("if (bResidentContextOpen) {",nav)
+   self.assertIn("if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }",nav)
+   self.assertLess(nav.index("CloseResidentContext(); return;"),nav.index(
+       "ResidentContextSelection ="))
+   self.assertLess(nav.index("ResidentContextSelection ="),nav.index(
+       "if (bInventoryOpen)"))
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
