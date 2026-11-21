@@ -109,6 +109,29 @@ constexpr const FChapter* RevealedChapter(int Chapter, bool HarborDiscovered,
  return ChapterState(Chapter, HarborDiscovered, CathedralDiscovered,
    Quests, MainlandComplete) == EState::Hidden ? nullptr : &Chapters[Chapter];
 }
+// Reader navigation has no save fields and never selects a locked page.
+// The current chapter survives if still visible; otherwise use the first
+// available chapter. Page cycling wraps across only revealed evidence.
+constexpr int NextReadableChapter(int Current, int Direction,
+ bool HarborDiscovered, bool CathedralDiscovered,
+ const int (&Quests)[5], bool MainlandComplete) {
+ if (!ValidQuests(Quests) || (!HarborDiscovered && !CathedralDiscovered))
+  return -1;
+ if (Direction != -1 && Direction != 1) {
+  return Current >= 0 && Current < ChapterCount
+   && ChapterState(Current, HarborDiscovered, CathedralDiscovered,
+      Quests, MainlandComplete) != EState::Hidden ? Current : 0;
+ }
+ int Cursor = Current >= 0 && Current < ChapterCount ? Current
+   : Direction == 1 ? ChapterCount - 1 : 0;
+ for (int Attempt = 0; Attempt < ChapterCount; ++Attempt) {
+  Cursor = (Cursor + Direction + ChapterCount) % ChapterCount;
+  if (ChapterState(Cursor, HarborDiscovered, CathedralDiscovered,
+       Quests, MainlandComplete) != EState::Hidden)
+   return Cursor;
+ }
+ return -1;
+}
 static_assert(ChapterCount == 7, "Seven original Gothic Isle chapters");
 static_assert(MoonfallChronicle::TotalBeats == 42, "Keep mainland 42 beats");
 static_assert(Summarize(false, false, {0, 0, 0, 0, 0}, false).Revealed == 0,
