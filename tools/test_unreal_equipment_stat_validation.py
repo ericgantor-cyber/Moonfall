@@ -13,6 +13,18 @@ class EquipmentStatSafety(unittest.TestCase):
                       "(Rarity == 0 && Trait != 0)",
                       "Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
             self.assertIn(token, body)
+    def test_power_comparison_uses_validated_slot_accessor(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
+        for token in ("InventoryItemCodes.Contains(ItemCode)",
+                      "GetItemPower(ItemCode)",
+                      "MoonfallEquipmentSlots::IsLegacySlot(Slot)",
+                      "GetEquipmentSlotCode(Slot)",
+                      "CurrentCode > 0 ? GetItemPower(CurrentCode) : 0"):
+            self.assertIn(token, body)
+        self.assertNotIn("EquippedWeaponCode", body)
+        self.assertNotIn("DecodeEquippedItem(CurrentCode", body)
+
     def test_stat_bonuses_validate_ownership(self):
         for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
                       "InventoryItemCodes.Contains(EquippedAccessoryCode)",
