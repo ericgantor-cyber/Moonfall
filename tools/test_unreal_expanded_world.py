@@ -154,6 +154,14 @@ class ExpandedOverworldTests(unittest.TestCase):
                         self.world.index("// Unload beyond a wider hysteresis radius"))
         self.assertIn("UpdateGothicIsleEncounters(PlayerPosition);", self.world)
         self.assertIn("IslandEncounters.Empty();", self.world)
+        self.assertIn("TMap<int32, float> IslandSpawnRetryAt;", self.world_h)
+        self.assertIn("IslandSpawnRetryAt.Find(Index)", combat)
+        self.assertIn("if (Now < *RetryAt) continue;", combat)
+        self.assertIn("IslandSpawnRetryAt.Add(Index, Now + 2.5f);", combat)
+        self.assertIn("IslandSpawnRetryAt.Remove(Index);", combat)
+        self.assertIn("IslandSpawnRetryAt.Empty();", self.world)
+        self.assertLess(combat.index("if (Now < *RetryAt) continue;"),
+                        combat.index("World->SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertNotIn("SetTimer(", combat)
         self.assertNotIn("PrimaryActorTick", combat)
 
