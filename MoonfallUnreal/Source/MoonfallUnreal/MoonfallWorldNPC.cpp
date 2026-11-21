@@ -91,10 +91,18 @@ void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* He
   CouncilAssignmentSign->SetVisibility(false);
   return;
  }
- // Only set the text on a policy transition, not every frame.
- CouncilAssignmentSign->SetText(FText::FromString(GetCouncilAssignment(Hero).Left(36)));
+ // Council assignments are refreshed on policy transitions; an individual
+ // moral choice explicitly refreshes only the affected resident afterward.
+ const int32* MoralChoice = Hero->ResidentMoralChoices.Find(ResidentId);
+ const FString Status = MoralChoice
+     ? (*MoralChoice == 1 ? TEXT(" [HELPED]") : TEXT(" [THREATENED]"))
+     : TEXT("");
+ CouncilAssignmentSign->SetText(FText::FromString(
+     (GetCouncilAssignment(Hero).Left(24) + Status).Left(36)));
  CouncilAssignmentSign->SetTextRenderColor(
-     Hero->CouncilDecisionId == 0 ? FColor(120, 232, 196)
+     MoralChoice && *MoralChoice == 1 ? FColor(125, 231, 164)
+     : MoralChoice && *MoralChoice == -1 ? FColor(232, 123, 133)
+     : Hero->CouncilDecisionId == 0 ? FColor(120, 232, 196)
      : Hero->CouncilDecisionId == 1 ? FColor(240, 191, 119)
      : FColor(174, 197, 240));
  CouncilAssignmentSign->SetVisibility(true);
@@ -371,6 +379,17 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
    break;
   default: break;
   }
+ }
+ // The individual resident remembers the player's one saved moral act.
+ // Keep the original quest and faction dialogue, adding a short personal
+ // response only on a new explicit Talk action.
+ if (const int32* Decision = Hero->ResidentMoralChoices.Find(ResidentId)) {
+  if (*Decision == 1)
+   Reaction = FText::FromString(Reaction.ToString()
+       + TEXT(" I remember the help you gave me."));
+  else if (*Decision == -1)
+   Reaction = FText::FromString(Reaction.ToString()
+       + TEXT(" I remember how you threatened me."));
  }
  // Fable-inspired moral reputation is independent of faction reputation.
  // Mention sustained deeds without changing trust tiers, quests or dialogue AI.
