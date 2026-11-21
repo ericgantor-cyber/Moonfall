@@ -7,7 +7,9 @@ int main() {
  static_assert(migrated[Weapon] == 101, "weapon changed");
  static_assert(migrated[Armor] == 20102, "armor changed");
  static_assert(migrated[Accessory] == 30203, "accessory changed");
- static_assert(ToLegacy(migrated) == oldCodes, "legacy round trip changed");
+ static_assert(ToLegacy(migrated)[0] == oldCodes[0] &&
+               ToLegacy(migrated)[1] == oldCodes[1] &&
+               ToLegacy(migrated)[2] == oldCodes[2], "legacy round trip changed");
  for (int slot = 0; slot < SlotCount; ++slot) {
   assert(IsKnownSlot(slot));
   assert(IsLegacySlot(slot) == (slot < LegacyCount));
