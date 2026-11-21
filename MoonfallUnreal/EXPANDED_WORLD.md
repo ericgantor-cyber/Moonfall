@@ -243,8 +243,13 @@ is selected, D-pad Left/Right or keyboard Left/Right cycles through
 loaded discovered shrines; otherwise those controls retain Atlas pan.
 The selected shrine's name is shown in the Atlas header even if its
 map pin is offscreen. This does not introduce a new gameplay interaction
-outside the Atlas. Opening Atlas is still bound to J; a dedicated
-controller-only Atlas-opening mapping remains future work.
+outside the Atlas. The Atlas opens with **J** or **controller D-pad Up** when no nearby
+resident or ferry interaction handles D-pad Up. Near an NPC, D-pad Up
+still talks; at a moored ferry dock, it still boards the ferry.
+Once the Atlas is open, D-pad Up retains region navigation. Controller
+Start/Options closes the Atlas via the existing Escape/back handler.
+This context-sensitive route avoids adding a conflicting controller
+mapping; an unconditional controller map shortcut is still future work.
 
 This is **not** an automatic ferry shortcut: only visited shrines
 are eligible, and streamed-out actors do not silently load on request.
