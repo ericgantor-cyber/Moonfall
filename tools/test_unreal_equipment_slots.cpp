@@ -22,4 +22,25 @@ int main() {
  expanded[Head] = 40001;
  expanded[Ring] = 80001;
  assert(ToLegacy(expanded) == oldCodes);
+ // Exercise empty, negative (invalid/stale), and extreme legacy values without
+ // normalizing or re-encoding them. Migration must be lossless even when a
+ // separate runtime validator later rejects an item code.
+ constexpr LegacyCodes cases[] = {
+  {{0, 0, 0}},
+  {{-1, -100, -999999}},
+  {{2147483647, -2147483647 - 1, 42}},
+  {{901, 0, 70007}}
+ };
+ for (const LegacyCodes& before : cases) {
+  const ExpandedCodes after = FromLegacy(before);
+  assert(ToLegacy(after) == before);
+  for (int slot = LegacyCount; slot < SlotCount; ++slot) {
+   assert(after[slot] == 0);
+  }
+  ExpandedCodes futureOnly = after;
+  for (int slot = LegacyCount; slot < SlotCount; ++slot) {
+   futureOnly[slot] = 100000 + slot;
+  }
+  assert(ToLegacy(futureOnly) == before);
+ }
 }
