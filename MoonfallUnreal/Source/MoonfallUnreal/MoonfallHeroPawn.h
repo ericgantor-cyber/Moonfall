@@ -99,6 +99,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilDecisionId = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilDecisionConfirmArmed = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool ConfirmCouncilDecision();
+ void ConfirmCouncilDecisionInput();
  UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString GetConfirmedCouncilPolicy() const;
  void CloseCouncilPointer();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
