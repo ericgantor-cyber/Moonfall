@@ -46,7 +46,7 @@ input or new keyboard button was deliberately not added. The voyage
 is **source-implemented but not verified in a native Unreal build**.
 Blueprints can query `GetDestinationName()` and `GetSecondsUntilArrival()`
 to show Gothic Isle/Mainland Harbor and a clamped voyage countdown.
-A non-colliding **world-space voyage status label** now displays the destination and whole seconds remaining above the vessel during travel. It updates only when the displayed second changes. At the dock, it shows the destination and existing right-click / controller D-pad Up boarding controls; at arrival it returns to the boarding prompt. This is not yet a dedicated HUD widget or a freely walkable deck. Native rendering, readability, and controller playtests remain necessary.
+A non-colliding **world-space voyage status label** now displays the destination and whole seconds remaining above the vessel during travel. It updates only when the displayed second changes. At the dock, it shows the destination and existing right-click / controller D-pad Up boarding controls; at arrival it returns to the boarding prompt. If shore clearance blocks disembarking after the countdown, the label displays `WAITING FOR CLEAR DOCK` while the existing collision-safe retry continues. This is not yet a dedicated HUD widget or a freely walkable deck. Native rendering, readability, and controller playtests remain necessary.
 
 `AMoonfallExpandedWorld` has no Tick. A 0.35-second timer checks the
 hero's location and generates up to three nearest 200m tiles per update.
