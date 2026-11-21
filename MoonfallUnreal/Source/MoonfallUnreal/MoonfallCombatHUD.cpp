@@ -778,6 +778,19 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 2 || Row == 6 || Row == 9 || Row == 13 || Row == 17 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+   // Optional lower-third cosmetic gear identity; omitted in compact windows
+   // to protect readability of the existing combat-stat rows.
+   if (PanelHeight >= 700.f) {
+    const TCHAR* GearLabels[3] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    for (int32 Slot = 0; Slot < 3; ++Slot) {
+     DrawText(FString::Printf(TEXT("%s: %s | %s"),
+         GearLabels[Slot], *Hero->GetMoralGearTitle(Slot),
+         *Hero->GetMoralGearMotif(Slot)),
+         FLinearColor(0.77f,0.86f,0.94f),
+         Left + 18.f, Top + PanelHeight - 109.f + Slot * 20.f,
+         nullptr, PanelWidth < 550.f ? 0.64f : 0.74f);
+    }
+   }
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
