@@ -88,8 +88,10 @@ int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
   EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode
  };
  const int32 Code = Codes[Slot];
- // Never expose unowned or malformed equipped values as active equipment.
- return InventoryItemCodes.Contains(Code) && GetItemPower(Code) > 0 ? Code : 0;
+ // Reject a valid item code stored in the wrong equipped field too.
+ // GetItemPower checks the item's own slot, not this field's expected slot.
+ return Code > 0 && (Code / 10000) % 10 == Slot
+   && InventoryItemCodes.Contains(Code) && GetItemPower(Code) > 0 ? Code : 0;
 }
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
