@@ -29,6 +29,30 @@ class ExpandedOverworldTests(unittest.TestCase):
         cls.startup = read(BUILD / "Create-StartupLevel.py")
         cls.retrofit = read(BUILD / "Upgrade-ExpandedWorldNavigation.py")
 
+    def test_gothic_isle_atlas_reader_reuses_card_and_hides_locked_pages(self):
+        hero = read(SOURCE / "MoonfallHeroPawn.cpp")
+        header = read(SOURCE / "MoonfallHeroPawn.h")
+        hud = read(SOURCE / "MoonfallCombatHUD.cpp")
+        isle = read(SOURCE / "MoonfallIsleChronicle.h")
+        self.assertIn("bool bAtlasIsleReader = false;", header)
+        self.assertIn("bAtlasIsleReader = !bAtlasIsleReader;", hero)
+        self.assertIn("bAtlasIsleReader = false;", hero)
+        self.assertIn("MoonfallIsleChronicle::NextReadableChapter(", hero)
+        self.assertIn("MoonfallIsleChronicle::ChapterState(ClickedBeat,", hero)
+        self.assertIn("== MoonfallIsleChronicle::EState::Hidden) return;", hero)
+        self.assertIn("const bool bReadingIsle = Hero->bAtlasIsleReader", hud)
+        self.assertIn("MoonfallIsleChronicle::RevealedChapter(ChapterIndex,", hud)
+        self.assertIn("const FString Lore = bReadingIsle", hud)
+        self.assertIn("IsleBeat ? FString(UTF8_TO_TCHAR(IsleBeat->Lore))", hud)
+        self.assertIn("MoonfallChronicleUI::Layout(", hero)
+        self.assertIn("MoonfallChronicleUI::Layout(", hud)
+        self.assertIn("if (!HarborDiscovered && !CathedralDiscovered)", isle)
+        self.assertIn("const bool Epilogue = CathedralDiscovered", isle)
+        # No new persistence or direct unlocking when the reader opens.
+        atlas = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1]
+        self.assertNotIn("DiscoveredDungeonMask =", atlas.split("if (bAtlasOpen)", 1)[1].split(
+            "// All native modal panels", 1)[0])
+
     def test_six_full_size_provinces_plus_a_separate_island(self):
         self.assertIn("MainRegionCount = 6;", self.world_h)
         self.assertIn("RegionCount = 7;", self.world_h)
