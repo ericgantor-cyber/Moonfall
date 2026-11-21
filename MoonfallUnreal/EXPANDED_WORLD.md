@@ -228,9 +228,11 @@ profiling is still needed before claiming a measured gain.
 The Atlas now supports an Assassin's Creed-style **discovered-site
 fast travel** for shrine actors currently loaded in the world. Open
 the Atlas with J and click a discovered shrine marker **twice**:
-first to select the golden marker, then to confirm. An undiscovered
-shrine, an unloaded destination actor, or a blocked landing capsule
-never becomes a valid teleport destination. A confirmed journey
+first to select the golden marker, then to confirm within **five seconds**.
+The gold confirmation highlight expires with the selection, and an unloaded
+shrine shows a failure message instead of presenting a false choice. An
+undiscovered shrine, an unloaded destination actor, or a blocked landing
+capsule never becomes a valid teleport destination. A confirmed journey
 stops player movement, checks scaled capsule collision, uses
 `TeleportTo` and closes the Atlas on success.
 
