@@ -680,8 +680,8 @@ void AMoonfallCombatHUD::DrawHUD()
    // compact text overview remains available for smaller windows.
    const bool bUseSlotGrid = PanelHeight >= 700.f && PanelWidth >= 550.f;
    const float RowHeight = FMath::Clamp(
-     (PanelHeight - (bUseSlotGrid ? 210.f : 145.f))
-       / (bShowAllSlots ? 22.f : 18.f), 8.f, 26.f);
+     (PanelHeight - (bUseSlotGrid ? 350.f : 145.f))
+       / (bUseSlotGrid ? 18.f : (bShowAllSlots ? 22.f : 18.f)), 8.f, 26.f);
    const float StartY = Top + 96.f;
    const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
      TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
@@ -751,35 +751,57 @@ void AMoonfallCombatHUD::DrawHUD()
         ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr, CharacterTextScale);
    if (bUseSlotGrid) {
-    // WoW-style framed gear overview. Read-only until new slots have real
-    // equip/loot logic and a versioned migration; never fake equipped items.
-    const float GridTop = StartY + 18.f * RowHeight;
+    // AC-style equipment flanks a center power panel, while WoW-like gear
+    // labels keep equipped tiers readable. No character art is substituted.
+    // This remains read-only until versioned save and equip support is ready.
+    const float GridTop = Top + PanelHeight - 225.f;
     DrawText(TEXT("EQUIPMENT  |  3 EQUIPPABLE / 6 FUTURE"),
       FLinearColor(0.52f,0.91f,0.76f), Left + 18.f, GridTop, nullptr, 0.75f);
-    const float TileGap = 8.f;
-    const float TileWidth = (PanelWidth - 36.f - 2.f * TileGap) / 3.f;
-    for (int32 Slot = 0; Slot < 9; ++Slot) {
-     const float X = Left + 18.f + (Slot % 3) * (TileWidth + TileGap);
-     const float Y = GridTop + 22.f + (Slot / 3) * 37.f;
+    const float TileGap = 10.f;
+    const float TileWidth = FMath::Clamp(PanelWidth * 0.29f, 150.f, 207.f);
+    const float CenterX = Left + 18.f + TileWidth + TileGap;
+    const float CenterWidth = PanelWidth - 36.f - 2.f * (TileWidth + TileGap);
+    DrawRect(FLinearColor(0.13f,0.16f,0.21f,0.96f),
+      CenterX, GridTop + 22.f, CenterWidth, 150.f);
+    DrawRect(FLinearColor(0.045f,0.055f,0.10f,0.98f),
+      CenterX + 1.f, GridTop + 23.f, CenterWidth - 2.f, 148.f);
+    DrawText(TEXT("CHARACTER POWER"), FLinearColor(0.70f,0.81f,0.94f),
+      CenterX + 12.f, GridTop + 39.f, nullptr, 0.68f);
+    DrawText(FString::FromInt(Hero->GetEquipmentPower()),
+      FLinearColor(0.95f,0.87f,0.64f), CenterX + 12.f,
+      GridTop + 62.f, nullptr, 1.30f);
+    DrawText(TEXT("GEAR OVERVIEW"), FLinearColor(0.76f,0.80f,0.88f),
+      CenterX + 12.f, GridTop + 108.f, nullptr, 0.64f);
+    DrawText(TEXT("READ ONLY"), FLinearColor(0.58f,0.76f,0.69f),
+      CenterX + 12.f, GridTop + 134.f, nullptr, 0.61f);
+    // Left: five armor slots. Right: weapon, hands, ring and accessory.
+    // Keep the immutable legacy slot indices; only visual order differs.
+    const int32 ACSlotOrder[] = {3, 4, 1, 6, 7, 0, 5, 8, 2};
+    for (int32 DisplayIndex = 0; DisplayIndex < UE_ARRAY_COUNT(ACSlotOrder); ++DisplayIndex) {
+     const int32 Slot = ACSlotOrder[DisplayIndex];
+     const bool bLeftColumn = DisplayIndex < 5;
+     const int32 ColumnRow = bLeftColumn ? DisplayIndex : DisplayIndex - 5;
+     const float X = bLeftColumn ? Left + 18.f : CenterX + CenterWidth + TileGap;
+     const float Y = GridTop + 22.f + ColumnRow * 31.f;
      const int32 Code = Hero->GetEquipmentSlotCode(Slot);
      const bool bFutureSlot = Slot >= 3;
      const FLinearColor BorderColor = bFutureSlot
        ? FLinearColor(0.21f,0.23f,0.30f,1.f)
        : Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)
                   : FLinearColor(0.39f,0.32f,0.46f,1.f);
-     DrawRect(BorderColor, X, Y, TileWidth, 32.f);
+     DrawRect(BorderColor, X, Y, TileWidth, 27.f);
      DrawRect(FLinearColor(0.07f,0.07f,0.13f,0.98f),
-       X + 1.f, Y + 1.f, TileWidth - 2.f, 30.f);
+       X + 1.f, Y + 1.f, TileWidth - 2.f, 25.f);
      DrawText(DisplayNames[Slot], bFutureSlot
          ? FLinearColor(0.63f,0.64f,0.71f) : FLinearColor::White,
-       X + 7.f, Y + 7.f, nullptr, 0.68f);
+       X + 6.f, Y + 5.f, nullptr, 0.60f);
      const FString Status = bFutureSlot ? TEXT("FUTURE")
        : Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)
        : TEXT("EMPTY");
      DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
          : Code > 0 ? FLinearColor(0.77f,0.94f,0.66f)
                     : FLinearColor(0.82f,0.75f,0.83f),
-       X + TileWidth - 53.f, Y + 8.f, nullptr, 0.60f);
+       X + TileWidth - 53.f, Y + 6.f, nullptr, 0.56f);
     }
    }
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
