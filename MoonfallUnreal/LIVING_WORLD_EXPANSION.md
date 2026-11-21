@@ -76,6 +76,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - This pointer mode consumes left-clicks without casting spells, and blocks spell casts while active. The hit rectangles match the HUD and the preview logic does not save or modify the kingdom.
 - The controller D-pad remains supported. This is **not a decision-confirmation or persistent council simulation**. Native Windows UE5 compilation, playtesting and mouse/controller accessibility validation are still required.
 
+## Permanent Council choice: V13 save migration
+
+- **F9 twice** after choosing a Council preview records one permanent Council policy. First press only arms confirmation; the second attempts a save. The Council must be unlocked, the hero alive and in the starting sanctuary, and other gameplay modals closed.
+- Save data now uses V13, adding bounded `CouncilDecisionId` with `-1` for no choice. V1–V12 saves load as undecided; malformed V13 decisions and unknown future versions fail closed before overwriting progress. Failed saves restore the previous uncommitted value.
+- The HUD displays the saved choice and a confirmation prompt. Existing previews remain safe: mouse and D-pad selection are never a commitment.
+- **Limit:** The Council policy is durably recorded but does not yet change faction reputation, settlements, NPC behavior, enemy threat or constructed geometry. These will need explicit event/application pipelines, native UE5 compilation and backward-compatible gameplay tests.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
