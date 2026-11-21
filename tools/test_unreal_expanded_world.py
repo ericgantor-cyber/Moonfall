@@ -117,8 +117,9 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("for (const float X : Columns)", self.world)
         self.assertIn("ConnectingRoads->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)", self.world)
         self.assertIn("ConnectingRoads->SetCanEverAffectNavigation(true)", self.world)
-        # Do not quietly replace the planned gothic boat with a walkable sea bridge.
-        self.assertIn("Do not fake a", self.world)
+        # The Nightferry crosses open water; no collision-enabled sea bridge.
+        self.assertIn("no false walkable sea bridge", self.world)
+        self.assertIn("SpawnActor<AMoonfallGothicFerry>", self.world)
         self.assertIn("FVector(0.f, 238000.f, 0.f)", self.world)
         self.assertIn("FVector(0.f, 246000.f, 0.f)", self.world)
         self.assertNotIn("FVector(0.f, 238000.f, 0.f), FVector(0.f, 246000.f, 0.f)", self.world)
