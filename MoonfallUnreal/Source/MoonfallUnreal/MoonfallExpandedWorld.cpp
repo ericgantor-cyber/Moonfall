@@ -3,6 +3,7 @@
 #include "MoonfallGothicFerry.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallEnemy.h"
 #include "MoonfallHeroPawn.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
@@ -189,6 +190,69 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
  }
 }
 
+void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPosition)
+{
+ // The five settlements share the mainland's existing enemy AI, XP, and
+ // loot. One encounter per district, never an island-wide enemy swarm.
+ // A defeated encounter stays cleared until the player leaves its district.
+ UWorld* World = GetWorld();
+ if (!World || PlayerPosition.ContainsNaN()) return;
+ struct FIslandEncounterSpec {
+  const TCHAR* Tag;
+  FVector Offset;
+  int32 Race;
+  bool bElite;
+ };
+ const FIslandEncounterSpec Encounters[] = {
+  {TEXT("GothicHarborReaver"), FVector(3600.f, -37500.f, 90.f), 1, false},
+  {TEXT("GothicBlackbellPenitent"), FVector(3600.f, 2500.f, 90.f), 3, true},
+  {TEXT("GothicGraveSentinel"), FVector(37500.f, 3600.f, 90.f), 4, true},
+  {TEXT("GothicDuskwatchOutcast"), FVector(-37500.f, 3600.f, 90.f), 6, false},
+  {TEXT("GothicThornwraithStalker"), FVector(3600.f, 37500.f, 90.f), 8, true}
+ };
+ const FVector Isle = RegionCenter(6);
+ for (int32 Index = 0; Index < UE_ARRAY_COUNT(Encounters); ++Index) {
+  const FVector Site = Isle + Encounters[Index].Offset;
+  const float DistanceSquared = FVector::DistSquared2D(PlayerPosition, Site);
+  if (DistanceSquared > FMath::Square(18000.f)) {
+   // This encounter is no longer streamed in: reclaim its AI actor and
+   // permit a fresh encounter only after the hero returns later.
+   if (TWeakObjectPtr<AMoonfallEnemy>* Existing = IslandEncounters.Find(Index)) {
+    if (AMoonfallEnemy* Enemy = Existing->Get(); IsValid(Enemy) && Enemy->Health > 0.f)
+     Enemy->Destroy();
+   }
+   IslandEncounters.Remove(Index);
+   ClearedIslandEncounters.Remove(Index);
+   continue;
+  }
+  if (TWeakObjectPtr<AMoonfallEnemy>* Existing = IslandEncounters.Find(Index)) {
+   AMoonfallEnemy* Enemy = Existing->Get();
+   if (!IsValid(Enemy) || Enemy->Health <= 0.f) {
+    // A slain enemy must not respawn repeatedly during the same visit.
+    ClearedIslandEncounters.Add(Index);
+    IslandEncounters.Remove(Index);
+   }
+  }
+  if (DistanceSquared > FMath::Square(11000.f)
+      || ClearedIslandEncounters.Contains(Index)
+      || IslandEncounters.Contains(Index)) continue;
+  const FTransform Transform(FRotator::ZeroRotator, Site);
+  AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), Transform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+  if (!IsValid(Enemy)) continue;
+  // No altered boss identities or original hero artwork. Elite rank
+  // supplies built-in posture/combat behavior, not a unique boss claim.
+  Enemy->RaceId = Encounters[Index].Race;
+  Enemy->bElite = Encounters[Index].bElite;
+  Enemy->bBoss = false;
+  Enemy->Tags.AddUnique(FName(Encounters[Index].Tag));
+  Enemy->FinishSpawning(Transform);
+  if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed())
+   IslandEncounters.Add(Index, Enemy);
+ }
+}
+
 void AMoonfallExpandedWorld::BeginPlay()
 {
  Super::BeginPlay();
@@ -218,6 +282,12 @@ void AMoonfallExpandedWorld::EndPlay(const EEndPlayReason::Type Reason)
   GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);
  }
  SeaSwimmer.Reset();
+ for (const TPair<int32, TWeakObjectPtr<AMoonfallEnemy>>& Entry : IslandEncounters) {
+  if (AMoonfallEnemy* Enemy = Entry.Value.Get(); IsValid(Enemy) && Enemy->Health > 0.f)
+   Enemy->Destroy();
+ }
+ IslandEncounters.Empty();
+ ClearedIslandEncounters.Empty();
  ResidentTiles.Empty();
  Super::EndPlay(Reason);
 }
@@ -295,6 +365,7 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  if (!IsValid(Player)) return;
  const FVector PlayerPosition = Player->GetActorLocation();
  if (PlayerPosition.ContainsNaN()) return;
+ UpdateGothicIsleEncounters(PlayerPosition);
 
  // Unload beyond a wider hysteresis radius, preventing churn at tile edges.
  TArray<int32> ExpiredIds;
