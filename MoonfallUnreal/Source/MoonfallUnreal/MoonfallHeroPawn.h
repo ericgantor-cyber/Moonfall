@@ -78,6 +78,16 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Quest") void OnResidentQuestFeedback(FText Message, bool bSuccess);
 
  // Reputation is a permanent value for recognized world factions.
+ // One durable Good/Evil score, independent of faction and resident bonds.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") int32 MoralAlignment = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") TMap<FName, int32> ResidentMoralChoices;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralTitle() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralActionDescription() const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralChoiceAid = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralActionPending = false;
+ float ResidentMoralConfirmUntil = 0.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Morality") bool ToggleResidentMoralChoice(int32 Direction);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Morality") bool CommitResidentMoralChoice();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") TMap<FName, int32> FactionReputation;
  UFUNCTION(BlueprintPure, Category="Moonfall|Faction") int32 GetFactionReputation(FName Faction) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") bool ChangeFactionReputation(FName Faction, int32 Delta);
