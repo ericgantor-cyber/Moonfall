@@ -770,7 +770,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::FromInt(Hero->GetEquipmentPower()),
       FLinearColor(0.95f,0.87f,0.64f), CenterX + 12.f,
       GridTop + 62.f, nullptr, 1.30f);
-    DrawText(TEXT("GEAR OVERVIEW"), FLinearColor(0.76f,0.80f,0.88f),
+    DrawText(TEXT("RARITY: C U R E Em L"), FLinearColor(0.76f,0.80f,0.88f),
       CenterX + 12.f, GridTop + 108.f, nullptr, 0.64f);
     DrawText(TEXT("READ ONLY"), FLinearColor(0.58f,0.76f,0.69f),
       CenterX + 12.f, GridTop + 134.f, nullptr, 0.61f);
@@ -781,6 +781,10 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
       FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
       FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
+    };
+    // Explicit quality initials accompany color for accessibility.
+    const TCHAR* EquippedRarityMarks[] = {
+      TEXT("C"), TEXT("U"), TEXT("R"), TEXT("E"), TEXT("Em"), TEXT("L")
     };
     const int32 ACSlotOrder[] = {3, 4, 1, 6, 7, 0, 5, 8, 2};
     for (int32 DisplayIndex = 0; DisplayIndex < UE_ARRAY_COUNT(ACSlotOrder); ++DisplayIndex) {
@@ -805,7 +809,8 @@ void AMoonfallCombatHUD::DrawHUD()
          ? FLinearColor(0.63f,0.64f,0.71f) : FLinearColor::White,
        X + 6.f, Y + 5.f, nullptr, 0.60f);
      const FString Status = bFutureSlot ? TEXT("FUTURE")
-       : Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)
+       : bValidRarity ? FString::Printf(TEXT("T%d %s"), Code % 1000,
+           EquippedRarityMarks[Rarity])
        : TEXT("EMPTY");
      DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
          : bValidRarity ? EquippedRarityColors[Rarity]
