@@ -950,20 +950,28 @@ void AMoonfallCombatHUD::DrawHUD()
       ? FString::Printf(TEXT("LOSE %s %s"), DetailTraits[WornAffix], LostPerk) : FString();
     const FString GainText = bGainsSetBonus
       ? FString::Printf(TEXT("GAIN %s %s"), DetailTraits[SelectedAffix], GainedPerk) : FString();
+    // Keep both bonus changes legible on narrower inventory panels.
+    // Two short lines use the reserved gap above the forge forecast.
+    const bool bTwoSetChanges = bLosesSetBonus && bGainsSetBonus;
     // Preview is read-only; projected counts never equip or save anything.
     const FString SetLine = !bValidDetail
       ? TEXT("SET PREVIEW: INVALID ITEM")
+      : bTwoSetChanges ? LossText
       : bLosesSetBonus || bGainsSetBonus
-      ? FString::Printf(TEXT("SET BONUSES: %s%s%s"), *LossText,
-          bLosesSetBonus && bGainsSetBonus ? TEXT("  |  ") : TEXT(""), *GainText)
+      ? FString::Printf(TEXT("SET BONUS: %s%s"), *LossText, *GainText)
       : SelectedAffix > 0
       ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           ProjectedSelectedPieces, SetEffects[SelectedAffix])
       : TEXT("SET PREVIEW: no set trait on this item");
+    const float SetTextScale = PanelWidth < 550.f ? 0.56f : 0.68f;
     DrawText(SetLine, bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
       : FLinearColor(0.59f,0.95f,0.77f),
-      Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
+      Left + 18.f, Top + PanelHeight - 207.f, nullptr, SetTextScale);
+    if (bTwoSetChanges) {
+      DrawText(GainText, FLinearColor(0.59f,0.95f,0.77f),
+        Left + 18.f, Top + PanelHeight - 195.f, nullptr, SetTextScale);
+    }
    }
    // Read-only five-tier projection from the same forge cost schedule.
    // Display in the existing tall-panel detail gap; never spend salvage here.
