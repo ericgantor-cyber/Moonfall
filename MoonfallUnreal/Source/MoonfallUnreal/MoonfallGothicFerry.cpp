@@ -211,7 +211,6 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
   }
   Passenger.Reset();
   bUnderway = false;
-  UpdateVoyageStatus();
  }
  Super::EndPlay(EndPlayReason);
 }
