@@ -85,7 +85,9 @@ generic world guardian northeast of the cathedral. It reuses existing
 multi-phase boss combat, level scaling, XP, loot and attack warnings;
 it is not a dungeon boss and does not affect dungeon completion or
 Z/Nyra divine identities. The Warden follows the same 110m activation,
-180m unloading, and no-immediate-respawn rules. All encounter meshes
+180m unloading, and no-immediate-respawn rules. New encounters never spawn
+while the player is defeated or has no valid living pawn; distant-enemy
+cleanup continues during those states. All encounter meshes
 are temporary proxies, not original creature artwork or a finished boss.
 These are **source-level gameplay integrations**, not verified in a native
 Unreal build. There are no newly authored merchant inventories, custom
