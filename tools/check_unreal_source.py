@@ -392,7 +392,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -1936,7 +1936,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
+            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
             self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
