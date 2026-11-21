@@ -21,6 +21,22 @@ constexpr LegacyCodes ToLegacy(const ExpandedCodes& expanded) {
 }
 constexpr bool IsLegacySlot(int slot) { return slot >= 0 && slot < LegacyCount; }
 constexpr bool IsKnownSlot(int slot) { return slot >= 0 && slot < SlotCount; }
+// Stable UI metadata for all nine slots. Unknown indices never alias another slot.
+constexpr bool IsFutureSlot(int slot) { return slot >= LegacyCount && slot < SlotCount; }
+constexpr const char* SlotName(int slot) {
+ switch (slot) {
+ case Weapon: return "Weapon";
+ case Armor: return "Armor";
+ case Accessory: return "Accessory";
+ case Head: return "Head";
+ case Shoulders: return "Shoulders";
+ case Hands: return "Hands";
+ case Legs: return "Legs";
+ case Feet: return "Feet";
+ case Ring: return "Ring";
+ default: return "Unknown";
+ }
+}
 static_assert(Weapon == 0 && Armor == 1 && Accessory == 2,
  "Do not change legacy equipped-code indices");
 static_assert(SlotCount == 9, "Nine-slot contract changed");
