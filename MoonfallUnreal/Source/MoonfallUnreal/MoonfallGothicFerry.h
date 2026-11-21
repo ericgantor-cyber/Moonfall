@@ -33,6 +33,12 @@ public:
  bool IsAtIsland() const { return bAtIsland; }
  UFUNCTION(BlueprintPure, Category="Moonfall|World|Ferry")
  float GetCrossingProgress() const;
+ // Lightweight UI queries for a destination label and an accessible voyage countdown.
+ // These do not trigger scans, actor Tick, or changes to player controls.
+ UFUNCTION(BlueprintPure, Category="Moonfall|World|Ferry")
+ FText GetDestinationName() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|World|Ferry")
+ float GetSecondsUntilArrival() const;
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UStaticMeshComponent> Hull;
