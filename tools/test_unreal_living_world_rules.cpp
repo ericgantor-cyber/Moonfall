@@ -1,10 +1,26 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoralityRules.h"
 #include <cassert>
 #include <set>
 #include <iostream>
 using namespace MoonfallLivingWorld;
 int main() {
+ // Morality scores are bounded; help and extortion are distinct choices.
+ using namespace MoonfallMorality;
+ assert(Apply(95, 10) == 100);
+ assert(Apply(-95, -10) == -100);
+ assert(Apply(0, ResidentActionDelta(true)) == 10);
+ assert(Apply(0, ResidentActionDelta(false)) == -10);
+ assert(CouncilDelta(0) == 10 && CouncilDelta(1) == 8 && CouncilDelta(2) == 0);
+ assert(QuestCompletionDelta() == 4);
+ assert(ResidentSalvageDelta(true) == -10);
+ assert(ResidentSalvageDelta(false) == 5);
+ assert(ResidentBondDelta(true) > 0 && ResidentBondDelta(false) < 0);
+ assert(ResidentReputationDelta(true) > 0 && ResidentReputationDelta(false) < 0);
+ assert(IsValidAction(1) && IsValidAction(-1) && !IsValidAction(0));
+ assert(Alignment(-60)[0] == 'D' && Alignment(60)[0] == 'E');
+
  // All 111 catalog designs must be distinct and valid under the current
  // 3-slot / 5-rarity / 25-tier inventory encoding.
  static_assert(MoonfallResidentCatalog::Count == 111, "Catalog must contain exactly 111 entries");
