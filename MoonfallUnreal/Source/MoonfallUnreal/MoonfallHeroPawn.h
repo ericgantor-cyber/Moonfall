@@ -466,4 +466,9 @@ private:
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
+private:
+ // Crafting changes the owned bag code before synchronizing equipped gear.
+ // Carry the previously validated tier across that transaction so armor
+ // max-health adjustments use the real old tier, not an unowned stale code.
+ bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };
