@@ -19,6 +19,17 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }
+ // WoW Forever colors for the shared tiers. Emerald is Moonfall-exclusive.
+ // Keep one palette for inventory rows, item details and equipped frames.
+ static const FLinearColor ItemQualityColors[] = {
+  FLinearColor(1.f,1.f,1.f),             // Common: white
+  FLinearColor(0.118f,1.f,0.f),         // Uncommon: green #1EFF00
+  FLinearColor(0.f,0.439f,0.867f),      // Rare: blue #0070DD
+  FLinearColor(0.639f,0.208f,0.933f),  // Epic: purple #A335EE
+  FLinearColor(0.f,0.84f,0.70f),        // Emerald: unique jade-teal
+  FLinearColor(1.f,0.502f,0.f)          // Legendary: orange #FF8000
+ };
+ static_assert(UE_ARRAY_COUNT(ItemQualityColors) == 6, "Quality tier count changed");
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
@@ -777,11 +788,6 @@ void AMoonfallCombatHUD::DrawHUD()
     // Left: five armor slots. Right: weapon, hands, ring and accessory.
     // Keep the immutable legacy slot indices; only visual order differs.
     // Quality tint comes from validated equipped codes, not bag selection.
-    const FLinearColor EquippedRarityColors[] = {
-      FLinearColor(0.90f,0.90f,0.90f), FLinearColor(0.25f,0.69f,1.f),
-      FLinearColor(0.96f,0.79f,0.25f), FLinearColor(0.72f,0.35f,0.96f),
-      FLinearColor(0.23f,0.84f,0.42f), FLinearColor(1.f,0.52f,0.12f)
-    };
     // Explicit quality initials accompany color for accessibility.
     const TCHAR* EquippedRarityMarks[] = {
       TEXT("C"), TEXT("U"), TEXT("R"), TEXT("E"), TEXT("Em"), TEXT("L")
@@ -797,10 +803,10 @@ void AMoonfallCombatHUD::DrawHUD()
      const bool bFutureSlot = Slot >= 3;
      const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;
      const bool bValidRarity = Code > 0
-       && Rarity >= 0 && Rarity < UE_ARRAY_COUNT(EquippedRarityColors);
+       && Rarity >= 0 && Rarity < UE_ARRAY_COUNT(ItemQualityColors);
      const FLinearColor BorderColor = bFutureSlot
        ? FLinearColor(0.21f,0.23f,0.30f,1.f)
-       : bValidRarity ? EquippedRarityColors[Rarity]
+       : bValidRarity ? ItemQualityColors[Rarity]
                       : FLinearColor(0.39f,0.32f,0.46f,1.f);
      DrawRect(BorderColor, X, Y, TileWidth, 27.f);
      DrawRect(FLinearColor(0.07f,0.07f,0.13f,0.98f),
@@ -813,7 +819,7 @@ void AMoonfallCombatHUD::DrawHUD()
            EquippedRarityMarks[Rarity])
        : TEXT("EMPTY");
      DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
-         : bValidRarity ? EquippedRarityColors[Rarity]
+         : bValidRarity ? ItemQualityColors[Rarity]
                         : FLinearColor(0.82f,0.75f,0.83f),
        X + TileWidth - 53.f, Y + 6.f, nullptr, 0.56f);
     }
@@ -883,13 +889,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
       DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
-   // Item names retain a clear text label plus a distinct quality color.
-   const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
-     FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
-     FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
-     FLinearColor(1.f,0.52f,0.12f)};
-   DrawText(Row, Index == Selected ? FLinearColor::Yellow
-     : (bValid ? RarityColors[Rarity] : FLinearColor::White),
+   // Selected rows are distinguished by their background, not yellow text.
+   // Keep their true rarity tint visible while navigating the bag.
+   DrawText(Row, bValid ? ItemQualityColors[Rarity] : FLinearColor::White,
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Proportional scroll indicator. Clicking its track jumps the visible
@@ -998,17 +1000,13 @@ void AMoonfallCombatHUD::DrawHUD()
       && (SelectedRarity != 0 || SelectedAffix == 0)
       && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
         + SelectedRarity * 1000 + SelectedTier;
-    const FLinearColor DetailColors[] = {FLinearColor(0.90f,0.90f,0.90f),
-      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
-      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
-      FLinearColor(1.f,0.52f,0.12f)};
     const FString ItemName = bValidDetail
       ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
           DetailSlots[SelectedSlot], DetailRarities[SelectedRarity], SelectedTier,
           DetailTraits[SelectedAffix])
       : TEXT("SELECTED  |  Invalid equipment data");
     DrawText(ItemName,
-      bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
+      bValidDetail ? ItemQualityColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
       Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
     const int32 SetPieces = bValidDetail && SelectedAffix > 0
       ? Hero->GetSetPieceCount(SelectedAffix) : 0;
