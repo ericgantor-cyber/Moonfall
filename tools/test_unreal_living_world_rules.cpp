@@ -17,12 +17,21 @@ int main() {
   assert(Item.code == Item.slot * 10000 + Item.rarity * 1000 + Item.tier);
   assert(Item.merchantCost > 0 && Item.tinkerCost > Item.merchantCost);
   assert(CatalogCodes.insert(Item.code).second);
+  assert(MoonfallResidentCatalog::NamePrefix(i)[0] != '\\0');
+  assert(MoonfallResidentCatalog::NameSuffix(i)[0] != '\\0');
+  assert(MoonfallResidentCatalog::CraftLevelRequired(i) >= 1);
+  assert(MoonfallResidentCatalog::CraftLevelRequired(i) <= 5);
   assert(MoonfallResidentCatalog::Next(i, 1) == (i + 1) % 111);
   assert(MoonfallResidentCatalog::Next(i, -1) == (i + 110) % 111);
  }
  assert(CatalogCodes.size() == 111);
  assert(!MoonfallResidentCatalog::Get(-1).valid);
  assert(!MoonfallResidentCatalog::Get(111).valid);
+ assert(MoonfallResidentCatalog::CraftLevelRequired(-1) == 0);
+ assert(MoonfallResidentCatalog::CraftLevelRequired(111) == 0);
+ assert(MoonfallResidentCatalog::CraftLevelRequired(0) == 1);
+ assert(MoonfallResidentCatalog::CraftLevelRequired(72) == 5);
+ assert(MoonfallResidentCatalog::CraftLevelRequired(75) == 1);
 
  // NPC memories and choices are bounded and witness-dependent.
  assert(RelationshipAfterChoice(95, 1000, true) == 100);
