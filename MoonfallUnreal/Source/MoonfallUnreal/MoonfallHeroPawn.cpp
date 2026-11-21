@@ -185,7 +185,7 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
  }
- return FMath::Min(Pieces, 3); // Three-piece threshold remains the set cap.
+ return Pieces; // Raw count preserves correct threshold projections with 4+ set pieces.
 }
 
 int32 AMoonfallHeroPawn::GetMight() const
