@@ -428,6 +428,9 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
    if (IsValid(Tile->Get())) Tile->Get()->Destroy();
   ResidentTiles.Remove(Id);
  }
+ // Unloading and island encounters must run even at capacity. Only skip
+ // new-candidate generation when there is no room to spawn another tile.
+ if (ResidentTiles.Num() >= MaxResidentTiles) return;
 
  // Only sort candidate tiles near the hero. The complete world is NEVER
  // instantiated at startup. One update creates at most three tiles.
