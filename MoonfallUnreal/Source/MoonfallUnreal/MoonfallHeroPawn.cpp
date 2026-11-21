@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
@@ -76,6 +77,19 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
  return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Trait == ExpectedTrait
    ? static_cast<float>(Rarity) : 0.f;
 }
+}
+
+int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
+{
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
+ // New slots have no corresponding persistent or validated gear codes yet.
+ if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return 0;
+ const int32 Codes[MoonfallEquipmentSlots::LegacyCount] = {
+  EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode
+ };
+ const int32 Code = Codes[Slot];
+ // Never expose unowned or malformed equipped values as active equipment.
+ return InventoryItemCodes.Contains(Code) && GetItemPower(Code) > 0 ? Code : 0;
 }
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
