@@ -56,6 +56,28 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
                           "SaveWorldProgress(", "SpawnActor("):
             self.assertNotIn(forbidden, method)
 
+    def test_council_world_props_follow_saved_policy_without_collision_or_tick(self):
+        arena = (SOURCE / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallArena.h").read_text(encoding="utf-8")
+        for component in ("CouncilProtectionDecor", "CouncilReconstructionDecor",
+                          "CouncilFortificationDecor"):
+            self.assertIn(component, header)
+            self.assertIn('CreateDefaultSubobject<UInstancedStaticMeshComponent>', arena)
+        for required in ("CouncilDecisionId", "RefreshCouncilSettlementVisuals()",
+                         "CouncilProtectionDecor->SetVisibility(Policy == 0);",
+                         "CouncilReconstructionDecor->SetVisibility(Policy == 1);",
+                         "CouncilFortificationDecor->SetVisibility(Policy == 2);",
+                         "CouncilWorldSign->SetText(", "SetTimer(CouncilVisualRefreshTimer",
+                         "ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)"):
+            self.assertIn(required, arena)
+        method = arena.split("void AMoonfallArena::RefreshCouncilSettlementVisuals()", 1)[1].split(
+            "void AMoonfallArena::CreateBlock(", 1
+        )[0]
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "FactionReputation.Add(",
+                          "TakeSpellDamage(", "SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)"):
+            self.assertNotIn(forbidden, method)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", arena)
+
     def test_council_v13_commit_is_single_shot_and_save_rollback_safe(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
