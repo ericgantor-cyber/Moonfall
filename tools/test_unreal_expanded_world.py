@@ -266,6 +266,14 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("It.RemoveCurrent();", self.world)
         self.assertLess(streaming.index("ResidentTiles.CreateIterator()"),
                         streaming.index("TArray<TPair<float, int32>> Candidates;"))
+        ending = self.world.split("void AMoonfallExpandedWorld::EndPlay(", 1)[1].split(
+            "void AMoonfallExpandedWorld::UpdateSeaSwimming()", 1)[0]
+        self.assertIn("for (const TPair<int32, TObjectPtr<AMoonfallOverworldTile>>& Entry : ResidentTiles)", ending)
+        self.assertIn("AMoonfallOverworldTile* Tile = Entry.Value.Get();", ending)
+        self.assertIn("if (IsValid(Tile) && !Tile->IsActorBeingDestroyed())", ending)
+        self.assertIn("Tile->Destroy();", ending)
+        self.assertIn("ResidentTiles.Empty();", ending)
+        self.assertLess(ending.index("Tile->Destroy();"), ending.index("ResidentTiles.Empty();"))
         self.assertIn("GetWorldTimerManager().ClearTimer(StreamingTimer);", self.world)
         self.assertIn("GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);", self.world)
         self.assertIn("if (GetWorld()) {", self.world)
