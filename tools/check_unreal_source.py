@@ -3917,7 +3917,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # position is Moonfall's extra Emerald tier, not a WoW rarity.
         quality = self.hud.split("static const FLinearColor ItemQualityColors[] = {", 1)[1].split("};", 1)[0]
         colors = [tuple(float(v.strip().rstrip("f")) for v in values.split(","))
-                  for values in re.findall(r"FLinearColor\\(([^)]+)\\)", quality)]
+                  for values in re.findall(r"FLinearColor\(([^)]+)\)", quality)]
         self.assertEqual(colors, [
             (1.0, 1.0, 1.0), (0.118, 1.0, 0.0),
             (0.0, 0.439, 0.867), (0.639, 0.208, 0.933),
