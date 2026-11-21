@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
       - 'tools/test_unreal_living_world_rules.cpp'
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
@@ -14,6 +15,7 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
       - 'tools/test_unreal_living_world_rules.cpp'
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
