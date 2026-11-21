@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallResidentCatalog.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallLivingWorldRules.h"
@@ -1710,6 +1711,8 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bResidentContextOpen && ResidentContextSelection == 3
+     && StepResidentCatalog(-1)) return;
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1720,6 +1723,8 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bResidentContextOpen && ResidentContextSelection == 3
+     && StepResidentCatalog(1)) return;
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
@@ -3699,6 +3704,16 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     bResidentTradePending = false;
    }
    ResidentContextSelection = Row;
+   // Left and right ends of the fourth row are catalog navigation,
+   // not a purchase. The center remains the two-step buy/craft action.
+   if (Row == 3 && MouseX < Left + 61.f) {
+    StepResidentCatalog(-1);
+    return;
+   }
+   if (Row == 3 && MouseX > Left + PanelW - 61.f) {
+    StepResidentCatalog(1);
+    return;
+   }
    if (Row == 2) CloseResidentContext();
    else ChooseResidentContextAction(Row);
    return;
@@ -3771,6 +3786,27 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  return bSucceeded;
 }
 
+bool AMoonfallHeroPawn::StepResidentCatalog(int32 Direction) {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || ResidentContextSelection != 3 || Direction == 0
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || !(Resident->SocialRole == FName(TEXT("Merchant"))
+         || Resident->SocialRole == FName(TEXT("Tinker")))) return false;
+ ResidentCatalogSelection = MoonfallResidentCatalog::Next(ResidentCatalogSelection, Direction);
+ bResidentTradePending = false;
+ ResidentTradeConfirmUntil = 0.f;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ return true;
+}
+int32 AMoonfallHeroPawn::GetResidentCatalogItemCode() const {
+ return MoonfallResidentCatalog::Get(ResidentCatalogSelection).code;
+}
+int32 AMoonfallHeroPawn::GetResidentCatalogPrice(bool bMerchant) const {
+ const auto Item = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
+ return bMerchant ? Item.merchantCost : Item.tinkerCost;
+}
 bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
  AMoonfallWorldNPC* Resident = FocusedResident.Get();
  if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
@@ -3784,10 +3820,12 @@ bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
  if (Resident->SettlementId != FName(TEXT("Crossroads"))
      || (!bMerchant && !bTinker) || CouncilDecisionId < 0
      || CouncilDecisionId > 2) { bResidentTradePending = false; return false; }
- // Published single-item stock: a common weapon or a tinker-made uncommon
- // weapon. Both codes meet the existing inventory item encoding invariants.
- const int32 Price = bMerchant ? 12 : 20;
- const int32 ItemCode = bMerchant ? 1001 : 2001;
+ // One deterministic catalog entry is quoted for both price and item.
+ // Selection changes cancel confirmation, so the quoted item cannot switch.
+ const auto Stock = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
+ if (!Stock.valid) { bResidentTradePending = false; return false; }
+ const int32 Price = bMerchant ? Stock.merchantCost : Stock.tinkerCost;
+ const int32 ItemCode = Stock.code;
  if (Salvage < Price || InventoryItemCodes.Num() >= 10000) {
   bResidentTradePending = false;
   ResidentFeedbackMessage = TEXT("Insufficient salvage or inventory full.");
