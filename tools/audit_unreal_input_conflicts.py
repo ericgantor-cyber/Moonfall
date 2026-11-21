@@ -162,6 +162,16 @@ def main():
     print("NPC dialogue blocks auto/manual loot and resets pickup timer: PASS (source verified)")
     print("Resident dialogue releases held sprint, guard, jump and movement: PASS (source verified)")
     print("Resident dialogue blocks sprint, guard and racial powers: PASS (source verified)")
+    # After a resident streams out, the dialogue flag can outlive the pointer.
+    # Dodge must not grant immunity, launch the hero or spend stamina then.
+    dodge=pawn.split("void AMoonfallHeroPawn::Dodge()",1)[1].split(
+        "void AMoonfallHeroPawn::RewardPerfectDodge()",1)[0]
+    dodge_guard=dodge.split("return;",1)[0]
+    assert "bResidentContextOpen" in dodge_guard
+    assert "FocusedResident.IsValid()" in dodge_guard
+    assert dodge.index("bResidentContextOpen") < dodge.index(
+        "Stamina = FMath::Clamp(Stamina - DodgeStaminaCost")
+    print("Resident dialogue blocks dodge even after NPC streaming: PASS (source verified)")
     # Guard all five shared gamepad buttons against cross-context effects.
     # Source checks supplement, but never replace, a native controller playtest.
     def start(signature):
