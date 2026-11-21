@@ -583,6 +583,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 
+    def test_nine_slot_view_preserves_validated_legacy_equipment(self):
+        self.assertIn('#include "MoonfallEquipmentSlots.h"', self.hero_cpp)
+        self.assertIn("GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
+        block = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const", 1
+        )[1].split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(Slot)", block)
+        self.assertIn("MoonfallEquipmentSlots::IsLegacySlot(Slot)", block)
+        self.assertIn("EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode", block)
+        self.assertIn("InventoryItemCodes.Contains(Code)", block)
+        self.assertIn("GetItemPower(Code) > 0", block)
+        for forbidden in ("SaveWorldProgress(", "EquipInventoryItem(", "InventoryItemCodes.Add("):
+            self.assertNotIn(forbidden, block)
+        slots = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
+        self.assertIn("SlotCount = 9", slots)
+        self.assertIn("LegacyCount = 3", slots)
+        self.assertIn("Weapon = 0, Armor = 1, Accessory = 2", slots)
+        save = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        for name in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
+            self.assertIn(name, save)
+
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
         block = self.hud.split("const int32 EquippedCode = SelectedSlot == 0", 1)[1].split("const int32 NextCost", 1)[0]
         self.assertIn("SelectedSlot == 1 ? Hero->EquippedArmorCode", block)
