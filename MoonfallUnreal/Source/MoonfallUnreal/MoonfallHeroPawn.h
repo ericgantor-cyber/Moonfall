@@ -271,6 +271,8 @@ public:
  // A selection expires after five real-time seconds; never persisted.
  UPROPERTY(Transient) float AtlasFastTravelConfirmUntil = 0.f;
  bool TryAtlasFastTravel(FName ShrineId);
+ void AtlasTravelSelect();
+ void CycleAtlasTravel(int32 Direction);
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FVector AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasHasActiveRespawnShrineLocation = false;
  // V12 permanent explored-world cells: six 8-by-7 grids, bounded to 56 bits each.
