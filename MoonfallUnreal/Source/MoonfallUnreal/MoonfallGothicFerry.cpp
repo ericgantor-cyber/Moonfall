@@ -146,20 +146,10 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
  if (!IsValid(Movement) || !Hero->GetCapsuleComponent()) return false;
 
- if (!IsValid(Deck)) return false;
- // Characters who walked onto the deck can depart from their current spot.
- // Players still standing on the pier use the existing clear-space placement.
- const bool bAlreadyOnDeck = Hero->GetMovementBase() == Deck;
- if (!bAlreadyOnDeck) {
-  FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 190.f);
-  if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
-   return false;
-  if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
-   return false;
-  Movement->StopMovementImmediately();
-  Movement->SetMovementMode(MOVE_Walking);
-  Hero->SetBase(Deck);
- }
+ // WoW Forever-style boarding: physically walk across the gangplank.
+ // Interacting from the shore must never teleport the hero onto the ship.
+ if (!IsValid(Deck) || Hero->GetMovementBase() != Deck) return false;
+ if (!Movement->IsMovingOnGround()) return false;
  // Walking characters retain their location and movement on the moving deck.
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
