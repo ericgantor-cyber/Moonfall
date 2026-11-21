@@ -1289,6 +1289,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   AtlasDiscoveredShrineNames.Reset();
   AtlasDiscoveredShrineIds.Reset();
   AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
   bAtlasHasActiveRespawnShrineLocation = false;
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
@@ -1412,6 +1413,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   AtlasDiscoveredShrineNames.Reset();
   AtlasDiscoveredShrineIds.Reset();
   AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
   bAtlasHasActiveRespawnShrineLocation = false;
   AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
   if (GetWorld()) {
@@ -1439,6 +1441,10 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   }
  }
  bAtlasOpen = !bAtlasOpen;
+ if (!bAtlasOpen) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+ }
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
@@ -2503,21 +2509,34 @@ bool AMoonfallHeroPawn::TryAtlasFastTravel(FName ShrineId) {
      || ShrineId.IsNone() || !HasDiscoveredShrine(ShrineId)
      || !AtlasDiscoveredShrineIds.Contains(ShrineId) || !GetWorld()) {
   AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
   return false;
  }
- if (AtlasFastTravelPendingShrine != ShrineId) {
-  AtlasFastTravelPendingShrine = ShrineId;
-  OnResidentQuestFeedback(FText::FromString(
-    TEXT("Click this discovered shrine again to fast travel.")), true);
-  return false;
- }
- AtlasFastTravelPendingShrine = NAME_None;
+ // Resolve the actual loaded actor *before* arming a confirmation.
  AMoonfallCheckpointShrine* Target = nullptr;
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
   if (IsValid(*It) && !It->IsActorBeingDestroyed()
       && It->ShrineId == ShrineId) { Target = *It; break; }
  }
- if (!Target) return false;
+ if (!Target) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+  OnResidentQuestFeedback(FText::FromString(
+    TEXT("Shrine is not loaded. Move closer before fast traveling.")), false);
+  return false;
+ }
+ const float Now = GetWorld()->GetRealTimeSeconds();
+ if (!FMath::IsFinite(Now)) return false;
+ if (AtlasFastTravelPendingShrine != ShrineId
+     || Now > AtlasFastTravelConfirmUntil) {
+  AtlasFastTravelPendingShrine = ShrineId;
+  AtlasFastTravelConfirmUntil = Now + 5.f;
+  OnResidentQuestFeedback(FText::FromString(
+    TEXT("Click this shrine again within five seconds to travel.")), true);
+  return false;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
  const FVector Landing = Target->GetRespawnLocation();
  if (Landing.ContainsNaN() || Landing.SizeSquared() >= 1.0e14f) return false;
  const UCapsuleComponent* Capsule = GetCapsuleComponent();
@@ -3686,6 +3705,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
       }
      }
      AtlasFastTravelPendingShrine = NAME_None;
+     AtlasFastTravelConfirmUntil = 0.f;
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
       if (AtlasSelectedRegion != Slot / 5) {
