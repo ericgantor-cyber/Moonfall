@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallWorldNPC.generated.h"
 class UStaticMeshComponent;
+class UTextRenderComponent;
 class AMoonfallHeroPawn;
 
 // Lightweight one-world NPC: idle without Tick; usable from player or UI actions.
@@ -12,6 +13,9 @@ class MOONFALLUNREAL_API AMoonfallWorldNPC : public AActor {
 public:
  AMoonfallWorldNPC();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") UStaticMeshComponent* Body;
+ // Nonblocking text above a resident, refreshed only when the Council policy changes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UTextRenderComponent* CouncilAssignmentSign;
+ void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText DisplayName;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText Greeting;
  // Native Canvas HUD can show spoken lines even without a Blueprint widget.
