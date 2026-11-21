@@ -38,6 +38,42 @@ The existing six contiguous zones and their five physical dungeons per zone prov
   extra save fields, queue, storyline checkpoint, cutscene, animation
   asset, or new NPC conversation in this pass.
 
+## Ten-upgrade implementation roadmap (November 2026)
+
+The ten requested upgrades are **approved scope**, not a claim that each
+system has already been implemented. Deliver in bounded, independently
+reviewable increments, preserving existing gameplay and save formats.
+
+| Workstream | First shippable increment | Verification gate |
+| --- | --- | --- |
+| 1. Living world | One bounded NPC patrol/schedule and time-aware ambient behaviors | NPC does not Tick unnecessarily; no offscreen crowd cost |
+| 2. Dungeons | One replayable dungeon room variant with a protected boss-clear ledger | Spawn and loot seeds reproducible; no existing dungeon saves lost |
+| 3. Combat | One telegraphed boss attack with verified parry/dodge timing | Keyboard, mouse, controller, stamina and damage checks |
+| 4. Talent web | One expanded branch and rank-dependent perk effects | Two points per level; no accidental duplicate skill grants |
+| 5. Loot and gear | One data-driven loot affix and nine-slot equipment regression | No deletion or corruption of existing equipment |
+| 6. Gothic Isle | Native Nightferry and shoreline test, then island quests and swimming | Walkable gangplank; no automatic overboard rescue |
+| 7. Atlas | Show next island objective; later add full island chapter reader | Mouse/controller navigation; hide locked prose |
+| 8. Main story | Convert one chronicle beat into a playable objective chain | Quest uses verified game events; story/save consistency |
+| 9. Town economy | One vendor with prices, faction discounts and bounded stock | Transaction atomicity, save/reload and UI tests |
+| 10. Graphics/performance | Profile streaming and ship original environment asset passes | UE5 Win64 build, FPS/memory/collision benchmarks |
+
+**Now implemented in this branch:** the island Atlas can display a short
+next-objective hint, sourced from already saved shrine and NPC contract
+progress. It does not award XP, activate quests, grant items or show
+hidden chapter passages. Narrow Atlas sidebars retain the existing
+progress-only label instead of overlapping the map.
+
+**Release gates:** PR #1084 remains a draft until a native UE5.4 C++
+Editor/Win64 build, startup map generation and navigation inspection,
+island ferry/water/shore playtesting, streaming at seven province
+boundaries, save and quest compatibility, controller/mouse accessibility,
+and Windows 10/11 smoke testing are recorded. Green source CI alone
+is insufficient. Future feature work should be split into reviewable
+PRs instead of merging ten unrelated systems in one change.
+
+**Original art and identity:** Z and Nyra stay gods; their exact original
+art assets must never be regenerated, overwritten or recolored.
+
 ## Six acts and 42 chapters
 
 ### Act 1. The Broken Hearth | Ashen Wilds
