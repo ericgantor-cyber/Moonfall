@@ -264,7 +264,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("if (!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f)", swimming)
         self.assertIn("if (Position.ContainsNaN())", swimming)
         self.assertLess(swimming.index("Hero->Health <= 0.f"), swimming.index("Movement->SetMovementMode(MOVE_Swimming);"))
-        self.assertLess(swimming.index("const bool bLeaveWater"), swimming.index("Movement->SetMovementMode(MOVE_Falling);"))
+        self.assertLess(swimming.index("const bool bLeaveWater"), swimming.index("Movement->SetMovementMode(bOnShoreSurface ? MOVE_Walking : MOVE_Falling);"))
         self.assertIn("Movement->MovementMode == MOVE_Falling", swimming)
         self.assertIn("Movement->SetMovementMode(MOVE_Swimming);", swimming)
         self.assertIn("Movement->SetMovementMode(bOnShoreSurface ? MOVE_Walking : MOVE_Falling);", swimming)
