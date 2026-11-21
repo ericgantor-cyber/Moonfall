@@ -123,9 +123,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
- const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),
-   FColor(245,201,63), FColor(183,89,244), FColor(58,214,107),
-   FColor(255,132,32)};
+ // Match the HUD's quality order. Emerald is Moonfall-exclusive.
+ const FColor Colors[] = {FColor(255,255,255), FColor(30,255,0),
+   FColor(0,112,221), FColor(163,53,238), FColor(0,214,179),
+   FColor(255,128,0)};
  const FColor QualityColor = Colors[Rarity];
  ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
    QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
