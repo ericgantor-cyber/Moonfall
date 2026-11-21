@@ -1245,10 +1245,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('TEXT("Emerald"), TEXT("Legendary")', ground)
         self.assertIn('TEXT("Emerald"), TEXT("Legendary")', hud)
-        self.assertIn("FColor(58,214,107)", ground)
-        self.assertIn("FColor(255,132,32)", ground)
-        self.assertIn("FLinearColor(0.23f,0.84f,0.42f)", hud)
-        self.assertIn("FLinearColor(1.f,0.52f,0.12f)", hud)
+        self.assertIn("FColor(0,214,179)", ground)
+        self.assertIn("FColor(255,128,0)", ground)
+        self.assertIn("FLinearColor(0.f,0.84f,0.70f)", hud)
+        self.assertIn("FLinearColor(1.f,0.502f,0.f)", hud)
         self.assertIn("Rarity > 5", ground)
         self.assertIn("Rarity > 5", self.hero_cpp)
         self.assertIn("Rarity >= 5", self.hero_cpp)
@@ -3924,6 +3924,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             (0.0, 0.84, 0.70), (1.0, 0.502, 0.0)
         ])
         self.assertEqual(len(colors), len(set(colors)))
+        # Loot actor names, beacons, and inventory must agree in rarity order.
+        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        palette = ground.split("const FColor Colors[] = {", 1)[1].split("};", 1)[0]
+        ground_rgb = [tuple(int(v) for v in values)
+                      for values in re.findall(r"FColor\((\d+),(\d+),(\d+)\)", palette)]
+        self.assertEqual(ground_rgb, [
+            (255, 255, 255), (30, 255, 0), (0, 112, 221),
+            (163, 53, 238), (0, 214, 179), (255, 128, 0)
+        ])
+        self.assertIn("const FColor QualityColor = Colors[Rarity];", ground)
         self.assertEqual(self.hud.count("static const FLinearColor ItemQualityColors[]"), 1)
         self.assertIn("DrawText(Row, bValid ? ItemQualityColors[Rarity]", self.hud)
         self.assertIn("bValidDetail ? ItemQualityColors[SelectedRarity]", self.hud)
