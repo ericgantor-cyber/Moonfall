@@ -1599,7 +1599,11 @@ void AMoonfallHeroPawn::OpenOptions() {
 void AMoonfallHeroPawn::OptionsUp() {
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5); return; }
  if (bResidentContextOpen) {
-  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
+  // A resident may move out of range or behind cover between input events.
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
   if (!bOptionsOpen && !bInventoryOpen) {
    ResidentContextSelection = (ResidentContextSelection + 2) % 3;
    bResidentTurnInPending = false;
@@ -1619,7 +1623,11 @@ void AMoonfallHeroPawn::OptionsUp() {
 void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen) { AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5); return; }
  if (bResidentContextOpen) {
-  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
+  // A resident may move out of range or behind cover between input events.
+  if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
+   CloseResidentContext();
+   return;
+  }
   if (!bOptionsOpen && !bInventoryOpen) {
    ResidentContextSelection = (ResidentContextSelection + 1) % 3;
    bResidentTurnInPending = false;
