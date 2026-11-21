@@ -1432,18 +1432,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         residents_runtime = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetResidentBond", 1)[0]
         factions_loaded = load.split("static const FName AllowedFactionIds[]", 1)[1].split("};", 1)[0]
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        factions_saved = save.split("static const FName SaveFactionIds[]", 1)[1].split("};", 1)[0]
         residents_loaded = load.split("static const FName AllowedResidentIds[]", 1)[1].split("};", 1)[0]
         for faction in ("GothicHarbor", "BlackbellOrder", "Gravewardens",
                         "Duskwatch", "Thornwraith"):
             marker = f'FName(TEXT("{faction}"))'
             self.assertIn(marker, faction_runtime)
             self.assertIn(marker, factions_loaded)
+            self.assertIn(marker, factions_saved)
         for resident in ("GothicRavenHarbormaster", "GothicBlackbellKeeper",
                          "GothicGraveWarden", "GothicDuskwatchSentinel",
                          "GothicThornwraithScholar"):
             marker = f'FName(TEXT("{resident}"))'
             self.assertIn(marker, residents_runtime)
             self.assertIn(marker, residents_loaded)
+        self.assertIn("bool bKnownFaction = false;", save)
+        self.assertIn("for (const FName Id : SaveFactionIds)", save)
+        self.assertIn("if (!bKnownFaction || Entry.Value < -100 || Entry.Value > 100) return false;", save)
         self.assertIn("IsNamedMoonfallResident(Entry.Key)", self.hero_cpp)
         self.assertIn("if (!IsMoonfallFaction(Faction)) return false;", self.hero_cpp)
 
