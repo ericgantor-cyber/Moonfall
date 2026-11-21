@@ -45,6 +45,9 @@ public:
  // Collision-enabled moving platform; player movement remains enabled onboard.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UStaticMeshComponent> Deck;
+ // Dock-only walk-on ramp; stowed and non-colliding while the ferry moves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
+ TObjectPtr<UStaticMeshComponent> Gangplank;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
  TObjectPtr<UStaticMeshComponent> Mast;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Ferry")
