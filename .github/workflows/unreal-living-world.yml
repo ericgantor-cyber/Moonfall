@@ -5,6 +5,8 @@ on:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoralityRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
       - 'tools/test_unreal_living_world_rules.cpp'
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
@@ -16,6 +18,8 @@ on:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoralityRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
       - 'tools/test_unreal_living_world_rules.cpp'
       - 'tools/test_unreal_living_world_npc_wiring.py'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
