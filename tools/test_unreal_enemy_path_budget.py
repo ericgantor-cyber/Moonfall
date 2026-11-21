@@ -41,7 +41,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         )[0]
         self.assertIn("const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint", route)
         self.assertIn("&& Path->PathPoints.Num() > 2", route)
-        self.assertIn("FVector::DistSquared2D(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", route)
+        self.assertIn("FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", route)
         self.assertIn("&& !Path->PathPoints[2].ContainsNaN();", route)
         self.assertIn("? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)", route)
         self.assertLess(route.index("&& Path->PathPoints.Num() > 2"),
@@ -50,6 +50,28 @@ class EnemyPathBudgetTests(unittest.TestCase):
                         route.index("CachedWaypoint = bHasCachedNavigationWaypoint"))
         # Existing path cadence, obstacle sweeps, valid origin and boss
         # combat behavior are preserved without any new NavMesh solves.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_multilevel_nav_corners_require_3d_arrival(self):
+        # Two NavMesh corners can share XY coordinates on different floors.
+        # Neither the optimized first-corner skip nor cached-waypoint
+        # arrival may discard the meaningful vertical separation.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", nav)
+        self.assertNotIn("FVector::DistSquared2D(GetActorLocation(), FirstCorner)", nav)
+        waypoint = nav.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
+            "} else {\n   // Preserve direct chase without NavSystem", 1
+        )[0]
+        self.assertIn("const FVector ToWaypoint = CachedWaypoint - GetActorLocation();", waypoint)
+        self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
+        self.assertNotIn("ToWaypoint.Z = 0.f;", waypoint)
+        # The existing chase vector remains explicitly horizontal and
+        # retains one cached solve, not a new projection or perception trace.
+        chase = self.source.split("FVector Direction = Target - GetActorLocation();", 1)[1]
+        self.assertIn("Direction.Z = 0.f;", chase)
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
 
