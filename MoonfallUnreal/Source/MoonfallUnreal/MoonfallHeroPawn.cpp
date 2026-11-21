@@ -3675,7 +3675,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
- const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
+ const float PanelH = FMath::Min(400.f, FMath::Max(320.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
  const float NpcCloseX = Left + PanelW - 42.f;
  if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
