@@ -84,6 +84,9 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIsNotNone(landing)
         self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
                              int(reach.group(1)))
+        self.assertIn("} else if (IsValid(Rider)) {", completion)
+        self.assertIn("The respawn/death", completion)
+        self.assertGreaterEqual(completion.count("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);"), 2)
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) FinishCrossing(false);", self.boat)
         self.assertIn("GetWorldTimerManager().ClearTimer(CrossingTimer);", self.boat)
