@@ -225,8 +225,19 @@ class GothicFerryContracts(unittest.TestCase):
         forward = self.hero.split("void AMoonfallHeroPawn::MoveForward(", 1)[1].split(
             "void AMoonfallHeroPawn::MoveRight(", 1)[0]
         self.assertIn("GetCharacterMovement()->IsSwimming()", jump)
-        self.assertIn("AddMovementInput(FVector::UpVector, 1.f);", jump)
-        self.assertLess(jump.index("AddMovementInput(FVector::UpVector, 1.f);"), jump.index("Jump();"))
+        self.assertIn("bSwimAscendHeld = true;", jump)
+        self.assertLess(jump.index("bSwimAscendHeld = true;"), jump.index("Jump();"))
+        self.assertIn("bool bSwimAscendHeld = false;", (SRC / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
+        self.assertIn("void AMoonfallHeroPawn::ReleaseJump()", self.hero)
+        self.assertIn("bSwimAscendHeld = false;", self.hero)
+        self.assertIn("StopJumping();", self.hero)
+        self.assertIn('Input->BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);', self.hero)
+        tick = self.hero.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[0]
+        self.assertIn("if (bSwimAscendHeld && Health > 0.f", tick)
+        self.assertIn("GetCharacterMovement()->IsSwimming()", tick)
+        self.assertIn("AddMovementInput(FVector::UpVector, 1.f);", tick)
+        self.assertLess(tick.index("AddMovementInput(FVector::UpVector, 1.f);"), tick.index("Super::Tick(DeltaSeconds);"))
         self.assertIn("GetCharacterMovement()->IsSwimming()", forward)
         self.assertIn("Controller->GetControlRotation()", forward)
         self.assertIn("FRotationMatrix(Rotation).GetUnitAxis(EAxis::X)", forward)
