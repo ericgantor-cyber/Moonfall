@@ -1,6 +1,8 @@
 #include "MoonfallExpandedWorld.h"
 #include "MoonfallOverworldTile.h"
 #include "MoonfallGothicFerry.h"
+#include "MoonfallCheckpointShrine.h"
+#include "MoonfallWorldNPC.h"
 #include "MoonfallHeroPawn.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
@@ -99,10 +101,99 @@ void AMoonfallExpandedWorld::BuildConnectingRoads()
  AddRoad(FVector(0.f, 246000.f, 0.f), FVector(0.f, 256000.f, 0.f), 2600.f);
 }
 
+void AMoonfallExpandedWorld::SpawnGothicIsleServices()
+{
+ // Two real, persistently identified discovery/respawn shrines and five
+ // existing quest/dialogue residents, using the same gameplay classes as
+ // the mainland. Their positions are on the five island district centers.
+ // No new saves, character art, actor Tick or map transitions are required.
+ UWorld* World = GetWorld();
+ if (!World) return;
+ const FVector Isle = RegionCenter(6);
+ struct FIslandShrineSpec {
+  const TCHAR* Id;
+  const TCHAR* Name;
+  FVector Offset;
+ };
+ const FIslandShrineSpec Shrines[] = {
+  {TEXT("gothic_ravens_landing"), TEXT("Raven's Landing Shrine"), FVector(650.f, -40000.f, 0.f)},
+  {TEXT("gothic_blackbell"), TEXT("Blackbell Cathedral Shrine"), FVector(650.f, 0.f, 0.f)}
+ };
+ for (const FIslandShrineSpec& Spec : Shrines) {
+  const FName StableId(Spec.Id);
+  bool bExists = false;
+  for (TActorIterator<AMoonfallCheckpointShrine> It(World); It; ++It) {
+   if (IsValid(*It) && It->ShrineId == StableId) { bExists = true; break; }
+  }
+  if (bExists) continue;
+  const FTransform Transform(FRotator::ZeroRotator, Isle + Spec.Offset);
+  AMoonfallCheckpointShrine* Shrine = World->SpawnActorDeferred<AMoonfallCheckpointShrine>(
+    AMoonfallCheckpointShrine::StaticClass(), Transform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+  if (!IsValid(Shrine)) continue;
+  Shrine->ShrineId = StableId;
+  Shrine->MapDisplayName = FText::FromString(Spec.Name);
+  Shrine->FinishSpawning(Transform);
+  if (IsValid(Shrine)) {
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+       UGameplayStatics::GetPlayerPawn(this, 0)))
+    Shrine->CheckHeroAtSpawn(Hero);
+  }
+ }
+ struct FIslandResidentSpec {
+  const TCHAR* Id;
+  const TCHAR* Name;
+  const TCHAR* Greeting;
+  const TCHAR* Role;
+  const TCHAR* Faction;
+  FVector Offset;
+  int32 Race;
+ };
+ const FIslandResidentSpec Residents[] = {
+  {TEXT("GothicRavenHarbormaster"), TEXT("Mara Vesper"),
+   TEXT("The tide has carried stranger things than you. Welcome to Raven's Landing."),
+   TEXT("Scout"), TEXT("GothicHarbor"), FVector(-620.f, -40000.f, 60.f), 1},
+  {TEXT("GothicBlackbellKeeper"), TEXT("Brother Corvin"),
+   TEXT("The Blackbell rings for the living and the lost."),
+   TEXT("Elder"), TEXT("BlackbellOrder"), FVector(-620.f, 0.f, 60.f), 3},
+  {TEXT("GothicGraveWarden"), TEXT("Veyra Ash"),
+   TEXT("Do not disturb the names beneath these stones."),
+   TEXT("Guard"), TEXT("Gravewardens"), FVector(40000.f, -620.f, 60.f), 4},
+  {TEXT("GothicDuskwatchSentinel"), TEXT("Rook Thorn"),
+   TEXT("Duskwatch keeps its lanterns lit until dawn."),
+   TEXT("Guard"), TEXT("Duskwatch"), FVector(-40000.f, -620.f, 60.f), 6},
+  {TEXT("GothicThornwraithScholar"), TEXT("Elias Briar"),
+   TEXT("The grove remembers every footstep."),
+   TEXT("Scholar"), TEXT("Thornwraith"), FVector(-620.f, 40000.f, 60.f), 8}
+ };
+ for (const FIslandResidentSpec& Spec : Residents) {
+  const FName StableId(Spec.Id);
+  bool bExists = false;
+  for (TActorIterator<AMoonfallWorldNPC> It(World); It; ++It) {
+   if (IsValid(*It) && It->ResidentId == StableId) { bExists = true; break; }
+  }
+  if (bExists) continue;
+  const FTransform Transform(FRotator::ZeroRotator, Isle + Spec.Offset);
+  AMoonfallWorldNPC* NPC = World->SpawnActorDeferred<AMoonfallWorldNPC>(
+    AMoonfallWorldNPC::StaticClass(), Transform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+  if (!IsValid(NPC)) continue;
+  NPC->ResidentId = StableId;
+  NPC->DisplayName = FText::FromString(Spec.Name);
+  NPC->Greeting = FText::FromString(Spec.Greeting);
+  NPC->SocialRole = FName(Spec.Role);
+  NPC->FactionId = FName(Spec.Faction);
+  NPC->SettlementId = FName(TEXT("GothicIsle"));
+  NPC->RaceId = Spec.Race;
+  NPC->FinishSpawning(Transform);
+ }
+}
+
 void AMoonfallExpandedWorld::BeginPlay()
 {
  Super::BeginPlay();
  BuildConnectingRoads();
+ SpawnGothicIsleServices();
  // One boat serves both shore docks and reverses on the next boarding.
  // Preserve a designer-authored ferry rather than duplicating it.
  bool bFerryAlreadyExists = false;
