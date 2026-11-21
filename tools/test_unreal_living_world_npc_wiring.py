@@ -118,6 +118,38 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("I remember the help you gave me.", npc)
         self.assertIn("I remember how you threatened me.", npc)
 
+    def test_morality_changes_crossroads_visuals_and_actual_trade_quotes(self):
+        arena = (SOURCE / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_header = (SOURCE / "MoonfallArena.h").read_text(encoding="utf-8")
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        rules = (SOURCE / "MoonfallMoralityRules.h").read_text(encoding="utf-8")
+        for symbol in ("HopeSettlementDecor", "ShadowSettlementDecor",
+                       "LastDisplayedMoralityTier"):
+            self.assertIn(symbol, arena_header)
+            self.assertIn(symbol, arena)
+        refresh = arena.split("void AMoonfallArena::RefreshCouncilSettlementVisuals()", 1)[1].split(
+            "void AMoonfallArena::CreateBlock(", 1
+        )[0]
+        for required in ("MoonfallMorality::WorldTier(Hero->MoralAlignment)",
+                         "MoralTier == LastDisplayedMoralityTier",
+                         "HopeSettlementDecor->SetVisibility(MoralTier > 0)",
+                         "ShadowSettlementDecor->SetVisibility(MoralTier < 0)",
+                         "if (bPolicyChanged)", "MoonfallMorality::WorldState("):
+            self.assertIn(required, refresh)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "SetActorLocation(",
+                          "SetCollisionEnabled(", "SetTimer("):
+            self.assertNotIn(forbidden, refresh)
+        self.assertIn("constexpr int AdjustShopPrice(", rules)
+        self.assertIn("MoonfallMorality::AdjustShopPrice(", hero)
+        trade = hero.split("bool AMoonfallHeroPawn::PurchaseResidentWorkItem()", 1)[1].split(
+            "// Bounded, persistent faction relationship API.", 1
+        )[0]
+        self.assertIn("const int32 Price = GetResidentCatalogPrice(bMerchant)", trade)
+        self.assertIn("Salvage -= Price;", trade)
+        self.assertIn("CatalogPrice < BasePrice", hud)
+        self.assertIn("CatalogPrice > BasePrice", hud)
+
     def test_good_evil_choices_persist_and_rollback_atomically(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -176,7 +208,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         for expected in ("Resident->CanHeroInteract(this)",
                          "bPersistentSaveWritesBlocked", "CouncilDecisionId < 0",
                          "InventoryItemCodes.Num() >= 10000", "const auto Stock = MoonfallResidentCatalog::Get(ResidentCatalogSelection)",
-                         "const int32 Price = bMerchant ? Stock.merchantCost : Stock.tinkerCost",
+                         "const int32 Price = GetResidentCatalogPrice(bMerchant)",
                          "const int32 ItemCode = Stock.code",
                          "bResidentTradePending = true;", "ResidentTradeConfirmUntil = Now + 6.f",
                          "Salvage -= Price;", "InventoryItemCodes.Add(ItemCode)",
@@ -222,7 +254,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         )[0]
         self.assertIn("Resident->RefreshCouncilStationActivity(Hero);", refresh)
         self.assertLess(refresh.index("Resident->RefreshCouncilStationActivity(Hero);"),
-                        refresh.index("if (Policy == LastDisplayedCouncilDecision) return;"))
+                        refresh.index("if (Policy == LastDisplayedCouncilDecision"))
         self.assertIn("CouncilStationResidents.Add(Person);", arena)
         self.assertIn("RefreshCouncilSettlementVisuals, 2.0f, true", arena)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
@@ -360,7 +392,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         refresh = arena.split("void AMoonfallArena::RefreshCouncilSettlementVisuals()", 1)[1].split(
             "void AMoonfallArena::CreateBlock(", 1
         )[0]
-        self.assertLess(refresh.index("if (Policy == LastDisplayedCouncilDecision) return;"),
+        self.assertLess(refresh.index("if (Policy == LastDisplayedCouncilDecision"),
                         refresh.index("TActorIterator<AMoonfallWorldNPC>"))
         self.assertIn("It->RefreshCouncilAssignmentSign(Hero);", refresh)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
