@@ -52,7 +52,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         )[0]
         for required in ("UNavigationSystemV1", "ProjectPointToNavigation(",
                          "FindPathToLocationSynchronously(", "Path->IsPartial()",
-                         "Path->GetPathLength() > 240.f", "bCouncilWorkRouteValid = true;"):
+                         "Path->GetPathLength() > 180.f", "bCouncilWorkRouteValid = true;"):
             self.assertIn(required, configure)
         move = npc.split("void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1)[1].split(
             "FString AMoonfallWorldNPC::GetCouncilAssignment(", 1
@@ -67,9 +67,14 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, configure + move)
         self.assertIn("TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilMobileResidents;", arena_h)
         self.assertIn("CouncilMobileResidents.Num() < 4", arena)
-        self.assertIn("ConfigureCouncilWorkRoute(FVector(0.f, 100.f, 0.f))", arena)
+        self.assertIn("FVector(100.f, 0.f, 0.f) : FVector(-100.f, 0.f, 0.f)", arena)
         self.assertIn("StepCouncilWorkRoutes, 0.2f, true", arena)
         self.assertIn("if (!CouncilMobileResidents.IsEmpty())", arena)
+        self.assertIn("Path->PathPoints.Num() != 2", configure)
+        self.assertIn("MoonfallCouncilRoute", configure)
+        self.assertIn("Home + EyeOffset, Destination + EyeOffset, ECC_Visibility", configure)
+        self.assertIn("MoonfallCouncilStep", move)
+        self.assertIn("Current + EyeOffset, Next + EyeOffset, ECC_Visibility", move)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", arena)
 
