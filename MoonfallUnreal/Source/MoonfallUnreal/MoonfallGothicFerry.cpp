@@ -19,6 +19,15 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  Hull->SetCollisionResponseToAllChannels(ECR_Ignore);
  Hull->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
  Hull->SetGenerateOverlapEvents(false);
+ // A separate solid walking deck gives CharacterMovement a moving base.
+ // The hull, mast and sail remain visual-only interaction geometry.
+ Deck = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WalkableDeck"));
+ Deck->SetupAttachment(GetRootComponent());
+ Deck->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ Deck->SetCollisionResponseToAllChannels(ECR_Ignore);
+ Deck->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+ Deck->SetGenerateOverlapEvents(false);
+ Deck->SetCanEverAffectNavigation(false);
 
  Mast = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BlackMast"));
  Mast->SetupAttachment(GetRootComponent());
@@ -45,6 +54,7 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
   Hull->SetStaticMesh(Cube.Object);
+  Deck->SetStaticMesh(Cube.Object);
   Mast->SetStaticMesh(Cube.Object);
   Sail->SetStaticMesh(Cube.Object);
  }
@@ -52,6 +62,9 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  // 4m mast and a triangular-looking tall black sail proxy.
  Hull->SetRelativeLocation(FVector(0.f, 0.f, 6.f));
  Hull->SetRelativeScale3D(FVector(7.f, 12.f, 0.5f));
+ // A 7m x 12m moving platform with its top at approximately Z=95cm.
+ Deck->SetRelativeLocation(FVector(0.f, 0.f, 82.5f));
+ Deck->SetRelativeScale3D(FVector(7.f, 12.f, 0.25f));
  Mast->SetRelativeLocation(FVector(0.f, 0.f, 205.f));
  Mast->SetRelativeScale3D(FVector(0.55f, 0.55f, 4.f));
  Sail->SetRelativeLocation(FVector(0.f, -100.f, 210.f));
@@ -111,20 +124,22 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  // Short boarding reposition puts the rider on deck, then actual crossing
  // is continuous movement of their attached root with the ship.
  const FVector OriginalLocation = Hero->GetActorLocation();
- FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
- // TeleportPhysics alone does not test clearance: reject an obstructed
- // boarding deck before moving the hero or disabling their controls.
+ FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 190.f);
+ // This first stage still repositions the player onto the deck. A true
+ // walk-on gangplank will be introduced after moving-platform playtests.
  if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
   return false;
  if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
   return false;
- if (!Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform)) {
-  // Failed attachment must never strand the pawn above water.
+ if (!IsValid(Deck)) {
   Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);
   return false;
  }
+ // Use the deck as CharacterMovement's base. Do not attach the hero root
+ // to the boat or disable walking: mouse/controller movement stays active.
  Movement->StopMovementImmediately();
- Movement->DisableMovement();
+ Movement->SetMovementMode(MOVE_Walking);
+ Hero->SetBase(Deck);
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
  bUnderway = true;
@@ -168,19 +183,18 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
    SetActorLocation(DockLocation(bDestinationIsland));
    return;
   }
-  Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+  // A walking rider uses the ferry deck as the moving base until landing.
+  // Preserve that base when placement fails and retry next timer update.
   if (!Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics)) {
-   // A failed placement should not leave the rider drifting independently.
-   Rider->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
    SetActorLocation(DockLocation(bDestinationIsland));
    return;
   }
+  Rider->SetBase(nullptr);
   if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
    Movement->SetMovementMode(MOVE_Walking);
  } else if (IsValid(Rider)) {
-  // Death/cancellation must release the attachment. The respawn/death
-  // pipeline controls movement and placement for an incapacitated hero.
-  Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+  // The death pipeline owns movement for an incapacitated hero.
+  Rider->SetBase(nullptr);
  }
  GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bArrived) bAtIsland = !bAtIsland;
@@ -197,7 +211,7 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
  if (GetWorld()) GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bUnderway) {
   if (AMoonfallHeroPawn* Rider = Passenger.Get(); IsValid(Rider)) {
-   Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+   Rider->SetBase(nullptr);
    // Recover a living passenger at the original dock if possible. If level
    // teardown has removed collision, still release movement/attachment.
    if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
