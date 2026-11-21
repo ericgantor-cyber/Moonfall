@@ -1059,7 +1059,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
