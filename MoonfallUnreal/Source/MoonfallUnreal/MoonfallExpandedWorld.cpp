@@ -423,7 +423,6 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  if (!IsValid(Player)) return;
  const FVector PlayerPosition = Player->GetActorLocation();
  if (PlayerPosition.ContainsNaN()) return;
- UpdateGothicIsleEncounters(PlayerPosition);
 
  // Remove expired tiles in place: one map walk, no temporary ID array
  // or second lookup. The wider radius still prevents tile-edge churn.
@@ -438,6 +437,9 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
   if (IsValid(Tile) && !Tile->IsActorBeingDestroyed()) Tile->Destroy();
   It.RemoveCurrent();
  }
+ // Spawn/check encounters against the pruned ground-tile registry so
+ // an enemy cannot be added using a tile removed earlier this refresh.
+ UpdateGothicIsleEncounters(PlayerPosition);
  // Unloading and island encounters must run even at capacity. Only skip
  // new-candidate generation when there is no room to spawn another tile.
  if (ResidentTiles.Num() >= MaxResidentTiles) return;
