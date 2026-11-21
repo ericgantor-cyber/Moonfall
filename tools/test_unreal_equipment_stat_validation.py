@@ -2,10 +2,59 @@
 from pathlib import Path
 import unittest
 SOURCE = (Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Source" / "MoonfallUnreal" / "MoonfallHeroPawn.cpp")
+SAVE = (Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Source" / "MoonfallUnreal" / "MoonfallPersistentSave.h")
 class EquipmentStatSafety(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = SOURCE.read_text(encoding="utf-8")
+        cls.save_header = SAVE.read_text(encoding="utf-8")
+    def test_v13_equipment_save_migration_is_fail_closed(self):
+        self.assertIn("UPROPERTY() int32 Version = 12;", self.save_header)
+        self.assertIn("UPROPERTY() TArray<int32> ExpandedEquippedCodes;", self.save_header)
+        save = self.source.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        for token in ("EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount",
+                      "MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)",
+                      "InventoryItemCodes.Contains(Code)",
+                      "Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion",
+                      "Save->ExpandedEquippedCodes.Init(0, MoonfallEquipmentSlots::SlotCount)",
+                      "if (bNeedsV13)"):
+            self.assertIn(token, save)
+        self.assertIn("Save->Version > MoonfallEquipmentSlots::ExpandedSaveVersion", load)
+        self.assertIn("Save->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount", load)
+        self.assertIn("Code != SavedWornCodes[Slot]", load)
+        self.assertIn("Save->InventoryItemCodes.Contains(Code)", load)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", load)
+        self.assertIn("EquippedExtraItemCodes.Init(0, MoonfallEquipmentSlots::FutureCount)", load)
+        self.assertLess(load.index("Save->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+
+    def test_nine_slot_loot_and_equip_validate_owned_items(self):
+        getter = self.source.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::IsFutureSlot(Slot)", getter)
+        self.assertIn("MoonfallEquipmentSlots::IsCanonicalForSlot(ExtraCode, Slot)", getter)
+        self.assertIn("InventoryItemCodes.Contains(ExtraCode)", getter)
+        equip = self.source.split(
+            "bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split(
+            "namespace {", 1)[0]
+        self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", equip)
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)", equip)
+        self.assertIn("MoonfallEquipmentSlots::IsFutureSlot(SlotIndex)", equip)
+        self.assertIn("EquippedExtraItemCodes[Index] = Code;", equip)
+        self.assertLess(equip.index("if (MoonfallEquipmentSlots::IsFutureSlot(SlotIndex))"),
+                        equip.index("const float HealthDelta = 2.f * (Tier - PreviousTier);"))
+        roll = self.source.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        self.assertIn("FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1)", roll)
+        sets = self.source.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetMight(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", sets)
+        self.assertIn("return Pieces;", sets)
+
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         for token in ("Code <= 0", "Slot != ExpectedSlot", "Trait < 0 || Trait > 3",
