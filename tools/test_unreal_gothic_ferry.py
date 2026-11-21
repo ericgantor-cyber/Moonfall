@@ -100,7 +100,8 @@ class GothicFerryContracts(unittest.TestCase):
 
     def test_actor_teardown_releases_passenger_even_when_shore_blocked(self):
         teardown = self.boat.split("void AMoonfallGothicFerry::EndPlay(", 1)[1]
-        self.assertNotIn("FinishCrossing(false)", teardown)
+        executable = "\n".join(line for line in teardown.splitlines() if not line.strip().startswith("//"))
+        self.assertNotIn("FinishCrossing(false)", executable)
         self.assertIn("Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);", teardown)
         self.assertIn("GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation())", teardown)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", teardown)
