@@ -259,10 +259,12 @@ dialogue remain unchanged, with no new world tick or save field. The final chapt
 future divine main-story confrontation, not a claim that a final boss
 scene, island dungeon, or cinematic ending already exists.
 
-Island residents and their five factions are registered in both the live
-quest/reputation validators and the save/load allowlists, so accepted
-contracts, bond progress and faction rewards can persist with the
-existing save format. Unknown IDs are still rejected.
+Island residents and their five factions now use **one canonical set of
+resident/faction validators** shared by live quests, relationships,
+save preflight and load preflight. Previously four extra copied lists
+could drift out of sync and block island quests or reject saves.
+Contracts, bonds and faction rewards use the existing save format;
+unknown IDs and invalid values are still rejected.
 
 The **J Atlas** sidebar shows a read-only `ISLE x/7` progress line
 (and completed contract count on noncompact layouts), using the
