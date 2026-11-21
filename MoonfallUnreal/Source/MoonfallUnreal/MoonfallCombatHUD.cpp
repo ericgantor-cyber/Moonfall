@@ -91,8 +91,12 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | ID %d"),
        *GearName, Catalog.tier, Catalog.rarity, Catalog.code),
        FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 390.f, nullptr, 0.70f);
-    DrawText(FString::Printf(TEXT("%s | %d salvage%s"),
+    const int32 BasePrice = bMerchant ? Catalog.merchantCost : Catalog.tinkerCost;
+    const TCHAR* MoralPriceTag = CatalogPrice < BasePrice ? TEXT(" (good standing)")
+        : CatalogPrice > BasePrice ? TEXT(" (feared)") : TEXT("");
+    DrawText(FString::Printf(TEXT("%s | %d salvage%s%s"),
        bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"), CatalogPrice,
+       MoralPriceTag,
        bMerchant ? TEXT("") : *FString::Printf(TEXT(" | Requires level %d%s"),
            RequiredLevel, Hero->Level < RequiredLevel ? TEXT(" (locked)") : TEXT(""))),
        FLinearColor(0.75f,0.86f,0.75f), L + 18.f, T + 411.f, nullptr, 0.67f);
