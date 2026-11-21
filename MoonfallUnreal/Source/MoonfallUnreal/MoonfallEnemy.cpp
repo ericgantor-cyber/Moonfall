@@ -980,12 +980,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (!CachedWaypoint.IsNearlyZero()) {
     FVector ToWaypoint = CachedWaypoint - GetActorLocation();
     ToWaypoint.Z = 0.f;
+    // Keep following the reachable corner even on the tick that requests
+    // a refresh. Falling back to the distant goal here sends partial-path
+    // pursuers straight into walls before the next NavMesh result arrives.
+    Target = CachedWaypoint;
     if (ToWaypoint.SizeSquared() < FMath::Square(65.f)) {
-     // Reaching an intermediate waypoint must advance the path, not idle
-     // until a stale waypoint is recomputed on the normal timer.
+     // Recompute the next corner on the next normal AI tick, without adding
+     // another synchronous navigation solve during this update.
      NextPathRefreshAt = 0.f;
-    } else {
-     Target = CachedWaypoint;
     }
    }
   }
