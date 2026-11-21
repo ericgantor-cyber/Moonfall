@@ -15,6 +15,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") UStaticMeshComponent* Body;
  // Nonblocking text above a resident, refreshed only when the Council policy changes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UTextRenderComponent* CouncilAssignmentSign;
+ // Tiny collision-free animated activity prop, separate from original NPC body art.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UStaticMeshComponent* CouncilWorkMarker;
+ float CouncilWorkVisualPhase = 0.f;
  void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);
  // Short authored two-point workplace patrol. No NPC Tick or AI controller.
  // Returns false if a walkable route or safe endpoints cannot be confirmed.
