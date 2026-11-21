@@ -66,8 +66,9 @@ def main():
                          str(sorted(thumb_actions)))
     for key, actions_expected in expected_contextual.items():
         actual = actions.get(key,set())
-        if not actions_expected.issubset(actual):
-            raise SystemExit("Lost expected contextual bind on "+key+": "+str(sorted(actual)))
+        if actual != actions_expected:
+            raise SystemExit("Unexpected contextual bind on "+key+": expected "+
+                             str(sorted(actions_expected))+", got "+str(sorted(actual)))
     if len(actions.get("Gamepad_FaceButton_Bottom",set()))!=1:
         raise SystemExit("Gamepad A must only activate Jump, not a character menu")
     if set(conflicts)!=set(expected_contextual):
