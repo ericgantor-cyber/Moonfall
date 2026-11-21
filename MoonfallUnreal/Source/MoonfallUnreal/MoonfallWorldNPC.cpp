@@ -114,7 +114,15 @@ bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
  UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
      GetWorld(), NavHome.Location, NavEnd.Location, this);
  if (!IsValid(Path) || !Path->IsValid() || Path->IsPartial()
-     || Path->PathPoints.Num() < 2 || Path->GetPathLength() > 240.f) return false;
+     || Path->PathPoints.Num() != 2 || Path->GetPathLength() > 180.f) return false;
+ // Movement interpolates a straight segment, not each NavMesh corner. Reject
+ // routes that would need to bend around an obstacle or a building.
+ FCollisionQueryParams Clearance(SCENE_QUERY_STAT(MoonfallCouncilRoute), false, this);
+ FHitResult Obstacle;
+ const FVector EyeOffset(0.f, 0.f, 55.f);
+ if (GetWorld()->LineTraceSingleByChannel(Obstacle,
+      Home + EyeOffset, Destination + EyeOffset, ECC_Visibility, Clearance))
+  return false;
  // Avoid arbitrary offsets/height changes after route validation.
  CouncilWorkHome = Home;
  CouncilWorkDestination = Destination;
@@ -145,6 +153,16 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
  const FVector Next = Current + FVector(ToTarget.X, ToTarget.Y, 0.f) * (Travel / Distance);
  // Never leave the initial 140-unit authored workplace corridor.
  if (FVector::DistSquared2D(Next, CouncilWorkHome) > FMath::Square(145.f)) {
+  bCouncilWorkRouteValid = false;
+  return;
+ }
+ // Root mesh is query-only for player dialogue. Explicitly test the
+ // movement corridor too, so a swept move cannot phase through scenery.
+ FCollisionQueryParams Clearance(SCENE_QUERY_STAT(MoonfallCouncilStep), false, this);
+ FHitResult Obstacle;
+ const FVector EyeOffset(0.f, 0.f, 55.f);
+ if (GetWorld()->LineTraceSingleByChannel(Obstacle,
+     Current + EyeOffset, Next + EyeOffset, ECC_Visibility, Clearance)) {
   bCouncilWorkRouteValid = false;
   return;
  }
