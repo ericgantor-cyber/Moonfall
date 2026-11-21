@@ -1674,7 +1674,10 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
-  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  if (AtlasSelectedRegion != PreviousRegion) {
+   AtlasChronicleChapter = -1;
+   bAtlasIsleReader = false;
+  }
   return;
  }
  if (bResidentContextOpen) {
@@ -1702,7 +1705,10 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
-  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  if (AtlasSelectedRegion != PreviousRegion) {
+   AtlasChronicleChapter = -1;
+   bAtlasIsleReader = false;
+  }
   return;
  }
  if (bResidentContextOpen) {
@@ -3610,7 +3616,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float WorldY = SafeAtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
-      if (AtlasSelectedRegion != Slot / 5) AtlasChronicleChapter = -1;
+      if (AtlasSelectedRegion != Slot / 5) {
+       AtlasChronicleChapter = -1;
+       bAtlasIsleReader = false;
+      }
       AtlasSelectedRegion = Slot / 5;
       AtlasPanY = FMath::Clamp(WorldY, -12000.f, 12000.f);
      }
