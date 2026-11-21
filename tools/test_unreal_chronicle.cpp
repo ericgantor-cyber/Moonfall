@@ -36,6 +36,15 @@ constexpr bool EqualText(const char* A, const char* B) {
  return *A == *B;
 }
 static_assert(I::ChapterCount == 7);
+static_assert(I::NextReadableChapter(-1,1,false,false,{0,0,0,0,0},false)==-1);
+static_assert(I::NextReadableChapter(-1,1,true,false,{0,0,0,0,0},false)==0);
+static_assert(I::NextReadableChapter(0,1,true,false,{0,0,0,0,0},false)==0);
+static_assert(I::NextReadableChapter(0,1,true,true,{2,0,0,0,0},false)==1);
+static_assert(I::NextReadableChapter(1,-1,true,true,{2,0,0,0,0},false)==0);
+static_assert(I::NextReadableChapter(5,1,true,true,{2,2,2,2,2},true)==6);
+static_assert(I::NextReadableChapter(6,1,true,true,{2,2,2,2,2},true)==0);
+static_assert(I::NextReadableChapter(0,-1,true,true,{2,2,2,2,2},true)==6);
+
 static_assert(EqualText(I::NextObjective(false, false, {0,0,0,0,0}, false),
                           "Discover an island shrine"));
 static_assert(EqualText(I::NextObjective(true, false, {0,0,0,0,0}, false),
@@ -114,6 +123,27 @@ int main() {
   }
   assert(Started.CompletedContracts==Completed);
   assert(Started.Revealed==1+StartedQuests);
+  // Every navigated page must be revealed, even for sparse, out-of-order
+  // contract completions and both directions at the end of the list.
+  for (int Current=-1; Current<I::ChapterCount; ++Current)
+   for (int Direction=-1; Direction<=1; ++Direction) {
+    const int Next=I::NextReadableChapter(
+      Current,Direction,true,true,Quests,false);
+    assert(Next>=0 && Next<I::ChapterCount);
+    assert(I::RevealedChapter(Next,true,true,Quests,false)!=nullptr);
+    if (Direction!=0 && Current>=0) {
+     int Cursor=Current;
+     int Expected=-1;
+     for (int Attempt=0;Attempt<I::ChapterCount;++Attempt) {
+      Cursor=(Cursor+Direction+I::ChapterCount)%I::ChapterCount;
+      if (I::RevealedChapter(Cursor,true,true,Quests,false)!=nullptr) {
+       Expected=Cursor;
+       break;
+      }
+     }
+     assert(Next==Expected);
+    }
+   }
   // Every one of 243 valid contract combinations: current work wins over
   // a new lead. Neither state can expose the finale prematurely.
   constexpr const char* ActiveHints[5] = {
