@@ -600,7 +600,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("CouncilPointer"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCouncilPointer);
- Input->BindAction(TEXT("CouncilConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ConfirmCouncilDecision);
+ Input->BindAction(TEXT("CouncilConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ConfirmCouncilDecisionInput);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -3898,6 +3898,9 @@ FString AMoonfallHeroPawn::GetConfirmedCouncilPolicy() const {
  if (Decision == MoonfallLivingWorld::CouncilDecision::FundReconstruction)
   return TEXT("Fund Reconstruction");
  return TEXT("Fortify Borders");
+}
+void AMoonfallHeroPawn::ConfirmCouncilDecisionInput() {
+ ConfirmCouncilDecision();
 }
 bool AMoonfallHeroPawn::ConfirmCouncilDecision() {
  // Two deliberate presses of F9 are required. The first is a confirmation
