@@ -1,5 +1,6 @@
 #include "MoonfallGroundLoot.h"
 #include "MoonfallItemQuality.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallHeroPawn.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -63,7 +64,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
  const int32 Tier = InItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(Slot) ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
      InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
@@ -121,7 +122,8 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const float BeaconWidth = 0.08f + 0.012f * Rarity;
  RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
    1.25f + 0.11f * Rarity));
- const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+ const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+  TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  // Match the HUD's quality order. Emerald is Moonfall-exclusive.
  const FColor QualityColor = MoonfallItemQuality::WorldColor(Rarity);
