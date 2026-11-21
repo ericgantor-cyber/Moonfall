@@ -932,14 +932,24 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bGainsSetBonus = bValidDetail && SelectedAffix > 0
       && ((SetPieces < 2 && ProjectedSelectedPieces >= 2)
         || (SetPieces < 3 && ProjectedSelectedPieces >= 3));
-    // Show both changes when swapping between sets. A single warning must
-    // not hide a bonus unlocked by the replacement item.
+    // Describe the actual threshold crossed rather than only piece counts.
+    // One equipment swap changes each set by at most one piece, so only one
+    // threshold can be crossed per affected trait.
+    const TCHAR* TwoPiecePerks[] = {TEXT(""), TEXT("2pc +3% crit"),
+      TEXT("2pc +3% versatility"), TEXT("2pc +4% haste")};
+    const TCHAR* ThreePiecePerks[] = {TEXT(""), TEXT("3pc +4% mastery"),
+      TEXT("3pc +2.5% protection"), TEXT("3pc +6% mana regen")};
+    const TCHAR* LostPerk = bLosesSetBonus
+      ? (WornPieces >= 3 && ProjectedWornPieces < 3
+          ? ThreePiecePerks[WornAffix] : TwoPiecePerks[WornAffix]) : TEXT("");
+    const TCHAR* GainedPerk = bGainsSetBonus
+      ? (SetPieces < 3 && ProjectedSelectedPieces >= 3
+          ? ThreePiecePerks[SelectedAffix] : TwoPiecePerks[SelectedAffix]) : TEXT("");
+    // Show both changes when swapping between sets.
     const FString LossText = bLosesSetBonus
-      ? FString::Printf(TEXT("LOSE %s %d->%d"), DetailTraits[WornAffix],
-          WornPieces, ProjectedWornPieces) : FString();
+      ? FString::Printf(TEXT("LOSE %s %s"), DetailTraits[WornAffix], LostPerk) : FString();
     const FString GainText = bGainsSetBonus
-      ? FString::Printf(TEXT("GAIN %s %d->%d"), DetailTraits[SelectedAffix],
-          SetPieces, ProjectedSelectedPieces) : FString();
+      ? FString::Printf(TEXT("GAIN %s %s"), DetailTraits[SelectedAffix], GainedPerk) : FString();
     // Preview is read-only; projected counts never equip or save anything.
     const FString SetLine = !bValidDetail
       ? TEXT("SET PREVIEW: INVALID ITEM")
