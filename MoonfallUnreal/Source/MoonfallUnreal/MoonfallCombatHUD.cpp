@@ -676,8 +676,12 @@ void AMoonfallCombatHUD::DrawHUD()
    // Taller character sheets can show all nine slots without taking space
    // from combat stats or overlapping the short-window close controls.
    const bool bShowAllSlots = PanelHeight >= 520.f;
+   // Framed equipment slots are reserved for roomy panels; the original
+   // compact text overview remains available for smaller windows.
+   const bool bUseSlotGrid = PanelHeight >= 700.f && PanelWidth >= 550.f;
    const float RowHeight = FMath::Clamp(
-     (PanelHeight - 145.f) / (bShowAllSlots ? 22.f : 18.f), 8.f, 26.f);
+     (PanelHeight - (bUseSlotGrid ? 210.f : 145.f))
+       / (bShowAllSlots ? 22.f : 18.f), 8.f, 26.f);
    const float StartY = Top + 96.f;
    const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
      TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
@@ -737,7 +741,8 @@ void AMoonfallCombatHUD::DrawHUD()
      SlotLine(3),
      SlotLine(6)
    };
-   const int32 VisibleCharacterRows = bShowAllSlots ? UE_ARRAY_COUNT(CharacterLines) : 18;
+   const int32 VisibleCharacterRows = bUseSlotGrid ? 18
+     : (bShowAllSlots ? UE_ARRAY_COUNT(CharacterLines) : 18);
    const float CharacterTextScale = PanelHeight < 360.f ? 0.55f :
      RowHeight < 19.f ? 0.62f : Canvas->SizeX < 900.f ? 0.75f : 0.90f;
    for (int32 Row = 0; Row < VisibleCharacterRows; ++Row)
@@ -745,6 +750,38 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 || Row == 18
         ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr, CharacterTextScale);
+   if (bUseSlotGrid) {
+    // WoW-style framed gear overview. Read-only until new slots have real
+    // equip/loot logic and a versioned migration; never fake equipped items.
+    const float GridTop = StartY + 18.f * RowHeight;
+    DrawText(TEXT("EQUIPMENT  |  3 EQUIPPABLE / 6 FUTURE"),
+      FLinearColor(0.52f,0.91f,0.76f), Left + 18.f, GridTop, nullptr, 0.75f);
+    const float TileGap = 8.f;
+    const float TileWidth = (PanelWidth - 36.f - 2.f * TileGap) / 3.f;
+    for (int32 Slot = 0; Slot < 9; ++Slot) {
+     const float X = Left + 18.f + (Slot % 3) * (TileWidth + TileGap);
+     const float Y = GridTop + 22.f + (Slot / 3) * 37.f;
+     const int32 Code = Hero->GetEquipmentSlotCode(Slot);
+     const bool bFutureSlot = Slot >= 3;
+     const FLinearColor BorderColor = bFutureSlot
+       ? FLinearColor(0.21f,0.23f,0.30f,1.f)
+       : Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)
+                  : FLinearColor(0.39f,0.32f,0.46f,1.f);
+     DrawRect(BorderColor, X, Y, TileWidth, 32.f);
+     DrawRect(FLinearColor(0.07f,0.07f,0.13f,0.98f),
+       X + 1.f, Y + 1.f, TileWidth - 2.f, 30.f);
+     DrawText(DisplayNames[Slot], bFutureSlot
+         ? FLinearColor(0.63f,0.64f,0.71f) : FLinearColor::White,
+       X + 7.f, Y + 7.f, nullptr, 0.68f);
+     const FString Status = bFutureSlot ? TEXT("FUTURE")
+       : Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)
+       : TEXT("EMPTY");
+     DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
+         : Code > 0 ? FLinearColor(0.77f,0.94f,0.66f)
+                    : FLinearColor(0.82f,0.75f,0.83f),
+       X + TileWidth - 53.f, Y + 8.f, nullptr, 0.60f);
+    }
+   }
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
