@@ -1,5 +1,6 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallChronicle.h"
+#include "MoonfallIsleChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
@@ -191,6 +192,29 @@ void AMoonfallCombatHUD::DrawHUD()
        Left + 14.f, Top + Height - 24.f,
        nullptr, Scale * AtlasSideTextScale * 0.79f);
   }
+  // The isle's optional seventh witness is separate from all 42 mainland
+  // chapters. Existing shrine and NPC contract saves drive this read-only
+  // progress display, never a fabricated world-boss kill or new save flag.
+  const int IslandContracts[5] = {
+   Hero->GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto IsleStory = MoonfallIsleChronicle::Summarize(
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+    IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete);
+  const FString IsleStoryLabel = IsleStory.Valid && IsleStory.Revealed > 0
+     ? (AtlasSidebarWidth < 175.f
+       ? FString::Printf(TEXT("ISLE %d/7"), IsleStory.Revealed)
+       : FString::Printf(TEXT("ISLE %d/7 | %d/5 QUESTS"),
+           IsleStory.Revealed, IsleStory.CompletedContracts))
+     : TEXT("ISLE STORY LOCKED");
+  DrawText(IsleStoryLabel, FLinearColor(0.69f, 0.78f, 0.88f),
+      Left + 14.f, Top + Height - 44.f,
+      nullptr, Scale * AtlasSideTextScale * 0.74f);
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
   const float MapWidth = FMath::Max(40.f, Width - AtlasSidebarWidth - 36.f);
