@@ -587,6 +587,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         block = self.hud.split("const int32 EquippedCode = SelectedSlot == 0", 1)[1].split("const int32 NextCost", 1)[0]
         self.assertIn("SelectedSlot == 1 ? Hero->EquippedArmorCode", block)
         self.assertIn("Hero->EquippedAccessoryCode", block)
+        self.assertIn("(EquippedCode / 10000) % 10 == SelectedSlot", block)
         self.assertIn("Hero->InventoryItemCodes.Contains(EquippedCode)", block)
         self.assertIn("Hero->GetItemPower(EquippedCode) > 0", block)
         self.assertIn("const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);", block)
