@@ -62,6 +62,33 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (SocialRole == FName(TEXT("Elder"))) return Shift == 2 ? TEXT("Reflecting") : TEXT("Advising");
  return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
 }
+FString AMoonfallWorldNPC::GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const {
+ // Crossroads is the only authored settlement with Council decorations.
+ // Other NPCs retain their ordinary schedule until their regions are built.
+ if (!IsValid(Hero) || SettlementId != FName(TEXT("Crossroads"))
+     || Hero->CouncilDecisionId < 0 || Hero->CouncilDecisionId > 2)
+  return GetCurrentActivity();
+ const int32 Policy = Hero->CouncilDecisionId;
+ if (Policy == 0) {
+  if (SocialRole == FName(TEXT("Guard"))) return TEXT("Protecting Residents");
+  if (SocialRole == FName(TEXT("Scout"))) return TEXT("Escorting Travelers");
+  if (SocialRole == FName(TEXT("Elder"))) return TEXT("Organizing Aid");
+  if (SocialRole == FName(TEXT("Merchant"))) return TEXT("Supplying Families");
+  return TEXT("Supporting Neighbors");
+ }
+ if (Policy == 1) {
+  if (SocialRole == FName(TEXT("Tinker"))) return TEXT("Repairing Machinery");
+  if (SocialRole == FName(TEXT("Merchant"))) return TEXT("Stocking Building Supplies");
+  if (SocialRole == FName(TEXT("Guard"))) return TEXT("Watching Worksites");
+  if (SocialRole == FName(TEXT("Scholar"))) return TEXT("Planning Reconstruction");
+  return TEXT("Helping Rebuild");
+ }
+ if (SocialRole == FName(TEXT("Guard"))) return TEXT("Monitoring the Borders");
+ if (SocialRole == FName(TEXT("Scout"))) return TEXT("Surveying Outer Roads");
+ if (SocialRole == FName(TEXT("Tinker"))) return TEXT("Maintaining Defenses");
+ if (SocialRole == FName(TEXT("Elder"))) return TEXT("Coordinating Patrols");
+ return TEXT("Preparing Supplies");
+}
 bool AMoonfallWorldNPC::SharesRaceWith(const AMoonfallHeroPawn* Hero) const {
  return IsValid(Hero) && Hero->bRaceChosen
     && Hero->RaceId == MoonfallRaces::Validated(RaceId);
