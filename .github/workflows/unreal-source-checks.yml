@@ -5,6 +5,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_*.cpp'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
@@ -13,6 +14,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_*.cpp'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
@@ -104,6 +106,15 @@ jobs:
           python3 -m unittest -v \
             tools.test_unreal_equipment_stat_validation \
             tools.test_unreal_loot_collection_safety
+
+      # Compile and run real C++ threshold logic used by the HUD.
+      - name: Verify set bonus threshold behavior (portable C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -I MoonfallUnreal/Source/MoonfallUnreal \
+            tools/test_unreal_set_bonus_thresholds.cpp -o /tmp/moonfall_set_bonus_test
+          /tmp/moonfall_set_bonus_test
 
       - name: Verify combat HUD scan regressions
         shell: bash
