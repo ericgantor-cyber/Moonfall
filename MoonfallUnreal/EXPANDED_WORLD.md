@@ -200,6 +200,16 @@ spawn budget, and unload hysteresis remain unchanged. The source
 regression checks the boundary and a broad coordinate sample; actual
 runtime CPU/frame-time benefits still need UE5 profiling.
 
+## Full-capacity streaming fast path
+
+After expiring distant or invalid tiles and updating island encounters,
+the terrain refresh now exits early if all 25 resident slots remain
+occupied. It does not calculate or sort tile candidates that cannot be
+spawned. Once tiles unload, regular candidate evaluation resumes.
+The three-spawns-per-refresh budget, unloading radius, and island
+encounter cleanup stay unchanged. This is a source-level optimization,
+not a measured UE5 frame-time result.
+
 ## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
