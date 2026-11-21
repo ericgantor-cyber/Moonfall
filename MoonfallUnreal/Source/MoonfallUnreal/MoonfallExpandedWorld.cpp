@@ -1,6 +1,8 @@
 #include "MoonfallExpandedWorld.h"
 #include "MoonfallOverworldTile.h"
 #include "MoonfallGothicFerry.h"
+#include "MoonfallHeroPawn.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
 #include "Components/SceneComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -122,12 +124,46 @@ void AMoonfallExpandedWorld::EndPlay(const EEndPlayReason::Type Reason)
  Super::EndPlay(Reason);
 }
 
+void AMoonfallExpandedWorld::UpdateSeaSwimming()
+{
+ // Short 80m sea gap between mainland and Gothic Isle, with the water
+ // surface slightly below the docks. Leaving the ferry is the player's
+ // choice: do not move, teleport or attach an overboard character.
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero)) {
+  SeaSwimmer.Reset();
+  return;
+ }
+ UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
+ if (!IsValid(Movement)) return;
+ const FVector Position = Hero->GetActorLocation();
+ const bool bSeaGap = FMath::Abs(Position.X) < 50000.f
+   && Position.Y > 238000.f && Position.Y < 246000.f;
+ const bool bInWater = bSeaGap && Position.Z < -40.f;
+ // Existing deck movement wins over water. It is never overridden
+ // merely because the boat sails across the water.
+ const bool bOnFerry = Hero->GetMovementBase()
+   && Cast<AMoonfallGothicFerry>(Hero->GetMovementBase()->GetOwner()) != nullptr;
+ if (bInWater && !bOnFerry && Movement->MovementMode == MOVE_Falling) {
+  Movement->SetMovementMode(MOVE_Swimming);
+  SeaSwimmer = Hero;
+ } else if (SeaSwimmer.Get() == Hero && (!bInWater || bOnFerry)) {
+  // Leave water naturally. The movement system handles ground contact;
+  // there is no automatic rescue to ship or shore.
+  if (Movement->MovementMode == MOVE_Swimming)
+   Movement->SetMovementMode(MOVE_Falling);
+  SeaSwimmer.Reset();
+ }
+}
+
 void AMoonfallExpandedWorld::RefreshNearbyTiles()
 {
  UWorld* World = GetWorld();
  if (!World) return;
  const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
  if (!IsValid(Player)) return;
+ UpdateSeaSwimming();
  const FVector PlayerPosition = Player->GetActorLocation();
  if (PlayerPosition.ContainsNaN()) return;
 
