@@ -83,11 +83,18 @@ void AMoonfallCombatHUD::DrawHUD()
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
    if (bWorkVendor && Catalog.valid) {
-    DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | Item %d%s"),
-       bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"),
-       Catalog.tier, Catalog.rarity, Catalog.code,
-       Hero->bResidentTradePending ? TEXT(" | CONFIRM") : TEXT("")),
-       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 327.f, nullptr, 0.75f);
+    const FString GearName = FString::Printf(TEXT("%s %s"),
+       ANSI_TO_TCHAR(MoonfallResidentCatalog::NamePrefix(Hero->ResidentCatalogSelection)),
+       ANSI_TO_TCHAR(MoonfallResidentCatalog::NameSuffix(Hero->ResidentCatalogSelection)));
+    const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(Hero->ResidentCatalogSelection);
+    DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | ID %d"),
+       *GearName, Catalog.tier, Catalog.rarity, Catalog.code),
+       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 316.f, nullptr, 0.70f);
+    DrawText(FString::Printf(TEXT("%s | %d salvage%s"),
+       bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"), CatalogPrice,
+       bMerchant ? TEXT("") : *FString::Printf(TEXT(" | Requires level %d%s"),
+           RequiredLevel, Hero->Level < RequiredLevel ? TEXT(" (locked)") : TEXT(""))),
+       FLinearColor(0.75f,0.86f,0.75f), L + 18.f, T + 336.f, nullptr, 0.67f);
    }
    const FString ContractStatus = Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
