@@ -174,6 +174,27 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("void AMoonfallGothicFerry::Tick(", self.boat)
         self.assertIn("0.05f, true);", self.boat)
 
+    def test_gangplank_deployed_at_dock_and_stowed_during_voyage(self):
+        self.assertIn("TObjectPtr<UStaticMeshComponent> Gangplank;", self.h)
+        self.assertIn("void SetGangplankDeployed(bool bDeployed);", self.h)
+        self.assertIn("Gangplank->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);", self.boat)
+        self.assertIn("Gangplank->SetCanEverAffectNavigation(false);", self.boat)
+        ramp = self.boat.split("void AMoonfallGothicFerry::SetGangplankDeployed(", 1)[1].split(
+            "float AMoonfallGothicFerry::GetCrossingProgress()", 1)[0]
+        self.assertIn("bAtIsland ? -1.f : 1.f", ramp)
+        self.assertIn("SetRelativeRotation(FRotator(", ramp)
+        self.assertIn("SetHiddenInGame(!bDeployed)", ramp)
+        self.assertIn("ECollisionEnabled::NoCollision", ramp)
+        start = self.boat.split("void AMoonfallGothicFerry::BeginPlay()", 1)[1].split(
+            "void AMoonfallGothicFerry::SetGangplankDeployed(", 1)[0]
+        self.assertIn("SetGangplankDeployed(true)", start)
+        boarding = self.boat.split("bool AMoonfallGothicFerry::TryBoard(", 1)[1].split(
+            "void AMoonfallGothicFerry::AdvanceCrossing()", 1)[0]
+        self.assertIn("SetGangplankDeployed(false)", boarding)
+        completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
+            "void AMoonfallGothicFerry::EndPlay(", 1)[0]
+        self.assertIn("SetGangplankDeployed(true)", completion)
+
     def test_single_instance_in_connected_overworld(self):
         start = self.world.split("void AMoonfallExpandedWorld::BeginPlay()", 1)[1].split(
             "void AMoonfallExpandedWorld::EndPlay(", 1
