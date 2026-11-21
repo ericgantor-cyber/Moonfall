@@ -18,7 +18,7 @@ class EquipmentStatSafety(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
         for token in ("InventoryItemCodes.Contains(ItemCode)",
                       "GetItemPower(ItemCode)",
-                      "MoonfallEquipmentSlots::IsLegacySlot(Slot)",
+                      "MoonfallEquipmentSlots::IsKnownSlot(Slot)",
                       "GetEquipmentSlotCode(Slot)",
                       "CurrentCode > 0 ? GetItemPower(CurrentCode) : 0"):
             self.assertIn(token, body)
@@ -44,7 +44,7 @@ class EquipmentStatSafety(unittest.TestCase):
         body = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentPower()", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
         self.assertIn("GetEquipmentSlotCode(Slot)", body)
-        self.assertIn("MoonfallEquipmentSlots::LegacyCount", body)
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", body)
         self.assertNotIn("EquippedWeaponCode", body)
         self.assertNotIn("DecodeEquippedItem(", body)
 
@@ -60,7 +60,7 @@ class EquipmentStatSafety(unittest.TestCase):
     def test_set_piece_count_rejects_invalid_equipped_slots(self):
         body = self.source.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetMight(", 1)[0]
-        self.assertIn("MoonfallEquipmentSlots::LegacyCount", body)
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", body)
         self.assertIn("GetEquipmentSlotCode(Slot)", body)
         self.assertIn("if (Code <= 0) continue;", body)
         self.assertIn("DecodeEquippedItem(Code, Slot", body)
@@ -98,7 +98,7 @@ class EquipmentStatSafety(unittest.TestCase):
     def test_stat_bonuses_validate_ownership(self):
         tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
-        self.assertIn("MoonfallEquipmentSlots::IsLegacySlot(Slot)", tier)
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(Slot)", tier)
         self.assertIn("GetEquipmentSlotCode(Slot)", tier)
         self.assertIn("ValidEquippedTier(Code, Slot)", tier)
 
