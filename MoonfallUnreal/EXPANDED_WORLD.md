@@ -125,6 +125,12 @@ native builds and representative Windows machines can be profiled.
   trigger a forced rescue. A dedicated 0.1-second timer checks water movement
   independently of the 0.35-second terrain streaming timer, without a
   per-frame actor Tick. This is **not yet a complete ocean system**:
+  Swimming movement now follows camera pitch when pressing forward, and the
+  existing keyboard/controller Jump action supplies upward swim movement.
+  Normal land movement retains yaw-only direction; no combat/input remapping
+  or automatic rescue was added. Descending uses camera-directed forward
+  movement, not a dedicated descend button. A full underwater control scheme
+  and persistent upward input remain future work. In particular,
   native UE5.4 must verify swimming physics, buoyancy, shoreline transitions,
   and whether a proper water physics volume is required. Fatigue, drowning
   and actual water rendering are not implemented by this change.
