@@ -40,6 +40,38 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_stationary_professions_use_existing_refresh_without_save_effects(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
+        arena = (SOURCE / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (SOURCE / "MoonfallArena.h").read_text(encoding="utf-8")
+        self.assertIn("void RefreshCouncilStationActivity(const AMoonfallHeroPawn* Hero);", header)
+        self.assertIn("TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilStationResidents;", arena_h)
+        station = npc.split("void AMoonfallWorldNPC::RefreshCouncilStationActivity(", 1)[1].split(
+            "bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(", 1
+        )[0]
+        for expected in ('SocialRole == FName(TEXT("Merchant"))',
+                         'SocialRole == FName(TEXT("Tinker"))',
+                         'SettlementId == FName(TEXT("Crossroads"))',
+                         "Hero->CouncilDecisionId >= 0",
+                         "CouncilWorkMarker->SetVisibility(false);",
+                         "CouncilWorkMarker->SetVisibility(true);",
+                         "CouncilStationVisualStep = (CouncilStationVisualStep + 1) % 4;",
+                         "CouncilWorkMarker->SetRelativeScale3D("):
+            self.assertIn(expected, station)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "SetActorLocation(",
+                          "SetTimer(", "ChangeFactionReputation("):
+            self.assertNotIn(forbidden, station)
+        refresh = arena.split("void AMoonfallArena::RefreshCouncilSettlementVisuals()", 1)[1].split(
+            "void AMoonfallArena::CreateBlock(", 1
+        )[0]
+        self.assertIn("Resident->RefreshCouncilStationActivity(Hero);", refresh)
+        self.assertLess(refresh.index("Resident->RefreshCouncilStationActivity(Hero);"),
+                        refresh.index("if (Policy == LastDisplayedCouncilDecision) return;"))
+        self.assertIn("CouncilStationResidents.Add(Person);", arena)
+        self.assertIn("RefreshCouncilSettlementVisuals, 2.0f, true", arena)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
+
     def test_council_work_effects_are_role_specific_and_hide_on_interruption(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         movement = npc.split("void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1)[1].split(
