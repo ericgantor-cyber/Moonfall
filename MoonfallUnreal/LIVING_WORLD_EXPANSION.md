@@ -96,6 +96,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The native NPC conversation panel displays the current assignment, but an active quest-feedback message takes priority. NPCs from other settlements and heroes without a confirmed policy retain their normal existing activity description.
 - The jobs are **descriptive world reactivity**, not physical navigation, inventory trading, actual construction or simulated defense. No new saves, NPC actors, pathfinding, or automatic reputation awards. Native UE5 gameplay/visual testing remains outstanding.
 
+## Visible NPC Council assignments
+
+- Crossroads residents now have small, nonblocking, world-space text labels describing the policy-driven work already available in their conversation menu. Labels are hidden until a Council policy has been saved and take on a restrained color corresponding to Protection, Reconstruction or Fortification.
+- The existing arena's two-second policy refresh changes the labels **only on policy transitions**, not per NPC tick or per frame. The resident's original dialogue, actor location, body, collisions, quest rewards, and original character art are untouched.
+- These labels represent assignments, **not simulated walking, repairing, guarding or changing daily schedules**. Placement, visibility, legibility and native Unreal execution still require a Windows UE5 build/playtest.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
