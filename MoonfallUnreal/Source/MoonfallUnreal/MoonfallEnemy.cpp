@@ -967,7 +967,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // Both complete and partial paths may yield a reachable first corner.
      // If a route has no usable segment, do not move directly through walls.
      // Retry only at the existing cached navigation cadence.
-     bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1;
+     // Reject corrupt path corners before storing or steering toward them.
+     // FVector::ContainsNaN also detects infinite components.
+     bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1
+       || Path->PathPoints[1].ContainsNaN();
      CachedWaypoint = !bNavigationRouteUnavailable
        ? Path->PathPoints[1] : FVector::ZeroVector;
     } else {
@@ -977,8 +980,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     }
    }
    if (CachedWaypoint.ContainsNaN()) {
+    // A corrupted cached corner must not become a direct wall chase or
+    // trigger a synchronous path solve on every subsequent AI tick.
     CachedWaypoint = FVector::ZeroVector;
-    NextPathRefreshAt = 0.f;
+    bNavigationRouteUnavailable = true;
+    if (!FMath::IsFinite(NextPathRefreshAt) || NextPathRefreshAt <= Now)
+     NextPathRefreshAt = Now + 0.25f;
    }
    if (!CachedWaypoint.IsNearlyZero()) {
     FVector ToWaypoint = CachedWaypoint - GetActorLocation();
