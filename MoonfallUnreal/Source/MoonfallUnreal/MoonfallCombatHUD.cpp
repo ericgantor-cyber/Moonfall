@@ -967,10 +967,11 @@ void AMoonfallCombatHUD::DrawHUD()
     const float SetTextScale = PanelWidth < 550.f ? 0.56f : 0.68f;
     DrawText(SetLine, bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
       : FLinearColor(0.59f,0.95f,0.77f),
-      Left + 18.f, Top + PanelHeight - 207.f, nullptr, SetTextScale);
+      Left + 18.f, Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f),
+      nullptr, SetTextScale);
     if (bTwoSetChanges) {
       DrawText(GainText, FLinearColor(0.59f,0.95f,0.77f),
-        Left + 18.f, Top + PanelHeight - 195.f, nullptr, SetTextScale);
+        Left + 18.f, Top + PanelHeight - 196.f, nullptr, SetTextScale);
     }
    }
    // Read-only five-tier projection from the same forge cost schedule.
@@ -987,7 +988,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(Forecast,
       Plan.Valid && Plan.Upgrades > 0
         ? FLinearColor(0.58f,0.91f,0.83f) : FLinearColor(0.93f,0.72f,0.50f),
-      Left + 18.f, Top + PanelHeight - 182.f, nullptr,
+      Left + 18.f, Top + PanelHeight - 177.f, nullptr,
       PanelWidth < 550.f ? 0.57f : 0.72f);
    }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
