@@ -16,8 +16,11 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // V13: one confirmed Council decision. Older V1-V12 saves remain readable.
- UPROPERTY() int32 Version = 13;
+ // V14 adds Good/Evil morality and a bounded one-time resident choice ledger.
+ // Older V1-V13 saves remain readable and migrate without dropping progress.
+ UPROPERTY() int32 Version = 14;
+ UPROPERTY() int32 MoralAlignment = 0;
+ UPROPERTY() TMap<FName, int32> ResidentMoralChoices;
  // -1 = no decision, 0..2 = one confirmed Council policy.
  UPROPERTY() int32 CouncilDecisionId = -1;
  // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
