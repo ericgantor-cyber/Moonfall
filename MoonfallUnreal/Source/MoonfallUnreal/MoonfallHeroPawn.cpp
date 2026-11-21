@@ -3654,8 +3654,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     }
     if (MoonfallChronicleUI::HitCard(ChronicleCard, MouseX, MouseY))
      return;
+    // Clicking the parchment chart pans only when no discovered shrine
+    // pin was clicked. Chapter-card hit testing always wins first.
     // Reuse the same projected shrine-pin geometry as the HUD.
-    // This comes after chapter-card hit testing, so the card always wins.
     const float MapL = PanelL + SidebarWidth + 19.f;
     const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
     const float MapT = PanelT + 105.f;
