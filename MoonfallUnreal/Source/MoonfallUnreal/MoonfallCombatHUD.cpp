@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallResidentCatalog.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
@@ -53,11 +54,12 @@ void AMoonfallCombatHUD::DrawHUD()
            || Resident->SocialRole == FName(TEXT("Tinker")))
        && Hero->CouncilDecisionId >= 0;
    const bool bMerchant = Resident->SocialRole == FName(TEXT("Merchant"));
-   const FString WorkLabel = bWorkVendor
-       ? FString::Printf(TEXT("%s %d salvage%s"),
-           bMerchant ? TEXT("Buy weapon") : TEXT("Craft weapon"),
-           bMerchant ? 12 : 20,
-           Hero->bResidentTradePending ? TEXT(" (confirm)") : TEXT(""))
+   const auto Catalog = MoonfallResidentCatalog::Get(Hero->ResidentCatalogSelection);
+   const int32 CatalogPrice = Hero->GetResidentCatalogPrice(bMerchant);
+   const TCHAR* SlotNames[3] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const FString WorkLabel = bWorkVendor && Catalog.valid
+       ? FString::Printf(TEXT("< %03d/111 %s %ds >"),
+           Hero->ResidentCatalogSelection + 1, SlotNames[Catalog.slot], CatalogPrice)
        : TEXT("Trade/Craft unavailable");
    const FString Names[4] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
@@ -80,6 +82,13 @@ void AMoonfallCombatHUD::DrawHUD()
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
+   if (bWorkVendor && Catalog.valid) {
+    DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | Item %d%s"),
+       bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"),
+       Catalog.tier, Catalog.rarity, Catalog.code,
+       Hero->bResidentTradePending ? TEXT(" | CONFIRM") : TEXT("")),
+       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 327.f, nullptr, 0.75f);
+   }
    const FString ContractStatus = Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
@@ -101,7 +110,7 @@ void AMoonfallCombatHUD::DrawHUD()
         *Resident->GetCouncilWorkPhase()).Left(57),
         FLinearColor(0.72f,0.89f,0.86f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   DrawText(TEXT("Click choice | D-pad up/down + A | Trade: left/right | Esc/RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    return;
