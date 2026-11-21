@@ -249,9 +249,11 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
   }
   if (TWeakObjectPtr<AMoonfallEnemy>* Existing = IslandEncounters.Find(Index)) {
    AMoonfallEnemy* Enemy = Existing->Get();
-   if (!IsValid(Enemy) || Enemy->Health <= 0.f) {
-    // A slain enemy must not respawn repeatedly during the same visit.
-    ClearedIslandEncounters.Add(Index);
+   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || Enemy->Health <= 0.f) {
+    // A slain enemy stays cleared for this visit; an actor removed by
+    // another world system may be replaced when the spawn point is ready.
+    if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed() && Enemy->Health <= 0.f)
+     ClearedIslandEncounters.Add(Index);
     IslandEncounters.Remove(Index);
    }
   }
