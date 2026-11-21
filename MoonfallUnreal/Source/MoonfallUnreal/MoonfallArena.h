@@ -22,6 +22,11 @@ public:
  UInstancedStaticMeshComponent* CouncilReconstructionDecor;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Council")
  UInstancedStaticMeshComponent* CouncilFortificationDecor;
+ // Read-only Good/Evil Crossroads silhouettes: collision-free cube batches.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Morality")
+ UInstancedStaticMeshComponent* HopeSettlementDecor;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|World|Morality")
+ UInstancedStaticMeshComponent* ShadowSettlementDecor;
  UPROPERTY(Transient) TObjectPtr<UTextRenderComponent> CouncilWorldSign;
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
  // Nonblocking starter directions share the same no-Tick text approach as zone signs.
@@ -38,6 +43,7 @@ private:
  void CreateBlock(FVector Position, FVector Scale);
  void RefreshCouncilSettlementVisuals();
  int32 LastDisplayedCouncilDecision = -2;
+ int32 LastDisplayedMoralityTier = -99;
  // Max four authored movers; no world actor scans on each movement step.
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilMobileResidents;
  // Only authored merchants and tinkers, no world scan per refresh.
