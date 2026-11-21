@@ -210,6 +210,17 @@ The three-spawns-per-refresh budget, unloading radius, and island
 encounter cleanup stay unchanged. This is a source-level optimization,
 not a measured UE5 frame-time result.
 
+## Single-pass expired-tile pruning
+
+Each 0.35-second refresh now removes invalid or distant resident tiles
+through the map's removal-safe iterator. This avoids allocating a
+temporary expired-ID array and repeating map lookups. Active tiles
+remain protected by the original 60,000cm unload hysteresis; the
+25-tile cap check still runs **after** cleanup, so freed slots can
+load nearby terrain on the same refresh. No respawn/overboard
+behavior or original art changes are introduced. Native UE5 runtime
+profiling is still needed before claiming a measured gain.
+
 ## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
