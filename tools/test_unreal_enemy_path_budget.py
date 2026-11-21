@@ -83,7 +83,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # the hero's reachable destination. On that tick, keep steering along
         # the corner rather than reverting to the far target behind a wall.
         waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
-            "FVector Direction = Target - GetActorLocation();", 1
+            "} else {\n   // Preserve direct chase without NavSystem", 1
         )[0]
         self.assertIn("Target = CachedWaypoint;", waypoint)
         self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
@@ -136,7 +136,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
 
     def test_partial_path_retry_deadline_is_not_sliding(self):
         waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
-            "FVector Direction = Target - GetActorLocation();", 1
+            "} else {\n   // Preserve direct chase without NavSystem", 1
         )[0]
         arrived = waypoint.split("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", 1)[1]
         # The strict deadline comparison ensures repeated 0.1-second AI
