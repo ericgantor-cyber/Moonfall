@@ -42,7 +42,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertLess(nav.index("Path->PathPoints[1].ContainsNaN()"),
                         nav.index("? Path->PathPoints[1] : FVector::ZeroVector;"))
         cached = nav.split("if (CachedWaypoint.ContainsNaN()) {", 1)[1].split(
-            "if (!CachedWaypoint.IsNearlyZero()) {", 1
+            "if (bHasCachedNavigationWaypoint) {", 1
         )[0]
         self.assertIn("CachedWaypoint = FVector::ZeroVector;", cached)
         self.assertIn("bNavigationRouteUnavailable = true;", cached)
@@ -82,7 +82,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # A waypoint can be close enough to trigger repathing without being
         # the hero's reachable destination. On that tick, keep steering along
         # the corner rather than reverting to the far target behind a wall.
-        waypoint = self.source.split("if (!CachedWaypoint.IsNearlyZero()) {", 1)[1].split(
+        waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1
         )[0]
         self.assertIn("Target = CachedWaypoint;", waypoint)
@@ -100,8 +100,42 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_world_origin_navigation_corner_is_a_valid_waypoint(self):
+        # A reachable (0,0,0) waypoint must not be mistaken for a missing
+        # cache. Validity comes from path results, not vector magnitude.
+        header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        self.assertIn("bool bHasCachedNavigationWaypoint = false;", header)
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;", nav)
+        self.assertIn("CachedWaypoint = bHasCachedNavigationWaypoint", nav)
+        self.assertIn("if (bHasCachedNavigationWaypoint) {", nav)
+        self.assertIn("Target = CachedWaypoint;", nav)
+        self.assertNotIn("if (!CachedWaypoint.IsNearlyZero())", nav)
+        self.assertLess(nav.index("bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;"),
+                        nav.index("if (bHasCachedNavigationWaypoint) {"))
+        # All existing cache invalidations clear the explicit validity bit.
+        lines = self.source.splitlines()
+        resets = [index for index, line in enumerate(lines)
+                  if line.strip() == "CachedWaypoint = FVector::ZeroVector;"]
+        self.assertGreaterEqual(len(resets), 15)
+        for index in resets:
+            self.assertGreater(index, 0)
+            self.assertEqual(lines[index - 1].strip(),
+                             "bHasCachedNavigationWaypoint = false;")
+        # Losing NavSystem discards the old waypoint but keeps the original
+        # direct-chase fallback and allows immediate refresh when Nav returns.
+        no_nav = nav.split("// Preserve direct chase without NavSystem", 1)[1].split(
+            "if (bNavigationRouteUnavailable) return;", 1
+        )[0]
+        self.assertIn("bNavigationRouteUnavailable = false;", no_nav)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", no_nav)
+        self.assertIn("NextPathRefreshAt = 0.f;", no_nav)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_partial_path_retry_deadline_is_not_sliding(self):
-        waypoint = self.source.split("if (!CachedWaypoint.IsNearlyZero()) {", 1)[1].split(
+        waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1
         )[0]
         arrived = waypoint.split("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", 1)[1]
