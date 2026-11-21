@@ -40,6 +40,39 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_work_routes_are_navmesh_validated_and_rate_limited(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
+        arena = (SOURCE / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (SOURCE / "MoonfallArena.h").read_text(encoding="utf-8")
+        self.assertIn("bool ConfigureCouncilWorkRoute(const FVector& EndOffset);", header)
+        self.assertIn("void AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds);", header)
+        configure = npc.split("bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(", 1)[1].split(
+            "void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1
+        )[0]
+        for required in ("UNavigationSystemV1", "ProjectPointToNavigation(",
+                         "FindPathToLocationSynchronously(", "Path->IsPartial()",
+                         "Path->GetPathLength() > 240.f", "bCouncilWorkRouteValid = true;"):
+            self.assertIn(required, configure)
+        move = npc.split("void AMoonfallWorldNPC::AdvanceCouncilWorkStep(", 1)[1].split(
+            "FString AMoonfallWorldNPC::GetCouncilAssignment(", 1
+        )[0]
+        for required in ("!bCouncilWorkRouteValid", "Hero->CouncilDecisionId < 0",
+                         "Hero->FocusedResident.Get() == this", "FMath::Square(300.f)",
+                         "55.f * StepSeconds", "SetActorLocation(Next, true, &Blocked",
+                         "bCouncilWorkRouteValid = false"):
+            self.assertIn(required, move)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "OnDialogueStarted(",
+                          "ResidentBonds.Add(", "ChangeFactionReputation("):
+            self.assertNotIn(forbidden, configure + move)
+        self.assertIn("TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilMobileResidents;", arena_h)
+        self.assertIn("CouncilMobileResidents.Num() < 4", arena)
+        self.assertIn("ConfigureCouncilWorkRoute(FVector(0.f, 100.f, 0.f))", arena)
+        self.assertIn("StepCouncilWorkRoutes, 0.2f, true", arena)
+        self.assertIn("if (!CouncilMobileResidents.IsEmpty())", arena)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", arena)
+
     def test_council_world_labels_only_refresh_on_policy_changes(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
