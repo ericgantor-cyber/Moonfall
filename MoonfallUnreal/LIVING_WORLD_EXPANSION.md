@@ -102,6 +102,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - The existing arena's two-second policy refresh changes the labels **only on policy transitions**, not per NPC tick or per frame. The resident's original dialogue, actor location, body, collisions, quest rewards, and original character art are untouched.
 - These labels represent assignments, **not simulated walking, repairing, guarding or changing daily schedules**. Placement, visibility, legibility and native Unreal execution still require a Windows UE5 build/playtest.
 
+## First bounded NPC workplace movement
+
+- Up to four authored Crossroads **guards and scouts** can pace a short 100-unit route after a confirmed Council decision. The arena drives movement from a shared 0.2-second timer; NPC actors still have **no per-frame Tick** and no AI controller or additional spawn count.
+- Each resident first requires an available NavMesh, two nearby projected endpoints, and a complete navigation path no longer than 240 units. Invalid/missing navigation leaves that NPC stationary. Movement is capped at 55 units/second, uses a swept actor move, aborts on a collision, and never exceeds a 145-unit radius from its authored home.
+- Motion pauses when the hero approaches within 300 units, when a conversation with that resident is open, or while hero menus are open. All quest/dialogue/saves, existing hero artwork, and other residents' placement remain unchanged.
+- **Not a full NPC AI scheduler:** this is a small bidirectional patrol along validated short endpoints. No multi-waypoint path following, work animations, building repairs, or complex crowd avoidance have been authored. Native Windows UE5 compilation, NavMesh availability and in-game movement/collision need direct verification.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
