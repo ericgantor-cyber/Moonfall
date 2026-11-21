@@ -432,6 +432,8 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ bool bSwimAscendHeld = false;
+ void ReleaseJump();
  void TryJump();
  void MoveForward(float Amount);
  void MoveRight(float Amount);
