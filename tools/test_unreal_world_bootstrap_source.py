@@ -11,7 +11,19 @@ assert "virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override"
 assert '#include "MoonfallWorldBootstrap.h"' in cpp
 assert "ShouldSpawnArena(BootPolicy,bHasArena)" in cpp
 assert "ShouldGenerateDungeons(BootPolicy)" in cpp
-assert "IsActorBeingDestroyed()" in cpp
+startup=cpp.split("void AMoonfallUnrealGameMode::BeginPlay()",1)[1].split(
+    "void AMoonfallUnrealGameMode::EndPlay(",1)[0]
+arena=startup.split("for (TActorIterator<AMoonfallArena>",1)[1].split(
+    "if (MoonfallWorldBootstrap::ShouldSpawnArena",1)[0]
+dungeons=startup.split("for (TActorIterator<AMoonfallDungeonLayout>",1)[1].split(
+    "NextDungeonSlot = 0;",1)[0]
+assert "IsValid(*It) && !It->IsActorBeingDestroyed()" in arena
+# A destroyed layout must be rejected before it can reserve a slot or count ready.
+assert "if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;" in dungeons
+assert dungeons.index("It->IsActorBeingDestroyed()") < dungeons.index(
+    "AuthoredDungeonSlots[Slot] = 1;")
+assert dungeons.index("AuthoredDungeonSlots[Slot] = 1;") < dungeons.index(
+    "++ReadyDungeonCount;")
 assert "ClearTimer(DungeonSpawnTimer)" in cpp
 assert "Super::EndPlay(EndPlayReason)" in cpp
 assert "constexpr int32 MaxLayoutsPerBatch = 2;" in cpp
