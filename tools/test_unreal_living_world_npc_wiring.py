@@ -150,6 +150,40 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("CatalogPrice < BasePrice", hud)
         self.assertIn("CatalogPrice > BasePrice", hud)
 
+    def test_hero_morality_motifs_do_not_modify_character_artwork(self):
+        cpp = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        for name in ("MoralOrnamentLeft", "MoralOrnamentRight", "MoralPresenceLight"):
+            self.assertIn(name, header)
+            self.assertIn(name, cpp)
+        constructor = cpp.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshMoralPresenceVisuals()", 1
+        )[0]
+        for required in ('TEXT("MoralOrnamentLeft")', 'TEXT("MoralOrnamentRight")',
+                         'TEXT("MoralPresenceLight")', "SetupAttachment(GetRootComponent())",
+                         "ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)",
+                         "SetCastShadow(false)", "SetCastShadows(false)",
+                         "SetHiddenInGame(true)", "SetVisibility(false)"):
+            self.assertIn(required, constructor)
+        refresh = cpp.split("void AMoonfallHeroPawn::RefreshMoralPresenceVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor()", 1
+        )[0]
+        for required in ("MoonfallMorality::WorldTier(MoralAlignment)",
+                         "Health > 0.f && bWorldProgressInitialized",
+                         "FMath::Abs(Tier) >= 2", "bReduceMotion",
+                         "bLastMoralVisualReduceMotion", "LastMoralVisualTier",
+                         "SetRelativeRotation(", "SetLightColor(", "SetIntensity("):
+            self.assertIn(required, refresh)
+        for forbidden in ("SaveWorldProgress(", "SetSkeletalMesh(", "SetMaterial(",
+                          "SpawnActor(", "SetActorLocation(", "GetAllActorsOfClass("):
+            self.assertNotIn(forbidden, refresh)
+        tick = cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1
+        )[0]
+        self.assertIn("MoralVisualRefreshElapsed >= 0.5f", tick)
+        self.assertIn("RefreshMoralPresenceVisuals();", tick)
+        self.assertIn("MoralVisualRefreshElapsed += SafeTimerDelta;", tick)
+
     def test_good_evil_choices_persist_and_rollback_atomically(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
