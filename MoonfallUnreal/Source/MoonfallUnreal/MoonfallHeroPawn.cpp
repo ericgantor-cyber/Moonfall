@@ -96,10 +96,10 @@ int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return 0;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
+ // Share the equipment accessor's ownership and correct-slot checks.
+ if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return 0;
+ const int32 Code = GetEquipmentSlotCode(Slot);
+ return Code > 0 ? ValidEquippedTier(Code, Slot) : 0;
 }
 
 int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
