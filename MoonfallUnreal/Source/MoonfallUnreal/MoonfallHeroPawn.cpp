@@ -2873,7 +2873,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (Save->Version >= 4) {
   static const FName AllowedFactionIds[] = {FName(TEXT("Wanderers")),
    FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans")),
+   FName(TEXT("GothicHarbor")), FName(TEXT("BlackbellOrder")),
+   FName(TEXT("Gravewardens")), FName(TEXT("Duskwatch")),
+   FName(TEXT("Thornwraith"))};
   for (const auto& Entry : Save->FactionReputation) {
    bool bKnown = false;
    for (const FName Id : AllowedFactionIds) if (Entry.Key == Id) { bKnown = true; break; }
@@ -2892,7 +2895,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("GothicRavenHarbormaster")),
+   FName(TEXT("GothicBlackbellKeeper")),
+   FName(TEXT("GothicGraveWarden")),
+   FName(TEXT("GothicDuskwatchSentinel")),
+   FName(TEXT("GothicThornwraithScholar"))
   };
   for (const auto& Entry : Save->ResidentBonds) {
    bool bKnown = false;
