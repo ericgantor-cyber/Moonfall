@@ -860,7 +860,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Rarity = (Code / 1000) % 10;
    const int32 Tier = Code % 1000;
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
-   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Affix == 0)
@@ -873,7 +873,7 @@ void AMoonfallCombatHUD::DrawHUD()
    else if (Index == HoveredIndex) DrawRect(FLinearColor(0.17f,0.32f,0.43f,0.80f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+      DisplayPosition + 1, Slots[Slot], Tier, MoonfallItemQuality::Name(Rarity), Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
    // Selected rows are distinguished by their background, not yellow text.
    // Keep their true rarity tint visible while navigating the bag.
@@ -977,8 +977,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // Keep this area hidden on very short viewports to avoid covering bag rows.
    if (PanelHeight >= 500.f) {
     const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
-    const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+
     const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
     const bool bValidDetail = SelectedCode > 0 && SelectedSlot >= 0 && SelectedSlot <= 2
       && SelectedRarity >= 0 && SelectedRarity <= 5
@@ -988,7 +987,7 @@ void AMoonfallCombatHUD::DrawHUD()
         + SelectedRarity * 1000 + SelectedTier;
     const FString ItemName = bValidDetail
       ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
-          DetailSlots[SelectedSlot], DetailRarities[SelectedRarity], SelectedTier,
+          DetailSlots[SelectedSlot], MoonfallItemQuality::Name(SelectedRarity), SelectedTier,
           DetailTraits[SelectedAffix])
       : TEXT("SELECTED  |  Invalid equipment data");
     DrawText(ItemName,
@@ -1127,17 +1126,16 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIsEquipped ? TEXT("EQUIPPED")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER")
      : bIsTraitSwap ? TEXT("TRAIT SWAP") : TEXT("SIDEGRADE");
-   const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-     TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+
    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const FString CompareLine = !bSelectedValid
      ? TEXT("Compare: INVALID ITEM  |  cannot compare malformed gear")
      : !bEquippedValid
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-       CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
+       CompareWord, SelectedTier, MoonfallItemQuality::Name(SelectedRarity),
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
-       EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
+       EquippedTier, MoonfallItemQuality::Name(EquippedRarity),
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
    // Bad inventory data has no meaningful power delta. Keep the error
    // visible instead of appending a misleading "+0 gear power" score.
@@ -1520,17 +1518,18 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
-    TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
-  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
+  const bool bLastQualityValid = MoonfallItemQuality::IsValid(Hero->LastLootRarity);
   DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->GetValidatedEquippedTier(0), Hero->GetValidatedEquippedTier(1),
     Hero->GetValidatedEquippedTier(2), Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
    DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
-    RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
-    FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
+    MoonfallItemQuality::Name(Hero->LastLootRarity, true), Hero->LastLootTier,
+    Hero->LastLootUpgrade),
+    bLastQualityValid ? MoonfallItemQuality::Color(Hero->LastLootRarity)
+                      : FLinearColor::White,
+    24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
