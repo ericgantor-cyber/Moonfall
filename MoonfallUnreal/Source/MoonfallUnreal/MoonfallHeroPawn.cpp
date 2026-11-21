@@ -2000,9 +2000,9 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 18 + RarityBias ? 2
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
  LastLootTier = NewTier;
- // Enemy rank influences quality, not gear slot: any enemy can drop
- // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ // Every enemy can drop gear for any of the nine equipment slots.
+ // Quality weights remain unchanged, and the slot ID is saved in the same code.
+ LastLootSlot = FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -2072,7 +2072,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
