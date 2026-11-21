@@ -964,13 +964,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
-     // Partial routes still provide reachable path corners around walls.
-     // Use their first actual waypoint instead of rushing toward the far
-     // projected target; keep the existing single cached nav query.
-     CachedWaypoint = (IsValid(Path) && Path->PathPoints.Num() > 1)
-       ? Path->PathPoints[1] : Point.Location;
+     // Both complete and partial paths may yield a reachable first corner.
+     // If a route has no usable segment, do not move directly through walls.
+     // Retry only at the existing cached navigation cadence.
+     bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1;
+     CachedWaypoint = !bNavigationRouteUnavailable
+       ? Path->PathPoints[1] : FVector::ZeroVector;
     } else {
-     CachedWaypoint = Target;
+     // The target cannot be projected onto the current navigation mesh.
+     bNavigationRouteUnavailable = true;
+     CachedWaypoint = FVector::ZeroVector;
     }
    }
    if (CachedWaypoint.ContainsNaN()) {
@@ -994,7 +997,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       NextPathRefreshAt = Now + 0.25f;
     }
    }
+  } else {
+   // Preserve original direct-chase behavior if the world has no NavSystem.
+   bNavigationRouteUnavailable = false;
   }
+  // A failed NavMesh solve must not turn into repeated wall collision sweeps.
+  // The next regular cached refresh can recover when the mesh/goal changes.
+  if (bNavigationRouteUnavailable) return;
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
   // A brief re-entry chase bonus rewards the two-second withdrawal
