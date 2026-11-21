@@ -150,7 +150,6 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  // Characters who walked onto the deck can depart from their current spot.
  // Players still standing on the pier use the existing clear-space placement.
  const bool bAlreadyOnDeck = Hero->GetMovementBase() == Deck;
- const FVector OriginalLocation = Hero->GetActorLocation();
  if (!bAlreadyOnDeck) {
   FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 190.f);
   if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
