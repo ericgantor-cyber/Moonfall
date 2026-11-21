@@ -40,6 +40,28 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_assignments_are_readonly_role_based_and_visible_in_npc_menu(self):
+        npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallWorldNPC.h").read_text(encoding="utf-8")
+        hud = (SOURCE / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("FString GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const;", header)
+        method = npc.split("FString AMoonfallWorldNPC::GetCouncilAssignment(", 1)[1].split(
+            "bool AMoonfallWorldNPC::SharesRaceWith(", 1
+        )[0]
+        for required in ('SettlementId != FName(TEXT("Crossroads"))',
+                         "Hero->CouncilDecisionId < 0", "Hero->CouncilDecisionId > 2",
+                         "return GetCurrentActivity();",
+                         "Protecting Residents", "Escorting Travelers", "Supplying Families",
+                         "Repairing Machinery", "Stocking Building Supplies",
+                         "Monitoring the Borders", "Maintaining Defenses"):
+            self.assertIn(required, method)
+        for forbidden in ("SaveWorldProgress(", "ChangeFactionReputation(", "SpawnActor(",
+                          "SetActorLocation(", "SetTimer(", "ResidentBonds.Add("):
+            self.assertNotIn(forbidden, method)
+        self.assertIn("Resident->GetCouncilAssignment(Hero)", hud)
+        self.assertIn("bShowResidentFeedback", hud)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", npc)
+
     def test_completed_contract_npcs_acknowledge_durable_council_policy(self):
         npc = (SOURCE / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
         method = npc.split("bool AMoonfallWorldNPC::TryTalk(", 1)[1].split(
