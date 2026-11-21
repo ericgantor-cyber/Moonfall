@@ -3918,6 +3918,22 @@ int32 AMoonfallHeroPawn::GetResidentCatalogPrice(bool bMerchant) const {
  return MoonfallMorality::AdjustShopPrice(
      bMerchant ? Item.merchantCost : Item.tinkerCost, MoralAlignment);
 }
+FString AMoonfallHeroPawn::GetMoralGearTitle(int32 Slot) const {
+ if (Slot < 0 || Slot > 2) return TEXT("None");
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode;
+ const bool bOwned = InventoryItemCodes.Contains(Code)
+     && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot;
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::GearTheme(MoralAlignment, bOwned)));
+}
+FString AMoonfallHeroPawn::GetMoralGearMotif(int32 Slot) const {
+ if (Slot < 0 || Slot > 2) return TEXT("No equipped gear");
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode;
+ const bool bOwned = InventoryItemCodes.Contains(Code)
+     && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot;
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::GearVisualPromise(MoralAlignment, bOwned)));
+}
 FString AMoonfallHeroPawn::GetMoralTitle() const {
  return FString(ANSI_TO_TCHAR(MoonfallMorality::Alignment(MoralAlignment)));
 }
