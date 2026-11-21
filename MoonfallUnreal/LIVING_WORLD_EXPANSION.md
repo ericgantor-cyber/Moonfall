@@ -132,6 +132,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The arena maintains a bounded list of authored merchant and tinker NPCs, updating their marker states through the pre-existing two-second Council settlement timer. No new actor spawns, inventory grants, physics collisions, NPC Tick, save fields, or alterations to original character models.
 - Markers hide when there is no confirmed Council policy. Native Unreal compilation and in-game visual placement remain to be verified.
 
+## First transactional merchant and tinker interactions
+
+- The native NPC conversation panel now has a **fourth Trade/Craft row**, selectable by existing mouse and controller D-pad + A navigation. Merchants sell a fixed starter weapon for 12 salvage; the Crossroads tinker crafts a fixed uncommon weapon for 20. A confirmed V13 Council policy is required. Other residents display the action as unavailable.
+- Both operations require a second explicit selection within six seconds. They check inventory capacity, the resident's live interaction range, player state, and the existing persistence write block. Item addition and salvage deduction are saved synchronously in one world-save call; failure rolls back both.
+- These are deliberately **small fixed-item transactions**, not an item catalog, buy-back, economy simulation, recipe discovery, crafting preview or finished merchant shop. They make no auto-equip or faction changes. Native UE5 mouse/controller and actual saving still require in-game testing.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
