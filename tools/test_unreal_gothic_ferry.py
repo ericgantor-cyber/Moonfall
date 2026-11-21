@@ -226,7 +226,11 @@ class GothicFerryContracts(unittest.TestCase):
             "void AMoonfallHeroPawn::MoveRight(", 1)[0]
         self.assertIn("GetCharacterMovement()->IsSwimming()", jump)
         self.assertIn("bSwimAscendHeld = true;", jump)
+        self.assertLess(jump.index("bSwimAscendHeld = true;"), jump.index("GetCharacterMovement()->IsSwimming()"))
         self.assertLess(jump.index("bSwimAscendHeld = true;"), jump.index("Jump();"))
+        self.assertLess(jump.index("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;"),
+                        jump.index("bSwimAscendHeld = true;"))
+        self.assertIn("if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())\n  return;", jump)
         self.assertIn("bool bSwimAscendHeld = false;", (SRC / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
         self.assertIn("void AMoonfallHeroPawn::ReleaseJump()", self.hero)
         self.assertIn("bSwimAscendHeld = false;", self.hero)
