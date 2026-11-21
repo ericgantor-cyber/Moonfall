@@ -84,24 +84,22 @@ constexpr const char* NextObjective(bool HarborDiscovered,
  if (!ValidQuests(Quests)) return "Island records unavailable";
  if (!HarborDiscovered && !CathedralDiscovered)
   return "Discover an island shrine";
- for (int Index = 0; Index < 5; ++Index) {
-  if (Quests[Index] == 0) {
-   constexpr const char* Leads[5] = {
-    "Find Mara Vesper at the harbor", "Find Brother Corvin at Blackbell",
-    "Find Veyra Ash in the graves", "Find Rook Thorn at Duskwatch",
-    "Find Elias Briar in the grove"
-   };
-   return Leads[Index];
-  }
-  if (Quests[Index] == 1) {
-   constexpr const char* TurnIns[5] = {
-    "Finish Mara's salvage contract", "Finish Corvin's salvage contract",
-    "Finish Veyra's salvage contract", "Finish Rook's salvage contract",
-    "Finish Elias's salvage contract"
-   };
-   return TurnIns[Index];
-  }
- }
+ // Prioritize a contract the player has already accepted over an
+ // untouched NPC lead. Both orders are deterministic across save/reload.
+ constexpr const char* TurnIns[5] = {
+  "Finish Mara's salvage contract", "Finish Corvin's salvage contract",
+  "Finish Veyra's salvage contract", "Finish Rook's salvage contract",
+  "Finish Elias's salvage contract"
+ };
+ constexpr const char* Leads[5] = {
+  "Find Mara Vesper at the harbor", "Find Brother Corvin at Blackbell",
+  "Find Veyra Ash in the graves", "Find Rook Thorn at Duskwatch",
+  "Find Elias Briar in the grove"
+ };
+ for (int Index = 0; Index < 5; ++Index)
+  if (Quests[Index] == 1) return TurnIns[Index];
+ for (int Index = 0; Index < 5; ++Index)
+  if (Quests[Index] == 0) return Leads[Index];
  if (!CathedralDiscovered) return "Discover the Blackbell shrine";
  if (!MainlandComplete) return "Complete the six mainland acts";
  return "Read the Seventh Witness";
