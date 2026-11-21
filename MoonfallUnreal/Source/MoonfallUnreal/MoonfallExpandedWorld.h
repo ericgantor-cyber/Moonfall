@@ -45,6 +45,7 @@ private:
  TWeakObjectPtr<class AMoonfallHeroPawn> SeaSwimmer;
  void UpdateSeaSwimming();
 
+ void SpawnGothicIsleServices();
  void BuildConnectingRoads();
  void AddRoad(const FVector& Start, const FVector& End, float Width);
  void RefreshNearbyTiles();
