@@ -21,7 +21,7 @@ class GothicFerryContracts(unittest.TestCase):
         cls.inputs = (ROOT / "MoonfallUnreal/Config/DefaultInput.ini").read_text(encoding="utf-8")
 
     def test_reversible_80m_crossing_uses_moving_boat_not_teleport(self):
-        self.assertIn("CrossingDuration = 14.f;", self.h)
+        self.assertIn("CrossingDuration = 11.f;", self.h)
         self.assertIn("DockReach = 950.f;", self.h)
         self.assertIn("bIsland ? 246400.f : 237600.f", self.boat)
         self.assertIn("const FVector From = DockLocation(bAtIsland);", self.boat)
