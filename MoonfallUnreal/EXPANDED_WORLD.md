@@ -62,14 +62,23 @@ placeholder buildings. Gothic Isle now reuses the mainland's same
 on every tile and five original landmark centers:
 **Raven's Landing** (south harbor), **Blackbell Cathedral** (center),
 **Ashen Graves** (east), **Duskwatch Keep** (west), and
-**Thornwraith Grove** (north). All are instanced shape blockouts
-and optional floating world landmark signs, not finished art or
-functional NPC services. This establishes the island's own equivalents
-of mainland scenery and settlement silhouettes without copying the
-mainland's visual identities or modifying original character artwork.
-There are no newly authored shopkeepers, interactive shrines,
-quests, combat encounters, climates or multiplayer systems in
-these blockouts; those require separate integration with existing gameplay.
+**Thornwraith Grove** (north). All district structures remain instanced primitive blockouts, not
+finished art. In addition, the expanded-world manager now spawns
+**two actual, stable-ID discoverable shrines** at Raven's Landing and
+Blackbell Cathedral, through the same shrine class and persistent respawn
+logic used by the mainland. Five named residents reuse the existing
+native NPC talk, reputation, resident-bond and salvage-contract quest
+system: Mara Vesper (harbor scout), Brother Corvin (cathedral elder),
+Veyra Ash (grave warden), Rook Thorn (Duskwatch sentinel), and
+Elias Briar (Thornwraith scholar). All five have unique quest/bond IDs,
+settlement affiliation, faction, greetings and existing interactive
+context controls. Duplicate IDs are checked before spawning.
+These are **source-level gameplay integrations**, not verified in a native
+Unreal build. There are no newly authored merchant inventories, custom
+story quest chains, combat encounters, climates or multiplayer systems
+in these blockouts. NPCs use temporary primitive meshes and have no
+new animation or navigation behavior. None of this modifies Z, Nyra,
+original hero art, existing mainland shrines or persistent save schemas.
 
 These tiles use a custom proximity streamer, **not Unreal World
 Partition**. They may need transition and asset prefetch tuning once
