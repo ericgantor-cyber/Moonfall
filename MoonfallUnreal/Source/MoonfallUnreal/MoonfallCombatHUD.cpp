@@ -563,7 +563,8 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(bHoveredActiveRespawn ? TEXT("Active respawn shrine") : TEXT("Discovered Shrine"),
         FLinearColor(0.82f, 0.80f, 0.75f), TooltipX + 7.f, TooltipY + 22.f,
         nullptr, Scale * 0.68f);
-    DrawText(TEXT("Click twice to fast travel"), FLinearColor(0.76f, 0.76f, 0.72f),
+    DrawText(bHoveredActiveRespawn ? TEXT("Permanent discovery")
+        : TEXT("Click twice to fast travel"), FLinearColor(0.76f, 0.76f, 0.72f),
         TooltipX + 7.f, TooltipY + 37.f, nullptr, Scale * 0.60f);
    } else {
     const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
