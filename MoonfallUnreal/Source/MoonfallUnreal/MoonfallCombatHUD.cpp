@@ -31,7 +31,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
-   const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
+   const float H = FMath::Min(400.f, FMath::Max(320.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
@@ -48,17 +48,28 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
    const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"),
+   const bool bWorkVendor = Resident->SettlementId == FName(TEXT("Crossroads"))
+       && (Resident->SocialRole == FName(TEXT("Merchant"))
+           || Resident->SocialRole == FName(TEXT("Tinker")))
+       && Hero->CouncilDecisionId >= 0;
+   const bool bMerchant = Resident->SocialRole == FName(TEXT("Merchant"));
+   const FString WorkLabel = bWorkVendor
+       ? FString::Printf(TEXT("%s %d salvage%s"),
+           bMerchant ? TEXT("Buy weapon") : TEXT("Craft weapon"),
+           bMerchant ? 12 : 20,
+           Hero->bResidentTradePending ? TEXT(" (confirm)") : TEXT(""))
+       : TEXT("Trade/Craft unavailable");
+   const FString Names[4] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close") };
+     TEXT("Close"), WorkLabel };
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
-   for (int32 Row = 0; Row < 3; ++Row) {
+   for (int32 Row = 0; Row < 4; ++Row) {
     const float Y = T + 122.f + Row * 53.f;
     const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
       CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
