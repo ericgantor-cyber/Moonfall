@@ -61,6 +61,9 @@ class GothicFerryContracts(unittest.TestCase):
             "bool AMoonfallGothicFerry::TryBoard(", 1)[0]
         self.assertIn("FMath::CeilToInt(GetSecondsUntilArrival())", status)
         self.assertIn("if (Seconds == LastDisplayedSeconds) return;", status)
+        self.assertIn("if (Seconds == 0) {", status)
+        self.assertIn('TEXT("WAITING FOR CLEAR DOCK")', status)
+        self.assertLess(status.index("if (Seconds == 0) {"), status.index('TEXT("TO %s  |  %ds")'))
         self.assertIn("GetDestinationName().ToString()", status)
         self.assertIn('TEXT("TO %s | RIGHT-CLICK / D-PAD UP")', status)
         self.assertIn("UpdateVoyageStatus();", self.boat.split("void AMoonfallGothicFerry::BeginPlay()", 1)[1].split("float AMoonfallGothicFerry::GetCrossingProgress()", 1)[0])
