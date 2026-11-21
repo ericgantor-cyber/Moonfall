@@ -129,7 +129,8 @@ native builds and representative Windows machines can be profiled.
   per-frame actor Tick. This is **not yet a complete ocean system**:
   Swimming movement now follows camera pitch when pressing forward, and the
   existing keyboard/controller Jump action supplies continuous upward swim
-  movement while held; releasing Jump stops ascent without changing the
+  movement while held, including when Jump was already being held during
+  the fall into water. Releasing Jump stops ascent without changing the
   existing land jump behavior.
   Normal land movement retains yaw-only direction; no combat/input remapping
   or automatic rescue was added. Descending uses camera-directed forward
