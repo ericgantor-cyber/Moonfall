@@ -173,6 +173,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - Merchants and tinkers now quote and charge the **same morality-adjusted salvage price**: at +25 Good a 5% rounded-up discount, at +60 Good a 10% rounded-up discount, at -25 Evil a 10% rounded-up surcharge, and at -60 Evil a 20% rounded-up surcharge; otherwise full price. No free/negative prices. The native shop preview labels a Good-standing or Feared adjustment. Existing confirmation and synchronous save rollback stay intact.
 - This is a real **world visual and trading consequence**, not yet Fable-style physical player morphing, NPC crowds, town rebuilds, new architecture assets, or a dynamic society simulation. Native UE5 Windows compile and in-game readability/collision checks are still unverified.
 
+## Hero morality silhouettes and gentle presence light
+
+- At sustained **Exalted (+60)** or **Dreaded (-60)** alignment, the hero now displays two optional mirrored primitive ornaments and a small color-coded presence light attached to the capsule root. Good alignment uses outward-slanting, gold-lit motifs; Evil uses inward-slanting, crimson-lit motifs. Both are read-only cosmetic attachments and do not change the hero's original skeletal mesh, textures, animations, collision, damage or existing save.
+- All ornament mesh parts are collision-free, overlap-free and shadowless. The light is shadowless and radius-limited to 190 Unreal units. It stays disabled at neutral/mild alignment, before save initialization and while defeated.
+- The existing hero Tick accumulates a **0.5-second** bounded timer and only updates transforms and visibility if the alignment threshold or accessibility Reduce Motion setting changes. There is **no spinning/pulsing animation**, extra spawned NPCs or per-frame effect transform manipulation. Reduce Motion lowers light intensity to 90 rather than 210.
+- Z and Nyra's original artwork is preserved. These are stylized **primitive placeholder silhouettes**, not authentic wing/horn assets, full-body morphs, new materials or finished UE5 effects. They still require native Unreal compilation and art/gameplay review.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
