@@ -678,7 +678,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bShowAllSlots = PanelHeight >= 520.f;
    // Framed equipment slots are reserved for roomy panels; the original
    // compact text overview remains available for smaller windows.
-   const bool bUseSlotGrid = PanelHeight >= 700.f && PanelWidth >= 550.f;
+   const bool bUseSlotGrid = PanelHeight >= 640.f && PanelWidth >= 550.f;
    const float RowHeight = FMath::Clamp(
      (PanelHeight - (bUseSlotGrid ? 350.f : 145.f))
        / (bUseSlotGrid ? 18.f : (bShowAllSlots ? 22.f : 18.f)), 8.f, 26.f);
