@@ -53,6 +53,29 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertNotIn("DiscoveredDungeonMask =", atlas.split("if (bAtlasOpen)", 1)[1].split(
             "// All native modal panels", 1)[0])
 
+    def test_atlas_fast_travel_requires_discovery_confirmation_and_safe_landing(self):
+        hero = read(SOURCE / "MoonfallHeroPawn.cpp")
+        header = read(SOURCE / "MoonfallHeroPawn.h")
+        hud = read(SOURCE / "MoonfallCombatHUD.cpp")
+        travel = hero.split("bool AMoonfallHeroPawn::TryAtlasFastTravel(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDiscoveredShrine(", 1)[0]
+        self.assertIn("AtlasDiscoveredShrineIds", header)
+        self.assertIn("AtlasFastTravelPendingShrine = NAME_None", header)
+        self.assertIn("HasDiscoveredShrine(ShrineId)", travel)
+        self.assertIn("!AtlasDiscoveredShrineIds.Contains(ShrineId)", travel)
+        self.assertIn("AtlasFastTravelPendingShrine != ShrineId", travel)
+        self.assertIn("It->ShrineId == ShrineId", travel)
+        self.assertIn("Target->GetRespawnLocation()", travel)
+        self.assertIn("OverlapBlockingTestByChannel", travel)
+        self.assertIn("TeleportTo(Landing, GetActorRotation(), false, false)", travel)
+        self.assertNotIn("ActiveShrineId =", travel)
+        self.assertNotIn("DiscoveredShrineIds.Add(", travel)
+        self.assertNotIn("SaveWorldProgress(", travel)
+        self.assertIn("AtlasDiscoveredShrineIds.Add(Shrine->ShrineId);", hero)
+        self.assertIn("TryAtlasFastTravel(AtlasDiscoveredShrineIds[Index]);", hero)
+        self.assertIn("Click twice to fast travel", hud)
+        self.assertIn("AtlasFastTravelPendingShrine = NAME_None;", hero)
+
     def test_six_full_size_provinces_plus_a_separate_island(self):
         self.assertIn("MainRegionCount = 6;", self.world_h)
         self.assertIn("RegionCount = 7;", self.world_h)
