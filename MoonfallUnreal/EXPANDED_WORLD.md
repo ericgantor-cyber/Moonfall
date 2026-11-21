@@ -80,12 +80,17 @@ and elite combat instead of inventing incompatible gameplay systems.
 At most one enemy per district is active; an encounter is created only
 when the hero approaches within 110m, is cleaned up beyond 180m, and
 does not respawn after defeat until the hero leaves and returns.
-These are temporary enemy meshes and region-tagged encounter variants,
-not original creature models or full dungeon/boss implementations.
+A sixth, separately tracked encounter, **Blackbell Warden**, is a
+generic world guardian northeast of the cathedral. It reuses existing
+multi-phase boss combat, level scaling, XP, loot and attack warnings;
+it is not a dungeon boss and does not affect dungeon completion or
+Z/Nyra divine identities. The Warden follows the same 110m activation,
+180m unloading, and no-immediate-respawn rules. All encounter meshes
+are temporary proxies, not original creature artwork or a finished boss.
 These are **source-level gameplay integrations**, not verified in a native
 Unreal build. There are no newly authored merchant inventories, custom
-story quest chains, dungeon interiors, island bosses, climates or
-multiplayer systems in these blockouts. NPCs use temporary primitive
+story quest chains, dungeon interiors, unique island boss art,
+climates or multiplayer systems in these blockouts. NPCs use temporary primitive
 meshes and have no new animation or navigation behavior. None of this modifies Z, Nyra,
 original hero art, existing mainland shrines or persistent save schemas.
 
