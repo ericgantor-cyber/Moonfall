@@ -148,10 +148,10 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
  if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
   return 0;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ // Reuse the same owned, correctly slotted equipment validation as the HUD.
+ const int32 CurrentCode = GetEquipmentSlotCode(Slot);
  int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
- const bool bCurrentValid = InventoryItemCodes.Contains(CurrentCode)
+ const bool bCurrentValid = CurrentCode > 0
      && DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
  return FMath::Clamp(GetSetPieceCount(Affix)
      - (bCurrentValid && PreviousRarity >= 1 && PreviousTrait == Affix ? 1 : 0)
@@ -3419,6 +3419,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  // Character details are informational: right-click must not equip hidden rows.
+  if (bCharacterStatsOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
