@@ -3831,7 +3831,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 19.f", page)
+        self.assertIn("(PanelHeight - 165.f) / 19.f", page)
         self.assertIn("Weapon resonance: %s", page)
         self.assertIn("Row == 1 || Row == 2 || Row == 6 || Row == 9 || Row == 13 || Row == 17", page)
         self.assertIn("Equipment power: %d", page)
