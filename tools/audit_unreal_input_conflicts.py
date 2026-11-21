@@ -99,7 +99,27 @@ def main():
     assert "ChooseResidentContextAction(ResidentContextSelection);" in resident_block
     assert "return;" in resident_block
     assert "Jump();" not in resident_block
+    # Invalid NPC pointers must close the modal on the same input event,
+    # never falling through to combat Jump or silently changing quest state.
+    assert "if (!FocusedResident.IsValid()) {" in resident_block
+    assert resident_block.index("CloseResidentContext();") < resident_block.index(
+        "ChooseResidentContextAction(ResidentContextSelection);")
     assert "Jump();" in jump_section
+    # Up/Down share the gameplay and menu bindings. A stale dialogue must be
+    # closed before selecting either a different NPC or an unrelated menu.
+    dpad=pawn.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+        "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+    assert "if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this))" in dpad
+    assert dpad.index("CloseResidentContext();") < dpad.index(
+        "AMoonfallWorldNPC* Resident = GetNearestResidentNPC();")
+    for nav_name,next_name in (("OptionsUp","OptionsDown"),("OptionsDown","OptionsLeft")):
+        nav=pawn.split(f"void AMoonfallHeroPawn::{nav_name}()",1)[1].split(
+            f"void AMoonfallHeroPawn::{next_name}()",1)[0]
+        assert "if (bResidentContextOpen) {" in nav
+        assert "if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }" in nav
+        assert nav.index("CloseResidentContext(); return;") < nav.index(
+            "ResidentContextSelection =")
+    print("Stale NPC dialogue closes on A and D-pad without leaking input: PASS (source verified)")
     # Dialogue is modal even if its NPC weak pointer becomes invalid after
     # streaming: neither keyboard nor gamepad movement may move the hero.
     for movement_name in ("MoveForward", "MoveRight"):
