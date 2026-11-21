@@ -120,13 +120,15 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
   {TEXT("gothic_ravens_landing"), TEXT("Raven's Landing Shrine"), FVector(650.f, -40000.f, 0.f)},
   {TEXT("gothic_blackbell"), TEXT("Blackbell Cathedral Shrine"), FVector(650.f, 0.f, 0.f)}
  };
+ // Inventory existing services once, rather than walking the actor
+ // registry separately for each new landmark.
+ TSet<FName> ExistingShrineIds;
+ for (TActorIterator<AMoonfallCheckpointShrine> It(World); It; ++It)
+  if (IsValid(*It) && !It->ShrineId.IsNone())
+   ExistingShrineIds.Add(It->ShrineId);
  for (const FIslandShrineSpec& Spec : Shrines) {
   const FName StableId(Spec.Id);
-  bool bExists = false;
-  for (TActorIterator<AMoonfallCheckpointShrine> It(World); It; ++It) {
-   if (IsValid(*It) && It->ShrineId == StableId) { bExists = true; break; }
-  }
-  if (bExists) continue;
+  if (ExistingShrineIds.Contains(StableId)) continue;
   const FTransform Transform(FRotator::ZeroRotator, Isle + Spec.Offset);
   AMoonfallCheckpointShrine* Shrine = World->SpawnActorDeferred<AMoonfallCheckpointShrine>(
     AMoonfallCheckpointShrine::StaticClass(), Transform, this, nullptr,
@@ -135,7 +137,8 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
   Shrine->ShrineId = StableId;
   Shrine->MapDisplayName = FText::FromString(Spec.Name);
   Shrine->FinishSpawning(Transform);
-  if (IsValid(Shrine)) {
+  if (IsValid(Shrine) && !Shrine->IsActorBeingDestroyed()) {
+   ExistingShrineIds.Add(StableId);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
        UGameplayStatics::GetPlayerPawn(this, 0)))
     Shrine->CheckHeroAtSpawn(Hero);
@@ -173,13 +176,13 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
    TEXT("The roots shelter a star chart pointing toward this island, not toward the eclipse."),
    TEXT("Scholar"), TEXT("Thornwraith"), FVector(-620.f, 40000.f, 60.f), 8}
  };
+ TSet<FName> ExistingResidentIds;
+ for (TActorIterator<AMoonfallWorldNPC> It(World); It; ++It)
+  if (IsValid(*It) && !It->ResidentId.IsNone())
+   ExistingResidentIds.Add(It->ResidentId);
  for (const FIslandResidentSpec& Spec : Residents) {
   const FName StableId(Spec.Id);
-  bool bExists = false;
-  for (TActorIterator<AMoonfallWorldNPC> It(World); It; ++It) {
-   if (IsValid(*It) && It->ResidentId == StableId) { bExists = true; break; }
-  }
-  if (bExists) continue;
+  if (ExistingResidentIds.Contains(StableId)) continue;
   const FTransform Transform(FRotator::ZeroRotator, Isle + Spec.Offset);
   AMoonfallWorldNPC* NPC = World->SpawnActorDeferred<AMoonfallWorldNPC>(
     AMoonfallWorldNPC::StaticClass(), Transform, this, nullptr,
@@ -194,6 +197,8 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
   NPC->SettlementId = FName(TEXT("GothicIsle"));
   NPC->RaceId = Spec.Race;
   NPC->FinishSpawning(Transform);
+  if (IsValid(NPC) && !NPC->IsActorBeingDestroyed())
+   ExistingResidentIds.Add(StableId);
  }
 }
 
