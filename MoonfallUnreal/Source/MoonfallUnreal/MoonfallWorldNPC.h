@@ -16,6 +16,14 @@ public:
  // Nonblocking text above a resident, refreshed only when the Council policy changes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UTextRenderComponent* CouncilAssignmentSign;
  void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);
+ // Short authored two-point workplace patrol. No NPC Tick or AI controller.
+ // Returns false if a walkable route or safe endpoints cannot be confirmed.
+ bool ConfigureCouncilWorkRoute(const FVector& EndOffset);
+ void AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds);
+ UPROPERTY(Transient) bool bCouncilWorkRouteValid = false;
+ FVector CouncilWorkHome = FVector::ZeroVector;
+ FVector CouncilWorkDestination = FVector::ZeroVector;
+ bool bCouncilWorkReturning = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText DisplayName;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText Greeting;
  // Native Canvas HUD can show spoken lines even without a Blueprint widget.
