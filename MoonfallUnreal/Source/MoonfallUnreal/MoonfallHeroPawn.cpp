@@ -3945,6 +3945,9 @@ bool AMoonfallHeroPawn::CommitResidentMoralChoice() {
   ResidentFeedbackUntil = Now + 4.f;
   return false;
  }
+ // Only update the changed resident's non-colliding visual sign after the
+ // atomic world save succeeds. A failed save must show no moral consequence.
+ Resident->RefreshCouncilAssignmentSign(this);
  ResidentFeedbackMessage = bAid
      ? TEXT("Your kindness was remembered.")
      : TEXT("Your cruelty was witnessed.");
