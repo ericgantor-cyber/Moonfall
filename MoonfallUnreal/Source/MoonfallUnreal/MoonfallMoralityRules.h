@@ -47,5 +47,19 @@ constexpr const char* WorldState(int score) {
  return tier == 2 ? "Beacon of Hope" : tier == 1 ? "Hopeful"
       : tier == -2 ? "Under Shadow" : tier == -1 ? "Uneasy" : "Unchanged";
 }
+// Non-destructive, read-only equipment identity. This never changes encoded
+// gear, stats, level requirements or inventory ownership.
+constexpr const char* GearTheme(int alignment, bool equippedAndOwned) {
+ if (!equippedAndOwned) return "None";
+ const int tier = WorldTier(alignment);
+ return tier >= 2 ? "Radiant" : tier == 1 ? "Hallowed"
+      : tier <= -2 ? "Dreadbound" : tier == -1 ? "Shadowmarked" : "Unmarked";
+}
+constexpr const char* GearVisualPromise(int alignment, bool equippedAndOwned) {
+ if (!equippedAndOwned) return "No equipped gear";
+ const int tier = WorldTier(alignment);
+ return tier >= 2 ? "Gold motif" : tier == 1 ? "Dawn motif"
+      : tier <= -2 ? "Crimson motif" : tier == -1 ? "Dusk motif" : "Original";
+}
 constexpr bool IsValidAction(int action) { return action == -1 || action == 1; }
 } // namespace MoonfallMorality
