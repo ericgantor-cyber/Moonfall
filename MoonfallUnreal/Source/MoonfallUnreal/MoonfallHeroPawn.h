@@ -95,6 +95,11 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool SelectCouncilPreview(int32 DecisionId);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilPointerOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Council") void ToggleCouncilPointer();
+ // Persisted exactly once. -1 means no policy chosen in this save.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilDecisionId = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilDecisionConfirmArmed = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool ConfirmCouncilDecision();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString GetConfirmedCouncilPolicy() const;
  void CloseCouncilPointer();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
