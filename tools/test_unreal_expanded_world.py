@@ -218,7 +218,10 @@ class ExpandedOverworldTests(unittest.TestCase):
                         streaming.index(cap_guard))
         self.assertIn("ResidentTiles.CreateIterator()", streaming)
         self.assertIn("It.RemoveCurrent();", streaming)
-        self.assertIn("if (IsValid(Tile)) Tile->Destroy();", streaming)
+        self.assertIn("if (IsValid(Tile) && !Tile->IsActorBeingDestroyed()) Tile->Destroy();", streaming)
+        self.assertIn("if (IsValid(Tile) && !Tile->IsActorBeingDestroyed()", streaming)
+        self.assertLess(streaming.index("!Tile->IsActorBeingDestroyed()"),
+                        streaming.index("It.RemoveCurrent();"))
         self.assertNotIn("TArray<int32> ExpiredIds;", streaming)
         self.assertLess(streaming.index("It.RemoveCurrent();"),
                         streaming.index(cap_guard))
