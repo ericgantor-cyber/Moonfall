@@ -186,6 +186,13 @@ These pieces are **not a complete version** of the six proposed systems.
 - The full-height native character sheet (820px or taller) displays the three equipment slots' moral theme and a text description of the associated visual motif. Compact character sheets omit these optional lines to avoid colliding with gameplay stats. The previous original stats, weapon resonance and equipment set bonuses remain unaffected.
 - These are **text-only cosmetic identity previews**, not item mesh/material recolors or 111 new artwork assets. This is deliberate: original Z/Nyra art, inventory item codes, rarity/tier, combat calculations and V14 save data remain untouched. Pure C++17 tests cover the five alignment states and the no-gear case; source-contract tests prohibit mutation in preview code.
 
+## Equipped gear gets original, non-destructive morality silhouettes
+
+- The hero now has **three separate cosmetic primitive motifs** for equipped weapons, armor and accessories. Their shape and relative orientation vary between Good and Evil standing. They become visible at +25 or -25 morality and remain hidden for neutral characters, defeated heroes, missing gear, unowned items or invalid equipment codes.
+- The same half-second cached visual refresh that drives the hero's existing +60/-60 morality ornament now also checks the three actually equipped slots. The cache includes an ownership/visibility mask, so equipping or unequipping gear updates the appearance without changing moral tier.
+- All three meshes are attached to the capsule root, use the already-loaded Unreal cube, have no collision, overlaps or cast shadows, and are **completely separate** from original Z and Nyra character and equipment art. No saving, equipment stats, character meshes, item codes or inventory operations are changed by this purely cosmetic effect.
+- These are simple geometric **working placeholders**, not finished mesh-specific weapons, materials, textures, particle systems or full Fable-style transformations. Native UE5 rendering and layout still need testing.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
