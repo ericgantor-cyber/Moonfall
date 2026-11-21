@@ -206,12 +206,19 @@ void AMoonfallCombatHUD::DrawHUD()
     Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
     Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
     IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete);
+  // The first real Ashen Wilds dungeon-boss victory starts a cross-sea
+  // discovery objective. Raven's Landing's persisted shrine ends it.
+  // No teleportation, automatic ferry boarding, or new save field.
+  const auto SeaJourney = MoonfallIsleChronicle::SeaJourneyState(
+    Hero->HasDefeatedDungeonBoss(0, 0),
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))));
   const FString IsleStoryLabel = IsleStory.Valid && IsleStory.Revealed > 0
      ? (AtlasSidebarWidth < 175.f
        ? FString::Printf(TEXT("ISLE %d/7"), IsleStory.Revealed)
        : FString::Printf(TEXT("ISLE %d/7 | %d/5 QUESTS"),
            IsleStory.Revealed, IsleStory.CompletedContracts))
-     : TEXT("ISLE STORY LOCKED");
+     : SeaJourney == MoonfallIsleChronicle::ESeaJourney::SailToIsle
+       ? TEXT("ISLE QUEST: SAIL NORTH") : TEXT("ISLE STORY LOCKED");
   DrawText(IsleStoryLabel, FLinearColor(0.69f, 0.78f, 0.88f),
       Left + 14.f, Top + Height - 44.f,
       nullptr, Scale * AtlasSideTextScale * 0.74f);
