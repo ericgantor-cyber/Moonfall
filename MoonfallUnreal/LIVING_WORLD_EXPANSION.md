@@ -120,6 +120,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The existing Council guard/scout patrols now show a tiny non-colliding mesh glyph during their validated five-second workplace stop. It bobs and rotates at the existing 0.2-second arena update cadence, then hides while walking or resting. No added NPC actors, skeletal replacement, per-frame Tick, animations assets or save fields.
 - The primitive work glyph is an early visual activity cue, **not a finished weapon/repair animation or simulated construction**. Native Unreal build, visual placement and controller/interaction tests are still required; original hero artwork remains untouched.
 
+## Guard and scout workplace cue variants
+
+- Guards now use a taller rotating primitive watch beacon; scouts use a flatter lateral-sweeping compass cue while at their validated post. Both reuse the original non-colliding work marker and the shared 0.2-second movement schedule. Neither replaces the resident's actual character/body artwork.
+- Work cues are hidden immediately when the player approaches within 300 units, a conversation/other modal interrupts, or a route stops being valid. The existing five-second work hold pauses while the player is nearby, then resumes.
+- These are **lightweight role-distinguishing animations**, not skeletal actor animations, repaired buildings, or combat-changing patrols. Native UE5 compilation and in-world visibility still need testing.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
