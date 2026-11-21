@@ -3654,7 +3654,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     }
     if (MoonfallChronicleUI::HitCard(ChronicleCard, MouseX, MouseY))
      return;
-    // Clicking the parchment chart pans toward the chosen XY world coordinate.
+    // Reuse the same projected shrine-pin geometry as the HUD.
+    // This comes after chapter-card hit testing, so the card always wins.
     const float MapL = PanelL + SidebarWidth + 19.f;
     const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
     const float MapT = PanelT + 105.f;
@@ -3666,6 +3667,24 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float WorldX = WorldCenterX + ((MouseX - MapL) / MapW - 0.5f) * (42000.f / Zoom);
      const float SafeAtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
      const float WorldY = SafeAtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
+     // Pin hit boxes match the 11-pixel HUD hover affordance, with no
+     // selection of hidden or undiscovered shrine locations.
+     const float HalfSpanX = 21000.f / Zoom;
+     const float HalfSpanY = 6500.f / Zoom;
+     for (int32 Index = 0; Index < AtlasDiscoveredShrineLocations.Num(); ++Index) {
+      if (!AtlasDiscoveredShrineIds.IsValidIndex(Index)) break;
+      const FVector Pin = AtlasDiscoveredShrineLocations[Index];
+      if (Pin.ContainsNaN()) continue;
+      const float PX = MapL + MapW * (0.5f + (Pin.X - WorldCenterX) / (2.f * HalfSpanX));
+      const float PY = MapT + MapH * (0.5f - (Pin.Y - SafeAtlasPanY) / (2.f * HalfSpanY));
+      if (PX < MapL + 6.f || PX > MapL + MapW - 6.f
+          || PY < MapT + 6.f || PY > MapT + MapH - 6.f) continue;
+      if (FMath::Abs(MouseX - PX) <= 11.f && FMath::Abs(MouseY - PY) <= 11.f) {
+       TryAtlasFastTravel(AtlasDiscoveredShrineIds[Index]);
+       return;
+      }
+     }
+     AtlasFastTravelPendingShrine = NAME_None;
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
       if (AtlasSelectedRegion != Slot / 5) {
