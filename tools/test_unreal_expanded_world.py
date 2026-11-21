@@ -210,6 +210,33 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("ResidentTiles.Num() >= MaxResidentTiles", self.world)
         self.assertIn("Spawns >= MaxSpawnsPerRefresh", self.world)
         self.assertIn("Candidates.Sort(", self.world)
+        streaming = self.world.split("void AMoonfallExpandedWorld::RefreshNearbyTiles()", 1)[1]
+        self.assertIn("const FVector Center = RegionCenter(Region);", streaming)
+        self.assertIn("2.f * AMoonfallOverworldTile::TileSize", streaming)
+        self.assertIn("const float CandidateReach = LoadRadius + MaxTileCenterOffset;", streaming)
+        self.assertIn("FMath::Abs(PlayerPosition.X - Center.X) > CandidateReach", streaming)
+        self.assertIn("FMath::Abs(PlayerPosition.Y - Center.Y) > CandidateReach", streaming)
+        self.assertLess(streaming.index("const float CandidateReach"),
+                        streaming.index("for (int32 Row = 0;"))
+        # Grid-center bounds are conservative: any tile inside the circular
+        # load radius must belong to a region that survives this axis filter.
+        centers = [(-120000, 62000), (0, 62000), (120000, 62000),
+                   (-120000, 182000), (0, 182000), (120000, 182000),
+                   (0, 302000)]
+        load_radius = 46000
+        reach = load_radius + 2 * 20000
+        for cx, cy in centers:
+            for x in (-200000, -160000, -120000, -80000, -40000, 0,
+                      40000, 80000, 120000, 160000, 200000):
+                for y in (0, 40000, 80000, 120000, 160000, 200000,
+                          240000, 280000, 320000, 360000):
+                    nearest_square = min(
+                        (x - (cx + dx)) ** 2 + (y - (cy + dy)) ** 2
+                        for dx in (-40000, -20000, 0, 20000, 40000)
+                        for dy in (-40000, -20000, 0, 20000, 40000))
+                    if nearest_square <= load_radius ** 2:
+                        self.assertLessEqual(abs(x - cx), reach)
+                        self.assertLessEqual(abs(y - cy), reach)
         self.assertIn("SpawnActorDeferred<AMoonfallOverworldTile>(", self.world)
         self.assertIn("Tile->FinishSpawning(TileTransform)", self.world)
         self.assertIn("Tile->RegionIndex = Region;", self.world)
