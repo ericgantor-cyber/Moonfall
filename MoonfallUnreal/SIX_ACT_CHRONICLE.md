@@ -59,7 +59,10 @@ reviewable increments, preserving existing gameplay and save formats.
 
 **Now implemented in this branch:** the island Atlas can display a short
 next-objective hint, sourced from already saved shrine and NPC contract
-progress. It does not award XP, activate quests, grant items or show
+progress. An already **active contract takes priority** over unaccepted NPC
+leads so the objective stays useful when contracts are accepted out of
+order. The five-contract priority has exhaustive 243-state regression
+coverage. It does not award XP, activate quests, grant items or show
 hidden chapter passages. Narrow Atlas sidebars retain the existing
 progress-only label instead of overlapping the map.
 
