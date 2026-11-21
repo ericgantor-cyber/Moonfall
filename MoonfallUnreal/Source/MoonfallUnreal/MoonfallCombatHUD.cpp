@@ -962,7 +962,9 @@ void AMoonfallCombatHUD::DrawHUD()
    // An externally stale equipped code is not actual worn gear.
    // Use the same validated power calculation for labels, colors and delta,
    // including the small but real contribution of an item's affix.
-   const bool bEquippedValid = Hero->InventoryItemCodes.Contains(EquippedCode)
+   const bool bEquippedValid = EquippedCode > 0
+     && (EquippedCode / 10000) % 10 == SelectedSlot
+     && Hero->InventoryItemCodes.Contains(EquippedCode)
      && Hero->GetItemPower(EquippedCode) > 0;
    const int32 EquippedTier = bEquippedValid ? EquippedCode % 1000 : 0;
    const int32 EquippedRarity = bEquippedValid ? (EquippedCode / 1000) % 10 : 0;
