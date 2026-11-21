@@ -70,6 +70,17 @@ The objective system does not award XP, activate quests, grant items or show
 hidden chapter passages. Narrow Atlas sidebars retain the existing
 progress-only label instead of overlapping the map.
 
+**Gothic Isle reader groundwork (this increment):** a new C++17
+`NextReadableChapter` helper moves backward/forward through the seven
+island chapters, skipping unrevealed evidence, wrapping at either end,
+and returning no selection before the first island shrine is discovered.
+It uses existing shrine and NPC quest states, adds no save fields, and
+does not change the six mainland Chronicle controls. Exhaustive
+native-free tests check both navigation directions across all 243
+contract-state combinations. The actual clickable/controller-driven
+island chapter card is **not implemented yet**; the helper is a tested
+prerequisite, not a claim that the reader is playable.
+
 **Release gates:** PR #1084 remains a draft until a native UE5.4 C++
 Editor/Win64 build, startup map generation and navigation inspection,
 island ferry/water/shore playtesting, streaming at seven province
