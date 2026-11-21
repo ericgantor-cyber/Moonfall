@@ -102,7 +102,7 @@ constexpr const char* NextObjective(bool HarborDiscovered,
   if (Quests[Index] == 0) return Leads[Index];
  if (!CathedralDiscovered) return "Discover the Blackbell shrine";
  if (!MainlandComplete) return "Complete the six mainland acts";
- return "Seventh Witness unlocked";
+ return "Read the Seventh Witness";
 }
 constexpr const FChapter* RevealedChapter(int Chapter, bool HarborDiscovered,
  bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
