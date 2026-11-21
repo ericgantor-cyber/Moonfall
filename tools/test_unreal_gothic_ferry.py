@@ -52,22 +52,15 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("FMath::Clamp(", countdown)
         self.assertNotIn("TActorIterator", countdown)
 
-    def test_visible_voyage_status_updates_only_when_second_changes(self):
-        self.assertIn("TObjectPtr<UTextRenderComponent> VoyageStatus;", self.h)
-        self.assertIn("int32 LastDisplayedSeconds = -1;", self.h)
-        self.assertIn("VoyageStatus = CreateDefaultSubobject<UTextRenderComponent>", self.boat)
-        self.assertIn("VoyageStatus->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.boat)
-        status = self.boat.split("void AMoonfallGothicFerry::UpdateVoyageStatus()", 1)[1].split(
-            "bool AMoonfallGothicFerry::TryBoard(", 1)[0]
-        self.assertIn("FMath::CeilToInt(GetSecondsUntilArrival())", status)
-        self.assertIn("if (Seconds == LastDisplayedSeconds) return;", status)
-        self.assertIn("if (Seconds == 0) {", status)
-        self.assertIn('TEXT("WAITING FOR CLEAR DOCK")', status)
-        self.assertLess(status.index("if (Seconds == 0) {"), status.index('TEXT("TO %s  |  %ds")'))
-        self.assertIn("GetDestinationName().ToString()", status)
-        self.assertIn('TEXT("TO %s | RIGHT-CLICK / D-PAD UP")', status)
-        self.assertIn("UpdateVoyageStatus();", self.boat.split("void AMoonfallGothicFerry::BeginPlay()", 1)[1].split("float AMoonfallGothicFerry::GetCrossingProgress()", 1)[0])
-        self.assertIn("UpdateVoyageStatus();", self.boat)
+    def test_no_ferry_status_text_visible_at_dock_or_during_voyage(self):
+        # Keep data-only Blueprint accessors, remove the automatically rendered text.
+        self.assertNotIn("VoyageStatus", self.boat)
+        self.assertNotIn("VoyageStatus", self.h)
+        self.assertNotIn("UpdateVoyageStatus", self.boat)
+        self.assertNotIn("LastDisplayedSeconds", self.h)
+        self.assertNotIn("RIGHT-CLICK / D-PAD UP", self.boat)
+        self.assertNotIn("WAITING FOR CLEAR DOCK", self.boat)
+        self.assertIn('TEXT("THE NIGHTFERRY")', self.boat)
 
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
         boarding = self.boat.split("bool AMoonfallGothicFerry::TryBoard(", 1)[1].split(
