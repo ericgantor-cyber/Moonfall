@@ -89,6 +89,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
  UPointLightComponent* MoralPresenceLight;
  int32 LastMoralVisualTier = 99;
+ bool bLastMoralVisualReduceMotion = false;
  float MoralVisualRefreshElapsed = 0.f;
  void RefreshMoralPresenceVisuals();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") TMap<FName, int32> ResidentMoralChoices;
