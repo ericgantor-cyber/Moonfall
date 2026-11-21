@@ -912,12 +912,16 @@ void AMoonfallCombatHUD::DrawHUD()
     const TCHAR* SetEffects[] = {TEXT("No set trait"), TEXT("2pc: +3% crit  |  3pc: +4% mastery"),
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
-    const FString SetLine = bValidDetail && SelectedAffix > 0
+    // Invalid inventory codes must not masquerade as ordinary traitless gear.
+    // Preview is read-only; projected counts do not equip or save anything.
+    const FString SetLine = !bValidDetail
+      ? TEXT("SET PREVIEW: INVALID ITEM")
+      : SelectedAffix > 0
       ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
           SetEffects[SelectedAffix])
-      : TEXT("EQUIPPED SET: no set bonus from this item");
+      : TEXT("SET PREVIEW: no set trait on this item");
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
