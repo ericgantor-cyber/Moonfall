@@ -32,6 +32,25 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertLess(path.index("IsValid(Path) &&"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
 
+    def test_reaching_partial_corner_never_restores_direct_wall_chase(self):
+        # A waypoint can be close enough to trigger repathing without being
+        # the hero's reachable destination. On that tick, keep steering along
+        # the corner rather than reverting to the far target behind a wall.
+        waypoint = self.source.split("if (!CachedWaypoint.IsNearlyZero()) {", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("Target = CachedWaypoint;", waypoint)
+        self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
+        self.assertIn("NextPathRefreshAt = 0.f;", waypoint)
+        self.assertLess(waypoint.index("Target = CachedWaypoint;"),
+                        waypoint.index("if (ToWaypoint.SizeSquared()"))
+        self.assertLess(waypoint.index("if (ToWaypoint.SizeSquared()"),
+                        waypoint.index("NextPathRefreshAt = 0.f;"))
+        self.assertNotIn("else {", waypoint)
+        # Refresh is scheduled, not performed again in the same frame.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_far_mobs_only_receive_lower_repath_frequency(self):
         self.assertIn("(!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f", self.source)
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
