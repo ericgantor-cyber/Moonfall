@@ -109,8 +109,12 @@ native builds and representative Windows machines can be profiled.
   moving-platform and gangplank tests remain necessary.
 - No automatic overboard teleport or recovery runs while sailing. Players who
   fall or move off the deck are **not** forcibly returned to the boat.
-  The 11-second sailing clock is not paused for an overboard recovery.
+  At arrival, only passengers whose movement base is still the deck are
+  transferred to shore. Actor shutdown likewise does not teleport someone
+  who fell overboard; it only releases the movement base of an onboard
+  passenger. The 11-second sailing clock is not paused for a fall.
   Behavior after a fall, death, and shore arrival needs native gameplay testing.
+  In particular, verify how the game's existing death/respawn flow handles water.
 - Native UE5.4 tests must verify that the hero stays grounded while the boat
   moves, can steer in all directions, does not slip/fall through collision,
   and transfers off the deck correctly at both shore landings.
