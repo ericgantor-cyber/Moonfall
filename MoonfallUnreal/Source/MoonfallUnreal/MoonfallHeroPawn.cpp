@@ -2396,11 +2396,23 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ if (MoonfallEquipmentSlots::IsFutureSlot(SlotIndex)) {
+  // Future-slot equip never alters the three legacy tiers or armor health.
+  if (EquippedExtraItemCodes.Num() != 0
+      && EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount)
+   return false;
+  if (EquippedExtraItemCodes.IsEmpty())
+   EquippedExtraItemCodes.Init(0, MoonfallEquipmentSlots::FutureCount);
+  const int32 Index = SlotIndex - MoonfallEquipmentSlots::LegacyCount;
+  if (EquippedExtraItemCodes[Index] == Code) return false;
+  EquippedExtraItemCodes[Index] = Code;
+  return true;
+ }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
@@ -2440,7 +2452,7 @@ bool ValidMoonfallItemCode(int32 Code) {
  // Match RollEquipmentCode, ground pickup and manual equip. Common gear
  // has no trait; uncommon gear may be traitless. Reject only malformed codes,
  // not legitimately collected rewards that must persist through respawning.
- return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
+ return Trait >= 0 && Trait <= 3 && MoonfallEquipmentSlots::IsKnownSlot(Slot)
      && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Trait == 0)
      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
