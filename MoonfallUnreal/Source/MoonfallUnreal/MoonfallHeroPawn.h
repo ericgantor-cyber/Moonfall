@@ -94,6 +94,9 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Read-only nine-slot view. Legacy 0-2 remain validated equipped items;
+ // 3-8 are deliberately empty until a versioned save migration exists.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentSlotCode(int32 Slot) const;
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
