@@ -60,22 +60,21 @@ constexpr EState ChapterState(int Chapter, bool HarborDiscovered,
 constexpr FProgress Summarize(bool HarborDiscovered, bool CathedralDiscovered,
  const int (&Quests)[5], bool MainlandComplete) {
  if (!ValidQuests(Quests)) return {false, 0, 0, 0, false};
- int Count = 0, Complete = 0, Featured = 0;
- bool FoundUnfinished = false;
- for (int Chapter = 0; Chapter < ChapterCount; ++Chapter) {
-  const EState State = ChapterState(Chapter, HarborDiscovered,
-    CathedralDiscovered, Quests, MainlandComplete);
-  if (State != EState::Hidden) ++Count;
-  if (Chapter >= 1 && Chapter <= 5 && State == EState::Cleared) ++Complete;
-  if (!FoundUnfinished && Chapter >= 1 && Chapter <= 5
-      && State == EState::Uncovered) {
-   Featured = Chapter;
-   FoundUnfinished = true;
-  }
+ // One validation and one five-contract pass per Atlas update, not seven
+ // repeated ChapterState calls that each recheck the whole quest array.
+ if (!HarborDiscovered && !CathedralDiscovered)
+  return {true, 0, 0, 0, false};
+ int Count = 1, Complete = 0, Featured = 0;
+ for (int Index = 0; Index < 5; ++Index) {
+  if (Quests[Index] >= 1) ++Count;
+  if (Quests[Index] == 2) ++Complete;
+  else if (Quests[Index] == 1 && Featured == 0) Featured = Index + 1;
  }
- const bool Epilogue = ChapterState(6, HarborDiscovered, CathedralDiscovered,
-   Quests, MainlandComplete) != EState::Hidden;
- if (Epilogue) Featured = 6;
+ const bool Epilogue = CathedralDiscovered && MainlandComplete && Complete == 5;
+ if (Epilogue) {
+  ++Count;
+  Featured = 6;
+ }
  return {true, Count, Complete, Featured, Epilogue};
 }
 constexpr const FChapter* RevealedChapter(int Chapter, bool HarborDiscovered,
