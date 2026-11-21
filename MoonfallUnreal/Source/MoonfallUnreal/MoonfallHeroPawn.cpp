@@ -3837,6 +3837,104 @@ int32 AMoonfallHeroPawn::GetResidentCatalogPrice(bool bMerchant) const {
  const auto Item = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
  return bMerchant ? Item.merchantCost : Item.tinkerCost;
 }
+FString AMoonfallHeroPawn::GetMoralTitle() const {
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::Alignment(MoralAlignment)));
+}
+FString AMoonfallHeroPawn::GetMoralActionDescription() const {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!IsValid(Resident) || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || Resident->ResidentId.IsNone())
+  return TEXT("Moral choice unavailable");
+ if (ResidentMoralChoices.Contains(Resident->ResidentId))
+  return TEXT("Your choice was remembered");
+ return bResidentMoralChoiceAid
+     ? TEXT("Aid: donate 10 salvage (+Good)")
+     : TEXT("Extort: gain 5 salvage (+Evil)");
+}
+bool AMoonfallHeroPawn::ToggleResidentMoralChoice(int32 Direction) {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (Direction == 0 || ResidentContextSelection != 4 || !bResidentContextOpen
+     || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || ResidentMoralChoices.Contains(Resident->ResidentId)) return false;
+ bResidentMoralChoiceAid = !bResidentMoralChoiceAid;
+ bResidentMoralActionPending = false;
+ ResidentMoralConfirmUntil = 0.f;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ return true;
+}
+bool AMoonfallHeroPawn::CommitResidentMoralChoice() {
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident)
+     || !Resident->CanHeroInteract(this) || !GetWorld()
+     || bPersistentSaveWritesBlocked || bWorldProgressLoadInProgress
+     || !bWorldProgressInitialized || Health <= 0.f
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || !IsNamedMoonfallResident(Resident->ResidentId)
+     || ResidentMoralChoices.Contains(Resident->ResidentId)) {
+  bResidentMoralActionPending = false;
+  return false;
+ }
+ const bool bAid = bResidentMoralChoiceAid;
+ if (bAid && Salvage < 10) {
+  bResidentMoralActionPending = false;
+  ResidentFeedbackMessage = TEXT("Aid requires 10 salvage.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ if (!bAid && Salvage > 99999995) {
+  bResidentMoralActionPending = false;
+  ResidentFeedbackMessage = TEXT("Salvage capacity reached.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!bResidentMoralActionPending || Now > ResidentMoralConfirmUntil) {
+  bResidentMoralActionPending = true;
+  ResidentMoralConfirmUntil = Now + 6.f;
+  ResidentFeedbackMessage = bAid
+      ? TEXT("Confirm aid: donate 10 salvage. Select again.")
+      : TEXT("Confirm extortion: take 5 salvage; lose trust. Select again.");
+  ResidentFeedbackUntil = Now + 6.f;
+  return false;
+ }
+ bResidentMoralActionPending = false;
+ const FName Id = Resident->ResidentId;
+ const FName Faction = Resident->FactionId;
+ const int32 PreviousMorality = MoralAlignment;
+ const int32 PreviousSalvage = Salvage;
+ const int32 PreviousBond = GetResidentBond(Id);
+ const int32 PreviousRep = GetFactionReputation(Faction);
+ // These authored Crossroads NPC factions are validated by existing rules.
+ if (!IsMoonfallFaction(Faction)) return false;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::ResidentActionDelta(bAid));
+ Salvage += MoonfallMorality::ResidentSalvageDelta(bAid);
+ ResidentBonds.Add(Id, FMath::Clamp(PreviousBond
+     + MoonfallMorality::ResidentBondDelta(bAid), -100, 100));
+ FactionReputation.Add(Faction, FMath::Clamp(PreviousRep
+     + MoonfallMorality::ResidentReputationDelta(bAid), -100, 100));
+ ResidentMoralChoices.Add(Id, bAid ? 1 : -1);
+ if (!SaveWorldProgress()) {
+  MoralAlignment = PreviousMorality;
+  Salvage = PreviousSalvage;
+  if (PreviousBond == 0) ResidentBonds.Remove(Id);
+  else ResidentBonds.Add(Id, PreviousBond);
+  if (PreviousRep == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, PreviousRep);
+  ResidentMoralChoices.Remove(Id);
+  ResidentFeedbackMessage = TEXT("Moral decision not saved; no consequences applied.");
+  ResidentFeedbackUntil = Now + 4.f;
+  return false;
+ }
+ ResidentFeedbackMessage = bAid
+     ? TEXT("Your kindness was remembered.")
+     : TEXT("Your cruelty was witnessed.");
+ ResidentFeedbackUntil = Now + 4.f;
+ return true;
+}
+
 bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
  AMoonfallWorldNPC* Resident = FocusedResident.Get();
  if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
