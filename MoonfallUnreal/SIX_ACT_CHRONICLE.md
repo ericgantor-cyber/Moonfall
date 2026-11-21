@@ -255,6 +255,11 @@ existing contracts are completed. The final chapter is evidence for a
 future divine main-story confrontation, not a claim that a final boss
 scene, island dungeon, or cinematic ending already exists.
 
+Island residents and their five factions are registered in both the live
+quest/reputation validators and the save/load allowlists, so accepted
+contracts, bond progress and faction rewards can persist with the
+existing save format. Unknown IDs are still rejected.
+
 The **J Atlas** sidebar shows a read-only `ISLE x/7` progress line
 (and completed contract count on noncompact layouts), using the
 existing saved shrine and contract states. The island's full prose
