@@ -117,7 +117,9 @@ native builds and representative Windows machines can be profiled.
   In particular, verify how the game's existing death/respawn flow handles water.
 - **WoW Forever-style water entry prototype:** a character falling below
   the sea surface in the 80m ferry gap is switched from falling to swimming
-  movement without any rescue teleport. A 100cm entry/exit hysteresis band
+  movement without any rescue teleport. Detection is limited to the
+  26m-wide, dock-aligned sea corridor rather than nearby land.
+  A 100cm entry/exit hysteresis band
   avoids rapid state changes while crossing the surface. Leaving the sea area
   exits swimming; death or movement states owned by other systems do not
   trigger a forced rescue. A dedicated 0.1-second timer checks water movement
