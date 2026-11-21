@@ -128,6 +128,23 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
   else if (Rank == TEXT("Trusted"))
    Reaction = FText::FromString(TEXT("Your deeds earned my trust. I will remember them."));
  }
+ // Residents acknowledge the single saved Council policy after their
+ // contract is complete; no free rewards, spawns or new faction mutations.
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2
+     && Hero->CouncilDecisionId >= 0) {
+  switch (Hero->CouncilDecisionId) {
+  case 0:
+   Reaction = FText::FromString(TEXT("The council chose to protect our people. I remember that promise."));
+   break;
+  case 1:
+   Reaction = FText::FromString(TEXT("The council funded rebuilding. There is work ahead for us."));
+   break;
+  case 2:
+   Reaction = FText::FromString(TEXT("The council ordered stronger borders. The roads may grow safer."));
+   break;
+  default: break;
+  }
+ }
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
