@@ -379,7 +379,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString ShrineTitle = Hero->AtlasDiscoveredShrineNames.IsValidIndex(AtlasShrineIndex)
        ? Hero->AtlasDiscoveredShrineNames[AtlasShrineIndex] : FString(TEXT("Discovered Shrine"));
    const bool bPendingFastTravel = Hero->AtlasDiscoveredShrineIds.IsValidIndex(AtlasShrineIndex)
-       && Hero->AtlasFastTravelPendingShrine == Hero->AtlasDiscoveredShrineIds[AtlasShrineIndex];
+       && Hero->AtlasFastTravelPendingShrine == Hero->AtlasDiscoveredShrineIds[AtlasShrineIndex]
+       && Hero->GetWorld() && FMath::IsFinite(Hero->GetWorld()->GetRealTimeSeconds())
+       && Hero->GetWorld()->GetRealTimeSeconds() <= Hero->AtlasFastTravelConfirmUntil;
    ++AtlasShrineIndex;
    if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
    const float ShrineX = ProjectX(ShrinePos.X);
