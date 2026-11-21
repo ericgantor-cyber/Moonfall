@@ -561,7 +561,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 InventorySortMode = 0;", self.hero_h)
         self.assertIn("GetInventoryDisplayOrder() const;", self.hero_h)
         self.assertIn("TArray<int32> Order;", sort)
-        self.assertIn("Order.Sort([this](int32 A, int32 B)", sort)
+        self.assertIn("Order.Sort([this, &ValidItems](int32 A, int32 B)", sort)
         self.assertIn("if (InventorySortMode == 1)", sort)
         self.assertIn("if (SlotA != SlotB)", sort)
         self.assertIn("return A < B;", sort)
