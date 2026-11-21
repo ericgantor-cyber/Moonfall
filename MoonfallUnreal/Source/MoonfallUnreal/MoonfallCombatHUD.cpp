@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallResidentCatalog.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
@@ -31,7 +32,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
-   const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
+   const float H = FMath::Min(520.f, FMath::Max(390.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
@@ -48,17 +49,30 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
    const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"),
+   const bool bWorkVendor = Resident->SettlementId == FName(TEXT("Crossroads"))
+       && (Resident->SocialRole == FName(TEXT("Merchant"))
+           || Resident->SocialRole == FName(TEXT("Tinker")))
+       && Hero->CouncilDecisionId >= 0;
+   const bool bMerchant = Resident->SocialRole == FName(TEXT("Merchant"));
+   const auto Catalog = MoonfallResidentCatalog::Get(Hero->ResidentCatalogSelection);
+   const int32 CatalogPrice = Hero->GetResidentCatalogPrice(bMerchant);
+   const TCHAR* SlotNames[3] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const FString WorkLabel = bWorkVendor && Catalog.valid
+       ? FString::Printf(TEXT("< %03d/111 %s %ds >"),
+           Hero->ResidentCatalogSelection + 1, SlotNames[Catalog.slot], CatalogPrice)
+       : TEXT("Trade/Craft unavailable");
+   const FString Names[5] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close") };
+     TEXT("Close"), WorkLabel,
+     FString::Printf(TEXT("< %s >"), *Hero->GetMoralActionDescription()) };
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
-   for (int32 Row = 0; Row < 3; ++Row) {
+   for (int32 Row = 0; Row < 5; ++Row) {
     const float Y = T + 122.f + Row * 53.f;
     const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
       CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
@@ -69,18 +83,49 @@ void AMoonfallCombatHUD::DrawHUD()
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
+   if (bWorkVendor && Catalog.valid) {
+    const FString GearName = FString::Printf(TEXT("%s %s"),
+       ANSI_TO_TCHAR(MoonfallResidentCatalog::NamePrefix(Hero->ResidentCatalogSelection)),
+       ANSI_TO_TCHAR(MoonfallResidentCatalog::NameSuffix(Hero->ResidentCatalogSelection)));
+    const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(Hero->ResidentCatalogSelection);
+    DrawText(FString::Printf(TEXT("%s | Tier %d | Rarity %d | ID %d"),
+       *GearName, Catalog.tier, Catalog.rarity, Catalog.code),
+       FLinearColor(0.85f,0.80f,0.98f), L + 18.f, T + 390.f, nullptr, 0.70f);
+    const int32 BasePrice = bMerchant ? Catalog.merchantCost : Catalog.tinkerCost;
+    const TCHAR* MoralPriceTag = CatalogPrice < BasePrice ? TEXT(" (good standing)")
+        : CatalogPrice > BasePrice ? TEXT(" (feared)") : TEXT("");
+    DrawText(FString::Printf(TEXT("%s | %d salvage%s%s"),
+       bMerchant ? TEXT("Merchant stock") : TEXT("Tinker recipe"), CatalogPrice,
+       MoralPriceTag,
+       bMerchant ? TEXT("") : *FString::Printf(TEXT(" | Requires level %d%s"),
+           RequiredLevel, Hero->Level < RequiredLevel ? TEXT(" (locked)") : TEXT(""))),
+       FLinearColor(0.75f,0.86f,0.75f), L + 18.f, T + 411.f, nullptr, 0.67f);
+   }
    const FString ContractStatus = Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
      *ContractStatus, *Resident->FactionId.ToString()),
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
+   DrawText(FString::Printf(TEXT("Alignment: %s (%+d)"),
+       *Hero->GetMoralTitle(), Hero->MoralAlignment),
+       FLinearColor(0.86f,0.79f,0.95f), L + 18.f, T + H - 75.f, nullptr, 0.78f);
    DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
        Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
-   if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
+   // A policy-aware job is visible in the native NPC menu without
+   // claiming that residents are actually walking/building offscreen.
+   const bool bShowResidentFeedback = Hero->GetWorld()
+       && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil;
+   if (bShowResidentFeedback)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   else
+    DrawText(FString::Printf(TEXT("Assignment: %s | %s"),
+        *Resident->GetCouncilAssignment(Hero),
+        *Resident->GetCouncilWorkPhase()).Left(57),
+        FLinearColor(0.72f,0.89f,0.86f),
+        L + 18.f, T + 99.f, nullptr, 0.72f);
+   DrawText(TEXT("Click | D-pad up/down + A | Trade/Morality: left/right | Esc/RMB"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    return;
@@ -672,13 +717,31 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
-   const float StartY = Top + 96.f;
+   // Read-only alignment ribbon: no modifications to hero models, materials,
+   // attachments or save state. Works without any additional art assets.
+   const int32 MoralScore = FMath::Clamp(Hero->MoralAlignment, -100, 100);
+   const float MoralMeterWidth = FMath::Max(90.f, PanelWidth - 36.f);
+   const float MoralMeterX = Left + 18.f, MoralMeterY = Top + 93.f;
+   DrawText(FString::Printf(TEXT("Good / Evil: %s (%+d)"),
+       *Hero->GetMoralTitle(), MoralScore),
+       FLinearColor(0.86f,0.85f,0.97f), MoralMeterX, Top + 76.f, nullptr,
+       PanelWidth < 550.f ? 0.67f : 0.82f);
+   DrawRect(FLinearColor(0.18f,0.17f,0.23f), MoralMeterX, MoralMeterY,
+       MoralMeterWidth, 6.f);
+   DrawRect(MoralScore < 0 ? FLinearColor(0.78f,0.25f,0.35f)
+            : FLinearColor(0.30f,0.75f,0.52f),
+       MoralMeterX + MoralMeterWidth * (MoralScore < 0
+           ? 0.5f - FMath::Abs(MoralScore) / 200.f : 0.5f),
+       MoralMeterY, MoralMeterWidth * FMath::Abs(MoralScore) / 200.f, 6.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 165.f) / 19.f, 8.f, 26.f);
+   const float StartY = Top + 111.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
        Hero->GetItemPower(Hero->EquippedArmorCode),
        Hero->GetItemPower(Hero->EquippedAccessoryCode)),
+     FString::Printf(TEXT("Weapon resonance: %s (saved dungeon milestones)"),
+       *Hero->GetEquippedWeaponResonance()),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -712,9 +775,22 @@ void AMoonfallCombatHUD::DrawHUD()
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 1 || Row == 2 || Row == 6 || Row == 9 || Row == 13 || Row == 17 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+   // Optional lower-third cosmetic gear identity; omitted in compact windows
+   // to protect readability of the existing combat-stat rows.
+   if (PanelHeight >= 820.f) {
+    const TCHAR* GearLabels[3] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    for (int32 Slot = 0; Slot < 3; ++Slot) {
+     DrawText(FString::Printf(TEXT("%s: %s | %s"),
+         GearLabels[Slot], *Hero->GetMoralGearTitle(Slot),
+         *Hero->GetMoralGearMotif(Slot)),
+         FLinearColor(0.77f,0.86f,0.94f),
+         Left + 18.f, Top + PanelHeight - 109.f + Slot * 20.f,
+         nullptr, PanelWidth < 550.f ? 0.64f : 0.74f);
+    }
+   }
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
@@ -1266,6 +1342,81 @@ void AMoonfallCombatHUD::DrawHUD()
        Discovered, Cleared, RegionsCleared),
     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+ }
+ // The sanctuary ledger is read-only: display actual unlocks without
+ // swallowing map input or placing imaginary rooms into the world.
+ // Hide it on compact displays so exploration and quests stay readable.
+ if (bSanctuaryObjective && Canvas->SizeX >= 1280.f && Canvas->SizeY >= 700.f
+     && !Hero->bInventoryOpen && !Hero->bAtlasOpen && !Hero->bOptionsOpen) {
+  const float LedgerW = 330.f;
+  const float LedgerX = Canvas->SizeX - LedgerW - 24.f;
+  const float LedgerY = 78.f;
+  const float LedgerH = 330.f;
+  DrawRect(FLinearColor(0.055f, 0.044f, 0.092f, 0.92f),
+    LedgerX, LedgerY, LedgerW, LedgerH);
+  DrawRect(FLinearColor(0.62f, 0.39f, 0.74f, 0.96f),
+    LedgerX, LedgerY, 4.f, LedgerH);
+  DrawText(TEXT("SANCTUARY  |  LIVING WORLD"),
+    FLinearColor(0.91f, 0.82f, 1.f), LedgerX + 14.f, LedgerY + 10.f,
+    nullptr, 0.86f);
+  const TCHAR* RoomNames[6] = {
+    TEXT("Atlas"), TEXT("Armory"), TEXT("Wardrobe"),
+    TEXT("Trophy Hall"), TEXT("Council"), TEXT("Portal")};
+  for (int32 Room = 0; Room < 6; ++Room) {
+   const bool bUnlocked = Hero->IsSanctuaryRoomUnlocked(Room);
+   DrawText(FString::Printf(TEXT("%s: %s"), RoomNames[Room],
+       bUnlocked ? TEXT("UNLOCKED") : TEXT("LOCKED")),
+     bUnlocked ? FLinearColor(0.67f, 0.93f, 0.78f)
+               : FLinearColor(0.67f, 0.67f, 0.73f),
+     LedgerX + 14.f, LedgerY + 39.f + Room * 22.f, nullptr, 0.76f);
+  }
+  DrawText(FString::Printf(TEXT("COMMUNITY: %s"),
+      *Hero->GetWorldCommunityOutlook()),
+    FLinearColor(0.80f, 0.88f, 1.f),
+    LedgerX + 14.f, LedgerY + 180.f, nullptr, 0.75f);
+  DrawText(Hero->CouncilDecisionId >= 0
+      ? TEXT("COUNCIL POLICY (SAVED)")
+      : Hero->IsSanctuaryRoomUnlocked(4)
+      ? TEXT("COUNCIL CHOICES (PREVIEW / CONFIRM)")
+      : TEXT("Complete 3 contracts to unlock council"),
+    FLinearColor(0.93f, 0.77f, 0.64f),
+    LedgerX + 14.f, LedgerY + 205.f, nullptr, 0.70f);
+  if (Hero->IsSanctuaryRoomUnlocked(4)) {
+   // D-pad left/right cycles previews, never commits the choice.
+   const int32 Selected = Hero->CouncilDecisionId >= 0
+       ? Hero->CouncilDecisionId : FMath::Clamp(Hero->CouncilPreviewSelection, 0, 2);
+   const FString Preview = Hero->PreviewCouncilDecision(Selected);
+   FString Title, Consequences;
+   if (Preview.Split(TEXT("|"), &Title, &Consequences)) {
+    DrawText(Title.TrimStartAndEnd(),
+      FLinearColor(0.97f, 0.84f, 0.67f),
+      LedgerX + 14.f, LedgerY + 227.f, nullptr, 0.78f);
+    DrawText(Consequences.TrimStartAndEnd().Left(62),
+      FLinearColor(0.82f, 0.90f, 0.94f),
+      LedgerX + 14.f, LedgerY + 247.f, nullptr, 0.62f);
+   }
+   // The click rectangles mirror ResidentContextMouseClick's F8 mode.
+   const TCHAR* ChoiceLabels[3] = {TEXT("Protect"), TEXT("Rebuild"), TEXT("Fortify")};
+   for (int32 Choice = 0; Choice < 3; ++Choice) {
+    const float ButtonX = LedgerX + 14.f + Choice * 100.f;
+    DrawRect(Choice == Selected
+        ? FLinearColor(0.33f, 0.24f, 0.45f, 0.98f)
+        : FLinearColor(0.13f, 0.12f, 0.21f, 0.94f),
+      ButtonX, LedgerY + 274.f, 98.f, 25.f);
+    DrawText(ChoiceLabels[Choice],
+      Choice == Selected ? FLinearColor::White : FLinearColor(0.76f, 0.76f, 0.82f),
+      ButtonX + 8.f, LedgerY + 279.f, nullptr, 0.64f);
+   }
+   DrawText(Hero->CouncilDecisionId >= 0
+       ? FString::Printf(TEXT("SAVED: %s"), *Hero->GetConfirmedCouncilPolicy())
+       : Hero->bCouncilDecisionConfirmArmed
+       ? TEXT("F9 again: CONFIRM & SAVE | Esc: cancel")
+       : Hero->bCouncilPointerOpen
+       ? TEXT("Click preview | F9 twice: save | Esc: exit")
+       : TEXT("D-pad: preview | F8: mouse | F9 twice: save"),
+     FLinearColor(0.68f, 0.78f, 0.88f),
+     LedgerX + 14.f, LedgerY + 308.f, nullptr, 0.63f);
+  }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);

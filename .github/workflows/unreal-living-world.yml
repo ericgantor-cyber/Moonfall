@@ -1,0 +1,47 @@
+name: UE5 living-world six-system rules
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoralityRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
+      - 'tools/test_unreal_living_world_rules.cpp'
+      - 'tools/test_unreal_living_world_npc_wiring.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.cpp'
+      - '.github/workflows/unreal-living-world.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoralityRules.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
+      - 'tools/test_unreal_living_world_rules.cpp'
+      - 'tools/test_unreal_living_world_npc_wiring.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.cpp'
+      - '.github/workflows/unreal-living-world.yml'
+permissions:
+  contents: read
+jobs:
+  six-system-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile and test six original gameplay rule systems
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_living_world_rules.cpp -o /tmp/moonfall-living-world
+          /tmp/moonfall-living-world
+      - name: Verify saved NPC bonds feed read-only dialogue
+        run: python3 -m unittest -v tools.test_unreal_living_world_npc_wiring
+      - name: Report native build limitation
+        run: echo "C++17 rules passed. UE5 native compile, map placement, Blueprints, save integration and gameplay remain unverified." >> "$GITHUB_STEP_SUMMARY"

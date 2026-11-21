@@ -51,6 +51,12 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void OpenFocusedResidentContext();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CastRightMouse();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool ChooseResidentContextAction(int32 Choice);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Trade") bool PurchaseResidentWorkItem();
+ // Browse 111 deterministic equipment designs in the existing NPC menu.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Trade") int32 ResidentCatalogSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Trade") bool StepResidentCatalog(int32 Direction);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Trade") int32 GetResidentCatalogItemCode() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Trade") int32 GetResidentCatalogPrice(bool bMerchant) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CloseResidentContext();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextOpened(AMoonfallWorldNPC* Resident, FText ResidentName, int32 QuestState, int32 SalvageCost);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextClosed();
@@ -61,6 +67,8 @@ public:
  bool bResidentContextOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Trade") bool bResidentTradePending = false;
+ float ResidentTradeConfirmUntil = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
  float ResidentTurnInConfirmAfter = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString ResidentFeedbackMessage;
@@ -70,16 +78,72 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Quest") void OnResidentQuestFeedback(FText Message, bool bSuccess);
 
  // Reputation is a permanent value for recognized world factions.
+ // One durable Good/Evil score, independent of faction and resident bonds.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") int32 MoralAlignment = 0;
+ // Original character meshes are untouched: these are optional primitive
+ // ornaments and a bounded light attached to the capsule root only.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralOrnamentLeft;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralOrnamentRight;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UPointLightComponent* MoralPresenceLight;
+ // Distinct, cosmetic side motifs for owned, equipped weapon/armor/charm.
+ // These components never replace the user's original hero or item artwork.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralWeaponMotif;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralArmorMotif;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralAccessoryMotif;
+ int32 LastMoralGearVisibilityMask = -1;
+ int32 LastMoralVisualTier = 99;
+ bool bLastMoralVisualReduceMotion = false;
+ float MoralVisualRefreshElapsed = 0.f;
+ void RefreshMoralPresenceVisuals();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") TMap<FName, int32> ResidentMoralChoices;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralTitle() const;
+ // Read-only gear motif based on current morality and actually owned equipment.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality|Gear") FString GetMoralGearTitle(int32 Slot) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality|Gear") FString GetMoralGearMotif(int32 Slot) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralActionDescription() const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralChoiceAid = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") bool bResidentMoralActionPending = false;
+ float ResidentMoralConfirmUntil = 0.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Morality") bool ToggleResidentMoralChoice(int32 Direction);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Morality") bool CommitResidentMoralChoice();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") TMap<FName, int32> FactionReputation;
  UFUNCTION(BlueprintPure, Category="Moonfall|Faction") int32 GetFactionReputation(FName Faction) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") bool ChangeFactionReputation(FName Faction, int32 Delta);
  // One save-slot relationship per authored resident ID, never per spawned actor instance.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
+ // Read-only UI adapter: derives social rank from the existing persisted bond.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") FString GetResidentRelationshipRank(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
+ // Read-only community outlook from already saved contracts and shrine progress.
+ // This does not claim constructed settlements or simulate raids.
+ UFUNCTION(BlueprintPure, Category="Moonfall|World|Community") FString GetWorldCommunityOutlook() const;
+ // Sanctuary room access is derived from existing saved Firstlight shrine,
+ // boss victories and contracts. No generated room actors are implied.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Sanctuary") bool IsSanctuaryRoomUnlocked(int32 RoomId) const;
+ // Council choice preview only. Decisions must not alter reputation or saves
+ // without a separate confirmed, transactional gameplay action.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString PreviewCouncilDecision(int32 DecisionId) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilPreviewSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool SelectCouncilPreview(int32 DecisionId);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilPointerOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") void ToggleCouncilPointer();
+ // Persisted exactly once. -1 means no policy chosen in this save.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") int32 CouncilDecisionId = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Council") bool bCouncilDecisionConfirmArmed = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Council") bool ConfirmCouncilDecision();
+ void ConfirmCouncilDecisionInput();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Council") FString GetConfirmedCouncilPolicy() const;
+ void CloseCouncilPointer();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
 
@@ -94,6 +158,8 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Display-only milestone from owned weapon and saved dungeon boss victories.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Evolution") FString GetEquippedWeaponResonance() const;
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
@@ -331,6 +397,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Mixed-school dual cast only fires after a validated successful hit.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Weaving") void OnSpellWeaved(int32 LeftSchool, int32 RightSchool, int32 HybridType);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.

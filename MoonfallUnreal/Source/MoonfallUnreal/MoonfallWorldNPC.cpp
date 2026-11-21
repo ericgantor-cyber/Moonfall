@@ -2,9 +2,12 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -15,6 +18,23 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
  Body->SetCollisionResponseToAllChannels(ECR_Ignore);
  Body->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+ CouncilAssignmentSign = CreateDefaultSubobject<UTextRenderComponent>(TEXT("CouncilAssignmentSign"));
+ CouncilAssignmentSign->SetupAttachment(Body);
+ CouncilAssignmentSign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ CouncilAssignmentSign->SetGenerateOverlapEvents(false);
+ CouncilAssignmentSign->SetRelativeLocation(FVector(0.f, 0.f, 130.f));
+ CouncilAssignmentSign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+ CouncilAssignmentSign->SetWorldSize(24.f);
+ CouncilAssignmentSign->SetTextRenderColor(FColor(185, 222, 206));
+ CouncilAssignmentSign->SetVisibility(false);
+ CouncilWorkMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CouncilWorkMarker"));
+ CouncilWorkMarker->SetupAttachment(Body);
+ if (Mesh.Succeeded()) CouncilWorkMarker->SetStaticMesh(Mesh.Object);
+ CouncilWorkMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ CouncilWorkMarker->SetGenerateOverlapEvents(false);
+ CouncilWorkMarker->SetRelativeScale3D(FVector(0.12f, 0.12f, 0.16f));
+ CouncilWorkMarker->SetRelativeLocation(FVector(50.f, 0.f, 85.f));
+ CouncilWorkMarker->SetVisibility(false);
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
@@ -61,6 +81,221 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (SocialRole == FName(TEXT("Tinker"))) return Shift == 2 ? TEXT("Repairing") : TEXT("Inventing");
  if (SocialRole == FName(TEXT("Elder"))) return Shift == 2 ? TEXT("Reflecting") : TEXT("Advising");
  return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
+}
+void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero) {
+ if (!IsValid(CouncilAssignmentSign)) return;
+ const bool bShow = IsValid(Hero) && SettlementId == FName(TEXT("Crossroads"))
+     && Hero->CouncilDecisionId >= 0 && Hero->CouncilDecisionId <= 2
+     && !ResidentId.IsNone();
+ if (!bShow) {
+  CouncilAssignmentSign->SetVisibility(false);
+  return;
+ }
+ // Council assignments are refreshed on policy transitions; an individual
+ // moral choice explicitly refreshes only the affected resident afterward.
+ const int32* MoralChoice = Hero->ResidentMoralChoices.Find(ResidentId);
+ const FString Status = MoralChoice
+     ? (*MoralChoice == 1 ? TEXT(" [HELPED]") : TEXT(" [THREATENED]"))
+     : TEXT("");
+ CouncilAssignmentSign->SetText(FText::FromString(
+     (GetCouncilAssignment(Hero).Left(24) + Status).Left(36)));
+ CouncilAssignmentSign->SetTextRenderColor(
+     MoralChoice && *MoralChoice == 1 ? FColor(125, 231, 164)
+     : MoralChoice && *MoralChoice == -1 ? FColor(232, 123, 133)
+     : Hero->CouncilDecisionId == 0 ? FColor(120, 232, 196)
+     : Hero->CouncilDecisionId == 1 ? FColor(240, 191, 119)
+     : FColor(174, 197, 240));
+ CouncilAssignmentSign->SetVisibility(true);
+}
+void AMoonfallWorldNPC::RefreshCouncilStationActivity(const AMoonfallHeroPawn* Hero) {
+ // Guard/scout work cues remain controlled exclusively by the patrol step.
+ const bool bMerchant = SocialRole == FName(TEXT("Merchant"));
+ const bool bTinker = SocialRole == FName(TEXT("Tinker"));
+ if ((!bMerchant && !bTinker) || !IsValid(CouncilWorkMarker)) return;
+ const bool bActive = IsValid(Hero) && Hero->CouncilDecisionId >= 0
+     && Hero->CouncilDecisionId <= 2 && SettlementId == FName(TEXT("Crossroads"));
+ if (!bActive) {
+  CouncilWorkMarker->SetVisibility(false);
+  CouncilStationVisualStep = 0;
+  return;
+ }
+ // Policy determines the supplies on display, rather than granting free loot.
+ // Merchant: public supply crates. Tinker: rebuild tools or border equipment.
+ const int32 Policy = Hero->CouncilDecisionId;
+ const float Width = bMerchant ? 0.38f : 0.16f;
+ const float Height = bMerchant ? 0.10f : (Policy == 1 ? 0.30f : 0.20f);
+ CouncilWorkMarker->SetRelativeScale3D(FVector(Width, Width, Height));
+ CouncilWorkMarker->SetRelativeLocation(bMerchant
+     ? FVector(42.f, 30.f, 25.f)
+     : FVector(42.f, 18.f, 48.f));
+ CouncilStationVisualStep = (CouncilStationVisualStep + 1) % 4;
+ const float Yaw = bMerchant ? 0.f
+     : static_cast<float>((CouncilStationVisualStep % 2) * 18 - 9);
+ CouncilWorkMarker->SetRelativeRotation(FRotator(0.f, Yaw, 0.f));
+ CouncilWorkMarker->SetVisibility(true);
+}
+
+bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
+ bCouncilWorkRouteValid = false;
+ if (!GetWorld() || SettlementId != FName(TEXT("Crossroads"))
+     || !(SocialRole == FName(TEXT("Guard")) || SocialRole == FName(TEXT("Scout")))
+     || EndOffset.ContainsNaN() || EndOffset.SizeSquared2D() > FMath::Square(140.f)
+     || FMath::Abs(EndOffset.Z) > 1.f) return false;
+ const FVector Home = GetActorLocation();
+ const FVector Destination = Home + EndOffset;
+ if (Home.ContainsNaN() || Destination.ContainsNaN()) return false;
+ // Require a genuine, short NavMesh path. If the project has no baked NavMesh,
+ // the resident stays put rather than walking through walls or off terrain.
+ UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+ if (!Nav) return false;
+ FNavLocation NavHome;
+ FNavLocation NavEnd;
+ if (!Nav->ProjectPointToNavigation(Home, NavHome, FVector(70.f,70.f,150.f))
+     || !Nav->ProjectPointToNavigation(Destination, NavEnd, FVector(70.f,70.f,150.f))
+     || FVector::DistSquared2D(NavHome.Location, Home) > FMath::Square(80.f)
+     || FVector::DistSquared2D(NavEnd.Location, Destination) > FMath::Square(80.f))
+  return false;
+ UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
+     GetWorld(), NavHome.Location, NavEnd.Location, this);
+ if (!IsValid(Path) || !Path->IsValid() || Path->IsPartial()
+     || Path->PathPoints.Num() != 2 || Path->GetPathLength() > 180.f) return false;
+ // Movement interpolates a straight segment, not each NavMesh corner. Reject
+ // routes that would need to bend around an obstacle or a building.
+ FCollisionQueryParams Clearance(SCENE_QUERY_STAT(MoonfallCouncilRoute), false, this);
+ FHitResult Obstacle;
+ const FVector EyeOffset(0.f, 0.f, 55.f);
+ if (GetWorld()->LineTraceSingleByChannel(Obstacle,
+      Home + EyeOffset, Destination + EyeOffset, ECC_Visibility, Clearance))
+  return false;
+ // Avoid arbitrary offsets/height changes after route validation.
+ CouncilWorkHome = Home;
+ CouncilWorkDestination = Destination;
+ bCouncilWorkReturning = false;
+ CouncilWorkHoldSeconds = 0.f;
+ bCouncilWorkAtPost = false;
+ CouncilWorkVisualPhase = 0.f;
+ if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
+ bCouncilWorkRouteValid = true;
+ return true;
+}
+
+void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds) {
+ if (!bCouncilWorkRouteValid || !IsValid(Hero) || Hero->CouncilDecisionId < 0
+     || Hero->CouncilDecisionId > 2 || Hero->Health <= 0.f
+     || !FMath::IsFinite(StepSeconds) || StepSeconds <= 0.f || StepSeconds > 0.25f
+     || Hero->bInventoryOpen || Hero->bOptionsOpen || Hero->bAtlasOpen
+     || (Hero->bResidentContextOpen && Hero->FocusedResident.Get() == this)) {
+  if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
+  return;
+ }
+ // Arrival pauses are advanced only by this shared, bounded 0.2s timer.
+ // While paused, no actor transform updates or collision queries are needed.
+ // Do not animate through nearby conversations or reveal work props while
+ // the player is watching an NPC stand still. Resume the pause afterwards.
+ const FVector PlayerForPause = Hero->GetActorLocation();
+ if (PlayerForPause.ContainsNaN()
+     || FVector::DistSquared2D(GetActorLocation(), PlayerForPause) < FMath::Square(300.f)) {
+  if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
+  return;
+ }
+ if (CouncilWorkHoldSeconds > 0.f) {
+  CouncilWorkHoldSeconds = FMath::Max(0.f, CouncilWorkHoldSeconds - StepSeconds);
+  const bool bWorking = bCouncilWorkAtPost && CouncilWorkHoldSeconds > 0.f;
+  if (IsValid(CouncilWorkMarker)) {
+   CouncilWorkMarker->SetVisibility(bWorking);
+   if (bWorking) {
+    // A small bobbing/rotating work glyph, animated by the existing 5Hz
+    // arena timer, never a per-NPC Tick or skeletal mesh replacement.
+    CouncilWorkVisualPhase = FMath::Fmod(
+        CouncilWorkVisualPhase + StepSeconds * 2.f, 2.f * PI);
+    const bool bScout = SocialRole == FName(TEXT("Scout"));
+    // Scouts sweep a low compass marker side-to-side, guards keep a tall
+    // rotating watch beacon. Both use existing primitive mesh geometry.
+    CouncilWorkMarker->SetRelativeScale3D(bScout
+        ? FVector(0.18f, 0.18f, 0.06f)
+        : FVector(0.10f, 0.10f, 0.22f));
+    CouncilWorkMarker->SetRelativeLocation(bScout
+        ? FVector(50.f, 10.f * FMath::Sin(CouncilWorkVisualPhase), 80.f)
+        : FVector(50.f, 0.f, 85.f + 8.f * FMath::Sin(CouncilWorkVisualPhase)));
+    CouncilWorkMarker->SetRelativeRotation(
+        FRotator(0.f, bScout ? 45.f * FMath::Sin(CouncilWorkVisualPhase)
+        : FMath::RadiansToDegrees(CouncilWorkVisualPhase), 0.f));
+   }
+  }
+  if (CouncilWorkHoldSeconds <= 0.f) {
+   bCouncilWorkReturning = !bCouncilWorkReturning;
+   bCouncilWorkAtPost = false;
+  }
+  return;
+ }
+ if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
+ const FVector Current = GetActorLocation();
+ const FVector Player = Hero->GetActorLocation();
+ if (Current.ContainsNaN() || Player.ContainsNaN()
+     || FVector::DistSquared2D(Current, Player) < FMath::Square(300.f)) return;
+ const FVector Target = bCouncilWorkReturning ? CouncilWorkHome : CouncilWorkDestination;
+ const FVector ToTarget = Target - Current;
+ if (ToTarget.SizeSquared2D() < FMath::Square(8.f)) {
+  bCouncilWorkAtPost = !bCouncilWorkReturning;
+  CouncilWorkHoldSeconds = bCouncilWorkAtPost ? 5.f : 2.f;
+  return;
+ }
+ const float Distance = FMath::Sqrt(ToTarget.SizeSquared2D());
+ const float Travel = FMath::Min(Distance, 55.f * StepSeconds);
+ const FVector Next = Current + FVector(ToTarget.X, ToTarget.Y, 0.f) * (Travel / Distance);
+ // Never leave the initial 140-unit authored workplace corridor.
+ if (FVector::DistSquared2D(Next, CouncilWorkHome) > FMath::Square(145.f)) {
+  bCouncilWorkRouteValid = false;
+  return;
+ }
+ // Root mesh is query-only for player dialogue. Explicitly test the
+ // movement corridor too, so a swept move cannot phase through scenery.
+ FCollisionQueryParams Clearance(SCENE_QUERY_STAT(MoonfallCouncilStep), false, this);
+ FHitResult Obstacle;
+ const FVector EyeOffset(0.f, 0.f, 55.f);
+ if (GetWorld()->LineTraceSingleByChannel(Obstacle,
+     Current + EyeOffset, Next + EyeOffset, ECC_Visibility, Clearance)) {
+  bCouncilWorkRouteValid = false;
+  return;
+ }
+ FHitResult Blocked;
+ if (!SetActorLocation(Next, true, &Blocked, ETeleportType::None) || Blocked.bBlockingHit)
+  bCouncilWorkRouteValid = false;
+}
+
+FString AMoonfallWorldNPC::GetCouncilWorkPhase() const {
+ if (!bCouncilWorkRouteValid) return TEXT("At assigned station");
+ if (CouncilWorkHoldSeconds > 0.f)
+  return bCouncilWorkAtPost ? TEXT("Working at post") : TEXT("Resting at home");
+ return bCouncilWorkReturning ? TEXT("Returning to station") : TEXT("Walking to work");
+}
+
+FString AMoonfallWorldNPC::GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const {
+ // Crossroads is the only authored settlement with Council decorations.
+ // Other NPCs retain their ordinary schedule until their regions are built.
+ if (!IsValid(Hero) || SettlementId != FName(TEXT("Crossroads"))
+     || Hero->CouncilDecisionId < 0 || Hero->CouncilDecisionId > 2)
+  return GetCurrentActivity();
+ const int32 Policy = Hero->CouncilDecisionId;
+ if (Policy == 0) {
+  if (SocialRole == FName(TEXT("Guard"))) return TEXT("Protecting Residents");
+  if (SocialRole == FName(TEXT("Scout"))) return TEXT("Escorting Travelers");
+  if (SocialRole == FName(TEXT("Elder"))) return TEXT("Organizing Aid");
+  if (SocialRole == FName(TEXT("Merchant"))) return TEXT("Supplying Families");
+  return TEXT("Supporting Neighbors");
+ }
+ if (Policy == 1) {
+  if (SocialRole == FName(TEXT("Tinker"))) return TEXT("Repairing Machinery");
+  if (SocialRole == FName(TEXT("Merchant"))) return TEXT("Stocking Building Supplies");
+  if (SocialRole == FName(TEXT("Guard"))) return TEXT("Watching Worksites");
+  if (SocialRole == FName(TEXT("Scholar"))) return TEXT("Planning Reconstruction");
+  return TEXT("Helping Rebuild");
+ }
+ if (SocialRole == FName(TEXT("Guard"))) return TEXT("Monitoring the Borders");
+ if (SocialRole == FName(TEXT("Scout"))) return TEXT("Surveying Outer Roads");
+ if (SocialRole == FName(TEXT("Tinker"))) return TEXT("Maintaining Defenses");
+ if (SocialRole == FName(TEXT("Elder"))) return TEXT("Coordinating Patrols");
+ return TEXT("Preparing Supplies");
 }
 bool AMoonfallWorldNPC::SharesRaceWith(const AMoonfallHeroPawn* Hero) const {
  return IsValid(Hero) && Hero->bRaceChosen
@@ -120,6 +355,50 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
+ // Personal recognition after completed contracts; no trust farming.
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2) {
+  const FString Rank = Hero->GetResidentRelationshipRank(ResidentId);
+  if (Rank == TEXT("Devoted"))
+   Reaction = FText::FromString(TEXT("You have my lasting loyalty, whatever road you choose."));
+  else if (Rank == TEXT("Trusted"))
+   Reaction = FText::FromString(TEXT("Your deeds earned my trust. I will remember them."));
+ }
+ // Residents acknowledge the single saved Council policy after their
+ // contract is complete; no free rewards, spawns or new faction mutations.
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2
+     && Hero->CouncilDecisionId >= 0) {
+  switch (Hero->CouncilDecisionId) {
+  case 0:
+   Reaction = FText::FromString(TEXT("The council chose to protect our people. I remember that promise."));
+   break;
+  case 1:
+   Reaction = FText::FromString(TEXT("The council funded rebuilding. There is work ahead for us."));
+   break;
+  case 2:
+   Reaction = FText::FromString(TEXT("The council ordered stronger borders. The roads may grow safer."));
+   break;
+  default: break;
+  }
+ }
+ // The individual resident remembers the player's one saved moral act.
+ // Keep the original quest and faction dialogue, adding a short personal
+ // response only on a new explicit Talk action.
+ if (const int32* Decision = Hero->ResidentMoralChoices.Find(ResidentId)) {
+  if (*Decision == 1)
+   Reaction = FText::FromString(Reaction.ToString()
+       + TEXT(" I remember the help you gave me."));
+  else if (*Decision == -1)
+   Reaction = FText::FromString(Reaction.ToString()
+       + TEXT(" I remember how you threatened me."));
+ }
+ // Fable-inspired moral reputation is independent of faction reputation.
+ // Mention sustained deeds without changing trust tiers, quests or dialogue AI.
+ if (Disposition != TEXT("Hostile") && Hero->MoralAlignment >= 60)
+  Reaction = FText::FromString(Reaction.ToString()
+      + TEXT(" People have heard of your kindness."));
+ else if (Disposition != TEXT("Hostile") && Hero->MoralAlignment <= -60)
+  Reaction = FText::FromString(Reaction.ToString()
+      + TEXT(" People fear what you might do next."));
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;

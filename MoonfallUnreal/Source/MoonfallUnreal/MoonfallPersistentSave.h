@@ -16,8 +16,13 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // V12: geographic Atlas exploration. Older V1-V11 saves remain readable.
- UPROPERTY() int32 Version = 12;
+ // V14 adds Good/Evil morality and a bounded one-time resident choice ledger.
+ // Older V1-V13 saves remain readable and migrate without dropping progress.
+ UPROPERTY() int32 Version = 14;
+ UPROPERTY() int32 MoralAlignment = 0;
+ UPROPERTY() TMap<FName, int32> ResidentMoralChoices;
+ // -1 = no decision, 0..2 = one confirmed Council policy.
+ UPROPERTY() int32 CouncilDecisionId = -1;
  // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
  UPROPERTY() TArray<int64> ExploredZoneFogMasks;
  // V11 stores uncollected enemy loot in the same world-save transaction.

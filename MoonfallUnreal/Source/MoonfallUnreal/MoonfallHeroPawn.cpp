@@ -1,6 +1,9 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallResidentCatalog.h"
+#include "MoonfallMoralityRules.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallLivingWorldRules.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -86,6 +89,27 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
+FString AMoonfallHeroPawn::GetEquippedWeaponResonance() const {
+ // Never infer an evolution from unequipped, unowned or malformed gear.
+ if (!InventoryItemCodes.Contains(EquippedWeaponCode)) return TEXT("Dormant");
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(EquippedWeaponCode, 0, Trait, Rarity, Tier))
+  return TEXT("Dormant");
+ // The existing 30-bit dungeon boss ledger is durable across saves.
+ uint32 Victories = static_cast<uint32>(DefeatedDungeonBossMask) & ((1u << 30) - 1u);
+ int32 DefeatedBosses = 0;
+ while (Victories != 0u) {
+  Victories &= Victories - 1u;
+  ++DefeatedBosses;
+ }
+ switch (MoonfallLivingWorld::BossResonance(DefeatedBosses, Tier, Rarity)) {
+ case MoonfallLivingWorld::WeaponStage::Dormant: return TEXT("Dormant");
+ case MoonfallLivingWorld::WeaponStage::Awakened: return TEXT("Awakened");
+ case MoonfallLivingWorld::WeaponStage::Ascendant: return TEXT("Ascendant");
+ case MoonfallLivingWorld::WeaponStage::Mythic: return TEXT("Mythic");
+ }
+ return TEXT("Dormant");
+}
 int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 {
  // Use the same strict decoder as equipped combat stats. No save mutations.
@@ -261,7 +285,112 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetIntensity(0.f);
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
+ // Visual morality motifs sit beside the original character rather than
+ // modifying their mesh, skeleton, materials, textures or animation.
+ MoralOrnamentLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralOrnamentLeft"));
+ MoralOrnamentRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralOrnamentRight"));
+ for (UStaticMeshComponent* Ornament : {MoralOrnamentLeft, MoralOrnamentRight}) {
+  Ornament->SetupAttachment(GetRootComponent());
+  if (SlashMesh.Succeeded()) Ornament->SetStaticMesh(SlashMesh.Object);
+  Ornament->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Ornament->SetGenerateOverlapEvents(false);
+  Ornament->SetCastShadow(false);
+  Ornament->SetHiddenInGame(true);
+ }
+ MoralPresenceLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("MoralPresenceLight"));
+ MoralPresenceLight->SetupAttachment(GetRootComponent());
+ MoralPresenceLight->SetRelativeLocation(FVector(0.f, 0.f, 85.f));
+ MoralPresenceLight->SetIntensity(0.f);
+ MoralPresenceLight->SetAttenuationRadius(190.f);
+ MoralPresenceLight->SetCastShadows(false);
+ MoralPresenceLight->SetVisibility(false);
+ // Three authored equipment halos use the existing cube, not character or
+ // equipment meshes; zero physics, actor spawns, materials or shadow cost.
+ MoralWeaponMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralWeaponMotif"));
+ MoralArmorMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralArmorMotif"));
+ MoralAccessoryMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralAccessoryMotif"));
+ for (UStaticMeshComponent* Motif : {MoralWeaponMotif, MoralArmorMotif, MoralAccessoryMotif}) {
+  Motif->SetupAttachment(GetRootComponent());
+  if (SlashMesh.Succeeded()) Motif->SetStaticMesh(SlashMesh.Object);
+  Motif->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Motif->SetGenerateOverlapEvents(false);
+  Motif->SetCastShadow(false);
+  Motif->SetHiddenInGame(true);
+ }
 }
+void AMoonfallHeroPawn::RefreshMoralPresenceVisuals() {
+ if (!IsValid(MoralOrnamentLeft) || !IsValid(MoralOrnamentRight)
+     || !IsValid(MoralPresenceLight) || !IsValid(MoralWeaponMotif)
+     || !IsValid(MoralArmorMotif) || !IsValid(MoralAccessoryMotif)) return;
+ // No visual consequences until the restored save is trustworthy.
+ const int32 Tier = Health > 0.f && bWorldProgressInitialized
+     ? MoonfallMorality::WorldTier(MoralAlignment) : 0;
+ const int32 EquippedCodes[3] = {
+  EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 OwnedVisualMask = 0;
+ if (Tier != 0) {
+  for (int32 Slot = 0; Slot < 3; ++Slot) {
+   const int32 Code = EquippedCodes[Slot];
+   if (Code > 0 && InventoryItemCodes.Contains(Code)
+       && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot)
+    OwnedVisualMask |= 1 << Slot;
+  }
+ }
+ // React to equipment changes even when morality tier is unchanged.
+ if (Tier == LastMoralVisualTier
+     && bReduceMotion == bLastMoralVisualReduceMotion
+     && OwnedVisualMask == LastMoralGearVisibilityMask) return;
+ LastMoralVisualTier = Tier;
+ LastMoralGearVisibilityMask = OwnedVisualMask;
+ bLastMoralVisualReduceMotion = bReduceMotion;
+ const bool bGoodGear = Tier > 0;
+ UStaticMeshComponent* GearMotifs[3] = {
+   MoralWeaponMotif, MoralArmorMotif, MoralAccessoryMotif};
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  UStaticMeshComponent* Motif = GearMotifs[Slot];
+  const bool bVisible = (OwnedVisualMask & (1 << Slot)) != 0;
+  Motif->SetHiddenInGame(!bVisible);
+  if (!bVisible) continue;
+  // Weapon = narrow raised blade, armor = balanced shoulder band,
+  // accessory = compact floating gem. Distinct silhouettes for either path.
+  const FVector Location = Slot == 0 ? FVector(42.f, -66.f, 83.f)
+      : Slot == 1 ? FVector(-25.f, 0.f, 125.f)
+      : FVector(43.f, 64.f, 94.f);
+  const FVector Shape = Slot == 0 ? FVector(0.06f, 0.11f, 0.42f)
+      : Slot == 1 ? FVector(0.43f, 0.08f, 0.09f)
+      : FVector(0.15f, 0.15f, 0.15f);
+  Motif->SetRelativeLocation(Location);
+  Motif->SetRelativeScale3D(Shape);
+  Motif->SetRelativeRotation(FRotator(
+       bGoodGear ? -16.f : 16.f, bGoodGear ? 0.f : 45.f,
+       Slot == 1 ? 0.f : (bGoodGear ? -24.f : 24.f)));
+ }
+ const bool bShow = FMath::Abs(Tier) >= 2;
+ MoralOrnamentLeft->SetHiddenInGame(!bShow);
+ MoralOrnamentRight->SetHiddenInGame(!bShow);
+ MoralPresenceLight->SetVisibility(bShow);
+ if (!bShow) {
+  MoralPresenceLight->SetIntensity(0.f);
+  return;
+ }
+ // Two compact stylized motifs. At Good standing they rise outward;
+ // at Evil standing they lean inward like dark antlers. Nothing attaches
+ // to or changes original Z/Nyra skeletal artwork.
+ const bool bGood = Tier > 0;
+ MoralOrnamentLeft->SetRelativeLocation(FVector(-18.f, -57.f, bGood ? 98.f : 109.f));
+ MoralOrnamentRight->SetRelativeLocation(FVector(-18.f, 57.f, bGood ? 98.f : 109.f));
+ MoralOrnamentLeft->SetRelativeScale3D(FVector(0.12f, 0.10f, 0.68f));
+ MoralOrnamentRight->SetRelativeScale3D(FVector(0.12f, 0.10f, 0.68f));
+ MoralOrnamentLeft->SetRelativeRotation(FRotator(0.f, 0.f, bGood ? -38.f : 25.f));
+ MoralOrnamentRight->SetRelativeRotation(FRotator(0.f, 0.f, bGood ? 38.f : -25.f));
+ MoralPresenceLight->SetLightColor(bGood
+     ? FLinearColor(0.90f, 0.78f, 0.42f)
+     : FLinearColor(0.65f, 0.12f, 0.18f));
+ // Respect existing accessibility choice. No pulsing or animation; Reduce
+ // Motion further lowers light intensity without hiding the readable motif.
+ MoralPresenceLight->SetIntensity(bReduceMotion ? 90.f : 210.f);
+}
+
 void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {
  if (bHasStartingSanctuaryAnchor || !GetWorld()) return;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
@@ -371,10 +500,25 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Unwind the temporary pointer if the hero leaves the sanctuary or a
+ // conflicting modal opens. This avoids trapping the cursor after travel.
+ if (bCouncilDecisionConfirmArmed && (Health <= 0.f || !IsNearStartingSanctuary()
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsSanctuaryRoomUnlocked(4))) bCouncilDecisionConfirmArmed = false;
+ if (bCouncilPointerOpen && (Health <= 0.f || !IsNearStartingSanctuary()
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsSanctuaryRoomUnlocked(4))) CloseCouncilPointer();
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Only reevaluate visible morality on a bounded 0.5-second cadence, using
+ // cached tiers. Never move the ornament per frame or spawn particle actors.
+ MoralVisualRefreshElapsed += SafeTimerDelta;
+ if (MoralVisualRefreshElapsed >= 0.5f) {
+  MoralVisualRefreshElapsed = FMath::Fmod(MoralVisualRefreshElapsed, 0.5f);
+  RefreshMoralPresenceVisuals();
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
@@ -569,6 +713,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("CouncilPointer"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCouncilPointer);
+ Input->BindAction(TEXT("CouncilConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ConfirmCouncilDecisionInput);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -852,7 +998,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || bCouncilPointerOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -983,7 +1129,32 @@ void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; Tr
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
- if (LeftSpell != RightSpell || !GetWorld()) return;
+ if (bInventoryOpen || bResidentContextOpen || bCouncilPointerOpen || Health <= 0.f || !GetWorld()) return;
+ // A different-school weave is a SINGLE bounded hostile attack.
+ // Preserve the existing doubled same-school spell path below.
+ if (LeftSpell != RightSpell) {
+  const MoonfallLivingWorld::SpellPair Pair = MoonfallLivingWorld::Weave(LeftSpell, RightSpell);
+  if (Pair == MoonfallLivingWorld::SpellPair::Invalid
+      || Pair == MoonfallLivingWorld::SpellPair::SameSchool) return;
+  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
+  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
+  const float Now = GetWorld()->GetTimeSeconds();
+  const float RequiredMana = Costs[LeftSpell] * 1.25f + Costs[RightSpell] * 0.5f;
+  if (!FMath::IsFinite(Now) || !FMath::IsFinite(Mana)
+      || Mana < RequiredMana || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f) return;
+  const float Haste = 1.f + GetHasteBonus();
+  if (!FMath::IsFinite(Haste) || Haste <= 0.f
+      || Now - LastCastTime[0] < Cooldowns[LeftSpell] / Haste
+      || Now - LastCastTime[1] < Cooldowns[RightSpell] / Haste) return;
+  // TryCast owns targeting, damage, recovery, the first mana debit and its
+  // cooldown. Failed target acquisition never charges the other hand.
+  if (TryCast(LeftSpell, 0, 1.25f)) {
+   Mana -= Costs[RightSpell] * 0.5f;
+   LastCastTime[1] = LastCastTime[0];
+   OnSpellWeaved(LeftSpell, RightSpell, static_cast<int32>(Pair));
+  }
+  return;
+ }
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
@@ -1580,6 +1751,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -1613,8 +1785,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 4) % 5;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
+  bResidentMoralActionPending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -1635,8 +1809,10 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
-  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 1) % 5;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
+  bResidentMoralActionPending = false;
   return;
  }
  if (bInventoryOpen) {
@@ -1650,21 +1826,31 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bResidentContextOpen && ResidentContextSelection == 4
+     && ToggleResidentMoralChoice(-1)) return;
+ if (bResidentContextOpen && ResidentContextSelection == 3
+     && StepResidentCatalog(-1)) return;
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
  if (bInventoryOpen) return;
+ if (SelectCouncilPreview((CouncilPreviewSelection + 2) % 3)) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bResidentContextOpen && ResidentContextSelection == 4
+     && ToggleResidentMoralChoice(1)) return;
+ if (bResidentContextOpen && ResidentContextSelection == 3
+     && StepResidentCatalog(1)) return;
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
  if (bInventoryOpen) return;
+ if (SelectCouncilPreview((CouncilPreviewSelection + 1) % 3)) return;
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -2687,6 +2873,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
+ if (CouncilDecisionId < -1 || CouncilDecisionId > 2) return false;
+ if (MoralAlignment < -100 || MoralAlignment > 100 || ResidentMoralChoices.Num() > 13)
+  return false;
+ for (const auto& Entry : ResidentMoralChoices)
+  if (!IsNamedMoonfallResident(Entry.Key)
+      || !MoonfallMorality::IsValidAction(Entry.Value)) return false;
  const uint64 AllowedFogBits = (1ULL << 56) - 1ULL;
  for (const int64 Mask : ExploredZoneFogMasks)
   if ((static_cast<uint64>(Mask) & ~AllowedFogBits) != 0ULL) return false;
@@ -2800,13 +2992,16 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
+ Save->CouncilDecisionId = CouncilDecisionId;
+ Save->MoralAlignment = MoralAlignment;
+ Save->ResidentMoralChoices = ResidentMoralChoices;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 14) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2974,6 +3169,28 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // V13: reject unknown Council decisions before applying any saved data.
+ if (Save->Version >= 13 && (Save->CouncilDecisionId < -1
+     || Save->CouncilDecisionId > 2)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
+ // V14 morality ledger must be complete, named and in range; rejecting bad
+ // input protects newer/corrupted saves against the two-second autosave.
+ if (Save->Version >= 14) {
+  if (Save->MoralAlignment < -100 || Save->MoralAlignment > 100
+      || Save->ResidentMoralChoices.Num() > 13) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (const auto& Entry : Save->ResidentMoralChoices) {
+   if (!IsNamedMoonfallResident(Entry.Key)
+       || !MoonfallMorality::IsValidAction(Entry.Value)) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3020,6 +3237,14 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
    if (IsValid(*It)) It->RefreshShrineDisplay(this);
  }
+ CouncilDecisionId = Save->Version >= 13 ? Save->CouncilDecisionId : -1;
+ // Existing Council policies from V13 seed the initial Good alignment once;
+ // V14 saves persist their exact accumulated moral score and action ledger.
+ MoralAlignment = Save->Version >= 14
+     ? Save->MoralAlignment : MoonfallMorality::CouncilDelta(CouncilDecisionId);
+ ResidentMoralChoices = Save->Version >= 14
+     ? Save->ResidentMoralChoices : TMap<FName, int32>();
+ bCouncilDecisionConfirmArmed = false;
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
@@ -3335,6 +3560,10 @@ void AMoonfallHeroPawn::CloseResidentContext() {
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
+ bResidentTradePending = false;
+ bResidentMoralActionPending = false;
+ ResidentMoralConfirmUntil = 0.f;
+ ResidentTradeConfirmUntil = 0.f;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
  ResidentFeedbackMessage.Empty();
@@ -3347,8 +3576,9 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
  if (!GetWorld() || Health <= 0.f) return;
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  ResidentContextSelection = (ResidentContextSelection + 4) % 5;
   bResidentTurnInPending = false;
+  bResidentTradePending = false;
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
@@ -3364,6 +3594,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
@@ -3563,6 +3794,35 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
  }
+ if (bCouncilPointerOpen) {
+  // The pointer is modal. Clicking outside never casts a hostile spell.
+  if (Health <= 0.f || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen) {
+   CloseCouncilPointer();
+   return;
+  }
+  APlayerController* PC = Cast<APlayerController>(Controller);
+  if (!PC || !PC->bShowMouseCursor) { CloseCouncilPointer(); return; }
+  int32 ViewW = 0, ViewH = 0;
+  float PointerX = 0.f, PointerY = 0.f;
+  PC->GetViewportSize(ViewW, ViewH);
+  if (ViewW < 1280 || ViewH < 700
+      || !PC->GetMousePosition(PointerX, PointerY)
+      || !FMath::IsFinite(PointerX) || !FMath::IsFinite(PointerY)) {
+   CloseCouncilPointer();
+   return;
+  }
+  const float PanelX = static_cast<float>(ViewW) - 330.f - 24.f;
+  const float RowY = 78.f + 274.f;
+  // Exact hit rectangles shared with the Canvas Council buttons.
+  if (PointerY >= RowY && PointerY <= RowY + 25.f
+      && PointerX >= PanelX + 14.f && PointerX < PanelX + 314.f) {
+   const int32 Choice = FMath::Clamp(
+      FMath::FloorToInt((PointerX - PanelX - 14.f) / 100.f), 0, 2);
+   SelectCouncilPreview(Choice);
+  }
+  return;
+ }
  if (!bResidentContextOpen) { CastLeft(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
@@ -3573,7 +3833,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
- const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
+ const float PanelH = FMath::Min(520.f, FMath::Max(390.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
  const float NpcCloseX = Left + PanelW - 42.f;
  if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
@@ -3586,11 +3846,30 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  // Shared exact row bounds with the Canvas HUD renderer.
- for (int32 Row = 0; Row < 3; ++Row) {
+ for (int32 Row = 0; Row < 5; ++Row) {
   const float RowTop = Top + 122.f + Row * 53.f;
   if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
-   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
+   if (ResidentContextSelection != Row) {
+    bResidentTurnInPending = false;
+    bResidentTradePending = false;
+    bResidentMoralActionPending = false;
+   }
    ResidentContextSelection = Row;
+   // Left and right ends of the fourth row are catalog navigation,
+   // not a purchase. The center remains the two-step buy/craft action.
+   if (Row == 3 && MouseX < Left + 61.f) {
+    StepResidentCatalog(-1);
+    return;
+   }
+   if (Row == 3 && MouseX > Left + PanelW - 61.f) {
+    StepResidentCatalog(1);
+    return;
+   }
+   if (Row == 4 && (MouseX < Left + 61.f
+       || MouseX > Left + PanelW - 61.f)) {
+    ToggleResidentMoralChoice(MouseX < Left + 61.f ? -1 : 1);
+    return;
+   }
    if (Row == 2) CloseResidentContext();
    else ChooseResidentContextAction(Row);
    return;
@@ -3613,7 +3892,11 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
+ if (Choice == 3) return PurchaseResidentWorkItem();
+ if (Choice == 4) return CommitResidentMoralChoice();
  if (Choice == 0) {
+  bResidentMoralActionPending = false;
+  bResidentTradePending = false;
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
@@ -3621,6 +3904,8 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ bResidentMoralActionPending = false;
+ bResidentTradePending = false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
  FText Message;
@@ -3658,6 +3943,214 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (bSucceeded) OnResidentContextOpened(Resident, Resident->DisplayName,
       GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
  return bSucceeded;
+}
+
+bool AMoonfallHeroPawn::StepResidentCatalog(int32 Direction) {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || ResidentContextSelection != 3 || Direction == 0
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || !(Resident->SocialRole == FName(TEXT("Merchant"))
+         || Resident->SocialRole == FName(TEXT("Tinker")))) return false;
+ ResidentCatalogSelection = MoonfallResidentCatalog::Next(ResidentCatalogSelection, Direction);
+ bResidentTradePending = false;
+ ResidentTradeConfirmUntil = 0.f;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ return true;
+}
+int32 AMoonfallHeroPawn::GetResidentCatalogItemCode() const {
+ return MoonfallResidentCatalog::Get(ResidentCatalogSelection).code;
+}
+int32 AMoonfallHeroPawn::GetResidentCatalogPrice(bool bMerchant) const {
+ const auto Item = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
+ return MoonfallMorality::AdjustShopPrice(
+     bMerchant ? Item.merchantCost : Item.tinkerCost, MoralAlignment);
+}
+FString AMoonfallHeroPawn::GetMoralGearTitle(int32 Slot) const {
+ if (Slot < 0 || Slot > 2) return TEXT("None");
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode;
+ const bool bOwned = InventoryItemCodes.Contains(Code)
+     && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot;
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::GearTheme(MoralAlignment, bOwned)));
+}
+FString AMoonfallHeroPawn::GetMoralGearMotif(int32 Slot) const {
+ if (Slot < 0 || Slot > 2) return TEXT("No equipped gear");
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode;
+ const bool bOwned = InventoryItemCodes.Contains(Code)
+     && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot;
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::GearVisualPromise(MoralAlignment, bOwned)));
+}
+FString AMoonfallHeroPawn::GetMoralTitle() const {
+ return FString(ANSI_TO_TCHAR(MoonfallMorality::Alignment(MoralAlignment)));
+}
+FString AMoonfallHeroPawn::GetMoralActionDescription() const {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!IsValid(Resident) || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || Resident->ResidentId.IsNone())
+  return TEXT("Moral choice unavailable");
+ if (ResidentMoralChoices.Contains(Resident->ResidentId))
+  return TEXT("Your choice was remembered");
+ return bResidentMoralChoiceAid
+     ? TEXT("Aid: donate 10 salvage (+Good)")
+     : TEXT("Extort: gain 5 salvage (+Evil)");
+}
+bool AMoonfallHeroPawn::ToggleResidentMoralChoice(int32 Direction) {
+ const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (Direction == 0 || ResidentContextSelection != 4 || !bResidentContextOpen
+     || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || ResidentMoralChoices.Contains(Resident->ResidentId)) return false;
+ bResidentMoralChoiceAid = !bResidentMoralChoiceAid;
+ bResidentMoralActionPending = false;
+ ResidentMoralConfirmUntil = 0.f;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ return true;
+}
+bool AMoonfallHeroPawn::CommitResidentMoralChoice() {
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident)
+     || !Resident->CanHeroInteract(this) || !GetWorld()
+     || bPersistentSaveWritesBlocked || bWorldProgressLoadInProgress
+     || !bWorldProgressInitialized || Health <= 0.f
+     || Resident->SettlementId != FName(TEXT("Crossroads"))
+     || !IsNamedMoonfallResident(Resident->ResidentId)
+     || ResidentMoralChoices.Contains(Resident->ResidentId)) {
+  bResidentMoralActionPending = false;
+  return false;
+ }
+ const bool bAid = bResidentMoralChoiceAid;
+ if (bAid && Salvage < 10) {
+  bResidentMoralActionPending = false;
+  ResidentFeedbackMessage = TEXT("Aid requires 10 salvage.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ if (!bAid && Salvage > 99999995) {
+  bResidentMoralActionPending = false;
+  ResidentFeedbackMessage = TEXT("Salvage capacity reached.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!bResidentMoralActionPending || Now > ResidentMoralConfirmUntil) {
+  bResidentMoralActionPending = true;
+  ResidentMoralConfirmUntil = Now + 6.f;
+  ResidentFeedbackMessage = bAid
+      ? TEXT("Confirm aid: donate 10 salvage. Select again.")
+      : TEXT("Confirm extortion: take 5 salvage; lose trust. Select again.");
+  ResidentFeedbackUntil = Now + 6.f;
+  return false;
+ }
+ bResidentMoralActionPending = false;
+ const FName Id = Resident->ResidentId;
+ const FName Faction = Resident->FactionId;
+ const int32 PreviousMorality = MoralAlignment;
+ const int32 PreviousSalvage = Salvage;
+ const int32 PreviousBond = GetResidentBond(Id);
+ const int32 PreviousRep = GetFactionReputation(Faction);
+ // These authored Crossroads NPC factions are validated by existing rules.
+ if (!IsMoonfallFaction(Faction)) return false;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::ResidentActionDelta(bAid));
+ Salvage += MoonfallMorality::ResidentSalvageDelta(bAid);
+ ResidentBonds.Add(Id, FMath::Clamp(PreviousBond
+     + MoonfallMorality::ResidentBondDelta(bAid), -100, 100));
+ FactionReputation.Add(Faction, FMath::Clamp(PreviousRep
+     + MoonfallMorality::ResidentReputationDelta(bAid), -100, 100));
+ ResidentMoralChoices.Add(Id, bAid ? 1 : -1);
+ if (!SaveWorldProgress()) {
+  MoralAlignment = PreviousMorality;
+  Salvage = PreviousSalvage;
+  if (PreviousBond == 0) ResidentBonds.Remove(Id);
+  else ResidentBonds.Add(Id, PreviousBond);
+  if (PreviousRep == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, PreviousRep);
+  ResidentMoralChoices.Remove(Id);
+  ResidentFeedbackMessage = TEXT("Moral decision not saved; no consequences applied.");
+  ResidentFeedbackUntil = Now + 4.f;
+  return false;
+ }
+ // Only update the changed resident's non-colliding visual sign after the
+ // atomic world save succeeds. A failed save must show no moral consequence.
+ Resident->RefreshCouncilAssignmentSign(this);
+ ResidentFeedbackMessage = bAid
+     ? TEXT("Your kindness was remembered.")
+     : TEXT("Your cruelty was witnessed.");
+ ResidentFeedbackUntil = Now + 4.f;
+ return true;
+}
+
+bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
+ bResidentMoralActionPending = false;
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || !GetWorld() || bPersistentSaveWritesBlocked || bWorldProgressLoadInProgress
+     || !bWorldProgressInitialized || Health <= 0.f) {
+  bResidentTradePending = false;
+  return false;
+ }
+ const bool bMerchant = Resident->SocialRole == FName(TEXT("Merchant"));
+ const bool bTinker = Resident->SocialRole == FName(TEXT("Tinker"));
+ if (Resident->SettlementId != FName(TEXT("Crossroads"))
+     || (!bMerchant && !bTinker) || CouncilDecisionId < 0
+     || CouncilDecisionId > 2) { bResidentTradePending = false; return false; }
+ // One deterministic catalog entry is quoted for both price and item.
+ // Selection changes cancel confirmation, so the quoted item cannot switch.
+ const auto Stock = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
+ if (!Stock.valid) { bResidentTradePending = false; return false; }
+ const int32 Price = GetResidentCatalogPrice(bMerchant);
+ const int32 ItemCode = Stock.code;
+ if (Price <= 0) { bResidentTradePending = false; return false; }
+ // Recipes require actual character progression, not a fake material count.
+ // Validate before confirmation and again before any salvage mutation.
+ const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(ResidentCatalogSelection);
+ if (bTinker && Level < RequiredLevel) {
+  bResidentTradePending = false;
+  ResidentFeedbackMessage = FString::Printf(
+      TEXT("Crafting requires level %d. Current level: %d."), RequiredLevel, Level);
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ if (Salvage < Price || InventoryItemCodes.Num() >= 10000) {
+  bResidentTradePending = false;
+  ResidentFeedbackMessage = TEXT("Insufficient salvage or inventory full.");
+  ResidentFeedbackUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  return false;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!bResidentTradePending || Now > ResidentTradeConfirmUntil) {
+  bResidentTradePending = true;
+  ResidentTradeConfirmUntil = Now + 6.f;
+  ResidentFeedbackMessage = FString::Printf(
+      TEXT("Confirm %s for %d salvage: choose Trade/Craft again."),
+      bMerchant ? TEXT("purchase") : TEXT("crafting"), Price);
+  ResidentFeedbackUntil = Now + 6.f;
+  return false;
+ }
+ bResidentTradePending = false;
+ const int32 PreviousSalvage = Salvage;
+ const int32 OldSelection = InventorySelection;
+ const int32 NewIndex = InventoryItemCodes.Add(ItemCode);
+ Salvage -= Price;
+ // Commit both sides in one synchronous transaction; never report success
+ // or retain an acquired item if the save slot cannot be written.
+ if (!SaveWorldProgress()) {
+  InventoryItemCodes.RemoveAt(NewIndex);
+  Salvage = PreviousSalvage;
+  InventorySelection = OldSelection;
+  ResidentFeedbackMessage = TEXT("Transaction failed; salvage and items unchanged.");
+  ResidentFeedbackUntil = Now + 4.f;
+  return false;
+ }
+ ResidentFeedbackMessage = FString::Printf(
+     TEXT("%s complete: %d salvage spent."),
+     bMerchant ? TEXT("Purchase") : TEXT("Crafting"), Price);
+ ResidentFeedbackUntil = Now + 4.f;
+ return true;
 }
 
 // Bounded, persistent faction relationship API. No free reputation on repeated talk.
@@ -3711,6 +4204,17 @@ int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
   return FMath::Clamp(*Value, -100, 100);
  return 0;
 }
+FString AMoonfallHeroPawn::GetResidentRelationshipRank(FName ResidentId) const {
+ if (ResidentId.IsNone()) return TEXT("Unknown");
+ switch (MoonfallLivingWorld::RelationshipRank(GetResidentBond(ResidentId))) {
+ case MoonfallLivingWorld::BondRank::Hostile: return TEXT("Hostile");
+ case MoonfallLivingWorld::BondRank::Wary: return TEXT("Wary");
+ case MoonfallLivingWorld::BondRank::Neutral: return TEXT("Neutral");
+ case MoonfallLivingWorld::BondRank::Trusted: return TEXT("Trusted");
+ case MoonfallLivingWorld::BondRank::Devoted: return TEXT("Devoted");
+ }
+ return TEXT("Unknown");
+}
 bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
  if (!IsNamedMoonfallResident(ResidentId) || Delta == 0 || Health <= 0.f) return false;
  const int32 Previous = GetResidentBond(ResidentId);
@@ -3734,6 +4238,130 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
   return (*Value == 1 || *Value == 2) ? *Value : 0;
  return 0;
 }
+FString AMoonfallHeroPawn::GetWorldCommunityOutlook() const {
+ // Read only the existing durable quest and shrine ledgers. No actor scans,
+ // artificial raid victories, timer-based progress or new save fields.
+ int32 CompletedContracts = 0;
+ for (const auto& Entry : ResidentQuestStates) {
+  if (Entry.Value == 2) ++CompletedContracts;
+ }
+ MoonfallLivingWorld::Settlement Progress;
+ Progress.completedContracts = CompletedContracts;
+ Progress.shrineDiscovered = !DiscoveredShrineIds.IsEmpty();
+ switch (MoonfallLivingWorld::SettlementStatus(Progress)) {
+ case MoonfallLivingWorld::SettlementTier::Endangered: return TEXT("Endangered");
+ case MoonfallLivingWorld::SettlementTier::Recovering: return TEXT("Recovering");
+ case MoonfallLivingWorld::SettlementTier::Flourishing: return TEXT("Flourishing");
+ }
+ return TEXT("Unknown");
+}
+bool AMoonfallHeroPawn::IsSanctuaryRoomUnlocked(int32 RoomId) const {
+ if (RoomId < static_cast<int32>(MoonfallLivingWorld::SanctuaryRoom::Atlas)
+     || RoomId > static_cast<int32>(MoonfallLivingWorld::SanctuaryRoom::Portal))
+  return false;
+ int32 CompletedContracts = 0;
+ for (const auto& Entry : ResidentQuestStates) {
+  if (Entry.Value == 2) ++CompletedContracts;
+ }
+ return MoonfallLivingWorld::SanctuaryRoomUnlocked(
+     static_cast<MoonfallLivingWorld::SanctuaryRoom>(RoomId),
+     HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight"))),
+     GetTotalDefeatedDungeonBosses(), CompletedContracts);
+}
+
+FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const {
+ if (DecisionId < static_cast<int32>(MoonfallLivingWorld::CouncilDecision::ProtectResidents)
+     || DecisionId > static_cast<int32>(MoonfallLivingWorld::CouncilDecision::FortifyBorders))
+  return TEXT("Invalid decision");
+ const auto Decision = static_cast<MoonfallLivingWorld::CouncilDecision>(DecisionId);
+ const auto Outcome = MoonfallLivingWorld::Decide(Decision);
+ const TCHAR* Title = Decision == MoonfallLivingWorld::CouncilDecision::ProtectResidents
+   ? TEXT("Protect Residents")
+   : Decision == MoonfallLivingWorld::CouncilDecision::FundReconstruction
+   ? TEXT("Fund Reconstruction") : TEXT("Fortify Borders");
+ return FString::Printf(TEXT("%s | Faction %+d | Prosperity %+d | Threat %+d (preview only)"),
+    Title, Outcome.factionDelta, Outcome.prosperityDelta, Outcome.threatDelta);
+}
+
+FString AMoonfallHeroPawn::GetConfirmedCouncilPolicy() const {
+ if (CouncilDecisionId < 0 || CouncilDecisionId > 2) return TEXT("None");
+ const auto Decision = static_cast<MoonfallLivingWorld::CouncilDecision>(CouncilDecisionId);
+ if (Decision == MoonfallLivingWorld::CouncilDecision::ProtectResidents)
+  return TEXT("Protect Residents");
+ if (Decision == MoonfallLivingWorld::CouncilDecision::FundReconstruction)
+  return TEXT("Fund Reconstruction");
+ return TEXT("Fortify Borders");
+}
+void AMoonfallHeroPawn::ConfirmCouncilDecisionInput() {
+ ConfirmCouncilDecision();
+}
+bool AMoonfallHeroPawn::ConfirmCouncilDecision() {
+ // Two deliberate presses of F9 are required. The first is a confirmation
+ // arm only, and neither preview clicks nor the D-pad can commit a policy.
+ if (CouncilDecisionId != -1 || bPersistentSaveWritesBlocked
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4)
+     || CouncilPreviewSelection < 0 || CouncilPreviewSelection > 2) {
+  bCouncilDecisionConfirmArmed = false;
+  return false;
+ }
+ if (!bCouncilDecisionConfirmArmed) {
+  bCouncilDecisionConfirmArmed = true;
+  return false;
+ }
+ const int32 OldDecision = CouncilDecisionId;
+ const int32 OldMorality = MoralAlignment;
+ const int32 Selected = CouncilPreviewSelection;
+ CouncilDecisionId = Selected;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::CouncilDelta(Selected));
+ bCouncilDecisionConfirmArmed = false;
+ // The outcome is stored as one policy. Later world/settlement integrations
+ // derive effects from this policy; do not mutate arbitrary faction records.
+ if (!SaveWorldProgress()) {
+  CouncilDecisionId = OldDecision;
+  MoralAlignment = OldMorality;
+  return false;
+ }
+ CloseCouncilPointer();
+ return true;
+}
+
+void AMoonfallHeroPawn::CloseCouncilPointer() {
+ if (!bCouncilPointerOpen) return;
+ bCouncilPointerOpen = false;
+ bCouncilDecisionConfirmArmed = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen;
+}
+void AMoonfallHeroPawn::ToggleCouncilPointer() {
+ if (bCouncilPointerOpen) { CloseCouncilPointer(); return; }
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4))
+  return;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  bCouncilPointerOpen = true;
+  PC->bShowMouseCursor = true;
+  EndSprint();
+  EndGuard();
+ }
+}
+
+bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId) {
+ if (DecisionId < 0 || DecisionId > 2 || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4))
+  return false;
+ // Pure UI state. No council choice is applied, saved, or rewarded.
+ if (CouncilPreviewSelection != DecisionId) bCouncilDecisionConfirmArmed = false;
+ CouncilPreviewSelection = DecisionId;
+ return true;
+}
+
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
@@ -3757,12 +4385,16 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const int32 PreviousSalvage = Salvage;
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
+ const int32 PreviousMorality = MoralAlignment;
  Salvage -= Cost;
+ MoralAlignment = MoonfallMorality::Apply(MoralAlignment,
+     MoonfallMorality::QuestCompletionDelta());
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
  if (!SaveWorldProgress()) {
   Salvage = PreviousSalvage;
+  MoralAlignment = PreviousMorality;
   ResidentQuestStates.Add(Id, 1);
   if (PreviousBond == 0) ResidentBonds.Remove(Id);
   else ResidentBonds.Add(Id, PreviousBond);

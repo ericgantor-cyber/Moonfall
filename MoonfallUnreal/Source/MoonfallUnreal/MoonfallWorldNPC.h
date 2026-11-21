@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallWorldNPC.generated.h"
 class UStaticMeshComponent;
+class UTextRenderComponent;
 class AMoonfallHeroPawn;
 
 // Lightweight one-world NPC: idle without Tick; usable from player or UI actions.
@@ -12,6 +13,27 @@ class MOONFALLUNREAL_API AMoonfallWorldNPC : public AActor {
 public:
  AMoonfallWorldNPC();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") UStaticMeshComponent* Body;
+ // Nonblocking text above a resident, refreshed only when the Council policy changes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UTextRenderComponent* CouncilAssignmentSign;
+ // Tiny collision-free animated activity prop, separate from original NPC body art.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Council") UStaticMeshComponent* CouncilWorkMarker;
+ float CouncilWorkVisualPhase = 0.f;
+ // Stationary professions reuse the primitive marker; no AI movement or Tick.
+ void RefreshCouncilStationActivity(const AMoonfallHeroPawn* Hero);
+ int32 CouncilStationVisualStep = 0;
+ void RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* Hero);
+ // Short authored two-point workplace patrol. No NPC Tick or AI controller.
+ // Returns false if a walkable route or safe endpoints cannot be confirmed.
+ bool ConfigureCouncilWorkRoute(const FVector& EndOffset);
+ void AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, float StepSeconds);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Council") FString GetCouncilWorkPhase() const;
+ // Short, observable pause at a verified post rather than immediate ping-pong.
+ float CouncilWorkHoldSeconds = 0.f;
+ bool bCouncilWorkAtPost = false;
+ UPROPERTY(Transient) bool bCouncilWorkRouteValid = false;
+ FVector CouncilWorkHome = FVector::ZeroVector;
+ FVector CouncilWorkDestination = FVector::ZeroVector;
+ bool bCouncilWorkReturning = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText DisplayName;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText Greeting;
  // Native Canvas HUD can show spoken lines even without a Blueprint widget.
@@ -36,6 +58,8 @@ public:
  // Ancestry changes social dialogue but never overwrites earned reputation.
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Race") bool SharesRaceWith(const AMoonfallHeroPawn* Hero) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FString GetCurrentActivity() const;
+ // Council-aware job description for UI/dialogue, not simulated AI navigation.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Council") FString GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName FactionId = FName(TEXT("Wanderers"));
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC", meta=(ClampMin="50.0", ClampMax="400.0")) float InteractRange = 240.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 InteractionCount = 0;
