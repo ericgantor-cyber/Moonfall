@@ -959,21 +959,23 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
      : SelectedSlot == 1 ? Hero->EquippedArmorCode
      : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
-   const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
-   const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
-   const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
-   const int32 TierDelta = SelectedTier - EquippedTier;
-   const int32 RarityDelta = SelectedRarity - EquippedRarity;
-   const bool bIsUpgrade = EquippedCode <= 0 || TierDelta > 0
-     || (TierDelta == 0 && RarityDelta > 0);
-   const bool bIsLower = EquippedCode > 0 && (TierDelta < 0
-     || (TierDelta == 0 && RarityDelta < 0));
-   const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+   // An externally stale equipped code is not actual worn gear.
+   // Use the same validated power calculation for labels, colors and delta,
+   // including the small but real contribution of an item's affix.
+   const bool bEquippedValid = Hero->InventoryItemCodes.Contains(EquippedCode)
+     && Hero->GetItemPower(EquippedCode) > 0;
+   const int32 EquippedTier = bEquippedValid ? EquippedCode % 1000 : 0;
+   const int32 EquippedRarity = bEquippedValid ? (EquippedCode / 1000) % 10 : 0;
+   const int32 EquippedAffix = bEquippedValid ? EquippedCode / 100000 : 0;
+   const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
+   const bool bIsUpgrade = PowerDelta > 0;
+   const bool bIsLower = PowerDelta < 0;
+   const TCHAR* CompareWord = !bEquippedValid ? TEXT("EMPTY SLOT")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const FString CompareLine = EquippedCode <= 0
+   const FString CompareLine = !bEquippedValid
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
@@ -981,7 +983,7 @@ void AMoonfallCombatHUD::DrawHUD()
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
    const FString PowerCompareLine = CompareLine +
-     FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
+     FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
    DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
