@@ -163,7 +163,6 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  // Walking characters retain their location and movement on the moving deck.
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
- LastCrossingUpdateAt = CrossingStartedAt;
  bUnderway = true;
  SetGangplankDeployed(false);
  GetWorldTimerManager().SetTimer(CrossingTimer, this,
@@ -178,32 +177,6 @@ void AMoonfallGothicFerry::AdvanceCrossing()
  if (!IsValid(Rider) || !FMath::IsFinite(Rider->Health) || Rider->Health <= 0.f) {
   FinishCrossing(false);
   return;
- }
- // Keep time spent waiting for recovery out of the 11-second voyage.
- // An obstructed recovery can take many timer iterations to clear.
- const float Now = GetWorld()->GetTimeSeconds();
- const float UpdateDelta = FMath::Max(0.f, Now - LastCrossingUpdateAt);
- LastCrossingUpdateAt = Now;
- // Protect a passenger who walks beyond the deck edge or falls into
- // open water. Ordinary footsteps and small jumps should remain free.
- // Never move the vessel forward while the passenger lacks a safe deck spot.
- const FVector RiderLocation = Rider->GetActorLocation();
- const FVector BoatLocation = GetActorLocation();
- const bool bOverboard = FVector::DistSquared2D(RiderLocation, BoatLocation)
-      > FMath::Square(700.f) || RiderLocation.Z < BoatLocation.Z - 250.f;
- if (bOverboard) {
-  FVector SafeDeck = BoatLocation + FVector(0.f, 0.f, 190.f);
-  if (!GetWorld()->FindTeleportSpot(Rider, SafeDeck, Rider->GetActorRotation())) {
-   CrossingStartedAt += UpdateDelta;
-   return;
-  }
-  if (!Rider->SetActorLocation(SafeDeck, false, nullptr, ETeleportType::TeleportPhysics)) {
-   CrossingStartedAt += UpdateDelta;
-   return;
-  }
-  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
-   Movement->SetMovementMode(MOVE_Walking);
-  Rider->SetBase(Deck);
  }
  const float Alpha = GetCrossingProgress();
  // A genuine moving boat for eleven seconds, not a world swap or a
