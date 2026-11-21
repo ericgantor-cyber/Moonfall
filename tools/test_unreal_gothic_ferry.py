@@ -264,6 +264,15 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("Movement->MovementMode == MOVE_Falling", swimming)
         self.assertIn("Movement->SetMovementMode(MOVE_Swimming);", swimming)
         self.assertIn("Movement->SetMovementMode(MOVE_Falling);", swimming)
+        self.assertIn("} else if (bOnFerry) {", swimming)
+        self.assertIn("Movement->SetMovementMode(MOVE_Walking);", swimming)
+        self.assertIn("} else if (bLeaveWater) {", swimming)
+        self.assertLess(swimming.index("} else if (bOnFerry) {"),
+                        swimming.index("} else if (bLeaveWater) {"))
+        deck_exit = swimming.split("} else if (bOnFerry) {", 1)[1].split(
+            "} else if (bLeaveWater) {", 1)[0]
+        self.assertNotIn("SetActorLocation(", deck_exit)
+        self.assertNotIn("SetBase(", deck_exit)
         self.assertIn("Hero->GetMovementBase()->GetOwner()", swimming)
         self.assertNotIn("SetActorLocation(", swimming)
         self.assertNotIn("FindTeleportSpot", swimming)
