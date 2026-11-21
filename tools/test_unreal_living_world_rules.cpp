@@ -36,6 +36,20 @@ int main() {
  assert(AdjustShopPrice(1, 60) == 1);
  assert(WorldState(-60)[0] == 'U');
  assert(WorldState(60)[0] == 'B');
+ // Morality gear is cosmetic: all ranks are deterministic and never grant
+ // nonexistent equipment a themed appearance.
+ assert(GearTheme(100, false)[0] == 'N');
+ assert(GearTheme(-100, false)[0] == 'N');
+ assert(GearTheme(0, true)[0] == 'U');
+ assert(GearTheme(25, true)[0] == 'H');
+ assert(GearTheme(60, true)[0] == 'R');
+ assert(GearTheme(-25, true)[0] == 'S');
+ assert(GearTheme(-60, true)[0] == 'D');
+ assert(GearVisualPromise(0, false)[0] == 'N');
+ assert(GearVisualPromise(0, true)[0] == 'O');
+ assert(GearVisualPromise(60, true)[0] == 'G');
+ assert(GearVisualPromise(-60, true)[0] == 'C');
+
 
 
  // All 111 catalog designs must be distinct and valid under the current
