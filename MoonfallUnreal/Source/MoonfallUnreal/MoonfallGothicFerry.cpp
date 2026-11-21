@@ -41,6 +41,14 @@ AMoonfallGothicFerry::AMoonfallGothicFerry()
  VesselName->SetWorldSize(95.f);
  VesselName->SetText(FText::FromString(TEXT("THE NIGHTFERRY")));
  VesselName->SetRelativeLocation(FVector(0.f, 0.f, 330.f));
+ VoyageStatus = CreateDefaultSubobject<UTextRenderComponent>(TEXT("VoyageStatus"));
+ VoyageStatus->SetupAttachment(GetRootComponent());
+ VoyageStatus->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ VoyageStatus->SetGenerateOverlapEvents(false);
+ VoyageStatus->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+ VoyageStatus->SetWorldSize(75.f);
+ VoyageStatus->SetRelativeLocation(FVector(0.f, 0.f, 245.f));
+ VoyageStatus->SetText(FText::GetEmpty());
 
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
@@ -93,6 +101,22 @@ float AMoonfallGothicFerry::GetSecondsUntilArrival() const
  return FMath::Clamp(CrossingDuration - Elapsed, 0.f, CrossingDuration);
 }
 
+void AMoonfallGothicFerry::UpdateVoyageStatus()
+{
+ if (!VoyageStatus) return;
+ if (!bUnderway) {
+  LastDisplayedSeconds = -1;
+  VoyageStatus->SetText(FText::GetEmpty());
+  return;
+ }
+ // Only redraw when the displayed whole second changes, not 20 times/sec.
+ const int32 Seconds = FMath::CeilToInt(GetSecondsUntilArrival());
+ if (Seconds == LastDisplayedSeconds) return;
+ LastDisplayedSeconds = Seconds;
+ VoyageStatus->SetText(FText::FromString(FString::Printf(
+  TEXT("TO %s  |  %ds"), *GetDestinationName().ToString(), Seconds)));
+}
+
 bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
 {
  if (!IsValid(Hero) || !GetWorld() || bUnderway || Passenger.IsValid()
@@ -128,6 +152,7 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
  bUnderway = true;
+ UpdateVoyageStatus();
  GetWorldTimerManager().SetTimer(CrossingTimer, this,
    &AMoonfallGothicFerry::AdvanceCrossing, 0.05f, true);
  return true;
@@ -141,6 +166,7 @@ void AMoonfallGothicFerry::AdvanceCrossing()
   FinishCrossing(false);
   return;
  }
+ UpdateVoyageStatus();
  const float Alpha = GetCrossingProgress();
  // A genuine moving boat for eleven seconds, not a world swap or a
  // teleporter. Ease at both shores to avoid abrupt camera motion.
@@ -187,6 +213,7 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
  SetActorLocation(DockLocation(bAtIsland));
  bUnderway = false;
  Passenger.Reset();
+ UpdateVoyageStatus();
 }
 
 void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -211,6 +238,7 @@ void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
   }
   Passenger.Reset();
   bUnderway = false;
+  UpdateVoyageStatus();
  }
  Super::EndPlay(EndPlayReason);
 }
