@@ -433,6 +433,15 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  // instantiated at startup. One update creates at most three tiles.
  TArray<TPair<float, int32>> Candidates;
  for (int32 Region = 0; Region < RegionCount; ++Region) {
+  // A region's 5x5 tile centers extend at most two tile widths from
+  // its center on each axis. If even the closest possible tile center
+  // is outside LoadRadius, skip all 25 candidate tests for that region.
+  const FVector Center = RegionCenter(Region);
+  const float MaxTileCenterOffset = 2.f * AMoonfallOverworldTile::TileSize;
+  const float CandidateReach = LoadRadius + MaxTileCenterOffset;
+  if (FMath::Abs(PlayerPosition.X - Center.X) > CandidateReach
+      || FMath::Abs(PlayerPosition.Y - Center.Y) > CandidateReach)
+   continue;
   for (int32 Row = 0; Row < AMoonfallOverworldTile::TilesPerSide; ++Row) {
    for (int32 Column = 0; Column < AMoonfallOverworldTile::TilesPerSide; ++Column) {
     const int32 Id = Region * TilesPerRegion
