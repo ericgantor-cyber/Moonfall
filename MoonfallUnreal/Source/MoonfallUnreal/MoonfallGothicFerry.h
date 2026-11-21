@@ -20,7 +20,7 @@ public:
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
  static constexpr float DockReach = 950.f; // Covers the 800cm safe disembark point.
- static constexpr float CrossingDuration = 14.f;
+ static constexpr float CrossingDuration = 11.f;
 
  static FVector DockLocation(bool bAtIsland);
  // Exposed for mouse/controller input, but every call validates proximity,
