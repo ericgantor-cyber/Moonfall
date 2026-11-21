@@ -129,7 +129,7 @@ void AMoonfallGothicFerry::AdvanceCrossing()
   return;
  }
  const float Alpha = GetCrossingProgress();
- // A genuine moving boat for fourteen seconds, not a world swap or a
+ // A genuine moving boat for eleven seconds, not a world swap or a
  // teleporter. Ease at both shores to avoid abrupt camera motion.
  const float Eased = FMath::InterpEaseInOut(0.f, 1.f, Alpha, 2.f);
  const FVector From = DockLocation(bAtIsland);
