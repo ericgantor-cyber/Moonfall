@@ -780,7 +780,7 @@ void AMoonfallCombatHUD::DrawHUD()
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    // Optional lower-third cosmetic gear identity; omitted in compact windows
    // to protect readability of the existing combat-stat rows.
-   if (PanelHeight >= 700.f) {
+   if (PanelHeight >= 820.f) {
     const TCHAR* GearLabels[3] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
     for (int32 Slot = 0; Slot < 3; ++Slot) {
      DrawText(FString::Printf(TEXT("%s: %s | %s"),
