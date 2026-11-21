@@ -991,7 +991,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // cached path-refresh budget on a zero-length pursuit step.
      const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint
        && Path->PathPoints.Num() > 2
-       && FVector::DistSquared2D(GetActorLocation(), FirstCorner) < FMath::Square(65.f)
+       && FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)
        && !Path->PathPoints[2].ContainsNaN();
      CachedWaypoint = bHasCachedNavigationWaypoint
        ? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)
@@ -1014,8 +1014,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    if (bHasCachedNavigationWaypoint) {
     // A valid waypoint at world origin must remain navigable.
-    FVector ToWaypoint = CachedWaypoint - GetActorLocation();
-    ToWaypoint.Z = 0.f;
+    // Steering remains in the horizontal plane below, but waypoint arrival
+    // must include height so an upper-floor corner is never mistaken for
+    // a reached lower-floor corner.
+    const FVector ToWaypoint = CachedWaypoint - GetActorLocation();
     // Keep following the reachable corner even on the tick that requests
     // a refresh. Falling back to the distant goal here sends partial-path
     // pursuers straight into walls before the next NavMesh result arrives.
