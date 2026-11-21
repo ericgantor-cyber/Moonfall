@@ -1,6 +1,8 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallHeroPawn.h"
+#include "TimerManager.h"
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -22,6 +24,43 @@ AMoonfallArena::AMoonfallArena() {
  DungeonRoad->SetCullDistances(24000, 34000);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
+ // Fixed instance batches. They never collide, tick, or obstruct navmesh.
+ CouncilProtectionDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilProtectionDecor"));
+ CouncilReconstructionDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilReconstructionDecor"));
+ CouncilFortificationDecor = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("CouncilFortificationDecor"));
+ UInstancedStaticMeshComponent* Sets[] = {
+  CouncilProtectionDecor, CouncilReconstructionDecor, CouncilFortificationDecor};
+ for (UInstancedStaticMeshComponent* Set : Sets) {
+  Set->SetupAttachment(GetRootComponent());
+  Set->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Set->SetGenerateOverlapEvents(false);
+  if (Cube.Succeeded()) Set->SetStaticMesh(Cube.Object);
+  Set->SetVisibility(false);
+ }
+
+}
+void AMoonfallArena::RefreshCouncilSettlementVisuals() {
+ if (!GetWorld() || !CouncilProtectionDecor || !CouncilReconstructionDecor
+     || !CouncilFortificationDecor) return;
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ const int32 Policy = IsValid(Hero) && Hero->CouncilDecisionId >= 0
+     && Hero->CouncilDecisionId <= 2 ? Hero->CouncilDecisionId : -1;
+ if (Policy == LastDisplayedCouncilDecision) return;
+ LastDisplayedCouncilDecision = Policy;
+ CouncilProtectionDecor->SetVisibility(Policy == 0);
+ CouncilReconstructionDecor->SetVisibility(Policy == 1);
+ CouncilFortificationDecor->SetVisibility(Policy == 2);
+ if (IsValid(CouncilWorldSign)) {
+  const TCHAR* Title = Policy == 0 ? TEXT("PEOPLE FIRST | COUNCIL PROTECTION")
+      : Policy == 1 ? TEXT("REBUILD THE CROSSROADS | COUNCIL WORKS")
+      : Policy == 2 ? TEXT("FORTIFY THE BORDERS | COUNCIL WATCH")
+      : TEXT("CROSSROADS COUNCIL | POLICY UNDECIDED");
+  CouncilWorldSign->SetText(FText::FromString(Title));
+  CouncilWorldSign->SetTextRenderColor(
+      Policy == 0 ? FColor(118, 225, 196)
+      : Policy == 1 ? FColor(245, 192, 120)
+      : Policy == 2 ? FColor(166, 187, 245) : FColor(194, 194, 203));
+ }
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  // Reuse the mesh already loaded for the instanced dungeon road rather
@@ -48,6 +87,44 @@ FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
+ // Council choices update the Crossroads' appearance, not its collision
+ // geometry. Sparse instanced props avoid actors, dynamic materials and Tick.
+ if (CouncilProtectionDecor && CouncilReconstructionDecor && CouncilFortificationDecor) {
+  const FVector Protection[] = {
+   FVector(-1370.f,-1060.f,110.f), FVector(-1370.f,-350.f,110.f),
+   FVector(-1370.f,350.f,110.f), FVector(-1370.f,1050.f,110.f)};
+  const FVector Reconstruction[] = {
+   FVector(1130.f,-1040.f,80.f), FVector(1130.f,-340.f,80.f),
+   FVector(1130.f,360.f,80.f), FVector(1130.f,1060.f,80.f)};
+  const FVector Fortification[] = {
+   FVector(1320.f,-1130.f,160.f), FVector(1320.f,-430.f,160.f),
+   FVector(1320.f,270.f,160.f), FVector(1320.f,970.f,160.f)};
+  for (const FVector& Pos : Protection)
+   CouncilProtectionDecor->AddInstance(FTransform(FRotator(0.f,45.f,0.f),
+     Pos, FVector(0.65f,0.65f,2.2f)));
+  for (const FVector& Pos : Reconstruction)
+   CouncilReconstructionDecor->AddInstance(FTransform(FRotator::ZeroRotator,
+     Pos, FVector(2.2f,1.4f,1.6f)));
+  for (const FVector& Pos : Fortification)
+   CouncilFortificationDecor->AddInstance(FTransform(FRotator::ZeroRotator,
+     Pos, FVector(1.4f,1.4f,3.2f)));
+ }
+ CouncilWorldSign = NewObject<UTextRenderComponent>(this, TEXT("CrossroadsCouncilPolicySign"));
+ if (IsValid(CouncilWorldSign)) {
+  CouncilWorldSign->SetupAttachment(GetRootComponent());
+  CouncilWorldSign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  CouncilWorldSign->SetGenerateOverlapEvents(false);
+  CouncilWorldSign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  CouncilWorldSign->SetWorldSize(46.f);
+  CouncilWorldSign->SetRelativeLocation(FVector(840.f,-850.f,260.f));
+  CouncilWorldSign->RegisterComponent();
+ }
+ RefreshCouncilSettlementVisuals();
+ if (GetWorld()) {
+  FTimerHandle CouncilVisualRefreshTimer;
+  GetWorld()->GetTimerManager().SetTimer(CouncilVisualRefreshTimer,
+      this, &AMoonfallArena::RefreshCouncilSettlementVisuals, 2.0f, true);
+ }
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
