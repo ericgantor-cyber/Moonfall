@@ -97,11 +97,15 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
 
  // Short boarding reposition puts the rider on deck, then actual crossing
  // is continuous movement of their attached root with the ship.
+ const FVector OriginalLocation = Hero->GetActorLocation();
  const FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
  if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
   return false;
- if (!Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform))
+ if (!Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform)) {
+  // Failed attachment must never strand the pawn above water.
+  Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);
   return false;
+ }
  Movement->StopMovementImmediately();
  Movement->DisableMovement();
  Passenger = Hero;
@@ -145,8 +149,11 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
   const FVector Landing = DockLocation(bAtIsland)
     + FVector(0.f, IntoLand, 125.f);
   Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics);
-  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
-   Movement->SetMovementMode(MOVE_Walking);
+  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement()) {
+   // The death pipeline owns movement for a defeated player.
+   if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f)
+    Movement->SetMovementMode(MOVE_Walking);
+  }
  }
  Passenger.Reset();
 }
