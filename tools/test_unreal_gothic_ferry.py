@@ -37,6 +37,21 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertEqual(self.boat.count("Hero->SetActorLocation("), 2)
         self.assertEqual(self.boat.count("Rider->SetActorLocation("), 2)
 
+    def test_destination_and_arrival_countdown_for_accessible_ui(self):
+        self.assertIn("FText GetDestinationName() const;", self.h)
+        self.assertIn("float GetSecondsUntilArrival() const;", self.h)
+        destination = self.boat.split("FText AMoonfallGothicFerry::GetDestinationName() const", 1)[1].split(
+            "float AMoonfallGothicFerry::GetSecondsUntilArrival() const", 1)[0]
+        self.assertIn("bAtIsland ?", destination)
+        self.assertIn('TEXT("Mainland Harbor")', destination)
+        self.assertIn('TEXT("Gothic Isle")', destination)
+        countdown = self.boat.split("float AMoonfallGothicFerry::GetSecondsUntilArrival() const", 1)[1].split(
+            "bool AMoonfallGothicFerry::TryBoard(", 1)[0]
+        self.assertIn("if (!bUnderway || !GetWorld()) return 0.f;", countdown)
+        self.assertIn("CrossingDuration - Elapsed", countdown)
+        self.assertIn("FMath::Clamp(", countdown)
+        self.assertNotIn("TActorIterator", countdown)
+
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
         boarding = self.boat.split("bool AMoonfallGothicFerry::TryBoard(", 1)[1].split(
             "void AMoonfallGothicFerry::AdvanceCrossing()", 1)[0]
