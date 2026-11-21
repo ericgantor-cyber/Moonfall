@@ -1393,14 +1393,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;", body)
-        self.assertIn("const int32 EquippedCodes[3]", body)
-        self.assertIn("BestScores[3]", body)
+        self.assertIn("if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", body)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
+        self.assertIn("const int32 Code = GetEquipmentSlotCode(Slot);", body)
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", body)
+        self.assertIn("BestScores[MoonfallEquipmentSlots::SlotCount]", body)
+        self.assertIn("BestIndices[MoonfallEquipmentSlots::SlotCount]", body)
         self.assertIn("InventoryItemCodes.Num()", body)
         self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", body)
-        self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
+        self.assertIn("MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)", body)
         self.assertIn("if (Score > BestScores[Slot])", body)
-        self.assertIn("EquipInventoryItem(BestIndices[Slot])", body)
+        self.assertIn("Index != INDEX_NONE && EquipInventoryItem(Index)", body)
         self.assertIn("OnBestLoadoutEquipped(UpgradesEquipped);", body)
         self.assertNotIn("SalvageInventoryItem(", body)
         self.assertNotIn("RemoveAt(", body)
@@ -1594,13 +1597,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
-            "void AMoonfallHeroPawn::", 1)[0]
-        baseline = auto.split("for (int32 Slot = 0; Slot < 3; ++Slot)", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        baseline = auto.split("for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)", 1)[1].split(
             "for (int32 Index = 0;", 1)[0]
-        self.assertIn("if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;", baseline)
-        self.assertIn("int32 BestScores[3] = {-1, -1, -1};", auto)
+        self.assertIn("const int32 Code = GetEquipmentSlotCode(Slot);", baseline)
+        self.assertIn("if (Code <= 0) continue;", baseline)
+        getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[0]
+        self.assertIn("InventoryItemCodes.Contains(Code)", getter)
+        self.assertIn("BestScores[MoonfallEquipmentSlots::SlotCount]", auto)
         self.assertIn("if (Score > BestScores[Slot])", auto)
-        self.assertIn("EquipInventoryItem(BestIndices[Slot])", auto)
+        self.assertIn("Index != INDEX_NONE && EquipInventoryItem(Index)", auto)
 
     def test_loot_upgrade_preview_uses_validated_equipment_tiers(self):
         hero = self.hero_cpp
@@ -3825,10 +3832,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)", "InventoryItemCodes.Contains(Code)",
-                         "EncodedSlot == ExpectedSlot", "Code == Affix * 100000",
+                         "MoonfallEquipmentSlots::IsCanonicalForSlot(Code, ExpectedSlot)",
+                         "OtherSlot < MoonfallEquipmentSlots::SlotCount",
                          "Candidate == EquippedCodes[Slot]", "FMath::IsFinite(Health)"):
             self.assertIn(contract, score)
         self.assertIn("GetEquipmentUpgradeScore(Index)", recommendation)
+        self.assertIn("MatchingPieces >= 2", score)
+        self.assertIn("GetEquipmentSlotCode(EquippedSlot)", score)
         self.assertIn("Improvement > BestImprovement", recommendation)
         self.assertIn("return INDEX_NONE;", recommendation)
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.Add(",
@@ -3853,6 +3863,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TWeakObjectPtr<const AMoonfallHeroPawn> CachedAdvisorHero;", hud_header)
         self.assertIn("CachedAdvisorHero.Get() != Hero", bag)
         self.assertIn("CachedAdvisorHero = Hero;", bag)
+        self.assertIn("bExtraGearChanged", bag)
+        self.assertIn("CachedAdvisorExtraCodes[ExtraSlot]", bag)
+        self.assertIn("int32 CachedAdvisorExtraCodes[6] = {};", hud_header)
         self.assertIn("GEAR: EMPTY BAG", bag)
         self.assertIn("GEAR: UPGRADE (+%d)", bag)
         self.assertIn("GEAR: NO UPGRADE", bag)
