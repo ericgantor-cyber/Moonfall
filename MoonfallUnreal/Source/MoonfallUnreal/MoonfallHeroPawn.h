@@ -88,6 +88,15 @@ public:
  UStaticMeshComponent* MoralOrnamentRight;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
  UPointLightComponent* MoralPresenceLight;
+ // Distinct, cosmetic side motifs for owned, equipped weapon/armor/charm.
+ // These components never replace the user's original hero or item artwork.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralWeaponMotif;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralArmorMotif;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralAccessoryMotif;
+ int32 LastMoralGearVisibilityMask = -1;
  int32 LastMoralVisualTier = 99;
  bool bLastMoralVisualReduceMotion = false;
  float MoralVisualRefreshElapsed = 0.f;
