@@ -3518,6 +3518,32 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     }
     const float SidebarWidth = FMath::Clamp(PanelW * 0.27f, 132.f, 238.f);
     const float RowGap = FMath::Clamp((PanelH - 145.f) / 6.f, 24.f, 78.f);
+    // Click the island story footer to enter/leave its separate reader.
+    // The island must actually have been discovered to expose the card.
+    if (MouseX >= PanelL + 13.f && MouseX <= PanelL + SidebarWidth - 9.f
+        && MouseY >= PanelT + PanelH - 48.f
+        && MouseY <= PanelT + PanelH - 25.f) {
+     const int Quests[5] = {
+      GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+      GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+      GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+      GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+      GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+     };
+     const bool bHarbor = HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing")));
+     const bool bCathedral = HasDiscoveredShrine(FName(TEXT("gothic_blackbell")));
+     const auto Mainland = MoonfallChronicle::SummarizeWorld(
+       static_cast<uint32>(DiscoveredDungeonMask),
+       static_cast<uint32>(DefeatedDungeonBossMask));
+     const auto Island = MoonfallIsleChronicle::Summarize(
+       bHarbor, bCathedral, Quests, Mainland.Valid && Mainland.ChronicleComplete);
+     if (Island.Valid && Island.Revealed > 0) {
+      bAtlasIsleReader = !bAtlasIsleReader;
+      AtlasChronicleChapter = -1;
+      bAtlasChronicleFocus = bAtlasIsleReader;
+     }
+     return;
+    }
     // Region selections are confined to the sidebar, never the painted map.
     if (MouseX >= PanelL + 13.f && MouseX <= PanelL + SidebarWidth - 9.f) {
      for (int32 Zone = 0; Zone < 6; ++Zone) {
@@ -3525,6 +3551,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
       if (MouseY >= RowY - 4.f && MouseY < RowY - 4.f + FMath::Max(20.f, RowGap - 4.f)) {
        if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1;
        AtlasSelectedRegion = Zone;
+       bAtlasIsleReader = false;
        return;
       }
      }
@@ -3546,6 +3573,23 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     const int32 ClickedBeat = MoonfallChronicleUI::HitChapter(
       ChronicleCard, MouseX, MouseY);
     if (ClickedBeat >= 0) {
+     if (bAtlasIsleReader) {
+      const int Quests[5] = {
+       GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+       GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+       GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+       GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+       GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+      };
+      const auto Mainland = MoonfallChronicle::SummarizeWorld(
+       static_cast<uint32>(DiscoveredDungeonMask),
+       static_cast<uint32>(DefeatedDungeonBossMask));
+      if (MoonfallIsleChronicle::ChapterState(ClickedBeat,
+           HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+           HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+           Quests, Mainland.Valid && Mainland.ChronicleComplete)
+           == MoonfallIsleChronicle::EState::Hidden) return;
+     }
      AtlasChronicleChapter = ClickedBeat;
      bAtlasChronicleFocus = true;
      return;
