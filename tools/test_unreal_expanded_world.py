@@ -61,9 +61,17 @@ class ExpandedOverworldTests(unittest.TestCase):
             "bool AMoonfallHeroPawn::HasDiscoveredShrine(", 1)[0]
         self.assertIn("AtlasDiscoveredShrineIds", header)
         self.assertIn("AtlasFastTravelPendingShrine = NAME_None", header)
+        self.assertIn("AtlasFastTravelConfirmUntil = 0.f", header)
         self.assertIn("HasDiscoveredShrine(ShrineId)", travel)
         self.assertIn("!AtlasDiscoveredShrineIds.Contains(ShrineId)", travel)
         self.assertIn("AtlasFastTravelPendingShrine != ShrineId", travel)
+        self.assertIn("GetRealTimeSeconds()", travel)
+        self.assertIn("Now > AtlasFastTravelConfirmUntil", travel)
+        self.assertIn("AtlasFastTravelConfirmUntil = Now + 5.f;", travel)
+        self.assertLess(travel.index("if (!Target) {"),
+                        travel.index("AtlasFastTravelConfirmUntil = Now + 5.f;"))
+        self.assertIn("AtlasFastTravelConfirmUntil = 0.f;", hero)
+        self.assertIn("GetRealTimeSeconds() <= Hero->AtlasFastTravelConfirmUntil", hud)
         self.assertIn("It->ShrineId == ShrineId", travel)
         self.assertIn("Target->GetRespawnLocation()", travel)
         self.assertIn("OverlapBlockingTestByChannel", travel)
