@@ -60,7 +60,7 @@ static_assert(EqualText(I::NextObjective(true, false, {2,2,2,2,2}, true),
 static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, false),
                           "Complete the six mainland acts"));
 static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, true),
-                          "Seventh Witness unlocked"));
+                          "Read the Seventh Witness"));
 static_assert(EqualText(I::NextObjective(true, true, {-1,2,2,2,2}, true),
                           "Island records unavailable"));
 static_assert(I::ChapterState(0, false, false, {0,0,0,0,0}, false)
