@@ -35,7 +35,8 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
         self.assertEqual(self.boat.count("Hero->SetActorLocation("), 1)
-        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 2)
+        # Only a rider still on the ship can be placed on shore.
+        self.assertEqual(self.boat.count("Rider->SetActorLocation("), 1)
 
     def test_destination_and_arrival_countdown_for_accessible_ui(self):
         self.assertIn("FText GetDestinationName() const;", self.h)
@@ -130,7 +131,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIsNotNone(landing)
         self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
                              int(reach.group(1)))
-        self.assertIn("} else if (IsValid(Rider)) {", completion)
+        self.assertIn("} else if (IsValid(Rider) && bRiderOnDeck) {", completion)
         self.assertIn("The death pipeline owns movement for an incapacitated hero.", completion)
         self.assertGreaterEqual(completion.count("Rider->SetBase(nullptr);"), 2)
         self.assertIn("Passenger.Reset();", completion)
