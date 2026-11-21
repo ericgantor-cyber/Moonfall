@@ -84,6 +84,37 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("Click twice to fast travel", hud)
         self.assertIn("AtlasFastTravelPendingShrine = NAME_None;", hero)
 
+    def test_controller_fast_travel_cycles_loaded_shrines_without_save_mutations(self):
+        hero = read(SOURCE / "MoonfallHeroPawn.cpp")
+        header = read(SOURCE / "MoonfallHeroPawn.h")
+        hud = read(SOURCE / "MoonfallCombatHUD.cpp")
+        keys = read(ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini")
+        self.assertIn('ActionName="AtlasTravelSelect",Key=Gamepad_FaceButton_Left', keys)
+        self.assertIn('ActionName="AtlasTravelSelect",Key=F', keys)
+        self.assertIn('BindAction(TEXT("AtlasTravelSelect")', hero)
+        self.assertIn("void AMoonfallHeroPawn::AtlasTravelSelect()", hero)
+        self.assertIn("void AMoonfallHeroPawn::CycleAtlasTravel(int32 Direction)", hero)
+        self.assertIn("void AtlasTravelSelect();", header)
+        self.assertIn("void CycleAtlasTravel(int32 Direction);", header)
+        select = hero.split("void AMoonfallHeroPawn::AtlasTravelSelect()", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleAtlasTravel(", 1)[0]
+        cycling = hero.split("void AMoonfallHeroPawn::CycleAtlasTravel(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryAtlasFastTravel(", 1)[0]
+        self.assertIn("TryAtlasFastTravel(AtlasFastTravelPendingShrine);", select)
+        self.assertIn("CycleAtlasTravel(1);", select)
+        self.assertIn("!HasDiscoveredShrine(Id)", cycling)
+        self.assertIn("!It->IsActorBeingDestroyed()", cycling)
+        self.assertIn("if (!bLoaded) continue;", cycling)
+        self.assertIn("TryAtlasFastTravel(Id);", cycling)
+        self.assertIn("if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }", hero)
+        self.assertIn("CycleAtlasTravel(-1); return;", hero)
+        self.assertIn("CycleAtlasTravel(1); return;", hero)
+        self.assertIn("FAST TRAVEL:", hud)
+        self.assertIn("SelectedTravelIndex", hud)
+        self.assertNotIn("SaveWorldProgress(", cycling)
+        self.assertNotIn("ActiveShrineId =", cycling)
+        self.assertNotIn("TeleportTo(", cycling)
+
     def test_six_full_size_provinces_plus_a_separate_island(self):
         self.assertIn("MainRegionCount = 6;", self.world_h)
         self.assertIn("RegionCount = 7;", self.world_h)
