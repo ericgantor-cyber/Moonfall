@@ -98,7 +98,11 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  // Short boarding reposition puts the rider on deck, then actual crossing
  // is continuous movement of their attached root with the ship.
  const FVector OriginalLocation = Hero->GetActorLocation();
- const FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
+ FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
+ // TeleportPhysics alone does not test clearance: reject an obstructed
+ // boarding deck before moving the hero or disabling their controls.
+ if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
+  return false;
  if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
   return false;
  if (!Hero->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform)) {
