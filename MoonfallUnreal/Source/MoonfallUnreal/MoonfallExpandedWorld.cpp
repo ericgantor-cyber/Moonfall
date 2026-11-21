@@ -192,8 +192,8 @@ void AMoonfallExpandedWorld::SpawnGothicIsleServices()
 
 void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPosition)
 {
- // The five settlements share the mainland's existing enemy AI, XP, and
- // loot. One encounter per district, never an island-wide enemy swarm.
+ // Five district patrols and one separate cathedral guardian reuse the
+ // existing enemy AI, XP and loot without an island-wide enemy swarm.
  // A defeated encounter stays cleared until the player leaves its district.
  UWorld* World = GetWorld();
  if (!World || PlayerPosition.ContainsNaN()) return;
@@ -202,13 +202,16 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
   FVector Offset;
   int32 Race;
   bool bElite;
+  bool bBoss;
  };
  const FIslandEncounterSpec Encounters[] = {
-  {TEXT("GothicHarborReaver"), FVector(3600.f, -37500.f, 90.f), 1, false},
-  {TEXT("GothicBlackbellPenitent"), FVector(3600.f, 2500.f, 90.f), 3, true},
-  {TEXT("GothicGraveSentinel"), FVector(37500.f, 3600.f, 90.f), 4, true},
-  {TEXT("GothicDuskwatchOutcast"), FVector(-37500.f, 3600.f, 90.f), 6, false},
-  {TEXT("GothicThornwraithStalker"), FVector(3600.f, 37500.f, 90.f), 8, true}
+  {TEXT("GothicHarborReaver"), FVector(3600.f, -37500.f, 90.f), 1, false, false},
+  {TEXT("GothicBlackbellPenitent"), FVector(3600.f, 2500.f, 90.f), 3, true, false},
+  {TEXT("GothicGraveSentinel"), FVector(37500.f, 3600.f, 90.f), 4, true, false},
+  {TEXT("GothicDuskwatchOutcast"), FVector(-37500.f, 3600.f, 90.f), 6, false, false},
+  {TEXT("GothicThornwraithStalker"), FVector(3600.f, 37500.f, 90.f), 8, true, false},
+  // Away from the cathedral NPC, but still within the same walkable tile.
+  {TEXT("GothicBlackbellWarden"), FVector(12500.f, 12500.f, 90.f), 3, false, true}
  };
  const FVector Isle = RegionCenter(6);
  for (int32 Index = 0; Index < UE_ARRAY_COUNT(Encounters); ++Index) {
@@ -241,11 +244,11 @@ void AMoonfallExpandedWorld::UpdateGothicIsleEncounters(const FVector& PlayerPos
     AMoonfallEnemy::StaticClass(), Transform, this, nullptr,
     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
   if (!IsValid(Enemy)) continue;
-  // No altered boss identities or original hero artwork. Elite rank
-  // supplies built-in posture/combat behavior, not a unique boss claim.
+  // This is a generic island boss, NOT a dungeon-ledger or divine boss.
+  // No original hero or boss character artwork is modified.
   Enemy->RaceId = Encounters[Index].Race;
   Enemy->bElite = Encounters[Index].bElite;
-  Enemy->bBoss = false;
+  Enemy->bBoss = Encounters[Index].bBoss;
   Enemy->Tags.AddUnique(FName(Encounters[Index].Tag));
   Enemy->FinishSpawning(Transform);
   if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed())
