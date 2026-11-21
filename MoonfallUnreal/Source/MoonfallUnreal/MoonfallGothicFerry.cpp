@@ -178,7 +178,26 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
 
 void AMoonfallGothicFerry::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
- if (bUnderway) FinishCrossing(false);
+ // Shutdown must never depend on a clear landing. FinishCrossing(false)
+ // deliberately retries blocked shores during normal gameplay, which would
+ // leave a passenger attached when this actor is actually being destroyed.
  if (GetWorld()) GetWorldTimerManager().ClearTimer(CrossingTimer);
+ if (bUnderway) {
+  if (AMoonfallHeroPawn* Rider = Passenger.Get()) {
+   Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+   // Recover a living passenger at the original dock if possible. If level
+   // teardown has removed collision, still release movement/attachment.
+   if (IsValid(Rider) && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
+    FVector SafeShore = DockLocation(bAtIsland)
+      + FVector(0.f, bAtIsland ? 800.f : -800.f, 125.f);
+    if (GetWorld() && GetWorld()->FindTeleportSpot(Rider, SafeShore, Rider->GetActorRotation()))
+     Rider->SetActorLocation(SafeShore, false, nullptr, ETeleportType::TeleportPhysics);
+    if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
+     Movement->SetMovementMode(MOVE_Walking);
+   }
+  }
+  Passenger.Reset();
+  bUnderway = false;
+ }
  Super::EndPlay(EndPlayReason);
 }
