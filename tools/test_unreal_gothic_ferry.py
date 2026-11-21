@@ -219,6 +219,22 @@ class GothicFerryContracts(unittest.TestCase):
             "void AMoonfallGothicFerry::EndPlay(", 1)[0]
         self.assertIn("SetGangplankDeployed(true)", completion)
 
+    def test_wow_forever_style_water_entry_uses_swimming_not_rescue(self):
+        world_header = (SRC / "MoonfallExpandedWorld.h").read_text(encoding="utf-8")
+        swimming = self.world.split("void AMoonfallExpandedWorld::UpdateSeaSwimming()", 1)[1].split(
+            "void AMoonfallExpandedWorld::RefreshNearbyTiles()", 1)[0]
+        self.assertIn("TWeakObjectPtr<class AMoonfallHeroPawn> SeaSwimmer;", world_header)
+        self.assertIn("Position.Y > 238000.f && Position.Y < 246000.f", swimming)
+        self.assertIn("Position.Z < -40.f", swimming)
+        self.assertIn("Movement->MovementMode == MOVE_Falling", swimming)
+        self.assertIn("Movement->SetMovementMode(MOVE_Swimming);", swimming)
+        self.assertIn("Movement->SetMovementMode(MOVE_Falling);", swimming)
+        self.assertIn("Hero->GetMovementBase()->GetOwner()", swimming)
+        self.assertNotIn("SetActorLocation(", swimming)
+        self.assertNotIn("FindTeleportSpot", swimming)
+        self.assertNotIn("Rider->SetBase(Deck)", swimming)
+        self.assertIn("UpdateSeaSwimming();", self.world)
+
     def test_single_instance_in_connected_overworld(self):
         start = self.world.split("void AMoonfallExpandedWorld::BeginPlay()", 1)[1].split(
             "void AMoonfallExpandedWorld::EndPlay(", 1
