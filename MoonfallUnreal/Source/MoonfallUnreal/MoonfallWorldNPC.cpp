@@ -27,6 +27,14 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  CouncilAssignmentSign->SetWorldSize(24.f);
  CouncilAssignmentSign->SetTextRenderColor(FColor(185, 222, 206));
  CouncilAssignmentSign->SetVisibility(false);
+ CouncilWorkMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CouncilWorkMarker"));
+ CouncilWorkMarker->SetupAttachment(Body);
+ if (Mesh.Succeeded()) CouncilWorkMarker->SetStaticMesh(Mesh.Object);
+ CouncilWorkMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ CouncilWorkMarker->SetGenerateOverlapEvents(false);
+ CouncilWorkMarker->SetRelativeScale3D(FVector(0.12f, 0.12f, 0.16f));
+ CouncilWorkMarker->SetRelativeLocation(FVector(50.f, 0.f, 85.f));
+ CouncilWorkMarker->SetVisibility(false);
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
@@ -129,6 +137,8 @@ bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
  bCouncilWorkReturning = false;
  CouncilWorkHoldSeconds = 0.f;
  bCouncilWorkAtPost = false;
+ CouncilWorkVisualPhase = 0.f;
+ if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
  bCouncilWorkRouteValid = true;
  return true;
 }
@@ -144,12 +154,27 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
  // While paused, no actor transform updates or collision queries are needed.
  if (CouncilWorkHoldSeconds > 0.f) {
   CouncilWorkHoldSeconds = FMath::Max(0.f, CouncilWorkHoldSeconds - StepSeconds);
+  const bool bWorking = bCouncilWorkAtPost && CouncilWorkHoldSeconds > 0.f;
+  if (IsValid(CouncilWorkMarker)) {
+   CouncilWorkMarker->SetVisibility(bWorking);
+   if (bWorking) {
+    // A small bobbing/rotating work glyph, animated by the existing 5Hz
+    // arena timer, never a per-NPC Tick or skeletal mesh replacement.
+    CouncilWorkVisualPhase = FMath::Fmod(
+        CouncilWorkVisualPhase + StepSeconds * 2.f, 2.f * PI);
+    CouncilWorkMarker->SetRelativeLocation(FVector(50.f, 0.f,
+        85.f + 8.f * FMath::Sin(CouncilWorkVisualPhase)));
+    CouncilWorkMarker->SetRelativeRotation(
+        FRotator(0.f, FMath::RadiansToDegrees(CouncilWorkVisualPhase), 0.f));
+   }
+  }
   if (CouncilWorkHoldSeconds <= 0.f) {
    bCouncilWorkReturning = !bCouncilWorkReturning;
    bCouncilWorkAtPost = false;
   }
   return;
  }
+ if (IsValid(CouncilWorkMarker)) CouncilWorkMarker->SetVisibility(false);
  const FVector Current = GetActorLocation();
  const FVector Player = Hero->GetActorLocation();
  if (Current.ContainsNaN() || Player.ContainsNaN()
