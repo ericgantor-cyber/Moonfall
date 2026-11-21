@@ -732,7 +732,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
        Hero->GetTotalDefeatedDungeonBosses(),
        Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons()),
-     TEXT("EQUIPMENT SLOTS  |  3 ACTIVE, 6 FUTURE"),
+     TEXT("EQUIPMENT SLOTS  |  3 EQUIPPABLE, 6 FUTURE"),
      SlotLine(0),
      SlotLine(3),
      SlotLine(6)
