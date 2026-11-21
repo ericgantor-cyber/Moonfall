@@ -34,7 +34,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("UGameplayStatics::OpenLevel(", self.boat)
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
-        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 1)
+        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 2)
         self.assertEqual(self.boat.count("Rider->SetActorLocation("), 1)
 
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
@@ -54,6 +54,10 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("Movement->StopMovementImmediately();", boarding)
         self.assertIn("Movement->DisableMovement();", boarding)
         self.assertIn("Passenger = Hero;", boarding)
+        self.assertIn("const FVector OriginalLocation = Hero->GetActorLocation();", boarding)
+        self.assertIn("Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);", boarding)
+        self.assertLess(boarding.index("Hero->AttachToActor("),
+                        boarding.index("Hero->SetActorLocation(OriginalLocation"))
 
     def test_hero_moves_with_ship_then_lands_safely_and_regains_movement(self):
         completion = self.boat.split("void AMoonfallGothicFerry::FinishCrossing(", 1)[1].split(
@@ -62,6 +66,9 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("const float IntoLand = bAtIsland ? 800.f : -800.f;", completion)
         self.assertIn("Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics);", completion)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", completion)
+        self.assertIn("FMath::IsFinite(Rider->Health) && Rider->Health > 0.f", completion)
+        self.assertLess(completion.index("Rider->Health > 0.f"),
+                        completion.index("Movement->SetMovementMode(MOVE_Walking)"))
         self.assertLess(completion.index("Rider->DetachFromActor("),
                         completion.index("Rider->SetActorLocation(Landing"))
         self.assertIn("Passenger.Reset();", completion)
