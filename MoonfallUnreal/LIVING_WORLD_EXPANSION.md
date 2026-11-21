@@ -84,6 +84,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - **Immediate reaction:** NPCs whose contracts are completed acknowledge the saved policy in their subsequent dialogue. This does not give rewards or retroactively change quests.
 - **Limit:** The Council policy is recorded and changes contextual NPC dialogue, but not faction reputation, settlement geometry, enemy threat, or constructed buildings. Those require explicit integration, native UE5 compilation and gameplay tests.
 
+## Crossroads policy appearance integration
+
+- The existing Crossroads now has three small, non-colliding instanced geometric decoration sets and a nonblocking in-world policy sign. After a confirmed V13 Council choice, the active set and sign change to **Protection**, **Reconstruction**, or **Fortification**.
+- The arena checks the player's already-saved policy every two seconds, so choosing a policy or loading a saved policy refreshes visuals without per-frame actor ticking, NPC relocation, new map levels or modifying the player's save. All variant geometry has collision and overlap disabled.
+- These are low-cost **visual indicators**, not actual repaired homes, working construction sites, staffed fortifications, altered quests or gameplay bonuses. The original hero art and gameplay world blockers are unchanged. Native Windows UE5 compilation and in-game collision, placement, controller and visuals testing remain outstanding.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
