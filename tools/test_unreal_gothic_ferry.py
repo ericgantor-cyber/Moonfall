@@ -62,7 +62,8 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("FMath::CeilToInt(GetSecondsUntilArrival())", status)
         self.assertIn("if (Seconds == LastDisplayedSeconds) return;", status)
         self.assertIn("GetDestinationName().ToString()", status)
-        self.assertIn("VoyageStatus->SetText(FText::GetEmpty());", status)
+        self.assertIn('TEXT("TO %s | RIGHT-CLICK / D-PAD UP")', status)
+        self.assertIn("UpdateVoyageStatus();", self.boat.split("void AMoonfallGothicFerry::BeginPlay()", 1)[1].split("float AMoonfallGothicFerry::GetCrossingProgress()", 1)[0])
         self.assertIn("UpdateVoyageStatus();", self.boat)
 
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
