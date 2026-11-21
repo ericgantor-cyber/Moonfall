@@ -20,6 +20,23 @@ int main() {
  assert(ResidentReputationDelta(true) > 0 && ResidentReputationDelta(false) < 0);
  assert(IsValidAction(1) && IsValidAction(-1) && !IsValidAction(0));
  assert(Alignment(-60)[0] == 'D' && Alignment(60)[0] == 'E');
+ // Crossroads changes only at fixed thresholds. Price quotes always remain
+ // positive, capped and more expensive for feared rather than kind heroes.
+ assert(WorldTier(-101) == -2 && WorldTier(101) == 2);
+ assert(WorldTier(-60) == -2 && WorldTier(-25) == -1);
+ assert(WorldTier(-24) == 0 && WorldTier(24) == 0);
+ assert(WorldTier(25) == 1 && WorldTier(60) == 2);
+ assert(AdjustShopPrice(100, -60) == 120);
+ assert(AdjustShopPrice(100, -25) == 110);
+ assert(AdjustShopPrice(100, 0) == 100);
+ assert(AdjustShopPrice(100, 25) == 95);
+ assert(AdjustShopPrice(100, 60) == 90);
+ assert(AdjustShopPrice(0, 60) == 0);
+ assert(AdjustShopPrice(1000001, 60) == 0);
+ assert(AdjustShopPrice(1, 60) == 1);
+ assert(WorldState(-60)[0] == 'U');
+ assert(WorldState(60)[0] == 'B');
+
 
  // All 111 catalog designs must be distinct and valid under the current
  // 3-slot / 5-rarity / 25-tier inventory encoding.
