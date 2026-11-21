@@ -36,10 +36,14 @@ east/west interprovince roads connect each row of three provinces,
 and three north/south roads connect the two rows. All these roads are
 real collision-enabled ground, without load doors or scripted teleportation.
 
-The coast has two separate walkable docks. **A functioning gothic boat
-crossing has NOT been implemented**; the sea gap is intentional, and
-the island is not yet normally reachable by the player. Do not claim
-the ferry or the island's gameplay content has shipped.
+The coast has two separate walkable docks. The new **Nightferry**
+source implements a reversible, 14-second continuous crossing over the
+80-meter open-water gap with safe landing and no teleport between coasts.
+The ship is a primitive gothic-boat silhouette, not finished artwork.
+Right-click the vessel to board it, or stand near either dock and press
+controller D-pad Up when not interacting with an NPC. A separate controller
+input or new keyboard button was deliberately not added. The voyage
+is **source-implemented but not verified in a native Unreal build**.
 
 `AMoonfallExpandedWorld` has no Tick. A 0.35-second timer checks the
 hero's location and generates up to three nearest 200m tiles per update.
@@ -71,8 +75,13 @@ native builds and representative Windows machines can be profiled.
 4. Press P for the navigation overlay. Check all six province floors,
    the road connections, collisions, tile loading/unloading, memory
    use, multi-floor steering, and return travel to the sanctuary.
-5. Run the new Python source regression suite:
-   `python -m unittest -v tools.test_unreal_expanded_world`.
+5. At the mainland dock, target the **Nightferry** with right mouse
+   click or use controller D-pad Up nearby; validate that the character
+   visibly rides for 14 seconds, lands on the Gothic Isle, and can
+   return on the same boat. Confirm spell casting and NPC interactions
+   remain unchanged elsewhere. Test interruption/death during transit.
+6. Run the new Python source regression suites:
+   `python -m unittest -v tools.test_unreal_expanded_world tools.test_unreal_gothic_ferry`.
    Source checks do **not** substitute for real Win64 compilation.
 
 ## Next major upgrades
@@ -80,8 +89,8 @@ native builds and representative Windows machines can be profiled.
 - Replace primitive silhouettes with original, properly licensed gothic
   towns, trees, geological cliffs, snowy mountains, foundries and landmarks.
   Do **not** alter the original Z/Nyra art.
-- Build the **real gothic ferry** with mouse/controller boarding,
-  actual travel, reversible mainland/island route and safe disembarking.
+- Finish the gothic Nightferry's 3D ship art, wake effects, sound, and
+  accessible arrival prompts after verifying the reversible trip in UE5.
 - Add roads/town services/region-specific quests, NPCs, foliage,
   encounters and a useful region-scale Atlas/minimap.
 - Profile streaming transitions on Windows 10 and 11 and, when ready,
