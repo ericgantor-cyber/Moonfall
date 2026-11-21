@@ -372,6 +372,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
   default: break;
   }
  }
+ // Fable-inspired moral reputation is independent of faction reputation.
+ // Mention sustained deeds without changing trust tiers, quests or dialogue AI.
+ if (Disposition != TEXT("Hostile") && Hero->MoralAlignment >= 60)
+  Reaction = FText::FromString(Reaction.ToString()
+      + TEXT(" People have heard of your kindness."));
+ else if (Disposition != TEXT("Hostile") && Hero->MoralAlignment <= -60)
+  Reaction = FText::FromString(Reaction.ToString()
+      + TEXT(" People fear what you might do next."));
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
