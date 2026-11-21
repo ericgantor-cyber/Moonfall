@@ -170,12 +170,13 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Pieces = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::LegacyCount; ++Slot) {
+  // Never count an unowned, corrupt or wrongly slotted equipped code.
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  if (Code <= 0) continue;
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
+  if (DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
  }
