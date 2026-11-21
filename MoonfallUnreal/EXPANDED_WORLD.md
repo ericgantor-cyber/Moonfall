@@ -86,20 +86,26 @@ native builds and representative Windows machines can be profiled.
    return on the same boat. Confirm spell casting and NPC interactions
    remain unchanged elsewhere. Test interruption/death during transit,
    blocked shore disembarkation and recovery after removing an obstacle.
-   Confirm death detaches the passenger without overriding respawn.
+   Confirm death releases the moving deck as the character's movement base
+   without overriding respawn. Verify walking around the moving deck with
+   keyboard, mouse and controller and test obstruction and edge falls.
 6. Run the new Python source regression suites:
    `python -m unittest -v tools.test_unreal_expanded_world tools.test_unreal_gothic_ferry`.
    Source checks do **not** substitute for real Win64 compilation.
 
-## WoW-style boat follow-up (not implemented)
+## WoW-style boat movement (source implementation; native tests pending)
 
-- The current ship still uses a fixed boarding reposition and disables rider
-  movement while attached. It is **not yet** a freely walkable ship deck.
-- Before enabling deck walking, add a collision-enabled moving deck,
-  gangplank/walk-on boarding, secure moving-platform character movement,
-  fall recovery, and controller/mouse boarding tests in native UE5.
-- Keep the 11-second duration consistent with the Gothic Raven prototype in
-  PR #1077; reconcile those implementations before any integration.
+- Added a separate collision-enabled walking deck. The hero is based on the
+  moving deck via `SetBase(Deck)` and retains normal CharacterMovement walking
+  instead of being attached to the ferry root with movement disabled.
+- **Boarding still uses a short reposition** from the right-click or controller
+  interaction. A true walk-on gangplank and automatic boarding trigger are
+  not implemented yet. Do not describe this as completed walk-on boarding.
+- Native UE5.4 tests must verify that the hero stays grounded while the boat
+  moves, can steer in all directions, does not slip/fall through collision,
+  and transfers off the deck correctly at both shore landings.
+- The 11-second duration matches the Gothic Raven prototype in PR #1077.
+  Reconcile both ferry implementations before merging.
 
 ## Next major upgrades
 
