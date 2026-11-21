@@ -40,6 +40,35 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
             self.assertNotIn(forbidden, outlook)
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;", hero)
         self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", hero)
+    def test_council_v13_commit_is_single_shot_and_save_rollback_safe(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        save = (SOURCE / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        inputs = (SOURCE.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 13;", save)
+        self.assertIn("UPROPERTY() int32 CouncilDecisionId = -1;", save)
+        self.assertIn("Save->CouncilDecisionId = CouncilDecisionId;", hero)
+        self.assertIn("Save->Version >= 13 ? Save->CouncilDecisionId : -1", hero)
+        self.assertIn("Save->Version > 13", hero)
+        self.assertIn("Save->CouncilDecisionId < -1", hero)
+        self.assertIn("Save->CouncilDecisionId > 2", hero)
+        self.assertIn("int32 CouncilDecisionId = -1;", header)
+        self.assertIn('ActionName="CouncilConfirm",Key=F9', inputs)
+        self.assertIn("ConfirmCouncilDecisionInput", header)
+        self.assertIn("void AMoonfallHeroPawn::ConfirmCouncilDecisionInput()", hero)
+        confirm = hero.split("bool AMoonfallHeroPawn::ConfirmCouncilDecision()", 1)[1].split(
+            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1
+        )[0]
+        self.assertIn("CouncilDecisionId != -1", confirm)
+        self.assertIn("!bCouncilDecisionConfirmArmed", confirm)
+        self.assertIn("bCouncilDecisionConfirmArmed = true;", confirm)
+        self.assertIn("CouncilDecisionId = Selected;", confirm)
+        self.assertIn("if (!SaveWorldProgress())", confirm)
+        self.assertIn("CouncilDecisionId = OldDecision;", confirm)
+        self.assertLess(confirm.index("CouncilDecisionId = Selected;"), confirm.index("if (!SaveWorldProgress())"))
+        self.assertLess(confirm.index("if (!SaveWorldProgress())"), confirm.index("CouncilDecisionId = OldDecision;"))
+        self.assertNotIn("FactionReputation.Add(", confirm)
+
     def test_council_pointer_click_preview_is_modal_and_safe(self):
         hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
