@@ -236,6 +236,16 @@ capsule never becomes a valid teleport destination. A confirmed journey
 stops player movement, checks scaled capsule collision, uses
 `TeleportTo` and closes the Atlas on success.
 
+**Controller and keyboard inside the Atlas:** press X on the controller
+(or F on the keyboard) to choose the first currently loaded discovered
+shrine, then X/F again within five seconds to confirm. While a shrine
+is selected, D-pad Left/Right or keyboard Left/Right cycles through
+loaded discovered shrines; otherwise those controls retain Atlas pan.
+The selected shrine's name is shown in the Atlas header even if its
+map pin is offscreen. This does not introduce a new gameplay interaction
+outside the Atlas. Opening Atlas is still bound to J; a dedicated
+controller-only Atlas-opening mapping remains future work.
+
 This is **not** an automatic ferry shortcut: only visited shrines
 are eligible, and streamed-out actors do not silently load on request.
 Travel does not change the active death/respawn shrine, grant
