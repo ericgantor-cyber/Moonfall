@@ -136,11 +136,27 @@ void AMoonfallExpandedWorld::UpdateSeaSwimming()
   return;
  }
  UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
- if (!IsValid(Movement)) return;
+ if (!IsValid(Movement)) {
+  SeaSwimmer.Reset();
+  return;
+ }
+ // Dead heroes belong to the existing death/respawn system. Never revive
+ // their motion or teleport them as part of sea detection.
+ if (!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
+  SeaSwimmer.Reset();
+  return;
+ }
  const FVector Position = Hero->GetActorLocation();
+ if (Position.ContainsNaN()) {
+  SeaSwimmer.Reset();
+  return;
+ }
  const bool bSeaGap = FMath::Abs(Position.X) < 50000.f
    && Position.Y > 238000.f && Position.Y < 246000.f;
  const bool bInWater = bSeaGap && Position.Z < -40.f;
+ // Hysteresis: enter once submerged, but do not flip straight back to
+ // falling when natural swimming briefly reaches the water surface.
+ const bool bLeaveWater = !bSeaGap || Position.Z > 60.f;
  // Existing deck movement wins over water. It is never overridden
  // merely because the boat sails across the water.
  const bool bOnFerry = Hero->GetMovementBase()
@@ -148,12 +164,15 @@ void AMoonfallExpandedWorld::UpdateSeaSwimming()
  if (bInWater && !bOnFerry && Movement->MovementMode == MOVE_Falling) {
   Movement->SetMovementMode(MOVE_Swimming);
   SeaSwimmer = Hero;
- } else if (SeaSwimmer.Get() == Hero && (!bInWater || bOnFerry)) {
-  // Leave water naturally. The movement system handles ground contact;
-  // there is no automatic rescue to ship or shore.
-  if (Movement->MovementMode == MOVE_Swimming)
+ } else if (SeaSwimmer.Get() == Hero) {
+  // Other gameplay systems may cancel swimming on their own. Drop our
+  // tracking state rather than overriding their chosen movement mode.
+  if (Movement->MovementMode != MOVE_Swimming) {
+   SeaSwimmer.Reset();
+  } else if (bLeaveWater || bOnFerry) {
    Movement->SetMovementMode(MOVE_Falling);
-  SeaSwimmer.Reset();
+   SeaSwimmer.Reset();
+  }
  }
 }
 
