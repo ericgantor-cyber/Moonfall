@@ -99,6 +99,34 @@ void AMoonfallWorldNPC::RefreshCouncilAssignmentSign(const AMoonfallHeroPawn* He
      : FColor(174, 197, 240));
  CouncilAssignmentSign->SetVisibility(true);
 }
+void AMoonfallWorldNPC::RefreshCouncilStationActivity(const AMoonfallHeroPawn* Hero) {
+ // Guard/scout work cues remain controlled exclusively by the patrol step.
+ const bool bMerchant = SocialRole == FName(TEXT("Merchant"));
+ const bool bTinker = SocialRole == FName(TEXT("Tinker"));
+ if ((!bMerchant && !bTinker) || !IsValid(CouncilWorkMarker)) return;
+ const bool bActive = IsValid(Hero) && Hero->CouncilDecisionId >= 0
+     && Hero->CouncilDecisionId <= 2 && SettlementId == FName(TEXT("Crossroads"));
+ if (!bActive) {
+  CouncilWorkMarker->SetVisibility(false);
+  CouncilStationVisualStep = 0;
+  return;
+ }
+ // Policy determines the supplies on display, rather than granting free loot.
+ // Merchant: public supply crates. Tinker: rebuild tools or border equipment.
+ const int32 Policy = Hero->CouncilDecisionId;
+ const float Width = bMerchant ? 0.38f : 0.16f;
+ const float Height = bMerchant ? 0.10f : (Policy == 1 ? 0.30f : 0.20f);
+ CouncilWorkMarker->SetRelativeScale3D(FVector(Width, Width, Height));
+ CouncilWorkMarker->SetRelativeLocation(bMerchant
+     ? FVector(42.f, 30.f, 25.f)
+     : FVector(42.f, 18.f, 48.f));
+ CouncilStationVisualStep = (CouncilStationVisualStep + 1) % 4;
+ const float Yaw = bMerchant ? 0.f
+     : static_cast<float>((CouncilStationVisualStep % 2) * 18 - 9);
+ CouncilWorkMarker->SetRelativeRotation(FRotator(0.f, Yaw, 0.f));
+ CouncilWorkMarker->SetVisibility(true);
+}
+
 bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
  bCouncilWorkRouteValid = false;
  if (!GetWorld() || SettlementId != FName(TEXT("Crossroads"))
