@@ -285,7 +285,61 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetIntensity(0.f);
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
+ // Visual morality motifs sit beside the original character rather than
+ // modifying their mesh, skeleton, materials, textures or animation.
+ MoralOrnamentLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralOrnamentLeft"));
+ MoralOrnamentRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralOrnamentRight"));
+ for (UStaticMeshComponent* Ornament : {MoralOrnamentLeft, MoralOrnamentRight}) {
+  Ornament->SetupAttachment(GetRootComponent());
+  if (SlashMesh.Succeeded()) Ornament->SetStaticMesh(SlashMesh.Object);
+  Ornament->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Ornament->SetGenerateOverlapEvents(false);
+  Ornament->SetCastShadow(false);
+  Ornament->SetHiddenInGame(true);
+ }
+ MoralPresenceLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("MoralPresenceLight"));
+ MoralPresenceLight->SetupAttachment(GetRootComponent());
+ MoralPresenceLight->SetRelativeLocation(FVector(0.f, 0.f, 85.f));
+ MoralPresenceLight->SetIntensity(0.f);
+ MoralPresenceLight->SetAttenuationRadius(190.f);
+ MoralPresenceLight->SetCastShadows(false);
+ MoralPresenceLight->SetVisibility(false);
 }
+void AMoonfallHeroPawn::RefreshMoralPresenceVisuals() {
+ if (!IsValid(MoralOrnamentLeft) || !IsValid(MoralOrnamentRight)
+     || !IsValid(MoralPresenceLight)) return;
+ // Only strong and sustained morality affects appearance; at zero or on
+ // defeat the original hero looks exactly as originally authored.
+ const int32 Tier = Health > 0.f && bWorldProgressInitialized
+     ? MoonfallMorality::WorldTier(MoralAlignment) : 0;
+ if (Tier == LastMoralVisualTier) return;
+ LastMoralVisualTier = Tier;
+ const bool bShow = FMath::Abs(Tier) >= 2;
+ MoralOrnamentLeft->SetHiddenInGame(!bShow);
+ MoralOrnamentRight->SetHiddenInGame(!bShow);
+ MoralPresenceLight->SetVisibility(bShow);
+ if (!bShow) {
+  MoralPresenceLight->SetIntensity(0.f);
+  return;
+ }
+ // Two compact stylized motifs. At Good standing they rise outward;
+ // at Evil standing they lean inward like dark antlers. Nothing attaches
+ // to or changes original Z/Nyra skeletal artwork.
+ const bool bGood = Tier > 0;
+ MoralOrnamentLeft->SetRelativeLocation(FVector(-18.f, -57.f, bGood ? 98.f : 109.f));
+ MoralOrnamentRight->SetRelativeLocation(FVector(-18.f, 57.f, bGood ? 98.f : 109.f));
+ MoralOrnamentLeft->SetRelativeScale3D(FVector(0.12f, 0.10f, 0.68f));
+ MoralOrnamentRight->SetRelativeScale3D(FVector(0.12f, 0.10f, 0.68f));
+ MoralOrnamentLeft->SetRelativeRotation(FRotator(0.f, 0.f, bGood ? -38.f : 25.f));
+ MoralOrnamentRight->SetRelativeRotation(FRotator(0.f, 0.f, bGood ? 38.f : -25.f));
+ MoralPresenceLight->SetLightColor(bGood
+     ? FLinearColor(0.90f, 0.78f, 0.42f)
+     : FLinearColor(0.65f, 0.12f, 0.18f));
+ // Respect existing accessibility choice. No pulsing or animation; Reduce
+ // Motion further lowers light intensity without hiding the readable motif.
+ MoralPresenceLight->SetIntensity(bReduceMotion ? 90.f : 210.f);
+}
+
 void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {
  if (bHasStartingSanctuaryAnchor || !GetWorld()) return;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
@@ -407,6 +461,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Only reevaluate visible morality on a bounded 0.5-second cadence, using
+ // cached tiers. Never move the ornament per frame or spawn particle actors.
+ MoralVisualRefreshElapsed += SafeTimerDelta;
+ if (MoralVisualRefreshElapsed >= 0.5f) {
+  MoralVisualRefreshElapsed = FMath::Fmod(MoralVisualRefreshElapsed, 0.5f);
+  RefreshMoralPresenceVisuals();
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {
