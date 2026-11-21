@@ -115,13 +115,12 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ // The inventory UI, comparison and total power must agree on which gear
+ // is actually equipped. Unowned or incorrectly slotted codes add no power.
  int32 Total = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
-   Total += GetItemPower(Codes[Slot]);
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::LegacyCount; ++Slot) {
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  if (Code > 0) Total += GetItemPower(Code);
  }
  return Total;
 }
@@ -160,10 +159,10 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
 
 bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return false;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- if (!InventoryItemCodes.Contains(Code)) return false;
+ // Future slots stay inactive until they have real owned gear and saves.
+ if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return false;
+ const int32 Code = GetEquipmentSlotCode(Slot);
+ if (Code <= 0) return false;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Rarity == 5;
 }
