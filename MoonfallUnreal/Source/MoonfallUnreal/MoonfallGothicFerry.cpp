@@ -136,25 +136,35 @@ void AMoonfallGothicFerry::AdvanceCrossing()
 
 void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
 {
- if (!bUnderway) return;
+ if (!bUnderway || !GetWorld()) return;
+ AMoonfallHeroPawn* Rider = Passenger.Get();
+ // Keep the ferry and passenger at the dock until a *clear* shore landing
+ // exists. A blocked landing must not put a rider inside scenery or enable
+ // walking while they are still attached to the vessel.
+ const bool bDestinationIsland = bArrived ? !bAtIsland : bAtIsland;
+ if (IsValid(Rider) && FMath::IsFinite(Rider->Health) && Rider->Health > 0.f) {
+  const float IntoLand = bDestinationIsland ? 800.f : -800.f;
+  FVector Landing = DockLocation(bDestinationIsland) + FVector(0.f, IntoLand, 125.f);
+  if (!GetWorld()->FindTeleportSpot(Rider, Landing, Rider->GetActorRotation())) {
+   // Do not complete or detach. The existing timer retries this landing
+   // until the blocking obstruction is cleared.
+   SetActorLocation(DockLocation(bDestinationIsland));
+   return;
+  }
+  Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+  if (!Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics)) {
+   // A failed placement should not leave the rider drifting independently.
+   Rider->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+   SetActorLocation(DockLocation(bDestinationIsland));
+   return;
+  }
+  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
+   Movement->SetMovementMode(MOVE_Walking);
+ }
  GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bArrived) bAtIsland = !bAtIsland;
  SetActorLocation(DockLocation(bAtIsland));
  bUnderway = false;
- if (AMoonfallHeroPawn* Rider = Passenger.Get()) {
-  Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-  // Deposit safely *on land* rather than leaving the character above
-  // seawater, beneath the hull, or on the shoreless part of the pier.
-  const float IntoLand = bAtIsland ? 800.f : -800.f;
-  const FVector Landing = DockLocation(bAtIsland)
-    + FVector(0.f, IntoLand, 125.f);
-  Rider->SetActorLocation(Landing, false, nullptr, ETeleportType::TeleportPhysics);
-  if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement()) {
-   // The death pipeline owns movement for a defeated player.
-   if (FMath::IsFinite(Rider->Health) && Rider->Health > 0.f)
-    Movement->SetMovementMode(MOVE_Walking);
-  }
- }
  Passenger.Reset();
 }
 
