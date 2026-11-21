@@ -954,11 +954,15 @@ void AMoonfallCombatHUD::DrawHUD()
     // Two short lines use the reserved gap above the forge forecast.
     const bool bTwoSetChanges = bLosesSetBonus && bGainsSetBonus;
     // Preview is read-only; projected counts never equip or save anything.
+    const bool bCompactSetPreview = PanelWidth < 550.f;
     const FString SetLine = !bValidDetail
       ? TEXT("SET PREVIEW: INVALID ITEM")
       : bTwoSetChanges ? LossText
       : bLosesSetBonus || bGainsSetBonus
       ? FString::Printf(TEXT("SET BONUS: %s%s"), *LossText, *GainText)
+      : SelectedAffix > 0 && bCompactSetPreview
+      ? FString::Printf(TEXT("SET: %s %d/3 -> %d/3"),
+          DetailTraits[SelectedAffix], SetPieces, ProjectedSelectedPieces)
       : SelectedAffix > 0
       ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
