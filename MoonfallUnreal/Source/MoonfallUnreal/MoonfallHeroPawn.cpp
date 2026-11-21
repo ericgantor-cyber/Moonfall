@@ -371,6 +371,12 @@ void AMoonfallHeroPawn::BeginPlay() {
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
+ // Held swim ascent must be reapplied each frame, not just on key press.
+ // Keep combat, dialogue, menu and defeated input locks authoritative.
+ if (bSwimAscendHeld && Health > 0.f && !bOptionsOpen && !bInventoryOpen
+     && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
+  AddMovementInput(FVector::UpVector, 1.f);
  Super::Tick(DeltaSeconds);
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
@@ -567,7 +573,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
- Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
@@ -833,12 +839,17 @@ void AMoonfallHeroPawn::TryJump()
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
- // In water, the existing jump input rises instead of attempting a ground jump.
+ // In water, holding the existing jump input rises continuously.
  if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  AddMovementInput(FVector::UpVector, 1.f);
+  bSwimAscendHeld = true;
   return;
  }
  Jump();
+}
+void AMoonfallHeroPawn::ReleaseJump()
+{
+ bSwimAscendHeld = false;
+ StopJumping();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
