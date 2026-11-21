@@ -136,9 +136,22 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"),
     FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f,
     nullptr, Scale * 0.75f);
+  // Keep the controller destination visible even when its pin is offscreen.
+  const int32 SelectedTravelIndex = Hero->AtlasDiscoveredShrineIds.IndexOfByKey(
+      Hero->AtlasFastTravelPendingShrine);
+  const bool bTravelSelected = !Hero->AtlasFastTravelPendingShrine.IsNone()
+      && SelectedTravelIndex >= 0 && Hero->GetWorld()
+      && FMath::IsFinite(Hero->GetWorld()->GetRealTimeSeconds())
+      && Hero->GetWorld()->GetRealTimeSeconds() <= Hero->AtlasFastTravelConfirmUntil;
+  const FString TravelGuide = bTravelSelected
+    ? FString::Printf(TEXT("FAST TRAVEL: %s | X/F confirm | Left/Right cycle"),
+        Hero->AtlasDiscoveredShrineNames.IsValidIndex(SelectedTravelIndex)
+          ? *Hero->AtlasDiscoveredShrineNames[SelectedTravelIndex].Left(20)
+          : TEXT("Discovered shrine"))
+    : FString(TEXT("Mouse: select a region or pan the chart | Tab / R3: read | X/F: travel"));
   DrawText(Hero->bAtlasChronicleFocus
-      ? TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom")
-      : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
+      ? FString(TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom"))
+      : TravelGuide,
     FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
     nullptr, Scale * 0.72f);
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
