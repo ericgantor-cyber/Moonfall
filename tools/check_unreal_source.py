@@ -633,7 +633,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TEXT(\"UPGRADE\")", block)
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
-        self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
+        self.assertIn("MoonfallItemQuality::Name(SelectedRarity)", block)
+        self.assertIn("MoonfallItemQuality::Name(EquippedRarity)", block)
         self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
         self.assertIn("Top + PanelHeight - 110.f", block)
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
@@ -1243,8 +1244,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_emerald_and_legendary_rarity_are_validated_and_visible(self):
         ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn('TEXT("Emerald"), TEXT("Legendary")', ground)
-        self.assertIn('TEXT("Emerald"), TEXT("Legendary")', hud)
+        quality = (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8")
+        self.assertIn('TEXT("Emerald"), TEXT("Legendary")', quality)
+        self.assertIn('TEXT("EMERALD"), TEXT("LEGENDARY")', quality)
+        self.assertIn("MoonfallItemQuality::Name(Rarity)", ground)
+        self.assertIn("MoonfallItemQuality::Name(SelectedRarity)", hud)
         self.assertIn("MoonfallItemQuality::WorldColor(Rarity)", ground)
         self.assertIn("MoonfallItemQuality::WorldColor(Rarity)", ground)
         self.assertIn("FLinearColor(0.f,0.84f,0.70f)", (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8"))
@@ -1612,11 +1616,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_loot_hud_supports_all_six_rarities_and_uncapped_bag(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        names = hud.split("const TCHAR* RarityNames[] =", 1)[1].split(";", 1)[0]
+        policy = (ROOT / "MoonfallItemQuality.h").read_text(encoding="utf-8")
+        upper = policy.split("static const TCHAR* const UpperNames[Count] = {", 1)[1].split("};", 1)[0]
         for rarity in ("COMMON", "UNCOMMON", "RARE", "EPIC", "EMERALD", "LEGENDARY"):
-            self.assertIn(f'TEXT("{rarity}")', names)
-        self.assertEqual(names.count('TEXT("'), 6)
-        self.assertIn("FMath::Clamp(Hero->LastLootRarity, 0, 5)", hud)
+            self.assertIn(f'TEXT("{rarity}")', upper)
+        self.assertEqual(upper.count('TEXT("'), 6)
+        self.assertIn("MoonfallItemQuality::Name(Hero->LastLootRarity, true)", hud)
+        self.assertIn("MoonfallItemQuality::IsValid(Hero->LastLootRarity)", hud)
+        self.assertIn("bLastQualityValid ? MoonfallItemQuality::Color(Hero->LastLootRarity)", hud)
+        self.assertNotIn("const TCHAR* RarityNames[]", hud)
         self.assertIn("Bag %d", hud)
         self.assertNotIn("Bag %d/30", hud)
 
@@ -3935,6 +3943,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return Color(Rarity).ToFColor(false);", policy)
         self.assertIn("return IsValid(Rarity) ? Colors[Rarity] : FLinearColor::White;", policy)
         self.assertIn("return IsValid(Rarity) ? Marks[Rarity] : TEXT(\"?\");", policy)
+        self.assertIn("inline const TCHAR* Name(int32 Rarity, bool bUpper = false)", policy)
+        self.assertIn('return bUpper ? TEXT("UNKNOWN") : TEXT("Unknown");', policy)
+        self.assertIn("bUpper ? UpperNames[Rarity] : Names[Rarity]", policy)
+        self.assertIn("MoonfallItemQuality::Name(Rarity)", ground)
         self.assertIn('#include "MoonfallItemQuality.h"', ground)
         self.assertIn('#include "MoonfallItemQuality.h"', self.hud)
         self.assertIn("const FColor QualityColor = MoonfallItemQuality::WorldColor(Rarity);", ground)
