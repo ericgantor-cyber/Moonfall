@@ -40,6 +40,23 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(body.index("if (bCharacterStatsOpen) return;"),
                         body.index("EquipInventoryItem(HitIndex);"))
 
+    def test_total_power_uses_only_validated_owned_gear(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentPower()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
+        self.assertIn("GetEquipmentSlotCode(Slot)", body)
+        self.assertIn("MoonfallEquipmentSlots::LegacyCount", body)
+        self.assertNotIn("EquippedWeaponCode", body)
+        self.assertNotIn("DecodeEquippedItem(", body)
+
+    def test_legendary_perks_reject_unowned_and_future_slots(self):
+        body = self.source.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::IsLegacySlot(Slot)", body)
+        self.assertIn("GetEquipmentSlotCode(Slot)", body)
+        self.assertIn("Code <= 0", body)
+        self.assertIn("DecodeEquippedItem(Code, Slot", body)
+        self.assertNotIn("EquippedWeaponCode", body)
+
     def test_stat_bonuses_validate_ownership(self):
         for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
                       "InventoryItemCodes.Contains(EquippedAccessoryCode)",
