@@ -1300,14 +1300,17 @@ void AMoonfallCombatHUD::DrawHUD()
       *Hero->GetWorldCommunityOutlook()),
     FLinearColor(0.80f, 0.88f, 1.f),
     LedgerX + 14.f, LedgerY + 180.f, nullptr, 0.75f);
-  DrawText(Hero->IsSanctuaryRoomUnlocked(4)
-      ? TEXT("COUNCIL CHOICES (PREVIEW ONLY)")
+  DrawText(Hero->CouncilDecisionId >= 0
+      ? TEXT("COUNCIL POLICY (SAVED)")
+      : Hero->IsSanctuaryRoomUnlocked(4)
+      ? TEXT("COUNCIL CHOICES (PREVIEW / CONFIRM)")
       : TEXT("Complete 3 contracts to unlock council"),
     FLinearColor(0.93f, 0.77f, 0.64f),
     LedgerX + 14.f, LedgerY + 205.f, nullptr, 0.70f);
   if (Hero->IsSanctuaryRoomUnlocked(4)) {
    // D-pad left/right cycles previews, never commits the choice.
-   const int32 Selected = FMath::Clamp(Hero->CouncilPreviewSelection, 0, 2);
+   const int32 Selected = Hero->CouncilDecisionId >= 0
+       ? Hero->CouncilDecisionId : FMath::Clamp(Hero->CouncilPreviewSelection, 0, 2);
    const FString Preview = Hero->PreviewCouncilDecision(Selected);
    FString Title, Consequences;
    if (Preview.Split(TEXT("|"), &Title, &Consequences)) {
@@ -1330,9 +1333,13 @@ void AMoonfallCombatHUD::DrawHUD()
       Choice == Selected ? FLinearColor::White : FLinearColor(0.76f, 0.76f, 0.82f),
       ButtonX + 8.f, LedgerY + 279.f, nullptr, 0.64f);
    }
-   DrawText(Hero->bCouncilPointerOpen
-       ? TEXT("Click choice | F8 / Esc / right-click: exit")
-       : TEXT("D-pad: browse | F8: mouse preview"),
+   DrawText(Hero->CouncilDecisionId >= 0
+       ? FString::Printf(TEXT("SAVED: %s"), *Hero->GetConfirmedCouncilPolicy())
+       : Hero->bCouncilDecisionConfirmArmed
+       ? TEXT("F9 again: CONFIRM & SAVE | Esc: cancel")
+       : Hero->bCouncilPointerOpen
+       ? TEXT("Click preview | F9 twice: save | Esc: exit")
+       : TEXT("D-pad: preview | F8: mouse | F9 twice: save"),
      FLinearColor(0.68f, 0.78f, 0.88f),
      LedgerX + 14.f, LedgerY + 308.f, nullptr, 0.63f);
   }
