@@ -939,6 +939,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", pickup)
         self.assertIn("AutoLootElapsed >= 0.35f", tick)
         self.assertIn("bAutoLootEnabled &&", tick)
+        # Dialogue must suppress automatic collection and reset its timer.
+        auto_loot = tick.split("// Throttled automatic pickup", 1)[1].split(
+            "// Only track pointer motion", 1)[0]
+        self.assertIn("&& !bResidentContextOpen)", auto_loot)
+        self.assertLess(auto_loot.index("!bResidentContextOpen"), auto_loot.index(
+            "AutoLootElapsed +="))
+        self.assertIn("else AutoLootElapsed = 0.f;", auto_loot)
+        # Manual pickup shares the same guard before scanning world loot.
+        pickup_guard = pickup.split("return;", 1)[0]
+        self.assertIn("bResidentContextOpen", pickup_guard)
+        self.assertLess(pickup.index("bResidentContextOpen"), pickup.index(
+            "TActorIterator<AMoonfallGroundLoot>"))
         self.assertIn("bool bAutoLootEnabled = true;", self.hero_h)
         self.assertIn('TEXT("AutoLootEnabled"), bAutoLootEnabled', self.hero_cpp)
 
@@ -6168,7 +6180,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(cancel, enemy_modal)
         self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen) {", tick)
+        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
