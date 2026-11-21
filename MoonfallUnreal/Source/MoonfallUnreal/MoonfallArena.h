@@ -40,5 +40,7 @@ private:
  int32 LastDisplayedCouncilDecision = -2;
  // Max four authored movers; no world actor scans on each movement step.
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilMobileResidents;
+ // Only authored merchants and tinkers, no world scan per refresh.
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilStationResidents;
  void StepCouncilWorkRoutes();
 };
