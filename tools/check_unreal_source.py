@@ -663,6 +663,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f)", hud)
         self.assertIn("Top + PanelHeight - 196.f", hud)
         self.assertIn("Top + PanelHeight - 177.f", hud)
+        self.assertIn("!bValidDetail ? FLinearColor(1.f,0.48f,0.46f)", hud)
         self.assertIn("bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)", hud)
         self.assertIn("Top + PanelHeight - 230.f", hud)
         self.assertIn("Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f)", hud)
