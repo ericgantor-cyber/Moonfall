@@ -146,25 +146,22 @@ bool AMoonfallGothicFerry::TryBoard(AMoonfallHeroPawn* Hero)
  UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
  if (!IsValid(Movement) || !Hero->GetCapsuleComponent()) return false;
 
- // Short boarding reposition puts the rider on deck, then actual crossing
- // is continuous movement of their attached root with the ship.
+ if (!IsValid(Deck)) return false;
+ // Characters who walked onto the deck can depart from their current spot.
+ // Players still standing on the pier use the existing clear-space placement.
+ const bool bAlreadyOnDeck = Hero->GetMovementBase() == Deck;
  const FVector OriginalLocation = Hero->GetActorLocation();
- FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 190.f);
- // This first stage still repositions the player onto the deck. A true
- // walk-on gangplank will be introduced after moving-platform playtests.
- if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
-  return false;
- if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
-  return false;
- if (!IsValid(Deck)) {
-  Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);
-  return false;
+ if (!bAlreadyOnDeck) {
+  FVector BoardingLocation = GetActorLocation() + FVector(0.f, 0.f, 190.f);
+  if (!GetWorld()->FindTeleportSpot(Hero, BoardingLocation, Hero->GetActorRotation()))
+   return false;
+  if (!Hero->SetActorLocation(BoardingLocation, false, nullptr, ETeleportType::TeleportPhysics))
+   return false;
+  Movement->StopMovementImmediately();
+  Movement->SetMovementMode(MOVE_Walking);
+  Hero->SetBase(Deck);
  }
- // Use the deck as CharacterMovement's base. Do not attach the hero root
- // to the boat or disable walking: mouse/controller movement stays active.
- Movement->StopMovementImmediately();
- Movement->SetMovementMode(MOVE_Walking);
- Hero->SetBase(Deck);
+ // Walking characters retain their location and movement on the moving deck.
  Passenger = Hero;
  CrossingStartedAt = GetWorld()->GetTimeSeconds();
  bUnderway = true;
