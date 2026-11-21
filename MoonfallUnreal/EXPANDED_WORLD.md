@@ -90,7 +90,10 @@ while the player is defeated or has no valid living pawn; distant-enemy
 cleanup continues during those states. New island enemies and the guardian
 also wait until their exact 200m collision-ground tile is loaded and valid;
 if the ground has not streamed in, encounter creation retries on a later
-world-refresh cycle instead of spawning over missing terrain. All encounter meshes
+world-refresh cycle instead of spawning over missing terrain.
+If collision prevents an enemy or boss spawn, that site waits 2.5 seconds
+before trying again instead of retrying every 0.35-second streaming tick.
+Retry timers reset when the player leaves a site or the world shuts down. All encounter meshes
 are temporary proxies, not original creature artwork or a finished boss.
 These are **source-level gameplay integrations**, not verified in a native
 Unreal build. There are no newly authored merchant inventories, custom
