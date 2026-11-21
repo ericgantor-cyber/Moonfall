@@ -991,10 +991,14 @@ void AMoonfallCombatHUD::DrawHUD()
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   const FString PowerCompareLine = CompareLine +
-     FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
+   // Bad inventory data has no meaningful power delta. Keep the error
+   // visible instead of appending a misleading "+0 gear power" score.
+   const FString PowerCompareLine = bSelectedValid
+     ? CompareLine + FString::Printf(TEXT("  |  %+d gear power"), PowerDelta)
+     : CompareLine;
    DrawText(PowerCompareLine,
-     bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
+     !bSelectedValid ? FLinearColor(1.f,0.48f,0.46f)
+       : bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),
      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
