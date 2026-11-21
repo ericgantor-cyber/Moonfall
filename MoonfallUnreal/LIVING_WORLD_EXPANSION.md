@@ -81,7 +81,8 @@ These pieces are **not a complete version** of the six proposed systems.
 - **F9 twice** after choosing a Council preview records one permanent Council policy. First press only arms confirmation; the second attempts a save. The Council must be unlocked, the hero alive and in the starting sanctuary, and other gameplay modals closed.
 - Save data now uses V13, adding bounded `CouncilDecisionId` with `-1` for no choice. V1–V12 saves load as undecided; malformed V13 decisions and unknown future versions fail closed before overwriting progress. Failed saves restore the previous uncommitted value.
 - The HUD displays the saved choice and a confirmation prompt. Existing previews remain safe: mouse and D-pad selection are never a commitment.
-- **Limit:** The Council policy is durably recorded but does not yet change faction reputation, settlements, NPC behavior, enemy threat or constructed geometry. These will need explicit event/application pipelines, native UE5 compilation and backward-compatible gameplay tests.
+- **Immediate reaction:** NPCs whose contracts are completed acknowledge the saved policy in their subsequent dialogue. This does not give rewards or retroactively change quests.
+- **Limit:** The Council policy is recorded and changes contextual NPC dialogue, but not faction reputation, settlement geometry, enemy threat, or constructed buildings. Those require explicit integration, native UE5 compilation and gameplay tests.
 
 ## Next integration milestones (not completed by this PR)
 
