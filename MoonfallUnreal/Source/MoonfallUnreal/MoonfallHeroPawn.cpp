@@ -1493,7 +1493,8 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
- if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bUpgradingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -1528,10 +1529,12 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bReforgingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = bReforgingEquipped ? GetValidatedEquippedTier(Slot) : -1;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
- if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bReforgingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -1568,9 +1571,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bAscendingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = bAscendingEquipped ? GetValidatedEquippedTier(Slot) : -1;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
  InventoryItemCodes[InventoryIndex] = NewCode;
- if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bAscendingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -2373,6 +2378,11 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
+ return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
+{
  if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -2391,9 +2401,12 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
- // The cached Blueprint tier may be stale; only owned, correctly decoded
- // equipment may influence the max-health delta when changing armor.
- const int32 PreviousTier = GetValidatedEquippedTier(SlotIndex);
+ // Normal equips validate the currently worn item. Crafting supplies the
+ // validated PRE-mutation tier because its old inventory code was replaced.
+ // Without this, reforge/ascend can grant free max health to worn armor.
+ const int32 PreviousTier = PreviousTierOverride >= 0
+   ? FMath::Clamp(PreviousTierOverride, 0, 25)
+   : GetValidatedEquippedTier(SlotIndex);
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
