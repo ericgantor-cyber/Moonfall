@@ -23,7 +23,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # projected destination that may be on the opposite side of a wall.
         path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
             "if (CachedWaypoint.ContainsNaN())", 1)[0]
-        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1;", path)
+        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1", path)
         self.assertIn("? Path->PathPoints[1] : FVector::ZeroVector;", path)
         self.assertNotIn("!Path->IsPartial()", path)
         # Preserve one cached query with no extra navigation probes.
@@ -32,6 +32,30 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertLess(path.index("!IsValid(Path) ||"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
 
+    def test_nonfinite_nav_waypoints_fail_closed_without_repath_spam(self):
+        # Unreal can return a path object whose next corner contains NaN or
+        # infinity. Never feed such a corner to pursuit movement.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("Path->PathPoints[1].ContainsNaN()", nav)
+        self.assertLess(nav.index("Path->PathPoints[1].ContainsNaN()"),
+                        nav.index("? Path->PathPoints[1] : FVector::ZeroVector;"))
+        cached = nav.split("if (CachedWaypoint.ContainsNaN()) {", 1)[1].split(
+            "if (!CachedWaypoint.IsNearlyZero()) {", 1
+        )[0]
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", cached)
+        self.assertIn("bNavigationRouteUnavailable = true;", cached)
+        self.assertIn("NextPathRefreshAt <= Now", cached)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", cached)
+        self.assertNotIn("NextPathRefreshAt = 0.f;", cached)
+        self.assertLess(cached.index("bNavigationRouteUnavailable = true;"),
+                        cached.index("NextPathRefreshAt = Now + 0.25f;"))
+        self.assertLess(nav.index("if (CachedWaypoint.ContainsNaN())"),
+                        nav.index("if (bNavigationRouteUnavailable) return;"))
+        self.assertEqual(nav.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(nav.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_unreachable_navmesh_goal_does_not_trigger_direct_wall_chase(self):
         # A target projection alone does not guarantee a reachable path.
         # Refuse direct pursuit until cached navigation finds a real corner.
@@ -39,7 +63,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("bool bNavigationRouteUnavailable = false;", header)
         nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1)[0]
-        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1;", nav)
+        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1", nav)
         self.assertIn("bNavigationRouteUnavailable = true;", nav)
         self.assertIn("CachedWaypoint = FVector::ZeroVector;", nav)
         self.assertIn("bNavigationRouteUnavailable = false;", nav)
