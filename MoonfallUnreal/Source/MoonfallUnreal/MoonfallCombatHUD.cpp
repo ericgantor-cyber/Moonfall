@@ -969,7 +969,8 @@ void AMoonfallCombatHUD::DrawHUD()
           ProjectedSelectedPieces, SetEffects[SelectedAffix])
       : TEXT("SET PREVIEW: no set trait on this item");
     const float SetTextScale = PanelWidth < 550.f ? 0.56f : 0.68f;
-    DrawText(SetLine, bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
+    DrawText(SetLine, !bValidDetail ? FLinearColor(1.f,0.48f,0.46f)
+      : bLosesSetBonus ? FLinearColor(1.f,0.65f,0.40f)
       : FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f),
       nullptr, SetTextScale);
