@@ -122,9 +122,11 @@ class TestSocialWorld(unittest.TestCase):
    nav=self.hero.split("void AMoonfallHeroPawn::"+name+"()",1)[1].split(
        "void AMoonfallHeroPawn::"+next_name+"()",1)[0]
    self.assertIn("if (bResidentContextOpen) {",nav)
-   self.assertIn("if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }",nav)
-   self.assertLess(nav.index("CloseResidentContext(); return;"),nav.index(
+   self.assertIn("if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {",nav)
+   self.assertLess(nav.index("CloseResidentContext();"),nav.index(
        "ResidentContextSelection ="))
+   self.assertLess(nav.index("!FocusedResident->CanHeroInteract(this)"),nav.index(
+       "CloseResidentContext();"))
    self.assertLess(nav.index("ResidentContextSelection ="),nav.index(
        "if (bInventoryOpen)"))
  def test_nearest_npc_skips_occluded_candidates(self):
