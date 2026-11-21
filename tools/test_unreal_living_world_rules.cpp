@@ -1,8 +1,29 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallResidentCatalog.h"
 #include <cassert>
+#include <set>
 #include <iostream>
 using namespace MoonfallLivingWorld;
 int main() {
+ // All 111 catalog designs must be distinct and valid under the current
+ // 3-slot / 5-rarity / 25-tier inventory encoding.
+ static_assert(MoonfallResidentCatalog::Count == 111, "Catalog must contain exactly 111 entries");
+ std::set<int> CatalogCodes;
+ for (int i = 0; i < MoonfallResidentCatalog::Count; ++i) {
+  const auto Item = MoonfallResidentCatalog::Get(i);
+  assert(Item.valid && Item.slot >= 0 && Item.slot < 3);
+  assert(Item.rarity >= 1 && Item.rarity <= 5);
+  assert(Item.tier >= 1 && Item.tier <= 25);
+  assert(Item.code == Item.slot * 10000 + Item.rarity * 1000 + Item.tier);
+  assert(Item.merchantCost > 0 && Item.tinkerCost > Item.merchantCost);
+  assert(CatalogCodes.insert(Item.code).second);
+  assert(MoonfallResidentCatalog::Next(i, 1) == (i + 1) % 111);
+  assert(MoonfallResidentCatalog::Next(i, -1) == (i + 110) % 111);
+ }
+ assert(CatalogCodes.size() == 111);
+ assert(!MoonfallResidentCatalog::Get(-1).valid);
+ assert(!MoonfallResidentCatalog::Get(111).valid);
+
  // NPC memories and choices are bounded and witness-dependent.
  assert(RelationshipAfterChoice(95, 1000, true) == 100);
  assert(RelationshipAfterChoice(-15, 30, false) == -15);
