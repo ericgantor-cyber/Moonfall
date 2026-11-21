@@ -833,6 +833,11 @@ void AMoonfallHeroPawn::TryJump()
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ // In water, the existing jump input rises instead of attempting a ground jump.
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
+  AddMovementInput(FVector::UpVector, 1.f);
+  return;
+ }
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
@@ -840,8 +845,11 @@ void AMoonfallHeroPawn::MoveForward(float Value)
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
-  const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
-  AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X), Value);
+  // Swim towards the camera's pitch; normal walking stays yaw-only.
+  const FRotator Rotation = GetCharacterMovement() && GetCharacterMovement()->IsSwimming()
+     ? Controller->GetControlRotation()
+     : FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f);
+  AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::X), Value);
  }
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
