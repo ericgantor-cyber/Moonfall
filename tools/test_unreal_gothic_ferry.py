@@ -239,7 +239,13 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("SetActorLocation(", swimming)
         self.assertNotIn("FindTeleportSpot", swimming)
         self.assertNotIn("Rider->SetBase(Deck)", swimming)
-        self.assertIn("UpdateSeaSwimming();", self.world)
+        self.assertIn("FTimerHandle SeaSwimmingTimer;", world_header)
+        self.assertIn("&AMoonfallExpandedWorld::UpdateSeaSwimming, 0.1f, true);", self.world)
+        self.assertIn("GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);", self.world)
+        self.assertIn("SeaSwimmer.Reset();", self.world)
+        streaming = self.world.split("void AMoonfallExpandedWorld::RefreshNearbyTiles()", 1)[1]
+        self.assertNotIn("UpdateSeaSwimming();", streaming)
+        self.assertIn("&AMoonfallExpandedWorld::RefreshNearbyTiles, 0.35f, true, 0.1f);", self.world)
 
     def test_single_instance_in_connected_overworld(self):
         start = self.world.split("void AMoonfallExpandedWorld::BeginPlay()", 1)[1].split(
