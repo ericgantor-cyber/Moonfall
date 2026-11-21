@@ -100,6 +100,19 @@ def main():
     assert "return;" in resident_block
     assert "Jump();" not in resident_block
     assert "Jump();" in jump_section
+    # Dialogue is modal even if its NPC weak pointer becomes invalid after
+    # streaming: neither keyboard nor gamepad movement may move the hero.
+    for movement_name in ("MoveForward", "MoveRight"):
+        movement=pawn.split(
+            f"void AMoonfallHeroPawn::{movement_name}(float Value)",1)[1].split(
+            "return;",1)[0]
+        for blocker in (
+            "Health <= 0.f", "bOptionsOpen", "bInventoryOpen",
+            "bAtlasOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
+            "!FMath::IsFinite(Value)"
+        ):
+            assert blocker in movement, (movement_name, blocker)
+    print("Resident dialogue and streamed-out NPC block movement: PASS (source verified)")
     assert '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)' not in PATH.read_text(encoding="utf-8")
     # The Atlas is a modal screen, not a combat resource-farming context.
     dodge_reward=pawn.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()",1)[1].split(
