@@ -95,7 +95,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bResidentContextOpen = false;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",close)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
   self.assertIn("if (bResidentContextOpen &&",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
@@ -103,6 +103,44 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+ def test_npc_dialogue_blocks_stale_controller_and_keyboard_input(self):
+  # This verifies native source guard ordering; it does not run UE5 gameplay.
+  def body(name,next_name):
+   return self.hero.split("void AMoonfallHeroPawn::"+name+"()",1)[1].split(
+       "void AMoonfallHeroPawn::"+next_name+"()",1)[0]
+  jump=body("TryJump","MoveForward")
+  modal=jump.split("if (bResidentContextOpen) {",1)[1].split(
+      "// Jump must obey",1)[0]
+  self.assertIn("if (!FocusedResident.IsValid()) {",modal)
+  self.assertLess(modal.index("CloseResidentContext();"),modal.index(
+      "ChooseResidentContextAction(ResidentContextSelection);"))
+  self.assertNotIn("Jump();",modal)
+  for name,next_name in (("OptionsUp","OptionsDown"),("OptionsDown","OptionsLeft")):
+   nav=body(name,next_name)
+   self.assertIn("if (bResidentContextOpen) {",nav)
+   self.assertIn("!FocusedResident->CanHeroInteract(this)",nav)
+   self.assertLess(nav.index("CloseResidentContext();"),nav.index(
+       "ResidentContextSelection ="))
+   self.assertIn("AtlasChronicleChapter = -1;",nav)
+  npc=body("OpenFocusedResidentContext","CastRightMouse")
+  self.assertLess(npc.index("CloseResidentContext();"),npc.index(
+      "AMoonfallWorldNPC* Resident = GetNearestResidentNPC();"))
+  self.assertIn("!FocusedResident->CanHeroInteract(this)",npc)
+  self.assertLess(npc.index("EndGuard();"),npc.index("FocusedResident = Resident;"))
+  right=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::OptionsUp()",1)[0]
+  self.assertIn("StopJumping();",right)
+  for name in ("MoveForward","MoveRight"):
+   movement=self.hero.split("void AMoonfallHeroPawn::"+name+"(float Value)",1)[1].split("return;",1)[0]
+   self.assertIn("bResidentContextOpen",movement)
+  for name,next_name in (("Dodge","RewardPerfectDodge"),
+                         ("BeginGuard","EndGuard"),("BeginSprint","EndSprint")):
+   guard=body(name,next_name).split("return;",1)[0]
+   self.assertIn("bResidentContextOpen",guard)
+  close=body("CloseResidentContext","OpenFocusedResidentContext")
+  self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
+  self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
@@ -142,7 +180,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Active")',hud)
   self.assertIn('TEXT("Completed")',hud)
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",self.hero)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
