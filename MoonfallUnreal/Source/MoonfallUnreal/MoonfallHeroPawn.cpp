@@ -304,18 +304,67 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  MoralPresenceLight->SetAttenuationRadius(190.f);
  MoralPresenceLight->SetCastShadows(false);
  MoralPresenceLight->SetVisibility(false);
+ // Three authored equipment halos use the existing cube, not character or
+ // equipment meshes; zero physics, actor spawns, materials or shadow cost.
+ MoralWeaponMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralWeaponMotif"));
+ MoralArmorMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralArmorMotif"));
+ MoralAccessoryMotif = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MoralAccessoryMotif"));
+ for (UStaticMeshComponent* Motif : {MoralWeaponMotif, MoralArmorMotif, MoralAccessoryMotif}) {
+  Motif->SetupAttachment(GetRootComponent());
+  if (SlashMesh.Succeeded()) Motif->SetStaticMesh(SlashMesh.Object);
+  Motif->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Motif->SetGenerateOverlapEvents(false);
+  Motif->SetCastShadow(false);
+  Motif->SetHiddenInGame(true);
+ }
 }
 void AMoonfallHeroPawn::RefreshMoralPresenceVisuals() {
  if (!IsValid(MoralOrnamentLeft) || !IsValid(MoralOrnamentRight)
-     || !IsValid(MoralPresenceLight)) return;
- // Only strong and sustained morality affects appearance; at zero or on
- // defeat the original hero looks exactly as originally authored.
+     || !IsValid(MoralPresenceLight) || !IsValid(MoralWeaponMotif)
+     || !IsValid(MoralArmorMotif) || !IsValid(MoralAccessoryMotif)) return;
+ // No visual consequences until the restored save is trustworthy.
  const int32 Tier = Health > 0.f && bWorldProgressInitialized
      ? MoonfallMorality::WorldTier(MoralAlignment) : 0;
+ const int32 EquippedCodes[3] = {
+  EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 OwnedVisualMask = 0;
+ if (Tier != 0) {
+  for (int32 Slot = 0; Slot < 3; ++Slot) {
+   const int32 Code = EquippedCodes[Slot];
+   if (Code > 0 && InventoryItemCodes.Contains(Code)
+       && GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot)
+    OwnedVisualMask |= 1 << Slot;
+  }
+ }
+ // React to equipment changes even when morality tier is unchanged.
  if (Tier == LastMoralVisualTier
-     && bReduceMotion == bLastMoralVisualReduceMotion) return;
+     && bReduceMotion == bLastMoralVisualReduceMotion
+     && OwnedVisualMask == LastMoralGearVisibilityMask) return;
  LastMoralVisualTier = Tier;
+ LastMoralGearVisibilityMask = OwnedVisualMask;
  bLastMoralVisualReduceMotion = bReduceMotion;
+ const bool bGoodGear = Tier > 0;
+ UStaticMeshComponent* GearMotifs[3] = {
+   MoralWeaponMotif, MoralArmorMotif, MoralAccessoryMotif};
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  UStaticMeshComponent* Motif = GearMotifs[Slot];
+  const bool bVisible = (OwnedVisualMask & (1 << Slot)) != 0;
+  Motif->SetHiddenInGame(!bVisible);
+  if (!bVisible) continue;
+  // Weapon = narrow raised blade, armor = balanced shoulder band,
+  // accessory = compact floating gem. Distinct silhouettes for either path.
+  const FVector Location = Slot == 0 ? FVector(42.f, -66.f, 83.f)
+      : Slot == 1 ? FVector(-25.f, 0.f, 125.f)
+      : FVector(43.f, 64.f, 94.f);
+  const FVector Shape = Slot == 0 ? FVector(0.06f, 0.11f, 0.42f)
+      : Slot == 1 ? FVector(0.43f, 0.08f, 0.09f)
+      : FVector(0.15f, 0.15f, 0.15f);
+  Motif->SetRelativeLocation(Location);
+  Motif->SetRelativeScale3D(Shape);
+  Motif->SetRelativeRotation(FRotator(
+       bGoodGear ? -16.f : 16.f, bGoodGear ? 0.f : 45.f,
+       Slot == 1 ? 0.f : (bGoodGear ? -24.f : 24.f)));
+ }
  const bool bShow = FMath::Abs(Tier) >= 2;
  MoralOrnamentLeft->SetHiddenInGame(!bShow);
  MoralOrnamentRight->SetHiddenInGame(!bShow);
