@@ -632,7 +632,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bValidDetail", hud)
         self.assertIn("DetailColors[SelectedRarity]", hud)
         self.assertIn("Hero->GetSetPieceCount(SelectedAffix)", hud)
-        self.assertIn("EQUIPPED SET:", hud)
+        self.assertIn('TEXT("SET PREVIEW: INVALID ITEM")', hud)
+        self.assertIn('TEXT("SET PREVIEW: no set trait on this item")', hud)
+        self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", hud)
         self.assertIn("Top + PanelHeight - 230.f", hud)
         self.assertIn("Top + PanelHeight - 207.f", hud)
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
