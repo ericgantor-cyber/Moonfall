@@ -109,6 +109,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Motion pauses when the hero approaches within 300 units, when a conversation with that resident is open, or while hero menus are open. All quest/dialogue/saves, existing hero artwork, and other residents' placement remain unchanged.
 - **Not a full NPC AI scheduler:** this is a small bidirectional patrol along validated short endpoints. No multi-waypoint path following, work animations, building repairs, or complex crowd avoidance have been authored. Native Windows UE5 compilation, NavMesh availability and in-game movement/collision need direct verification.
 
+## Workplace stops and resident work-state UI
+
+- Guard/scout patrols now pause **five seconds** at a validated watch/scout destination and **two seconds** at their authored home before the next trip. The existing shared 0.2-second arena timer advances the bounded pauses; no additional actor Tick, timers, animations, inventories, or save fields are introduced.
+- The NPC conversation pane displays the resident's work phase: walking, working at post, returning, resting, or stationed when no NavMesh patrol exists. The phase is descriptive; no repairs or defensive combat effects are granted.
+- The existing menu, player-proximity and conversation pauses take priority over workplace progression. This remains subject to native UE5 testing for placement, collision and visual legibility.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
