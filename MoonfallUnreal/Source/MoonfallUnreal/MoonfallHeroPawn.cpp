@@ -395,6 +395,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Unwind the temporary pointer if the hero leaves the sanctuary or a
  // conflicting modal opens. This avoids trapping the cursor after travel.
+ if (bCouncilDecisionConfirmArmed && (Health <= 0.f || !IsNearStartingSanctuary()
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsSanctuaryRoomUnlocked(4))) bCouncilDecisionConfirmArmed = false;
  if (bCouncilPointerOpen && (Health <= 0.f || !IsNearStartingSanctuary()
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
      || !IsSanctuaryRoomUnlocked(4))) CloseCouncilPointer();
@@ -597,6 +600,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("CouncilPointer"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCouncilPointer);
+ Input->BindAction(TEXT("CouncilConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ConfirmCouncilDecision);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -3886,9 +3890,49 @@ FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const {
     Title, Outcome.factionDelta, Outcome.prosperityDelta, Outcome.threatDelta);
 }
 
+FString AMoonfallHeroPawn::GetConfirmedCouncilPolicy() const {
+ if (CouncilDecisionId < 0 || CouncilDecisionId > 2) return TEXT("None");
+ const auto Decision = static_cast<MoonfallLivingWorld::CouncilDecision>(CouncilDecisionId);
+ if (Decision == MoonfallLivingWorld::CouncilDecision::ProtectResidents)
+  return TEXT("Protect Residents");
+ if (Decision == MoonfallLivingWorld::CouncilDecision::FundReconstruction)
+  return TEXT("Fund Reconstruction");
+ return TEXT("Fortify Borders");
+}
+bool AMoonfallHeroPawn::ConfirmCouncilDecision() {
+ // Two deliberate presses of F9 are required. The first is a confirmation
+ // arm only, and neither preview clicks nor the D-pad can commit a policy.
+ if (CouncilDecisionId != -1 || bPersistentSaveWritesBlocked
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4)
+     || CouncilPreviewSelection < 0 || CouncilPreviewSelection > 2) {
+  bCouncilDecisionConfirmArmed = false;
+  return false;
+ }
+ if (!bCouncilDecisionConfirmArmed) {
+  bCouncilDecisionConfirmArmed = true;
+  return false;
+ }
+ const int32 OldDecision = CouncilDecisionId;
+ const int32 Selected = CouncilPreviewSelection;
+ CouncilDecisionId = Selected;
+ bCouncilDecisionConfirmArmed = false;
+ // The outcome is stored as one policy. Later world/settlement integrations
+ // derive effects from this policy; do not mutate arbitrary faction records.
+ if (!SaveWorldProgress()) {
+  CouncilDecisionId = OldDecision;
+  return false;
+ }
+ CloseCouncilPointer();
+ return true;
+}
+
 void AMoonfallHeroPawn::CloseCouncilPointer() {
  if (!bCouncilPointerOpen) return;
  bCouncilPointerOpen = false;
+ bCouncilDecisionConfirmArmed = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen
       || bResidentContextOpen;
@@ -3913,6 +3957,7 @@ bool AMoonfallHeroPawn::SelectCouncilPreview(int32 DecisionId) {
      || !IsNearStartingSanctuary() || !IsSanctuaryRoomUnlocked(4))
   return false;
  // Pure UI state. No council choice is applied, saved, or rewarded.
+ if (CouncilPreviewSelection != DecisionId) bCouncilDecisionConfirmArmed = false;
  CouncilPreviewSelection = DecisionId;
  return true;
 }
