@@ -1161,12 +1161,24 @@ void AMoonfallCombatHUD::DrawHUD()
   // Same-count changes in other slots refresh within 0.25 seconds.
   const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
+  // Six cheap integer comparisons; only refresh the expensive bag scan when
+  // worn equipment actually changes (including slots Head through Ring).
+  bool bExtraGearChanged = false;
+  for (int32 ExtraSlot = 0; ExtraSlot < 6; ++ExtraSlot) {
+   const int32 Code = Hero->EquippedExtraItemCodes.IsValidIndex(ExtraSlot)
+       ? Hero->EquippedExtraItemCodes[ExtraSlot] : 0;
+   if (CachedAdvisorExtraCodes[ExtraSlot] != Code) {
+    bExtraGearChanged = true;
+    break;
+   }
+  }
   const bool bRefreshAdvisor = !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
     || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
     || CachedAdvisorSelectedCode != AdvisorCode
     || CachedAdvisorWeapon != Hero->EquippedWeaponCode
     || CachedAdvisorArmor != Hero->EquippedArmorCode
     || CachedAdvisorAccessory != Hero->EquippedAccessoryCode
+    || bExtraGearChanged
     || AdvisorNow < AdvisorScoreUpdatedAt
     || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f;
   if (bRefreshAdvisor) {
@@ -1178,6 +1190,9 @@ void AMoonfallCombatHUD::DrawHUD()
    CachedAdvisorWeapon = Hero->EquippedWeaponCode;
    CachedAdvisorArmor = Hero->EquippedArmorCode;
    CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
+   for (int32 ExtraSlot = 0; ExtraSlot < 6; ++ExtraSlot)
+    CachedAdvisorExtraCodes[ExtraSlot] = Hero->EquippedExtraItemCodes.IsValidIndex(ExtraSlot)
+      ? Hero->EquippedExtraItemCodes[ExtraSlot] : 0;
    AdvisorScoreUpdatedAt = AdvisorNow;
    bAdvisorScoreCached = true;
   }
