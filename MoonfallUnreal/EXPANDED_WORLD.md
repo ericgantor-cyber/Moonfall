@@ -15,7 +15,7 @@ Unreal Engine units are centimeters.
 | Iron Foundry | 1,000 x 1,000 m | chimney and forge silhouettes; town blockout |
 | Frostbound Reach | 1,000 x 1,000 m | glacial peaks; town blockout |
 | Eclipse Wastes | 1,000 x 1,000 m | suspended monuments; town blockout |
-| Gothic Isle | 1,000 x 1,000 m | ruins blockout; two shores/docks |
+| Gothic Isle | 1,000 x 1,000 m | new ruined outposts, five distinct district landmarks; two shores/docks |
 
 All seven are built from 5 x 5 tiles of 200 x 200 m each: **7 km² of
 terrain blockout** (6 km² on the mainland plus 1 km² offshore).
@@ -57,9 +57,19 @@ within 460m, and use an explicit hysteresis band. Only their floor
 collides. Scenery is deterministic, non-colliding, non-ticking and
 instanced, protecting performance and allowing replacement with
 real biome assets. Each province has a recognizable cluster of
-placeholder buildings. There are no newly authored shopkeepers,
+placeholder buildings. Gothic Isle now reuses the mainland's same
+25-tile walkable, streamed foundation, with lightweight ruined outposts
+on every tile and five original landmark centers:
+**Raven's Landing** (south harbor), **Blackbell Cathedral** (center),
+**Ashen Graves** (east), **Duskwatch Keep** (west), and
+**Thornwraith Grove** (north). All are instanced shape blockouts
+and optional floating world landmark signs, not finished art or
+functional NPC services. This establishes the island's own equivalents
+of mainland scenery and settlement silhouettes without copying the
+mainland's visual identities or modifying original character artwork.
+There are no newly authored shopkeepers, interactive shrines,
 quests, combat encounters, climates or multiplayer systems in
-these blockouts.
+these blockouts; those require separate integration with existing gameplay.
 
 These tiles use a custom proximity streamer, **not Unreal World
 Partition**. They may need transition and asset prefetch tuning once
