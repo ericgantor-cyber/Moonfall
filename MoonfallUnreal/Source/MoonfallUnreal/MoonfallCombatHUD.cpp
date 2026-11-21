@@ -726,7 +726,8 @@ void AMoonfallCombatHUD::DrawHUD()
        MoralMeterWidth, 6.f);
    DrawRect(MoralScore < 0 ? FLinearColor(0.78f,0.25f,0.35f)
             : FLinearColor(0.30f,0.75f,0.52f),
-       MoralMeterX + MoralMeterWidth * 0.5f,
+       MoralMeterX + MoralMeterWidth * (MoralScore < 0
+           ? 0.5f - FMath::Abs(MoralScore) / 200.f : 0.5f),
        MoralMeterY, MoralMeterWidth * FMath::Abs(MoralScore) / 200.f, 6.f);
    const float RowHeight = FMath::Clamp((PanelHeight - 165.f) / 19.f, 8.f, 26.f);
    const float StartY = Top + 111.f;
