@@ -55,7 +55,8 @@ void AMoonfallUnrealGameMode::BeginPlay()
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
-  if (!IsValid(*It)) continue;
+  // A layout being destroyed must not permanently reserve a dungeon slot.
+  if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;
   const int32 Zone = It->ZoneIndex;
   const int32 Dungeon = It->DungeonIndex;
   if (Zone >= 0 && Zone < DungeonZoneCount
