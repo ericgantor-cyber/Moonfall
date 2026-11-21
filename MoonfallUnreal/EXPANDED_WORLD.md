@@ -73,11 +73,20 @@ Veyra Ash (grave warden), Rook Thorn (Duskwatch sentinel), and
 Elias Briar (Thornwraith scholar). All five have unique quest/bond IDs,
 settlement affiliation, faction, greetings and existing interactive
 context controls. Duplicate IDs are checked before spawning.
+The island now also defines **five proximity-managed combat encounters**:
+Harbor Reaver, Blackbell Penitent, Grave Sentinel, Duskwatch Outcast and
+Thornwraith Stalker. They reuse the existing enemy AI, XP, loot, posture
+and elite combat instead of inventing incompatible gameplay systems.
+At most one enemy per district is active; an encounter is created only
+when the hero approaches within 110m, is cleaned up beyond 180m, and
+does not respawn after defeat until the hero leaves and returns.
+These are temporary enemy meshes and region-tagged encounter variants,
+not original creature models or full dungeon/boss implementations.
 These are **source-level gameplay integrations**, not verified in a native
 Unreal build. There are no newly authored merchant inventories, custom
-story quest chains, combat encounters, climates or multiplayer systems
-in these blockouts. NPCs use temporary primitive meshes and have no
-new animation or navigation behavior. None of this modifies Z, Nyra,
+story quest chains, dungeon interiors, island bosses, climates or
+multiplayer systems in these blockouts. NPCs use temporary primitive
+meshes and have no new animation or navigation behavior. None of this modifies Z, Nyra,
 original hero art, existing mainland shrines or persistent save schemas.
 
 These tiles use a custom proximity streamer, **not Unreal World
