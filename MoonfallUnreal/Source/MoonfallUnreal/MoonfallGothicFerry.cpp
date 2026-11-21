@@ -160,6 +160,10 @@ void AMoonfallGothicFerry::FinishCrossing(bool bArrived)
   }
   if (UCharacterMovementComponent* Movement = Rider->GetCharacterMovement())
    Movement->SetMovementMode(MOVE_Walking);
+ } else if (IsValid(Rider)) {
+  // Death/cancellation must release the attachment. The respawn/death
+  // pipeline controls movement and placement for an incapacitated hero.
+  Rider->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
  }
  GetWorldTimerManager().ClearTimer(CrossingTimer);
  if (bArrived) bAtIsland = !bAtIsland;
