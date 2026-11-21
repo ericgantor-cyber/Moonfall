@@ -127,6 +127,8 @@ bool AMoonfallWorldNPC::ConfigureCouncilWorkRoute(const FVector& EndOffset) {
  CouncilWorkHome = Home;
  CouncilWorkDestination = Destination;
  bCouncilWorkReturning = false;
+ CouncilWorkHoldSeconds = 0.f;
+ bCouncilWorkAtPost = false;
  bCouncilWorkRouteValid = true;
  return true;
 }
@@ -138,6 +140,16 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
      || Hero->bInventoryOpen || Hero->bOptionsOpen || Hero->bAtlasOpen
      || (Hero->bResidentContextOpen && Hero->FocusedResident.Get() == this))
   return;
+ // Arrival pauses are advanced only by this shared, bounded 0.2s timer.
+ // While paused, no actor transform updates or collision queries are needed.
+ if (CouncilWorkHoldSeconds > 0.f) {
+  CouncilWorkHoldSeconds = FMath::Max(0.f, CouncilWorkHoldSeconds - StepSeconds);
+  if (CouncilWorkHoldSeconds <= 0.f) {
+   bCouncilWorkReturning = !bCouncilWorkReturning;
+   bCouncilWorkAtPost = false;
+  }
+  return;
+ }
  const FVector Current = GetActorLocation();
  const FVector Player = Hero->GetActorLocation();
  if (Current.ContainsNaN() || Player.ContainsNaN()
@@ -145,7 +157,8 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
  const FVector Target = bCouncilWorkReturning ? CouncilWorkHome : CouncilWorkDestination;
  const FVector ToTarget = Target - Current;
  if (ToTarget.SizeSquared2D() < FMath::Square(8.f)) {
-  bCouncilWorkReturning = !bCouncilWorkReturning;
+  bCouncilWorkAtPost = !bCouncilWorkReturning;
+  CouncilWorkHoldSeconds = bCouncilWorkAtPost ? 5.f : 2.f;
   return;
  }
  const float Distance = FMath::Sqrt(ToTarget.SizeSquared2D());
@@ -169,6 +182,13 @@ void AMoonfallWorldNPC::AdvanceCouncilWorkStep(const AMoonfallHeroPawn* Hero, fl
  FHitResult Blocked;
  if (!SetActorLocation(Next, true, &Blocked, ETeleportType::None) || Blocked.bBlockingHit)
   bCouncilWorkRouteValid = false;
+}
+
+FString AMoonfallWorldNPC::GetCouncilWorkPhase() const {
+ if (!bCouncilWorkRouteValid) return TEXT("At assigned station");
+ if (CouncilWorkHoldSeconds > 0.f)
+  return bCouncilWorkAtPost ? TEXT("Working at post") : TEXT("Resting at home");
+ return bCouncilWorkReturning ? TEXT("Returning to station") : TEXT("Walking to work");
 }
 
 FString AMoonfallWorldNPC::GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const {
