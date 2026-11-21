@@ -85,8 +85,9 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
    else
-    DrawText(FString::Printf(TEXT("Assignment: %s"),
-        *Resident->GetCouncilAssignment(Hero)).Left(57),
+    DrawText(FString::Printf(TEXT("Assignment: %s | %s"),
+        *Resident->GetCouncilAssignment(Hero),
+        *Resident->GetCouncilWorkPhase()).Left(57),
         FLinearColor(0.72f,0.89f,0.86f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
