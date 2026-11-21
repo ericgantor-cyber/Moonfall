@@ -42,6 +42,10 @@ static_assert(EqualText(I::NextObjective(true, false, {0,0,0,0,0}, false),
                           "Find Mara Vesper at the harbor"));
 static_assert(EqualText(I::NextObjective(true, true, {2,1,2,2,2}, true),
                           "Finish Corvin's salvage contract"));
+static_assert(EqualText(I::NextObjective(true, true, {0,1,0,0,0}, false),
+                          "Finish Corvin's salvage contract"));
+static_assert(EqualText(I::NextObjective(true, true, {0,0,0,1,1}, false),
+                          "Finish Rook's salvage contract"));
 static_assert(EqualText(I::NextObjective(true, false, {2,2,2,2,2}, true),
                           "Discover the Blackbell shrine"));
 static_assert(EqualText(I::NextObjective(true, true, {2,2,2,2,2}, false),
@@ -110,6 +114,27 @@ int main() {
   }
   assert(Started.CompletedContracts==Completed);
   assert(Started.Revealed==1+StartedQuests);
+  // Every one of 243 valid contract combinations: current work wins over
+  // a new lead. Neither state can expose the finale prematurely.
+  constexpr const char* ActiveHints[5] = {
+   "Finish Mara's salvage contract", "Finish Corvin's salvage contract",
+   "Finish Veyra's salvage contract", "Finish Rook's salvage contract",
+   "Finish Elias's salvage contract"
+  };
+  constexpr const char* NewHints[5] = {
+   "Find Mara Vesper at the harbor", "Find Brother Corvin at Blackbell",
+   "Find Veyra Ash in the graves", "Find Rook Thorn at Duskwatch",
+   "Find Elias Briar in the grove"
+  };
+  int FirstActive = -1, FirstAvailable = -1;
+  for (int j=0; j<5; ++j) {
+   if (Quests[j] == 1 && FirstActive < 0) FirstActive = j;
+   if (Quests[j] == 0 && FirstAvailable < 0) FirstAvailable = j;
+  }
+  const char* Hint = I::NextObjective(true,true,Quests,false);
+  if (FirstActive >= 0) assert(std::strcmp(Hint,ActiveHints[FirstActive])==0);
+  else if (FirstAvailable >= 0) assert(std::strcmp(Hint,NewHints[FirstAvailable])==0);
+  else assert(std::strcmp(Hint,"Complete the six mainland acts")==0);
   const auto WithMainland = I::Summarize(true,true,Quests,true);
   assert(WithMainland.EpilogueReady==(Completed==5));
  }
