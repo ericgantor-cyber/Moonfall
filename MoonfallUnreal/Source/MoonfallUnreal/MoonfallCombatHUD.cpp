@@ -970,9 +970,11 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 EquippedRarity = bEquippedValid ? (EquippedCode / 1000) % 10 : 0;
    const int32 EquippedAffix = bEquippedValid ? EquippedCode / 100000 : 0;
    const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
-   const bool bIsUpgrade = PowerDelta > 0;
-   const bool bIsLower = PowerDelta < 0;
+   const bool bIsEquipped = bEquippedValid && EquippedCode == SelectedCode;
+   const bool bIsUpgrade = !bIsEquipped && PowerDelta > 0;
+   const bool bIsLower = !bIsEquipped && PowerDelta < 0;
    const TCHAR* CompareWord = !bEquippedValid ? TEXT("EMPTY SLOT")
+     : bIsEquipped ? TEXT("EQUIPPED")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
