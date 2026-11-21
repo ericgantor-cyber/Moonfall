@@ -975,10 +975,15 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bIsEquipped = bSelectedValid && bEquippedValid && EquippedCode == SelectedCode;
    const bool bIsUpgrade = bSelectedValid && !bIsEquipped && PowerDelta > 0;
    const bool bIsLower = bSelectedValid && !bIsEquipped && PowerDelta < 0;
+   // Equal gear power does not mean identical build effects. Call out
+   // changes between Force/Ward/Focus (or None) explicitly.
+   const bool bIsTraitSwap = bSelectedValid && bEquippedValid && !bIsEquipped
+     && PowerDelta == 0 && SelectedAffix != EquippedAffix;
    const TCHAR* CompareWord = !bSelectedValid ? TEXT("INVALID ITEM")
      : !bEquippedValid ? TEXT("EMPTY SLOT")
      : bIsEquipped ? TEXT("EQUIPPED")
-     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
+     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER")
+     : bIsTraitSwap ? TEXT("TRAIT SWAP") : TEXT("SIDEGRADE");
    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
