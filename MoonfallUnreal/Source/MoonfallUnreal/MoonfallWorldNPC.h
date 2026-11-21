@@ -36,6 +36,8 @@ public:
  // Ancestry changes social dialogue but never overwrites earned reputation.
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Race") bool SharesRaceWith(const AMoonfallHeroPawn* Hero) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FString GetCurrentActivity() const;
+ // Council-aware job description for UI/dialogue, not simulated AI navigation.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Council") FString GetCouncilAssignment(const AMoonfallHeroPawn* Hero) const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName FactionId = FName(TEXT("Wanderers"));
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC", meta=(ClampMin="50.0", ClampMax="400.0")) float InteractRange = 240.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 InteractionCount = 0;
