@@ -90,6 +90,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - The arena checks the player's already-saved policy every two seconds, so choosing a policy or loading a saved policy refreshes visuals without per-frame actor ticking, NPC relocation, new map levels or modifying the player's save. All variant geometry has collision and overlap disabled.
 - These are low-cost **visual indicators**, not actual repaired homes, working construction sites, staffed fortifications, altered quests or gameplay bonuses. The original hero art and gameplay world blockers are unchanged. Native Windows UE5 compilation and in-game collision, placement, controller and visuals testing remain outstanding.
 
+## Council-responsive Crossroads professions
+
+- Crossroads residents expose `GetCouncilAssignment(Hero)`, a no-tick, read-only description derived from the **saved Council policy** and each resident's existing `SocialRole`. Protection assigns guards to residents and scouts to escorts; Reconstruction assigns tinkers to repairs and merchants to supplies; Fortification assigns guards to borders and scouts to roads.
+- The native NPC conversation panel displays the current assignment, but an active quest-feedback message takes priority. NPCs from other settlements and heroes without a confirmed policy retain their normal existing activity description.
+- The jobs are **descriptive world reactivity**, not physical navigation, inventory trading, actual construction or simulated defense. No new saves, NPC actors, pathfinding, or automatic reputation awards. Native UE5 gameplay/visual testing remains outstanding.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
