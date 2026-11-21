@@ -39,6 +39,10 @@ public:
 private:
  UPROPERTY(Transient) TMap<int32, TObjectPtr<AMoonfallOverworldTile>> ResidentTiles;
  FTimerHandle StreamingTimer;
+ // Lightweight sea-gap movement state; water does not automatically rescue
+ // or reposition characters who leave the Nightferry.
+ TWeakObjectPtr<class AMoonfallHeroPawn> SeaSwimmer;
+ void UpdateSeaSwimming();
 
  void BuildConnectingRoads();
  void AddRoad(const FVector& Start, const FVector& End, float Width);
