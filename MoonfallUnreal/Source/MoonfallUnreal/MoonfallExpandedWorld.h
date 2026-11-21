@@ -45,6 +45,8 @@ private:
  // Each defeated encounter stays cleared until the player leaves its site.
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> IslandEncounters;
  TSet<int32> ClearedIslandEncounters;
+ // Delay repeat spawn attempts at obstructed encounter points.
+ TMap<int32, float> IslandSpawnRetryAt;
  void UpdateGothicIsleEncounters(const FVector& PlayerPosition);
  // Lightweight sea-gap movement state; water does not automatically rescue
  // or reposition characters who leave the Nightferry.
