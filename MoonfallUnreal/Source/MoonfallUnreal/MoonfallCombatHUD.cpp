@@ -215,6 +215,19 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(IsleStoryLabel, FLinearColor(0.69f, 0.78f, 0.88f),
       Left + 14.f, Top + Height - 44.f,
       nullptr, Scale * AtlasSideTextScale * 0.74f);
+  // Compact objective preview uses existing saved shrine/contract state.
+  // Draw only when the island story is found and there is enough sidebar
+  // width for the text, avoiding overlap on narrow 640px Atlas layouts.
+  if (IsleStory.Valid && IsleStory.Revealed > 0 && AtlasSidebarWidth >= 200.f) {
+   const FString NextIsleObjective = UTF8_TO_TCHAR(
+     MoonfallIsleChronicle::NextObjective(
+       Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+       Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+       IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete));
+   DrawText(NextIsleObjective.Left(29), FLinearColor(0.83f, 0.77f, 0.59f),
+       Left + 14.f, Top + Height - 25.f,
+       nullptr, Scale * AtlasSideTextScale * 0.65f);
+  }
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
   const float MapWidth = FMath::Max(40.f, Width - AtlasSidebarWidth - 36.f);
