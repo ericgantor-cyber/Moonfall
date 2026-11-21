@@ -212,8 +212,10 @@ not a measured UE5 frame-time result.
 
 ## Single-pass expired-tile pruning
 
-Each 0.35-second refresh now removes invalid or distant resident tiles
-through the map's removal-safe iterator. This avoids allocating a
+Each 0.35-second refresh now removes invalid, already-destroying or distant resident tiles
+through the map's removal-safe iterator. Pending-destroy tiles cannot
+occupy a resident slot merely because they remain inside the unload radius.
+This avoids allocating a
 temporary expired-ID array and repeating map lookups. Active tiles
 remain protected by the original 60,000cm unload hysteresis; the
 25-tile cap check still runs **after** cleanup, so freed slots can
