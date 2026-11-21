@@ -150,6 +150,44 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         self.assertIn("CatalogPrice < BasePrice", hud)
         self.assertIn("CatalogPrice > BasePrice", hud)
 
+    def test_equipped_morality_motifs_are_visual_only_and_refresh_with_gear(self):
+        hero = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        constructor = hero.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshMoralPresenceVisuals()", 1
+        )[0]
+        refresh = hero.split("void AMoonfallHeroPawn::RefreshMoralPresenceVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor()", 1
+        )[0]
+        for name in ("MoralWeaponMotif", "MoralArmorMotif", "MoralAccessoryMotif"):
+            self.assertIn(name, header)
+            self.assertIn('TEXT("' + name + '")', constructor)
+            self.assertIn(name, refresh)
+        for required in ("SetupAttachment(GetRootComponent())",
+                         "SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                         "SetGenerateOverlapEvents(false)",
+                         "SetCastShadow(false)", "SetHiddenInGame(true)"):
+            self.assertIn(required, constructor)
+        for required in ("Health > 0.f && bWorldProgressInitialized",
+                         "if (Tier != 0)", "InventoryItemCodes.Contains(Code)",
+                         "GetItemPower(Code) > 0",
+                         "(Code / 10000) % 10 == Slot",
+                         "LastMoralGearVisibilityMask",
+                         "OwnedVisualMask == LastMoralGearVisibilityMask",
+                         "Motif->SetHiddenInGame(!bVisible)",
+                         "Motif->SetRelativeLocation(Location)",
+                         "Motif->SetRelativeScale3D(Shape)"):
+            self.assertIn(required, refresh)
+        for forbidden in ("SaveWorldProgress(", "SpawnActor(", "SetSkeletalMesh(",
+                          "SetMaterial(", "InventoryItemCodes.Add(", "AwardExperience(",
+                          "SetActorLocation("):
+            self.assertNotIn(forbidden, refresh)
+        tick = hero.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1
+        )[0]
+        self.assertIn("MoralVisualRefreshElapsed >= 0.5f", tick)
+        self.assertIn("RefreshMoralPresenceVisuals();", tick)
+
     def test_moral_equipment_identity_requires_owned_valid_gear_and_remains_cosmetic(self):
         cpp = (SOURCE / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
