@@ -4,6 +4,7 @@
 #include "MoonfallArena.generated.h"
 class UInstancedStaticMeshComponent;
 class UTextRenderComponent;
+class AMoonfallWorldNPC;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
@@ -37,4 +38,7 @@ private:
  void CreateBlock(FVector Position, FVector Scale);
  void RefreshCouncilSettlementVisuals();
  int32 LastDisplayedCouncilDecision = -2;
+ // Max four authored movers; no world actor scans on each movement step.
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>> CouncilMobileResidents;
+ void StepCouncilWorkRoutes();
 };
