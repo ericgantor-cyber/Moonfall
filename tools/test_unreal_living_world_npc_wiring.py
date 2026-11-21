@@ -165,7 +165,7 @@ class LivingWorldNPCWiringTests(unittest.TestCase):
         header = (SOURCE / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         self.assertIn("FString PreviewCouncilDecision(int32 DecisionId) const;", header)
         method = hero.split("FString AMoonfallHeroPawn::PreviewCouncilDecision(int32 DecisionId) const", 1)[1].split(
-            "void AMoonfallHeroPawn::CloseCouncilPointer()", 1
+            "FString AMoonfallHeroPawn::GetConfirmedCouncilPolicy() const", 1
         )[0]
         for required in ("MoonfallLivingWorld::Decide(Decision)", "Protect Residents",
                          "Fund Reconstruction", "Fortify Borders", "preview only",
