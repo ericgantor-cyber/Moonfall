@@ -3852,7 +3852,8 @@ int32 AMoonfallHeroPawn::GetResidentCatalogItemCode() const {
 }
 int32 AMoonfallHeroPawn::GetResidentCatalogPrice(bool bMerchant) const {
  const auto Item = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
- return bMerchant ? Item.merchantCost : Item.tinkerCost;
+ return MoonfallMorality::AdjustShopPrice(
+     bMerchant ? Item.merchantCost : Item.tinkerCost, MoralAlignment);
 }
 FString AMoonfallHeroPawn::GetMoralTitle() const {
  return FString(ANSI_TO_TCHAR(MoonfallMorality::Alignment(MoralAlignment)));
@@ -3973,8 +3974,9 @@ bool AMoonfallHeroPawn::PurchaseResidentWorkItem() {
  // Selection changes cancel confirmation, so the quoted item cannot switch.
  const auto Stock = MoonfallResidentCatalog::Get(ResidentCatalogSelection);
  if (!Stock.valid) { bResidentTradePending = false; return false; }
- const int32 Price = bMerchant ? Stock.merchantCost : Stock.tinkerCost;
+ const int32 Price = GetResidentCatalogPrice(bMerchant);
  const int32 ItemCode = Stock.code;
+ if (Price <= 0) { bResidentTradePending = false; return false; }
  // Recipes require actual character progression, not a fake material count.
  // Validate before confirmation and again before any salvage mutation.
  const int32 RequiredLevel = MoonfallResidentCatalog::CraftLevelRequired(ResidentCatalogSelection);
