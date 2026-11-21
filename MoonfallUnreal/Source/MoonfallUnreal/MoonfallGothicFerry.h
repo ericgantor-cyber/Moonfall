@@ -59,6 +59,7 @@ private:
  FTimerHandle CrossingTimer;
  TWeakObjectPtr<AMoonfallHeroPawn> Passenger;
  float CrossingStartedAt = 0.f;
+ float LastCrossingUpdateAt = 0.f;
  bool bUnderway = false;
  bool bAtIsland = false;
  void SetGangplankDeployed(bool bDeployed);
