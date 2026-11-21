@@ -95,6 +95,57 @@ void AMoonfallOverworldTile::BuildBlockout()
     FRotator(0.f, Random.FRandRange(0.f, 360.f), 0.f),
     FVector(X, Y, Z), FVector(Width, Width, Height)));
  }
+ // Gothic Isle inherits the mainland's 25 streamed, walkable tile
+ // foundation but gets its own recognizable outposts and district silhouettes.
+ // Everything here is instanced scenery, NOT a claim of functional shops,
+ // NPCs, shrines, dungeons or combat encounters.
+ if (RegionIndex == 6) {
+  // Lightweight inhabited/ruined silhouettes on every tile; keep the
+  // cross-shaped walk lanes open for both player and navigation.
+  constexpr int32 IslandOutpostProps = 6;
+  for (int32 Index = 0; Index < IslandOutpostProps; ++Index) {
+   const float SideX = Index % 2 == 0 ? -1.f : 1.f;
+   const float SideY = (Index / 2) % 2 == 0 ? -1.f : 1.f;
+   const float X = SideX * (4300.f + float(Index % 3) * 1050.f);
+   const float Y = SideY * (4400.f + float((Index + 1) % 3) * 1000.f);
+   const float Height = 17.f + float((Column * 3 + Row + Index) % 5) * 7.f;
+   Buildings->AddInstance(FTransform(
+     FRotator(0.f, float((Index * 45 + Column * 11 + Row * 17) % 360), 0.f),
+     FVector(X, Y, Height * 50.f),
+     FVector(8.f + float(Index % 3) * 2.f, 9.f, Height)));
+  }
+  // Five district centers: the isle has distinct equivalents of the
+  // mainland's landmark hubs, not copies of mainland towns.
+  const bool bCathedral = Column == 2 && Row == 2;
+  const bool bHarbor = Column == 2 && Row == 0;
+  const bool bGraveyard = Column == 4 && Row == 2;
+  const bool bWatch = Column == 0 && Row == 2;
+  const bool bBlackwood = Column == 2 && Row == 4;
+  const TCHAR* Landmark = bCathedral ? TEXT("BLACKBELL CATHEDRAL")
+    : bHarbor ? TEXT("RAVEN'S LANDING")
+    : bGraveyard ? TEXT("ASHEN GRAVES")
+    : bWatch ? TEXT("DUSKWATCH KEEP")
+    : bBlackwood ? TEXT("THORNWRAITH GROVE") : nullptr;
+  if (Landmark) {
+   // Use the same central landmark convention as the mainland.
+   // The surrounding instances are unmistakable gothic proxies,
+   // to be replaced by original authored island assets later.
+   for (int32 Index = 0; Index < 7; ++Index) {
+    const float Angle = (2.f * PI * Index) / 7.f;
+    const float Distance = 3400.f + float(Index % 2) * 1250.f;
+    const float Height = bCathedral ? 55.f : (bWatch ? 42.f : 23.f)
+      + float(Index % 3) * 7.f;
+    Buildings->AddInstance(FTransform(
+      FRotator(0.f, FMath::RadiansToDegrees(Angle), 0.f),
+      FVector(Distance * FMath::Cos(Angle),
+              Distance * FMath::Sin(Angle), Height * 50.f),
+      FVector(bHarbor ? 11.f : 13.f, 12.f, Height)));
+   }
+   RegionSign->SetText(FText::FromString(Landmark));
+   RegionSign->SetRelativeLocation(FVector(0.f, 0.f, 3000.f));
+   RegionSign->SetVisibility(true);
+  }
+ }
  // Each province gets a recognizable town/landmark cluster at its center.
  // Island gets ruins rather than pretending it already has full NPC services.
  if (Column == 2 && Row == 2) {
@@ -107,8 +158,10 @@ void AMoonfallOverworldTile::BuildBlockout()
        BuildingHeight * 50.f),
      FVector(14.f + float(Index % 3) * 4.f, 16.f, BuildingHeight)));
   }
-  RegionSign->SetText(FText::FromString(AMoonfallExpandedWorld::RegionName(RegionIndex)));
-  RegionSign->SetRelativeLocation(FVector(0.f, 0.f, 2300.f));
-  RegionSign->SetVisibility(true);
+  if (RegionIndex != 6) {
+   RegionSign->SetText(FText::FromString(AMoonfallExpandedWorld::RegionName(RegionIndex)));
+   RegionSign->SetRelativeLocation(FVector(0.f, 0.f, 2300.f));
+   RegionSign->SetVisibility(true);
+  }
  }
 }
