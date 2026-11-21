@@ -115,11 +115,18 @@ void AMoonfallExpandedWorld::BeginPlay()
  // The timer owns all scenery streaming; the manager and each tile do NOT Tick.
  GetWorldTimerManager().SetTimer(StreamingTimer, this,
    &AMoonfallExpandedWorld::RefreshNearbyTiles, 0.35f, true, 0.1f);
+ // Water movement stays responsive without requiring a per-frame actor Tick.
+ GetWorldTimerManager().SetTimer(SeaSwimmingTimer, this,
+   &AMoonfallExpandedWorld::UpdateSeaSwimming, 0.1f, true);
 }
 
 void AMoonfallExpandedWorld::EndPlay(const EEndPlayReason::Type Reason)
 {
- if (GetWorld()) GetWorldTimerManager().ClearTimer(StreamingTimer);
+ if (GetWorld()) {
+  GetWorldTimerManager().ClearTimer(StreamingTimer);
+  GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);
+ }
+ SeaSwimmer.Reset();
  ResidentTiles.Empty();
  Super::EndPlay(Reason);
 }
@@ -182,7 +189,6 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  if (!World) return;
  const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
  if (!IsValid(Player)) return;
- UpdateSeaSwimming();
  const FVector PlayerPosition = Player->GetActorLocation();
  if (PlayerPosition.ContainsNaN()) return;
 
