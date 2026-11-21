@@ -52,6 +52,19 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("FMath::Clamp(", countdown)
         self.assertNotIn("TActorIterator", countdown)
 
+    def test_visible_voyage_status_updates_only_when_second_changes(self):
+        self.assertIn("TObjectPtr<UTextRenderComponent> VoyageStatus;", self.h)
+        self.assertIn("int32 LastDisplayedSeconds = -1;", self.h)
+        self.assertIn("VoyageStatus = CreateDefaultSubobject<UTextRenderComponent>", self.boat)
+        self.assertIn("VoyageStatus->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.boat)
+        status = self.boat.split("void AMoonfallGothicFerry::UpdateVoyageStatus()", 1)[1].split(
+            "bool AMoonfallGothicFerry::TryBoard(", 1)[0]
+        self.assertIn("FMath::CeilToInt(GetSecondsUntilArrival())", status)
+        self.assertIn("if (Seconds == LastDisplayedSeconds) return;", status)
+        self.assertIn("GetDestinationName().ToString()", status)
+        self.assertIn("VoyageStatus->SetText(FText::GetEmpty());", status)
+        self.assertIn("UpdateVoyageStatus();", self.boat)
+
     def test_boarding_requires_real_nearby_live_hero_and_open_ui(self):
         boarding = self.boat.split("bool AMoonfallGothicFerry::TryBoard(", 1)[1].split(
             "void AMoonfallGothicFerry::AdvanceCrossing()", 1)[0]
