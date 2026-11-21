@@ -216,7 +216,11 @@ class ExpandedOverworldTests(unittest.TestCase):
         # Capacity cannot short-circuit encounter cleanup or unloading.
         self.assertLess(streaming.index("UpdateGothicIsleEncounters(PlayerPosition);"),
                         streaming.index(cap_guard))
-        self.assertLess(streaming.index("ResidentTiles.Remove(Id);"),
+        self.assertIn("ResidentTiles.CreateIterator()", streaming)
+        self.assertIn("It.RemoveCurrent();", streaming)
+        self.assertIn("if (IsValid(Tile)) Tile->Destroy();", streaming)
+        self.assertNotIn("TArray<int32> ExpiredIds;", streaming)
+        self.assertLess(streaming.index("It.RemoveCurrent();"),
                         streaming.index(cap_guard))
         self.assertLess(streaming.index(cap_guard),
                         streaming.index("TArray<TPair<float, int32>> Candidates;"))
@@ -250,7 +254,9 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("SpawnActorDeferred<AMoonfallOverworldTile>(", self.world)
         self.assertIn("Tile->FinishSpawning(TileTransform)", self.world)
         self.assertIn("Tile->RegionIndex = Region;", self.world)
-        self.assertIn("ResidentTiles.Remove(Id);", self.world)
+        self.assertIn("It.RemoveCurrent();", self.world)
+        self.assertLess(streaming.index("ResidentTiles.CreateIterator()"),
+                        streaming.index("TArray<TPair<float, int32>> Candidates;"))
         self.assertIn("GetWorldTimerManager().ClearTimer(StreamingTimer);", self.world)
         self.assertIn("GetWorldTimerManager().ClearTimer(SeaSwimmingTimer);", self.world)
         self.assertIn("if (GetWorld()) {", self.world)
