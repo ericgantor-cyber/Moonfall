@@ -9,6 +9,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/ConstructorHelpers.h"
@@ -47,6 +48,11 @@ void AMoonfallArena::RefreshCouncilSettlementVisuals() {
      && Hero->CouncilDecisionId <= 2 ? Hero->CouncilDecisionId : -1;
  if (Policy == LastDisplayedCouncilDecision) return;
  LastDisplayedCouncilDecision = Policy;
+ // A policy change is rare. Update authored resident labels once per
+ // transition, not in NPC Tick or a per-frame resident scan.
+ for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It) {
+  if (IsValid(*It)) It->RefreshCouncilAssignmentSign(Hero);
+ }
  CouncilProtectionDecor->SetVisibility(Policy == 0);
  CouncilReconstructionDecor->SetVisibility(Policy == 1);
  CouncilFortificationDecor->SetVisibility(Policy == 2);
