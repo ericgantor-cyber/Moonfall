@@ -43,6 +43,20 @@ constexpr bool AllContractsComplete(const int (&Quests)[5]) {
   if (Quests[I] != 2) return false;
  return true;
 }
+// A real mainland-to-island discovery objective backed entirely by
+// persistent dungeon-boss and shrine records. Never awards an unearned win.
+enum class ESeaJourney : int { Locked = 0, SailToIsle = 1, Arrived = 2 };
+constexpr ESeaJourney SeaJourneyState(bool FirstMainlandBossDefeated,
+ bool RavensLandingShrineDiscovered) {
+ if (!FirstMainlandBossDefeated) return ESeaJourney::Locked;
+ return RavensLandingShrineDiscovered
+   ? ESeaJourney::Arrived : ESeaJourney::SailToIsle;
+}
+constexpr const char* SeaJourneyObjective(ESeaJourney State) {
+ return State == ESeaJourney::SailToIsle ? "Board Nightferry to Gothic Isle"
+   : State == ESeaJourney::Arrived ? "Raven's Landing discovered"
+   : "Defeat Emberfall Crypt boss";
+}
 constexpr EState ChapterState(int Chapter, bool HarborDiscovered,
  bool CathedralDiscovered, const int (&Quests)[5], bool MainlandComplete) {
  if (Chapter < 0 || Chapter >= ChapterCount || !ValidQuests(Quests))
