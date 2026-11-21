@@ -223,6 +223,24 @@ load nearby terrain on the same refresh. No respawn/overboard
 behavior or original art changes are introduced. Native UE5 runtime
 profiling is still needed before claiming a measured gain.
 
+## Discovered shrine fast travel (Atlas)
+
+The Atlas now supports an Assassin's Creed-style **discovered-site
+fast travel** for shrine actors currently loaded in the world. Open
+the Atlas with J and click a discovered shrine marker **twice**:
+first to select the golden marker, then to confirm. An undiscovered
+shrine, an unloaded destination actor, or a blocked landing capsule
+never becomes a valid teleport destination. A confirmed journey
+stops player movement, checks scaled capsule collision, uses
+`TeleportTo` and closes the Atlas on success.
+
+This is **not** an automatic ferry shortcut: only visited shrines
+are eligible, and streamed-out actors do not silently load on request.
+Travel does not change the active death/respawn shrine, grant
+discovery, award XP or mutate save data. The existing Nightferry and
+physical island discovery sequence remain intact. Mouse input and
+landing physics still require an actual UE5 Win64 playtest.
+
 ## Streamed tile lifecycle on manager shutdown
 
 The expanded-world manager now explicitly destroys live, non-destroying
