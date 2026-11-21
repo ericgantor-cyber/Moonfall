@@ -23,14 +23,35 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # projected destination that may be on the opposite side of a wall.
         path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
             "if (CachedWaypoint.ContainsNaN())", 1)[0]
-        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1", path)
+        self.assertIn("const bool bHasPathSegment = IsValid(Path) && Path->PathPoints.Num() > 1;", path)
         self.assertIn("? Path->PathPoints[1] : FVector::ZeroVector;", path)
         self.assertNotIn("!Path->IsPartial()", path)
         # Preserve one cached query with no extra navigation probes.
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
-        self.assertLess(path.index("!IsValid(Path) ||"), path.index("Path->PathPoints[1]"))
+        self.assertLess(path.index("const bool bHasPathSegment"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
+
+    def test_reached_first_corner_advances_without_extra_path_queries(self):
+        # An engine-provided path can start with a near-zero movement segment.
+        # Once the first corner is reached, use the next finite corner of the
+        # same path rather than spending another synchronous path query.
+        route = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint", route)
+        self.assertIn("&& Path->PathPoints.Num() > 2", route)
+        self.assertIn("FVector::DistSquared2D(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", route)
+        self.assertIn("&& !Path->PathPoints[2].ContainsNaN();", route)
+        self.assertIn("? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)", route)
+        self.assertLess(route.index("&& Path->PathPoints.Num() > 2"),
+                        route.index("Path->PathPoints[2].ContainsNaN()"))
+        self.assertLess(route.index("Path->PathPoints[2].ContainsNaN()"),
+                        route.index("CachedWaypoint = bHasCachedNavigationWaypoint"))
+        # Existing path cadence, obstacle sweeps, valid origin and boss
+        # combat behavior are preserved without any new NavMesh solves.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
 
     def test_nonfinite_nav_waypoints_fail_closed_without_repath_spam(self):
         # Unreal can return a path object whose next corner contains NaN or
@@ -38,9 +59,9 @@ class EnemyPathBudgetTests(unittest.TestCase):
         nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1
         )[0]
-        self.assertIn("Path->PathPoints[1].ContainsNaN()", nav)
-        self.assertLess(nav.index("Path->PathPoints[1].ContainsNaN()"),
-                        nav.index("? Path->PathPoints[1] : FVector::ZeroVector;"))
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", nav)
+        self.assertLess(nav.index("FirstCorner.ContainsNaN()"),
+                        nav.index("CachedWaypoint = bHasCachedNavigationWaypoint"))
         cached = nav.split("if (CachedWaypoint.ContainsNaN()) {", 1)[1].split(
             "if (bHasCachedNavigationWaypoint) {", 1
         )[0]
@@ -63,7 +84,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("bool bNavigationRouteUnavailable = false;", header)
         nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1)[0]
-        self.assertIn("bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1", nav)
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", nav)
         self.assertIn("bNavigationRouteUnavailable = true;", nav)
         self.assertIn("CachedWaypoint = FVector::ZeroVector;", nav)
         self.assertIn("bNavigationRouteUnavailable = false;", nav)
