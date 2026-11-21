@@ -118,7 +118,8 @@ native builds and representative Windows machines can be profiled.
 - **WoW Forever-style water entry prototype:** a character falling below
   the sea surface in the 80m ferry gap is switched from falling to swimming
   movement without any rescue teleport. Detection is limited to the
-  26m-wide, dock-aligned sea corridor rather than nearby land.
+  100m-wide open-water corridor around the 80m crossing, allowing players
+  to swim beside the 26m-wide docks without mistaking shore areas for water.
   A 100cm entry/exit hysteresis band
   avoids rapid state changes while crossing the surface. Leaving the sea area
   exits swimming; death or movement states owned by other systems do not
