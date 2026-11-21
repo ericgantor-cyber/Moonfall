@@ -1013,7 +1013,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
@@ -3378,10 +3378,6 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation should release held combat movement immediately.
- StopJumping();
- EndSprint();
- EndGuard();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -3428,10 +3424,6 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
-    StopJumping();
-    EndSprint();
-    EndGuard();
-    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
