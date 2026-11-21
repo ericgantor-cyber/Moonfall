@@ -68,10 +68,27 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.Contains(Codes[Slot])", body)
 
     def test_stat_bonuses_validate_ownership(self):
-        for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
-                      "InventoryItemCodes.Contains(EquippedAccessoryCode)",
-                      "InventoryItemCodes.Contains(EquippedArmorCode)",
-                      "ValidEquippedTier(", "ValidEquippedTraitRarity("):
-            self.assertIn(token, self.source)
+        tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::IsLegacySlot(Slot)", tier)
+        self.assertIn("GetEquipmentSlotCode(Slot)", tier)
+        self.assertIn("ValidEquippedTier(Code, Slot)", tier)
+
+        body = self.source.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
+            "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
+        expected = {
+            "GetMight": "GetValidatedEquippedTier(0)",
+            "GetInsight": "GetValidatedEquippedTier(2)",
+            "GetResolve": "GetValidatedEquippedTier(1)",
+            "GetCriticalChance": "GetEquipmentSlotCode(0)",
+            "GetHasteBonus": "GetEquipmentSlotCode(2)",
+            "GetMasteryBonus": "GetValidatedEquippedTier(2)",
+            "GetVersatilityBonus": "GetEquipmentSlotCode(1)",
+        }
+        for name, token in expected.items():
+            method = body.split("AMoonfallHeroPawn::" + name + "()", 1)[1].split("\\n}", 1)[0]
+            self.assertIn(token, method, name)
+            self.assertNotIn("InventoryItemCodes.Contains(Equipped", method, name)
+        self.assertIn("ValidEquippedTraitRarity(", body)
 if __name__ == "__main__":
     unittest.main()
