@@ -1,4 +1,8 @@
 #include "MoonfallEquipmentSlots.h"
+// Tests must fail even under optimized/-DNDEBUG compilation.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <string>
 int main() {
