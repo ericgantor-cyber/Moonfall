@@ -3943,7 +3943,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bValidRarity ? EquippedRarityColors[Rarity]", page)
         self.assertNotIn("Code > 0 ? FLinearColor(0.57f,0.47f,0.27f,1.f)", page)
         self.assertIn('bFutureSlot ? TEXT("FUTURE")', page)
-        self.assertIn('Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)', page)
+        self.assertIn('TEXT("RARITY: C U R E Em L")', page)
+        self.assertIn("const TCHAR* EquippedRarityMarks[]", page)
+        for mark in ('TEXT("C")', 'TEXT("U")', 'TEXT("R")',
+                     'TEXT("E")', 'TEXT("Em")', 'TEXT("L")'):
+            self.assertIn(mark, page)
+        self.assertIn('bValidRarity ? FString::Printf(TEXT("T%d %s"), Code % 1000,', page)
+        self.assertIn("EquippedRarityMarks[Rarity]", page)
         self.assertIn("const float GridTop = Top + PanelHeight - 225.f;", page)
         self.assertIn("GridTop + 22.f + ColumnRow * 31.f", page)
         self.assertIn("(PanelHeight - (bUseSlotGrid ? 350.f : 145.f))", page)
