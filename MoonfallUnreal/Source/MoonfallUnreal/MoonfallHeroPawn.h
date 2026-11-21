@@ -80,6 +80,17 @@ public:
  // Reputation is a permanent value for recognized world factions.
  // One durable Good/Evil score, independent of faction and resident bonds.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") int32 MoralAlignment = 0;
+ // Original character meshes are untouched: these are optional primitive
+ // ornaments and a bounded light attached to the capsule root only.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralOrnamentLeft;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UStaticMeshComponent* MoralOrnamentRight;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality|Visual")
+ UPointLightComponent* MoralPresenceLight;
+ int32 LastMoralVisualTier = 99;
+ float MoralVisualRefreshElapsed = 0.f;
+ void RefreshMoralPresenceVisuals();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Morality") TMap<FName, int32> ResidentMoralChoices;
  UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralTitle() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Morality") FString GetMoralActionDescription() const;
