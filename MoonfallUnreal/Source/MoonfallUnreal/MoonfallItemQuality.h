@@ -41,4 +41,20 @@ inline const TCHAR* Abbreviation(int32 Rarity)
  };
  return IsValid(Rarity) ? Marks[Rarity] : TEXT("?");
 }
+
+// Keep all UI and world-loot rarity names in the persistent 0..5 order.
+// The uppercase form is for compact combat-HUD notifications.
+inline const TCHAR* Name(int32 Rarity, bool bUpper = false)
+{
+ static const TCHAR* const Names[Count] = {
+  TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+  TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")
+ };
+ static const TCHAR* const UpperNames[Count] = {
+  TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
+  TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY")
+ };
+ if (!IsValid(Rarity)) return bUpper ? TEXT("UNKNOWN") : TEXT("Unknown");
+ return bUpper ? UpperNames[Rarity] : Names[Rarity];
+}
 }
