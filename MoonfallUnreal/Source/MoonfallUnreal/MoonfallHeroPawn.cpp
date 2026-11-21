@@ -601,6 +601,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("AtlasTravelSelect"), IE_Pressed, this, &AMoonfallHeroPawn::AtlasTravelSelect);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1746,6 +1747,10 @@ void AMoonfallHeroPawn::OptionsDown() {
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
+  if (!AtlasFastTravelPendingShrine.IsNone() && GetWorld()
+      && GetWorld()->GetRealTimeSeconds() <= AtlasFastTravelConfirmUntil) {
+   CycleAtlasTravel(-1); return;
+  }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
@@ -1755,6 +1760,10 @@ void AMoonfallHeroPawn::OptionsLeft() {
 void AMoonfallHeroPawn::OptionsRight() {
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
+  if (!AtlasFastTravelPendingShrine.IsNone() && GetWorld()
+      && GetWorld()->GetRealTimeSeconds() <= AtlasFastTravelConfirmUntil) {
+   CycleAtlasTravel(1); return;
+  }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
@@ -2501,6 +2510,52 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
  return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
 }
 // Touching a new shrine sets the next death checkpoint, not every autosave.
+// Controller/keyboard Atlas travel: the first press selects a discovered
+// loaded shrine, another confirms; Left/Right cycles while selected.
+void AMoonfallHeroPawn::AtlasTravelSelect() {
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f || bAtlasChronicleFocus
+     || !GetWorld()) return;
+ const float Now = GetWorld()->GetRealTimeSeconds();
+ if (FMath::IsFinite(Now) && !AtlasFastTravelPendingShrine.IsNone()
+     && Now <= AtlasFastTravelConfirmUntil) {
+  TryAtlasFastTravel(AtlasFastTravelPendingShrine);
+  return;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
+ CycleAtlasTravel(1);
+}
+void AMoonfallHeroPawn::CycleAtlasTravel(int32 Direction) {
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f
+     || bAtlasChronicleFocus || !GetWorld()
+     || (Direction != -1 && Direction != 1)) return;
+ const int32 Count = AtlasDiscoveredShrineIds.Num();
+ if (Count == 0 || Count != AtlasDiscoveredShrineLocations.Num()) return;
+ const int32 Selected = AtlasDiscoveredShrineIds.IndexOfByKey(AtlasFastTravelPendingShrine);
+ const int32 Base = Selected >= 0 ? Selected
+     : Direction > 0 ? Count - 1 : 0;
+ for (int32 Attempt = 1; Attempt <= Count; ++Attempt) {
+  const int32 Index = (Base + Direction * Attempt + Count * 2) % Count;
+  const FName Id = AtlasDiscoveredShrineIds[Index];
+  if (Id.IsNone() || !HasDiscoveredShrine(Id)) continue;
+  bool bLoaded = false;
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
+   if (IsValid(*It) && !It->IsActorBeingDestroyed() && It->ShrineId == Id) {
+    bLoaded = true;
+    break;
+   }
+  }
+  if (!bLoaded) continue;
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+  TryAtlasFastTravel(Id);
+  return;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
+ OnResidentQuestFeedback(FText::FromString(
+   TEXT("No loaded discovered shrine available for fast travel.")), false);
+}
 bool AMoonfallHeroPawn::TryAtlasFastTravel(FName ShrineId) {
  // Only a loaded, previously discovered actor can be a fast-travel
  // destination. Two separate clicks on the same marker confirm the action.
