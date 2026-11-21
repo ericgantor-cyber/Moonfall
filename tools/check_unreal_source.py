@@ -3929,11 +3929,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(line, page)
         self.assertIn("if (bUseSlotGrid)", page)
         self.assertIn('TEXT("EQUIPMENT  |  3 EQUIPPABLE / 6 FUTURE")', page)
-        self.assertIn("for (int32 Slot = 0; Slot < 9; ++Slot)", page)
+        self.assertIn("const int32 ACSlotOrder[] = {3, 4, 1, 6, 7, 0, 5, 8, 2};", page)
+        self.assertIn("DisplayIndex < UE_ARRAY_COUNT(ACSlotOrder)", page)
+        self.assertIn("const bool bLeftColumn = DisplayIndex < 5;", page)
+        self.assertIn("const int32 Slot = ACSlotOrder[DisplayIndex];", page)
+        self.assertIn('TEXT("CHARACTER POWER")', page)
+        self.assertIn("Hero->GetEquipmentPower()", page)
+        self.assertIn('TEXT("READ ONLY")', page)
         self.assertIn("const bool bFutureSlot = Slot >= 3;", page)
         self.assertIn('bFutureSlot ? TEXT("FUTURE")', page)
         self.assertIn('Code > 0 ? FString::Printf(TEXT("T%d"), Code % 1000)', page)
-        self.assertIn("GridTop + 22.f + (Slot / 3) * 37.f", page)
+        self.assertIn("const float GridTop = Top + PanelHeight - 225.f;", page)
+        self.assertIn("GridTop + 22.f + ColumnRow * 31.f", page)
+        self.assertIn("(PanelHeight - (bUseSlotGrid ? 350.f : 145.f))", page)
+        # With the minimum full-grid height, five equipment rows stop well
+        # above the footer and stats have a separate reserved region.
+        for height in (700, 860):
+            grid_top = height - 225
+            fifth_tile_bottom = grid_top + 22 + 4 * 31 + 27
+            footer_top = height - 29
+            self.assertLess(fifth_tile_bottom, footer_top - 12)
+            stat_row_height = min(26.0, max(8.0, (height - 350) / 18.0))
+            last_stat_bottom = 96 + 17 * stat_row_height + 18
+            self.assertLess(last_stat_bottom, grid_top)
         self.assertIn("Hero->GetEquipmentSlotCode(Slot)", page)
         self.assertNotIn("EquipInventoryItem(", page)
         self.assertNotIn("SaveWorldProgress(", page)
