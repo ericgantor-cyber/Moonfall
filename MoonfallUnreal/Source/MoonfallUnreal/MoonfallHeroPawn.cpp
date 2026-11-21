@@ -839,11 +839,12 @@ void AMoonfallHeroPawn::TryJump()
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
- // In water, holding the existing jump input rises continuously.
- if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  bSwimAscendHeld = true;
+ // Track held jump before entering the water, too. A player who
+ // jumps/falls into the sea while holding Jump should immediately ascend
+ // once swimming starts without releasing and pressing the key again.
+ bSwimAscendHeld = true;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
   return;
- }
  Jump();
 }
 void AMoonfallHeroPawn::ReleaseJump()
