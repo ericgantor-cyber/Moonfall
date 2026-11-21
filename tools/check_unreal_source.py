@@ -565,6 +565,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (InventorySortMode == 1)", sort)
         self.assertIn("if (SlotA != SlotB)", sort)
         self.assertIn("return A < B;", sort)
+        # Only properly encoded, power-positive equipment may be ranked by
+        # rarity. All malformed codes sort last in original inventory order.
+        self.assertIn("TArray<uint8> ValidItems;", sort)
+        self.assertIn("ValidItems.SetNumUninitialized(Count);", sort)
+        self.assertIn("ValidItems[Index] = GetItemPower(InventoryItemCodes[Index]) > 0 ? 1 : 0;", sort)
+        self.assertIn("Order.Sort([this, &ValidItems](int32 A, int32 B)", sort)
+        self.assertIn("const bool bValidA = ValidItems[A] != 0;", sort)
+        self.assertIn("const bool bValidB = ValidItems[B] != 0;", sort)
+        self.assertIn("if (bValidA != bValidB) return bValidA;", sort)
+        self.assertIn("if (!bValidA) return A < B;", sort)
+        self.assertLess(sort.index("if (InventorySortMode == 0) return Order;"),
+                        sort.index("ValidItems.SetNumUninitialized(Count);"))
+        self.assertLess(sort.index("if (bValidA != bValidB) return bValidA;"),
+                        sort.index("if (InventorySortMode == 1)"))
+        self.assertNotIn("GetItemPower(CodeA)", sort)
+        self.assertNotIn("GetItemPower(CodeB)", sort)
         for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, sort)
         self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
