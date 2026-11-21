@@ -145,6 +145,12 @@ These pieces are **not a complete version** of the six proposed systems.
 - Browsing clears pending purchase confirmation, and buying/crafting persists item code and salvage together with rollback on save failure. A pure C++17 regression loop exhaustively checks 111 unique valid item codes, prices and navigation bounds.
 - This is an **initial numerical equipment catalogue**, not 111 unique 3D models, icons, individual item names or distinct crafting animations. Merchant and tinker draw from the same 111 underlying designs, with separate prices. Native UE5 compilation, pointer layout and save/interaction playtesting remain unverified.
 
+## Named equipment and crafting progression
+
+- Each of the 111 catalog entries has a deterministic individual name combining one of 37 fantasy epithets with its equipment type: **Blade, Plate, or Charm**. Names reflect numeric item designs, not separate meshes or sprites. The native NPC menu now displays the name, tier, rarity, item code and salvage price.
+- Tinker crafting requires level **1 through 5** according to the selected item's tier (`1 + (tier - 1) / 5`). The menu marks recipes locked if the player does not meet this requirement; attempting a locked recipe does not spend salvage, add items or change the save. Merchant buying remains available based on existing salvage/interaction checks.
+- C++17 tests check every catalogue entry, progression thresholds and out-of-range cases. No new save schema or changes to Z/Nyra artwork. Full Unreal Editor compile and gameplay testing remain outstanding.
+
 ## Next integration milestones (not completed by this PR)
 
 - **NPC relationships:** map the relationship outcomes to verified named NPC choices and save updates with transactional rollback. Add time-stamped quest history only after save-schema migration and corruption tests.
