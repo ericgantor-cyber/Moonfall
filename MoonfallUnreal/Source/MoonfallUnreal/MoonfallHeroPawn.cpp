@@ -312,8 +312,10 @@ void AMoonfallHeroPawn::RefreshMoralPresenceVisuals() {
  // defeat the original hero looks exactly as originally authored.
  const int32 Tier = Health > 0.f && bWorldProgressInitialized
      ? MoonfallMorality::WorldTier(MoralAlignment) : 0;
- if (Tier == LastMoralVisualTier) return;
+ if (Tier == LastMoralVisualTier
+     && bReduceMotion == bLastMoralVisualReduceMotion) return;
  LastMoralVisualTier = Tier;
+ bLastMoralVisualReduceMotion = bReduceMotion;
  const bool bShow = FMath::Abs(Tier) >= 2;
  MoralOrnamentLeft->SetHiddenInGame(!bShow);
  MoralOrnamentRight->SetHiddenInGame(!bShow);
