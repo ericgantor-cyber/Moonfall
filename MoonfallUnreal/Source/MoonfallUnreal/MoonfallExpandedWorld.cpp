@@ -419,10 +419,13 @@ void AMoonfallExpandedWorld::RefreshNearbyTiles()
  // or second lookup. The wider radius still prevents tile-edge churn.
  for (auto It = ResidentTiles.CreateIterator(); It; ++It) {
   AMoonfallOverworldTile* Tile = It.Value().Get();
-  if (IsValid(Tile) && FVector::DistSquared2D(PlayerPosition,
+  // Tiles already being destroyed must not hold a resident slot, even
+  // when still within the unload radius.
+  if (IsValid(Tile) && !Tile->IsActorBeingDestroyed()
+      && FVector::DistSquared2D(PlayerPosition,
        Tile->GetActorLocation()) <= FMath::Square(UnloadRadius))
    continue;
-  if (IsValid(Tile)) Tile->Destroy();
+  if (IsValid(Tile) && !Tile->IsActorBeingDestroyed()) Tile->Destroy();
   It.RemoveCurrent();
  }
  // Unloading and island encounters must run even at capacity. Only skip
