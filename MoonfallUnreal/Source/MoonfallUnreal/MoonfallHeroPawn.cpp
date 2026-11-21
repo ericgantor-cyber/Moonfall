@@ -3787,7 +3787,12 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("GothicRavenHarbormaster")),
+  FName(TEXT("GothicBlackbellKeeper")),
+  FName(TEXT("GothicGraveWarden")),
+  FName(TEXT("GothicDuskwatchSentinel")),
+  FName(TEXT("GothicThornwraithScholar"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;
