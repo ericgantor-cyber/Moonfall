@@ -116,7 +116,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertLessEqual(max(int(landing.group(1)), int(landing.group(2))),
                              int(reach.group(1)))
         self.assertIn("} else if (IsValid(Rider)) {", completion)
-        self.assertIn("The respawn/death", completion)
+        self.assertIn("The death pipeline owns movement for an incapacitated hero.", completion)
         self.assertGreaterEqual(completion.count("Rider->SetBase(nullptr);"), 2)
         self.assertIn("Passenger.Reset();", completion)
         self.assertIn("if (bUnderway) {", self.boat)
