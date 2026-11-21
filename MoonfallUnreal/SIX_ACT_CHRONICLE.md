@@ -251,7 +251,11 @@ expanded world supply its existing, persistent progression evidence.
 | 7 | The Seventh Witness | Discover Blackbell shrine, complete all five contracts, and finish all six mainland acts |
 
 Resident chapters change from DISCOVERED to CLEARED when their
-existing contracts are completed. The final chapter is evidence for a
+existing contracts are completed. The five island residents now
+speak their own **short evidence clue on subsequent conversations
+after quest completion**, instead of only the generic thank-you.
+The existing quest offer/turn-in interaction and all mainland NPC
+dialogue remain unchanged, with no new world tick or save field. The final chapter is evidence for a
 future divine main-story confrontation, not a claim that a final boss
 scene, island dungeon, or cinematic ending already exists.
 
