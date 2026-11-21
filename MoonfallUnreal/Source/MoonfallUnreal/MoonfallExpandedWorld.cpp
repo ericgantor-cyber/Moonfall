@@ -158,7 +158,10 @@ void AMoonfallExpandedWorld::UpdateSeaSwimming()
   SeaSwimmer.Reset();
   return;
  }
- const bool bSeaGap = FMath::Abs(Position.X) < 50000.f
+ // Restrict this first-pass water state to the actual ferry corridor.
+ // The 26m-wide piers are centered on X=0; nearby land must not be
+ // misclassified as sea just because it falls within the same Y band.
+ const bool bSeaGap = FMath::Abs(Position.X) < 1300.f
    && Position.Y > 238000.f && Position.Y < 246000.f;
  const bool bInWater = bSeaGap && Position.Z < -40.f;
  // Hysteresis: enter once submerged, but do not flip straight back to
