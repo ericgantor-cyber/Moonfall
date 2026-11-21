@@ -985,9 +985,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // pursuers straight into walls before the next NavMesh result arrives.
     Target = CachedWaypoint;
     if (ToWaypoint.SizeSquared() < FMath::Square(65.f)) {
-     // Recompute the next corner on the next normal AI tick, without adding
-     // another synchronous navigation solve during this update.
-     NextPathRefreshAt = 0.f;
+     // A partial path can end at this corner with no reachable next point.
+     // Do not solve the same path every AI tick while standing here: schedule
+     // one prompt retry, but never postpone an already-earlier refresh.
+     // This bounds repeated synchronous solves in large enemy crowds.
+     if (!FMath::IsFinite(NextPathRefreshAt)
+         || NextPathRefreshAt > Now + 0.25f)
+      NextPathRefreshAt = Now + 0.25f;
     }
    }
   }
