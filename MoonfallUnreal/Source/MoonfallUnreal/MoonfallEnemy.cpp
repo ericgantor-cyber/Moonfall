@@ -150,6 +150,7 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
  NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
+ bHasCachedNavigationWaypoint = false;
  CachedWaypoint = FVector::ZeroVector;
  OnPostureChanged(Posture, MaxPosture);
  OnPostureBroken(VulnerabilitySeconds);
@@ -209,6 +210,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
        && FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation()) < FMath::Square(1800.f)) {
     LastSawHeroAt = Now;
     LastKnownHeroPosition = Attacker->GetActorLocation();
+    bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     NextPathRefreshAt = 0.f;
     // A distant mob may be ticking only once a second. A nearby hit should
@@ -231,6 +233,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    WindupEndsAt = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
   }
   if (bShatterFinisher && ActualDamage > 0.f)
@@ -265,6 +268,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     DivineSignatureCastCount = 0;
     bComboSecondHitPending = false;
     bComboSecondHitActive = false;
+    bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
@@ -433,6 +437,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   LockedAttackDirection = FVector::ZeroVector;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
@@ -506,6 +511,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   return;
@@ -585,6 +591,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   return;
@@ -677,6 +684,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      bComboSecondHitPending = false;
      bComboSecondHitActive = false;
      BossWarningEndTime = -1.f;
+     bHasCachedNavigationWaypoint = false;
      CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
@@ -712,6 +720,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      bComboSecondHitPending = false;
      bComboSecondHitActive = false;
      BossWarningEndTime = -1.f;
+     bHasCachedNavigationWaypoint = false;
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
      OnEnemyAttack();
@@ -837,6 +846,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // The old waypoint may lead toward the hero's now-hidden live position.
   // Invalidate it once when visibility changes, not on every sight tick.
   if (bCanSeeHero != bWasVisible) {
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
    // Give lost-target searches enough travel time to reach the last sighting.
@@ -865,6 +875,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (!bHasRecentSight) {
   SearchTravelEndsAt = -1.f;
   InvestigationEndsAt = -1.f;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   ReturnToDungeonPost();
@@ -882,6 +893,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    InvestigationEndsAt = -1.f;
    SearchTravelEndsAt = -1.f;
    LastSawHeroAt = -100.f;
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
    ReturnToDungeonPost();
@@ -971,23 +983,27 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // FVector::ContainsNaN also detects infinite components.
      bNavigationRouteUnavailable = !IsValid(Path) || Path->PathPoints.Num() <= 1
        || Path->PathPoints[1].ContainsNaN();
-     CachedWaypoint = !bNavigationRouteUnavailable
+     bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;
+     CachedWaypoint = bHasCachedNavigationWaypoint
        ? Path->PathPoints[1] : FVector::ZeroVector;
     } else {
      // The target cannot be projected onto the current navigation mesh.
      bNavigationRouteUnavailable = true;
+     bHasCachedNavigationWaypoint = false;
      CachedWaypoint = FVector::ZeroVector;
     }
    }
    if (CachedWaypoint.ContainsNaN()) {
     // A corrupted cached corner must not become a direct wall chase or
     // trigger a synchronous path solve on every subsequent AI tick.
+    bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     bNavigationRouteUnavailable = true;
     if (!FMath::IsFinite(NextPathRefreshAt) || NextPathRefreshAt <= Now)
      NextPathRefreshAt = Now + 0.25f;
    }
-   if (!CachedWaypoint.IsNearlyZero()) {
+   if (bHasCachedNavigationWaypoint) {
+    // A valid waypoint at world origin must remain navigable.
     FVector ToWaypoint = CachedWaypoint - GetActorLocation();
     ToWaypoint.Z = 0.f;
     // Keep following the reachable corner even on the tick that requests
@@ -1005,8 +1021,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     }
    }
   } else {
-   // Preserve original direct-chase behavior if the world has no NavSystem.
+   // Preserve direct chase without NavSystem, and discard the old NavMesh
+   // cache so its first restored tick requests a fresh path.
    bNavigationRouteUnavailable = false;
+   bHasCachedNavigationWaypoint = false;
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
   }
   // A failed NavMesh solve must not turn into repeated wall collision sweeps.
   // The next regular cached refresh can recover when the mesh/goal changes.
@@ -1054,6 +1074,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
    NextPathRefreshAt = 0.f;
    NextBlockedRepathAt = Now + 0.5f;
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
   }
  } else if (Distance <= AttackRange || bDivineRangedCastReady) {
