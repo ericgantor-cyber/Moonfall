@@ -34,7 +34,7 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertNotIn("UGameplayStatics::OpenLevel(", self.boat)
         self.assertNotIn("ServerTravel(", self.boat)
         # Only short boarding and safe onshore disembark change pawn position.
-        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 2)
+        self.assertEqual(self.boat.count("Hero->SetActorLocation("), 1)
         self.assertEqual(self.boat.count("Rider->SetActorLocation("), 2)
 
     def test_destination_and_arrival_countdown_for_accessible_ui(self):
@@ -85,8 +85,10 @@ class GothicFerryContracts(unittest.TestCase):
         self.assertIn("Movement->StopMovementImmediately();", boarding)
         self.assertIn("Movement->SetMovementMode(MOVE_Walking);", boarding)
         self.assertIn("Passenger = Hero;", boarding)
-        self.assertIn("const FVector OriginalLocation = Hero->GetActorLocation();", boarding)
-        self.assertIn("Hero->SetActorLocation(OriginalLocation, false, nullptr, ETeleportType::TeleportPhysics);", boarding)
+        self.assertIn("const bool bAlreadyOnDeck = Hero->GetMovementBase() == Deck;", boarding)
+        self.assertIn("if (!bAlreadyOnDeck) {", boarding)
+        self.assertLess(boarding.index("if (!bAlreadyOnDeck) {"), boarding.index("Hero->SetActorLocation(BoardingLocation"))
+        self.assertNotIn("Hero->SetActorLocation(OriginalLocation", boarding)
         self.assertLess(boarding.index("Hero->SetActorLocation(BoardingLocation"),
                         boarding.index("Hero->SetBase(Deck)"))
 
