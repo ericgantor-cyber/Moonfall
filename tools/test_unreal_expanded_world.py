@@ -143,6 +143,14 @@ class ExpandedOverworldTests(unittest.TestCase):
         self.assertIn("DistanceSquared > FMath::Square(18000.f)", combat)
         self.assertIn("DistanceSquared > FMath::Square(11000.f)", combat)
         self.assertIn("ClearedIslandEncounters.Add(Index);", combat)
+        self.assertIn("!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || Enemy->Health <= 0.f", combat)
+        self.assertLess(combat.index("Enemy->IsActorBeingDestroyed() || Enemy->Health <= 0.f"),
+                        combat.index("IslandEncounters.Remove(Index);", combat.index("if (TWeakObjectPtr<AMoonfallEnemy>* Existing = IslandEncounters.Find(Index)) {", combat.index("if (DistanceSquared > FMath::Square(18000.f))")) )
+        # An invalid or pending-destroy actor must be recorded as cleared
+        # before it leaves the live map, preventing same-visit respawn.
+        stale = combat.split("if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()", 1)[1].split("if (!bHeroReady", 1)[0]
+        self.assertLess(stale.index("ClearedIslandEncounters.Add(Index);"),
+                        stale.index("IslandEncounters.Remove(Index);"))
         self.assertIn("ClearedIslandEncounters.Remove(Index);", combat)
         self.assertIn("IslandEncounters.Contains(Index)", combat)
         self.assertIn("Enemy->Destroy();", combat)
