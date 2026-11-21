@@ -82,7 +82,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentContextSelection = Row;",self.hero)
   self.assertIn("ChooseResidentContextAction(Row)",self.hero)
   self.assertIn("ChooseResidentContextAction(ResidentContextSelection)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self.assertIn("bResidentContextOpen || bCouncilPointerOpen || !GetWorld() || School < 0",self.hero)
   self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton',self.input)
  def test_native_spoken_dialogue_without_blueprint_widget(self):
   self.assertIn("LastSpokenLine",self.npc_h)
@@ -102,7 +102,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self.assertIn("bResidentContextOpen || bCouncilPointerOpen || !GetWorld() || School < 0",self.hero)
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
