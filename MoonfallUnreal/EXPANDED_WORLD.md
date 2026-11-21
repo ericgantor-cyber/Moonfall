@@ -86,7 +86,17 @@ native builds and representative Windows machines can be profiled.
    `python -m unittest -v tools.test_unreal_expanded_world tools.test_unreal_gothic_ferry`.
    Source checks do **not** substitute for real Win64 compilation.
 
-## WoW-style boat follow-up (not implemented)\n\n- The current ship still uses a fixed boarding reposition and disables rider\n  movement while attached. It is **not yet** a freely walkable ship deck.\n- Before enabling deck walking, add a collision-enabled moving deck,\n  gangplank/walk-on boarding, secure moving-platform character movement,\n  fall recovery, and controller/mouse boarding tests in native UE5.\n- Keep the 11-second duration consistent with the Gothic Raven prototype in\n  PR #1077; reconcile those implementations before any integration.\n\n## Next major upgrades
+## WoW-style boat follow-up (not implemented)
+
+- The current ship still uses a fixed boarding reposition and disables rider
+  movement while attached. It is **not yet** a freely walkable ship deck.
+- Before enabling deck walking, add a collision-enabled moving deck,
+  gangplank/walk-on boarding, secure moving-platform character movement,
+  fall recovery, and controller/mouse boarding tests in native UE5.
+- Keep the 11-second duration consistent with the Gothic Raven prototype in
+  PR #1077; reconcile those implementations before any integration.
+
+## Next major upgrades
 
 - Replace primitive silhouettes with original, properly licensed gothic
   towns, trees, geological cliffs, snowy mountains, foundries and landmarks.
