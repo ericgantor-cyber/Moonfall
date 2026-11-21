@@ -16,8 +16,10 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // V12: geographic Atlas exploration. Older V1-V11 saves remain readable.
- UPROPERTY() int32 Version = 12;
+ // V13: one confirmed Council decision. Older V1-V12 saves remain readable.
+ UPROPERTY() int32 Version = 13;
+ // -1 = no decision, 0..2 = one confirmed Council policy.
+ UPROPERTY() int32 CouncilDecisionId = -1;
  // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
  UPROPERTY() TArray<int64> ExploredZoneFogMasks;
  // V11 stores uncollected enemy loot in the same world-save transaction.
