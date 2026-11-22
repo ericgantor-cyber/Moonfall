@@ -22,6 +22,7 @@ internal sealed class LaunchWindow : Form
 {
     private readonly Label status;
     private readonly Button play;
+    private readonly ComboBox rendererChoice;
     private readonly Button updates;
     private readonly ProgressBar downloadProgress;
     private readonly Button cancelDownload;
@@ -52,6 +53,30 @@ internal sealed class LaunchWindow : Form
         play.AccessibleName = "Play Moonfall";
         play.AccessibleDescription = "Launch the installed Moonfall Unreal game";
         play.Click += (_, _) => LaunchGame();
+        // DX12 is preferred. Offer DX11 only as a deliberate compatibility
+        // option; never silently fall back or change saved gameplay settings.
+        var rendererLabel = new Label {
+            Text = "GRAPHICS API", Bounds = new Rectangle(58, 433, 225, 23),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+            ForeColor = Color.FromArgb(203, 199, 232), TextAlign = ContentAlignment.MiddleLeft
+        };
+        rendererChoice = new ComboBox {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Bounds = new Rectangle(58, 462, 225, 32),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+            BackColor = Color.FromArgb(49, 35, 68),
+            ForeColor = Color.WhiteSmoke,
+            FlatStyle = FlatStyle.Flat,
+            TabIndex = 8,
+            AccessibleName = "Moonfall graphics renderer",
+            AccessibleDescription = "Choose DirectX 12 or DirectX 11 before launching the game."
+        };
+        rendererChoice.Items.AddRange([
+            "DirectX 12 (recommended)",
+            "DirectX 11 (compatibility)"
+        ]);
+        rendererChoice.SelectedIndex = 0;
+        rendererChoice.SelectedIndexChanged += (_, _) => UpdateStatus();
         status = new Label { Bounds = new Rectangle(125, 515, 610, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(198, 196, 222) };
         var exit = new Button { Text = "Exit", Bounds = new Rectangle(745, 562, 95, 28), Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
@@ -73,7 +98,8 @@ internal sealed class LaunchWindow : Form
             "Use CHECK FILES or F5 to refresh installation status.\n" +
             "Use GAME FOLDER to inspect the files.\n" +
             "If files are missing, reinstall the complete game.\n" +
-            "Settings and gameplay controls are inside Moonfall.",
+            "Choose DirectX 12 for modern PCs, or DirectX 11 if DX12 fails.\n" +
+            "Graphics API is selected before PLAY. Game settings are inside Moonfall.",
             "Moonfall Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
         var logs = new Button { Text = "GAME LOGS", Bounds = new Rectangle(461, 562, 160, 28),
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
@@ -99,7 +125,7 @@ internal sealed class LaunchWindow : Form
             Anchor = AnchorStyles.Bottom | AnchorStyles.Right, Visible = false,
             AccessibleName = "Cancel Moonfall update download", TabIndex = 7 };
         cancelDownload.Click += (_, _) => downloadCancellation?.Cancel();
-        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs, updates, downloadProgress, cancelDownload]);
+        Controls.AddRange([title, subtitle, play, rendererLabel, rendererChoice, status, exit, folder, retry, help, logs, updates, downloadProgress, cancelDownload]);
         KeyPreview = true;
         KeyDown += (_, e) => { if (e.KeyCode == Keys.F5) { UpdateStatus(); e.Handled = true; } };
         AcceptButton = play;
@@ -253,7 +279,10 @@ internal sealed class LaunchWindow : Form
         bool ready = HasGameFiles(AppContext.BaseDirectory);
         play.Enabled = ready;
         play.AccessibleDescription = ready ? "Launch Moonfall" : "Unavailable until all required game files are present";
-        status.Text = ready ? "Game files found. Ready to launch." :
+        status.Text = ready
+            ? (rendererChoice.SelectedIndex == 1
+                ? "Ready: DirectX 11 compatibility mode."
+                : "Ready: DirectX 12 (recommended).") :
             !File.Exists(gamePath) ? "Game executable missing. Reinstall the complete package." :
             !Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Engine")) ? "Unreal runtime folder missing. Reinstall Moonfall." :
             "Cooked game content missing. Reinstall the complete package.";
@@ -283,8 +312,12 @@ internal sealed class LaunchWindow : Form
         if (!play.Enabled) return;
         try
         {
+            // Explicit command-line RHI selection is scoped to this launch.
+            // The game remains DX12 by default; no settings are overwritten.
+            var rendererArgument = rendererChoice.SelectedIndex == 1 ? "-dx11" : "-dx12";
             var process = Process.Start(new ProcessStartInfo(gamePath) {
                 WorkingDirectory = AppContext.BaseDirectory,
+                Arguments = rendererArgument,
                 UseShellExecute = true
             });
             if (process == null) throw new InvalidOperationException("Windows did not start the game process.");
