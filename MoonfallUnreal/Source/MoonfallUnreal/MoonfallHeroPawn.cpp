@@ -1223,6 +1223,11 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
+ // Skyrim-style safety for the 141-node constellation: enemy AI already
+ // pauses on this modal, and any hit queued immediately before it opened
+ // must not drain HP/stamina or trigger a parry/defeat while controls are locked.
+ // Do not globally pause the engine: the talent UI must still accept input.
+ if (bTalentWebOpen) return;
  // Reject invalid hero vitals and damage before guard math or HUD updates.
  if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
      || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
