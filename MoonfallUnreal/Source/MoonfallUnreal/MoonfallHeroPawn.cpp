@@ -393,9 +393,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      FHitResult Hit;
      FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockVisibility), false, this);
      const FVector AimPoint = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f);
-     const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+     // A missed visibility ray cannot prove this enemy is unobstructed.
+     const bool bHitTarget = GetWorld()->LineTraceSingleByChannel(
          Hit, FollowCamera->GetComponentLocation(), AimPoint, ECC_Visibility, Params)
-         && Hit.GetActor() != LockTarget;
+         && Hit.GetActor() == LockTarget;
+     const bool bBlocked = !bHitTarget;
      if (bBlocked) {
       if (LockOccludedSince < 0.f || !FMath::IsFinite(LockOccludedSince))
        LockOccludedSince = Now;
@@ -976,8 +978,10 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
   if (Facing < 0.15f) continue;
   FHitResult Hit;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
-  if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
-      && Hit.GetActor() != Candidate) continue;
+  // Only lock a target positively hit by the sight ray. An empty trace
+  // is not evidence of visibility and would create unusable spell locks.
+  if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
+      || Hit.GetActor() != Candidate) continue;
   if (!Direction || !Current) {
    const float Score = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
    if (Score < BestScore) { BestScore = Score; Best = Candidate; }
