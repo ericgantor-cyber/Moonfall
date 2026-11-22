@@ -381,17 +381,33 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (!IsLockTargetValid(LockTarget) || bOptionsOpen || bInventoryOpen || bAtlasOpen
       || bResidentContextOpen || FocusedResident.IsValid() || Health <= 0.f) {
    LockedEnemy.Reset();
+   LockOccludedSince = -1.f;
   } else if (Controller && IsValid(FollowCamera)) {
    const float Now = GetWorld()->GetTimeSeconds();
-   if (FMath::IsFinite(Now) && Now >= NextLockVisibilityCheckAt) {
-    NextLockVisibilityCheckAt = Now + 0.2f;
-    FHitResult Hit;
-    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockVisibility), false, this);
-    const FVector AimPoint = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f);
-    if (GetWorld()->LineTraceSingleByChannel(Hit, FollowCamera->GetComponentLocation(), AimPoint, ECC_Visibility, Params)
-        && Hit.GetActor() != LockTarget) LockedEnemy.Reset();
+   if (!FMath::IsFinite(Now)) {
+    LockedEnemy.Reset();
+    LockOccludedSince = -1.f;
+   } else {
+    if (Now >= NextLockVisibilityCheckAt) {
+     NextLockVisibilityCheckAt = Now + 0.2f;
+     FHitResult Hit;
+     FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockVisibility), false, this);
+     const FVector AimPoint = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+     const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+         Hit, FollowCamera->GetComponentLocation(), AimPoint, ECC_Visibility, Params)
+         && Hit.GetActor() != LockTarget;
+     if (bBlocked) {
+      if (LockOccludedSince < 0.f || !FMath::IsFinite(LockOccludedSince))
+       LockOccludedSince = Now;
+      if (Now - LockOccludedSince >= 0.45f) {
+       LockedEnemy.Reset();
+       LockOccludedSince = -1.f;
+      }
+     } else LockOccludedSince = -1.f;
+    }
    }
-   if (LockedEnemy.IsValid()) {
+   // Pause automatic camera rotation while the sight line is blocked.
+   if (LockedEnemy.IsValid() && LockOccludedSince < 0.f) {
     const FVector Aim = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f) - FollowCamera->GetComponentLocation();
     if (!Aim.ContainsNaN() && !Aim.IsNearlyZero()) {
      const FRotator Desired = Aim.Rotation();
@@ -919,7 +935,7 @@ void AMoonfallHeroPawn::ToggleLockOn()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  // Y toggles lock on/off. Tab is reserved for cycling a locked target.
- if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); return; }
+ if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
  AcquireLockTarget(0);
 }
 void AMoonfallHeroPawn::SwitchLockedTarget()
@@ -971,7 +987,7 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
   }
  }
  if (!Best && Direction && Current) Best = Wrapped;
- if (Best) { LockedEnemy = Best; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
+ if (Best) { LockedEnemy = Best; LockOccludedSince = -1.f; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
  else if (!Current) LockedEnemy.Reset();
 }
 
