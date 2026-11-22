@@ -164,7 +164,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::TalentWebReset()", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetUnspentTalentPoints()", 1)[0]
         self.assertIn("if (!bTalentWebOpen ||", purchase)
-        self.assertIn("if (!bTalentWebOpen || TalentRanks.IsEmpty()) return;", reset)
+        self.assertIn("if (!bTalentWebOpen || TalentRanks.IsEmpty() || !GetWorld()) return;", reset)
         self.assertIn("bTalentRespecConfirm = true;", reset)
         self.assertIn("if (ResetTalentTree())", reset)
         for key in ("Enter", "BackSpace"):
@@ -257,10 +257,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(purchase.index("if (SpendTalentPoint(TalentId))"),
                         purchase.index("TALENT RANK PURCHASED AND SAVED"))
         self.assertIn("bTalentRespecConfirm = true;", reset)
-        self.assertIn("PRESS RESET AGAIN TO CONFIRM FULL RESPEC", reset)
+        self.assertIn("PRESS RESET AGAIN WITHIN 15 SECONDS TO CONFIRM", reset)
         self.assertIn("if (ResetTalentTree())", reset)
         self.assertIn("FULL RESPEC SAVED: POINTS RESTORED", reset)
         self.assertIn("RESPEC NOT SAVED: PREVIOUS TALENTS KEPT", reset)
+        # Confirmation must expire without spending or silently arming the
+        # destructive action forever (including after the HUD notice fades).
+        self.assertIn("const float Now = GetWorld()->GetTimeSeconds();", reset)
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", reset)
+        self.assertIn("!FMath::IsFinite(TalentRespecConfirmUntil)", reset)
+        self.assertIn("Now >= TalentRespecConfirmUntil", reset)
+        self.assertIn("TalentRespecConfirmUntil = Now + 15.f;", reset)
+        self.assertIn("TalentRespecConfirmUntil = 0.f;", reset)
+        self.assertLess(reset.index("Now >= TalentRespecConfirmUntil"),
+                        reset.index("if (ResetTalentTree())"))
+        self.assertIn("float TalentRespecConfirmUntil = 0.f;", self.hero_h)
+        self.assertIn("Hero->TalentRespecConfirmUntil", self.hud)
+        self.assertIn("const bool bRespecArmed =", self.hud)
+        self.assertIn("RespecNow < Hero->TalentRespecConfirmUntil", self.hud)
+        self.assertIn("DrawText(bRespecArmed?TEXT(\"CONFIRM FULL RESPEC\")", self.hud)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        self.assertEqual(toggle.count("TalentRespecConfirmUntil = 0.f;"), 2)
         self.assertLess(reset.index("if (ResetTalentTree())"),
                         reset.index("FULL RESPEC SAVED: POINTS RESTORED"))
         self.assertIn("TalentWebNotice.Empty();", self.hero_cpp)
