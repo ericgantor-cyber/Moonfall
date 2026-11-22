@@ -34,6 +34,29 @@ int main() {
  assert(!M::ShouldContinueBatch(7,8,2.5,2.5));
  assert(!M::ShouldContinueBatch(1,8,-1.0,2.5));
  assert(M::ShouldContinueBatch(0,1,500.0,0.5));
+ // Every failed primary slot gets at most one late retry.
+ assert(M::ShouldQueueRetry(false,false));
+ assert(!M::ShouldQueueRetry(false,true));
+ assert(!M::ShouldQueueRetry(true,false));
+ assert(!M::ShouldQueueRetry(true,true));
+ assert(M::HasPendingDungeonWork(0,0,0));
+ assert(M::HasPendingDungeonWork(29,0,0));
+ assert(M::HasPendingDungeonWork(30,0,1));
+ assert(M::HasPendingDungeonWork(30,2,3));
+ assert(!M::HasPendingDungeonWork(30,3,3));
+ assert(!M::HasPendingDungeonWork(30,0,0));
+ // A failed actor may be retried once, but cannot create an infinite queue.
+ for (int InitialFailures=0;InitialFailures<=M::TotalDungeons;++InitialFailures) {
+  int NextRetry=0;
+  int Attempts=0;
+  while (M::HasPendingDungeonWork(30,NextRetry,InitialFailures)) {
+   ++NextRetry;
+   ++Attempts;
+   assert(Attempts<=M::TotalDungeons);
+   assert(!M::ShouldQueueRetry(false,true));
+  }
+  assert(Attempts==InitialFailures);
+ }
  const M::FPolicy ArenaOnly{true,false};
  const M::FPolicy DungeonsOnly{false,true};
  assert(M::ShouldSpawnArena(ArenaOnly,false));
