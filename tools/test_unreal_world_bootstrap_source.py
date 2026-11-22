@@ -33,7 +33,10 @@ assert endplay.index("if (GetWorld())") < endplay.index(
     "GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);")
 assert endplay.index("GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);") < endplay.index(
     "Super::EndPlay(EndPlayReason);")
-assert "constexpr int32 MaxLayoutsPerBatch = 2;" in cpp
+assert "constexpr int32 MaxLayoutsPerBatch = 4;" in cpp
+assert "inline constexpr int MaxLayoutsPerBatch=4;" in policy
+for slot, expected_batch in ((0,4),(26,4),(27,3),(28,2),(29,1),(30,0)):
+    assert f"BatchCount({slot})=={expected_batch}" in policy
 assert "MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch" in cpp
 assert "constexpr FPolicy IsolatedWorldPolicy()" in policy
 assert "static_assert(TotalDungeons==30)" in policy
