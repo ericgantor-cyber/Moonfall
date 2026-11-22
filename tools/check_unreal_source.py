@@ -226,7 +226,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TalentWebStepSelection(1)", self.hero_cpp)
         self.assertIn("TalentWebStepSelection(-1)", self.hero_cpp)
         self.assertIn("if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }", self.hero_cpp)
-        self.assertIn("if (!bTalentRespecConfirm) {", self.hero_cpp)
+        self.assertIn("if (!bTalentRespecConfirm || !FMath::IsFinite(TalentRespecConfirmUntil)", self.hero_cpp)
         self.assertIn("if (ResetTalentTree())", self.hero_cpp)
         self.assertIn("if (SpendTalentPoint(TalentId))", self.hero_cpp)
         self.assertIn("if (bAutoLootEnabled && !bTalentWebOpen", self.hero_cpp)
