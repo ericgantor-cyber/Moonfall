@@ -6476,6 +6476,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TActorIterator<AMoonfallEnemy>", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockAcquire)", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockVisibility)", self.hero_cpp)
+        self.assertIn("const bool bHitTarget = GetWorld()->LineTraceSingleByChannel(", self.hero_cpp)
+        self.assertIn("const bool bBlocked = !bHitTarget;", self.hero_cpp)
+        acquire_visibility = self.hero_cpp.split("void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)", 1)[1].split("void AMoonfallHeroPawn::Turn(", 1)[0]
+        self.assertIn("if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)", acquire_visibility)
+        self.assertIn("|| Hit.GetActor() != Candidate) continue;", acquire_visibility)
         self.assertIn("NextLockVisibilityCheckAt = Now + 0.2f;", self.hero_cpp)
         self.assertIn("float LockOccludedSince = -1.f;", self.hero_h)
         self.assertIn("Now - LockOccludedSince >= 0.45f", self.hero_cpp)
