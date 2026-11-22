@@ -112,6 +112,26 @@ inline int32 HitTest(float ViewWidth, float ViewHeight, float Zoom,
  }
  return Best;
 }
+// Up/down walks only the current talent branch. The Godot catalog is
+// interleaved by tier, so stepping the raw array jumped unexpectedly from
+// Might to Agility or Arcana on a single D-pad press. A bounded loop runs
+// only on actual input, never in Tick or HUD rendering.
+inline int32 StepWithinBranch(int32 CurrentIndex, int32 Direction)
+{
+ const auto& Nodes = MoonfallTalents::Catalog();
+ if (!Nodes.IsValidIndex(CurrentIndex) || (Direction != -1 && Direction != 1))
+  return INDEX_NONE;
+ const int32 Count = Nodes.Num();
+ int32 Candidate = CurrentIndex;
+ for (int32 Examined = 1; Examined < Count; ++Examined)
+ {
+  Candidate = (Candidate + (Direction > 0 ? 1 : Count - 1)) % Count;
+  if (FCString::Strcmp(Nodes[Candidate].Branch, Nodes[CurrentIndex].Branch) == 0)
+   return Candidate;
+ }
+ return CurrentIndex;
+}
+
 // Switch between Might, Agility and Arcana near the same tier.
 // Runs only on a left/right input event, not every frame. Invalid indices
 // and unexpected branch IDs cannot produce a selection.
