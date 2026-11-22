@@ -6461,7 +6461,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn)', self.hero_cpp)
         self.assertIn('BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget)', self.hero_cpp)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleLockOn()", 1)[1].split("void AMoonfallHeroPawn::AcquireLockTarget", 1)[0]
-        self.assertIn("if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }", toggle)
+        self.assertIn("if (GetLockedEnemy()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }", toggle)
+        self.assertLess(toggle.index("if (GetLockedEnemy())"), toggle.index("AcquireLockTarget(0);"))
+        self.assertIn("LockedEnemy.Reset();\n LockOccludedSince = -1.f;\n AcquireLockTarget(0);", toggle)
         self.assertIn("AcquireLockTarget(0);", toggle)
         switch = self.hero_cpp.split("void AMoonfallHeroPawn::SwitchLockedTarget()", 1)[1].split("void AMoonfallHeroPawn::AcquireLockTarget", 1)[0]
         self.assertIn("bAtlasOpen", switch)
