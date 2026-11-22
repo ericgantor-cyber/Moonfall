@@ -47,6 +47,9 @@ public:
 private:
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
+ int32 NextFailedDungeonRetry = 0;
+ bool bDungeonWorldReadyNotified = false;
  TArray<uint8> AuthoredDungeonSlots;
+ TArray<int32> FailedDungeonSlots;
  void SpawnDungeonBatch();
 };
