@@ -384,6 +384,12 @@ private:
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ // A short press near cooldown completion is consumed once, never during
+ // dialogue, overlays or defeat. This is not persisted to checkpoint saves.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat",
+   meta=(ClampMin="0.0", ClampMax="0.18"))
+ float DodgeInputBufferSeconds = 0.12f;
+ float QueuedDodgeUntil = -1.f;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
