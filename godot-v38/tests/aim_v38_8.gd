@@ -41,6 +41,14 @@ func _run()->void:
   check(not ("beasts.find(target)" in source or "beasts.find(beast)" in source),"aiming avoids dictionary equality scans")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
+  var aimed_spell:String=source.split("func _spell(which:String)->void:",true,1)[1]
+  check('var cost:float=_v385_spell_mana_cost("fire")' in aimed_spell,"aimed fire uses shared mana cost")
+  check(aimed_spell.find("if target.is_empty():")<aimed_spell.find("v385_mana-=cost"),"no-target fire cannot consume mana")
+  check(aimed_spell.find("if v385_mana<cost:")<aimed_spell.find("v385_mana-=cost"),"insufficient mana stops aimed fire")
+  check(aimed_spell.find("v385_mana-=cost")<aimed_spell.find("ability_cooldown="),"valid fire spends mana before cooldown")
+  check('v406_damage_context="magic"' in aimed_spell and 'v406_damage_context=""' in aimed_spell,"aimed fire uses magic talent scaling")
+  var mana_base:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
+  check(mana_base!=null and "func _v385_spell_mana_cost(" in mana_base.source_code and "var cost:float=_v385_spell_mana_cost(which)" in mana_base.source_code,"regular spells and aimed fire share talent-aware cost")
  if ui!=null:
   var source:String=ui.source_code
   check("AIM_PREFS_PATH" in source and "config.save(AIM_PREFS_PATH)" in source,"aim assist setting persisted")
@@ -94,5 +102,86 @@ func _run()->void:
   for divine_id in divine_ids:
    var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",int(divine_ids[divine_id]))
    check(float(actor.get("divine_warn_until",-1.0))==0.0 and not bool(actor.get("divine_chain_pending",true)),"warning cleanup cancels queued divine strikes: "+str(divine_id))
+  # Live negative-path test: an invalid region has no valid target, so
+  # Eclipse Flame must leave both mana and cooldown untouched.
+  combo_game.set("region_index",-1)
+  combo_game.set("hero_playing",true)
+  combo_game.set("menu_open",false)
+  combo_game.set("death_active",false)
+  combo_game.set("wait_open",false)
+  combo_game.set("wait_transition_active",false)
+  combo_game.set("mounted",false)
+  combo_game.set("ability_cooldown",0.0)
+  combo_game.set("v385_mana",100.0)
+  combo_game.set("v398_ranks",{})
+  check(is_equal_approx(float(combo_game.call("_v385_spell_mana_cost","fire")),30.0),"base Eclipse Flame costs 30 mana")
+  combo_game.call("_spell","fire")
+  check(is_equal_approx(float(combo_game.get("v385_mana")),100.0),"aimed fire does not consume mana without a target")
+  check(is_zero_approx(float(combo_game.get("ability_cooldown"))),"aimed fire does not start cooldown without a target")
+  # Exercise the real enemy catalog and target acquisition without creating
+  # replacement combat actors or touching the original hero artwork.
+  var catalogs:Array=combo_game.get("zone_beast_lists")
+  var target:Dictionary={}
+  if not catalogs.is_empty():
+   for candidate in catalogs[0]:
+    var candidate_body:CharacterBody3D=candidate.get("body") as CharacterBody3D
+    if bool(candidate.get("alive",false)) and bool(candidate.get("hostile",false)) and is_instance_valid(candidate_body):
+     target=candidate
+     break
+  check(not target.is_empty(),"starting region has a live hostile for aimed spell tests")
+  if not target.is_empty():
+   var hero_body:CharacterBody3D=combo_game.get("player") as CharacterBody3D
+   var target_body:CharacterBody3D=target.get("body") as CharacterBody3D
+   hero_body.global_position=Vector3(0.0,50.0,0.0)
+   target_body.global_position=Vector3(0.0,50.0,-3.0)
+   target["hp"]=10000.0
+   target["max"]=10000.0
+   combo_game.set("region_index",0)
+   combo_game.set("aim_direction",Vector3.FORWARD)
+   combo_game.set("aim_locked_id",target_body.get_instance_id())
+   var selected:Dictionary=combo_game.call("_aim_candidate",13.0)
+   check(not selected.is_empty() and selected.get("body")==target_body,"real aiming selects the visible hostile")
+   if not selected.is_empty():
+    combo_game.set("v398_ranks",{"magic_focus":1,"magic_mastery":1})
+    var cost:float=float(combo_game.call("_v385_spell_mana_cost","fire"))
+    check(is_equal_approx(cost,25.0),"two magic talents discount Eclipse Flame to 25 mana")
+    combo_game.set("v385_mana",cost-0.5)
+    combo_game.set("ability_cooldown",0.0)
+    var hp_before:float=float(target["hp"])
+    combo_game.call("_spell","fire")
+    check(is_equal_approx(float(combo_game.get("v385_mana")),cost-0.5),"valid target with low mana spends nothing")
+    check(is_zero_approx(float(combo_game.get("ability_cooldown"))),"valid target with low mana starts no cooldown")
+    check(is_equal_approx(float(target["hp"]),hp_before),"valid target with low mana takes no damage")
+    combo_game.set("v385_mana",cost)
+    combo_game.call("_spell","fire")
+    check(is_zero_approx(float(combo_game.get("v385_mana"))),"successful aimed cast charges exactly one discounted mana cost")
+    check(float(combo_game.get("ability_cooldown"))>0.0,"successful aimed cast starts cooldown")
+    check(float(target["hp"])<hp_before,"successful aimed cast damages the selected hostile")
+    check(str(combo_game.get("v406_damage_context")).is_empty(),"magic context resets after an aimed hit")
+    var hp_after:float=float(target["hp"])
+    combo_game.set("v385_mana",cost)
+    combo_game.call("_spell","fire")
+    check(is_equal_approx(float(combo_game.get("v385_mana")),cost),"cooldown prevents a second mana deduction")
+    check(is_equal_approx(float(target["hp"]),hp_after),"cooldown prevents a second hit")
+    combo_game.set("ability_cooldown",0.0)
+    for blocked_state in ["menu_open","death_active","wait_open","wait_transition_active","mounted"]:
+     combo_game.set(blocked_state,true)
+     combo_game.call("_spell","fire")
+     check(is_equal_approx(float(combo_game.get("v385_mana")),cost) and is_zero_approx(float(combo_game.get("ability_cooldown"))) and is_equal_approx(float(target["hp"]),hp_after),"aimed flame blocked during "+blocked_state)
+     combo_game.set(blocked_state,false)
+    # Aimed Flame is overridden in native_v38_7. It must honor the same
+    # active talent constellation pause even when invoked directly.
+    var talent_panel:PanelContainer=combo_game.get("v398_panel") as PanelContainer
+    check(is_instance_valid(talent_panel),"talent constellation exists for special-spell pause test")
+    if is_instance_valid(talent_panel):
+     combo_game.set("v385_mana",cost)
+     combo_game.set("ability_cooldown",0.0)
+     var hp_before_pause:float=float(target["hp"])
+     talent_panel.visible=true
+     combo_game.call("_spell","fire")
+     check(is_equal_approx(float(combo_game.get("v385_mana")),cost),"talent web blocks aimed Flame mana spend")
+     check(is_zero_approx(float(combo_game.get("ability_cooldown"))),"talent web blocks aimed Flame cooldown")
+     check(is_equal_approx(float(target["hp"]),hp_before_pause),"talent web blocks aimed Flame damage")
+     talent_panel.visible=false
   combo_game.queue_free()
  quit(1 if failures>0 else 0)

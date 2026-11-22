@@ -8,6 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (ROOT / "godot-v38/scripts/native_v38_0.gd").read_text(encoding="utf-8")
+AIMED_SOURCE = (ROOT / "godot-v38/scripts/native_v38_7.gd").read_text(encoding="utf-8")
 
 
 def method(name: str) -> str:
@@ -88,6 +89,17 @@ class TalentCombatPauseRegression(unittest.TestCase):
                         key_handler.index("super._unhandled_key_input(event)"))
         self.assertNotIn("event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies()",
                          method("_unhandled_input"))
+
+    def test_aimed_eclipse_flame_override_cannot_bypass_talent_pause(self):
+        # The v38_7 fire override does not call the parent's _spell("fire").
+        # It must have its own guard before selecting/charging a hostile target.
+        self.assertIn("func _spell(which:String)->void:", AIMED_SOURCE)
+        aimed = AIMED_SOURCE.split("func _spell(which:String)->void:", 1)[1].split("\nfunc ", 1)[0]
+        guard = "if _v406_talents_pause_enemies():return"
+        self.assertIn(guard, aimed)
+        self.assertLess(aimed.index(guard), aimed.index('if which!="fire":'))
+        self.assertLess(aimed.index(guard), aimed.index('var target:Dictionary=_aim_candidate'))
+        self.assertLess(aimed.index(guard), aimed.index('v385_mana-=cost'))
 
     def test_player_attack_stays_disabled(self):
         attack = method("_attack")

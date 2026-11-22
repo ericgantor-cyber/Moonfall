@@ -95,6 +95,9 @@ func _start_game(selected_hero:String)->void:
  aim_locked_id=-1
 
 func _spell(which:String)->void:
+ # The aimed-fire override bypasses the base spell handler, so enforce the
+ # same full talent-web world pause before either spell path executes.
+ if _v406_talents_pause_enemies():return
  if which!="fire":
   super._spell(which)
   return
@@ -104,7 +107,15 @@ func _spell(which:String)->void:
  if target.is_empty():
   _show_message("Aim at a visible enemy for Eclipse Flame.",1.0)
   return
+ var cost:float=_v385_spell_mana_cost("fire")
+ if v385_mana<cost:
+  _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
+  return
+ # Commit the cast only after a live target and sufficient mana are verified.
+ v385_mana-=cost
  ability_cooldown=3.5*maxf(0.65,1.0-0.08*float(_perk_rank("celerity")))
+ v406_damage_context="magic"
  var power:float=35.0*_hero_damage_multiplier()*(1.0+0.08*float(_perk_rank("focus")))
  _apply_player_hit(target,power,0.18)
+ v406_damage_context=""
  _show_message("Eclipse Flame: aimed hit!",0.9)
