@@ -61,4 +61,5 @@ private:
  void SpawnDungeonBatch();
  bool ReconcileAuthoredDungeonSlot(int32 Slot);
  bool ReconcileSpawnedDungeonSlot(int32 Slot);
+ AMoonfallDungeonLayout* FindExistingDungeonForSlot(int32 Slot) const;
 };
