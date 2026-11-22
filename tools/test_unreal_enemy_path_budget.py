@@ -33,6 +33,24 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertLess(path.index("const bool bHasPathSegment"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
 
+    def test_nonfinite_nav_target_and_projection_fail_closed(self):
+        # Nonfinite targets must not reach Unreal navigation queries. Even
+        # when a projection succeeds, its output must be finite before solve.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("if (!Target.ContainsNaN()", nav)
+        self.assertIn("&& Nav->ProjectPointToNavigation(Target, Point)", nav)
+        self.assertIn("&& !Point.Location.ContainsNaN())", nav)
+        self.assertLess(nav.index("!Target.ContainsNaN()"),
+                        nav.index("Nav->ProjectPointToNavigation(Target, Point)"))
+        self.assertLess(nav.index("!Point.Location.ContainsNaN()"),
+                        nav.index("Nav->FindPathToLocationSynchronously("))
+        self.assertIn("bNavigationRouteUnavailable = true;", nav)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", nav)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_invalid_nav_path_object_is_not_treated_as_reachable(self):
         # UObject validity alone cannot establish whether Unreal found a
         # navigable route. Both complete and partial paths must be valid.
