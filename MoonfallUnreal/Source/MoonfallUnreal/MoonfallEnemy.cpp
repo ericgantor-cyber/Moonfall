@@ -974,7 +974,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     NextPathRefreshAt = Now + PathRefreshBase
       + 0.05f * static_cast<float>(GetUniqueID() % 5u);
     FNavLocation Point;
-    if (Nav->ProjectPointToNavigation(Target, Point)) {
+    // Never submit corrupt targets or projected goals to Unreal's path solver.
+    // Short-circuit invalid vectors without adding any navigation queries.
+    if (!Target.ContainsNaN()
+        && Nav->ProjectPointToNavigation(Target, Point)
+        && !Point.Location.ContainsNaN()) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
      // Both complete and partial paths may yield a reachable first corner.
      // If a route has no usable segment, do not move directly through walls.
