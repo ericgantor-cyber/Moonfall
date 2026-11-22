@@ -26,6 +26,14 @@ public:
  bool bGenerateLegacyArena = true;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
+ // Per-timer-pass upper bound, clamped again in C++ for Blueprint safety.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Performance",
+   meta=(ClampMin="1", ClampMax="8"))
+ int32 MaxDungeonLayoutsPerBatch = 8;
+ // Limit work after the first layout in each batch to reduce frame spikes.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Performance",
+   meta=(ClampMin="0.5", ClampMax="8.0"))
+ float DungeonSpawnBudgetMs = 2.5f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  int32 ReadyDungeonCount = 0;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|World")
