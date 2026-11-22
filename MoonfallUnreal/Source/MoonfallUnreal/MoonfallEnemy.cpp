@@ -1069,7 +1069,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     && Now >= TacticalRetreatUntil && Now < TacticalReengageUntil;
   const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
   const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
+  // Never walk past a nearby cached corner in one AI tick. Overshooting
+  // short segments makes doorway pursuers jitter between two waypoints.
+  // Keep the existing capped movement speed and single swept move.
+  const float ChaseStep = FMath::Min(Direction.Size(),
+    SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);
+  AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit);
   // Collision can trap packs at tight doorways. First try one short
   // sideways swept step, alternating sides on successive collisions.
   // Rate-limit attempts so wall contact never triggers an extra movement
