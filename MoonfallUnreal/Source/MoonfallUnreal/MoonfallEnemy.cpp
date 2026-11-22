@@ -989,16 +989,27 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        ? Path->PathPoints[1] : FVector::ZeroVector;
      bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();
      bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;
-     // A first corner almost on top of the enemy is already reached. Advance
-     // to the next finite corner of this same route rather than wasting the
-     // cached path-refresh budget on a zero-length pursuit step.
-     const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint
-       && Path->PathPoints.Num() > 2
-       && FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)
-       && !Path->PathPoints[2].ContainsNaN();
-     CachedWaypoint = bHasCachedNavigationWaypoint
-       ? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)
-       : FVector::ZeroVector;
+     CachedWaypoint = bHasCachedNavigationWaypoint ? FirstCorner : FVector::ZeroVector;
+     if (bHasCachedNavigationWaypoint) {
+      // Tight doorways can produce several near-identical starting corners.
+      // Skip up to eight already-reached corners from this single cached path,
+      // rather than re-solving the same route every AI tick.
+      // Use full 3D distance so stacked floors do not look reached.
+      const int32 MaxCornersToCheck = FMath::Min(Path->PathPoints.Num(), 9);
+      for (int32 CornerIndex = 2; CornerIndex < MaxCornersToCheck
+           && FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f);
+           ++CornerIndex) {
+       const FVector NextCorner = Path->PathPoints[CornerIndex];
+       if (NextCorner.ContainsNaN()) {
+        // Fail closed if a later corner is corrupt, including infinities.
+        bNavigationRouteUnavailable = true;
+        bHasCachedNavigationWaypoint = false;
+        CachedWaypoint = FVector::ZeroVector;
+        break;
+       }
+       CachedWaypoint = NextCorner;
+      }
+     }
     } else {
      // The target cannot be projected onto the current navigation mesh.
      bNavigationRouteUnavailable = true;
