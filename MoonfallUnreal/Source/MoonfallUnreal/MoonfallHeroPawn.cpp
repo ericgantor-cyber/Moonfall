@@ -961,7 +961,8 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
  // Lateral values collapse at the edges and could skip or reorder candidates.
  float CurrentAngle = 0.f;
  if (Current) {
-  const FVector Relative = (Current->GetActorLocation() - Origin).GetSafeNormal();
+  // Match the same elevated aim point used for every candidate angle.
+  const FVector Relative = (Current->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin).GetSafeNormal();
   CurrentAngle = FMath::Atan2(FVector::DotProduct(Relative, Right),
                               FVector::DotProduct(Relative, Forward));
  }
