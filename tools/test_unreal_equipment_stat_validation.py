@@ -31,6 +31,38 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(load.index("Save->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount"),
                         load.index("bWorldProgressLoadInProgress = true;"))
 
+    def test_v13_is_required_for_uncollected_future_slot_loot(self):
+        save = self.source.split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1
+        )[1].split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        # An item can enter the save before it enters the bag: persistent
+        # world drops and generated, unclaimed dungeon-chest rewards.
+        # Their six new slot IDs must never be disguised inside V12 files.
+        policy = save.split("bool bNeedsV13 = false;", 1)[1].split(
+            "if (bNeedsV13) {", 1
+        )[0]
+        self.assertIn("for (const int32 Code : InventoryItemCodes)", policy)
+        self.assertIn("for (const int32 Code : EquippedExtraItemCodes)", policy)
+        self.assertIn("for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)", policy)
+        self.assertIn(
+            "MoonfallEquipmentSlots::IsFutureSlot((Record.ItemCode / 10000) % 10)",
+            policy
+        )
+        self.assertIn("for (const int32 Code : DungeonTreasureStates)", policy)
+        self.assertIn(
+            "Code > 0 && MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)",
+            policy
+        )
+        self.assertLess(policy.index("InventoryItemCodes"),
+                        policy.index("PendingWorldLoot"))
+        self.assertLess(policy.index("PendingWorldLoot"),
+                        policy.index("DungeonTreasureStates"))
+        self.assertIn("Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion", save)
+        self.assertLess(save.index("bool bNeedsV13 = false;"),
+                        save.index("Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion"))
+        self.assertLess(save.index("Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion"),
+                        save.index("SaveGameToSlot(Save, MoonfallWorldSlot, 0)"))
+
     def test_nine_slot_loot_and_equip_validate_owned_items(self):
         getter = self.source.split(
             "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
