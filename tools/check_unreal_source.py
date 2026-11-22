@@ -2108,13 +2108,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "Health <= 0.f", "!FMath::IsFinite(NextDodgeAt)"):
             self.assertIn(rejection, buffered)
         self.assertIn("DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil", buffered)
-        self.assertLess(buffered.index("QueuedDodgeUntil = -1.f;\n   Dodge();"),
-                        buffered.rindex("Dodge();"))
+        self.assertIn("QueuedDodgeUntil = -1.f;\n   bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", buffered)
+        self.assertIn("QueuedDodgeDirection = FVector::ZeroVector;", buffered)
         for function in ("ToggleInventory", "ToggleAtlas", "OpenOptions",
                          "OpenFocusedResidentContext", "RespawnAtCheckpoint"):
             block = self.hero_cpp.split(
                 f"void AMoonfallHeroPawn::{function}()", 1)[1].split("\n}", 1)[0]
             self.assertIn("QueuedDodgeUntil = -1.f;", block, function)
+
+    def test_pb_buffered_dodge_locks_direction_and_rejects_invalid_launch(self):
+        self.assertIn("FVector QueuedDodgeDirection = FVector::ZeroVector;", self.hero_h)
+        self.assertIn("bool bExecutingBufferedDodge = false;", self.hero_h)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        queued = dodge.split("if (Now < NextDodgeAt || Now < DamageImmunityUntil)", 1)[1].split(
+            "// Determine the direction before consuming stamina", 1)[0]
+        for line in ("const FVector QueuedPending = GetPendingMovementInputVector().GetSafeNormal2D();",
+                     "const FVector QueuedLast = GetLastMovementInputVector().GetSafeNormal2D();",
+                     "const FVector QueuedForward = GetActorForwardVector().GetSafeNormal2D();",
+                     "!IntendedDirection.ContainsNaN() && !IntendedDirection.IsNearlyZero()",
+                     "QueuedDodgeDirection = IntendedDirection;"):
+            self.assertIn(line, queued)
+        self.assertLess(queued.index("QueuedDodgeDirection = IntendedDirection;"),
+                        queued.index("QueuedDodgeUntil = ReadyAt + 0.04f;"))
+        self.assertIn("const FVector Direction = bExecutingBufferedDodge ? QueuedDodgeDirection : LiveDirection;", dodge)
+        self.assertIn("if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;", dodge)
+        self.assertLess(dodge.index("if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;"),
+                        dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertLess(dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"),
+                        dodge.index("LaunchCharacter(Direction *"))
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "// Throttled automatic pickup", 1)[0]
+        self.assertIn("bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", tick)
+        self.assertIn("QueuedDodgeDirection = FVector::ZeroVector;", tick)
+        self.assertLess(tick.index("bExecutingBufferedDodge = false;"),
+                        tick.index("QueuedDodgeDirection = FVector::ZeroVector;"))
 
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
