@@ -58,6 +58,8 @@ assert "GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>" in cpp
 assert "TArray<int32> FailedDungeonSlots;" in header
 assert "int32 NextFailedDungeonRetry = 0;" in header
 assert "bool bDungeonWorldReadyNotified = false;" in header
+assert "bool bFinalAuthoredAuditComplete = false;" in header
+assert "bFinalAuthoredAuditComplete = false;" in startup
 assert "FailedDungeonSlots.Reset();" in startup
 assert "TArray<TWeakObjectPtr<AMoonfallDungeonLayout>> AuthoredDungeonActors;" in header
 assert "AuthoredDungeonActors.Reset();" in startup
@@ -70,15 +72,29 @@ batch = cpp.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[1]
 assert "const bool bStartedPrimaryPass = NextDungeonSlot < TotalDungeons;" in batch
 assert "if (bStartedPrimaryPass && NextDungeonSlot >= TotalDungeons) break;" in batch
 assert "FailedDungeonSlots[NextFailedDungeonRetry++]" in batch
-assert "AuthoredDungeonActors[Slot].Get()" in batch
-assert "MoonfallWorldBootstrap::ShouldRetainAuthoredSlot(" in batch
-assert "AuthoredDungeonSlots[Slot] = 0;" in batch
-assert "AuthoredDungeonActors[Slot].Reset();" in batch
-assert "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);" in batch
-assert batch.index("ShouldRetainAuthoredSlot(") < batch.index(
-    "AuthoredDungeonSlots[Slot] = 0;") < batch.index(
-    "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);") < batch.index(
-    "GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)")
+assert "if (ReconcileAuthoredDungeonSlot(Slot)) continue;" in batch
+assert "bool AMoonfallUnrealGameMode::ReconcileAuthoredDungeonSlot(int32 Slot)" in cpp
+reconcile=cpp.split("bool AMoonfallUnrealGameMode::ReconcileAuthoredDungeonSlot(int32 Slot)",1)[1]
+assert "AuthoredDungeonActors[Slot].Get()" in reconcile
+assert "MoonfallWorldBootstrap::ShouldRetainAuthoredSlot(" in reconcile
+assert "AuthoredDungeonSlots[Slot] = 0;" in reconcile
+assert "AuthoredDungeonActors[Slot].Reset();" in reconcile
+assert "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);" in reconcile
+assert reconcile.index("ShouldRetainAuthoredSlot(") < reconcile.index(
+    "AuthoredDungeonSlots[Slot] = 0;") < reconcile.index(
+    "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);")
+assert "bool ReconcileAuthoredDungeonSlot(int32 Slot);" in header
+assert "MoonfallWorldBootstrap::ShouldAuditAuthoredDungeons(" in batch
+assert "bFinalAuthoredAuditComplete = true;" in batch
+assert "for (int32 Slot = 0; Slot < TotalDungeons; ++Slot)" in batch
+assert "AuthoredDungeonSlots[Slot] && !ReconcileAuthoredDungeonSlot(Slot)" in batch
+assert "FailedDungeonSlots.Add(Slot); // One final recovery attempt only." in batch
+assert batch.index("ShouldAuditAuthoredDungeons(") < batch.index(
+    "bFinalAuthoredAuditComplete = true;") < batch.index(
+    "for (int32 Slot = 0; Slot < TotalDungeons; ++Slot)") < batch.index(
+    "OnDungeonWorldReady(ReadyDungeonCount);")
+assert "ShouldAuditAuthoredDungeons(false,30,1,1)" in policy
+assert "!ShouldAuditAuthoredDungeons(true,30,1,1)" in policy
 assert "ShouldRetainAuthoredSlot(true,false)" in policy
 assert "!ShouldRetainAuthoredSlot(true,true)" in policy
 assert "MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt)" in batch
