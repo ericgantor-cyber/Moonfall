@@ -45,11 +45,14 @@ class TalentCombatPauseRegression(unittest.TestCase):
                         toggle.index('beast["v404_tell_next"]=maxf('))
 
     def test_escape_closes_talents_before_base_menu(self):
-        unhandled = method("_unhandled_input")
-        self.assertIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()", unhandled)
-        self.assertIn("_v398_toggle_tree()", unhandled)
-        self.assertLess(unhandled.index("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()"),
-                        unhandled.index("super._unhandled_input(event)"))
+        # main.gd handles Escape in _unhandled_key_input before _unhandled_input.
+        key_handler = method("_unhandled_key_input")
+        self.assertIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()", key_handler)
+        self.assertIn("_v398_toggle_tree()", key_handler)
+        self.assertLess(key_handler.index("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()"),
+                        key_handler.index("super._unhandled_key_input(event)"))
+        self.assertNotIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()",
+                         method("_unhandled_input"))
 
     def test_player_attack_stays_disabled(self):
         attack = method("_attack")
