@@ -106,6 +106,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const auto& Positions = MoonfallTalentWeb::Positions();", self.hud)
         self.assertIn("MOONFALL  |  CELESTIAL TALENT CONSTELLATION", self.hud)
         self.assertIn("141 STARS", self.hud)
+        # A selected star must show WHAT changes, how much it changes, and
+        # why its next rank is locked. Godot percent fractions are not labels.
+        self.assertIn('N.Stat == MoonfallTalents::EStat::MeleeDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::RangedDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::MagicDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Health', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Mana', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Stamina', self.hud)
+        self.assertIn('N.bPercent ? N.AmountPerRank * 100.f : N.AmountPerRank', self.hud)
+        self.assertNotIn('TEXT("fraction")', self.hud)
+        for condition in ('SelectedRank >= N.MaxRank', 'Hero->Level < N.MinLevel',
+                          'bMissingParentA || bMissingParentB', 'Available < N.CostPerRank'):
+            self.assertIn(condition, self.hud)
+        for state in ('MAX RANK', 'LEVEL LOCKED', 'PREREQUISITE LOCKED',
+                      'NOT ENOUGH POINTS', 'READY TO UNLOCK'):
+            self.assertIn(state, self.hud)
         self.assertIn("CONFIRM FULL RESPEC", self.hud)
         self.assertIn("Pad: UP/DOWN choose  A buy  B back  LT reset", self.hud)
         self.assertIn("MoonfallTalentWeb::HitTest(", self.hero_cpp)
