@@ -117,17 +117,18 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNati
 ```
 
 The runner **always compiles the checked-out Unreal C++ source** first.
-There is no `-SkipBuild` option. It then runs these four real Unreal Editor
+There is no `-SkipBuild` option. It then runs these five real Unreal Editor
 automation tests:
 
 1. `Moonfall.Dungeons.All30EntranceLocations`
 2. `Moonfall.Dungeons.SeededRoomArchetypes`
 3. `Moonfall.Dungeons.BossVictoryLedgerDefaults`
 4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
+5. `Moonfall.Dungeons.EquipmentV13SaveRoundTrip`
 
 It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
 and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
-A passing source workflow does not count: verify all **four** native test
+A passing source workflow does not count: verify all **five** native test
 results are explicitly `True`, `EditorExitCode=0`, and
 `AnyNativeTestFailed=False`. If compilation, Editor execution or any test
 fails, the native runner must not report success.
@@ -136,14 +137,18 @@ For an authorized self-hosted GitHub Actions runner, select the
 `Windows Unreal build prerequisites` workflow, choose the **PR branch**,
 and dispatch with `compile_on_self_hosted=true`. That job requires a
 Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
-environment variable. It compiles, runs all four tests, and uploads
+environment variable. It compiles, runs all five tests, and uploads
 `moonfall-unreal-native-dungeon-test-evidence` containing the log and
 result report. Normal hosted GitHub preflight checks do **not** run these tests.
 
-Even four passing Editor automation tests do not prove the runtime gameplay
+Even five passing Editor automation tests do not prove the runtime gameplay
 loop. In Play In Editor, separately check physical dungeon connections,
 enemy navigation and hazards, boss spawn/death, rewards and exactly-once
-victory persistence after saving and relaunching. Also test the packaged
+victory persistence after saving and relaunching. For equipment specifically, restore a backed-up real V12 save, equip all nine
+slots, save as V13, restart and verify the exact gear, sets, health and loot.
+The new equipment serialization automation is in-memory only and does not
+validate historical disk fixtures or the live HeroPawn restoration path.
+Also test the packaged
 Windows installer and accessibility controls before release.
 
 
