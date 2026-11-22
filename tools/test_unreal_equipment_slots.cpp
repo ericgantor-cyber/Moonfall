@@ -139,6 +139,15 @@ int main() {
  assert(AdvisorUpgradeDelta(102010, setGear) == 80);
  setGear[Hands] = 152010;
  assert(AdvisorUpgradeDelta(102010, setGear) == 80);
+ // Equip Best must prefer matching sets over an equally ranked off-set item.
+ // Both ring candidates have the same tier, rarity and trait presence.
+ const int forceRing = 182010;
+ const int wardRing = 282010;
+ assert(AdvisorItemScore(forceRing, Ring, setGear)
+      > AdvisorItemScore(wardRing, Ring, setGear));
+ setGear[Ring] = forceRing;
+ assert(AdvisorUpgradeDelta(wardRing, setGear) < 0);
+ setGear[Ring] = 0;
  // Invalid, wrongly slotted gear must not inflate the matching-piece count.
  setGear[Head] = 142010;
  setGear[Shoulders] = 0;
