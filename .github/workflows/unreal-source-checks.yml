@@ -88,13 +88,15 @@ jobs:
           assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
           assert 'ActionName="TalkNPC"' not in inputs
           assert 'ActionName="ResidentQuest"' not in inputs
-          # PB-inspired combat: LB guard/parry, RB dodge, triggers cast,
-          # and R3 dual-casts only outside Atlas/inventory contexts.
-          assert 'ActionName="Guard",Key=Gamepad_LeftShoulder' in inputs
-          assert 'ActionName="Dodge",Key=Gamepad_RightShoulder' in inputs
-          assert 'ActionName="CastLeft",Key=Gamepad_LeftTrigger' in inputs
-          assert 'ActionName="CastRight",Key=Gamepad_RightTrigger' in inputs
-          assert 'ActionName="DualCast",Key=Gamepad_RightThumbstick' in inputs
+          # Canonical combat layout: LT/MB5 dual-cast, LB/RB individual
+          # spells, R3 guard/parry, B context-aware dodge or menu back.
+          assert 'ActionName="Guard",Key=Gamepad_RightThumbstick' in inputs
+          assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
+          assert 'ActionName="CastLeft",Key=Gamepad_LeftShoulder' in inputs
+          assert 'ActionName="CastRight",Key=Gamepad_RightShoulder' in inputs
+          assert 'ActionName="GamepadBack",Key=Gamepad_FaceButton_Right' in inputs
+          assert 'ActionName="Dodge",Key=Gamepad_RightShoulder' not in inputs
+          assert 'ActionName="DualCast",Key=Gamepad_RightThumbstick' not in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
