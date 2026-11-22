@@ -123,7 +123,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       'NOT ENOUGH POINTS', 'READY TO UNLOCK'):
             self.assertIn(state, self.hud)
         self.assertIn("CONFIRM FULL RESPEC", self.hud)
-        self.assertIn("Pad A buy  B back  LT reset", self.hud)
+        self.assertIn("Enter / Pad A buy", self.hud)
+        self.assertIn("Backspace / LT reset", self.hud)
+        self.assertIn("Pad B back", self.hud)
+        self.assertEqual(config.count('ActionName="TalentsSpend",Key=Enter'), 1)
+        self.assertEqual(config.count('ActionName="TalentsReset",Key=BackSpace'), 1)
+        # Keyboard activation is only actionable while the constellation is
+        # open. It must not spend ranks while traversing the world or menus.
+        purchase = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[0]
+        reset = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetUnspentTalentPoints()", 1)[0]
+        self.assertIn("if (!bTalentWebOpen ||", purchase)
+        self.assertIn("if (!bTalentWebOpen || TalentRanks.IsEmpty()) return;", reset)
+        self.assertIn("bTalentRespecConfirm = true;", reset)
+        self.assertIn("if (ResetTalentTree())", reset)
+        for key in ("Enter", "BackSpace"):
+            physical = [m for m in config.splitlines()
+                        if m.startswith("+ActionMappings=") and m.endswith("Key="+key+")")]
+            self.assertEqual(len(physical), 1, key)
         self.assertIn("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan", self.hud)
         self.assertIn("inline int32 StepBranch(int32 CurrentIndex, int32 Direction)", layout)
         self.assertIn("inline int32 StepWithinBranch(int32 CurrentIndex, int32 Direction)", layout)
