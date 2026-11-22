@@ -31,6 +31,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor::White, 12.f, 12.f, nullptr, 0.85f);
    return;
   }
+  const int32 Available=Hero->GetUnspentTalentPoints();
   const FLinearColor Crimson(0.84f,0.40f,0.45f);
   const FLinearColor Teal(0.39f,0.78f,0.67f);
   const FLinearColor Violet(0.66f,0.61f,1.f);
@@ -41,7 +42,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("MOONFALL  |  CELESTIAL TALENT CONSTELLATION"),Gold,
        P.Left+16.f,P.Top+12.f,nullptr,P.Width<710.f?0.70f:1.12f);
   DrawText(FString::Printf(TEXT("LEVEL %d  |  %d UNALLOCATED  |  141 STARS"),
-       Hero->Level,Hero->GetUnspentTalentPoints()),FLinearColor(0.78f,0.86f,0.97f),
+       Hero->Level,Available),FLinearColor(0.78f,0.86f,0.97f),
        P.Left+16.f,P.Top+42.f,nullptr,0.77f);
   DrawRect(FLinearColor(0.36f,0.14f,0.21f),P.Left+P.Width-42.f,P.Top+12.f,28.f,28.f);
   DrawText(TEXT("X"),FLinearColor::White,P.Left+P.Width-33.f,P.Top+15.f,nullptr,0.85f);
@@ -67,7 +68,6 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetTalentRank(FName(Nodes[ParentIndex].Id))>0?NodeColor(N):Dim,1.4f);
    }
   }
-  const int32 Available=Hero->GetUnspentTalentPoints();
   for (int32 Index=0;Index<Nodes.Num();++Index) {
    const auto& N=Nodes[Index];
    const FVector2D Pos=MoonfallTalentWeb::ScreenPosition(Index,P,Hero->TalentWebZoom,Hero->TalentWebPan);
