@@ -547,10 +547,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("InventorySelection =", nav)
             self.assertIn("KeepInventorySelectionVisible();", nav)
         for horizontal in (left, right):
-            self.assertIn("if (bInventoryOpen) return;", horizontal)
+            self.assertIn("if (bInventoryOpen) {", horizontal)
+            self.assertIn("ToggleCharacterStats();", horizontal)
             self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
             self.assertNotIn("EquipInventoryItem(", horizontal)
+        self.assertIn("if (bCharacterStatsOpen) ToggleCharacterStats();", left)
+        self.assertIn("if (!bCharacterStatsOpen) ToggleCharacterStats();", right)
         self.assertNotIn("InventoryConfirm()", self.hero_cpp)
+
+    def test_controller_three_context_pane_routing_and_visible_hints(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        for action, key in (("OptionsLeft", "Gamepad_DPad_Left"),
+                            ("OptionsRight", "Gamepad_DPad_Right"),
+                            ("ChronicleFocus", "Gamepad_RightThumbstick"),
+                            ("Guard", "Gamepad_RightThumbstick")):
+            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
+        focus = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (bInventoryOpen && !bAtlasOpen) {", focus)
+        self.assertLess(focus.index("ToggleCharacterStats();"), focus.index(
+            "if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;"))
+        self.assertIn("bAtlasChronicleFocus = !bAtlasChronicleFocus;", focus)
+        guard = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::BeginGuard()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bInventoryOpen || bAtlasOpen", guard)
+        for method, condition in (("OptionsLeft", "bCharacterStatsOpen"),
+                                  ("OptionsRight", "!bCharacterStatsOpen")):
+            action = self.hero_cpp.split(
+                f"void AMoonfallHeroPawn::{method}()", 1)[1].split("\n}", 1)[0]
+            self.assertLess(action.index("if (bAtlasOpen)"), action.index(
+                "if (bInventoryOpen) {"))
+            self.assertIn(f"if ({condition}) ToggleCharacterStats();", action)
+            self.assertLess(action.index("ToggleCharacterStats();"), action.index(
+                "AdjustOption("))
+            self.assertNotIn("EquipInventoryItem(", action)
+        stats = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
+        self.assertIn("D-pad Right / R3: character", self.hud)
+        self.assertIn("D-pad Left/R3: bag", self.hud)
+        self.assertNotIn("C / P / A: back to inventory", self.hud)
 
     def test_mouse_sort_is_visual_only_and_safe_with_controller_selection(self):
         sort = self.hero_cpp.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const", 1)[1].split("\n}", 1)[0]
