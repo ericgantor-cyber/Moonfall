@@ -1007,6 +1007,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+  // Lock-on must never redirect a spell onto a different enemy that crosses the ray.
+  // Keep the visibility trace authoritative: neither enemies nor walls can be shot through.
+  if (Locked && Enemy != Locked) return false;
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   // Reject corrupted target resource state before damage, mana cost or combo rewards.
   if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
