@@ -24,8 +24,15 @@ assert dungeons.index("It->IsActorBeingDestroyed()") < dungeons.index(
     "AuthoredDungeonSlots[Slot] = 1;")
 assert dungeons.index("AuthoredDungeonSlots[Slot] = 1;") < dungeons.index(
     "++ReadyDungeonCount;")
-assert "ClearTimer(DungeonSpawnTimer)" in cpp
-assert "Super::EndPlay(EndPlayReason)" in cpp
+endplay=cpp.split("void AMoonfallUnrealGameMode::EndPlay(",1)[1].split(
+    "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+assert "if (GetWorld())" in endplay
+assert "GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);" in endplay
+assert "Super::EndPlay(EndPlayReason);" in endplay
+assert endplay.index("if (GetWorld())") < endplay.index(
+    "GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);")
+assert endplay.index("GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);") < endplay.index(
+    "Super::EndPlay(EndPlayReason);")
 assert "constexpr int32 MaxLayoutsPerBatch = 2;" in cpp
 assert "MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch" in cpp
 assert "constexpr FPolicy IsolatedWorldPolicy()" in policy
