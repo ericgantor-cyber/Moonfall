@@ -779,7 +779,7 @@ func _unhandled_input(event:InputEvent)->void:
   _v401_end_z_intro()
   get_viewport().set_input_as_handled()
   return
-  if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
   if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
    v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
    v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
