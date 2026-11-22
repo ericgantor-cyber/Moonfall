@@ -990,7 +990,8 @@ void AMoonfallHeroPawn::CastBoth()
 {
  // R3 is also a menu command. Never queue a combat cast behind inventory,
  // the Atlas, options, NPC dialogue or defeat.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+ if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen
      || FocusedResident.IsValid() || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
