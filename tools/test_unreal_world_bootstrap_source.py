@@ -52,4 +52,20 @@ assert "constexpr FPolicy IsolatedWorldPolicy()" in policy
 assert "static_assert(TotalDungeons==30)" in policy
 assert "GetWorld()->SpawnActor<AMoonfallArena>" in cpp
 assert "GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>" in cpp
+assert "TArray<int32> FailedDungeonSlots;" in header
+assert "int32 NextFailedDungeonRetry = 0;" in header
+assert "bool bDungeonWorldReadyNotified = false;" in header
+assert "FailedDungeonSlots.Reset();" in startup
+assert "NextFailedDungeonRetry = 0;" in startup
+batch = cpp.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[1]
+assert "const bool bStartedPrimaryPass = NextDungeonSlot < TotalDungeons;" in batch
+assert "if (bStartedPrimaryPass && NextDungeonSlot >= TotalDungeons) break;" in batch
+assert "FailedDungeonSlots[NextFailedDungeonRetry++]" in batch
+assert "MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt)" in batch
+assert "FailedDungeonSlots.Add(Slot);" in batch
+assert batch.index("bSpawnSucceeded = IsValid(Layout)") < batch.index("if (bSpawnSucceeded) ++ReadyDungeonCount;")
+assert batch.index("if (!bDungeonWorldReadyNotified)") < batch.index("OnDungeonWorldReady(ReadyDungeonCount)")
+assert batch.count("OnDungeonWorldReady(ReadyDungeonCount);") == 1
+assert "ShouldQueueRetry(false,false)" in policy
+assert "HasPendingDungeonWork(30,0,1)" in policy
 print("World bootstrap source guards passed; UE5 compilation unverified")
