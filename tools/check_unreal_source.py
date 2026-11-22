@@ -4496,7 +4496,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+    def test_native_dungeon_readme_matches_five_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4509,6 +4509,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.SeededRoomArchetypes",
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+            "Moonfall.Dungeons.EquipmentV13SaveRoundTrip",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4524,7 +4525,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
                                          "2. `Moonfall.Dungeons.",
                                          "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons."))
+                                         "4. `Moonfall.Dungeons.",
+                                         "5. `Moonfall.Dungeons."))
         ]
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
@@ -4577,7 +4579,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EditorExitCode=0", workflow)
         self.assertIn("AnyNativeTestFailed=False", workflow)
         for name in ("All30EntranceLocations", "SeededRoomArchetypes",
-                     "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip"):
+                     "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip",
+                     "EquipmentV13SaveRoundTrip"):
             self.assertIn("Moonfall.Dungeons." + name, workflow)
         self.assertLess(workflow.index("name: Compile Moonfall Unreal Editor"),
                         workflow.index("name: Run real UE5.4 dungeon automation tests"))
@@ -4736,7 +4739,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
         self.assertIn(name, source)
         self.assertIn(name, runner)
-        self.assertIn('Save->Version, 10', source)
+        self.assertIn('Save->Version, 12', source)
         self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
         self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
@@ -4775,7 +4778,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all four native tests explicitly passed", runner)
+        self.assertIn("all five native tests explicitly passed", runner)
+
+    def test_native_equipment_v12_v13_serialization_is_required(self):
+        # CI inspects the native test and evidence wiring, but does not run UE.
+        native = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        runner = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        name = "Moonfall.Dungeons.EquipmentV13SaveRoundTrip"
+        for source in (native, runner, workflow):
+            self.assertIn(name, source)
+        for token in ("SaveGameToMemory(Legacy, Bytes)",
+                      "SaveGameToMemory(Expanded, Bytes)",
+                      "LoadGameFromMemory(Bytes)",
+                      "RestoredV12->ExpandedEquippedCodes.IsEmpty()",
+                      "RestoredV13->ExpandedEquippedCodes.Num()",
+                      "ValidateV13(Snapshot, LegacyCodes",
+                      "TryDowngradeToV12(Snapshot, Downgrade)"):
+            self.assertIn(token, native)
+        self.assertIn("all five native tests explicitly passed", runner)
+        self.assertIn("all five tests passed for commit", workflow)
+        self.assertNotIn("SaveGameToSlot(", native)
+        self.assertNotIn("LoadGameFromSlot(", native)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
