@@ -298,6 +298,24 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
         self.assertIn("NextSightCheckAt = Now + SightInterval", self.source)
 
+    def test_successful_wall_slide_preserves_cached_route(self):
+        # Avoid immediate synchronous re-path after the sweep already escaped.
+        # Failed or unavailable sidesteps still use the original cooldown.
+        chase = self.source.split("// Collision can trap packs at tight doorways.", 1)[1].split(
+            "} else if (Distance <= AttackRange || bDivineRangedCastReady)", 1
+        )[0]
+        self.assertIn("bool bSidestepClearedObstacle = false;", self.source)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();", chase)
+        retry = chase.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {", 1)[1]
+        self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
+        self.assertIn("if (!bSidestepClearedObstacle) {", retry)
+        self.assertLess(retry.index("if (!bSidestepClearedObstacle) {"),
+                        retry.index("NextPathRefreshAt = 0.f;"))
+        self.assertIn("bHasCachedNavigationWaypoint = false;", retry)
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", retry)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_chase_step_does_not_overshoot_nearby_waypoints(self):
         # Full-speed movement can otherwise bounce around a close corner.
         chase = self.source.split("const float SafeChaseSpeed = FMath::Clamp(", 1)[1].split(
