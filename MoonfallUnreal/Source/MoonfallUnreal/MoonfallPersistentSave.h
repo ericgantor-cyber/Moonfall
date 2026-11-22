@@ -17,7 +17,7 @@ class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
  // V12: geographic Atlas exploration. Older V1-V11 saves remain readable.
- UPROPERTY() int32 Version = 12;
+ UPROPERTY() int32 Version = 13;
  // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
  UPROPERTY() TArray<int64> ExploredZoneFogMasks;
  // V11 stores uncollected enemy loot in the same world-save transaction.
@@ -41,6 +41,8 @@ public:
  UPROPERTY() TArray<FName> DiscoveredShrineIds;
  UPROPERTY() int32 Level = 1;
  UPROPERTY() int32 Experience = 0;
+ // Optional until V13. Legacy save slots load with an empty constellation.
+ UPROPERTY() TMap<FName, int32> TalentRanks;
  UPROPERTY() int32 Salvage = 0;
  UPROPERTY() float MaxHealth = 100.f;
  UPROPERTY() TArray<int32> InventoryItemCodes;
