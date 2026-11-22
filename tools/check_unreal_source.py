@@ -597,6 +597,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("D-pad Left/R3: bag", self.hud)
         self.assertNotIn("C / P / A: back to inventory", self.hud)
 
+    def test_lock_selection_ranks_before_expensive_visibility_traces(self):
+        # Source contract: rejected candidates must not raycast in large fights.
+        # Both new lock and left/right target-cycle modes retain their scoring.
+        acquire = self.hero_cpp.split("void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)", 1)[1].split(
+            "void AMoonfallHeroPawn::Turn(float Value)", 1)[0]
+        rank_start = acquire.index("// Score first: collision queries")
+        eligibility = acquire.index("if (!IsLockTargetValid(Candidate) || Candidate == Current) continue;")
+        score = acquire.index("const float DistanceSq = Aim.SizeSquared();")
+        new_target = acquire.index("bCouldImprove = FMath::IsFinite(CandidateScore) && CandidateScore < BestScore;")
+        cycle_target = acquire.index("float Delta = Direction < 0 ? CurrentAngle - Angle : Angle - CurrentAngle;")
+        tie_break = acquire.index("FMath::Abs(Delta - BestScore) <= 0.0001f && DistanceSq < BestDistanceSq")
+        skip = acquire.index("if (!bCouldImprove || !FMath::IsFinite(DistanceSq)) continue;")
+        sight = acquire.index("LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)")
+        commit = acquire.index("BestScore = CandidateScore;")
+        for earlier in (eligibility, rank_start, score, new_target, cycle_target, tie_break, skip):
+            self.assertLess(earlier, sight)
+        self.assertLess(sight, commit)
+        self.assertIn("|| Hit.GetActor() != Candidate) continue;", acquire)
+        self.assertIn("BestDistanceSq = DistanceSq;", acquire)
+        self.assertIn("if (Best) { LockedEnemy = Best;", acquire)
+        self.assertIn("else if (!Current) LockedEnemy.Reset();", acquire)
+        # Do not regress into an actor-iteration-order budget.
+        self.assertNotIn("VisibilityTraces++", acquire)
+        self.assertNotIn("Traces < 512", acquire)
+
     def test_reduced_motion_keeps_lock_without_auto_rotating_camera(self):
         # Reduced Motion is an accessibility guarantee, not just a slower pan.
         # Check the lock tracking block specifically, not other camera inputs.
