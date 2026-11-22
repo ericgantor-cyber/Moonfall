@@ -67,6 +67,47 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for slot in ("Weapon", "Armor", "Accessory"):
             self.assertIn("Save->Equipped" + slot + "Code = Equipped" + slot + "Code;", self.hero_cpp)
 
+    def test_ue5_classless_constellation_canvas_controller_and_safe_input(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallTalentWebLayout.h").read_text(encoding="utf-8")
+        for mapping in ('ActionName="Talents",Key=K',
+                        'ActionName="TalentsSpend",Key=Gamepad_FaceButton_Bottom',
+                        'ActionName="TalentsBack",Key=Gamepad_FaceButton_Right',
+                        'ActionName="TalentsReset",Key=Gamepad_LeftTrigger'):
+            self.assertIn(mapping, config)
+        self.assertIn("const TArray<FVector2D> Points = []()", layout)
+        self.assertIn("MoonfallTalents::Catalog().Num()", layout)
+        self.assertIn("LaneAngles[4]", layout)
+        self.assertIn("inline int32 HitTest(", layout)
+        self.assertIn("if (!P.bUsable || !InMap(P, Mouse)) return INDEX_NONE;", layout)
+        self.assertIn("inline void Focus(", layout)
+        self.assertIn("if (Hero->bTalentWebOpen)", self.hud)
+        self.assertIn("const auto& Positions = MoonfallTalentWeb::Positions();", self.hud)
+        self.assertIn("MOONFALL  |  CELESTIAL TALENT CONSTELLATION", self.hud)
+        self.assertIn("141 STARS", self.hud)
+        self.assertIn("CONFIRM FULL RESPEC", self.hud)
+        self.assertIn("Pad: UP/DOWN choose  A buy  B back  LT reset", self.hud)
+        self.assertIn("MoonfallTalentWeb::HitTest(", self.hero_cpp)
+        self.assertIn("if (bTalentWebOpen) {", self.hero_cpp)
+        self.assertIn("if (bTalentWebOpen) return;", self.hero_cpp)
+        self.assertIn("TalentWebStepSelection(1)", self.hero_cpp)
+        self.assertIn("TalentWebStepSelection(-1)", self.hero_cpp)
+        self.assertIn("if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }", self.hero_cpp)
+        self.assertIn("if (!bTalentRespecConfirm) { bTalentRespecConfirm = true; return; }", self.hero_cpp)
+        self.assertIn("ResetTalentTree();", self.hero_cpp)
+        self.assertIn("SpendTalentPoint(FName(MoonfallTalents::Catalog()[TalentWebSelected].Id))", self.hero_cpp)
+        self.assertIn("if (bAutoLootEnabled && !bTalentWebOpen", self.hero_cpp)
+        input_handler = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[1].split("\n}", 1)[0]
+        for api in ("ToggleTalentWeb", "TalentWebPurchase", "TalentWebReset", "TalentWebBack"):
+            self.assertIn(f"&AMoonfallHeroPawn::{api}", input_handler)
+        talent_mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "// Handle all Atlas pointer actions", 1)[0]
+        self.assertIn("if (bTalentWebOpen)", talent_mouse)
+        self.assertIn("MoonfallTalentWeb::HitTest", talent_mouse)
+        self.assertIn("return;", talent_mouse)
+        self.assertIn("bTalentWebOpen = false;", self.hero_cpp)
+        self.assertIn("bTalentWebOpen = true;", self.hero_cpp)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
@@ -1996,7 +2037,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 "}", 1)[0]
             self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
-            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+            body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
+                "void AMoonfallHeroPawn::", 1)[0]
+            self.assertIn("if (bTalentWebOpen)", body)
+            self.assertIn("PC->IsInputKeyDown(EKeys::RightMouseButton)", body)
+            self.assertLess(body.index("if (bTalentWebOpen)"), body.index(call))
+            self.assertIn("Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)", body)
 
     def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
