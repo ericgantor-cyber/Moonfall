@@ -8,6 +8,14 @@ No Z/Nyra sprites or meshes are included or altered. Import the user's approved 
 
 During gameplay, **left-click casts the left-hand spell**, **right-click casts the right-hand spell**, and **MB5 (the second side/thumb mouse button) dual-casts** when both hands have the same spell. Mouse clicks on residents, inventory, and menus retain their contextual actions. **Z and X are not spell shortcuts.** On a controller, LB/RB cast the separate hands and left trigger dual-casts. Unreal runtime input still requires testing on Windows.
 
+## Godot → UE5 feature parity (draft)
+
+See [the evidence-based parity audit](GODOT_UE5_PARITY_AUDIT.md) for what's present in Unreal source, what's incomplete, and what remains exclusive to the active Godot v38 project. The audit does **not** certify UE5 playability.
+
+This draft adds enemy lock-on with **T or middle-click**. A controller **D-pad Up** press still prioritizes nearby resident conversation; when no reachable resident is present, it toggles target lock instead. **N** activates the racial power; the gamepad racial-power button remains unchanged. MB5 remains dual-cast and Z/X remain unbound. Lock-on is acquired only on input, bounded to eligible visible enemies, and automatically dropped when the target dies, is occluded, leaves range, or a menu opens. Locked spells use a fresh line-of-sight check before damage. Reduced Motion suppresses camera following, not the lock itself.
+
+**Unverified:** UE5.4 C++ native compile, packaged Windows controls, physical MB5/middle mouse input, full controller interaction, and gameplay/aim feel. Source checks are not gameplay tests. No original Z or Nyra art is modified.
+
 ## Migration step 2: combat input scaffold (historical)
 
 The initial prototype used keyboard and Xbox-style controller bindings for Space/A jump, Q/B dodge, Z/LB left cast, X/RB right cast, and C dual cast; the current mouse bindings above supersede those early defaults. Six spell indices expose base mana costs and cooldowns and Blueprint event `OnSpellCast` to hook custom VFX and gameplay. Healing is prototyped for Restoration; other spells currently spend mana and fire a Blueprint event but **do not damage enemies**. Dual cast checks cooldowns for both hands. No dungeon map, enemies, UI, Options menu, crafted items or art has been ported yet. This Unreal starter **has not been built or run**. The complete Godot version remains available under `Moonfall3D/`.
