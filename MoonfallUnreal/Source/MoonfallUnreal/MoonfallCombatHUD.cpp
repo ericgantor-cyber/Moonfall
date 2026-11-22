@@ -692,7 +692,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* const* DisplayNames = PanelWidth < 550.f ? CompactSlotNames : SlotNames;
    const auto SlotLabel = [Hero](int32 Slot) -> FString {
      const int32 ItemCode = Hero->GetEquipmentSlotCode(Slot);
-     return ItemCode > 0 ? FString::Printf(TEXT("T%d"), ItemCode % 1000)
+     // GetEquipmentSlotCode already rejects unowned or wrongly slotted gear.
+     // Include shared rarity shorthand on both compact and wide stat panels.
+     return ItemCode > 0 ? FString::Printf(TEXT("T%d%s"),
+       ItemCode % 1000, MoonfallItemQuality::Abbreviation((ItemCode / 1000) % 10))
        : FString(TEXT("--"));
    };
    const auto SlotLine = [&](int32 StartSlot) -> FString {
@@ -702,6 +705,15 @@ void AMoonfallCombatHUD::DrawHUD()
      return FString::Printf(TEXT("%s %s  |  %s %s  |  %s %s"),
        DisplayNames[StartSlot], *A, DisplayNames[StartSlot + 1], *B,
        DisplayNames[StartSlot + 2], *C);
+   };
+   const int32 ForceSetPieces = Hero->GetSetPieceCount(1);
+   const int32 WardSetPieces = Hero->GetSetPieceCount(2);
+   const int32 FocusSetPieces = Hero->GetSetPieceCount(3);
+   // A set has up to nine pieces, but bonuses unlock at two and three.
+   // Show the active threshold without implying 3 is a gear-piece cap.
+   const auto SetStatus = [](int32 Pieces) -> const TCHAR* {
+     return Pieces >= 3 ? TEXT("2+3 ACTIVE")
+       : Pieces >= 2 ? TEXT("2 ACTIVE") : TEXT("LOCKED");
    };
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
@@ -728,12 +740,12 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste (20%% cap)"),
        Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
-     FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
-       Hero->GetSetPieceCount(1)),
-     FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
-       Hero->GetSetPieceCount(2)),
-     FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
-       Hero->GetSetPieceCount(3)),
+     FString::Printf(TEXT("Force %d pcs [%s] | 2pc +3%% crit; 3pc +4%% mastery"),
+       ForceSetPieces, SetStatus(ForceSetPieces)),
+     FString::Printf(TEXT("Ward %d pcs [%s] | 2pc +3%% vers; 3pc +2.5%% protection"),
+       WardSetPieces, SetStatus(WardSetPieces)),
+     FString::Printf(TEXT("Focus %d pcs [%s] | 2pc +4%% haste; 3pc +6%% mana regen"),
+       FocusSetPieces, SetStatus(FocusSetPieces)),
      TEXT("DUNGEON CAMPAIGN"),
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
        Hero->GetTotalDefeatedDungeonBosses(),
@@ -754,8 +766,8 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 18.f, StartY + Row * RowHeight, nullptr, CharacterTextScale);
    if (bUseSlotGrid) {
     // AC-style equipment flanks a center power panel, while WoW-like gear
-    // labels keep equipped tiers readable. No character art is substituted.
-    // This remains read-only until versioned save and equip support is ready.
+    // labels keep equipped tiers and rarity readable. Character art is untouched.
+    // The page is read-only; equip actions remain in the inventory.
     const float GridTop = Top + PanelHeight - 225.f;
     DrawText(TEXT("EQUIPMENT  |  9 SLOTS"),
       FLinearColor(0.52f,0.91f,0.76f), Left + 18.f, GridTop, nullptr, 0.75f);
@@ -787,27 +799,23 @@ void AMoonfallCombatHUD::DrawHUD()
      const float X = bLeftColumn ? Left + 18.f : CenterX + CenterWidth + TileGap;
      const float Y = GridTop + 22.f + ColumnRow * 31.f;
      const int32 Code = Hero->GetEquipmentSlotCode(Slot);
-     const bool bFutureSlot = false; // All nine slots are now equippable.
      const int32 Rarity = Code > 0 ? (Code / 1000) % 10 : 0;
      const bool bValidRarity = Code > 0
        && Rarity >= 0 && Rarity < MoonfallItemQuality::Count;
-     const FLinearColor BorderColor = bFutureSlot
-       ? FLinearColor(0.21f,0.23f,0.30f,1.f)
-       : bValidRarity ? MoonfallItemQuality::Color(Rarity)
-                      : FLinearColor(0.39f,0.32f,0.46f,1.f);
+     const FLinearColor BorderColor = bValidRarity
+       ? MoonfallItemQuality::Color(Rarity)
+       : FLinearColor(0.39f,0.32f,0.46f,1.f);
      DrawRect(BorderColor, X, Y, TileWidth, 27.f);
      DrawRect(FLinearColor(0.07f,0.07f,0.13f,0.98f),
        X + 1.f, Y + 1.f, TileWidth - 2.f, 25.f);
-     DrawText(DisplayNames[Slot], bFutureSlot
-         ? FLinearColor(0.63f,0.64f,0.71f) : FLinearColor::White,
+     DrawText(DisplayNames[Slot], FLinearColor::White,
        X + 6.f, Y + 5.f, nullptr, 0.60f);
-     const FString Status = bFutureSlot ? TEXT("FUTURE")
-       : bValidRarity ? FString::Printf(TEXT("T%d %s"), Code % 1000,
+     const FString Status = bValidRarity
+       ? FString::Printf(TEXT("T%d %s"), Code % 1000,
            MoonfallItemQuality::Abbreviation(Rarity))
        : TEXT("EMPTY");
-     DrawText(Status, bFutureSlot ? FLinearColor(0.47f,0.51f,0.59f)
-         : bValidRarity ? MoonfallItemQuality::Color(Rarity)
-                        : FLinearColor(0.82f,0.75f,0.83f),
+     DrawText(Status, bValidRarity ? MoonfallItemQuality::Color(Rarity)
+         : FLinearColor(0.82f,0.75f,0.83f),
        X + TileWidth - 53.f, Y + 6.f, nullptr, 0.56f);
     }
    }
@@ -941,7 +949,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 ForcePieces = Hero->GetSetPieceCount(1);
   const int32 WardPieces = Hero->GetSetPieceCount(2);
   const int32 FocusPieces = Hero->GetSetPieceCount(3);
-  DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
+  DrawText(FString::Printf(TEXT("Sets: Force %d  Ward %d  Focus %d  |  2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
@@ -1046,10 +1054,10 @@ void AMoonfallCombatHUD::DrawHUD()
       : bLosesSetBonus || bGainsSetBonus
       ? FString::Printf(TEXT("SET BONUS: %s%s"), *LossText, *GainText)
       : SelectedAffix > 0 && bCompactSetPreview
-      ? FString::Printf(TEXT("SET: %s %d/3 -> %d/3"),
+      ? FString::Printf(TEXT("SET: %s %d pcs -> %d pcs"),
           DetailTraits[SelectedAffix], SetPieces, ProjectedSelectedPieces)
       : SelectedAffix > 0
-      ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
+      ? FString::Printf(TEXT("SET PREVIEW: %s %d pcs -> %d pcs  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           ProjectedSelectedPieces, SetEffects[SelectedAffix])
       : TEXT("SET PREVIEW: no set trait on this item");
