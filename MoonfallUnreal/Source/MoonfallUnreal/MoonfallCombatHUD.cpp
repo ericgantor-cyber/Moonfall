@@ -859,11 +859,6 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
-  DrawText(PanelWidth < 500.f
-      ? TEXT("D-pad Right / R3: character")
-      : TEXT("D-pad Right / R3: Character Stats   B/I/Select/Esc: close"),
-     FLinearColor(0.69f,0.91f,0.85f), Left + 18.f, Top + PanelHeight - 30.f,
-     nullptr, PanelWidth < 500.f ? 0.61f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
@@ -1044,8 +1039,12 @@ void AMoonfallCombatHUD::DrawHUD()
     PanelWidth < 550.f ? 0.56f : 0.74f);
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
-     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  // Only one footer hint; don't overlap the gear advisor or draw stale A keys.
+  DrawText(PanelWidth < 500.f
+      ? TEXT("C/P | D-pad Right/R3: stats")
+      : TEXT("C/P | D-pad Right / R3: Character Stats   B/I/Select/Esc: close"),
+     FLinearColor(0.69f,0.91f,0.85f), Left + 18.f, Top + PanelHeight - 28.f,
+     nullptr, PanelWidth < 500.f ? 0.60f : 0.72f);
   return;
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
