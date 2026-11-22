@@ -106,8 +106,11 @@ assert "if (bRetryAttempt && RetriedDungeonSlots.IsValidIndex(Slot))" in batch
 assert "RetriedDungeonSlots[Slot] = 1;" in batch
 assert "SpawnedDungeonSlots[Slot] = 1;" in batch
 assert "SpawnedDungeonActors[Slot] = Layout;" in batch
-assert batch.index("bSpawnSucceeded = IsValid(Layout)") < batch.index(
-    "SpawnedDungeonActors[Slot] = Layout;") < batch.index("++ReadyDungeonCount;")
+spawn_success = batch.split("if (bSpawnSucceeded) {",1)[1].split(
+    "else if (MoonfallWorldBootstrap::ShouldQueueRetry",1)[0]
+assert "SpawnedDungeonSlots[Slot] = 1;" in spawn_success
+assert spawn_success.index("SpawnedDungeonActors[Slot] = Layout;") < spawn_success.index(
+    "++ReadyDungeonCount;")
 assert "bool ReconcileSpawnedDungeonSlot(int32 Slot);" in header
 assert "bool AMoonfallUnrealGameMode::ReconcileSpawnedDungeonSlot(int32 Slot)" in cpp
 generated=cpp.split("bool AMoonfallUnrealGameMode::ReconcileSpawnedDungeonSlot(int32 Slot)",1)[1]
@@ -148,9 +151,8 @@ assert "!ShouldRetainAuthoredSlot(true,true)" in policy
 assert "MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt)" in batch
 assert "FailedDungeonSlots.Add(Slot);" in batch
 assert batch.index("bSpawnSucceeded = IsValid(Layout)") < batch.index(
-    "if (bSpawnSucceeded) {") < batch.index(
-    "SpawnedDungeonActors[Slot] = Layout;") < batch.index(
-    "++ReadyDungeonCount;")
+    "if (bSpawnSucceeded) {")
+assert "SpawnedDungeonActors[Slot] = Layout;" in spawn_success
 assert batch.index("if (!bDungeonWorldReadyNotified)") < batch.index("OnDungeonWorldReady(ReadyDungeonCount)")
 assert batch.count("OnDungeonWorldReady(ReadyDungeonCount);") == 1
 assert "ShouldQueueRetry(false,false)" in policy
