@@ -37,6 +37,13 @@ class TalentCombatPauseRegression(unittest.TestCase):
                       'warning.visible=false'):
             self.assertIn(token, cancels)
 
+    def test_overdue_boss_warning_does_not_fire_on_menu_close(self):
+        toggle = method("_v398_toggle_tree")
+        self.assertIn('beast["v404_tell_next"]=maxf(', toggle)
+        self.assertIn('map_time+2.0', toggle)
+        self.assertLess(toggle.index('else:\n  # The world clock'),
+                        toggle.index('beast["v404_tell_next"]=maxf('))
+
     def test_player_attack_stays_disabled(self):
         attack = method("_attack")
         self.assertIn("if _v406_talents_pause_enemies():return", attack)
