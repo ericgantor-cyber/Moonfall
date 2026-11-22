@@ -43,7 +43,10 @@ assert "MoonfallWorldBootstrap::ClampBatchSize(" in batch
 assert "MoonfallWorldBootstrap::ClampBatchTimeBudgetMs(" in batch
 assert "FPlatformTime::Seconds()" in batch
 assert "MoonfallWorldBootstrap::ShouldContinueBatch(" in batch
-assert batch.index("ShouldContinueBatch(")<batch.index("const int32 Slot = NextDungeonSlot++;")
+assert batch.index("ShouldContinueBatch(") < batch.index(
+    "const bool bRetryAttempt = NextDungeonSlot >= TotalDungeons;")
+assert batch.index("const bool bRetryAttempt = NextDungeonSlot >= TotalDungeons;") < batch.index(
+    "FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;")
 for value in ("BatchCount(0)==8","BatchCount(22)==8","BatchCount(23)==7",
               "BatchCount(27)==3","BatchCount(29)==1","BatchCount(30)==0"):
     assert value in policy
