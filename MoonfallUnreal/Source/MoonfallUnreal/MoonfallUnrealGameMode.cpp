@@ -53,12 +53,16 @@ void AMoonfallUnrealGameMode::BeginPlay()
  if (!MoonfallWorldBootstrap::ShouldGenerateDungeons(BootPolicy)) return;
  ReadyDungeonCount = 0;
  bDungeonWorldReadyNotified = false;
- bFinalAuthoredAuditComplete = false;
+ bFinalDungeonAuditComplete = false;
  FailedDungeonSlots.Reset();
  NextFailedDungeonRetry = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
  AuthoredDungeonActors.Reset();
  AuthoredDungeonActors.SetNum(TotalDungeons);
+ SpawnedDungeonActors.Reset();
+ SpawnedDungeonActors.SetNum(TotalDungeons);
+ SpawnedDungeonSlots.SetNumZeroed(TotalDungeons);
+ RetriedDungeonSlots.SetNumZeroed(TotalDungeons);
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
@@ -124,13 +128,16 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   const int32 Slot = bRetryAttempt
     ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;
   ++Processed;
+  if (bRetryAttempt && RetriedDungeonSlots.IsValidIndex(Slot))
+   RetriedDungeonSlots[Slot] = 1;
   if (ReconcileAuthoredDungeonSlot(Slot)) continue;
   const int32 Zone = Slot / DungeonsPerZone;
   const int32 DungeonIndex = Slot % DungeonsPerZone;
   FTransform DungeonTransform;
   bool bSpawnSucceeded = false;
+  AMoonfallDungeonLayout* Layout = nullptr;
   if (GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)) {
-   AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
+   Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
      AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
      ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
    if (IsValid(Layout)) {
@@ -141,21 +148,29 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
     bSpawnSucceeded = IsValid(Layout) && !Layout->IsActorBeingDestroyed();
    }
   }
-  if (bSpawnSucceeded) ++ReadyDungeonCount;
+  if (bSpawnSucceeded) {
+   SpawnedDungeonSlots[Slot] = 1;
+   SpawnedDungeonActors[Slot] = Layout;
+   ++ReadyDungeonCount;
+  }
   else if (MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt))
    FailedDungeonSlots.Add(Slot);
  }
- // Only once, after initial slots and earlier retries: authored actors
- // can disappear even *after* their own slot was processed. A final scan of
- // at most 30 weak references catches those before announcing world ready.
- if (MoonfallWorldBootstrap::ShouldAuditAuthoredDungeons(
-     bFinalAuthoredAuditComplete, NextDungeonSlot,
+ // Only once, after initial slots and earlier retries: authored or newly
+ // generated layouts can disappear after processing. Check at most 30
+ // slots, without polling any actors on subsequent gameplay frames.
+ if (MoonfallWorldBootstrap::ShouldAuditDungeonSlots(
+     bFinalDungeonAuditComplete, NextDungeonSlot,
      NextFailedDungeonRetry, FailedDungeonSlots.Num())) {
-  bFinalAuthoredAuditComplete = true;
+  bFinalDungeonAuditComplete = true;
   for (int32 Slot = 0; Slot < TotalDungeons; ++Slot) {
    if (AuthoredDungeonSlots.IsValidIndex(Slot) &&
        AuthoredDungeonSlots[Slot] && !ReconcileAuthoredDungeonSlot(Slot))
     FailedDungeonSlots.Add(Slot); // One final recovery attempt only.
+   if (SpawnedDungeonSlots.IsValidIndex(Slot) && SpawnedDungeonSlots[Slot] &&
+       !ReconcileSpawnedDungeonSlot(Slot) &&
+       !RetriedDungeonSlots[Slot])
+    FailedDungeonSlots.Add(Slot); // Do not retry a previously retried slot.
   }
  }
  if (!MoonfallWorldBootstrap::HasPendingDungeonWork(
@@ -187,6 +202,26 @@ bool AMoonfallUnrealGameMode::ReconcileAuthoredDungeonSlot(int32 Slot)
  AuthoredDungeonSlots[Slot] = 0;
  if (AuthoredDungeonActors.IsValidIndex(Slot))
   AuthoredDungeonActors[Slot].Reset();
+ ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);
+ return false;
+}
+
+// Generated dungeons also count toward readiness. Detect actors destroyed
+// before the one-time final audit and release their counted slot.
+bool AMoonfallUnrealGameMode::ReconcileSpawnedDungeonSlot(int32 Slot)
+{
+ if (!SpawnedDungeonSlots.IsValidIndex(Slot) || !SpawnedDungeonSlots[Slot])
+  return false;
+ AMoonfallDungeonLayout* SpawnedActor =
+   SpawnedDungeonActors.IsValidIndex(Slot)
+     ? SpawnedDungeonActors[Slot].Get() : nullptr;
+ const bool bSpawnedValid = IsValid(SpawnedActor);
+ if (MoonfallWorldBootstrap::ShouldRetainAuthoredSlot(
+     bSpawnedValid, bSpawnedValid && SpawnedActor->IsActorBeingDestroyed()))
+  return true;
+ SpawnedDungeonSlots[Slot] = 0;
+ if (SpawnedDungeonActors.IsValidIndex(Slot))
+  SpawnedDungeonActors[Slot].Reset();
  ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);
  return false;
 }
