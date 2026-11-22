@@ -305,7 +305,14 @@ class EnemyPathBudgetTests(unittest.TestCase):
             "} else if (Distance <= AttackRange || bDivineRangedCastReady)", 1
         )[0]
         self.assertIn("bool bSidestepClearedObstacle = false;", self.source)
-        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();", chase)
+        self.assertIn("const FVector EscapeStart = GetActorLocation();", chase)
+        self.assertIn("const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())", chase)
+        self.assertIn("> FMath::Square(1.f);", chase)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;", chase)
+        self.assertIn("bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;", chase)
+        self.assertLess(chase.index("const FVector EscapeStart"), chase.index("AddActorWorldOffset(Side * EscapeDistance"))
+        self.assertLess(chase.index("AddActorWorldOffset(Side * EscapeDistance"), chase.index("bEscapeMadeProgress"))
+        self.assertLess(chase.index("bEscapeMadeProgress ="), chase.index("bSidestepClearedObstacle ="))
         retry = chase.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {", 1)[1]
         self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
         self.assertIn("if (!bSidestepClearedObstacle) {", retry)
