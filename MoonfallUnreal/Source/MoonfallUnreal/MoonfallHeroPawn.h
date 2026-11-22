@@ -479,6 +479,8 @@ private:
  void OptionsDown();
  void OptionsLeft();
  void OptionsRight();
+ void GamepadContextLeft();
+ void GamepadContextRight();
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
