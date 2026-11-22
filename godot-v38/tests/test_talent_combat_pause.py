@@ -44,6 +44,13 @@ class TalentCombatPauseRegression(unittest.TestCase):
         self.assertLess(toggle.index('else:\n  # The world clock'),
                         toggle.index('beast["v404_tell_next"]=maxf('))
 
+    def test_escape_closes_talents_before_base_menu(self):
+        unhandled = method("_unhandled_input")
+        self.assertIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()", unhandled)
+        self.assertIn("_v398_toggle_tree()", unhandled)
+        self.assertLess(unhandled.index("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()"),
+                        unhandled.index("super._unhandled_input(event)"))
+
     def test_player_attack_stays_disabled(self):
         attack = method("_attack")
         self.assertIn("if _v406_talents_pause_enemies():return", attack)
