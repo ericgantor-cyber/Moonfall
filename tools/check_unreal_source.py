@@ -3851,6 +3851,40 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SpellPowerMultiplier <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Mana)"), cast.index("Mana -= Costs[School] * Multiplier"))
 
+    def test_pb_combat_guard_attack_haste_and_counter_hud(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("if (bGuarding) EndGuard();", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("if (bGuarding) EndGuard();"))
+        self.assertLess(cast.index("LastCastTime[Hand] = Time;"),
+                        cast.index("if (bGuarding) EndGuard();"))
+        self.assertLess(cast.index("if (bGuarding) EndGuard();"),
+                        cast.index("OnSpellCast(School, Hand == 0);"))
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "\n}", 1)[0]
+        for guard in ("const float HasteBonus = GetHasteBonus();",
+                      "!FMath::IsFinite(Time)", "!FMath::IsFinite(HasteBonus)",
+                      "!FMath::IsFinite(LastCastTime[0])",
+                      "!FMath::IsFinite(LastCastTime[1])",
+                      "HasteBonus < 0.f",
+                      "Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)"):
+            self.assertIn(guard, dual)
+        self.assertLess(dual.index("HasteBonus < 0.f"), dual.index(
+            "TryCast(LeftSpell, 0, 2.f)"))
+        self.assertIn("LastCastTime[1] = LastCastTime[0];", dual)
+        self.assertIn("float GetParryCounterRemaining() const;", self.hero_h)
+        getter = self.hero_cpp.split(
+            "float AMoonfallHeroPawn::GetParryCounterRemaining() const", 1)[1].split(
+            "\n}", 1)[0]
+        for term in ("!FMath::IsFinite(ParryCounterUntil)",
+                     "!FMath::IsFinite(Now)", "Now >= ParryCounterUntil",
+                     "FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f)"):
+            self.assertIn(term, getter)
+        self.assertIn("Hero->GetParryCounterRemaining();", self.hud)
+        self.assertIn("if (!bCompactScreen && CounterRemaining > 0.f)", self.hud)
+        self.assertIn('TEXT("PARRY COUNTER  %.1fs")', self.hud)
+
     def test_dual_cast_checks_both_spell_indices(self):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
         self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
