@@ -25,6 +25,11 @@ constexpr bool ShouldContinueBatch(int Processed,int RequestedBatchSize,
       (ElapsedMs>=0.0 &&
        ElapsedMs<ClampBatchTimeBudgetMs(RequestedBudgetMs)));
 }
+// Authored slots can disappear after the initial map scan (for example
+// when an authored streaming level unloads during the startup timer).
+constexpr bool ShouldRetainAuthoredSlot(bool ActorValid,bool ActorDestroying) {
+ return ActorValid && !ActorDestroying;
+}
 // One retry only, after the initial pass has considered all 30 slots.
 constexpr bool ShouldQueueRetry(bool Succeeded,bool AlreadyRetried) {
  return !Succeeded && !AlreadyRetried;
@@ -63,6 +68,9 @@ static_assert(BatchCount(0,4)==4 && BatchCount(29,4)==1);
 static_assert(ClampBatchSize(0)==1 && ClampBatchSize(100)==8);
 static_assert(ShouldContinueBatch(0,8,999.0,2.5));
 static_assert(!ShouldContinueBatch(1,8,3.0,2.5));
+static_assert(ShouldRetainAuthoredSlot(true,false));
+static_assert(!ShouldRetainAuthoredSlot(false,false));
+static_assert(!ShouldRetainAuthoredSlot(true,true));
 static_assert(ShouldQueueRetry(false,false));
 static_assert(!ShouldQueueRetry(false,true) && !ShouldQueueRetry(true,false));
 static_assert(HasPendingDungeonWork(0,0,0));
