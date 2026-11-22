@@ -3695,7 +3695,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_mb5_dual_cast_haste_cooldown_matches_individual_casts(self):
         # Source contract, not a native UE gameplay timing test.
-        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\\n}", 1)[0]
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
         self.assertIn("Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + GetHasteBonus())", dual)
         self.assertIn("!FMath::IsFinite(Time)", dual)
         self.assertIn("!FMath::IsFinite(LastCastTime[1])", dual)
