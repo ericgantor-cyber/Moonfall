@@ -6539,6 +6539,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CastRightMouse",Key=RightMouseButton', inputs)
         self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
         self.assertIn('ActionName="DualCast",Key=LeftControl', inputs)
+        self.assertIn('ActionName="DualCast",Key=RightControl', inputs)
         self.assertNotIn('ActionName="CastLeft",Key=Z', inputs)
         self.assertNotIn('ActionName="CastRight",Key=X', inputs)
         self.assertIn('ActionName="CastLeft",Key=Gamepad_LeftTrigger', inputs)
