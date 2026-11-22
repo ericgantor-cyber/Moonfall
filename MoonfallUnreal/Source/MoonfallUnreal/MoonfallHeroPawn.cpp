@@ -1440,6 +1440,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  // Protect the final owned copy of gear worn in any of the nine slots.
  // Duplicate copies may still be salvaged without un-equipping the item.
+ // Every slot from Weapon through Ring uses the same protection.
  const int32 WornSlot = (Code / 10000) % 10;
  const bool bEquippedCode = MoonfallEquipmentSlots::IsKnownSlot(WornSlot)
      && Code == GetEquipmentSlotCode(WornSlot);
@@ -1453,7 +1454,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
