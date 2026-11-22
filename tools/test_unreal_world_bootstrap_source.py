@@ -123,7 +123,10 @@ assert "ShouldRetainAuthoredSlot(true,false)" in policy
 assert "!ShouldRetainAuthoredSlot(true,true)" in policy
 assert "MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt)" in batch
 assert "FailedDungeonSlots.Add(Slot);" in batch
-assert batch.index("bSpawnSucceeded = IsValid(Layout)") < batch.index("if (bSpawnSucceeded) ++ReadyDungeonCount;")
+assert batch.index("bSpawnSucceeded = IsValid(Layout)") < batch.index(
+    "if (bSpawnSucceeded) {") < batch.index(
+    "SpawnedDungeonActors[Slot] = Layout;") < batch.index(
+    "++ReadyDungeonCount;")
 assert batch.index("if (!bDungeonWorldReadyNotified)") < batch.index("OnDungeonWorldReady(ReadyDungeonCount)")
 assert batch.count("OnDungeonWorldReady(ReadyDungeonCount);") == 1
 assert "ShouldQueueRetry(false,false)" in policy
