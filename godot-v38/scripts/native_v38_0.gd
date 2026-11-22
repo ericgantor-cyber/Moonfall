@@ -984,6 +984,12 @@ func _attack()->void:
    v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
    attack_cooldown=maxf(attack_cooldown,0.62)
 
+func _v385_spell_mana_cost(which:String)->float:
+ # Shared cost for inherited spells and aimed Eclipse Flame; talent discounts
+ # must never diverge between the two combat input paths.
+ var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
+ return maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
+
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
@@ -992,8 +998,7 @@ func _spell(which:String)->void:
   super._spell(which)
   v406_damage_context=""
   return
- var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
- var cost:float=maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
+ var cost:float=_v385_spell_mana_cost(which)
  if v385_mana<cost:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
   return
