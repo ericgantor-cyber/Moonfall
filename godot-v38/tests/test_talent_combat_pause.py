@@ -43,6 +43,32 @@ class TalentCombatPauseRegression(unittest.TestCase):
                       'warning.visible=false'):
             self.assertIn(token, cancels)
 
+    def test_ordinary_and_divine_boss_telegraphs_are_cancelled(self):
+        cancels = method("_v406_cancel_pending_enemy_attacks")
+        self.assertIn('_clear_divine_warning(beast)', cancels)
+        self.assertIn('boss_telegraphs.has(boss_id)', cancels)
+        self.assertIn('boss_warning.visible=false', cancels)
+        self.assertIn('warning.visible=false', cancels)
+        toggle = method("_v398_toggle_tree")
+        self.assertIn('beast["divine_next_at"]=maxf(', toggle)
+        self.assertIn('map_time+2.0', toggle)
+
+    def test_talent_shortcut_is_handled_before_inherited_keys(self):
+        key_handler = method("_unhandled_key_input")
+        self.assertIn('event.keycode==KEY_K', key_handler)
+        self.assertLess(key_handler.index('event.keycode==KEY_K'),
+                        key_handler.index('super._unhandled_key_input(event)'))
+        self.assertNotIn('event.keycode==KEY_K', method("_unhandled_input"))
+
+    def test_world_actions_are_blocked_while_talents_open(self):
+        for name in ("_spell", "_dodge", "_apply_incoming_damage"):
+            self.assertIn("if _v406_talents_pause_enemies():return", method(name))
+        unhandled = method("_unhandled_input")
+        self.assertIn('if _v406_talents_pause_enemies():', unhandled)
+        self.assertIn('event.button_index in [JOY_BUTTON_B,JOY_BUTTON_START]', unhandled)
+        self.assertLess(unhandled.index('if _v406_talents_pause_enemies():'),
+                        unhandled.index('super._unhandled_input(event)'))
+
     def test_overdue_boss_warning_does_not_fire_on_menu_close(self):
         toggle = method("_v398_toggle_tree")
         self.assertIn('beast["v404_tell_next"]=maxf(', toggle)
