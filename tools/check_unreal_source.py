@@ -4490,6 +4490,35 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("World->SpawnActor", native)
 
 
+    def test_windows_dx12_primary_rhi_with_dx11_shaders_and_smoke_fallback(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
+        build = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        smoke = (ROOT.parents[1] / "Build" / "Test-PackagedGame.ps1").read_text(encoding="utf-8")
+        section_name = "[/Script/WindowsTargetPlatform.WindowsTargetSettings]"
+        self.assertEqual(config.count(section_name), 1)
+        section = config.split(section_name, 1)[1].split("\n[", 1)[0]
+        entries = [line.strip() for line in section.splitlines()
+                   if line.strip() and not line.strip().startswith(";")]
+        for setting in (
+            "DefaultGraphicsRHI=DefaultGraphicsRHI_DX12",
+            "+D3D12TargetedShaderFormats=PCD3D_SM6",
+            "+D3D11TargetedShaderFormats=PCD3D_SM5",
+        ):
+            self.assertEqual(entries.count(setting), 1, setting)
+        self.assertNotIn("DefaultGraphicsRHI=DefaultGraphicsRHI_DX11", entries)
+        self.assertNotIn("r.RayTracing=True", config)
+        # Validate during real Windows compile preflight, not just source CI.
+        self.assertIn("Expected exactly one WindowsTargetSettings section", build)
+        self.assertIn("Windows renderer targets verified: DX12 SM6 default; DX11 SM5 fallback.", build)
+        for setting in ("DefaultGraphicsRHI_DX12", "PCD3D_SM6", "PCD3D_SM5"):
+            self.assertIn(setting, build)
+        for renderer in ("DX12", "DX11"):
+            self.assertIn(f"-GraphicsRHI {renderer}", build)
+        self.assertIn("[ValidateSet('DX12','DX11')]", smoke)
+        self.assertIn("'DX11') { '-dx11' } else { '-dx12' }", smoke)
+        self.assertIn("Start-Process -FilePath $game -ArgumentList $rendererArgument", smoke)
+        self.assertIn("NOT proof of rendered frames or FPS.", smoke)
+
     def test_dynamic_nav_invokers_and_dungeon_map_retrofit_are_guarded(self):
         engine = (ROOT.parents[1] / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
         creator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
