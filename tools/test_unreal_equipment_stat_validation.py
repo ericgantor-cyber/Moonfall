@@ -55,6 +55,21 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("MoonfallEquipmentSlots::SlotCount", sets)
         self.assertIn("return Pieces;", sets)
 
+    def test_salvage_all_nine_slots_and_protect_equipped_ownership(self):
+        salvage = self.source.split(
+            "bool AMoonfallHeroPawn::SalvageInventoryItem(", 1
+        )[1].split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)", salvage)
+        self.assertNotIn("SlotIndex < 0 || SlotIndex > 2", salvage)
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(WornSlot)", salvage)
+        self.assertIn("Code == GetEquipmentSlotCode(WornSlot)", salvage)
+        self.assertIn("if (Copies <= 1) return false;", salvage)
+        self.assertIn("Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier", salvage)
+        self.assertLess(salvage.index("if (Copies <= 1) return false;"),
+                        salvage.index("Salvage = SafeBalance +"))
+        self.assertLess(salvage.index("Salvage = SafeBalance +"),
+                        salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
+
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         for token in ("Code <= 0", "Slot != ExpectedSlot", "Trait < 0 || Trait > 3",
