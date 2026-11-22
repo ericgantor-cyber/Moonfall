@@ -12,6 +12,7 @@ on:
     paths:
       - 'MoonfallUnreal/Build/**'
       - 'MoonfallUnreal/Source/**'
+      - 'MoonfallUnreal/Config/**'
       - 'tools/check_unreal_source.py'
       - '.github/workflows/windows-unreal-preflight.yml'
 
