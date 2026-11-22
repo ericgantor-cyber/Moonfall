@@ -1019,11 +1019,13 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
 
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, float ManaCostMultiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.2f
+     || !FMath::IsFinite(ManaCostMultiplier) || ManaCostMultiplier < Multiplier
+     || ManaCostMultiplier > 2.8f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  const float HasteBonus = GetHasteBonus();
  // The controller R3 path already checks these clocks. Single-hand casts must
@@ -1035,7 +1037,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
      || MaxHealth <= 0.f || Health > MaxHealth
      || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f
      || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier)
-     || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier
+     || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier
      || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + HasteBonus)) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
@@ -1156,7 +1158,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
  }
- Mana -= Costs[School] * Multiplier;
+ Mana -= Costs[School] * ManaCostMultiplier;
  LastCastTime[Hand] = Time;
  // Transition from guard into an attack only after a successful cast.
  // Misses and failed casts keep the defensive stance active.
@@ -1198,7 +1200,9 @@ void AMoonfallHeroPawn::CastBoth()
      || !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])
      || Time < LastCastTime[0] || Time < LastCastTime[1]
      || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)) return;
- if (TryCast(LeftSpell, 0, 2.f))
+ // Skyrim-style overcharge: one combined effect, 2.2x power and 2.8x mana.
+ // Both hand cooldowns advance only after a successful single transaction.
+ if (TryCast(LeftSpell, 0, 2.2f, 2.8f))
  {
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
