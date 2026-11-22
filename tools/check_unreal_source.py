@@ -1059,6 +1059,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("C / P / R3: back to inventory", hud)
         self.assertIn("C / P / R3: character stats", hud)
 
+    def test_gamepad_a_and_npc_actions_block_invalid_health_and_atlas(self):
+        # Source contract: never confirm a quest or jump with invalid vitals.
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "\n}", 1)[0]
+        hp_guard = "if (Health <= 0.f || !FMath::IsFinite(Health)) return;"
+        self.assertIn(hp_guard, jump)
+        self.assertLess(jump.index(hp_guard), jump.index("if (bResidentContextOpen)"))
+        self.assertLess(jump.index(hp_guard), jump.index("Jump();"))
+        npc = (ROOT / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        interact = npc.split("bool AMoonfallWorldNPC::CanHeroInteract(", 1)[1].split(
+            "\n}", 1)[0]
+        for guard in ("Hero->Health <= 0.f", "!FMath::IsFinite(Hero->Health)",
+                      "Hero->bAtlasOpen", "Hero->bInventoryOpen",
+                      "Hero->bOptionsOpen"):
+            self.assertIn(guard, interact)
+            self.assertLess(interact.index(guard), interact.index("GetActorLocation()"))
+        quest = self.hero_cpp.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("Resident->CanHeroInteract(this)", quest)
+        self.assertLess(quest.index("Resident->CanHeroInteract(this)"),
+                        quest.index("Resident->TurnInResidentQuest(this)"))
+
     def test_gamepad_a_conflict_is_removed_and_r3_stats_are_inventory_only(self):
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         mappings = [line.strip() for line in config.splitlines()
