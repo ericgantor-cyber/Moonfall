@@ -1165,7 +1165,7 @@ void AMoonfallCombatHUD::DrawHUD()
       : FLinearColor(0.74f,0.82f,0.94f),
     Left + 18.f, Top + PanelHeight - 50.f, nullptr,
     PanelWidth < 550.f ? 0.56f : 0.74f);
-  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / Y: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / P / R3: character stats    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
