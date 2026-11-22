@@ -26,6 +26,12 @@ class TalentCombatPauseRegression(unittest.TestCase):
             self.assertIn("if _v406_talents_pause_enemies():return", body)
             self.assertLess(body.index("if _v406_talents_pause_enemies():return"), body.index("super."))
 
+    def test_player_physics_is_paused_while_talents_open(self):
+        physics = method("_physics_process")
+        self.assertIn("if _v406_talents_pause_enemies():return", physics)
+        self.assertLess(physics.index("if _v406_talents_pause_enemies():return"),
+                        physics.index("super._physics_process(delta)"))
+
     def test_opening_talents_cancels_pending_attacks(self):
         toggle = method("_v398_toggle_tree")
         self.assertIn("_v406_cancel_pending_enemy_attacks()", toggle)
@@ -47,11 +53,11 @@ class TalentCombatPauseRegression(unittest.TestCase):
     def test_escape_closes_talents_before_base_menu(self):
         # main.gd handles Escape in _unhandled_key_input before _unhandled_input.
         key_handler = method("_unhandled_key_input")
-        self.assertIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()", key_handler)
+        self.assertIn("event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies()", key_handler)
         self.assertIn("_v398_toggle_tree()", key_handler)
-        self.assertLess(key_handler.index("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()"),
+        self.assertLess(key_handler.index("event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies()"),
                         key_handler.index("super._unhandled_key_input(event)"))
-        self.assertNotIn("event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies()",
+        self.assertNotIn("event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies()",
                          method("_unhandled_input"))
 
     def test_player_attack_stays_disabled(self):
