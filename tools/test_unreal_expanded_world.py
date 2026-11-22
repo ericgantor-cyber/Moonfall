@@ -29,6 +29,35 @@ class ExpandedOverworldTests(unittest.TestCase):
         cls.startup = read(BUILD / "Create-StartupLevel.py")
         cls.retrofit = read(BUILD / "Upgrade-ExpandedWorldNavigation.py")
 
+    def test_navigation_bounds_xy_coverage_at_edges(self):
+        # Exercise the actual editor predicate without importing unreal.
+        # These are source-only tests, not proof of a baked NavMesh.
+        import ast
+        import types
+
+        tree = ast.parse(self.retrofit)
+        predicate = next(node for node in tree.body
+                         if isinstance(node, ast.FunctionDef)
+                         and node.name == "sufficient_bounds")
+        namespace = {}
+        exec(compile(ast.Module(body=[predicate], type_ignores=[]),
+                     "<nav-bounds-predicate>", "exec"), namespace)
+        sufficient = namespace["sufficient_bounds"]
+
+        def volume(xmin, xmax, ymin, ymax):
+            origin = types.SimpleNamespace(x=(xmin + xmax) / 2,
+                                           y=(ymin + ymax) / 2)
+            extent = types.SimpleNamespace(x=(xmax - xmin) / 2,
+                                           y=(ymax - ymin) / 2)
+            return types.SimpleNamespace(
+                get_actor_bounds=lambda _only_colliding: (origin, extent))
+
+        self.assertTrue(sufficient(volume(-170500, 170500, 12000, 352000)))
+        self.assertFalse(sufficient(volume(-170499, 170500, 12000, 352000)))
+        self.assertFalse(sufficient(volume(-170500, 170499, 12000, 352000)))
+        self.assertFalse(sufficient(volume(-170500, 170500, 12001, 352000)))
+        self.assertFalse(sufficient(volume(-170500, 170500, 12000, 351999)))
+
     def test_gothic_isle_atlas_reader_reuses_card_and_hides_locked_pages(self):
         hero = read(SOURCE / "MoonfallHeroPawn.cpp")
         header = read(SOURCE / "MoonfallHeroPawn.h")
