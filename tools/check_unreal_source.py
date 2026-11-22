@@ -616,7 +616,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for button, actions in expected.items():
             self.assertEqual(mappings.get(button), actions, button)
         self.assertIn('ActionName="Jump",Key=SpaceBar', inputs)
-        for action, keyboard in (("DualCast", "LeftControl"),
+        for action, keyboard in (("DualCast", "ThumbMouseButton2"),
                                  ("Guard", "E"), ("Dodge", "Q")):
             self.assertIn(f'ActionName="{action}",Key={keyboard}', inputs)
         for name, handler in (("Guard", "BeginGuard"), ("Dodge", "Dodge"),
@@ -6538,8 +6538,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
         self.assertIn('ActionName="CastRightMouse",Key=RightMouseButton', inputs)
         self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
-        self.assertIn('ActionName="DualCast",Key=LeftControl', inputs)
-        self.assertIn('ActionName="DualCast",Key=RightControl', inputs)
+        self.assertIn('ActionName="DualCast",Key=ThumbMouseButton2', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=LeftControl', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=RightControl', inputs)
         self.assertNotIn('ActionName="CastLeft",Key=Z', inputs)
         self.assertNotIn('ActionName="CastRight",Key=X', inputs)
         self.assertIn('ActionName="CastLeft",Key=Gamepad_LeftTrigger', inputs)
