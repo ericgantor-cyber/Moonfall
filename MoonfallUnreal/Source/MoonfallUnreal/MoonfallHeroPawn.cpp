@@ -374,8 +374,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Lock tracking is bounded: one weak actor and one LOS trace per quarter second.
  if (LockedTarget.IsValid()) {
   const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
-  if (!FMath::IsFinite(Now) || Health <= 0.f || bOptionsOpen || bInventoryOpen
-      || bAtlasOpen || bResidentContextOpen) {
+  if (!FMath::IsFinite(Now) || Health <= 0.f || !FMath::IsFinite(Health)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) {
    ClearTargetLock();
   } else {
    if (Now >= NextTargetLockCheckAt) {
@@ -426,7 +426,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   // on actual choices, avoiding a world trace on every player frame.
   const float Range = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
       ? FMath::Clamp(Resident->InteractRange, 50.f, 400.f) : 0.f;
-  if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||
+  if (!IsValid(Resident) || Health <= 0.f || !FMath::IsFinite(Health)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen ||
       Range <= 0.f || GetActorLocation().ContainsNaN() ||
       Resident->GetActorLocation().ContainsNaN() ||
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
