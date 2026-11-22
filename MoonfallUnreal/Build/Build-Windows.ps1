@@ -30,6 +30,32 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 }
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
+# Protect cooking against accidentally reverting to a DX11-only shader set.
+# Both shader models must be targeted so -dx11 remains a supported fallback.
+$rhiConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not (Test-Path -LiteralPath $rhiConfig -PathType Leaf)) {
+    throw "Unreal renderer config missing: $rhiConfig"
+}
+$rhiText = Get-Content -LiteralPath $rhiConfig -Raw
+$rhiSections = @([regex]::Matches($rhiText, '(?m)^\s*\[/Script/WindowsTargetPlatform.WindowsTargetSettings\]\s*$'))
+if ($rhiSections.Count -ne 1) {
+    throw 'Expected exactly one WindowsTargetSettings section in DefaultEngine.ini.'
+}
+$rhiSection = ($rhiText -split '(?m)^\s*\[/Script/WindowsTargetPlatform.WindowsTargetSettings\]\s*$', 2)[1]
+$rhiSection = ($rhiSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+foreach ($target in @(
+    @{ Key = 'DefaultGraphicsRHI'; Value = 'DefaultGraphicsRHI_DX12' },
+    @{ Key = '+D3D12TargetedShaderFormats'; Value = 'PCD3D_SM6' },
+    @{ Key = '+D3D11TargetedShaderFormats'; Value = 'PCD3D_SM5' }
+)) {
+    $key = [regex]::Escape($target.Key)
+    $entries = @([regex]::Matches($rhiSection, "(?m)^\s*$key\s*=\s*(.*?)\s*$"))
+    if ($entries.Count -ne 1 -or $entries[0].Groups[1].Value.Trim() -ne $target.Value) {
+        throw "Windows RHI configuration must set $($target.Key)=$($target.Value) exactly once."
+    }
+}
+Write-Host 'Windows renderer targets verified: DX12 SM6 default; DX11 SM5 fallback.'
+
 # The release workflow already creates this asset. First-time local packaging
 # reuses the same editor generator without overwriting a valid existing map.
 $editorCompiledForStartupMap = $false
@@ -221,7 +247,10 @@ if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
     throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
 }
 if ($LaunchSmokeTest) {
-    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName
+    # Only on an explicitly requested Windows GPU smoke run; packaged DX12
+    # and fallback DX11 should both remain launchable after cooking.
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX12
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX11
 }
 Write-Host 'Building self-contained Windows launcher...'
 $launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'

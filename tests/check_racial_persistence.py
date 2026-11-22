@@ -39,7 +39,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 12", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedSaveVersion", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -251,7 +251,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 12", load)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedSaveVersion", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),

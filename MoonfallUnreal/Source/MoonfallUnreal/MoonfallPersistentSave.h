@@ -47,6 +47,9 @@ public:
  UPROPERTY() int32 EquippedWeaponCode = 0;
  UPROPERTY() int32 EquippedArmorCode = 0;
  UPROPERTY() int32 EquippedAccessoryCode = 0;
+ // Version 13 only: complete nine-slot snapshot, indices 0-2 must match
+ // the legacy fields above. V1-V12 saves have an empty array by design.
+ UPROPERTY() TArray<int32> ExpandedEquippedCodes;
  UPROPERTY() int32 LeftSpell = 0;
  UPROPERTY() int32 RightSpell = 1;
 };

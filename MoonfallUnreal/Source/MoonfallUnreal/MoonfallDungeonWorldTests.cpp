@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallEquipmentSlots.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -86,7 +87,7 @@ bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
  const AMoonfallHeroPawn* Hero = GetDefault<AMoonfallHeroPawn>();
  if (!TestNotNull(TEXT("Persistent save default"), Save)
      || !TestNotNull(TEXT("Hero default"), Hero)) return false;
- TestEqual(TEXT("Boss ledger save schema is V10"), Save->Version, 10);
+ TestEqual(TEXT("Latest default save remains V12"), Save->Version, 12);
  TestEqual(TEXT("Fresh save has no boss victories"),
    Save->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Fresh hero has no boss victories"),
@@ -121,7 +122,7 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  // Serialize to memory only. Never touch the player's on-disk world slot.
  UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
- if (!TestNotNull(TEXT("Create V10 save object"), Original)) return false;
+ if (!TestNotNull(TEXT("Create V12 save object"), Original)) return false;
  constexpr uint32 FirstDungeon = 1u;
  constexpr uint32 LastDungeon = 1u << 29;
  constexpr uint32 MidDungeon = 1u << 14;
@@ -138,8 +139,8 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   return false;
  UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::LoadGameFromMemory(Bytes));
- if (!TestNotNull(TEXT("Restore V10 save from bytes"), Restored)) return false;
- TestEqual(TEXT("Save format still V10"), Restored->Version, 10);
+ if (!TestNotNull(TEXT("Restore V12 save from bytes"), Restored)) return false;
+ TestEqual(TEXT("Save format still V12"), Restored->Version, 12);
  TestEqual(TEXT("Discovered first, middle and final dungeons survive"),
    Restored->DiscoveredDungeonMask, Original->DiscoveredDungeonMask);
  TestEqual(TEXT("First and 30th dungeon victories survive"),
@@ -212,6 +213,102 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    Legacy->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Legacy currency retained"), Legacy->Salvage, 9876);
  TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
+ return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallV13EquipmentSaveRoundTripTest,
+  "Moonfall.Dungeons.EquipmentV13SaveRoundTrip",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallV13EquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
+{
+ // Native UE5 SaveGame property serialization. Nothing is written to disk.
+ // A historical V12 file fixture and real HeroPawn::LoadWorldProgress still
+ // require a separate controlled Windows gameplay migration test.
+ UMoonfallPersistentSave* Legacy = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!TestNotNull(TEXT("Create legacy V12 save"), Legacy)) return false;
+ TestEqual(TEXT("Default save starts at V12"),
+   Legacy->Version, MoonfallEquipmentSlots::LegacySaveVersion);
+ TestTrue(TEXT("V12 has no nine-slot equipment data"), Legacy->ExpandedEquippedCodes.IsEmpty());
+ Legacy->EquippedWeaponCode = 1001;
+ Legacy->EquippedArmorCode = 11002;
+ Legacy->EquippedAccessoryCode = 22003;
+ Legacy->InventoryItemCodes.Add(1001);
+ Legacy->InventoryItemCodes.Add(11002);
+ Legacy->InventoryItemCodes.Add(22003);
+ Legacy->Level = 27;
+ Legacy->Salvage = 8765;
+ TArray<uint8> Bytes;
+ if (!TestTrue(TEXT("Serialize V12 equipment in memory"),
+      UGameplayStatics::SaveGameToMemory(Legacy, Bytes))) return false;
+ UMoonfallPersistentSave* RestoredV12 = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("Restore V12 equipment in memory"), RestoredV12)) return false;
+ TestEqual(TEXT("V12 version survives"), RestoredV12->Version, 12);
+ TestEqual(TEXT("V12 weapon survives"), RestoredV12->EquippedWeaponCode, 1001);
+ TestEqual(TEXT("V12 armor survives"), RestoredV12->EquippedArmorCode, 11002);
+ TestEqual(TEXT("V12 accessory survives"), RestoredV12->EquippedAccessoryCode, 22003);
+ TestTrue(TEXT("V12 has no invented extra equipped items"),
+   RestoredV12->ExpandedEquippedCodes.IsEmpty());
+ TestEqual(TEXT("V12 inventory remains intact"), RestoredV12->InventoryItemCodes.Num(), 3);
+ TestEqual(TEXT("V12 character level survives"), RestoredV12->Level, 27);
+ TestEqual(TEXT("V12 salvage survives"), RestoredV12->Salvage, 8765);
+
+ // V13 keeps exact legacy fields and a complete nine-item snapshot.
+ UMoonfallPersistentSave* Expanded = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!TestNotNull(TEXT("Create V13 equipment save"), Expanded)) return false;
+ Expanded->Version = MoonfallEquipmentSlots::ExpandedSaveVersion;
+ const int32 Codes[MoonfallEquipmentSlots::SlotCount] = {
+   1001, 11002, 22003, 31004, 42005, 53006, 64007, 75008, 81009
+ };
+ for (const int32 Code : Codes) Expanded->InventoryItemCodes.Add(Code);
+ Expanded->ExpandedEquippedCodes.Init(0, MoonfallEquipmentSlots::SlotCount);
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  Expanded->ExpandedEquippedCodes[Slot] = Codes[Slot];
+ Expanded->EquippedWeaponCode = Codes[0];
+ Expanded->EquippedArmorCode = Codes[1];
+ Expanded->EquippedAccessoryCode = Codes[2];
+ Expanded->Level = 38;
+ Expanded->Salvage = 4321;
+ const MoonfallEquipmentSlots::LegacyCodes LegacyCodes{{
+   Codes[0], Codes[1], Codes[2]
+ }};
+ MoonfallEquipmentSlots::ExpandedCodes Snapshot{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  Snapshot[Slot] = Expanded->ExpandedEquippedCodes[Slot];
+ if (!TestTrue(TEXT("V13 preflight accepts nine owned canonical codes"),
+     MoonfallEquipmentSlots::ValidateV13(Snapshot, LegacyCodes,
+       Expanded->InventoryItemCodes.GetData(), Expanded->InventoryItemCodes.Num())))
+  return false;
+ Bytes.Reset();
+ if (!TestTrue(TEXT("Serialize V13 equipment in memory"),
+      UGameplayStatics::SaveGameToMemory(Expanded, Bytes))) return false;
+ UMoonfallPersistentSave* RestoredV13 = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::LoadGameFromMemory(Bytes));
+ if (!TestNotNull(TEXT("Restore V13 equipment in memory"), RestoredV13)) return false;
+ TestEqual(TEXT("V13 version survives"),
+   RestoredV13->Version, MoonfallEquipmentSlots::ExpandedSaveVersion);
+ TestEqual(TEXT("V13 legacy weapon survives"), RestoredV13->EquippedWeaponCode, Codes[0]);
+ TestEqual(TEXT("V13 legacy armor survives"), RestoredV13->EquippedArmorCode, Codes[1]);
+ TestEqual(TEXT("V13 legacy accessory survives"), RestoredV13->EquippedAccessoryCode, Codes[2]);
+ TestEqual(TEXT("V13 snapshot contains exactly nine slots"),
+   RestoredV13->ExpandedEquippedCodes.Num(), MoonfallEquipmentSlots::SlotCount);
+ if (RestoredV13->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount)
+  return false;
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const FString Label = FString::Printf(TEXT("V13 equipped slot %d round-trips"), Slot);
+  TestEqual(*Label, RestoredV13->ExpandedEquippedCodes[Slot], Codes[Slot]);
+ }
+ TestEqual(TEXT("V13 inventory remains intact"),
+   RestoredV13->InventoryItemCodes.Num(), MoonfallEquipmentSlots::SlotCount);
+ TestEqual(TEXT("V13 character level survives"), RestoredV13->Level, 38);
+ TestEqual(TEXT("V13 salvage survives"), RestoredV13->Salvage, 4321);
+ // V12 downgrade must never discard worn extra-slot equipment.
+ MoonfallEquipmentSlots::LegacyCodes Downgrade{};
+ TestFalse(TEXT("V13 cannot silently downgrade with six worn extras"),
+   MoonfallEquipmentSlots::TryDowngradeToV12(Snapshot, Downgrade));
  return !HasAnyErrors();
 }
 

@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
@@ -45,7 +46,7 @@ namespace {
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ if (Code <= 0 || !MoonfallEquipmentSlots::IsKnownSlot(ExpectedSlot)) return false;
  const int32 Trait = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
@@ -78,12 +79,32 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 }
 }
 
+int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
+{
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
+ // Additional slots are validated against the V13 array and ownership.
+ if (MoonfallEquipmentSlots::IsFutureSlot(Slot)) {
+  if (EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount) return 0;
+  const int32 ExtraCode = EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+  return ExtraCode > 0 && MoonfallEquipmentSlots::IsCanonicalForSlot(ExtraCode, Slot)
+      && InventoryItemCodes.Contains(ExtraCode) ? ExtraCode : 0;
+ }
+ const int32 Codes[MoonfallEquipmentSlots::LegacyCount] = {
+  EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode
+ };
+ const int32 Code = Codes[Slot];
+ // Reject a valid item code stored in the wrong equipped field too.
+ // GetItemPower checks the item's own slot, not this field's expected slot.
+ return Code > 0 && (Code / 10000) % 10 == Slot
+   && InventoryItemCodes.Contains(Code) && GetItemPower(Code) > 0 ? Code : 0;
+}
+
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return 0;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
+ // Share the equipment accessor's ownership and correct-slot checks.
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
+ const int32 Code = GetEquipmentSlotCode(Slot);
+ return Code > 0 ? ValidEquippedTier(Code, Slot) : 0;
 }
 
 int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
@@ -91,7 +112,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
  // Use the same strict decoder as equipped combat stats. No save mutations.
  if (ItemCode <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
  return Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0);
@@ -99,13 +120,12 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ // The inventory UI, comparison and total power must agree on which gear
+ // is actually equipped. Unowned or incorrectly slotted codes add no power.
  int32 Total = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
-   Total += GetItemPower(Codes[Slot]);
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  if (Code > 0) Total += GetItemPower(Code);
  }
  return Total;
 }
@@ -116,13 +136,11 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  const int32 CandidatePower = GetItemPower(ItemCode);
  if (CandidatePower <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- int32 Trait = 0, Rarity = 0, Tier = 0;
- const bool bCurrentOwnedAndValid = InventoryItemCodes.Contains(CurrentCode)
-     && DecodeEquippedItem(CurrentCode, Slot, Trait, Rarity, Tier);
- return CandidatePower - (bCurrentOwnedAndValid ? GetItemPower(CurrentCode) : 0);
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
+ // Share validation with the nine-slot HUD accessor: stale, unowned or
+ // incorrectly slotted equipment is an empty slot for comparison purposes.
+ const int32 CurrentCode = GetEquipmentSlotCode(Slot);
+ return CandidatePower - (CurrentCode > 0 ? GetItemPower(CurrentCode) : 0);
 }
 
 int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
@@ -130,26 +148,27 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  if (Affix < 1 || Affix > 3 || !InventoryItemCodes.Contains(CandidateCode)
      || GetItemPower(CandidateCode) <= 0) return 0;
  const int32 Slot = (CandidateCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (!MoonfallEquipmentSlots::IsKnownSlot(Slot)) return 0;
  int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
  if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
   return 0;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ // Reuse the same owned, correctly slotted equipment validation as the HUD.
+ const int32 CurrentCode = GetEquipmentSlotCode(Slot);
  int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
- const bool bCurrentValid = InventoryItemCodes.Contains(CurrentCode)
+ const bool bCurrentValid = CurrentCode > 0
      && DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
  return FMath::Clamp(GetSetPieceCount(Affix)
      - (bCurrentValid && PreviousRarity >= 1 && PreviousTrait == Affix ? 1 : 0)
-     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, 3);
+     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0),
+     0, MoonfallEquipmentSlots::SlotCount);
 }
 
 bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return false;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- if (!InventoryItemCodes.Contains(Code)) return false;
+ // Future slots stay inactive until they have real owned gear and saves.
+ if (!MoonfallEquipmentSlots::IsLegacySlot(Slot)) return false;
+ const int32 Code = GetEquipmentSlotCode(Slot);
+ if (Code <= 0) return false;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Rarity == 5;
 }
@@ -157,51 +176,51 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Pieces = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  // Never count an unowned, corrupt or wrongly slotted equipped code.
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  if (Code <= 0) continue;
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
+  if (DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
  }
- return Pieces;
+ return Pieces; // Raw count preserves correct threshold projections with 4+ set pieces.
 }
 
 int32 AMoonfallHeroPawn::GetMight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + (InventoryItemCodes.Contains(EquippedWeaponCode)
-     ? ValidEquippedTier(EquippedWeaponCode, 0) : 0) + GetRaceMightBonus(), 10, 100);
+   + GetValidatedEquippedTier(0) + GetRaceMightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + (InventoryItemCodes.Contains(EquippedAccessoryCode)
-     ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0) + GetRaceInsightBonus(), 10, 100);
+   + GetValidatedEquippedTier(2) + GetRaceInsightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + (InventoryItemCodes.Contains(EquippedArmorCode)
-     ? ValidEquippedTier(EquippedArmorCode, 1) : 0) + GetRaceResolveBonus(), 10, 100);
+   + GetValidatedEquippedTier(1) + GetRaceResolveBonus(), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
- const float TraitCrit = InventoryItemCodes.Contains(EquippedWeaponCode)
-   ? ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) * 0.008f : 0.f;
+ const int32 WeaponCode = GetEquipmentSlotCode(0);
+ const float TraitCrit = WeaponCode > 0
+   ? ValidEquippedTraitRarity(WeaponCode, 0, 1) * 0.008f : 0.f;
  return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
    0.05f, 0.25f);
 }
 
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
- const float TraitHaste = InventoryItemCodes.Contains(EquippedAccessoryCode)
-   ? ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) * 0.006f : 0.f;
+ const int32 AccessoryCode = GetEquipmentSlotCode(2);
+ const float TraitHaste = AccessoryCode > 0
+   ? ValidEquippedTraitRarity(AccessoryCode, 2, 3) * 0.006f : 0.f;
  return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
    + (HasLegendaryPerk(2) ? 0.025f : 0.f),
    0.f, 0.20f);
@@ -210,17 +229,17 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
  const float GearMastery = FMath::Clamp(
-   ((InventoryItemCodes.Contains(EquippedWeaponCode) ? ValidEquippedTier(EquippedWeaponCode, 0) : 0)
-    + (InventoryItemCodes.Contains(EquippedArmorCode) ? ValidEquippedTier(EquippedArmorCode, 1) : 0)
-    + (InventoryItemCodes.Contains(EquippedAccessoryCode) ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0)) * 0.0015f, 0.f, 0.12f);
+   (GetValidatedEquippedTier(0) + GetValidatedEquippedTier(1)
+    + GetValidatedEquippedTier(2)) * 0.0015f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
 
 float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
- const float TraitVersatility = InventoryItemCodes.Contains(EquippedArmorCode)
-   ? ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) * 0.005f : 0.f;
+ const int32 ArmorCode = GetEquipmentSlotCode(1);
+ const float TraitVersatility = ArmorCode > 0
+   ? ValidEquippedTraitRarity(ArmorCode, 1, 2) * 0.005f : 0.f;
  return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
    0.f, 0.12f);
 }
@@ -606,16 +625,28 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  Order.Reserve(Count);
  for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
  if (InventorySortMode == 0) return Order;
+ // Validate each item once before sorting. Re-decoding in every comparison
+ // would be expensive for large bags rendered by the HUD.
+ TArray<uint8> ValidItems;
+ ValidItems.SetNumUninitialized(Count);
+ for (int32 Index = 0; Index < Count; ++Index)
+  ValidItems[Index] = GetItemPower(InventoryItemCodes[Index]) > 0 ? 1 : 0;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
- Order.Sort([this](int32 A, int32 B) {
+ Order.Sort([this, &ValidItems](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
-  const int32 SlotA = CodeA > 0 ? (CodeA / 10000) % 10 : 99;
-  const int32 SlotB = CodeB > 0 ? (CodeB / 10000) % 10 : 99;
-  const int32 RarityA = CodeA > 0 ? (CodeA / 1000) % 10 : -1;
-  const int32 RarityB = CodeB > 0 ? (CodeB / 1000) % 10 : -1;
-  const int32 TierA = CodeA > 0 ? CodeA % 1000 : -1;
-  const int32 TierB = CodeB > 0 ? CodeB % 1000 : -1;
+  // The shared equipped-item decoder rejects malformed rarity/slot/tier/trait
+  // encodings. An invalid code must never outrank real gear in quality sort.
+  const bool bValidA = ValidItems[A] != 0;
+  const bool bValidB = ValidItems[B] != 0;
+  if (bValidA != bValidB) return bValidA;
+  if (!bValidA) return A < B;
+  const int32 SlotA = (CodeA / 10000) % 10;
+  const int32 SlotB = (CodeB / 10000) % 10;
+  const int32 RarityA = (CodeA / 1000) % 10;
+  const int32 RarityB = (CodeB / 1000) % 10;
+  const int32 TierA = CodeA % 1000;
+  const int32 TierB = CodeB % 1000;
   if (InventorySortMode == 1) {
    if (RarityA != RarityB) return RarityA > RarityB;
    if (TierA != TierB) return TierA > TierB;
@@ -1405,13 +1436,15 @@ void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ if (bEquipmentCraftInProgress || Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
- // The final inventory copy of equipped gear is protected. Extra duplicates
- // may be salvaged because the worn code remains represented in the bag.
- const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
+ // Protect the final owned copy of gear worn in any of the nine slots.
+ // Duplicate copies may still be salvaged without un-equipping the item.
+ // Every slot from Weapon through Ring uses the same protection.
+ const int32 WornSlot = (Code / 10000) % 10;
+ const bool bEquippedCode = MoonfallEquipmentSlots::IsKnownSlot(WornSlot)
+     && Code == GetEquipmentSlotCode(WornSlot);
  if (bEquippedCode) {
   int32 Copies = 0;
   for (const int32 Candidate : InventoryItemCodes)
@@ -1422,7 +1455,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
@@ -1441,7 +1474,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1449,14 +1482,13 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(Slot)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier >= 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bUpgradingEquipped = Code == EquippedCode;
  // Preserve the actual worn tier BEFORE equipping the crafted item.
  // Reading after EquipInventoryItem reports zero gain for worn upgrades.
@@ -1465,15 +1497,19 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
- if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bUpgradingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
@@ -1482,7 +1518,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1490,7 +1526,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(Slot)
      || Rarity < 2 || Rarity > 5 || Tier < 1 || Tier > 25
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // Unlike normal drops, reforge always yields a nonzero affix different
@@ -1500,18 +1536,22 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = bReforgingEquipped ? GetValidatedEquippedTier(Slot) : -1;
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
- if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bReforgingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootAffix = NewAffix;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentReforged(NewCode, Cost);
  return true;
 }
@@ -1524,7 +1564,7 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1532,7 +1572,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(Slot)
      || Rarity < 0 || Rarity >= 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
@@ -1540,17 +1580,21 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  // bounded. Validate the entire transaction before editing inventory.
  const int32 Cost = 20 + Tier * 3 + Rarity * 15;
  if (Salvage < Cost) return false;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bAscendingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = bAscendingEquipped ? GetValidatedEquippedTier(Slot) : -1;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
- if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bAscendingEquipped
+     && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentAscended(NewCode, Cost);
  return true;
 }
@@ -1965,9 +2009,9 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 18 + RarityBias ? 2
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
  LastLootTier = NewTier;
- // Enemy rank influences quality, not gear slot: any enemy can drop
- // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ // Every enemy can drop gear for any of the nine equipment slots.
+ // Quality weights remain unchanged, and the slot ID is saved in the same code.
+ LastLootSlot = FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -2037,7 +2081,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
@@ -2243,54 +2287,32 @@ void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) E
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
- // A candidate is only suggested while the player is safely browsing the bag.
+ // The selected row is already owned by index. Equipped codes are validated
+ // once, so the advisor never repeatedly scans an inventory of 10,000 items.
  if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
- const int32 EquippedCodes[] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- const int32 Candidate = InventoryItemCodes[InventoryIndex];
- const int32 Slot = (Candidate / 10000) % 10;
- if (Slot < 0 || Slot > 2 || Candidate <= 0 || Candidate == EquippedCodes[Slot]) return 0;
- const auto ValidCode = [this](int32 Code, int32 ExpectedSlot) {
-  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) return false;
-  const int32 Affix = Code / 100000;
-  const int32 EncodedSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  return EncodedSlot == ExpectedSlot && Affix >= 0 && Affix <= 3
-    && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
-    && (Rarity != 0 || Affix == 0)
-    && Code == Affix * 100000 + ExpectedSlot * 10000 + Rarity * 1000 + Tier;
- };
- if (!ValidCode(Candidate, Slot)) return 0;
- const auto GearScore = [&](int32 Code) {
-  if (!ValidCode(Code, Slot)) return 0;
-  const int32 Affix = Code / 100000;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  int32 MatchingPieces = 0;
-  if (Affix > 0) {
-   for (int32 OtherSlot = 0; OtherSlot < 3; ++OtherSlot) {
-    if (OtherSlot == Slot) continue;
-    const int32 OtherCode = EquippedCodes[OtherSlot];
-    if (ValidCode(OtherCode, OtherSlot) && OtherCode / 100000 == Affix)
-     ++MatchingPieces;
-   }
-  }
-  const int32 Synergy = MatchingPieces == 2 ? 80 : MatchingPieces == 1 ? 40 : 0;
-  return Tier * 1000 + Rarity * 100 + (Affix > 0 ? 10 : 0) + Synergy;
- };
- return GearScore(Candidate) - GearScore(EquippedCodes[Slot]);
+ MoonfallEquipmentSlots::ExpandedCodes EquippedCodes{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  EquippedCodes[Slot] = GetEquipmentSlotCode(Slot);
+ return MoonfallEquipmentSlots::AdvisorUpgradeDelta(
+   InventoryItemCodes[InventoryIndex], EquippedCodes);
 }
 
 int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 {
- // An explicit on-demand query, not a per-frame scan of large bags.
+ // Build one validated snapshot before walking the entire bag. Every entry
+ // is owned by its inventory index; scoring only reads that one code plus
+ // at most nine equipped codes, avoiding quadratic ownership searches.
  if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
   return INDEX_NONE;
+ MoonfallEquipmentSlots::ExpandedCodes EquippedCodes{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  EquippedCodes[Slot] = GetEquipmentSlotCode(Slot);
  int32 BestIndex = INDEX_NONE;
  int32 BestImprovement = 0;
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-  const int32 Improvement = GetEquipmentUpgradeScore(Index);
+  const int32 Improvement = MoonfallEquipmentSlots::AdvisorUpgradeDelta(
+    InventoryItemCodes[Index], EquippedCodes);
   if (Improvement > BestImprovement) {
    BestImprovement = Improvement;
    BestIndex = Index;
@@ -2301,45 +2323,45 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
- // Only a deliberate input while viewing inventory can change worn equipment.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
- const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- int32 BestScores[3] = {-1, -1, -1};
- int32 BestIndices[3] = {-1, -1, -1};
- // Keep existing equipment unless the candidate is strictly better.
- // Tier is primary, rarity secondary, an affix breaks ties.
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = EquippedCodes[Slot];
-  // A stale or externally edited equipped code cannot outrank owned loot.
-  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;
-  const int32 Affix = Code / 100000;
-  const int32 EncodedSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+ // Explicit controller/keyboard action only; never triggered by loot pickup.
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ // Use the same validated gear snapshot and scoring as the read-only advisor.
+ // This avoids ignoring set synergy when multiple items share tier and rarity.
+ MoonfallEquipmentSlots::ExpandedCodes EquippedCodes{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  EquippedCodes[Slot] = Code;
  }
+ int32 BestScores[MoonfallEquipmentSlots::SlotCount];
+ int32 BestIndices[MoonfallEquipmentSlots::SlotCount];
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  BestScores[Slot] = 0;
+  BestIndices[Slot] = INDEX_NONE;
+  const int32 Code = EquippedCodes[Slot];
+  if (Code <= 0) continue;
+  BestScores[Slot] = MoonfallEquipmentSlots::AdvisorItemScore(Code, Slot, EquippedCodes);
+ }
+ // Scan the bag once, considering the exact same affix/set bonus as the UI.
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
   const int32 Code = InventoryItemCodes[Index];
   if (Code <= 0) continue;
-  const int32 Affix = Code / 100000;
   const int32 Slot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+  if (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)) continue;
+  const int32 Score = MoonfallEquipmentSlots::AdvisorItemScore(Code, Slot, EquippedCodes);
   if (Score > BestScores[Slot]) {
    BestScores[Slot] = Score;
    BestIndices[Slot] = Index;
   }
  }
  int32 UpgradesEquipped = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Index = BestIndices[Slot];
+  // Earlier slot swaps may have changed which set bonus is active. Recheck
+  // against live worn gear so an originally promising choice cannot lower
+  // the advisor score after the loadout begins to change.
+  if (Index != INDEX_NONE && GetEquipmentUpgradeScore(Index) > 0
+      && EquipInventoryItem(Index))
    ++UpgradesEquipped;
  }
  OnBestLoadoutEquipped(UpgradesEquipped);
@@ -2347,6 +2369,12 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
+{
+ if (bEquipmentCraftInProgress) return false;
+ return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
 {
  if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
@@ -2356,19 +2384,34 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ if (MoonfallEquipmentSlots::IsFutureSlot(SlotIndex)) {
+  // Future-slot equip never alters the three legacy tiers or armor health.
+  if (EquippedExtraItemCodes.Num() != 0
+      && EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount)
+   return false;
+  if (EquippedExtraItemCodes.IsEmpty())
+   EquippedExtraItemCodes.Init(0, MoonfallEquipmentSlots::FutureCount);
+  const int32 Index = SlotIndex - MoonfallEquipmentSlots::LegacyCount;
+  if (EquippedExtraItemCodes[Index] == Code) return false;
+  EquippedExtraItemCodes[Index] = Code;
+  return true;
+ }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
- // The cached Blueprint tier may be stale; only owned, correctly decoded
- // equipment may influence the max-health delta when changing armor.
- const int32 PreviousTier = GetValidatedEquippedTier(SlotIndex);
+ // Normal equips validate the currently worn item. Crafting supplies the
+ // validated PRE-mutation tier because its old inventory code was replaced.
+ // Without this, reforge/ascend can grant free max health to worn armor.
+ const int32 PreviousTier = PreviousTierOverride >= 0
+   ? FMath::Clamp(PreviousTierOverride, 0, 25)
+   : GetValidatedEquippedTier(SlotIndex);
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
@@ -2397,7 +2440,7 @@ bool ValidMoonfallItemCode(int32 Code) {
  // Match RollEquipmentCode, ground pickup and manual equip. Common gear
  // has no trait; uncommon gear may be traitless. Reject only malformed codes,
  // not legitimately collected rewards that must persist through respawning.
- return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
+ return Trait >= 0 && Trait <= 3 && MoonfallEquipmentSlots::IsKnownSlot(Slot)
      && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Trait == 0)
      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
@@ -2699,7 +2742,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // not save half-restored inventory, quests, equipment or shrine progress.
  // Also protect existing incompatible/unreadable save slots.
  if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
+     || bEquipmentCraftInProgress || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
@@ -2765,14 +2808,21 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
- // Keep the equipped references consistent with the bag; otherwise the loader
- // would silently clear an equipped slot on the next launch.
+ // Validate both legacy references and V13 extended slots BEFORE writing.
  const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::LegacyCount; ++Slot) {
   const int32 Code = WornCodes[Slot];
   if (Code != 0 && (!ValidMoonfallItemCode(Code)
       || ((Code / 10000) % 10) != Slot || !InventoryItemCodes.Contains(Code)))
    return false;
+ }
+ if (EquippedExtraItemCodes.Num() != 0
+     && EquippedExtraItemCodes.Num() != MoonfallEquipmentSlots::FutureCount) return false;
+ for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Code = EquippedExtraItemCodes.IsEmpty()
+      ? 0 : EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+  if (Code != 0 && (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)
+      || !InventoryItemCodes.Contains(Code))) return false;
  }
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
@@ -2817,15 +2867,48 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ // Any serialized future-slot item requires V13, not just owned or
+ // equipped gear. A V12 save containing a pending drop or unopened dungeon
+ // chest from slots 3-8 would be unreadable by the legacy three-slot client.
+ bool bNeedsV13 = false;
+ for (const int32 Code : InventoryItemCodes)
+  if (MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)) { bNeedsV13 = true; break; }
+ if (!bNeedsV13)
+  for (const int32 Code : EquippedExtraItemCodes)
+   if (Code > 0) { bNeedsV13 = true; break; }
+ if (!bNeedsV13)
+  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+   if (MoonfallEquipmentSlots::IsFutureSlot((Record.ItemCode / 10000) % 10)) {
+    bNeedsV13 = true;
+    break;
+   }
+ if (!bNeedsV13)
+  for (const int32 Code : DungeonTreasureStates)
+   if (Code > 0 && MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)) {
+    bNeedsV13 = true;
+    break;
+   }
+ if (bNeedsV13) {
+  Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion;
+  Save->ExpandedEquippedCodes.Init(0, MoonfallEquipmentSlots::SlotCount);
+  Save->ExpandedEquippedCodes[0] = EquippedWeaponCode;
+  Save->ExpandedEquippedCodes[1] = EquippedArmorCode;
+  Save->ExpandedEquippedCodes[2] = EquippedAccessoryCode;
+  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+   Save->ExpandedEquippedCodes[Slot] = EquippedExtraItemCodes.IsEmpty()
+       ? 0 : EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount];
+ } // V12 stays unchanged when there are no extra-slot items.
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ // Nested restore during a worn-armor health callback would tear a craft.
+ if (bEquipmentCraftInProgress) return false;
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedSaveVersion) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2912,6 +2995,29 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
    return false;
   }
+ }
+ // Validate V13's full equipment snapshot before changing any live state.
+ // Old saves have no nine-slot field, so any unexpected extra data fails closed.
+ if (Save->Version >= MoonfallEquipmentSlots::ExpandedSaveVersion) {
+  if (Save->ExpandedEquippedCodes.Num() != MoonfallEquipmentSlots::SlotCount) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+   const int32 Code = Save->ExpandedEquippedCodes[Slot];
+   if (Slot < MoonfallEquipmentSlots::LegacyCount && Code != SavedWornCodes[Slot]) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+   if (Code != 0 && (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)
+       || !Save->InventoryItemCodes.Contains(Code))) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ } else if (!Save->ExpandedEquippedCodes.IsEmpty()) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
  }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
@@ -3112,6 +3218,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ EquippedExtraItemCodes.Init(0, MoonfallEquipmentSlots::FutureCount);
+ if (Save->Version >= MoonfallEquipmentSlots::ExpandedSaveVersion) {
+  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+   EquippedExtraItemCodes[Slot - MoonfallEquipmentSlots::LegacyCount] =
+     Save->ExpandedEquippedCodes[Slot];
+ }
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
@@ -3393,6 +3505,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  // Character details are informational: right-click must not equip hidden rows.
+  if (bCharacterStatsOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();

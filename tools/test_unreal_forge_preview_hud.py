@@ -30,10 +30,19 @@ class ForgeHUDPreview(unittest.TestCase):
         self.assertIn("ForgeFiveSelectedInventoryItem", self.hero)
 
     def test_respects_small_screens_and_keeps_existing_details(self):
-        for item in ("Top + PanelHeight - 230.f", "Top + PanelHeight - 207.f",
-                     "Top + PanelHeight - 182.f", "Top + PanelHeight - 156.f"):
-            self.assertIn(item, self.hud)
-        self.assertIn("GetProjectedSetPieceCount", self.hud)
+        # Check the actual responsive anchors, not obsolete fixed offsets.
+        # A double set change takes two lines, above the forge forecast.
+        selected = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1]
+        details = selected.split("const int32 ReforgeCost", 1)[0]
+        self.assertIn("if (PanelHeight >= 500.f)", details)
+        self.assertIn("Top + PanelHeight - 230.f", details)
+        self.assertIn("Top + PanelHeight - (bTwoSetChanges ? 212.f : 207.f)", details)
+        self.assertIn("Top + PanelHeight - 196.f", details)
+        self.assertIn("Top + PanelHeight - 177.f", details)
+        self.assertIn("if (bTwoSetChanges)", details)
+        self.assertIn("PanelWidth < 550.f", details)
+        self.assertIn("Top + PanelHeight - 156.f", self.hud)
+        self.assertIn("GetProjectedSetPieceCount", details)
         self.assertNotIn("GetAttackWarningRemaining", self.hud)
 
 if __name__ == "__main__":

@@ -47,6 +47,17 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error: $($script.Name)" }
           }
           Write-Host "Parsed $($scripts.Count) build scripts on Windows."
+      - name: Prepare .NET 8 for launcher build
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile Moonfall Windows launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj' --configuration Release --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'Moonfall Windows launcher compile failed.' }
+          'Moonfall launcher compiled with .NET 8. Native Unreal engine and gameplay were NOT compiled.' >> $env:GITHUB_STEP_SUMMARY
 
   unreal-editor-compile:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
@@ -106,7 +117,8 @@ jobs:
             'Moonfall.Dungeons.All30EntranceLocations',
             'Moonfall.Dungeons.SeededRoomArchetypes',
             'Moonfall.Dungeons.BossVictoryLedgerDefaults',
-            'Moonfall.Dungeons.BossVictorySaveRoundTrip'
+            'Moonfall.Dungeons.BossVictorySaveRoundTrip',
+            'Moonfall.Dungeons.EquipmentV13SaveRoundTrip'
           )) {
             if (-not $contents.Contains("$required=True")) {
               throw "Native dungeon test was not verified as passing: $required"
@@ -116,7 +128,7 @@ jobs:
               -not $contents.Contains('AnyNativeTestFailed=False')) {
             throw 'Native dungeon test report does not show a successful Editor run.'
           }
-          "Native UE5.4 dungeon automation: all four tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          "Native UE5.4 dungeon automation: all five tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
       - name: Preserve native dungeon test evidence
         if: always()
         uses: actions/upload-artifact@v4

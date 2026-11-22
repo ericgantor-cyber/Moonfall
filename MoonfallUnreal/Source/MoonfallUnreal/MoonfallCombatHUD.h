@@ -26,5 +26,7 @@ private:
  int32 CachedAdvisorWeapon = 0;
  int32 CachedAdvisorArmor = 0;
  int32 CachedAdvisorAccessory = 0;
+ // Track the six additional slots without rescanning inventory each frame.
+ int32 CachedAdvisorExtraCodes[6] = {};
  int32 CachedAdvisorScore = 0;
 };

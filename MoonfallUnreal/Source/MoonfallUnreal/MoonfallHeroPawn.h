@@ -94,6 +94,9 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Read-only nine-slot view. Legacy 0-2 remain validated equipped items;
+ // 3-8 are deliberately empty until a versioned save migration exists.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentSlotCode(int32 Slot) const;
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
@@ -325,6 +328,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedWeaponCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedArmorCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedAccessoryCode = 0;
+ // Slots 3-8 are stored separately and never remap the original three.
+ // Empty in V1-V12 loads; V13 restores exactly six validated entries.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment")
+ TArray<int32> EquippedExtraItemCodes;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 WeaponTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 ArmorTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 AccessoryTier = 0;
@@ -346,6 +353,9 @@ private:
  // Collision-aware teleport during load can fire shrine overlaps before all
  // progress has been restored. Never allow nested discovery saves in this phase.
  bool bWorldProgressLoadInProgress = false;
+ // A worn-armor craft calls OnHealthChanged before it can deduct salvage.
+ // Blueprint callbacks must not persist or reenter that partial transaction.
+ bool bEquipmentCraftInProgress = false;
  // Protect an existing unsupported or unreadable slot from routine autosaves.
  // Cleared only after a supported save has been loaded successfully.
  bool bPersistentSaveWritesBlocked = false;
@@ -463,4 +473,9 @@ private:
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
+private:
+ // Crafting changes the owned bag code before synchronizing equipped gear.
+ // Carry the previously validated tier across that transaction so armor
+ // max-health adjustments use the real old tier, not an unowned stale code.
+ bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };
