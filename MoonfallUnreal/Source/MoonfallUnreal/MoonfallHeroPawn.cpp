@@ -624,6 +624,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
+ Input->BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
@@ -917,9 +918,16 @@ bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
 void AMoonfallHeroPawn::ToggleLockOn()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
- // One key: first press locks, later presses cycle visible enemies.
- // If no other eligible target exists, the next press unlocks.
- AcquireLockTarget(LockedEnemy.IsValid() ? 1 : 0);
+ // Y toggles lock on/off. Tab is reserved for cycling a locked target.
+ if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); return; }
+ AcquireLockTarget(0);
+}
+void AMoonfallHeroPawn::SwitchLockedTarget()
+{
+ // Tab remains ChronicleFocus while the Atlas is open.
+ if (!LockedEnemy.IsValid() || Health <= 0.f || bOptionsOpen || bInventoryOpen
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ AcquireLockTarget(1);
 }
 void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
 {
@@ -964,7 +972,7 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
  }
  if (!Best && Direction && Current) Best = Wrapped;
  if (Best) { LockedEnemy = Best; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
- else LockedEnemy.Reset();
+ else if (!Current) LockedEnemy.Reset();
 }
 
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
