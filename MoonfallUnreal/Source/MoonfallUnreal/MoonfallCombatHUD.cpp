@@ -21,6 +21,15 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ // Read-only targeting cue. No actor scans, allocations or new art assets.
+ if (Hero->Health > 0.f && !Hero->bOptionsOpen && !Hero->bInventoryOpen
+     && !Hero->bAtlasOpen && !Hero->bResidentContextOpen && Hero->GetLockedTarget()) {
+  DrawText(TEXT("TARGET LOCK  |  T / MIDDLE MOUSE"),
+      FLinearColor(0.95f,0.79f,0.42f),
+      FMath::Max(8.f, Canvas->SizeX * 0.5f - 155.f),
+      FMath::Max(12.f, Canvas->SizeY * 0.19f), nullptr,
+      Canvas->SizeX < 900.f ? 0.72f : 0.90f);
+ }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
