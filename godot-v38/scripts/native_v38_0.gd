@@ -753,6 +753,12 @@ func _v398_toggle_tree()->void:
     beast["v404_tell_next"]=maxf(float(beast.get("v404_tell_next",0.0)),map_time+2.0)
 
 func _unhandled_input(event:InputEvent)->void:
+ # Close the talent constellation before the base Escape handler opens
+ # another menu, preserving the expected one-step return to the world.
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies():
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
   _v401_end_z_intro()
   get_viewport().set_input_as_handled()
