@@ -87,6 +87,36 @@ inline bool TryPrepareV13(const LegacyCodes& legacy, const FutureCodes& future,
  output = candidate;
  return true;
 }
+// Read-only advisor scoring against a prevalidated nine-slot snapshot.
+// Callers populate equipped with GetEquipmentSlotCode, which checks ownership
+// once per slot. Scanning a large bag then costs O(items * 9), not O(items^2).
+// The 2pc/3pc set synergy is capped by threshold, not by the total pieces.
+constexpr int AdvisorItemScore(int code, int expectedSlot,
+                               const ExpandedCodes& equipped) {
+ if (!IsCanonicalForSlot(code, expectedSlot)) return 0;
+ const int affix = code / 100000;
+ const int rarity = (code / 1000) % 10;
+ const int tier = code % 1000;
+ int matchingPieces = 0;
+ if (affix > 0) {
+  for (int otherSlot = 0; otherSlot < SlotCount; ++otherSlot) {
+   if (otherSlot == expectedSlot) continue;
+   const int wornCode = equipped[otherSlot];
+   if (IsCanonicalForSlot(wornCode, otherSlot)
+       && wornCode / 100000 == affix) ++matchingPieces;
+  }
+ }
+ const int synergy = matchingPieces >= 2 ? 80
+   : matchingPieces == 1 ? 40 : 0;
+ return tier * 1000 + rarity * 100 + (affix > 0 ? 10 : 0) + synergy;
+}
+constexpr int AdvisorUpgradeDelta(int candidate, const ExpandedCodes& equipped) {
+ const int slot = (candidate / 10000) % 10;
+ if (!IsCanonicalForSlot(candidate, slot) || equipped[slot] == candidate)
+  return 0;
+ return AdvisorItemScore(candidate, slot, equipped)
+   - AdvisorItemScore(equipped[slot], slot, equipped);
+}
 // A downgrade that simply drops six worn items would lose player progress.
 // Leave destination untouched and refuse it until all six slots are empty.
 constexpr bool TryDowngradeToV12(const ExpandedCodes& gear,
