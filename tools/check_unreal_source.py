@@ -6464,7 +6464,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for key in ("T", "MiddleMouseButton", "Gamepad_DPad_Down"):
             self.assertIn(f'ActionName="LockOn",Key={key}', inputs)
-        self.assertIn('ActionName="RacePower",Key=Y', inputs)
+        self.assertIn('ActionName="RacePower",Key=N', inputs)
+        self.assertNotIn('ActionName="RacePower",Key=Y', inputs)
         self.assertNotIn('ActionName="RacePower",Key=T', inputs)
         self.assertNotIn('ActionName="LockOn",Key=Y', inputs)
         self.assertIn('ActionName="LockNext",Key=Tab', inputs)
