@@ -1987,7 +1987,6 @@ void AMoonfallHeroPawn::RefreshTalentBonuses()
  const float NewHealth = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Health, false);
  const float NewMana = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Mana, false);
  const float NewStamina = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Stamina, false);
- const float OldHealthMax = MaxHealth;
  // Remove old bonuses before applying new ones: purchases and respecs must
  // never compound already equipped bonuses, nor erase normal level growth.
  MaxHealth = FMath::Clamp(MaxHealth - TalentAppliedHealthBonus + NewHealth, 1.f, 100000.f);
@@ -2003,8 +2002,8 @@ void AMoonfallHeroPawn::RefreshTalentBonuses()
  Health = FMath::Clamp(Health, 0.f, MaxHealth);
  Mana = FMath::Clamp(Mana, 0.f, MaxMana);
  Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
- if (!FMath::IsNearlyEqual(MaxHealth, OldHealthMax)) OnHealthChanged(Health, MaxHealth);
 }
+
 bool AMoonfallHeroPawn::CommitTalentRanks(const TMap<FName, int32>& Candidate)
 {
  if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
@@ -2036,10 +2035,10 @@ bool AMoonfallHeroPawn::CommitTalentRanks(const TMap<FName, int32>& Candidate)
   TalentMeleeDamageBonus = PreviousMeleeBonus;
   TalentRangedDamageBonus = PreviousRangedBonus;
   TalentMagicDamageBonus = PreviousMagicBonus;
-  OnHealthChanged(Health, MaxHealth);
   return false;
  }
  SecondsSinceLastWorldSave = 0.f;
+ OnHealthChanged(Health, MaxHealth);
  OnTalentRanksChanged();
  return true;
 }
