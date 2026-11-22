@@ -2862,14 +2862,27 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
- // Only create a V13 save when extra-slot items need preservation.
- // Otherwise write V12 for maximum backward compatibility.
+ // Any serialized future-slot item requires V13, not just owned or
+ // equipped gear. A V12 save containing a pending drop or unopened dungeon
+ // chest from slots 3-8 would be unreadable by the legacy three-slot client.
  bool bNeedsV13 = false;
  for (const int32 Code : InventoryItemCodes)
   if (MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)) { bNeedsV13 = true; break; }
  if (!bNeedsV13)
   for (const int32 Code : EquippedExtraItemCodes)
    if (Code > 0) { bNeedsV13 = true; break; }
+ if (!bNeedsV13)
+  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+   if (MoonfallEquipmentSlots::IsFutureSlot((Record.ItemCode / 10000) % 10)) {
+    bNeedsV13 = true;
+    break;
+   }
+ if (!bNeedsV13)
+  for (const int32 Code : DungeonTreasureStates)
+   if (Code > 0 && MoonfallEquipmentSlots::IsFutureSlot((Code / 10000) % 10)) {
+    bNeedsV13 = true;
+    break;
+   }
  if (bNeedsV13) {
   Save->Version = MoonfallEquipmentSlots::ExpandedSaveVersion;
   Save->ExpandedEquippedCodes.Init(0, MoonfallEquipmentSlots::SlotCount);
