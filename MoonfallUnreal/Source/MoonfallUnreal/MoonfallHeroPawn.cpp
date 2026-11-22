@@ -3,6 +3,8 @@
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallTalentRules.h"
+#include "MoonfallTalentWebLayout.h"
+#include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -583,6 +585,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
+ Input->BindAction(TEXT("Talents"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
+ Input->BindAction(TEXT("TalentsSpend"), IE_Pressed, this, &AMoonfallHeroPawn::TalentWebPurchase);
+ Input->BindAction(TEXT("TalentsReset"), IE_Pressed, this, &AMoonfallHeroPawn::TalentWebReset);
+ Input->BindAction(TEXT("TalentsBack"), IE_Pressed, this, &AMoonfallHeroPawn::TalentWebBack);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
@@ -1930,6 +1936,57 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 
 // Godot's complete constellation is data-driven; the player owns only ranks,
 // and derived bonuses are cached whenever a build changes or a save is loaded.
+// A UI-only state machine. Talent allocations remain validated and saved by
+// the shared engine-independent 141-node rules, not by this screen.
+void AMoonfallHeroPawn::ToggleTalentWeb()
+{
+ if (bTalentWebOpen) {
+  bTalentWebOpen = false;
+  bTalentRespecConfirm = false;
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false;
+  return;
+ }
+ if (Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+     || (bInventoryOpen && !bCharacterStatsOpen)) return;
+ if (bInventoryOpen) ToggleInventory(); // Character sheet to constellation.
+ StopJumping();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ EndSprint();
+ EndGuard();
+ bTalentWebOpen = true;
+ bTalentRespecConfirm = false;
+ TalentWebSelected = FMath::Clamp(TalentWebSelected, 0, MoonfallTalents::Catalog().Num() - 1);
+ TalentWebZoom = FMath::Clamp(FMath::IsFinite(TalentWebZoom) ? TalentWebZoom : 0.2f, 0.08f, 2.1f);
+ TalentWebPan = FVector2D::ZeroVector;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = true;
+}
+void AMoonfallHeroPawn::TalentWebBack()
+{
+ if (bTalentWebOpen) ToggleTalentWeb();
+}
+void AMoonfallHeroPawn::TalentWebStepSelection(int32 Direction)
+{
+ if (!bTalentWebOpen || Direction == 0 || MoonfallTalents::Catalog().IsEmpty()) return;
+ const int32 Count = MoonfallTalents::Catalog().Num();
+ TalentWebSelected = (TalentWebSelected + (Direction > 0 ? 1 : -1) + Count) % Count;
+ MoonfallTalentWeb::Focus(TalentWebSelected, TalentWebPan);
+ bTalentRespecConfirm = false;
+}
+void AMoonfallHeroPawn::TalentWebPurchase()
+{
+ if (!bTalentWebOpen || !MoonfallTalents::Catalog().IsValidIndex(TalentWebSelected)) return;
+ bTalentRespecConfirm = false;
+ SpendTalentPoint(FName(MoonfallTalents::Catalog()[TalentWebSelected].Id));
+}
+void AMoonfallHeroPawn::TalentWebReset()
+{
+ if (!bTalentWebOpen || TalentRanks.IsEmpty()) return;
+ if (!bTalentRespecConfirm) { bTalentRespecConfirm = true; return; }
+ bTalentRespecConfirm = false;
+ ResetTalentTree();
+}
+
 int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
 {
  return MoonfallTalents::AvailablePoints(Level, TalentRanks);
@@ -3597,6 +3654,34 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (bTalentWebOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+   int32 Width = 0, Height = 0;
+   float X = 0.f, Y = 0.f;
+   PC->GetViewportSize(Width, Height);
+   if (PC->bShowMouseCursor && PC->GetMousePosition(X, Y)
+       && FMath::IsFinite(X) && FMath::IsFinite(Y)) {
+    const auto Panel = MoonfallTalentWeb::Panel(static_cast<float>(Width), static_cast<float>(Height));
+    if (Panel.bUsable) {
+     if (X >= Panel.Left + Panel.Width - 42.f && X <= Panel.Left + Panel.Width - 14.f
+         && Y >= Panel.Top + 12.f && Y <= Panel.Top + 40.f) { ToggleTalentWeb(); return; }
+     const float SideX = Panel.Left + Panel.Width - 250.f;
+     if (X >= SideX && X <= SideX + 224.f) {
+      if (Y >= Panel.Top + Panel.Height - 118.f && Y <= Panel.Top + Panel.Height - 81.f) {
+       TalentWebPurchase(); return;
+      }
+      if (Y >= Panel.Top + Panel.Height - 70.f && Y <= Panel.Top + Panel.Height - 33.f) {
+       TalentWebReset(); return;
+      }
+     }
+     const int32 Hit = MoonfallTalentWeb::HitTest(static_cast<float>(Width),
+         static_cast<float>(Height), TalentWebZoom, TalentWebPan, X, Y);
+     if (Hit != INDEX_NONE) { TalentWebSelected = Hit; bTalentRespecConfirm = false; }
+    }
+   }
+  }
+  return;
+ }
  // Handle all Atlas pointer actions before gameplay/NPC input.
  if (bAtlasOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {
