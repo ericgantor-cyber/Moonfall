@@ -3855,6 +3855,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Hero->GetLockedTarget()', self.hud)
         self.assertIn('TARGET LOCK  |  T / MIDDLE MOUSE', self.hud)
 
+    def test_lock_scan_budget_counts_only_eligible_in_cone_enemies(self):
+        # Static contract. Actor iteration remains input-triggered, and far or
+        # behind-camera enemies cannot exhaust the 512-candidate budget.
+        lock = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTargetLock()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn(
+            "for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && Examined < 512; ++It) {",
+            lock)
+        self.assertNotIn("++It, ++Examined", lock)
+        range_guard = "if (!IsTargetLockCandidate(Candidate, false)) continue;"
+        cone_guard = "if (!FMath::IsFinite(Alignment) || Alignment < 0.55f) continue;"
+        self.assertIn(range_guard, lock)
+        self.assertIn(cone_guard, lock)
+        self.assertEqual(lock.count("++Examined;"), 1)
+        self.assertLess(lock.index(range_guard), lock.index("++Examined;"))
+        self.assertLess(lock.index(cone_guard), lock.index("++Examined;"))
+        self.assertLess(lock.index("++Examined;"),
+                        lock.index("IsTargetLockCandidate(Candidate, true)"))
+        self.assertIn("OnTargetLockChanged(Best)", lock)
+
     def test_mb5_dual_cast_preserves_mouse_inputs_and_modal_guards(self):
         # Static contract: physical MB5 has exactly one combat action; menus
         # cannot spend mana or cast a spell through that action.
