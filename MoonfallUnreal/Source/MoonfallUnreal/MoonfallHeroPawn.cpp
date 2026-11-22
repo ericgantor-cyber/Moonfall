@@ -928,7 +928,11 @@ AMoonfallEnemy* AMoonfallHeroPawn::GetLockedEnemy() const
 }
 bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
 {
- if (!IsValid(Enemy) || !GetWorld() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) return false;
+ // The same health invariants used by damage should also govern target acquisition.
+ // Reject corrupt Blueprint state before a target can capture camera tracking.
+ if (!IsValid(Enemy) || !GetWorld() || !FMath::IsFinite(Enemy->Health)
+     || !FMath::IsFinite(Enemy->MaxHealth) || Enemy->MaxHealth <= 0.f
+     || Enemy->Health <= 0.f || Enemy->Health > Enemy->MaxHealth) return false;
  const FVector Offset = Enemy->GetActorLocation() - GetActorLocation();
  const float Range = FMath::IsFinite(LockRange) ? FMath::Clamp(LockRange, 300.f, 2500.f) : 1600.f;
  return !Offset.ContainsNaN() && Offset.SizeSquared() <= FMath::Square(Range);
