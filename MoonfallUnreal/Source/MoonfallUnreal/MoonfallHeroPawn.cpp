@@ -1436,7 +1436,7 @@ void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ if (bEquipmentCraftInProgress || Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // Protect the final owned copy of gear worn in any of the nine slots.
@@ -1474,7 +1474,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1497,16 +1497,19 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped
      && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
@@ -1515,7 +1518,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1536,16 +1539,19 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
  const int32 PreviousEquippedTier = bReforgingEquipped ? GetValidatedEquippedTier(Slot) : -1;
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped
      && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootAffix = NewAffix;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentReforged(NewCode, Cost);
  return true;
 }
@@ -1558,7 +1564,7 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1578,14 +1584,17 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 PreviousEquippedTier = bAscendingEquipped ? GetValidatedEquippedTier(Slot) : -1;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ bEquipmentCraftInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  if (bAscendingEquipped
      && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftInProgress = false;
   return false;
  }
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
+ bEquipmentCraftInProgress = false; // All gear, health and costs are committed.
  OnEquipmentAscended(NewCode, Cost);
  return true;
 }
@@ -2315,7 +2324,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  // Only an explicit controller/keyboard action while viewing inventory.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (bEquipmentCraftInProgress || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
  int32 BestScores[MoonfallEquipmentSlots::SlotCount];
  int32 BestIndices[MoonfallEquipmentSlots::SlotCount];
@@ -2356,6 +2365,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
+ if (bEquipmentCraftInProgress) return false;
  return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);
 }
 
@@ -2727,7 +2737,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // not save half-restored inventory, quests, equipment or shrine progress.
  // Also protect existing incompatible/unreadable save slots.
  if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
+     || bEquipmentCraftInProgress || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
@@ -2875,6 +2885,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ // Nested restore during a worn-armor health callback would tear a craft.
+ if (bEquipmentCraftInProgress) return false;
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
