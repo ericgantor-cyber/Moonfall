@@ -25,6 +25,14 @@ constexpr bool ShouldContinueBatch(int Processed,int RequestedBatchSize,
       (ElapsedMs>=0.0 &&
        ElapsedMs<ClampBatchTimeBudgetMs(RequestedBudgetMs)));
 }
+// A scene actor may be authored or added after the initial scan. A recovered
+// actor must have the exact region, dungeon and bounded slot identity.
+constexpr bool MatchesDungeonSlot(int Zone,int Dungeon,int Slot) {
+ return Zone>=0 && Zone<LegacyZoneCount &&
+  Dungeon>=0 && Dungeon<DungeonsPerZone &&
+  Slot>=0 && Slot<TotalDungeons &&
+  Zone*DungeonsPerZone+Dungeon==Slot;
+}
 // Authored slots can disappear after the initial map scan (for example
 // when an authored streaming level unloads during the startup timer).
 constexpr bool ShouldRetainAuthoredSlot(bool ActorValid,bool ActorDestroying) {
@@ -74,6 +82,12 @@ static_assert(BatchCount(0,4)==4 && BatchCount(29,4)==1);
 static_assert(ClampBatchSize(0)==1 && ClampBatchSize(100)==8);
 static_assert(ShouldContinueBatch(0,8,999.0,2.5));
 static_assert(!ShouldContinueBatch(1,8,3.0,2.5));
+static_assert(MatchesDungeonSlot(0,0,0));
+static_assert(MatchesDungeonSlot(5,4,29));
+static_assert(!MatchesDungeonSlot(5,4,28));
+static_assert(!MatchesDungeonSlot(-1,0,0));
+static_assert(!MatchesDungeonSlot(0,5,5));
+static_assert(!MatchesDungeonSlot(0,0,30));
 static_assert(ShouldRetainAuthoredSlot(true,false));
 static_assert(!ShouldRetainAuthoredSlot(false,false));
 static_assert(!ShouldRetainAuthoredSlot(true,true));
