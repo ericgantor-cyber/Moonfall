@@ -1,0 +1,43 @@
+name: UE5 Northern Expanse weather policy (C++17)
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthClimate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthBiomeTones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherRange.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthWeatherPreview.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthPrecipitation.h'
+      - 'tools/test_unreal_north_weather_policy.cpp'
+      - '.github/workflows/unreal-north-weather-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-weather:
+    name: Northern climate C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GCC weather regressions
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror tools/test_unreal_north_weather_policy.cpp -o /tmp/moonfall_north_weather
+          /tmp/moonfall_north_weather
+      - name: Configure Windows MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run MSVC weather regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_north_weather_policy.cpp /Fe:moonfall_north_weather.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_north_weather.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
