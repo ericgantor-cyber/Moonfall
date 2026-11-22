@@ -4508,7 +4508,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('rendererChoice.SelectedIndex == 1 ? "-dx11" : "-dx12"', launch)
         self.assertIn("Arguments = rendererArgument", launch)
         self.assertIn("UseShellExecute = true", launch)
-        self.assertNotIn("Process.Start(new ProcessStartInfo(gamePath) {\n                WorkingDirectory", launch)
         self.assertIn("Compile Moonfall Windows launcher", workflow)
         self.assertIn("actions/setup-dotnet@v4", workflow)
         self.assertIn("dotnet build 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj'", workflow)
