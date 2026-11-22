@@ -713,10 +713,36 @@ func _v406_respec()->void:
  _save_game()
  _v398_refresh_tree()
 
+# World combat pauses while the full-screen 141-node talent constellation is open.
+func _v406_talents_pause_enemies()->bool:
+ return is_instance_valid(v398_panel) and v398_panel.visible
+
+func _v406_cancel_pending_enemy_attacks()->void:
+ for beast in beasts:
+  if not bool(beast.get("alive",false)):continue
+  beast["windup"]=0.0
+  beast["elite_lunge_windup"]=0.0
+  beast["v404_attack_pending"]=false
+  beast["v404_tell_until"]=0.0
+  beast["v407_release_until"]=0.0
+  beast["v407_counter_open_until"]=0.0
+  beast["v28_sleep_dt"]=0.0
+  var warning:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
+  if is_instance_valid(warning):warning.visible=false
+  var nameplate:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(nameplate) and bool(beast.get("v400_bloodline",false)):
+   nameplate.text=str(beast.get("v400_family_name",""))+"  •  PHASE "+str(beast.get("boss_phase",1))
+   nameplate.modulate=Color.WHITE
+
+func _update_beasts(delta:float)->void:
+ if _v406_talents_pause_enemies():return
+ super._update_beasts(delta)
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
  if v398_panel.visible:
+  _v406_cancel_pending_enemy_attacks()
   _v406_fit_panel_to_viewport()
   _v398_refresh_tree()
 
@@ -804,6 +830,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
 
 
 func _update_beast_step(beast:Dictionary,delta:float)->void:
+ if _v406_talents_pause_enemies():return
  super._update_beast_step(beast,delta)
  if bool(beast.get("alive",false)) and bool(beast.get("boss",false)) and bool(beast.get("v400_bloodline",false)):
   var boss_name:String=str(beast.get("v400_family_name",""))
@@ -950,6 +977,7 @@ func _hero_damage_multiplier()->float:
  return base
 
 func _attack()->void:
+ if _v406_talents_pause_enemies():return
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
   return
