@@ -6451,5 +6451,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         collect.index("const FVector HeroPosition = Hero->GetActorLocation();"))
 
 
+    def test_combat_lock_on_is_transient_visible_and_context_safe(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for action, key in (("LockOn", "L"), ("LockOn", "MiddleMouseButton"),
+                            ("LockOn", "Gamepad_DPad_Down"),
+                            ("LockPrevious", "Comma"), ("LockPrevious", "Gamepad_DPad_Left"),
+                            ("LockNext", "Period"), ("LockNext", "Gamepad_DPad_Right")):
+            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
+        for action, method in (("LockOn", "ToggleLockOn"),
+                               ("LockNext", "LockNext"), ("LockPrevious", "LockPrevious")):
+            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed, this, &AMoonfallHeroPawn::{method})',
+                          self.hero_cpp)
+        self.assertIn("TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;", self.hero_h)
+        self.assertIn("bool AMoonfallHeroPawn::IsLockTargetValid", self.hero_cpp)
+        self.assertIn("FMath::IsFinite(Enemy->Health)", self.hero_cpp)
+        self.assertIn("TActorIterator<AMoonfallEnemy>", self.hero_cpp)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallLockAcquire)", self.hero_cpp)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallLockVisibility)", self.hero_cpp)
+        self.assertIn("NextLockVisibilityCheckAt = Now + 0.2f;", self.hero_cpp)
+        self.assertIn("Controller->SetControlRotation(FMath::RInterpTo", self.hero_cpp)
+        self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", self.hero_cpp)
+        self.assertIn("Locked ? Locked->GetActorLocation()", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::LockPrevious() { CycleLockOn(-1); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::LockNext() { CycleLockOn(1); }", self.hero_cpp)
+        # A/D remain movement keys, never lock-cycle actions.
+        self.assertNotIn('ActionName="LockNext",Key=D)', inputs)
+        self.assertNotIn('ActionName="LockPrevious",Key=A)', inputs)
+        for method in ("ToggleAtlas", "ToggleInventory", "OpenOptions", "RespawnAtCheckpoint"):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{method}() {{", 1)[1]
+            self.assertTrue(body.lstrip().startswith("LockedEnemy.Reset();"))
+        self.assertNotIn("LockedEnemy", (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
