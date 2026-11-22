@@ -198,6 +198,19 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Godot's classless 141-node constellation, two earned points per level.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") TMap<FName, int32> TalentRanks;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetUnspentTalentPoints() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetTalentRank(FName TalentId) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") TArray<FName> GetTalentIds() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool GetTalentNodeDetails(
+    FName TalentId, FString& Title, FName& Branch, int32& Tier,
+    int32& MinimumLevel, int32& MaximumRank, FName& PrerequisiteA, FName& PrerequisiteB) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") float GetTalentStatBonus(FName StatName, bool bPercent) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(FName TalentId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool ResetTalentTree();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Talents") void OnTalentRanksChanged();
+
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
@@ -462,5 +475,14 @@ private:
  TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
+ // Cached effects never recalculate the 141-node catalog in combat Tick.
+ float TalentAppliedHealthBonus = 0.f;
+ float TalentAppliedManaBonus = 0.f;
+ float TalentAppliedStaminaBonus = 0.f;
+ float TalentMeleeDamageBonus = 0.f;
+ float TalentRangedDamageBonus = 0.f;
+ float TalentMagicDamageBonus = 0.f;
+ void RefreshTalentBonuses();
+ bool CommitTalentRanks(const TMap<FName, int32>& Candidate);
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };
