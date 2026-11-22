@@ -6459,6 +6459,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="RacePower",Key=T', inputs)
         self.assertNotIn('ActionName="LockOn",Key=Y', inputs)
         self.assertIn('ActionName="LockNext",Key=Tab', inputs)
+        for action, key in (("GamepadContextLeft", "Gamepad_DPad_Left"), ("GamepadContextRight", "Gamepad_DPad_Right")):
+            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
+            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
+        self.assertNotIn('ActionName="OptionsLeft",Key=Gamepad_DPad_Left', inputs)
+        self.assertNotIn('ActionName="OptionsRight",Key=Gamepad_DPad_Right', inputs)
+        for side, direction in (("Left", -1), ("Right", 1)):
+            navigation = self.hero_cpp.split(f"void AMoonfallHeroPawn::GamepadContext{side}()", 1)[1].split("void AMoonfallHeroPawn::", 1)[0]
+            self.assertIn(f"Options{side}(); return;", navigation)
+            self.assertIn(f"AcquireLockTarget({direction});", navigation)
+            self.assertIn("bResidentContextOpen", navigation)
+            self.assertIn("GetLockedEnemy()", navigation)
+            self.assertIn(f"void GamepadContext{side}();", self.hero_h)
         self.assertIn('ActionName="ChronicleFocus",Key=Tab', inputs)
         self.assertNotIn('ActionName="LockPrevious"', inputs)
         self.assertIn('BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn)', self.hero_cpp)
