@@ -38,6 +38,14 @@ bool FMoonfallMB5InputBindingsTest::RunTest(const FString& Parameters)
    CountBinding(TEXT("ResidentMouseClick"), EKeys::LeftMouseButton), 1);
  TestEqual(TEXT("Right mouse retains contextual casting"),
    CountBinding(TEXT("CastRightMouse"), EKeys::RightMouseButton), 1);
+ TestEqual(TEXT("Controller A jumps or confirms dialogue, not both Jump and Stats"),
+   CountBinding(TEXT("Jump"), EKeys::Gamepad_FaceButton_Bottom), 1);
+ TestEqual(TEXT("Controller A does not also open Character Stats"),
+   CountBinding(TEXT("CharacterStats"), EKeys::Gamepad_FaceButton_Bottom), 0);
+ TestEqual(TEXT("R3 opens Character Stats only in inventory through ChronicleFocus"),
+   CountBinding(TEXT("ChronicleFocus"), EKeys::Gamepad_RightThumbstick), 1);
+ TestEqual(TEXT("R3 still guards in gameplay"),
+   CountBinding(TEXT("Guard"), EKeys::Gamepad_RightThumbstick), 1);
  TestEqual(TEXT("Controller left trigger retains dual-cast"),
    CountBinding(TEXT("DualCast"), EKeys::Gamepad_LeftTrigger), 1);
  TestEqual(TEXT("Controller left shoulder retains single-hand cast"),
