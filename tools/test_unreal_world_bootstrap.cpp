@@ -52,6 +52,20 @@ int main() {
  assert(M::HasPendingDungeonWork(30,2,3));
  assert(!M::HasPendingDungeonWork(30,3,3));
  assert(!M::HasPendingDungeonWork(30,0,0));
+ // A one-time final audit runs only after primary and queued work finishes.
+ assert(!M::ShouldAuditAuthoredDungeons(false,0,0,0));
+ assert(!M::ShouldAuditAuthoredDungeons(false,29,0,0));
+ assert(!M::ShouldAuditAuthoredDungeons(false,30,0,1));
+ assert(M::ShouldAuditAuthoredDungeons(false,30,1,1));
+ assert(M::ShouldAuditAuthoredDungeons(false,30,0,0));
+ assert(!M::ShouldAuditAuthoredDungeons(true,30,1,1));
+ for (int Failed=0;Failed<=M::TotalDungeons;++Failed) {
+  for (int Retried=0;Retried<=Failed;++Retried) {
+   assert(M::ShouldAuditAuthoredDungeons(false,30,Retried,Failed)
+     ==(Retried==Failed));
+   assert(!M::ShouldAuditAuthoredDungeons(true,30,Retried,Failed));
+  }
+ }
  // A failed actor may be retried once, but cannot create an infinite queue.
  for (int InitialFailures=0;InitialFailures<=M::TotalDungeons;++InitialFailures) {
   int NextRetry=0;
