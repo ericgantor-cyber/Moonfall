@@ -1545,8 +1545,8 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
- // R3 dual-casts in combat, toggles Character Stats in inventory,
- // and switches Chronicle focus in the Atlas.
+ // R3 guards in combat, toggles Character Stats in inventory,
+ // and switches Chronicle focus in the Atlas. LT/MB5 dual-cast.
  if (bInventoryOpen && !bAtlasOpen) {
   ToggleCharacterStats();
   return;
