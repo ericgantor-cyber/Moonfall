@@ -1075,6 +1075,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float ChaseStep = FMath::Min(Direction.Size(),
     SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);
   AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit);
+  // Track whether this tick's optional swept escape made it past the wall.
+  // A successful escape can keep its cached NavMesh route until the next
+  // normal refresh instead of forcing a new synchronous solve.
+  bool bSidestepClearedObstacle = false;
   // Collision can trap packs at tight doorways. First try one short
   // sideways swept step, alternating sides on successive collisions.
   // Rate-limit attempts so wall contact never triggers an extra movement
@@ -1099,18 +1103,22 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
    FHitResult EscapeHit;
    AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
+   bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();
    // Each failed escape alternates direction; a successful slide resets it.
    bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;
   } else if (!Hit.bBlockingHit) {
    bReverseCombatWallSlide = false;
   }
-  // A blocked route is invalidated only on its original repath cooldown.
-  // The existing single navigation solve then selects a fresh waypoint.
+  // A blocked movement only invalidates the route when the swept escape
+  // did not clear the obstacle. Keep the original 0.5-second cooldown even
+  // after a successful slide so dense packs do not spam synchronous solves.
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
-   NextPathRefreshAt = 0.f;
    NextBlockedRepathAt = Now + 0.5f;
-   bHasCachedNavigationWaypoint = false;
-   CachedWaypoint = FVector::ZeroVector;
+   if (!bSidestepClearedObstacle) {
+    NextPathRefreshAt = 0.f;
+    bHasCachedNavigationWaypoint = false;
+    CachedWaypoint = FVector::ZeroVector;
+   }
   }
  } else if (Distance <= AttackRange || bDivineRangedCastReady) {
   // Elites and advanced bosses reposition between strikes, not during
