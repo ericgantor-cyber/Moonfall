@@ -715,9 +715,12 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
+   // Gamepad A is Jump/dialogue confirm, not a character-pane shortcut.
+   DrawText(PanelWidth < 500.f
+       ? TEXT("C/P | D-pad Left/R3: bag | Esc: close")
+       : TEXT("C/P | D-pad Left / R3: bag   B/I/Select/Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
-     nullptr, 0.8f);
+     nullptr, PanelWidth < 500.f ? 0.56f : 0.72f);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -856,6 +859,11 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+  DrawText(PanelWidth < 500.f
+      ? TEXT("D-pad Right / R3: character")
+      : TEXT("D-pad Right / R3: Character Stats   B/I/Select/Esc: close"),
+     FLinearColor(0.69f,0.91f,0.85f), Left + 18.f, Top + PanelHeight - 30.f,
+     nullptr, PanelWidth < 500.f ? 0.61f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
