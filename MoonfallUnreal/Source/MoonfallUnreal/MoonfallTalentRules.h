@@ -173,9 +173,19 @@ inline const TArray<FNode>& Catalog()
 inline const FNode* Find(FName Id)
 {
  if (Id.IsNone()) return nullptr;
- for (const FNode& Node : Catalog())
-  if (FName(Node.Id) == Id) return &Node;
- return nullptr;
+ // The constellation calls Find for prerequisites and validation. Build its
+ // fixed 141-node index once instead of linearly scanning the entire catalog
+ // for every rank query in each HUD frame.
+ static const TMap<FName, int32> ById = []()
+ {
+  TMap<FName, int32> Index;
+  const TArray<FNode>& Nodes = Catalog();
+  Index.Reserve(Nodes.Num());
+  for (int32 I = 0; I < Nodes.Num(); ++I) Index.Add(FName(Nodes[I].Id), I);
+  return Index;
+ }();
+ const int32* Index = ById.Find(Id);
+ return Index && Catalog().IsValidIndex(*Index) ? &Catalog()[*Index] : nullptr;
 }
 
 inline int32 EarnedPoints(int32 Level)
