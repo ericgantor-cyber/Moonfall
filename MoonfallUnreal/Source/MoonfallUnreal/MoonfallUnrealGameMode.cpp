@@ -63,8 +63,9 @@ void AMoonfallUnrealGameMode::BeginPlay()
  SpawnedDungeonActors.SetNum(TotalDungeons);
  SpawnedDungeonSlots.SetNumZeroed(TotalDungeons);
  RetriedDungeonSlots.SetNumZeroed(TotalDungeons);
- // Inspect authored layouts only once, rather than scanning world actors for
- // each of the thirty spawn requests. Never duplicate an authored dungeon.
+ // Pre-index map-authored dungeons in one scan. Newly streamed actors may
+ // still arrive later, so each unclaimed slot also checks immediately before
+ // spawning. Both checks are limited to startup work, never a Tick poll.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
   // A layout being destroyed must not permanently reserve a dungeon slot.
   if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;
@@ -132,15 +133,14 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
    RetriedDungeonSlots[Slot] = 1;
   if (ReconcileAuthoredDungeonSlot(Slot)) continue;
   if (ReconcileSpawnedDungeonSlot(Slot)) continue;
-  // An alternate authored actor may appear while a failed slot waits in
-  // the retry queue. Reuse it instead of creating duplicate geometry.
-  if (bRetryAttempt) {
-   if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot)) {
-    AuthoredDungeonSlots[Slot] = 1;
-    AuthoredDungeonActors[Slot] = Existing;
-    ++ReadyDungeonCount;
-    continue;
-   }
+  // A streaming level can introduce an authored layout after BeginPlay's
+  // map scan, even before the first attempt for this slot. Check both
+  // primary and retry attempts to avoid duplicate dungeon geometry.
+  if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot)) {
+   AuthoredDungeonSlots[Slot] = 1;
+   AuthoredDungeonActors[Slot] = Existing;
+   ++ReadyDungeonCount;
+   continue;
   }
   const int32 Zone = Slot / DungeonsPerZone;
   const int32 DungeonIndex = Slot % DungeonsPerZone;
@@ -248,8 +248,8 @@ bool AMoonfallUnrealGameMode::ReconcileSpawnedDungeonSlot(int32 Slot)
  return false;
 }
 
-// Bounded fallback search, only when a tracked layout is missing or a
-// failed slot reaches its retry. No repeated scans on normal gameplay Tick.
+// Bounded lookup for a missing tracked layout or an unclaimed startup slot.
+// This can run during initial generation and retries, never on gameplay Tick.
 AMoonfallDungeonLayout* AMoonfallUnrealGameMode::FindExistingDungeonForSlot(
  int32 Slot) const
 {
