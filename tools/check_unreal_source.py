@@ -3099,10 +3099,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);", tick)
         self.assertIn("bool bReverseCombatWallSlide = false;", self.enemy_h)
         self.assertIn("if (bReverseCombatWallSlide) Side *= -1.f;", tick)
-        self.assertIn("bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;", tick)
+        self.assertIn("const FVector EscapeStart = GetActorLocation();", tick)
+        self.assertIn("const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())", tick)
+        self.assertIn("bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;", tick)
         self.assertIn("else if (!Hit.bBlockingHit)", tick)
         self.assertIn("bool bSidestepClearedObstacle = false;", tick)
-        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();", tick)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;", tick)
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
         retry = tick.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", 1)[1].split(
             "} else if (Distance <= AttackRange", 1)[0]
