@@ -216,6 +216,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") int32 TalentWebSelected = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") float TalentWebZoom = 0.2f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") FVector2D TalentWebPan = FVector2D::ZeroVector;
+ // Transient purchase/respec feedback. Never serialized into world saves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") FString TalentWebNotice;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") bool bTalentWebNoticeSuccess = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") float TalentWebNoticeUntil = 0.f;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void ToggleTalentWeb();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebPurchase();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebReset();
@@ -496,6 +500,7 @@ private:
  float TalentRangedDamageBonus = 0.f;
  float TalentMagicDamageBonus = 0.f;
  void RefreshTalentBonuses();
+ void SetTalentWebNotice(const FString& Message, bool bSuccess);
  bool CommitTalentRanks(const TMap<FName, int32>& Candidate);
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };
