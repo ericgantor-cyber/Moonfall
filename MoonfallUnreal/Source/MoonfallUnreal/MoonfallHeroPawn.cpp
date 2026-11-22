@@ -375,6 +375,24 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Consume a buffered dodge on the first eligible gameplay frame. A queued
+ // press costs no stamina, gives no immunity and never survives a modal.
+ if (QueuedDodgeUntil >= 0.f) {
+  const UWorld* DodgeWorld = GetWorld();
+  const float DodgeNow = DodgeWorld ? DodgeWorld->GetTimeSeconds() : -1.f;
+  if (!DodgeWorld || !FMath::IsFinite(DodgeNow)
+      || !FMath::IsFinite(QueuedDodgeUntil)
+      || !FMath::IsFinite(NextDodgeAt) || !FMath::IsFinite(DamageImmunityUntil)
+      || DodgeNow > QueuedDodgeUntil
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid()
+      || Health <= 0.f || !FMath::IsFinite(Health)) {
+   QueuedDodgeUntil = -1.f;
+  } else if (DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil) {
+   QueuedDodgeUntil = -1.f;
+   Dodge();
+  }
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
@@ -1080,15 +1098,26 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
+ // Reject invalid clocks and resources before buffering or spending stamina.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
      || !FMath::IsFinite(DamageImmunityUntil)
-     || Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ if (Now < NextDodgeAt || Now < DamageImmunityUntil) {
+  const float ReadyAt = FMath::Max(NextDodgeAt, DamageImmunityUntil);
+  const float Window = FMath::IsFinite(DodgeInputBufferSeconds)
+      ? FMath::Clamp(DodgeInputBufferSeconds, 0.f, 0.18f) : 0.f;
+  // Only accept presses near readiness. A 40ms grace period allows for
+  // discrete frame timing while still bounding how long input is remembered.
+  if (Window > 0.f && ReadyAt > Now && ReadyAt - Now <= Window)
+   QueuedDodgeUntil = ReadyAt + 0.04f;
+  return;
+ }
+ // One valid attempt consumes the pending input; cost/immunity follow here.
+ QueuedDodgeUntil = -1.f;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
@@ -1348,6 +1377,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  QueuedDodgeUntil = -1.f;
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
   if (bInventoryOpen) ToggleInventory();
@@ -1392,6 +1422,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  QueuedDodgeUntil = -1.f;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -1611,6 +1642,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
+  QueuedDodgeUntil = -1.f;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -3143,6 +3175,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ QueuedDodgeUntil = -1.f;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
@@ -3397,6 +3430,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ // A conversation must not inherit an unconsumed dodge press.
+ QueuedDodgeUntil = -1.f;
  // A conversation should release held combat movement immediately.
  FocusedResident = Resident;
  bResidentContextOpen = true;
