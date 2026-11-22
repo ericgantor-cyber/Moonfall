@@ -221,6 +221,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebReset();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebBack();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebStepSelection(int32 Direction);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebStepBranch(int32 Direction);
 
 
  // Every takedown plays native five-style choreography; authored montages layer over it.
