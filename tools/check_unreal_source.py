@@ -3693,6 +3693,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_mb5_dual_cast_haste_cooldown_matches_individual_casts(self):
+        # Source contract, not a native UE gameplay timing test.
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + GetHasteBonus())", dual)
+        self.assertIn("!FMath::IsFinite(Time)", dual)
+        self.assertIn("!FMath::IsFinite(LastCastTime[1])", dual)
+        self.assertNotIn("Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;", dual)
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+
     def test_ue5_target_lock_parity_preserves_inputs_and_los_guards(self):
         # Static safety checks only, not proof of a native Unreal build.
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
