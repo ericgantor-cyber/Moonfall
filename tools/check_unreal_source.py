@@ -1101,7 +1101,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("Cooldowns[School] / (1.f + HasteBonus)", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
         self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
@@ -3693,10 +3693,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_spell_cooldown_clock_and_haste_guards_precede_effects(self):
+        # Source-only defense against NaN, infinite and future cooldown state.
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        for guard in ("!FMath::IsFinite(Time)", "!FMath::IsFinite(LastCastTime[Hand])",
+                      "Time < LastCastTime[Hand]", "!FMath::IsFinite(HasteBonus)",
+                      "HasteBonus < 0.f || HasteBonus > 0.20f"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier;"))
+        for guard in ("!FMath::IsFinite(Time)", "!FMath::IsFinite(LastCastTime[0])",
+                      "!FMath::IsFinite(LastCastTime[1])", "Time < LastCastTime[0]",
+                      "Time < LastCastTime[1]", "!FMath::IsFinite(HasteBonus)",
+                      "HasteBonus < 0.f || HasteBonus > 0.20f"):
+            self.assertIn(guard, dual)
+            self.assertLess(dual.index(guard), dual.index("TryCast(LeftSpell, 0, 2.f)"))
+        self.assertIn("Cooldowns[School] / (1.f + HasteBonus)", cast)
+        self.assertIn("Cooldowns[LeftSpell] / (1.f + HasteBonus)", dual)
+
     def test_mb5_dual_cast_haste_cooldown_matches_individual_casts(self):
         # Source contract, not a native UE gameplay timing test.
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + GetHasteBonus())", dual)
+        self.assertIn("Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)", dual)
         self.assertIn("!FMath::IsFinite(Time)", dual)
         self.assertIn("!FMath::IsFinite(LastCastTime[1])", dual)
         self.assertNotIn("Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;", dual)
