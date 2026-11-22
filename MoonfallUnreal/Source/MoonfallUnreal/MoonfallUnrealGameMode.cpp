@@ -52,6 +52,9 @@ void AMoonfallUnrealGameMode::BeginPlay()
 
  if (!MoonfallWorldBootstrap::ShouldGenerateDungeons(BootPolicy)) return;
  ReadyDungeonCount = 0;
+ bDungeonWorldReadyNotified = false;
+ FailedDungeonSlots.Reset();
+ NextFailedDungeonRetry = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
@@ -72,7 +75,8 @@ void AMoonfallUnrealGameMode::BeginPlay()
  }
  NextDungeonSlot = 0;
  SpawnDungeonBatch();
- if (NextDungeonSlot < TotalDungeons)
+ if (MoonfallWorldBootstrap::HasPendingDungeonWork(
+       NextDungeonSlot, NextFailedDungeonRetry, FailedDungeonSlots.Num()))
   GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
@@ -100,36 +104,53 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  const double BudgetMs = MoonfallWorldBootstrap::ClampBatchTimeBudgetMs(
    DungeonSpawnBudgetMs);
  const double BatchStartedAt = FPlatformTime::Seconds();
+ // Failed spawns receive one retry on a later timer pass, not immediately
+ // after the final primary slot. This gives transient world changes time
+ // to settle without increasing the per-pass frame budget or retrying forever.
+ const bool bStartedPrimaryPass = NextDungeonSlot < TotalDungeons;
  int32 Processed = 0;
- while (NextDungeonSlot < TotalDungeons) {
+ while (MoonfallWorldBootstrap::HasPendingDungeonWork(
+     NextDungeonSlot, NextFailedDungeonRetry, FailedDungeonSlots.Num())) {
+  if (bStartedPrimaryPass && NextDungeonSlot >= TotalDungeons) break;
   const double ElapsedMs =
     (FPlatformTime::Seconds() - BatchStartedAt) * 1000.0;
   if (!MoonfallWorldBootstrap::ShouldContinueBatch(
       Processed, BatchLimit, ElapsedMs, BudgetMs)) break;
-  const int32 Slot = NextDungeonSlot++;
+  const bool bRetryAttempt = NextDungeonSlot >= TotalDungeons;
+  const int32 Slot = bRetryAttempt
+    ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;
   ++Processed;
   if (AuthoredDungeonSlots.IsValidIndex(Slot) && AuthoredDungeonSlots[Slot])
    continue;
   const int32 Zone = Slot / DungeonsPerZone;
   const int32 DungeonIndex = Slot % DungeonsPerZone;
   FTransform DungeonTransform;
-  if (!GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform))
-   continue;
-  AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
-    AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
-    ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-  if (!IsValid(Layout)) continue;
-  Layout->ZoneIndex = Zone;
-  Layout->DungeonIndex = DungeonIndex;
-  Layout->bRandomizeChambers = true;
-  Layout->FinishSpawning(DungeonTransform);
-  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;
+  bool bSpawnSucceeded = false;
+  if (GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)) {
+   AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
+     AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
+     ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+   if (IsValid(Layout)) {
+    Layout->ZoneIndex = Zone;
+    Layout->DungeonIndex = DungeonIndex;
+    Layout->bRandomizeChambers = true;
+    Layout->FinishSpawning(DungeonTransform);
+    bSpawnSucceeded = IsValid(Layout) && !Layout->IsActorBeingDestroyed();
+   }
+  }
+  if (bSpawnSucceeded) ++ReadyDungeonCount;
+  else if (MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt))
+   FailedDungeonSlots.Add(Slot);
  }
- if (NextDungeonSlot >= TotalDungeons) {
+ if (!MoonfallWorldBootstrap::HasPendingDungeonWork(
+     NextDungeonSlot, NextFailedDungeonRetry, FailedDungeonSlots.Num())) {
   GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
-  if (ReadyDungeonCount != TotalDungeons)
-   UE_LOG(LogTemp, Warning, TEXT("Moonfall dungeon world: only %d/%d layouts ready"),
-     ReadyDungeonCount, TotalDungeons);
-  OnDungeonWorldReady(ReadyDungeonCount);
+  if (!bDungeonWorldReadyNotified) {
+   bDungeonWorldReadyNotified = true;
+   if (ReadyDungeonCount != TotalDungeons)
+    UE_LOG(LogTemp, Warning, TEXT("Moonfall dungeon world: only %d/%d layouts ready"),
+      ReadyDungeonCount, TotalDungeons);
+   OnDungeonWorldReady(ReadyDungeonCount);
+  }
  }
 }
