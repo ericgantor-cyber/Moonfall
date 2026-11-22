@@ -600,7 +600,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         mappings = {}
-        for action, key in re.findall(r'^\\+ActionMappings=\\(ActionName="([^"]+)",Key=(Gamepad_[^)]+)\\)',
+        for action, key in re.findall(r'^\+ActionMappings=\(ActionName="([^"]+)",Key=(Gamepad_[^)]+)\)',
                                       inputs, re.MULTILINE):
             mappings.setdefault(key, set()).add(action)
         expected = {
@@ -626,14 +626,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('BindAction(TEXT("Guard"), IE_Released, this, '
                       '&AMoonfallHeroPawn::EndGuard)', self.hero_cpp)
         cast_both = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         for guard in ("bInventoryOpen", "bAtlasOpen", "bResidentContextOpen",
                       "FocusedResident.IsValid()", "Health <= 0.f"):
             self.assertIn(guard, cast_both.split("return;", 1)[0])
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", guard)
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", dodge)
         self.assertLess(dodge.index("EndGuard();"), dodge.index("LaunchCharacter("))
@@ -642,7 +642,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                                   ("UpgradeSelectedInventoryItem", "UpgradeInventoryItem"),
                                   ("EquipBestInventoryAction", "EquipBestInventoryUpgrades")):
             body = self.hero_cpp.split(f"AMoonfallHeroPawn::{method}(", 1)[1].split(
-                "\\n}", 1)[0]
+                "\n}", 1)[0]
             self.assertIn(operation, body)
         self.assertIn("if (!bCharacterStatsOpen)", self.hero_cpp)
 
