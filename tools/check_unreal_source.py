@@ -3693,6 +3693,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_mb5_dual_cast_preserves_mouse_inputs_and_modal_guards(self):
+        # Static contract: physical MB5 has exactly one combat action; menus
+        # cannot spend mana or cast a spell through that action.
+        input_config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in input_config.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        self.assertEqual(mappings.count('+ActionMappings=(ActionName="DualCast",Key=ThumbMouseButton2)'), 1)
+        self.assertIn('+ActionMappings=(ActionName="ResidentMouseClick",Key=LeftMouseButton)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastRightMouse",Key=RightMouseButton)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastLeft",Key=Gamepad_LeftShoulder)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastRight",Key=Gamepad_RightShoulder)', mappings)
+        self.assertFalse(any('Key=Z)' in line or 'Key=X)' in line for line in mappings))
+        self.assertEqual(sum('Key=ThumbMouseButton2)' in line for line in mappings), 1)
+        input_handler = self.hero_cpp.split('void AMoonfallHeroPawn::SetupPlayerInputComponent(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);', input_handler)
+        self.assertIn('Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);', input_handler)
+        self.assertIn('Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);', input_handler)
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        for guard in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen", "bResidentContextOpen"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier;"))
+
     def test_spell_cast_validates_health_state(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "MaxHealth <= 0.f"):
