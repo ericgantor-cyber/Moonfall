@@ -6489,6 +6489,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(spell.index("LineTraceSingleByChannel(Hit, Origin, End"),
                         spell.index("if (Locked && Enemy != Locked) return false;"))
         self.assertIn("else if (!Current) LockedEnemy.Reset();", self.hero_cpp)
+        acquire = self.hero_cpp.split("void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)", 1)[1].split("void AMoonfallHeroPawn::Turn(", 1)[0]
+        self.assertIn("CurrentAngle = FMath::Atan2(", acquire)
+        self.assertIn("const float Angle = FMath::Atan2(", acquire)
+        self.assertIn("if (Delta <= 0.f) Delta += 2.f * PI;", acquire)
+        self.assertIn("if (Delta > 0.025f && Delta < BestScore)", acquire)
+        self.assertNotIn("WrapSide", acquire)
+        self.assertNotIn("CurrentSide", acquire)
         # A/D remain movement keys, never lock-cycle actions.
         self.assertNotIn('ActionName="LockOn",Key=L)', inputs)
         self.assertNotIn('ActionName="LockOn",Key=Period)', inputs)
