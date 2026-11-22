@@ -1101,11 +1101,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bReverseCombatWallSlide) Side *= -1.f;
    const float EscapeDistance = FMath::Min(80.f,
      FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
+   const FVector EscapeStart = GetActorLocation();
    FHitResult EscapeHit;
    AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
-   bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();
-   // Each failed escape alternates direction; a successful slide resets it.
-   bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;
+   // A non-blocking sweep is not proof that the actor moved. If world
+   // movement was suppressed, keep the cached route eligible for recovery.
+   // Ignore sub-centimeter displacement that cannot clear a doorway.
+   const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())
+     > FMath::Square(1.f);
+   bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;
+   // A failed or motionless escape reverses on the next cooldown.
+   bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;
   } else if (!Hit.bBlockingHit) {
    bReverseCombatWallSlide = false;
   }
