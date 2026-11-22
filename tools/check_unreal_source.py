@@ -6496,6 +6496,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("else if (!Current) LockedEnemy.Reset();", self.hero_cpp)
         acquire = self.hero_cpp.split("void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)", 1)[1].split("void AMoonfallHeroPawn::Turn(", 1)[0]
         self.assertIn("CurrentAngle = FMath::Atan2(", acquire)
+        self.assertIn("Current->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin", acquire)
+        self.assertIn("Candidate->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin", acquire)
+        self.assertNotIn("(Current->GetActorLocation() - Origin).GetSafeNormal()", acquire)
         self.assertIn("const float Angle = FMath::Atan2(", acquire)
         self.assertIn("if (Delta <= 0.f) Delta += 2.f * PI;", acquire)
         self.assertIn("if (Delta > 0.025f && Delta < BestScore)", acquire)
