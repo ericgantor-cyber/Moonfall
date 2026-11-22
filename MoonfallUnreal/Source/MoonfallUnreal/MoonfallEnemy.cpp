@@ -981,7 +981,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // Retry only at the existing cached navigation cadence.
      // Reject corrupt path corners before storing or steering toward them.
      // FVector::ContainsNaN also detects infinite components.
-     const bool bHasPathSegment = IsValid(Path) && Path->PathPoints.Num() > 1;
+     // A live UObject can still contain an invalid navigation path.
+     // Valid partial paths remain usable; only invalid routes fail closed.
+     const bool bHasPathSegment = IsValid(Path) && Path->IsValid()
+       && Path->PathPoints.Num() > 1;
      const FVector FirstCorner = bHasPathSegment
        ? Path->PathPoints[1] : FVector::ZeroVector;
      bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();
