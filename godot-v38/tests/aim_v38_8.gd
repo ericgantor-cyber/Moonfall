@@ -41,6 +41,14 @@ func _run()->void:
   check(not ("beasts.find(target)" in source or "beasts.find(beast)" in source),"aiming avoids dictionary equality scans")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
+  var aimed_spell:String=source.split("func _spell(which:String)->void:",true,1)[1]
+  check('var cost:float=_v385_spell_mana_cost("fire")' in aimed_spell,"aimed fire uses shared mana cost")
+  check(aimed_spell.find("if target.is_empty():")<aimed_spell.find("v385_mana-=cost"),"no-target fire cannot consume mana")
+  check(aimed_spell.find("if v385_mana<cost:")<aimed_spell.find("v385_mana-=cost"),"insufficient mana stops aimed fire")
+  check(aimed_spell.find("v385_mana-=cost")<aimed_spell.find("ability_cooldown="),"valid fire spends mana before cooldown")
+  check('v406_damage_context="magic"' in aimed_spell and 'v406_damage_context=""' in aimed_spell,"aimed fire uses magic talent scaling")
+  var mana_base:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
+  check(mana_base!=null and "func _v385_spell_mana_cost(" in mana_base.source_code and "var cost:float=_v385_spell_mana_cost(which)" in mana_base.source_code,"regular spells and aimed fire share talent-aware cost")
  if ui!=null:
   var source:String=ui.source_code
   check("AIM_PREFS_PATH" in source and "config.save(AIM_PREFS_PATH)" in source,"aim assist setting persisted")
@@ -94,5 +102,21 @@ func _run()->void:
   for divine_id in divine_ids:
    var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",int(divine_ids[divine_id]))
    check(float(actor.get("divine_warn_until",-1.0))==0.0 and not bool(actor.get("divine_chain_pending",true)),"warning cleanup cancels queued divine strikes: "+str(divine_id))
+  # Live negative-path test: an invalid region has no valid target, so
+  # Eclipse Flame must leave both mana and cooldown untouched.
+  combo_game.set("region_index",-1)
+  combo_game.set("hero_playing",true)
+  combo_game.set("menu_open",false)
+  combo_game.set("death_active",false)
+  combo_game.set("wait_open",false)
+  combo_game.set("wait_transition_active",false)
+  combo_game.set("mounted",false)
+  combo_game.set("ability_cooldown",0.0)
+  combo_game.set("v385_mana",100.0)
+  combo_game.set("v398_ranks",{})
+  check(is_equal_approx(float(combo_game.call("_v385_spell_mana_cost","fire")),30.0),"base Eclipse Flame costs 30 mana")
+  combo_game.call("_spell","fire")
+  check(is_equal_approx(float(combo_game.get("v385_mana")),100.0),"aimed fire does not consume mana without a target")
+  check(is_zero_approx(float(combo_game.get("ability_cooldown"))),"aimed fire does not start cooldown without a target")
   combo_game.queue_free()
  quit(1 if failures>0 else 0)
