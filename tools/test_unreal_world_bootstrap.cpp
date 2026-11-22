@@ -52,18 +52,33 @@ int main() {
  assert(M::HasPendingDungeonWork(30,2,3));
  assert(!M::HasPendingDungeonWork(30,3,3));
  assert(!M::HasPendingDungeonWork(30,0,0));
+ // A final scan counts generated dungeon actors the same as authored ones.
+ // A successful retry may not be queued a second time if it later vanishes.
+ for (int WasCounted=0;WasCounted<=1;++WasCounted) {
+  for (int Valid=0;Valid<=1;++Valid) {
+   for (int Destroying=0;Destroying<=1;++Destroying) {
+    const bool Vanished=WasCounted && !(Valid && !Destroying);
+    assert(Vanished == (WasCounted &&
+      !M::ShouldRetainAuthoredSlot(Valid!=0,Destroying!=0)));
+    for (int AlreadyRetried=0;AlreadyRetried<=1;++AlreadyRetried) {
+     const bool QueueFinalRecovery=Vanished && !AlreadyRetried;
+     assert(!QueueFinalRecovery || (WasCounted && !AlreadyRetried));
+    }
+   }
+  }
+ }
  // A one-time final audit runs only after primary and queued work finishes.
- assert(!M::ShouldAuditAuthoredDungeons(false,0,0,0));
- assert(!M::ShouldAuditAuthoredDungeons(false,29,0,0));
- assert(!M::ShouldAuditAuthoredDungeons(false,30,0,1));
- assert(M::ShouldAuditAuthoredDungeons(false,30,1,1));
- assert(M::ShouldAuditAuthoredDungeons(false,30,0,0));
- assert(!M::ShouldAuditAuthoredDungeons(true,30,1,1));
+ assert(!M::ShouldAuditDungeonSlots(false,0,0,0));
+ assert(!M::ShouldAuditDungeonSlots(false,29,0,0));
+ assert(!M::ShouldAuditDungeonSlots(false,30,0,1));
+ assert(M::ShouldAuditDungeonSlots(false,30,1,1));
+ assert(M::ShouldAuditDungeonSlots(false,30,0,0));
+ assert(!M::ShouldAuditDungeonSlots(true,30,1,1));
  for (int Failed=0;Failed<=M::TotalDungeons;++Failed) {
   for (int Retried=0;Retried<=Failed;++Retried) {
-   assert(M::ShouldAuditAuthoredDungeons(false,30,Retried,Failed)
+   assert(M::ShouldAuditDungeonSlots(false,30,Retried,Failed)
      ==(Retried==Failed));
-   assert(!M::ShouldAuditAuthoredDungeons(true,30,Retried,Failed));
+   assert(!M::ShouldAuditDungeonSlots(true,30,Retried,Failed));
   }
  }
  // A failed actor may be retried once, but cannot create an infinite queue.
