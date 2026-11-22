@@ -140,6 +140,29 @@ class TestSocialWorld(unittest.TestCase):
   close=body("CloseResidentContext","OpenFocusedResidentContext")
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
+ def test_both_npc_dialogue_openers_clear_dodge_and_enemy_lock(self):
+  # Controller and right-click NPC entry have the same combat cleanup.
+  # Preserve the original contract: dialogue never forcibly stops movement.
+  controller=self.hero.split(
+      "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  mouse=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::ReleaseInventoryPointer()",1)[0]
+  for source,entry_guard in (
+      (controller,"if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;"),
+      (mouse,"if (Resident->CanHeroInteract(this)) {")):
+   self.assertIn(entry_guard,source)
+   entry=source.split(entry_guard,1)[1].split("bResidentContextOpen = true;",1)[0]
+   for cleanup in ("QueuedDodgeUntil = -1.f;",
+                   "QueuedDodgeDirection = FVector::ZeroVector;",
+                   "LockedEnemy.Reset();", "LockOccludedSince = -1.f;"):
+    self.assertIn(cleanup,entry)
+    self.assertLess(entry.index(cleanup),entry.index("FocusedResident = Resident;"))
+   for forbidden in ("StopJumping();","StopMovementImmediately();",
+                     "EndSprint();","EndGuard();"):
+    self.assertNotIn(forbidden,entry)
+
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
