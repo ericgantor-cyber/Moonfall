@@ -988,15 +988,14 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
   const FVector UnitAim = Aim.GetSafeNormal();
   const float Facing = FVector::DotProduct(UnitAim, Forward);
   if (Facing < 0.15f) continue;
-  FHitResult Hit;
-  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
-  // Only lock a target positively hit by the sight ray. An empty trace
-  // is not evidence of visibility and would create unusable spell locks.
-  if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
-      || Hit.GetActor() != Candidate) continue;
+  // Score first: collision queries are needed only for candidates that
+  // can actually improve the currently visible best target. In dense fights
+  // this skips unnecessary sight traces without changing lock preferences.
+  const float DistanceSq = Aim.SizeSquared();
+  float CandidateScore = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
+  bool bCouldImprove = false;
   if (!Direction || !Current) {
-   const float Score = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
-   if (Score < BestScore) { BestScore = Score; Best = Candidate; }
+   bCouldImprove = FMath::IsFinite(CandidateScore) && CandidateScore < BestScore;
   } else {
    // Tab/right cycles clockwise; D-pad left cycles counterclockwise.
    // Compare positive directed angular distances and wrap once at +/-PI.
@@ -1006,15 +1005,23 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
    // Ignore near-identical screen directions and avoid repeated targets.
    // When two enemies share nearly the same angle, prefer the closer one
    // instead of letting world actor iteration order decide the Tab target.
-   const float DistanceSq = Aim.SizeSquared();
    if (Delta > 0.025f
        && (Delta < BestScore - 0.0001f
            || (FMath::Abs(Delta - BestScore) <= 0.0001f && DistanceSq < BestDistanceSq))) {
-    BestScore = Delta;
-    BestDistanceSq = DistanceSq;
-    Best = Candidate;
+    CandidateScore = Delta;
+    bCouldImprove = FMath::IsFinite(Delta);
    }
   }
+  if (!bCouldImprove || !FMath::IsFinite(DistanceSq)) continue;
+  FHitResult Hit;
+  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
+  // Only lock a target positively hit by the sight ray. An empty trace
+  // is not evidence of visibility and would create unusable spell locks.
+  if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
+      || Hit.GetActor() != Candidate) continue;
+  BestScore = CandidateScore;
+  BestDistanceSq = DistanceSq;
+  Best = Candidate;
  }
  if (Best) { LockedEnemy = Best; LockOccludedSince = -1.f; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
  else if (!Current) LockedEnemy.Reset();
