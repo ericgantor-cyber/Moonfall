@@ -333,6 +333,13 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
  // Transient, read-only counter cue; not persisted in world saves.
  float GetParryCounterRemaining() const;
+ // Transient camera lock: never touches saves or original hero art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Combat|LockOn") AMoonfallEnemy* GetLockedEnemy() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|LockOn") void ToggleLockOn();
+ void CycleLockOn(int32 Direction);
+ bool IsLockTargetValid(const AMoonfallEnemy* Enemy) const;
+ void AcquireLockTarget(int32 Direction);
+
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
@@ -392,6 +399,10 @@ private:
    meta=(ClampMin="0.0", ClampMax="0.18"))
  float DodgeInputBufferSeconds = 0.12f;
  float QueuedDodgeUntil = -1.f;
+ TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;
+ float NextLockVisibilityCheckAt = 0.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat|LockOn", meta=(ClampMin="300.0", ClampMax="2500.0")) float LockRange = 1600.f;
+
  // Snapshot the world-space intent at the press. A buffered dodge must not
  // follow later stick movement or a target turn before cooldown finishes.
  FVector QueuedDodgeDirection = FVector::ZeroVector;
