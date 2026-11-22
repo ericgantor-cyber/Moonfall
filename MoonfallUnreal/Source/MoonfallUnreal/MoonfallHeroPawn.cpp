@@ -934,8 +934,11 @@ bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
 void AMoonfallHeroPawn::ToggleLockOn()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
- // Y toggles lock on/off. Tab is reserved for cycling a locked target.
- if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
+ // A destroyed, defeated or out-of-range enemy is no longer a real lock.
+ // Reacquire on this same Y press instead of requiring a second press.
+ if (GetLockedEnemy()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
+ LockedEnemy.Reset();
+ LockOccludedSince = -1.f;
  AcquireLockTarget(0);
 }
 void AMoonfallHeroPawn::SwitchLockedTarget()
