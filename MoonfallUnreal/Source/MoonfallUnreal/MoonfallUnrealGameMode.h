@@ -4,6 +4,8 @@
 #include "TimerManager.h"
 #include "MoonfallUnrealGameMode.generated.h"
 
+class AMoonfallDungeonLayout;
+
 // Thirty physical dungeons in six world regions. Geometry is spawned in small
 // time-sliced batches; the GameMode never polls each dungeon every frame.
 UCLASS()
@@ -50,6 +52,7 @@ private:
  int32 NextFailedDungeonRetry = 0;
  bool bDungeonWorldReadyNotified = false;
  TArray<uint8> AuthoredDungeonSlots;
+ TArray<TWeakObjectPtr<AMoonfallDungeonLayout>> AuthoredDungeonActors;
  TArray<int32> FailedDungeonSlots;
  void SpawnDungeonBatch();
 };
