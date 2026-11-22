@@ -2004,6 +2004,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
  if (bTalentWebOpen) {
   bTalentWebOpen = false;
   bTalentRespecConfirm = false;
+  TalentRespecConfirmUntil = 0.f;
   TalentWebNotice.Empty();
   TalentWebNoticeUntil = 0.f;
   if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false;
@@ -2019,6 +2020,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
  EndGuard();
  bTalentWebOpen = true;
  bTalentRespecConfirm = false;
+ TalentRespecConfirmUntil = 0.f;
  TalentWebNotice.Empty();
  TalentWebNoticeUntil = 0.f;
  TalentWebSelected = FMath::Clamp(TalentWebSelected, 0, MoonfallTalents::Catalog().Num() - 1);
@@ -2074,13 +2076,20 @@ void AMoonfallHeroPawn::TalentWebPurchase()
 }
 void AMoonfallHeroPawn::TalentWebReset()
 {
- if (!bTalentWebOpen || TalentRanks.IsEmpty()) return;
- if (!bTalentRespecConfirm) {
+ if (!bTalentWebOpen || TalentRanks.IsEmpty() || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
+ // Never leave a destructive confirmation armed indefinitely. Restart the
+ // 15-second window instead of treating a late press as acceptance.
+ if (!bTalentRespecConfirm || !FMath::IsFinite(TalentRespecConfirmUntil)
+     || Now >= TalentRespecConfirmUntil) {
   bTalentRespecConfirm = true;
-  SetTalentWebNotice(TEXT("PRESS RESET AGAIN TO CONFIRM FULL RESPEC"), false);
+  TalentRespecConfirmUntil = Now + 15.f;
+  SetTalentWebNotice(TEXT("PRESS RESET AGAIN WITHIN 15 SECONDS TO CONFIRM"), false);
   return;
  }
  bTalentRespecConfirm = false;
+ TalentRespecConfirmUntil = 0.f;
  if (ResetTalentTree())
   SetTalentWebNotice(TEXT("FULL RESPEC SAVED: POINTS RESTORED"), true);
  else
