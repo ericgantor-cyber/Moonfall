@@ -627,9 +627,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       '&AMoonfallHeroPawn::EndGuard)', self.hero_cpp)
         cast_both = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "\n}", 1)[0]
+        preconditions = cast_both.split("if (LeftSpell != RightSpell", 1)[0]
         for guard in ("bInventoryOpen", "bAtlasOpen", "bResidentContextOpen",
                       "FocusedResident.IsValid()", "Health <= 0.f"):
-            self.assertIn(guard, cast_both.split("return;", 1)[0])
+            self.assertIn(guard, preconditions)
+        self.assertIn("if (bOptionsOpen || bAtlasOpen) return;", preconditions)
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "\n}", 1)[0]
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
