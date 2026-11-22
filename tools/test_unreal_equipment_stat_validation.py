@@ -89,6 +89,20 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", body)
         self.assertNotIn("DecodeEquippedItem(CurrentCode", body)
 
+    def test_nine_slot_set_preview_does_not_cap_raw_counts_at_three(self):
+        projected = self.source.split(
+            "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1
+        )[1].split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
+        actual = self.source.split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1
+        )[1].split("int32 AMoonfallHeroPawn::GetMight(", 1)[0]
+        self.assertIn("GetSetPieceCount(Affix)", projected)
+        self.assertIn("GetEquipmentSlotCode(Slot)", projected)
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", projected)
+        self.assertNotIn("0, 3);", projected)
+        self.assertIn("MoonfallEquipmentSlots::SlotCount", actual)
+        self.assertIn("return Pieces;", actual)
+
     def test_projected_set_bonus_reuses_validated_equipped_slot(self):
         body = self.source.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
             "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
