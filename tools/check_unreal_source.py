@@ -609,7 +609,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Gamepad_LeftTrigger": {"CastLeft", "EquipBest"},
             "Gamepad_RightTrigger": {"CastRight", "UpgradeGear"},
             "Gamepad_RightThumbstick": {"DualCast", "ChronicleFocus"},
-            "Gamepad_FaceButton_Right": {"Dodge", "AscendGear"},
+            "Gamepad_FaceButton_Right": {"GamepadBack", "AscendGear"},
             "Gamepad_FaceButton_Bottom": {"Jump"},
         }
         for button, actions in expected.items():
