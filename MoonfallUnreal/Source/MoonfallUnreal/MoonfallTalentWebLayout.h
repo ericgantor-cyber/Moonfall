@@ -1,0 +1,93 @@
+#pragma once
+// Pure geometry shared by UE5 Canvas drawing and mouse hit-testing.
+// Gameplay ranks and the original 141-node data remain in MoonfallTalentRules.h.
+// No widget assets, no Tick scans, no saved input/viewport state.
+#include "CoreMinimal.h"
+#include "MoonfallTalentRules.h"
+
+namespace MoonfallTalentWeb
+{
+struct FPanel
+{
+ float Left, Top, Width, Height, MapLeft, MapTop, MapWidth, MapHeight;
+ bool bUsable;
+};
+
+inline FPanel Panel(float ViewWidth, float ViewHeight)
+{
+ const float Width = FMath::Max(0.f, FMath::Min(1100.f, ViewWidth - 24.f));
+ const float Height = FMath::Max(0.f, FMath::Min(740.f, ViewHeight - 24.f));
+ const float Left = (ViewWidth - Width) * 0.5f;
+ const float Top = (ViewHeight - Height) * 0.5f;
+ return {Left, Top, Width, Height,
+         Left + 16.f, Top + 70.f, FMath::Max(0.f, Width - 283.f),
+         FMath::Max(0.f, Height - 135.f), Width >= 535.f && Height >= 355.f};
+}
+
+inline const TArray<FVector2D>& Positions()
+{
+ // Mirrors the tier/branch/lane layout of Godot's moonfall_talent_web.gd.
+ // Construct once; never rebuild 141 positions on HUD redraw or mouse motion.
+ static const TArray<FVector2D> Points = []()
+ {
+  TArray<FVector2D> Result;
+  TMap<FString, int32> LaneCount;
+  Result.Reserve(MoonfallTalents::Catalog().Num());
+  static const float LaneAngles[4] = {-26.f, -8.f, 8.f, 26.f};
+  for (const MoonfallTalents::FNode& Node : MoonfallTalents::Catalog())
+  {
+   const FString Branch(Node.Branch);
+   const FString Key = Branch + TEXT("_") + FString::FromInt(Node.Tier);
+   const int32 Lane = LaneCount.FindRef(Key);
+   LaneCount.Add(Key, Lane + 1);
+   float Degrees = Branch == TEXT("might") ? -150.f
+       : Branch == TEXT("agility") ? -30.f : 90.f;
+   if (Node.Tier == 2) Degrees += Lane == 0 ? -13.f : 13.f;
+   else if (Node.Tier >= 4) {
+    Degrees += LaneAngles[FMath::Min(Lane, 3)];
+    if (Node.Tier % 2 == 0) Degrees += Lane % 2 == 0 ? 3.5f : -3.5f;
+   }
+   float Radius = 105.f + (Node.Tier - 1) * 116.f;
+   if (Node.Tier >= 4) Radius += Lane == 1 || Lane == 2 ? 24.f : -12.f;
+   const float Radians = FMath::DegreesToRadians(Degrees);
+   Result.Add(FVector2D(FMath::Cos(Radians), FMath::Sin(Radians)) * Radius);
+  }
+  return Result;
+ }();
+ return Points;
+}
+
+inline FVector2D ScreenPosition(int32 Index, const FPanel& P,
+                                float Zoom, const FVector2D& Pan)
+{
+ const FVector2D Center(P.MapLeft + P.MapWidth * 0.5f,
+                        P.MapTop + P.MapHeight * 0.5f);
+ if (!Positions().IsValidIndex(Index)) return Center;
+ return Center + (Positions()[Index] + Pan) * FMath::Clamp(
+     FMath::IsFinite(Zoom) ? Zoom : 0.2f, 0.08f, 2.1f);
+}
+inline bool InMap(const FPanel& P, const FVector2D& Position)
+{
+ return Position.X >= P.MapLeft && Position.X <= P.MapLeft + P.MapWidth
+     && Position.Y >= P.MapTop && Position.Y <= P.MapTop + P.MapHeight;
+}
+inline int32 HitTest(float ViewWidth, float ViewHeight, float Zoom,
+                     const FVector2D& Pan, float X, float Y)
+{
+ const FPanel P = Panel(ViewWidth, ViewHeight);
+ const FVector2D Mouse(X, Y);
+ if (!P.bUsable || !InMap(P, Mouse)) return INDEX_NONE;
+ int32 Best = INDEX_NONE;
+ float BestDistSq = FMath::Square(17.f);
+ for (int32 Index = 0; Index < Positions().Num(); ++Index) {
+  const FVector2D Point = ScreenPosition(Index, P, Zoom, Pan);
+  const float Dist = FVector2D::DistSquared(Mouse, Point);
+  if (Dist <= BestDistSq) { BestDistSq = Dist; Best = Index; }
+ }
+ return Best;
+}
+inline void Focus(int32 Index, FVector2D& Pan)
+{
+ if (Positions().IsValidIndex(Index)) Pan = -Positions()[Index];
+}
+}
