@@ -112,6 +112,38 @@ inline int32 HitTest(float ViewWidth, float ViewHeight, float Zoom,
  }
  return Best;
 }
+// Switch between Might, Agility and Arcana near the same tier.
+// Runs only on a left/right input event, not every frame. Invalid indices
+// and unexpected branch IDs cannot produce a selection.
+inline int32 StepBranch(int32 CurrentIndex, int32 Direction)
+{
+ const auto& Nodes = MoonfallTalents::Catalog();
+ if (!Nodes.IsValidIndex(CurrentIndex) || (Direction != -1 && Direction != 1))
+  return INDEX_NONE;
+ static const TCHAR* Branches[3] = {TEXT("might"), TEXT("agility"), TEXT("arcana")};
+ int32 BranchIndex = INDEX_NONE;
+ for (int32 Index = 0; Index < 3; ++Index) {
+  if (FCString::Strcmp(Nodes[CurrentIndex].Branch, Branches[Index]) == 0) {
+   BranchIndex = Index;
+   break;
+  }
+ }
+ if (BranchIndex == INDEX_NONE) return INDEX_NONE;
+ const int32 TargetBranch = (BranchIndex + (Direction > 0 ? 1 : 2)) % 3;
+ const int32 CurrentTier = Nodes[CurrentIndex].Tier;
+ int32 Best = INDEX_NONE;
+ int32 BestTierDifference = MAX_int32;
+ for (int32 Index = 0; Index < Nodes.Num(); ++Index) {
+  if (FCString::Strcmp(Nodes[Index].Branch, Branches[TargetBranch]) != 0) continue;
+  const int32 Difference = FMath::Abs(Nodes[Index].Tier - CurrentTier);
+  if (Difference < BestTierDifference) {
+   Best = Index;
+   BestTierDifference = Difference;
+  }
+ }
+ return Best;
+}
+
 inline void Focus(int32 Index, FVector2D& Pan)
 {
  if (Positions().IsValidIndex(Index)) Pan = -Positions()[Index];
