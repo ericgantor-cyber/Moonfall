@@ -1316,7 +1316,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -1340,8 +1340,47 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / P / A: back to inventory", hud)
-        self.assertIn("C / P / A: character stats", hud)
+        self.assertIn("C / P / R3: back to inventory", hud)
+        self.assertIn("C / P / R3: character stats", hud)
+
+    def test_gamepad_a_and_r3_contexts_do_not_trigger_three_actions(self):
+        # A is Jump/dialogue in the world and Spend only in the talent modal.
+        # R3 is Guard in combat, Character Stats in Inventory, focus in Atlas.
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in inputs.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        for action in ("Jump", "TalentsSpend"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="{action}",Key=Gamepad_FaceButton_Bottom)'), 1)
+        self.assertNotIn(
+            '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)',
+            mappings)
+        for action in ("Guard", "ChronicleFocus"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="{action}",Key=Gamepad_RightThumbstick)'), 1)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", jump)
+        self.assertLess(jump.index("if (bTalentWebOpen) return;"), jump.index("Jump();"))
+        purchase = self.hero_cpp.split("void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (!bTalentWebOpen ||", purchase)
+        stats = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", stats)
+        focus = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertLess(focus.index("if (bTalentWebOpen) return;"),
+                        focus.index("if (bInventoryOpen && !bAtlasOpen)"))
+        self.assertLess(focus.index("ToggleCharacterStats();"),
+                        focus.index("if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;"))
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bInventoryOpen", guard)
+        self.assertIn("bAtlasOpen", guard)
+        self.assertIn("if (bTalentWebOpen) return;", guard)
+        self.assertIn("C / P / R3: character stats", self.hud)
+        self.assertIn("C / P / R3: back to inventory", self.hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
