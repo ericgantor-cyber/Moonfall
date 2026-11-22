@@ -475,6 +475,7 @@ private:
  void CastRight();
  void CastBoth();
  void Dodge();
+ void GamepadBack();
  void BeginSprint();
  void EndSprint();
  void BreakGuard();
