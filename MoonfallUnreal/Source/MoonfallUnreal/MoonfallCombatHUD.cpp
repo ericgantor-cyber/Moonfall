@@ -80,7 +80,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  B / Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    return;
@@ -717,7 +717,7 @@ void AMoonfallCombatHUD::DrawHUD()
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    // Gamepad A is Jump/dialogue confirm, not a character-pane shortcut.
    DrawText(PanelWidth < 500.f
-       ? TEXT("C/P | D-pad Left/R3: bag | Esc: close")
+       ? TEXT("C/P | D-pad Left/R3: bag | B/Esc: back")
        : TEXT("C/P | D-pad Left / R3: bag   B/I/Select/Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, PanelWidth < 500.f ? 0.56f : 0.72f);
