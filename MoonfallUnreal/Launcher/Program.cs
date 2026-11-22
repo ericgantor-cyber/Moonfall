@@ -325,13 +325,23 @@ internal sealed class LaunchWindow : Form
                 UseShellExecute = true
             });
             if (process == null) throw new InvalidOperationException("Windows did not start the game process.");
-            // A launch-survival check only. We do not infer graphics
-            // compatibility or FPS from a process that stays alive.
+            // Wait for an actual early exit instead of delaying every failure
+            // for eight seconds. A running process is not proof of a working RHI.
             WindowState = FormWindowState.Minimized;
-            await Task.Delay(TimeSpan.FromSeconds(8));
+            using var startupWindow = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            bool exitedEarly;
+            try
+            {
+                await process.WaitForExitAsync(startupWindow.Token);
+                exitedEarly = true;
+            }
+            catch (OperationCanceledException) when (startupWindow.IsCancellationRequested)
+            {
+                exitedEarly = false; // The game survived the startup window.
+            }
             if (IsDisposed || Disposing) return;
             process.Refresh();
-            if (!process.HasExited || process.ExitCode == 0)
+            if (!exitedEarly || process.ExitCode == 0)
             {
                 Close();
                 return;
