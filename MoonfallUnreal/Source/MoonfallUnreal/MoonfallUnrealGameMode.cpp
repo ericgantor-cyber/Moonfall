@@ -78,7 +78,10 @@ void AMoonfallUnrealGameMode::BeginPlay()
 
 void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
- GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
+ // During world teardown the timer manager may no longer be reachable.
+ // Do not dereference an absent world while clearing the batch timer.
+ if (GetWorld())
+  GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
  Super::EndPlay(EndPlayReason);
 }
 
