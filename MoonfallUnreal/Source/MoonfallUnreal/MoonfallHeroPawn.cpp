@@ -2004,6 +2004,8 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
  if (bTalentWebOpen) {
   bTalentWebOpen = false;
   bTalentRespecConfirm = false;
+  TalentWebNotice.Empty();
+  TalentWebNoticeUntil = 0.f;
   if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false;
   return;
  }
@@ -2017,6 +2019,8 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
  EndGuard();
  bTalentWebOpen = true;
  bTalentRespecConfirm = false;
+ TalentWebNotice.Empty();
+ TalentWebNoticeUntil = 0.f;
  TalentWebSelected = FMath::Clamp(TalentWebSelected, 0, MoonfallTalents::Catalog().Num() - 1);
  TalentWebZoom = FMath::Clamp(FMath::IsFinite(TalentWebZoom) ? TalentWebZoom : 0.2f, 0.08f, 2.1f);
  TalentWebPan = FVector2D::ZeroVector;
@@ -2044,18 +2048,43 @@ void AMoonfallHeroPawn::TalentWebStepBranch(int32 Direction)
  MoonfallTalentWeb::Focus(TalentWebSelected, TalentWebPan);
  bTalentRespecConfirm = false;
 }
+void AMoonfallHeroPawn::SetTalentWebNotice(const FString& Message, bool bSuccess)
+{
+ TalentWebNotice = Message;
+ bTalentWebNoticeSuccess = bSuccess;
+ const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ TalentWebNoticeUntil = FMath::IsFinite(Now) ? Now + 3.f : 0.f;
+}
 void AMoonfallHeroPawn::TalentWebPurchase()
 {
  if (!bTalentWebOpen || !MoonfallTalents::Catalog().IsValidIndex(TalentWebSelected)) return;
  bTalentRespecConfirm = false;
- SpendTalentPoint(FName(MoonfallTalents::Catalog()[TalentWebSelected].Id));
+ const FName TalentId(MoonfallTalents::Catalog()[TalentWebSelected].Id);
+ TMap<FName, int32> Proposed = TalentRanks;
+ // The same validator used for the actual transaction distinguishes a
+ // locked node from a disk/save failure. Never report an unsaved purchase.
+ if (!MoonfallTalents::TryAllocate(Level, Proposed, TalentId)) {
+  SetTalentWebNotice(TEXT("TALENT LOCKED: CHECK LEVEL, LINKS, RANK OR POINTS"), false);
+  return;
+ }
+ if (SpendTalentPoint(TalentId))
+  SetTalentWebNotice(TEXT("TALENT RANK PURCHASED AND SAVED"), true);
+ else
+  SetTalentWebNotice(TEXT("TALENT NOT SAVED: PREVIOUS RANKS KEPT"), false);
 }
 void AMoonfallHeroPawn::TalentWebReset()
 {
  if (!bTalentWebOpen || TalentRanks.IsEmpty()) return;
- if (!bTalentRespecConfirm) { bTalentRespecConfirm = true; return; }
+ if (!bTalentRespecConfirm) {
+  bTalentRespecConfirm = true;
+  SetTalentWebNotice(TEXT("PRESS RESET AGAIN TO CONFIRM FULL RESPEC"), false);
+  return;
+ }
  bTalentRespecConfirm = false;
- ResetTalentTree();
+ if (ResetTalentTree())
+  SetTalentWebNotice(TEXT("FULL RESPEC SAVED: POINTS RESTORED"), true);
+ else
+  SetTalentWebNotice(TEXT("RESPEC NOT SAVED: PREVIOUS TALENTS KEPT"), false);
 }
 
 int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
