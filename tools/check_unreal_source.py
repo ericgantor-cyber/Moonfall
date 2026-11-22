@@ -6459,6 +6459,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="RacePower",Key=T', inputs)
         self.assertNotIn('ActionName="LockOn",Key=Y', inputs)
         self.assertIn('ActionName="LockNext",Key=Tab', inputs)
+        self.assertIn('ActionName="GamepadBack",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertNotIn('ActionName="Dodge",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="Dodge",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack)', self.hero_cpp)
+        controller_back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split("void AMoonfallHeroPawn::GamepadContextLeft()", 1)[0]
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()", controller_back)
+        self.assertLess(controller_back.index("OpenOptions();"), controller_back.index("Dodge();"))
+        self.assertIn("void GamepadBack();", self.hero_h)
         for action, key in (("GamepadContextLeft", "Gamepad_DPad_Left"), ("GamepadContextRight", "Gamepad_DPad_Right")):
             self.assertIn(f'ActionName="{action}",Key={key}', inputs)
             self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
