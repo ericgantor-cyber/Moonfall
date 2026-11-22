@@ -1,4 +1,6 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallTalentRules.h"
+#include "MoonfallTalentWebLayout.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
@@ -21,6 +23,101 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ // World-facing panels cannot draw or hit-test behind the constellation.
+ if (Hero->bTalentWebOpen) {
+  const auto P = MoonfallTalentWeb::Panel(Canvas->SizeX, Canvas->SizeY);
+  if (!P.bUsable) {
+   DrawText(TEXT("TALENT WEB | Enlarge window | K / ESC: close"),
+     FLinearColor::White, 12.f, 12.f, nullptr, 0.85f);
+   return;
+  }
+  const FLinearColor Crimson(0.84f,0.40f,0.45f);
+  const FLinearColor Teal(0.39f,0.78f,0.67f);
+  const FLinearColor Violet(0.66f,0.61f,1.f);
+  const FLinearColor Dim(0.15f,0.19f,0.26f);
+  const FLinearColor Gold(0.93f,0.78f,0.43f);
+  DrawRect(FLinearColor(0.035f,0.045f,0.08f,0.98f),P.Left,P.Top,P.Width,P.Height);
+  DrawRect(FLinearColor(0.24f,0.27f,0.42f),P.Left+8.f,P.Top+8.f,P.Width-16.f,2.f);
+  DrawText(TEXT("MOONFALL  |  CELESTIAL TALENT CONSTELLATION"),Gold,
+       P.Left+16.f,P.Top+12.f,nullptr,P.Width<710.f?0.70f:1.12f);
+  DrawText(FString::Printf(TEXT("LEVEL %d  |  %d UNALLOCATED  |  141 STARS"),
+       Hero->Level,Hero->GetUnspentTalentPoints()),FLinearColor(0.78f,0.86f,0.97f),
+       P.Left+16.f,P.Top+42.f,nullptr,0.77f);
+  DrawRect(FLinearColor(0.36f,0.14f,0.21f),P.Left+P.Width-42.f,P.Top+12.f,28.f,28.f);
+  DrawText(TEXT("X"),FLinearColor::White,P.Left+P.Width-33.f,P.Top+15.f,nullptr,0.85f);
+  DrawRect(FLinearColor(0.055f,0.075f,0.13f),P.MapLeft,P.MapTop,P.MapWidth,P.MapHeight);
+  // All 141 positions are cached by shared pure geometry. The actor tree is
+  // never searched during drawing, and lines never reveal offscreen nodes.
+  const auto& Nodes = MoonfallTalents::Catalog();
+  const auto& Positions = MoonfallTalentWeb::Positions();
+  auto NodeColor = [&](const MoonfallTalents::FNode& N) {
+   return FCString::Strcmp(N.Branch,TEXT("might"))==0 ? Crimson
+      : FCString::Strcmp(N.Branch,TEXT("agility"))==0 ? Teal : Violet;
+  };
+  for (int32 Index=0; Index<Nodes.Num(); ++Index) {
+   const auto& N=Nodes[Index];
+   const FVector2D B=MoonfallTalentWeb::ScreenPosition(Index,P,Hero->TalentWebZoom,Hero->TalentWebPan);
+   if (!MoonfallTalentWeb::InMap(P,B)) continue;
+   for (const TCHAR* Parent : {N.RequiresA,N.RequiresB}) {
+    if (!Parent[0]) continue;
+    for (int32 ParentIndex=0;ParentIndex<Nodes.Num();++ParentIndex) {
+     if (FCString::Strcmp(Nodes[ParentIndex].Id,Parent)!=0) continue;
+     const FVector2D A=MoonfallTalentWeb::ScreenPosition(ParentIndex,P,Hero->TalentWebZoom,Hero->TalentWebPan);
+     if (MoonfallTalentWeb::InMap(P,A))
+      DrawLine(A.X,A.Y,B.X,B.Y,Hero->GetTalentRank(FName(Parent))>0?NodeColor(N):Dim,1.4f);
+     break;
+    }
+   }
+  }
+  const int32 Available=Hero->GetUnspentTalentPoints();
+  for (int32 Index=0;Index<Nodes.Num();++Index) {
+   const auto& N=Nodes[Index];
+   const FVector2D Pos=MoonfallTalentWeb::ScreenPosition(Index,P,Hero->TalentWebZoom,Hero->TalentWebPan);
+   if (!MoonfallTalentWeb::InMap(P,Pos)) continue;
+   const int32 Rank=Hero->GetTalentRank(FName(N.Id));
+   bool bReady=Hero->Level>=N.MinLevel && Rank<N.MaxRank && Available>=N.CostPerRank;
+   for (const TCHAR* Parent:{N.RequiresA,N.RequiresB})
+    if (Parent[0] && Hero->GetTalentRank(FName(Parent))<1) bReady=false;
+   const FLinearColor Color=Rank>0?NodeColor(N)
+       :bReady?NodeColor(N)*0.65f:FLinearColor(0.32f,0.35f,0.44f);
+   const float Radius=Index==Hero->TalentWebSelected?7.8f:5.0f;
+   if (Index==Hero->TalentWebSelected)
+    DrawRect(Gold,Pos.X-Radius-3.f,Pos.Y-Radius-3.f,2.f*Radius+6.f,2.f*Radius+6.f);
+   DrawRect(Color,Pos.X-Radius,Pos.Y-Radius,2.f*Radius,2.f*Radius);
+  }
+  const float SideX=P.Left+P.Width-250.f;
+  DrawRect(FLinearColor(0.065f,0.08f,0.15f),SideX,P.MapTop,225.f,P.MapHeight);
+  const int32 Selected=FMath::Clamp(Hero->TalentWebSelected,0,Nodes.Num()-1);
+  const auto& N=Nodes[Selected];
+  const float FontScale=P.Width<710.f?0.67f:0.81f;
+  DrawText(FString(N.Title),NodeColor(N),SideX+10.f,P.MapTop+14.f,nullptr,FontScale);
+  DrawText(FString::Printf(TEXT("%s  |  TIER %d / 14"),N.Branch,N.Tier),
+      FLinearColor(0.75f,0.80f,0.93f),SideX+10.f,P.MapTop+43.f,nullptr,0.73f);
+  DrawText(FString::Printf(TEXT("Rank: %d / %d"),Hero->GetTalentRank(FName(N.Id)),N.MaxRank),
+      FLinearColor::White,SideX+10.f,P.MapTop+73.f,nullptr,0.79f);
+  DrawText(FString::Printf(TEXT("Requires level %d"),N.MinLevel),
+      FLinearColor(0.75f,0.83f,0.94f),SideX+10.f,P.MapTop+102.f,nullptr,0.73f);
+  const FString Parents=FString(N.RequiresA)+(N.RequiresB[0]?TEXT(" + ")+FString(N.RequiresB):TEXT(""));
+  DrawText(Parents.IsEmpty()?TEXT("No prerequisite"):Parents.Left(30),
+      FLinearColor(0.83f,0.82f,0.92f),SideX+10.f,P.MapTop+131.f,nullptr,0.67f);
+  DrawText(FString::Printf(TEXT("%+.2f %s / rank"),N.AmountPerRank,
+       N.bPercent?TEXT("fraction"):TEXT("flat")),
+      Gold,SideX+10.f,P.MapTop+167.f,nullptr,0.72f);
+  DrawText(TEXT("MIGHT   AGILITY   ARCANA"),FLinearColor(0.75f,0.75f,0.84f),
+      SideX+10.f,P.MapTop+214.f,nullptr,0.61f);
+  DrawRect(FLinearColor(0.15f,0.33f,0.27f),SideX,P.Top+P.Height-118.f,224.f,37.f);
+  DrawText(TEXT("UNLOCK / RANK UP"),FLinearColor::White,
+      SideX+12.f,P.Top+P.Height-110.f,nullptr,0.76f);
+  DrawRect(Hero->bTalentRespecConfirm?FLinearColor(0.48f,0.14f,0.18f)
+       :FLinearColor(0.23f,0.17f,0.29f),SideX,P.Top+P.Height-70.f,224.f,37.f);
+  DrawText(Hero->bTalentRespecConfirm?TEXT("CONFIRM FULL RESPEC"):TEXT("RESET ALL TALENTS"),
+      FLinearColor::White,SideX+12.f,P.Top+P.Height-62.f,nullptr,0.72f);
+  DrawText(TEXT("K/ESC: close   Wheel: zoom   RMB drag: pan"),
+      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.68f);
+  DrawText(TEXT("Pad: UP/DOWN choose  A buy  B back  LT reset"),
+      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.66f);
+  return;
+ }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
