@@ -1059,6 +1059,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("C / P / R3: back to inventory", hud)
         self.assertIn("C / P / R3: character stats", hud)
 
+    def test_tick_clears_invalid_target_lock_and_stale_resident_dialogue(self):
+        # Lock and NPC cleanup must agree with the per-action validity guards.
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        lock = tick.split("if (LockedTarget.IsValid()) {", 1)[1].split(
+            "// A nonfinite frame delta", 1)[0]
+        self.assertIn("!FMath::IsFinite(Health)", lock)
+        self.assertIn("ClearTargetLock();", lock)
+        self.assertLess(lock.index("!FMath::IsFinite(Health)"), lock.index("ClearTargetLock();"))
+        resident = tick.split("if (bResidentContextOpen) {", 1)[1].split(
+            "// Keep one save slot forever", 1)[0]
+        for guard in ("!IsValid(Resident)", "Health <= 0.f",
+                      "!FMath::IsFinite(Health)", "bAtlasOpen"):
+            self.assertIn(guard, resident)
+        self.assertIn("CloseResidentContext();", resident)
+        self.assertLess(resident.index("!FMath::IsFinite(Health)"),
+                        resident.index("CloseResidentContext();"))
+
     def test_gamepad_a_and_npc_actions_block_invalid_health_and_atlas(self):
         # Source contract: never confirm a quest or jump with invalid vitals.
         jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
