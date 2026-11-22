@@ -849,6 +849,8 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
+ // Neither jump nor NPC confirmation may run with invalid/defeated vitals.
+ if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  // A or Space cannot leak into Jump while dialogue is still open.
  if (bResidentContextOpen) {
   if (!FocusedResident.IsValid()) {
