@@ -120,7 +120,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout = (ROOT / "MoonfallTalentWebLayout.h").read_text(encoding="utf-8")
         for mapping in ('ActionName="Talents",Key=K',
                         'ActionName="TalentsSpend",Key=Gamepad_FaceButton_Bottom',
-                        'ActionName="TalentsBack",Key=Gamepad_FaceButton_Right',
+                        'ActionName="GamepadBack",Key=Gamepad_FaceButton_Right',
                         'ActionName="TalentsReset",Key=Gamepad_LeftTrigger'):
             self.assertIn(mapping, config)
         self.assertIn("const TArray<FVector2D> Points = []()", layout)
@@ -1343,6 +1343,40 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("C / P / R3: back to inventory", hud)
         self.assertIn("C / P / R3: character stats", hud)
 
+    def test_gamepad_b_is_one_contextual_action_and_mb5_is_exclusive(self):
+        import re
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        bindings = re.findall(r'^\+ActionMappings=\(ActionName="([^"]+)",Key=([^),]+)\)',
+                              inputs, re.MULTILINE)
+        def actions(key):
+            return {action for action, physical in bindings if physical == key}
+        self.assertEqual(actions("Gamepad_FaceButton_Right"), {"GamepadBack"})
+        self.assertEqual(actions("ThumbMouseButton2"), {"DualCast"})
+        self.assertEqual(actions("Gamepad_LeftTrigger"), {"DualCast", "EquipBest", "TalentsReset"})
+        self.assertEqual(actions("Gamepad_FaceButton_Top"), {"RacePower", "AscendGear"})
+        self.assertEqual(actions("Gamepad_FaceButton_Bottom"), {"Jump", "TalentsSpend"})
+        self.assertIn(("RacePower", "N"), bindings)
+        self.assertNotIn(("RacePower", "T"), bindings)
+        for name in ("CastLeft", "CastRight", "DualCast"):
+            self.assertNotIn((name, "Z"), bindings)
+            self.assertNotIn((name, "X"), bindings)
+        self.assertIn(
+            'BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack)',
+            self.hero_cpp)
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split(
+            "\n}", 1)[0]
+        for state in ("bTalentWebOpen", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                      "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(state, back)
+        self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
+        self.assertIn("void GamepadBack();", self.hero_h)
+        self.assertIn("R / Y: ascend", self.hud)
+        power = self.hero_cpp.split("bool AMoonfallHeroPawn::ActivateRacePower()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bInventoryOpen || bOptionsOpen", power)
+        self.assertIn("if (bTalentWebOpen) return false;", power)
+        self.assertNotIn('ActionName="TalentsBack",Key=Gamepad_FaceButton_Right', inputs)
+
     def test_gamepad_a_and_r3_contexts_do_not_trigger_three_actions(self):
         # A is Jump/dialogue in the world and Spend only in the talent modal.
         # R3 is Guard in combat, Character Stats in Inventory, focus in Atlas.
@@ -1509,7 +1543,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="AscendGear",Key=R', inputs)
-        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Top', inputs)
         self.assertIn('BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool AscendInventoryItemRarity(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
@@ -1530,7 +1564,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;", hud)
         self.assertIn("SelectedRarity < 5", hud)
-        self.assertIn("R / B: ascend", hud)
+        self.assertIn("R / Y: ascend", hud)
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
