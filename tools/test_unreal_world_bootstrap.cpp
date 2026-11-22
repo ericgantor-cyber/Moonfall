@@ -34,6 +34,19 @@ int main() {
  assert(!M::ShouldContinueBatch(7,8,2.5,2.5));
  assert(!M::ShouldContinueBatch(1,8,-1.0,2.5));
  assert(M::ShouldContinueBatch(0,1,500.0,0.5));
+ // A duplicate authored actor may safely fill a missing slot, but only
+ // with an exact region/dungeon identity. Every invalid id must be rejected.
+ for(int Zone=-1;Zone<=M::LegacyZoneCount;++Zone) {
+  for(int Dungeon=-1;Dungeon<=M::DungeonsPerZone;++Dungeon) {
+   for(int Slot=-1;Slot<=M::TotalDungeons;++Slot) {
+    const bool Match=Zone>=0 && Zone<M::LegacyZoneCount &&
+      Dungeon>=0 && Dungeon<M::DungeonsPerZone &&
+      Slot>=0 && Slot<M::TotalDungeons &&
+      Zone*M::DungeonsPerZone+Dungeon==Slot;
+    assert(M::MatchesDungeonSlot(Zone,Dungeon,Slot)==Match);
+   }
+  }
+ }
  // A destroyed or unloaded authored actor must not reserve a dungeon slot.
  for (int Valid=0;Valid<=1;++Valid) {
   for (int Destroying=0;Destroying<=1;++Destroying) {
