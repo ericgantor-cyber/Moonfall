@@ -6,7 +6,7 @@ No Z/Nyra sprites or meshes are included or altered. Import the user's approved 
 
 ## Current mouse casting controls
 
-During gameplay, **left-click casts the left-hand spell**, **right-click casts the right-hand spell**, and **MB5 (the second side/thumb mouse button) dual-casts** when both hands have the same spell. Mouse clicks on residents, inventory, and menus retain their contextual actions. **Z and X are not spell shortcuts.** On a controller, LB/RB cast the separate hands and left trigger dual-casts. Unreal runtime input still requires testing on Windows.
+During gameplay, **left-click casts the left-hand spell**, **right-click casts the right-hand spell**, and **MB5 (the second side/thumb mouse button) dual-casts** when both hands have the same spell. Mouse clicks on residents, inventory, and menus retain their contextual actions. **Z and X are not spell shortcuts.** On a controller, LB/RB cast the separate hands and left trigger dual-casts. **A is reserved for jump and dialogue confirmation**, and no longer opens Character Stats at the same time. **While Inventory is open, R3 switches between inventory and Character Stats.** Outside inventory, R3 remains Guard during gameplay and Chronicle reading focus in the Atlas. The native InputSettings automation test checks these mappings, but real button handling still requires Windows playtesting.
 
 ## Godot → UE5 feature parity (draft)
 
