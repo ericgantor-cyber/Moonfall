@@ -2,6 +2,7 @@
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallTalentRules.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
@@ -915,6 +916,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
+    * (1.f + TalentMagicDamageBonus)
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
     * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
@@ -1926,10 +1928,140 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetVisibility(true);
 }
 
+// Godot's complete constellation is data-driven; the player owns only ranks,
+// and derived bonuses are cached whenever a build changes or a save is loaded.
+int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
+{
+ return MoonfallTalents::AvailablePoints(Level, TalentRanks);
+}
+int32 AMoonfallHeroPawn::GetTalentRank(FName TalentId) const
+{
+ return MoonfallTalents::Find(TalentId) ? TalentRanks.FindRef(TalentId) : 0;
+}
+TArray<FName> AMoonfallHeroPawn::GetTalentIds() const
+{
+ TArray<FName> Ids;
+ Ids.Reserve(MoonfallTalents::Catalog().Num());
+ for (const MoonfallTalents::FNode& Node : MoonfallTalents::Catalog())
+  Ids.Add(FName(Node.Id));
+ return Ids;
+}
+bool AMoonfallHeroPawn::GetTalentNodeDetails(FName TalentId, FString& Title,
+    FName& Branch, int32& Tier, int32& MinimumLevel, int32& MaximumRank,
+    FName& PrerequisiteA, FName& PrerequisiteB) const
+{
+ Title.Empty();
+ Branch = NAME_None;
+ Tier = 0;
+ MinimumLevel = 0;
+ MaximumRank = 0;
+ PrerequisiteA = NAME_None;
+ PrerequisiteB = NAME_None;
+ const MoonfallTalents::FNode* Node = MoonfallTalents::Find(TalentId);
+ if (!Node) return false;
+ Title = Node->Title;
+ Branch = FName(Node->Branch);
+ Tier = Node->Tier;
+ MinimumLevel = Node->MinLevel;
+ MaximumRank = Node->MaxRank;
+ if (Node->RequiresA[0]) PrerequisiteA = FName(Node->RequiresA);
+ if (Node->RequiresB[0]) PrerequisiteB = FName(Node->RequiresB);
+ return true;
+}
+float AMoonfallHeroPawn::GetTalentStatBonus(FName StatName, bool bPercent) const
+{
+ using namespace MoonfallTalents;
+ EStat Stat;
+ if (StatName == FName(TEXT("health"))) Stat = EStat::Health;
+ else if (StatName == FName(TEXT("mana"))) Stat = EStat::Mana;
+ else if (StatName == FName(TEXT("stamina"))) Stat = EStat::Stamina;
+ else if (StatName == FName(TEXT("melee_damage"))) Stat = EStat::MeleeDamage;
+ else if (StatName == FName(TEXT("ranged_damage"))) Stat = EStat::RangedDamage;
+ else if (StatName == FName(TEXT("magic_damage"))) Stat = EStat::MagicDamage;
+ else return 0.f;
+ return Validate(Level, TalentRanks) ? Bonus(TalentRanks, Stat, bPercent) : 0.f;
+}
+void AMoonfallHeroPawn::RefreshTalentBonuses()
+{
+ if (!MoonfallTalents::Validate(Level, TalentRanks)) return;
+ const float NewHealth = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Health, false);
+ const float NewMana = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Mana, false);
+ const float NewStamina = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Stamina, false);
+ const float OldHealthMax = MaxHealth;
+ // Remove old bonuses before applying new ones: purchases and respecs must
+ // never compound already equipped bonuses, nor erase normal level growth.
+ MaxHealth = FMath::Clamp(MaxHealth - TalentAppliedHealthBonus + NewHealth, 1.f, 100000.f);
+ MaxMana = FMath::Clamp(MaxMana - TalentAppliedManaBonus + NewMana, 1.f, 100000.f);
+ MaxStamina = FMath::Clamp(MaxStamina - TalentAppliedStaminaBonus + NewStamina, 1.f, 100000.f);
+ TalentAppliedHealthBonus = NewHealth;
+ TalentAppliedManaBonus = NewMana;
+ TalentAppliedStaminaBonus = NewStamina;
+ TalentMeleeDamageBonus = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::MeleeDamage, true);
+ TalentRangedDamageBonus = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::RangedDamage, true);
+ TalentMagicDamageBonus = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::MagicDamage, true);
+ // Do not heal for free just because max resource capacity increased.
+ Health = FMath::Clamp(Health, 0.f, MaxHealth);
+ Mana = FMath::Clamp(Mana, 0.f, MaxMana);
+ Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
+ if (!FMath::IsNearlyEqual(MaxHealth, OldHealthMax)) OnHealthChanged(Health, MaxHealth);
+}
+bool AMoonfallHeroPawn::CommitTalentRanks(const TMap<FName, int32>& Candidate)
+{
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || !MoonfallTalents::Validate(Level, TalentRanks)
+     || !MoonfallTalents::Validate(Level, Candidate)) return false;
+ const TMap<FName, int32> Previous = TalentRanks;
+ const float PreviousHealth = Health, PreviousMaxHealth = MaxHealth;
+ const float PreviousMana = Mana, PreviousMaxMana = MaxMana;
+ const float PreviousStamina = Stamina, PreviousMaxStamina = MaxStamina;
+ const float PreviousHealthBonus = TalentAppliedHealthBonus;
+ const float PreviousManaBonus = TalentAppliedManaBonus;
+ const float PreviousStaminaBonus = TalentAppliedStaminaBonus;
+ const float PreviousMeleeBonus = TalentMeleeDamageBonus;
+ const float PreviousRangedBonus = TalentRangedDamageBonus;
+ const float PreviousMagicBonus = TalentMagicDamageBonus;
+ TalentRanks = Candidate;
+ RefreshTalentBonuses();
+ if (!SaveWorldProgress()) {
+  // Failing disk writes must leave neither spent points nor altered vitals.
+  TalentRanks = Previous;
+  Health = PreviousHealth; MaxHealth = PreviousMaxHealth;
+  Mana = PreviousMana; MaxMana = PreviousMaxMana;
+  Stamina = PreviousStamina; MaxStamina = PreviousMaxStamina;
+  TalentAppliedHealthBonus = PreviousHealthBonus;
+  TalentAppliedManaBonus = PreviousManaBonus;
+  TalentAppliedStaminaBonus = PreviousStaminaBonus;
+  TalentMeleeDamageBonus = PreviousMeleeBonus;
+  TalentRangedDamageBonus = PreviousRangedBonus;
+  TalentMagicDamageBonus = PreviousMagicBonus;
+  OnHealthChanged(Health, MaxHealth);
+  return false;
+ }
+ SecondsSinceLastWorldSave = 0.f;
+ OnTalentRanksChanged();
+ return true;
+}
+bool AMoonfallHeroPawn::SpendTalentPoint(FName TalentId)
+{
+ TMap<FName, int32> Candidate = TalentRanks;
+ if (!MoonfallTalents::TryAllocate(Level, Candidate, TalentId)) return false;
+ return CommitTalentRanks(Candidate);
+}
+bool AMoonfallHeroPawn::ResetTalentTree()
+{
+ if (!MoonfallTalents::Validate(Level, TalentRanks)) return false;
+ if (TalentRanks.IsEmpty()) return true;
+ const TMap<FName, int32> EmptyRanks;
+ return CommitTalentRanks(EmptyRanks);
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
  Experience = FMath::Min(1000000, Experience + FMath::Clamp(Amount, 0, 100000));
+ const int32 PreviousLevel = Level;
  while (Experience >= ExperienceToNextLevel && Level < 100) {
   Experience -= ExperienceToNextLevel;
   ++Level;
@@ -1941,6 +2073,8 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ // The 2-per-level entitlement is derived, never duplicated or saved.
+ if (Level != PreviousLevel) OnTalentRanksChanged();
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
@@ -2703,6 +2837,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Reject malformed/over-budget talent ranks before replacing a valid save.
+ if (!MoonfallTalents::Validate(Level, TalentRanks)) return false;
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
@@ -2810,6 +2946,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
  Save->Level = FMath::Clamp(Level, 1, 100);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ Save->TalentRanks = TalentRanks;
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
@@ -2825,11 +2962,18 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 13) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
+  return false;
+ }
+ // Validate the entire V13 constellation before changing any live progress.
+ // Old saves default to no allocated talents and keep their earned points.
+ if (Save->Version >= 13 && !MoonfallTalents::Validate(Save->Level, Save->TalentRanks)) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid talents; original save protected."));
   return false;
  }
  // Fail closed on oversized legacy or V7 collections. Simply scanning the
@@ -3085,11 +3229,16 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
  bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
+ TalentRanks = Save->Version >= 13 ? Save->TalentRanks : TMap<FName, int32>();
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = FMath::IsFinite(Save->MaxHealth)
      ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
+ // MaxHealth is already saved WITH its talent addition. Do not double it on
+ // load; record the saved bonus before recalculating mana/stamina totals.
+ TalentAppliedHealthBonus = MoonfallTalents::Bonus(TalentRanks, MoonfallTalents::EStat::Health, false);
+ RefreshTalentBonuses();
  InventoryItemCodes.Reset();
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
