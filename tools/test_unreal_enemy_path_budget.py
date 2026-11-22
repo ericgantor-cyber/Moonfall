@@ -147,7 +147,9 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # A waypoint can be close enough to trigger repathing without being
         # the hero's reachable destination. On that tick, keep steering along
         # the corner rather than reverting to the far target behind a wall.
-        waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
+        # Scope this test to the arrival handler. The earlier path-corner
+        # loop and corrupt-cache handler have their own separate retry logic.
+        waypoint = self.source.split("const FVector ToWaypoint = CachedWaypoint - GetActorLocation();", 1)[1].split(
             "} else {\n   // Preserve direct chase without NavSystem", 1
         )[0]
         self.assertIn("Target = CachedWaypoint;", waypoint)
