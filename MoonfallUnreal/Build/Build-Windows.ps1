@@ -30,6 +30,773 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 }
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
+# Protect cooking against accidentally reverting to a DX11-only shader set.
+# Both shader models must be targeted so -dx11 remains a supported fallback.
+$rhiConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not (Test-Path -LiteralPath $rhiConfig -PathType Leaf)) {
+    throw "Unreal renderer config missing: $rhiConfig"
+}
+$rhiText = Get-Content -LiteralPath $rhiConfig -Raw
+$rhiSections = @([regex]::Matches($rhiText, '(?m)^\s*\[/Script/WindowsTargetPlatform.WindowsTargetSettings\]\s* First-time local packaging
+# reuses the same editor generator without overwriting a valid existing map.
+$editorCompiledForStartupMap = $false
+$startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+$engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {
+    $hasSavedMap = Test-Path -LiteralPath $startupMap -PathType Leaf
+    $configIsReady = $false
+    if (Test-Path -LiteralPath $engineConfig -PathType Leaf) {
+        $configTextBefore = Get-Content -LiteralPath $engineConfig -Raw
+        $configIsReady = ($configTextBefore -match '(?m)^\s*GameDefaultMap=/Game/Maps/MoonfallStart\s*$') -and
+            ($configTextBefore -match '(?m)^\s*EditorStartupMap=/Game/Maps/MoonfallStart\s*$')
+    }
+    if (-not $hasSavedMap -or -not $configIsReady) {
+        Write-Host 'Preparing Moonfall startup map with Unreal Editor...'
+        & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+        if ($LASTEXITCODE -ne 0) { throw "Unreal Editor compilation failed before map generation: $LASTEXITCODE" }
+        $editorCompiledForStartupMap = $true
+        $editor = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+        $generator = Join-Path $PSScriptRoot 'Create-StartupLevel.py'
+        if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "UnrealEditor-Cmd.exe missing: $editor" }
+        if (-not (Test-Path -LiteralPath $generator -PathType Leaf)) { throw "Startup-level generator missing: $generator" }
+        & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) { throw "Startup map generation failed: $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+            throw 'Unreal Editor did not create MoonfallStart.umap; inspect its log.'
+        }
+    }
+}
+
+
+# A playable package needs a real project-owned level, not the engine's
+# generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+    $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+    if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+        throw 'Playable startup level missing: MoonfallUnreal/Content/Maps/MoonfallStart.umap. Create and save this level in Unreal Editor before packaging.'
+    }
+    if ((Get-Item -LiteralPath $startupMap).Length -le 0) {
+        throw 'MoonfallStart.umap is empty. Save the level in Unreal Editor before packaging.'
+    }
+    if (-not (Test-Path -LiteralPath $engineConfig -PathType Leaf)) {
+        throw "Unreal engine configuration missing: $engineConfig"
+    }
+    $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
+    $mapSectionMatches = @([regex]::Matches($engineConfigText, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+    if ($mapSectionMatches.Count -ne 1) {
+        throw 'Expected exactly one GameMapsSettings section in DefaultEngine.ini.'
+    }
+    $mapSection = ($engineConfigText -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+    $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+    foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap')) {
+        $matchingEntries = @([regex]::Matches($mapSection, "(?m)^\s*$mapKey\s*=\s*(.*?)\s*$"))
+        if ($matchingEntries.Count -ne 1 -or
+            $matchingEntries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+            throw "Set exactly one $mapKey=/Game/Maps/MoonfallStart in DefaultEngine.ini before packaging."
+        }
+    }
+    $modeMatches = @([regex]::Matches($mapSection, '(?m)^\s*GlobalDefaultGameMode\s*=\s*(.*?)\s*$'))
+    if ($modeMatches.Count -ne 1 -or
+        $modeMatches[0].Groups[1].Value.Trim() -ne '/Script/MoonfallUnreal.MoonfallUnrealGameMode') {
+        throw 'Set GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode before packaging.'
+    }
+
+}
+
+# Packaging preflight must check tools as well as maps. Compile-only stays independent
+# of packaging dependencies; preflight-only performs no compile or file deletion.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
+    if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
+    foreach ($command in @('dotnet','makensis.exe')) {
+        if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+            throw "Packaging prerequisite not on PATH: $command"
+        }
+    }
+    $sdks = @(& dotnet --list-sdks)
+    if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required to package the launcher.' }
+    $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+    $gameOutput = Join-Path $OutputDirectory 'Game'
+    $repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
+        throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
+    }
+
+}
+
+if ($CompilePreflightOnly) {
+    Write-Host 'Moonfall compile preflight passed: UE 5.4 and VS C++ toolchain checked. No map, packaging tools or compilation required.'
+    exit 0
+}
+if ($PreflightOnly) {
+    Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
+    exit 0
+}
+
+if (-not $editorCompiledForStartupMap) {
+    Write-Host 'Compiling Unreal 5.4 Editor target...'
+    & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+} else {
+    Write-Host 'Editor compilation already succeeded during startup map generation.'
+}
+
+if ($CompileOnly) {
+    # Build the standalone game target as well as the Editor target. An Editor
+    # compile alone does not establish that MoonfallUnreal Win64 will link.
+    Write-Host 'Compiling Unreal 5.4 standalone Game target Win64 Development...'
+    & $build MoonfallUnreal Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal Game target compilation failed: $LASTEXITCODE" }
+    Write-Host 'Unreal Editor and standalone Game Win64 Development targets compiled. Compile-only mode skips cooking, packaging, launcher and NSIS.'
+    exit 0
+}
+
+# Only clear previous installer and cooked output after Editor compilation succeeds.
+# Never recursively delete an arbitrary existing 'Game' folder.
+# Require a dedicated marker created by this script on an earlier run.
+$marker = Join-Path $gameOutput '.moonfall-managed-output'
+if (Test-Path -LiteralPath $gameOutput) {
+    if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+        throw "Refusing to delete unmarked folder: $gameOutput. Choose a new -OutputDirectory, or move this folder aside manually."
+    }
+    Write-Host "Removing previously managed packaged game output: $gameOutput"
+    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+# Preserve the last successfully built installer and checksum until a new
+# complete installer has passed hashing and the atomic promotion below.
+# Failed cooking, launcher compilation, or NSIS must not delete a valid release.
+New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
+Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
+
+Write-Host 'Packaging Unreal Win64 Development game...'
+# Explicitly cook the same project-owned map validated above. A successful C++ build alone
+# does not establish that the executable can load its intended startup level.
+& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
+if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
+
+$games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
+if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+# The packaging tool can exit successfully while leaving behind a corrupt or
+# wrong-architecture executable. Validate its PE32+ AMD64 file header before
+# publishing a launcher or installer. This is not a replacement for launching it.
+$gameExe = $games[0].FullName
+$stream = [System.IO.File]::OpenRead($gameExe)
+try {
+    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
+    $reader = [System.IO.BinaryReader]::new($stream)
+    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
+    $stream.Position = 0x3C
+    $peOffset = $reader.ReadInt32()
+    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
+        throw 'Packaged game executable has an invalid PE header offset.'
+    }
+    $stream.Position = $peOffset
+    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
+    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
+    $stream.Position = $peOffset + 24
+    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
+} finally {
+    $stream.Dispose()
+}
+$gameRoot = $games[0].Directory.FullName
+foreach ($dir in @('Engine','MoonfallUnreal')) {
+    if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
+}
+# The project directory may contain executable/config files even when cooking
+# silently produced no game content. Require an actual non-empty cooked archive.
+# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
+$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
+if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
+    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
+}
+$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
+    Where-Object { $_.Length -gt 0 })
+$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
+    Where-Object { $_.Length -gt 0 })
+$hasIoStorePair = $false
+foreach ($indexFile in $ioStoreIndexes) {
+    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
+    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
+        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
+        $hasIoStorePair = $true
+        break
+    }
+}
+if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
+}
+if ($LaunchSmokeTest) {
+    # Only on an explicitly requested Windows GPU smoke run; packaged DX12
+    # and fallback DX11 should both remain launchable after cooking.
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX12
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX11
+}
+Write-Host 'Building self-contained Windows launcher...'
+$launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
+& dotnet publish $launcherProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
+if ($LASTEXITCODE -ne 0) { throw "Launcher compilation failed: $LASTEXITCODE" }
+$launcher = Join-Path $gameRoot 'MoonfallLauncher.exe'
+if (-not (Test-Path $launcher)) { throw 'Launcher executable not found' }
+$check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $gameRoot -Wait -PassThru
+if ($check.ExitCode -ne 0) { throw "Launcher game-file check failed: $($check.ExitCode)" }
+
+Write-Host 'Building NSIS Windows installer...'
+$setup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.pending.exe'
+$script = Join-Path $repoRoot 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+& makensis.exe "/DSOURCE_DIR=$gameRoot" "/DOUTPUT_EXE=$setup" $script
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { throw 'NSIS build failed' }
+$installerFile = Get-Item -LiteralPath $setup
+if ($installerFile.Length -le 0) { throw 'NSIS returned an empty installer' }
+$hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+"$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$setup.sha256"
+$finalSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+$finalChecksum = "$finalSetup.sha256"
+$backupSetup = "$finalSetup.previous"
+$backupChecksum = "$finalChecksum.previous"
+# Fail closed if a previous interrupted promotion left backups to recover.
+if ((Test-Path -LiteralPath $backupSetup) -or (Test-Path -LiteralPath $backupChecksum)) {
+    throw "Previous installer promotion backup exists. Review $backupSetup and $backupChecksum before retrying."
+}
+$hadSetup = Test-Path -LiteralPath $finalSetup
+$hadChecksum = Test-Path -LiteralPath $finalChecksum
+try {
+    if ($hadSetup) { Move-Item -LiteralPath $finalSetup -Destination $backupSetup }
+    if ($hadChecksum) { Move-Item -LiteralPath $finalChecksum -Destination $backupChecksum }
+    Move-Item -LiteralPath $setup -Destination $finalSetup
+    Move-Item -LiteralPath "$setup.sha256" -Destination $finalChecksum
+    $promotedHash = (Get-FileHash -LiteralPath $finalSetup -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($promotedHash -ne $hash) { throw 'Promoted installer SHA256 mismatch.' }
+    $checksumLine = (Get-Content -LiteralPath $finalChecksum -TotalCount 1).Trim()
+    if ($checksumLine -ne "$hash  MoonfallUnreal-Setup.exe") { throw 'Promoted checksum manifest mismatch.' }
+} catch {
+    Remove-Item -LiteralPath $finalSetup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $finalChecksum -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupSetup) { Move-Item -LiteralPath $backupSetup -Destination $finalSetup }
+    if (Test-Path -LiteralPath $backupChecksum) { Move-Item -LiteralPath $backupChecksum -Destination $finalChecksum }
+    throw
+}
+if (Test-Path -LiteralPath $backupSetup) { Remove-Item -LiteralPath $backupSetup -Force }
+if (Test-Path -LiteralPath $backupChecksum) { Remove-Item -LiteralPath $backupChecksum -Force }
+Write-Host "Installer generated: $finalSetup"
+Write-Host "Installer size: $($installerFile.Length) bytes"
+Write-Host "Installer SHA-256: $hash"
+Write-Host "Checksum file: $finalSetup.sha256"
+Write-Warning 'A generated installer is NOT proof of working gameplay. Test installation, game launch and uninstall on Windows before sharing.'
+))
+if ($rhiSections.Count -ne 1) {
+    throw 'Expected exactly one WindowsTargetSettings section in DefaultEngine.ini.'
+}
+$rhiSection = ($rhiText -split '(?m)^\s*\[/Script/WindowsTargetPlatform.WindowsTargetSettings\]\s* First-time local packaging
+# reuses the same editor generator without overwriting a valid existing map.
+$editorCompiledForStartupMap = $false
+$startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+$engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {
+    $hasSavedMap = Test-Path -LiteralPath $startupMap -PathType Leaf
+    $configIsReady = $false
+    if (Test-Path -LiteralPath $engineConfig -PathType Leaf) {
+        $configTextBefore = Get-Content -LiteralPath $engineConfig -Raw
+        $configIsReady = ($configTextBefore -match '(?m)^\s*GameDefaultMap=/Game/Maps/MoonfallStart\s*$') -and
+            ($configTextBefore -match '(?m)^\s*EditorStartupMap=/Game/Maps/MoonfallStart\s*$')
+    }
+    if (-not $hasSavedMap -or -not $configIsReady) {
+        Write-Host 'Preparing Moonfall startup map with Unreal Editor...'
+        & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+        if ($LASTEXITCODE -ne 0) { throw "Unreal Editor compilation failed before map generation: $LASTEXITCODE" }
+        $editorCompiledForStartupMap = $true
+        $editor = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+        $generator = Join-Path $PSScriptRoot 'Create-StartupLevel.py'
+        if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "UnrealEditor-Cmd.exe missing: $editor" }
+        if (-not (Test-Path -LiteralPath $generator -PathType Leaf)) { throw "Startup-level generator missing: $generator" }
+        & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) { throw "Startup map generation failed: $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+            throw 'Unreal Editor did not create MoonfallStart.umap; inspect its log.'
+        }
+    }
+}
+
+
+# A playable package needs a real project-owned level, not the engine's
+# generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+    $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+    if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+        throw 'Playable startup level missing: MoonfallUnreal/Content/Maps/MoonfallStart.umap. Create and save this level in Unreal Editor before packaging.'
+    }
+    if ((Get-Item -LiteralPath $startupMap).Length -le 0) {
+        throw 'MoonfallStart.umap is empty. Save the level in Unreal Editor before packaging.'
+    }
+    if (-not (Test-Path -LiteralPath $engineConfig -PathType Leaf)) {
+        throw "Unreal engine configuration missing: $engineConfig"
+    }
+    $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
+    $mapSectionMatches = @([regex]::Matches($engineConfigText, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+    if ($mapSectionMatches.Count -ne 1) {
+        throw 'Expected exactly one GameMapsSettings section in DefaultEngine.ini.'
+    }
+    $mapSection = ($engineConfigText -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+    $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+    foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap')) {
+        $matchingEntries = @([regex]::Matches($mapSection, "(?m)^\s*$mapKey\s*=\s*(.*?)\s*$"))
+        if ($matchingEntries.Count -ne 1 -or
+            $matchingEntries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+            throw "Set exactly one $mapKey=/Game/Maps/MoonfallStart in DefaultEngine.ini before packaging."
+        }
+    }
+    $modeMatches = @([regex]::Matches($mapSection, '(?m)^\s*GlobalDefaultGameMode\s*=\s*(.*?)\s*$'))
+    if ($modeMatches.Count -ne 1 -or
+        $modeMatches[0].Groups[1].Value.Trim() -ne '/Script/MoonfallUnreal.MoonfallUnrealGameMode') {
+        throw 'Set GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode before packaging.'
+    }
+
+}
+
+# Packaging preflight must check tools as well as maps. Compile-only stays independent
+# of packaging dependencies; preflight-only performs no compile or file deletion.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
+    if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
+    foreach ($command in @('dotnet','makensis.exe')) {
+        if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+            throw "Packaging prerequisite not on PATH: $command"
+        }
+    }
+    $sdks = @(& dotnet --list-sdks)
+    if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required to package the launcher.' }
+    $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+    $gameOutput = Join-Path $OutputDirectory 'Game'
+    $repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
+        throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
+    }
+
+}
+
+if ($CompilePreflightOnly) {
+    Write-Host 'Moonfall compile preflight passed: UE 5.4 and VS C++ toolchain checked. No map, packaging tools or compilation required.'
+    exit 0
+}
+if ($PreflightOnly) {
+    Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
+    exit 0
+}
+
+if (-not $editorCompiledForStartupMap) {
+    Write-Host 'Compiling Unreal 5.4 Editor target...'
+    & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+} else {
+    Write-Host 'Editor compilation already succeeded during startup map generation.'
+}
+
+if ($CompileOnly) {
+    # Build the standalone game target as well as the Editor target. An Editor
+    # compile alone does not establish that MoonfallUnreal Win64 will link.
+    Write-Host 'Compiling Unreal 5.4 standalone Game target Win64 Development...'
+    & $build MoonfallUnreal Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal Game target compilation failed: $LASTEXITCODE" }
+    Write-Host 'Unreal Editor and standalone Game Win64 Development targets compiled. Compile-only mode skips cooking, packaging, launcher and NSIS.'
+    exit 0
+}
+
+# Only clear previous installer and cooked output after Editor compilation succeeds.
+# Never recursively delete an arbitrary existing 'Game' folder.
+# Require a dedicated marker created by this script on an earlier run.
+$marker = Join-Path $gameOutput '.moonfall-managed-output'
+if (Test-Path -LiteralPath $gameOutput) {
+    if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+        throw "Refusing to delete unmarked folder: $gameOutput. Choose a new -OutputDirectory, or move this folder aside manually."
+    }
+    Write-Host "Removing previously managed packaged game output: $gameOutput"
+    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+# Preserve the last successfully built installer and checksum until a new
+# complete installer has passed hashing and the atomic promotion below.
+# Failed cooking, launcher compilation, or NSIS must not delete a valid release.
+New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
+Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
+
+Write-Host 'Packaging Unreal Win64 Development game...'
+# Explicitly cook the same project-owned map validated above. A successful C++ build alone
+# does not establish that the executable can load its intended startup level.
+& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
+if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
+
+$games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
+if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+# The packaging tool can exit successfully while leaving behind a corrupt or
+# wrong-architecture executable. Validate its PE32+ AMD64 file header before
+# publishing a launcher or installer. This is not a replacement for launching it.
+$gameExe = $games[0].FullName
+$stream = [System.IO.File]::OpenRead($gameExe)
+try {
+    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
+    $reader = [System.IO.BinaryReader]::new($stream)
+    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
+    $stream.Position = 0x3C
+    $peOffset = $reader.ReadInt32()
+    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
+        throw 'Packaged game executable has an invalid PE header offset.'
+    }
+    $stream.Position = $peOffset
+    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
+    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
+    $stream.Position = $peOffset + 24
+    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
+} finally {
+    $stream.Dispose()
+}
+$gameRoot = $games[0].Directory.FullName
+foreach ($dir in @('Engine','MoonfallUnreal')) {
+    if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
+}
+# The project directory may contain executable/config files even when cooking
+# silently produced no game content. Require an actual non-empty cooked archive.
+# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
+$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
+if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
+    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
+}
+$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
+    Where-Object { $_.Length -gt 0 })
+$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
+    Where-Object { $_.Length -gt 0 })
+$hasIoStorePair = $false
+foreach ($indexFile in $ioStoreIndexes) {
+    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
+    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
+        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
+        $hasIoStorePair = $true
+        break
+    }
+}
+if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
+}
+if ($LaunchSmokeTest) {
+    # Only on an explicitly requested Windows GPU smoke run; packaged DX12
+    # and fallback DX11 should both remain launchable after cooking.
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX12
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX11
+}
+Write-Host 'Building self-contained Windows launcher...'
+$launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
+& dotnet publish $launcherProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
+if ($LASTEXITCODE -ne 0) { throw "Launcher compilation failed: $LASTEXITCODE" }
+$launcher = Join-Path $gameRoot 'MoonfallLauncher.exe'
+if (-not (Test-Path $launcher)) { throw 'Launcher executable not found' }
+$check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $gameRoot -Wait -PassThru
+if ($check.ExitCode -ne 0) { throw "Launcher game-file check failed: $($check.ExitCode)" }
+
+Write-Host 'Building NSIS Windows installer...'
+$setup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.pending.exe'
+$script = Join-Path $repoRoot 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+& makensis.exe "/DSOURCE_DIR=$gameRoot" "/DOUTPUT_EXE=$setup" $script
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { throw 'NSIS build failed' }
+$installerFile = Get-Item -LiteralPath $setup
+if ($installerFile.Length -le 0) { throw 'NSIS returned an empty installer' }
+$hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+"$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$setup.sha256"
+$finalSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+$finalChecksum = "$finalSetup.sha256"
+$backupSetup = "$finalSetup.previous"
+$backupChecksum = "$finalChecksum.previous"
+# Fail closed if a previous interrupted promotion left backups to recover.
+if ((Test-Path -LiteralPath $backupSetup) -or (Test-Path -LiteralPath $backupChecksum)) {
+    throw "Previous installer promotion backup exists. Review $backupSetup and $backupChecksum before retrying."
+}
+$hadSetup = Test-Path -LiteralPath $finalSetup
+$hadChecksum = Test-Path -LiteralPath $finalChecksum
+try {
+    if ($hadSetup) { Move-Item -LiteralPath $finalSetup -Destination $backupSetup }
+    if ($hadChecksum) { Move-Item -LiteralPath $finalChecksum -Destination $backupChecksum }
+    Move-Item -LiteralPath $setup -Destination $finalSetup
+    Move-Item -LiteralPath "$setup.sha256" -Destination $finalChecksum
+    $promotedHash = (Get-FileHash -LiteralPath $finalSetup -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($promotedHash -ne $hash) { throw 'Promoted installer SHA256 mismatch.' }
+    $checksumLine = (Get-Content -LiteralPath $finalChecksum -TotalCount 1).Trim()
+    if ($checksumLine -ne "$hash  MoonfallUnreal-Setup.exe") { throw 'Promoted checksum manifest mismatch.' }
+} catch {
+    Remove-Item -LiteralPath $finalSetup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $finalChecksum -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupSetup) { Move-Item -LiteralPath $backupSetup -Destination $finalSetup }
+    if (Test-Path -LiteralPath $backupChecksum) { Move-Item -LiteralPath $backupChecksum -Destination $finalChecksum }
+    throw
+}
+if (Test-Path -LiteralPath $backupSetup) { Remove-Item -LiteralPath $backupSetup -Force }
+if (Test-Path -LiteralPath $backupChecksum) { Remove-Item -LiteralPath $backupChecksum -Force }
+Write-Host "Installer generated: $finalSetup"
+Write-Host "Installer size: $($installerFile.Length) bytes"
+Write-Host "Installer SHA-256: $hash"
+Write-Host "Checksum file: $finalSetup.sha256"
+Write-Warning 'A generated installer is NOT proof of working gameplay. Test installation, game launch and uninstall on Windows before sharing.'
+, 2)[1]
+$rhiSection = ($rhiSection -split '(?m)^\s*\[[^\r\n]+\]\s* First-time local packaging
+# reuses the same editor generator without overwriting a valid existing map.
+$editorCompiledForStartupMap = $false
+$startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+$engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {
+    $hasSavedMap = Test-Path -LiteralPath $startupMap -PathType Leaf
+    $configIsReady = $false
+    if (Test-Path -LiteralPath $engineConfig -PathType Leaf) {
+        $configTextBefore = Get-Content -LiteralPath $engineConfig -Raw
+        $configIsReady = ($configTextBefore -match '(?m)^\s*GameDefaultMap=/Game/Maps/MoonfallStart\s*$') -and
+            ($configTextBefore -match '(?m)^\s*EditorStartupMap=/Game/Maps/MoonfallStart\s*$')
+    }
+    if (-not $hasSavedMap -or -not $configIsReady) {
+        Write-Host 'Preparing Moonfall startup map with Unreal Editor...'
+        & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+        if ($LASTEXITCODE -ne 0) { throw "Unreal Editor compilation failed before map generation: $LASTEXITCODE" }
+        $editorCompiledForStartupMap = $true
+        $editor = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+        $generator = Join-Path $PSScriptRoot 'Create-StartupLevel.py'
+        if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "UnrealEditor-Cmd.exe missing: $editor" }
+        if (-not (Test-Path -LiteralPath $generator -PathType Leaf)) { throw "Startup-level generator missing: $generator" }
+        & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) { throw "Startup map generation failed: $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+            throw 'Unreal Editor did not create MoonfallStart.umap; inspect its log.'
+        }
+    }
+}
+
+
+# A playable package needs a real project-owned level, not the engine's
+# generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+    $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+    if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+        throw 'Playable startup level missing: MoonfallUnreal/Content/Maps/MoonfallStart.umap. Create and save this level in Unreal Editor before packaging.'
+    }
+    if ((Get-Item -LiteralPath $startupMap).Length -le 0) {
+        throw 'MoonfallStart.umap is empty. Save the level in Unreal Editor before packaging.'
+    }
+    if (-not (Test-Path -LiteralPath $engineConfig -PathType Leaf)) {
+        throw "Unreal engine configuration missing: $engineConfig"
+    }
+    $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
+    $mapSectionMatches = @([regex]::Matches($engineConfigText, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+    if ($mapSectionMatches.Count -ne 1) {
+        throw 'Expected exactly one GameMapsSettings section in DefaultEngine.ini.'
+    }
+    $mapSection = ($engineConfigText -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+    $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+    foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap')) {
+        $matchingEntries = @([regex]::Matches($mapSection, "(?m)^\s*$mapKey\s*=\s*(.*?)\s*$"))
+        if ($matchingEntries.Count -ne 1 -or
+            $matchingEntries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+            throw "Set exactly one $mapKey=/Game/Maps/MoonfallStart in DefaultEngine.ini before packaging."
+        }
+    }
+    $modeMatches = @([regex]::Matches($mapSection, '(?m)^\s*GlobalDefaultGameMode\s*=\s*(.*?)\s*$'))
+    if ($modeMatches.Count -ne 1 -or
+        $modeMatches[0].Groups[1].Value.Trim() -ne '/Script/MoonfallUnreal.MoonfallUnrealGameMode') {
+        throw 'Set GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode before packaging.'
+    }
+
+}
+
+# Packaging preflight must check tools as well as maps. Compile-only stays independent
+# of packaging dependencies; preflight-only performs no compile or file deletion.
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
+    $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
+    if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
+    foreach ($command in @('dotnet','makensis.exe')) {
+        if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+            throw "Packaging prerequisite not on PATH: $command"
+        }
+    }
+    $sdks = @(& dotnet --list-sdks)
+    if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required to package the launcher.' }
+    $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+    $gameOutput = Join-Path $OutputDirectory 'Game'
+    $repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
+        throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
+    }
+
+}
+
+if ($CompilePreflightOnly) {
+    Write-Host 'Moonfall compile preflight passed: UE 5.4 and VS C++ toolchain checked. No map, packaging tools or compilation required.'
+    exit 0
+}
+if ($PreflightOnly) {
+    Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
+    exit 0
+}
+
+if (-not $editorCompiledForStartupMap) {
+    Write-Host 'Compiling Unreal 5.4 Editor target...'
+    & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+} else {
+    Write-Host 'Editor compilation already succeeded during startup map generation.'
+}
+
+if ($CompileOnly) {
+    # Build the standalone game target as well as the Editor target. An Editor
+    # compile alone does not establish that MoonfallUnreal Win64 will link.
+    Write-Host 'Compiling Unreal 5.4 standalone Game target Win64 Development...'
+    & $build MoonfallUnreal Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal Game target compilation failed: $LASTEXITCODE" }
+    Write-Host 'Unreal Editor and standalone Game Win64 Development targets compiled. Compile-only mode skips cooking, packaging, launcher and NSIS.'
+    exit 0
+}
+
+# Only clear previous installer and cooked output after Editor compilation succeeds.
+# Never recursively delete an arbitrary existing 'Game' folder.
+# Require a dedicated marker created by this script on an earlier run.
+$marker = Join-Path $gameOutput '.moonfall-managed-output'
+if (Test-Path -LiteralPath $gameOutput) {
+    if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+        throw "Refusing to delete unmarked folder: $gameOutput. Choose a new -OutputDirectory, or move this folder aside manually."
+    }
+    Write-Host "Removing previously managed packaged game output: $gameOutput"
+    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+# Preserve the last successfully built installer and checksum until a new
+# complete installer has passed hashing and the atomic promotion below.
+# Failed cooking, launcher compilation, or NSIS must not delete a valid release.
+New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
+Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
+
+Write-Host 'Packaging Unreal Win64 Development game...'
+# Explicitly cook the same project-owned map validated above. A successful C++ build alone
+# does not establish that the executable can load its intended startup level.
+& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
+if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
+
+$games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
+if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+# The packaging tool can exit successfully while leaving behind a corrupt or
+# wrong-architecture executable. Validate its PE32+ AMD64 file header before
+# publishing a launcher or installer. This is not a replacement for launching it.
+$gameExe = $games[0].FullName
+$stream = [System.IO.File]::OpenRead($gameExe)
+try {
+    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
+    $reader = [System.IO.BinaryReader]::new($stream)
+    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
+    $stream.Position = 0x3C
+    $peOffset = $reader.ReadInt32()
+    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
+        throw 'Packaged game executable has an invalid PE header offset.'
+    }
+    $stream.Position = $peOffset
+    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
+    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
+    $stream.Position = $peOffset + 24
+    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
+} finally {
+    $stream.Dispose()
+}
+$gameRoot = $games[0].Directory.FullName
+foreach ($dir in @('Engine','MoonfallUnreal')) {
+    if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
+}
+# The project directory may contain executable/config files even when cooking
+# silently produced no game content. Require an actual non-empty cooked archive.
+# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
+$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
+if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
+    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
+}
+$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
+    Where-Object { $_.Length -gt 0 })
+$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
+    Where-Object { $_.Length -gt 0 })
+$hasIoStorePair = $false
+foreach ($indexFile in $ioStoreIndexes) {
+    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
+    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
+        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
+        $hasIoStorePair = $true
+        break
+    }
+}
+if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
+}
+if ($LaunchSmokeTest) {
+    # Only on an explicitly requested Windows GPU smoke run; packaged DX12
+    # and fallback DX11 should both remain launchable after cooking.
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX12
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX11
+}
+Write-Host 'Building self-contained Windows launcher...'
+$launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
+& dotnet publish $launcherProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
+if ($LASTEXITCODE -ne 0) { throw "Launcher compilation failed: $LASTEXITCODE" }
+$launcher = Join-Path $gameRoot 'MoonfallLauncher.exe'
+if (-not (Test-Path $launcher)) { throw 'Launcher executable not found' }
+$check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $gameRoot -Wait -PassThru
+if ($check.ExitCode -ne 0) { throw "Launcher game-file check failed: $($check.ExitCode)" }
+
+Write-Host 'Building NSIS Windows installer...'
+$setup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.pending.exe'
+$script = Join-Path $repoRoot 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+& makensis.exe "/DSOURCE_DIR=$gameRoot" "/DOUTPUT_EXE=$setup" $script
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { throw 'NSIS build failed' }
+$installerFile = Get-Item -LiteralPath $setup
+if ($installerFile.Length -le 0) { throw 'NSIS returned an empty installer' }
+$hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+"$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$setup.sha256"
+$finalSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+$finalChecksum = "$finalSetup.sha256"
+$backupSetup = "$finalSetup.previous"
+$backupChecksum = "$finalChecksum.previous"
+# Fail closed if a previous interrupted promotion left backups to recover.
+if ((Test-Path -LiteralPath $backupSetup) -or (Test-Path -LiteralPath $backupChecksum)) {
+    throw "Previous installer promotion backup exists. Review $backupSetup and $backupChecksum before retrying."
+}
+$hadSetup = Test-Path -LiteralPath $finalSetup
+$hadChecksum = Test-Path -LiteralPath $finalChecksum
+try {
+    if ($hadSetup) { Move-Item -LiteralPath $finalSetup -Destination $backupSetup }
+    if ($hadChecksum) { Move-Item -LiteralPath $finalChecksum -Destination $backupChecksum }
+    Move-Item -LiteralPath $setup -Destination $finalSetup
+    Move-Item -LiteralPath "$setup.sha256" -Destination $finalChecksum
+    $promotedHash = (Get-FileHash -LiteralPath $finalSetup -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($promotedHash -ne $hash) { throw 'Promoted installer SHA256 mismatch.' }
+    $checksumLine = (Get-Content -LiteralPath $finalChecksum -TotalCount 1).Trim()
+    if ($checksumLine -ne "$hash  MoonfallUnreal-Setup.exe") { throw 'Promoted checksum manifest mismatch.' }
+} catch {
+    Remove-Item -LiteralPath $finalSetup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $finalChecksum -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupSetup) { Move-Item -LiteralPath $backupSetup -Destination $finalSetup }
+    if (Test-Path -LiteralPath $backupChecksum) { Move-Item -LiteralPath $backupChecksum -Destination $finalChecksum }
+    throw
+}
+if (Test-Path -LiteralPath $backupSetup) { Remove-Item -LiteralPath $backupSetup -Force }
+if (Test-Path -LiteralPath $backupChecksum) { Remove-Item -LiteralPath $backupChecksum -Force }
+Write-Host "Installer generated: $finalSetup"
+Write-Host "Installer size: $($installerFile.Length) bytes"
+Write-Host "Installer SHA-256: $hash"
+Write-Host "Checksum file: $finalSetup.sha256"
+Write-Warning 'A generated installer is NOT proof of working gameplay. Test installation, game launch and uninstall on Windows before sharing.'
+, 2)[0]
+foreach ($target in @(
+    @{ Key = 'DefaultGraphicsRHI'; Value = 'DefaultGraphicsRHI_DX12' },
+    @{ Key = '+D3D12TargetedShaderFormats'; Value = 'PCD3D_SM6' },
+    @{ Key = '+D3D11TargetedShaderFormats'; Value = 'PCD3D_SM5' }
+)) {
+    $key = [regex]::Escape($target.Key)
+    $entries = @([regex]::Matches($rhiSection, "(?m)^\s*$key\s*=\s*(.*?)\s*$"))
+    if ($entries.Count -ne 1 -or $entries[0].Groups[1].Value.Trim() -ne $target.Value) {
+        throw "Windows RHI configuration must set $($target.Key)=$($target.Value) exactly once."
+    }
+}
+Write-Host 'Windows renderer targets verified: DX12 SM6 default; DX11 SM5 fallback.'
+
 # The release workflow already creates this asset. First-time local packaging
 # reuses the same editor generator without overwriting a valid existing map.
 $editorCompiledForStartupMap = $false
