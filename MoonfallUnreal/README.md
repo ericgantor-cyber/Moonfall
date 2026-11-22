@@ -129,17 +129,18 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNati
 ```
 
 The runner **always compiles the checked-out Unreal C++ source** first.
-There is no `-SkipBuild` option. It then runs these four real Unreal Editor
+There is no `-SkipBuild` option. It then runs five real Unreal Editor
 automation tests:
 
 1. `Moonfall.Dungeons.All30EntranceLocations`
 2. `Moonfall.Dungeons.SeededRoomArchetypes`
 3. `Moonfall.Dungeons.BossVictoryLedgerDefaults`
 4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
+5. `Moonfall.Controls.MB5DualCastBindings` (UE-loaded mouse, controller, target-lock and no-Z/X action mappings)
 
 It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
 and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
-A passing source workflow does not count: verify all **four** native test
+A passing source workflow does not count: verify all **five** native test
 results are explicitly `True`, `EditorExitCode=0`, and
 `AnyNativeTestFailed=False`. If compilation, Editor execution or any test
 fails, the native runner must not report success.
@@ -148,15 +149,18 @@ For an authorized self-hosted GitHub Actions runner, select the
 `Windows Unreal build prerequisites` workflow, choose the **PR branch**,
 and dispatch with `compile_on_self_hosted=true`. That job requires a
 Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
-environment variable. It compiles, runs all four tests, and uploads
+environment variable. It compiles, runs all five tests, and uploads
 `moonfall-unreal-native-dungeon-test-evidence` containing the log and
 result report. Normal hosted GitHub preflight checks do **not** run these tests.
 
-Even four passing Editor automation tests do not prove the runtime gameplay
+Even five passing Editor automation tests do not prove the runtime gameplay
 loop. In Play In Editor, separately check physical dungeon connections,
 enemy navigation and hazards, boss spawn/death, rewards and exactly-once
 victory persistence after saving and relaunching. Also test the packaged
-Windows installer and accessibility controls before release.
+Windows installer and accessibility controls before release. The MB5 native
+automation test checks loaded mappings, **not** physical button delivery,
+whether dual-casting deals damage and spends mana correctly, or gameplay
+focus/remapping conflicts. Verify those with an actual MB5 mouse on Windows.
 
 
 The **new startup map generator** now places a second, broad NavMeshBoundsVolume
