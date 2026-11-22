@@ -1,0 +1,38 @@
+name: UE5 living-world pure rules (GCC and MSVC)
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallLivingWorldRules.h'
+      - 'tools/test_unreal_living_world_rules_only.cpp'
+      - '.github/workflows/unreal-living-world-rules-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-living-world:
+    name: Living-world C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run with GCC
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_living_world_rules_only.cpp -o /tmp/moonfall_living_world
+          /tmp/moonfall_living_world
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run with MSVC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_living_world_rules_only.cpp /Fe:moonfall_living_world.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_living_world.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
