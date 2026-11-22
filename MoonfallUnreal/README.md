@@ -28,6 +28,29 @@ Successful offensive spell hits now draw a brief school-colored impact sphere an
 
 `Config/DefaultGameUserSettings.ini` supplies a **3840×2160 borderless fullscreen preference** with 75% internal render scale, high textures/antialiasing, and medium shadow/reflection quality. These are starting preferences, not a locked resolution or proof that the Unreal project renders at 4K. Unreal may override them with saved per-user settings, desktop display restrictions, and hardware capabilities. `DefaultEngine.ini` enables temporal AA/upscaling defaults; debug-only spell impact shapes are **not** Niagara VFX yet. For 4K sharpness on a powerful GPU, increase resolution quality toward 100%; for performance reduce it. Actual Unreal build, 4K GPU testing, packaging and display settings UI remain outstanding. No original Z/Nyra art modified.
 
+## DirectX 12 Windows renderer and DX11 compatibility
+
+The UE5.4 Windows project already selected **DirectX 12** as its default RHI.
+`Config/DefaultEngine.ini` now explicitly targets **DX12 Shader Model 6**
+(`PCD3D_SM6`) and cooks **DX11 Shader Model 5** (`PCD3D_SM5`) as a
+compatibility option. The default is DX12 on supported Windows 10/11 hardware;
+players with incompatible or unstable DX12 hardware can **launch with `-dx11`**
+if their GPU supports DX11. Launching with `-dx12` explicitly requests DX12.
+This does not turn on ray tracing, Nanite, frame generation or any GPU-specific
+features, and does not alter original Z/Nyra art.
+
+On a Windows machine with Unreal 5.4, use `Build-Windows.ps1 -CompileOnly` to
+compile source, then package as usual. When doing a packaged GPU smoke test, pass
+`-LaunchSmokeTest` to `Build-Windows.ps1`. It attempts both `-dx12` and
+`-dx11` launches and checks that the game process remains alive for the
+observation window. A source check or process survival is **not proof** of the
+active renderer, successful shader cooking, rendered graphics, stable gameplay,
+FPS, or functioning DX11 fallback on users' PCs. Native Windows GPU tests
+should also inspect the Unreal runtime log for the selected RHI, check visuals,
+switch between fullscreen modes, verify controller input and save/load, and
+test older supported GPUs. A DX12-only SM6 cook without DX11 SM5 shaders
+would break the documented fallback; Windows preflight now rejects that setup.
+
 ## Initial graphics controls
 
 Press F6 to cycle Unreal's four overall scalability levels (low to epic), or F7 to toggle windowed/borderless fullscreen. Changes use `UGameUserSettings` and are saved. The HUD shows the shortcut legend. This is an initial keyboard-operated graphics control, **not** the promised full navigable graphics Options menu, controller-friendly settings, resolution picker or render-scale slider. The existing 4K default remains a preference, not a verified 4K build. Unreal Editor compilation and packaged Windows testing are outstanding.
