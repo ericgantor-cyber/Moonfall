@@ -566,7 +566,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for action, key in (("OptionsLeft", "Gamepad_DPad_Left"),
                             ("OptionsRight", "Gamepad_DPad_Right"),
                             ("ChronicleFocus", "Gamepad_RightThumbstick"),
-                            ("Guard", "Gamepad_RightThumbstick")):
+                            ("DualCast", "Gamepad_RightThumbstick"),
+                            ("Guard", "Gamepad_LeftShoulder"),
+                            ("Dodge", "Gamepad_RightShoulder")):
             self.assertIn(f'ActionName="{action}",Key={key}', inputs)
         focus = self.hero_cpp.split(
             "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split("\n}", 1)[0]
@@ -593,6 +595,56 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("D-pad Right/R3: stats", self.hud)
         self.assertIn("D-pad Left/R3: bag", self.hud)
         self.assertNotIn("C / P / A: back to inventory", self.hud)
+
+    def test_pb_inspired_controller_combat_bindings_are_context_safe(self):
+        import re
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = {}
+        for action, key in re.findall(r'^\\+ActionMappings=\\(ActionName="([^"]+)",Key=(Gamepad_[^)]+)\\)',
+                                      inputs, re.MULTILINE):
+            mappings.setdefault(key, set()).add(action)
+        expected = {
+            "Gamepad_LeftShoulder": {"Guard", "ReforgeGear"},
+            "Gamepad_RightShoulder": {"Dodge", "ForgeFive"},
+            "Gamepad_LeftTrigger": {"CastLeft", "EquipBest"},
+            "Gamepad_RightTrigger": {"CastRight", "UpgradeGear"},
+            "Gamepad_RightThumbstick": {"DualCast", "ChronicleFocus"},
+            "Gamepad_FaceButton_Right": {"Dodge", "AscendGear"},
+            "Gamepad_FaceButton_Bottom": {"Jump"},
+        }
+        for button, actions in expected.items():
+            self.assertEqual(mappings.get(button), actions, button)
+        self.assertIn('ActionName="Jump",Key=SpaceBar', inputs)
+        for action, keyboard in (("CastLeft", "Z"), ("CastRight", "X"),
+                                 ("Guard", "E"), ("Dodge", "Q")):
+            self.assertIn(f'ActionName="{action}",Key={keyboard}', inputs)
+        for name, handler in (("Guard", "BeginGuard"), ("Dodge", "Dodge"),
+                              ("DualCast", "CastBoth"), ("CastLeft", "CastLeft"),
+                              ("CastRight", "CastRight")):
+            self.assertIn(f'BindAction(TEXT("{name}"), IE_Pressed, this, '
+                          f'&AMoonfallHeroPawn::{handler})', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("Guard"), IE_Released, this, '
+                      '&AMoonfallHeroPawn::EndGuard)', self.hero_cpp)
+        cast_both = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "\\n}", 1)[0]
+        for guard in ("bInventoryOpen", "bAtlasOpen", "bResidentContextOpen",
+                      "FocusedResident.IsValid()", "Health <= 0.f"):
+            self.assertIn(guard, cast_both.split("return;", 1)[0])
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "\\n}", 1)[0]
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "\\n}", 1)[0]
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", guard)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", dodge)
+        self.assertLess(dodge.index("EndGuard();"), dodge.index("LaunchCharacter("))
+        for method, operation in (("ReforgeSelectedInventoryItem", "ReforgeInventoryItemAffix"),
+                                  ("ForgeFiveSelectedInventoryItem", "ForgeInventoryItemLevels"),
+                                  ("UpgradeSelectedInventoryItem", "UpgradeInventoryItem"),
+                                  ("EquipBestInventoryAction", "EquipBestInventoryUpgrades")):
+            body = self.hero_cpp.split(f"AMoonfallHeroPawn::{method}(", 1)[1].split(
+                "\\n}", 1)[0]
+            self.assertIn(operation, body)
+        self.assertIn("if (!bCharacterStatsOpen)", self.hero_cpp)
 
     def test_mouse_sort_is_visual_only_and_safe_with_controller_selection(self):
         sort = self.hero_cpp.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const", 1)[1].split("\n}", 1)[0]
