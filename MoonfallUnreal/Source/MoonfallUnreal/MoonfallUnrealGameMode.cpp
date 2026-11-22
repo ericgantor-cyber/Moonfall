@@ -56,6 +56,8 @@ void AMoonfallUnrealGameMode::BeginPlay()
  FailedDungeonSlots.Reset();
  NextFailedDungeonRetry = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
+ AuthoredDungeonActors.Reset();
+ AuthoredDungeonActors.SetNum(TotalDungeons);
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
@@ -69,6 +71,7 @@ void AMoonfallUnrealGameMode::BeginPlay()
     const int32 Slot = Zone * DungeonsPerZone + Dungeon;
     if (!AuthoredDungeonSlots[Slot]) {
      AuthoredDungeonSlots[Slot] = 1;
+     AuthoredDungeonActors[Slot] = *It;
      ++ReadyDungeonCount;
     }
    }
@@ -120,8 +123,21 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   const int32 Slot = bRetryAttempt
     ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;
   ++Processed;
-  if (AuthoredDungeonSlots.IsValidIndex(Slot) && AuthoredDungeonSlots[Slot])
-   continue;
+  if (AuthoredDungeonSlots.IsValidIndex(Slot) && AuthoredDungeonSlots[Slot]) {
+   // A previously counted authored dungeon may be streamed out/destroyed
+   // between BeginPlay's scan and its scheduled slot. Never skip a ghost.
+   AMoonfallDungeonLayout* AuthoredActor =
+     AuthoredDungeonActors.IsValidIndex(Slot)
+       ? AuthoredDungeonActors[Slot].Get() : nullptr;
+   const bool bAuthoredValid = IsValid(AuthoredActor);
+   if (MoonfallWorldBootstrap::ShouldRetainAuthoredSlot(
+       bAuthoredValid, bAuthoredValid && AuthoredActor->IsActorBeingDestroyed()))
+    continue;
+   AuthoredDungeonSlots[Slot] = 0;
+   if (AuthoredDungeonActors.IsValidIndex(Slot))
+    AuthoredDungeonActors[Slot].Reset();
+   ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);
+  }
   const int32 Zone = Slot / DungeonsPerZone;
   const int32 DungeonIndex = Slot % DungeonsPerZone;
   FTransform DungeonTransform;
