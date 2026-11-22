@@ -1310,6 +1310,12 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ // R3 guards in combat, toggles Character Stats in the inventory,
+ // and switches Chronicle focus in the Atlas.
+ if (bInventoryOpen && !bAtlasOpen) {
+  ToggleCharacterStats();
+  return;
+ }
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
@@ -1673,7 +1679,12 @@ void AMoonfallHeroPawn::OptionsLeft() {
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ // D-pad Left / keyboard Left or A returns from the character pane.
+ // This never changes the selected or equipped inventory item.
+ if (bInventoryOpen) {
+  if (bCharacterStatsOpen) ToggleCharacterStats();
+  return;
+ }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
@@ -1682,7 +1693,11 @@ void AMoonfallHeroPawn::OptionsRight() {
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ // D-pad Right / keyboard Right or D opens the character pane from bag.
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen) ToggleCharacterStats();
+  return;
+ }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
