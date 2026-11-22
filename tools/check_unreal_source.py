@@ -3707,6 +3707,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('+ActionMappings=(ActionName="CastRight",Key=Gamepad_RightShoulder)', mappings)
         self.assertFalse(any('Key=Z)' in line or 'Key=X)' in line for line in mappings))
         self.assertEqual(sum('Key=ThumbMouseButton2)' in line for line in mappings), 1)
+        preflight_workflow = (ROOT.parents[2] / ".github" / "workflows" / "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("- 'MoonfallUnreal/Config/**'", preflight_workflow)
         input_handler = self.hero_cpp.split('void AMoonfallHeroPawn::SetupPlayerInputComponent(', 1)[1].split('\n}', 1)[0]
         self.assertIn('Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);', input_handler)
         self.assertIn('Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);', input_handler)
