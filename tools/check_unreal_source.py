@@ -4490,6 +4490,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("World->SpawnActor", native)
 
 
+    def test_launcher_has_accessible_dx12_default_and_manual_dx11_fallback(self):
+        launcher = (ROOT.parents[1] / "Launcher" / "Program.cs").read_text(encoding="utf-8")
+        project = (ROOT.parents[1] / "Launcher" / "MoonfallLauncher.csproj").read_text(encoding="utf-8")
+        workflow = (ROOT.parents[2] / ".github/workflows/windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("<TargetFramework>net8.0-windows</TargetFramework>", project)
+        self.assertIn("<UseWindowsForms>true</UseWindowsForms>", project)
+        self.assertIn("private readonly ComboBox rendererChoice;", launcher)
+        self.assertIn("DropDownStyle = ComboBoxStyle.DropDownList", launcher)
+        self.assertIn('AccessibleName = "Moonfall graphics renderer"', launcher)
+        self.assertIn('"DirectX 12 (recommended)"', launcher)
+        self.assertIn('"DirectX 11 (compatibility)"', launcher)
+        self.assertIn("rendererChoice.SelectedIndex = 0;", launcher)
+        self.assertIn("rendererChoice.SelectedIndexChanged += (_, _) => UpdateStatus();", launcher)
+        self.assertIn("Controls.AddRange([title, subtitle, play, rendererLabel, rendererChoice,", launcher)
+        launch = launcher.split("private void LaunchGame()", 1)[1].split("\n    }", 1)[0]
+        self.assertIn('rendererChoice.SelectedIndex == 1 ? "-dx11" : "-dx12"', launch)
+        self.assertIn("Arguments = rendererArgument", launch)
+        self.assertIn("UseShellExecute = true", launch)
+        self.assertNotIn("Process.Start(new ProcessStartInfo(gamePath) {\n                WorkingDirectory", launch)
+        self.assertIn("Compile Moonfall Windows launcher", workflow)
+        self.assertIn("actions/setup-dotnet@v4", workflow)
+        self.assertIn("dotnet build 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj'", workflow)
+
     def test_windows_dx12_primary_rhi_with_dx11_shaders_and_smoke_fallback(self):
         config = (ROOT.parents[1] / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
         build = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
