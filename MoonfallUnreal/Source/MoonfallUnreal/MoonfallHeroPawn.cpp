@@ -624,6 +624,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
+ Input->BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::LockNext);
+ Input->BindAction(TEXT("LockPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::LockPrevious);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
@@ -920,6 +922,8 @@ void AMoonfallHeroPawn::ToggleLockOn()
  if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); return; }
  AcquireLockTarget(0);
 }
+void AMoonfallHeroPawn::LockNext() { CycleLockOn(1); }
+void AMoonfallHeroPawn::LockPrevious() { CycleLockOn(-1); }
 void AMoonfallHeroPawn::CycleLockOn(int32 Direction)
 {
  if (Direction == 0 || !LockedEnemy.IsValid() || Health <= 0.f
@@ -1860,7 +1864,6 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (!bAtlasOpen && !bInventoryOpen && !bOptionsOpen && !bResidentContextOpen && LockedEnemy.IsValid()) { CycleLockOn(-1); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1875,7 +1878,6 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (!bAtlasOpen && !bInventoryOpen && !bOptionsOpen && !bResidentContextOpen && LockedEnemy.IsValid()) { CycleLockOn(1); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
