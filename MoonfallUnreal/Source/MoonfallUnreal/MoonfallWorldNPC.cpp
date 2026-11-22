@@ -35,6 +35,7 @@ int32 AMoonfallWorldNPC::GetContractSalvageCost() const {
 }
 bool AMoonfallWorldNPC::CanHeroInteract(const AMoonfallHeroPawn* Hero) const {
  if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
+     || !FMath::IsFinite(Hero->Health) || Hero->bAtlasOpen
      || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
  const FVector From = Hero->GetActorLocation();
  const FVector To = GetActorLocation();
