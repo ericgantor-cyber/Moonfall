@@ -490,5 +490,5 @@ private:
  TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, float ManaCostMultiplier = 1.f);
 };
