@@ -105,7 +105,8 @@ void AMoonfallCombatHUD::DrawHUD()
       : N.Stat == MoonfallTalents::EStat::Stamina ? TEXT("Max stamina")
       : N.Stat == MoonfallTalents::EStat::MeleeDamage ? TEXT("Melee damage")
       : N.Stat == MoonfallTalents::EStat::RangedDamage ? TEXT("Ranged damage")
-      : TEXT("Magic damage");
+      : N.Stat == MoonfallTalents::EStat::MagicDamage ? TEXT("Magic damage")
+      : TEXT("Unknown stat");
   DrawText(FString::Printf(TEXT("%s: %+.1f%s / rank"),EffectLabel,
        N.bPercent ? N.AmountPerRank * 100.f : N.AmountPerRank,
        N.bPercent ? TEXT("%") : TEXT("")),
