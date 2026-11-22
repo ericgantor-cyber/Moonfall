@@ -6549,6 +6549,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Candidate->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin", acquire)
         self.assertNotIn("(Current->GetActorLocation() - Origin).GetSafeNormal()", acquire)
         self.assertIn("const float Angle = FMath::Atan2(", acquire)
+        self.assertIn("float Delta = Direction < 0 ? CurrentAngle - Angle : Angle - CurrentAngle;", acquire)
         self.assertIn("if (Delta <= 0.f) Delta += 2.f * PI;", acquire)
         self.assertIn("float BestDistanceSq = TNumericLimits<float>::Max();", acquire)
         self.assertIn("const float DistanceSq = Aim.SizeSquared();", acquire)
