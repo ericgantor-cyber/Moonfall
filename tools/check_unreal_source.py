@@ -6453,15 +6453,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_combat_lock_on_is_transient_visible_and_context_safe(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for action, key in (("LockOn", "Y"), ("LockOn", "MiddleMouseButton"),
-                            ("LockOn", "Gamepad_DPad_Down"),
-                            ("LockPrevious", "LeftBracket"), ("LockPrevious", "Gamepad_DPad_Left"),
-                            ("LockNext", "RightBracket"), ("LockNext", "Gamepad_DPad_Right")):
-            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
-        for action, method in (("LockOn", "ToggleLockOn"),
-                               ("LockNext", "LockNext"), ("LockPrevious", "LockPrevious")):
-            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed, this, &AMoonfallHeroPawn::{method})',
-                          self.hero_cpp)
+        for key in ("Y", "MiddleMouseButton", "Gamepad_DPad_Down"):
+            self.assertIn(f'ActionName="LockOn",Key={key}', inputs)
+        for action in ("LockNext", "LockPrevious"):
+            self.assertNotIn(f'ActionName="{action}"', inputs)
+        self.assertIn('BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn)', self.hero_cpp)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleLockOn()", 1)[1].split("void AMoonfallHeroPawn::AcquireLockTarget", 1)[0]
+        self.assertIn("AcquireLockTarget(LockedEnemy.IsValid() ? 1 : 0);", toggle)
+        self.assertNotIn("LockNext", self.hero_h)
+        self.assertNotIn("LockPrevious", self.hero_h)
         self.assertIn("TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;", self.hero_h)
         self.assertIn("bool AMoonfallHeroPawn::IsLockTargetValid", self.hero_cpp)
         self.assertIn("FMath::IsFinite(Enemy->Health)", self.hero_cpp)
@@ -6476,8 +6476,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Locked && Enemy != Locked) return false;", spell)
         self.assertLess(spell.index("LineTraceSingleByChannel(Hit, Origin, End"),
                         spell.index("if (Locked && Enemy != Locked) return false;"))
-        self.assertIn("void AMoonfallHeroPawn::LockPrevious() { CycleLockOn(-1); }", self.hero_cpp)
-        self.assertIn("void AMoonfallHeroPawn::LockNext() { CycleLockOn(1); }", self.hero_cpp)
+        self.assertIn("else LockedEnemy.Reset();", self.hero_cpp)
         # A/D remain movement keys, never lock-cycle actions.
         self.assertNotIn('ActionName="LockOn",Key=L)', inputs)
         self.assertNotIn('ActionName="LockOn",Key=Period)', inputs)
