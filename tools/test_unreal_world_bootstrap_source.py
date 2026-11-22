@@ -139,10 +139,15 @@ assert "if (AMoonfallDungeonLayout* Alternate = FindExistingDungeonForSlot(Slot)
 assert generated.index("FindExistingDungeonForSlot(Slot)") < generated.index(
     "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);")
 assert "if (ReconcileSpawnedDungeonSlot(Slot)) continue;" in batch
-assert "if (bRetryAttempt) {" in batch
+assert "if (bRetryAttempt) {" not in batch
 assert "if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot))" in batch
 assert "AuthoredDungeonActors[Slot] = Existing;" in batch
-assert batch.index("FindExistingDungeonForSlot(Slot)") < batch.index(
+# Both initial attempts and retries must check for newly streamed authored
+# layouts *before* generating another dungeon for the same slot.
+assert batch.index("if (ReconcileSpawnedDungeonSlot(Slot)) continue;") < batch.index(
+    "if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot))")
+assert batch.index("if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot))") < batch.index(
+    "const int32 Zone = Slot / DungeonsPerZone;") < batch.index(
     "SpawnActorDeferred<AMoonfallDungeonLayout>(")
 assert "AuthoredDungeonSlots[Slot] && !ReconcileAuthoredDungeonSlot(Slot) &&" in batch
 assert "!RetriedDungeonSlots[Slot]" in batch
