@@ -141,6 +141,28 @@ class TestSocialWorld(unittest.TestCase):
   close=body("CloseResidentContext","OpenFocusedResidentContext")
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
+ def test_npc_dialogue_entry_stops_momentum_stance_and_target_lock(self):
+  # Static guard contract: controller and mouse must stop existing motion
+  # before the NPC modal opens, but only after validating interaction.
+  controller=self.hero.split(
+      "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  mouse=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::ReleaseInventoryPointer()",1)[0]
+  for path,valid_guard in (
+      (controller,"if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {"),
+      (mouse,"if (Resident->CanHeroInteract(this)) {")):
+   self.assertIn(valid_guard,path)
+   modal=path.split(valid_guard,1)[1]
+   actions=("StopJumping();",
+            "GetCharacterMovement()->StopMovementImmediately();",
+            "EndSprint();","EndGuard();","ClearTargetLock();")
+   for action in actions:
+    self.assertIn(action,modal)
+    self.assertLess(modal.index(action),modal.index("bResidentContextOpen = true;"))
+   self.assertLess(modal.index("StopJumping();"),modal.index("FocusedResident = Resident;"))
+
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
