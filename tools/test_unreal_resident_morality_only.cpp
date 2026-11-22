@@ -47,8 +47,8 @@ int main() {
         ++slots[item.slot];
     }
     for (int slot : slots) assert(slot == 37);
-    assert(codes.size() == Catalog::Count);
-    assert(names.size() == Catalog::Count);
+    assert(codes.size() == 111u);
+    assert(names.size() == 111u);
     assert(!Catalog::Get(Catalog::Count).valid);
     assert(Catalog::CraftLevelRequired(-1) == 0);
     assert(Catalog::CraftLevelRequired(Catalog::Count) == 0);
