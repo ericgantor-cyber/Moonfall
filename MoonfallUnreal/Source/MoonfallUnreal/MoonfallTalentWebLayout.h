@@ -70,8 +70,12 @@ inline const TArray<FLinks>& Dependencies()
   Result.Reserve(Nodes.Num());
   for (const auto& Node:Nodes) {
    FLinks Pair;
-   if (Node.RequiresA[0]) Pair.A=Index.FindRef(FName(Node.RequiresA));
-   if (Node.RequiresB[0]) Pair.B=Index.FindRef(FName(Node.RequiresB));
+   if (Node.RequiresA[0]) {
+    if (const int32* Found = Index.Find(FName(Node.RequiresA))) Pair.A = *Found;
+   }
+   if (Node.RequiresB[0]) {
+    if (const int32* Found = Index.Find(FName(Node.RequiresB))) Pair.B = *Found;
+   }
    Result.Add(Pair);
   }
   return Result;
