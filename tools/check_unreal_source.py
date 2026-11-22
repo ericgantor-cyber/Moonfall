@@ -1422,6 +1422,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
         self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(WornSlot)", salvage)
+        # Nine-slot salvage is permitted, but worn gear remains protected.
+        self.assertIn("MoonfallEquipmentSlots::IsKnownSlot(SlotIndex)", salvage)
+        self.assertNotIn("SlotIndex < 0 || SlotIndex > 2", salvage)
         self.assertIn("Code == GetEquipmentSlotCode(WornSlot)", salvage)
         self.assertIn("if (bEquippedCode)", salvage)
         self.assertIn("for (const int32 Candidate : InventoryItemCodes)", salvage)
