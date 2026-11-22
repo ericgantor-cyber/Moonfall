@@ -124,8 +124,40 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(state, self.hud)
         self.assertIn("CONFIRM FULL RESPEC", self.hud)
         self.assertIn("Pad A buy  B back  LT reset", self.hud)
-        self.assertIn("D-pad UP/DOWN: stars  LEFT/RIGHT: branch  Right stick: pan", self.hud)
+        self.assertIn("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan", self.hud)
         self.assertIn("inline int32 StepBranch(int32 CurrentIndex, int32 Direction)", layout)
+        self.assertIn("inline int32 StepWithinBranch(int32 CurrentIndex, int32 Direction)", layout)
+        self.assertIn("Candidate = (Candidate + (Direction > 0 ? 1 : Count - 1)) % Count;", layout)
+        self.assertIn("FCString::Strcmp(Nodes[Candidate].Branch, Nodes[CurrentIndex].Branch) == 0", layout)
+        self.assertIn("MoonfallTalentWeb::StepWithinBranch(TalentWebSelected, Direction)", self.hero_cpp)
+        self.assertIn("if (bTalentWebOpen) { TalentWebStepSelection(-1); return; }", self.hero_cpp)
+        context = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastRightMouse()", 1)[0]
+        self.assertLess(context.index("TalentWebStepSelection(-1)"),
+                        context.index("GetNearestResidentNPC()"))
+        # Do not bind D-pad Up twice: NPC/context owns the physical button,
+        # then forwards to talent navigation only when that menu is open.
+        self.assertEqual(config.count('ActionName="ResidentContext",Key=Gamepad_DPad_Up'), 1)
+        self.assertNotIn('ActionName="OptionsUp",Key=Gamepad_DPad_Up', config)
+        # Canonical Godot catalog interleaves branches; ensure advancing
+        # within one branch can reach all of its nodes without crossing another.
+        import json
+        nodes = json.loads((ROOT.parents[2] / "godot-v38" / "data" /
+                            "moonfall_talents.json").read_text(encoding="utf-8"))["nodes"]
+        for branch in ("might", "agility", "arcana"):
+            indices = [i for i, node in enumerate(nodes) if node["branch"] == branch]
+            self.assertGreater(len(indices), 1)
+            start = indices[0]
+            visited = set()
+            cursor = start
+            for _ in range(len(indices)):
+                self.assertEqual(nodes[cursor]["branch"], branch)
+                self.assertNotIn(cursor, visited)
+                visited.add(cursor)
+                cursor = next((i for i in range(cursor + 1, len(nodes))
+                               if nodes[i]["branch"] == branch), start)
+            self.assertEqual(cursor, start)
+            self.assertEqual(visited, set(indices))
         # Branch changes must handle invalid input, cycle the three canonical
         # branches, and choose the closest tier only when the user presses.
         self.assertIn("!Nodes.IsValidIndex(CurrentIndex) || (Direction != -1 && Direction != 1)", layout)
