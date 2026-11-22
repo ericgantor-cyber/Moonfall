@@ -298,8 +298,24 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
         self.assertIn("NextSightCheckAt = Now + SightInterval", self.source)
 
+    def test_chase_step_does_not_overshoot_nearby_waypoints(self):
+        # Full-speed movement can otherwise bounce around a close corner.
+        chase = self.source.split("const float SafeChaseSpeed = FMath::Clamp(", 1)[1].split(
+            "// Collision can trap packs at tight doorways.", 1
+        )[0]
+        self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", chase)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", chase)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", chase)
+        self.assertLess(chase.index("const float ChaseStep"), chase.index("AddActorWorldOffset("))
+        # This is purely movement budgeting; no second collision sweep or solve.
+        self.assertEqual(chase.count("AddActorWorldOffset("), 1)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_combat_safety_and_existing_sweep_remain(self):
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", self.source)
+        self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", self.source)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", self.source)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
         self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier", self.source)
         self.assertNotIn("bWithinAttackArc && Difference.Size() <=", self.source)
