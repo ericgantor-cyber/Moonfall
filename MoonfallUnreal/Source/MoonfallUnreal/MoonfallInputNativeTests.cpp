@@ -17,10 +17,11 @@ bool FMoonfallMB5InputBindingsTest::RunTest(const FString& Parameters)
 
  // Only unmodified presses count; an unexpected Shift/Ctrl modifier must not
  // satisfy the expected accessible one-press MB5 binding.
- const auto CountBinding = [&Mappings](const FName Action, const FKey Key) -> int32 {
+ const auto CountBinding = [&Mappings](const TCHAR* Action, const FKey Key) -> int32 {
+  const FName ActionName(Action);
   int32 Count = 0;
   for (const FInputActionKeyMapping& Mapping : Mappings) {
-   if (Mapping.ActionName == Action && Mapping.Key == Key
+   if (Mapping.ActionName == ActionName && Mapping.Key == Key
        && !Mapping.bShift && !Mapping.bCtrl && !Mapping.bAlt && !Mapping.bCmd)
     ++Count;
   }
