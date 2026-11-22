@@ -995,9 +995,10 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
    const float Score = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
    if (Score < BestScore) { BestScore = Score; Best = Candidate; }
   } else {
-   // Tab cycles clockwise from the current target, wrapping once at +/-PI.
+   // Tab/right cycles clockwise; D-pad left cycles counterclockwise.
+   // Compare positive directed angular distances and wrap once at +/-PI.
    const float Angle = FMath::Atan2(FVector::DotProduct(UnitAim, Right), Facing);
-   float Delta = Angle - CurrentAngle;
+   float Delta = Direction < 0 ? CurrentAngle - Angle : Angle - CurrentAngle;
    if (Delta <= 0.f) Delta += 2.f * PI;
    // Ignore near-identical screen directions and avoid repeated targets.
    // When two enemies share nearly the same angle, prefer the closer one
