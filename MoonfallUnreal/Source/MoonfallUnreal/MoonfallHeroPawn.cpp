@@ -998,6 +998,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
+ // Transition from guard into an attack only after a successful cast.
+ // Misses and failed casts keep the defensive stance active.
+ if (bGuarding) EndGuard();
  if (School == 3) {
   Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
@@ -1007,6 +1010,15 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
+float AMoonfallHeroPawn::GetParryCounterRemaining() const
+{
+ const UWorld* CurrentWorld = GetWorld();
+ if (!CurrentWorld || !FMath::IsFinite(ParryCounterUntil)) return 0.f;
+ const float Now = CurrentWorld->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now >= ParryCounterUntil) return 0.f;
+ return FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f);
+}
+
 void AMoonfallHeroPawn::CastBoth()
 {
  // R3 is also a menu command. Never queue a combat cast behind inventory,
@@ -1017,7 +1029,14 @@ void AMoonfallHeroPawn::CastBoth()
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ // R3 must use the same haste-adjusted cooldown as either trigger.
+ // Reject invalid timing values before double mana or spell damage.
+ const float HasteBonus = GetHasteBonus();
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6
+     || !FMath::IsFinite(Time) || !FMath::IsFinite(HasteBonus) || HasteBonus < 0.f
+     || !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])
+     || Time < LastCastTime[0] || Time < LastCastTime[1]
+     || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)) return;
  if (TryCast(LeftSpell, 0, 2.f))
  {
   LastCastTime[1] = LastCastTime[0];
