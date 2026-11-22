@@ -641,6 +641,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack);
  Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
  Input->BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget);
  Input->BindAction(TEXT("GamepadContextLeft"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadContextLeft);
@@ -1907,6 +1908,15 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 // Dedicated D-pad handlers keep combat target changes off A/D and arrow keys.
 // In overlays the same buttons retain the existing menu and Atlas behavior.
+// B is a combat dodge when no overlay is open, but backs out of modal
+// panels and resident dialogue. RB remains a dedicated combat dodge.
+void AMoonfallHeroPawn::GamepadBack() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) {
+  OpenOptions();
+  return;
+ }
+ Dodge();
+}
 void AMoonfallHeroPawn::GamepadContextLeft() {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) { OptionsLeft(); return; }
  if (GetLockedEnemy() && Health > 0.f && !FocusedResident.IsValid()) AcquireLockTarget(-1);
