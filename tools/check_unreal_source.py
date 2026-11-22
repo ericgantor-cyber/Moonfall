@@ -616,7 +616,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for button, actions in expected.items():
             self.assertEqual(mappings.get(button), actions, button)
         self.assertIn('ActionName="Jump",Key=SpaceBar', inputs)
-        for action, keyboard in (("CastLeft", "Z"), ("CastRight", "X"),
+        for action, keyboard in (("DualCast", "LeftControl"),
                                  ("Guard", "E"), ("Dodge", "Q")):
             self.assertIn(f'ActionName="{action}",Key={keyboard}', inputs)
         for name, handler in (("Guard", "BeginGuard"), ("Dodge", "Dodge"),
@@ -6537,6 +6537,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Free-aim attacks are a first-class combat mode, not a lock-on fallback.
         self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
         self.assertIn('ActionName="CastRightMouse",Key=RightMouseButton', inputs)
+        self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
+        self.assertIn('ActionName="DualCast",Key=LeftControl', inputs)
+        self.assertNotIn('ActionName="CastLeft",Key=Z', inputs)
+        self.assertNotIn('ActionName="CastRight",Key=X', inputs)
+        self.assertIn('ActionName="CastLeft",Key=Gamepad_LeftTrigger', inputs)
+        self.assertIn('ActionName="CastRight",Key=Gamepad_RightTrigger', inputs)
         self.assertIn('BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick)', self.hero_cpp)
         self.assertIn('BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse)', self.hero_cpp)
         left_click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
