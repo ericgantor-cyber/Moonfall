@@ -36,6 +36,12 @@ The UE5.4 Windows project already selected **DirectX 12** as its default RHI.
 compatibility option. The default is DX12 on supported Windows 10/11 hardware;
 players with incompatible or unstable DX12 hardware can **launch with `-dx11`**
 if their GPU supports DX11. Launching with `-dx12` explicitly requests DX12.
+The **Windows launcher** now provides a keyboard-accessible `GRAPHICS API`
+dropdown beside PLAY, with **DirectX 12 (recommended)** selected by default
+and **DirectX 11 (compatibility)** as a manual option. The selection only
+changes the launch argument; it does not edit the game config or change
+saved character data. GitHub-hosted Windows CI compiles the launcher using
+.NET 8, separately from Unreal's native compilation.
 This does not turn on ray tracing, Nanite, frame generation or any GPU-specific
 features, and does not alter original Z/Nyra art.
 
