@@ -1089,7 +1089,11 @@ void AMoonfallHeroPawn::CastBoth()
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
+ // MB5 dual-casting must use the same Haste-adjusted cooldown as a single-hand cast.
+ // Validate timestamps before checking the off-hand so invalid state cannot bypass it.
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[1])
+     || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + GetHasteBonus())) return;
  if (TryCast(LeftSpell, 0, 2.f))
  {
   LastCastTime[1] = LastCastTime[0];
