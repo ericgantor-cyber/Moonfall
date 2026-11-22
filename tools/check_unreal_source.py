@@ -566,9 +566,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for action, key in (("GamepadContextLeft", "Gamepad_DPad_Left"),
                             ("GamepadContextRight", "Gamepad_DPad_Right"),
                             ("ChronicleFocus", "Gamepad_RightThumbstick"),
-                            ("DualCast", "Gamepad_RightThumbstick"),
-                            ("Guard", "Gamepad_LeftShoulder"),
-                            ("Dodge", "Gamepad_RightShoulder")):
+                            ("DualCast", "Gamepad_LeftTrigger"),
+                            ("Guard", "Gamepad_RightThumbstick"),
+                            ("CastLeft", "Gamepad_LeftShoulder"),
+                            ("CastRight", "Gamepad_RightShoulder")):
             self.assertIn(f'ActionName="{action}",Key={key}', inputs)
         focus = self.hero_cpp.split(
             "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split("\n}", 1)[0]
@@ -616,6 +617,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LockedEnemy.Reset();", lock)
         self.assertNotIn("if (bReduceMotion) LockedEnemy.Reset()", lock)
 
+    def test_authoritative_mb5_layout_rejects_controller_regressions(self):
+        import re
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        bindings = re.findall(r'^\+ActionMappings=\(ActionName="([^"]+)",Key=([^),]+)\)',
+                              config, re.MULTILINE)
+        def actions(key):
+            return {action for action, candidate in bindings if candidate == key}
+        self.assertEqual(actions("ThumbMouseButton2"), {"DualCast"})
+        self.assertEqual(actions("Gamepad_LeftTrigger"), {"DualCast", "EquipBest"})
+        self.assertEqual(actions("Gamepad_LeftShoulder"), {"CastLeft", "ReforgeGear"})
+        self.assertEqual(actions("Gamepad_RightShoulder"), {"CastRight", "ForgeFive"})
+        self.assertEqual(actions("Gamepad_RightThumbstick"), {"Guard", "ChronicleFocus"})
+        self.assertEqual(actions("Gamepad_FaceButton_Right"), {"GamepadBack"})
+        self.assertEqual(actions("Gamepad_FaceButton_Bottom"), {"Jump"})
+        for key in ("Z", "X"):
+            self.assertNotIn(key, (k for _action, k in bindings))
+        self.assertNotIn(("Dodge", "Gamepad_RightShoulder"), bindings)
+        self.assertNotIn(("DualCast", "Gamepad_RightThumbstick"), bindings)
+        self.assertIn(("RacePower", "N"), bindings)
+        for action in ("Dodge", "GamepadBack"):
+            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
+        r3 = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bInventoryOpen && !bAtlasOpen)", r3)
+        self.assertLess(r3.index("ToggleCharacterStats();"),
+                        r3.index("if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;"))
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "\n}", 1)[0]
+        for state in ("bInventoryOpen", "bAtlasOpen", "bResidentContextOpen"):
+            self.assertIn(state, guard)
+
     def test_pb_inspired_controller_combat_bindings_are_context_safe(self):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -624,11 +656,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                                       inputs, re.MULTILINE):
             mappings.setdefault(key, set()).add(action)
         expected = {
-            "Gamepad_LeftShoulder": {"Guard", "ReforgeGear"},
-            "Gamepad_RightShoulder": {"Dodge", "ForgeFive"},
-            "Gamepad_LeftTrigger": {"CastLeft", "EquipBest"},
-            "Gamepad_RightTrigger": {"CastRight", "UpgradeGear"},
-            "Gamepad_RightThumbstick": {"DualCast", "ChronicleFocus"},
+            "Gamepad_LeftShoulder": {"CastLeft", "ReforgeGear"},
+            "Gamepad_RightShoulder": {"CastRight", "ForgeFive"},
+            "Gamepad_LeftTrigger": {"DualCast", "EquipBest"},
+            "Gamepad_RightTrigger": {"UpgradeGear"},
+            "Gamepad_RightThumbstick": {"Guard", "ChronicleFocus"},
             "Gamepad_FaceButton_Right": {"GamepadBack"},
             "Gamepad_FaceButton_Top": {"RacePower", "AscendGear"},
             "Gamepad_FaceButton_Bottom": {"Jump"},
@@ -6491,7 +6523,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="LockNext",Key=Tab', inputs)
         self.assertIn('ActionName="GamepadBack",Key=Gamepad_FaceButton_Right', inputs)
         self.assertNotIn('ActionName="Dodge",Key=Gamepad_FaceButton_Right', inputs)
-        self.assertIn('ActionName="Dodge",Key=Gamepad_RightShoulder', inputs)
+        self.assertNotIn('ActionName="Dodge",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('ActionName="Guard",Key=Gamepad_RightThumbstick', inputs)
+        self.assertIn('ActionName="DualCast",Key=Gamepad_LeftTrigger', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=Gamepad_RightThumbstick', inputs)
         self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Top', inputs)
         self.assertNotIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
         self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f", self.hero_cpp)
@@ -6564,8 +6599,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="DualCast",Key=RightControl', inputs)
         self.assertNotIn('ActionName="CastLeft",Key=Z', inputs)
         self.assertNotIn('ActionName="CastRight",Key=X', inputs)
-        self.assertIn('ActionName="CastLeft",Key=Gamepad_LeftTrigger', inputs)
-        self.assertIn('ActionName="CastRight",Key=Gamepad_RightTrigger', inputs)
+        self.assertIn('ActionName="CastLeft",Key=Gamepad_LeftShoulder', inputs)
+        self.assertIn('ActionName="CastRight",Key=Gamepad_RightShoulder', inputs)
+        self.assertNotIn('ActionName="CastLeft",Key=Gamepad_LeftTrigger', inputs)
+        self.assertNotIn('ActionName="CastRight",Key=Gamepad_RightTrigger', inputs)
         self.assertIn('BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick)', self.hero_cpp)
         self.assertIn('BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse)', self.hero_cpp)
         left_click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
