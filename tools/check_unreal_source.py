@@ -179,9 +179,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TalentWebStepSelection(1)", self.hero_cpp)
         self.assertIn("TalentWebStepSelection(-1)", self.hero_cpp)
         self.assertIn("if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }", self.hero_cpp)
-        self.assertIn("if (!bTalentRespecConfirm) { bTalentRespecConfirm = true; return; }", self.hero_cpp)
-        self.assertIn("ResetTalentTree();", self.hero_cpp)
-        self.assertIn("SpendTalentPoint(FName(MoonfallTalents::Catalog()[TalentWebSelected].Id))", self.hero_cpp)
+        self.assertIn("if (!bTalentRespecConfirm) {", self.hero_cpp)
+        self.assertIn("if (ResetTalentTree())", self.hero_cpp)
+        self.assertIn("if (SpendTalentPoint(TalentId))", self.hero_cpp)
         self.assertIn("if (bAutoLootEnabled && !bTalentWebOpen", self.hero_cpp)
         input_handler = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[1].split("\n}", 1)[0]
         for api in ("ToggleTalentWeb", "TalentWebPurchase", "TalentWebReset", "TalentWebBack"):
@@ -193,6 +193,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return;", talent_mouse)
         self.assertIn("bTalentWebOpen = false;", self.hero_cpp)
         self.assertIn("bTalentWebOpen = true;", self.hero_cpp)
+
+    def test_talent_web_reports_only_committed_purchases_and_respecs(self):
+        purchase = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[0]
+        reset = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetUnspentTalentPoints()", 1)[0]
+        self.assertIn("TMap<FName, int32> Proposed = TalentRanks;", purchase)
+        self.assertIn("!MoonfallTalents::TryAllocate(Level, Proposed, TalentId)", purchase)
+        self.assertIn("if (SpendTalentPoint(TalentId))", purchase)
+        self.assertIn("TALENT LOCKED: CHECK LEVEL, LINKS, RANK OR POINTS", purchase)
+        self.assertIn("TALENT NOT SAVED: PREVIOUS RANKS KEPT", purchase)
+        self.assertIn("TALENT RANK PURCHASED AND SAVED", purchase)
+        self.assertLess(purchase.index("if (SpendTalentPoint(TalentId))"),
+                        purchase.index("TALENT RANK PURCHASED AND SAVED"))
+        self.assertIn("bTalentRespecConfirm = true;", reset)
+        self.assertIn("PRESS RESET AGAIN TO CONFIRM FULL RESPEC", reset)
+        self.assertIn("if (ResetTalentTree())", reset)
+        self.assertIn("FULL RESPEC SAVED: POINTS RESTORED", reset)
+        self.assertIn("RESPEC NOT SAVED: PREVIOUS TALENTS KEPT", reset)
+        self.assertLess(reset.index("if (ResetTalentTree())"),
+                        reset.index("FULL RESPEC SAVED: POINTS RESTORED"))
+        self.assertIn("TalentWebNotice.Empty();", self.hero_cpp)
+        for field in ("FString TalentWebNotice;", "bool bTalentWebNoticeSuccess = false;",
+                      "float TalentWebNoticeUntil = 0.f;"):
+            self.assertIn(field, self.hero_h)
+        self.assertIn("TalentWebNoticeUntil > NoticeNow", self.hud)
+        self.assertIn("Hero->bTalentWebNoticeSuccess ? Teal : Gold", self.hud)
+        self.assertIn("Hero->TalentWebNotice.IsEmpty()", self.hud)
+        self.assertIn("FMath::IsFinite(NoticeNow)", self.hud)
+        # Saved progress continues to be validated and rolled back atomically;
+        # the HUD may not label a failed SaveWorldProgress transaction successful.
+        commit = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CommitTalentRanks(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[0]
+        self.assertLess(commit.index("if (!SaveWorldProgress())"),
+                        commit.index("OnTalentRanksChanged();"))
+        self.assertIn("TalentRanks = Previous;", commit)
 
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
