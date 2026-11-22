@@ -609,7 +609,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Gamepad_LeftTrigger": {"CastLeft", "EquipBest"},
             "Gamepad_RightTrigger": {"CastRight", "UpgradeGear"},
             "Gamepad_RightThumbstick": {"DualCast", "ChronicleFocus"},
-            "Gamepad_FaceButton_Right": {"GamepadBack", "AscendGear"},
+            "Gamepad_FaceButton_Right": {"GamepadBack"},
+            "Gamepad_FaceButton_Top": {"RacePower", "AscendGear"},
             "Gamepad_FaceButton_Bottom": {"Jump"},
         }
         for button, actions in expected.items():
@@ -6462,6 +6463,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="GamepadBack",Key=Gamepad_FaceButton_Right', inputs)
         self.assertNotIn('ActionName="Dodge",Key=Gamepad_FaceButton_Right', inputs)
         self.assertIn('ActionName="Dodge",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Top', inputs)
+        self.assertNotIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f", self.hero_cpp)
         self.assertIn('BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack)', self.hero_cpp)
         controller_back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split("void AMoonfallHeroPawn::GamepadContextLeft()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()", controller_back)
