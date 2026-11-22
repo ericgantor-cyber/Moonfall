@@ -4177,7 +4177,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Slot / DungeonsPerZone', mode)
         self.assertIn('Slot % DungeonsPerZone', mode)
         self.assertIn('NextDungeonSlot < TotalDungeons', mode)
-        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 2;', mode)
+        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 4;', mode)
         self.assertIn('int32 ReadyDungeonCount = 0;', mode_h)
         self.assertIn('OnDungeonWorldReady(int32 ReadyCount);', mode_h)
         self.assertIn('++ReadyDungeonCount;', mode)
