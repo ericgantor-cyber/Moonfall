@@ -6472,6 +6472,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Controller->SetControlRotation(FMath::RInterpTo", self.hero_cpp)
         self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", self.hero_cpp)
         self.assertIn("Locked ? Locked->GetActorLocation()", self.hero_cpp)
+        spell = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("if (Locked && Enemy != Locked) return false;", spell)
+        self.assertLess(spell.index("LineTraceSingleByChannel(Hit, Origin, End"),
+                        spell.index("if (Locked && Enemy != Locked) return false;"))
         self.assertIn("void AMoonfallHeroPawn::LockPrevious() { CycleLockOn(-1); }", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::LockNext() { CycleLockOn(1); }", self.hero_cpp)
         # A/D remain movement keys, never lock-cycle actions.
