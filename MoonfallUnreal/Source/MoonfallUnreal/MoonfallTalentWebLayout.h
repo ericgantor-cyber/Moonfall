@@ -57,6 +57,28 @@ inline const TArray<FVector2D>& Positions()
  return Points;
 }
 
+struct FLinks { int32 A = INDEX_NONE; int32 B = INDEX_NONE; };
+inline const TArray<FLinks>& Dependencies()
+{
+ // Resolve all prerequisite lookups once rather than scanning 141 IDs
+ // for every drawn connection at 60+ HUD frames per second.
+ static const TArray<FLinks> Links = []() {
+  TMap<FName, int32> Index;
+  const auto& Nodes = MoonfallTalents::Catalog();
+  for (int32 I=0;I<Nodes.Num();++I) Index.Add(FName(Nodes[I].Id),I);
+  TArray<FLinks> Result;
+  Result.Reserve(Nodes.Num());
+  for (const auto& Node:Nodes) {
+   FLinks Pair;
+   if (Node.RequiresA[0]) Pair.A=Index.FindRef(FName(Node.RequiresA));
+   if (Node.RequiresB[0]) Pair.B=Index.FindRef(FName(Node.RequiresB));
+   Result.Add(Pair);
+  }
+  return Result;
+ }();
+ return Links;
+}
+
 inline FVector2D ScreenPosition(int32 Index, const FPanel& P,
                                 float Zoom, const FVector2D& Pan)
 {
