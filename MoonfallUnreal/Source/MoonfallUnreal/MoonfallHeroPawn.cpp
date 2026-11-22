@@ -1419,6 +1419,12 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ // R3 opens Character Stats only from Inventory; gameplay keeps Guard and
+ // Atlas keeps its read/map toggle. No extra button mappings are needed.
+ if (bInventoryOpen && !bAtlasOpen) {
+  ToggleCharacterStats();
+  return;
+ }
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
