@@ -6453,8 +6453,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_combat_lock_on_is_transient_visible_and_context_safe(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for key in ("Y", "MiddleMouseButton", "Gamepad_DPad_Down"):
+        for key in ("T", "MiddleMouseButton", "Gamepad_DPad_Down"):
             self.assertIn(f'ActionName="LockOn",Key={key}', inputs)
+        self.assertIn('ActionName="RacePower",Key=Y', inputs)
+        self.assertNotIn('ActionName="RacePower",Key=T', inputs)
+        self.assertNotIn('ActionName="LockOn",Key=Y', inputs)
         self.assertIn('ActionName="LockNext",Key=Tab', inputs)
         self.assertIn('ActionName="ChronicleFocus",Key=Tab', inputs)
         self.assertNotIn('ActionName="LockPrevious"', inputs)
