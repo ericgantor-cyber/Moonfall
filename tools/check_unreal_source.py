@@ -3702,6 +3702,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_native_ue5_mb5_input_checks_are_fail_closed(self):
+        # Static contract only. A passing source test is not a native UE5 run.
+        native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
+        script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        workflow = (ROOT.parents[2] / ".github" / "workflows"
+                    / "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallMB5InputBindingsTest", native)
+        self.assertIn('"Moonfall.Controls.MB5DualCastBindings"', native)
+        self.assertIn("Settings->GetActionMappings()", native)
+        self.assertIn("EKeys::ThumbMouseButton2", native)
+        self.assertIn("AllMB5Bindings, 1", native)
+        self.assertIn("EKeys::Gamepad_LeftTrigger", native)
+        self.assertIn("EKeys::LeftMouseButton", native)
+        self.assertIn("EKeys::RightMouseButton", native)
+        self.assertIn("EKeys::MiddleMouseButton", native)
+        self.assertIn("EKeys::T", native)
+        self.assertIn("EKeys::N", native)
+        self.assertIn("EKeys::Z", native)
+        self.assertIn("EKeys::X", native)
+        self.assertIn("Automation RunTests Moonfall; Quit", script)
+        self.assertIn("'Moonfall.Controls.MB5DualCastBindings'", script)
+        self.assertIn("'Moonfall.Controls.MB5DualCastBindings'", workflow)
+        self.assertIn('if (-not $contents.Contains("$required=True"))', workflow)
+        self.assertIn("if ($editorExit -ne 0 -or $failedMarker", script)
+
     def test_ue5_target_lock_parity_preserves_inputs_and_los_guards(self):
         # Static safety checks only, not proof of a native Unreal build.
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
