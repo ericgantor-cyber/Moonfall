@@ -40,8 +40,12 @@ The **Windows launcher** now provides a keyboard-accessible `GRAPHICS API`
 dropdown beside PLAY, with **DirectX 12 (recommended)** selected by default
 and **DirectX 11 (compatibility)** as a manual option. The selection only
 changes the launch argument; it does not edit the game config or change
-saved character data. GitHub-hosted Windows CI compiles the launcher using
-.NET 8, separately from Unreal's native compilation.
+saved character data. On a nonzero exit during the first eight seconds of
+startup, the launcher stays available and offers to select DX11 if DX12 was
+chosen. It never silently launches a second copy, changes the renderer setting,
+or assumes a crash was caused by the graphics API. This early-exit check is
+not proof of correct rendering or runtime stability. GitHub-hosted Windows CI
+compiles the launcher using .NET 8, separately from Unreal's native compilation.
 This does not turn on ray tracing, Nanite, frame generation or any GPU-specific
 features, and does not alter original Z/Nyra art.
 
