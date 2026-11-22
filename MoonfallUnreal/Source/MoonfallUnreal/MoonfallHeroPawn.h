@@ -401,6 +401,8 @@ private:
  float QueuedDodgeUntil = -1.f;
  TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;
  float NextLockVisibilityCheckAt = 0.f;
+ // Transient LOS timer avoids lock flicker from brief obstructions.
+ float LockOccludedSince = -1.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat|LockOn", meta=(ClampMin="300.0", ClampMax="2500.0")) float LockRange = 1600.f;
 
  // Snapshot the world-space intent at the press. A buffered dodge must not
