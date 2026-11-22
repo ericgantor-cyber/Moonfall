@@ -1291,7 +1291,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="AscendGear",Key=R', inputs)
-        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Top', inputs)
         self.assertIn('BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool AscendInventoryItemRarity(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
@@ -1312,7 +1312,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;", hud)
         self.assertIn("SelectedRarity < 5", hud)
-        self.assertIn("R / B: ascend", hud)
+        self.assertIn("R / Y: ascend", hud)
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
