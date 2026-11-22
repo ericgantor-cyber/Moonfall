@@ -172,7 +172,9 @@ class ChronicleIntegration(unittest.TestCase):
                       self.keys)
         self.assertIn('ActionName="Dodge",Key=Q', self.keys)
         self.assertIn('ActionName="Atlas",Key=J', self.keys)
-        self.assertIn('ActionName="Guard",Key=Gamepad_RightThumbstick', self.keys)
+        self.assertIn('ActionName="Guard",Key=Gamepad_LeftShoulder', self.keys)
+        self.assertIn('ActionName="DualCast",Key=Gamepad_RightThumbstick', self.keys)
+        self.assertIn('ActionName="Dodge",Key=Gamepad_RightShoulder', self.keys)
         self.assertIn("bInventoryOpen || bAtlasOpen || Health <= 0.f", self.pawn)
         click = self.pawn.split(
             "void AMoonfallHeroPawn::ResidentContextMouseClick()", 1
