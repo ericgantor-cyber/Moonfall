@@ -88,13 +88,12 @@ void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
  if (!GetWorld()) return;
- // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
- // the short timer stops entirely when all slots have been considered.
- // Keep the legacy integration invariant and require the new portable
- // policy to agree with the established two-layout startup budget.
- constexpr int32 MaxLayoutsPerBatch = 2;
+ // Generate four dungeon layouts per 0.1-second batch, avoiding a single
+ // frame spawning all 30. Stop the batch timer when the world is ready.
+ // Keep the runtime budget in sync with the portable startup policy.
+ constexpr int32 MaxLayoutsPerBatch = 4;
  static_assert(MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch,
-   "World startup budget drifted from the legacy two-layout limit");
+   "World startup batch size drifted from the four-layout limit");
  int32 Processed = 0;
  while (NextDungeonSlot < TotalDungeons && Processed < MaxLayoutsPerBatch) {
   const int32 Slot = NextDungeonSlot++;
