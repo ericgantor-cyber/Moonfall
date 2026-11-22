@@ -2323,31 +2323,32 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
- // Only an explicit controller/keyboard action while viewing inventory.
+ // Explicit controller/keyboard action only; never triggered by loot pickup.
  if (bEquipmentCraftInProgress || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ // Use the same validated gear snapshot and scoring as the read-only advisor.
+ // This avoids ignoring set synergy when multiple items share tier and rarity.
+ MoonfallEquipmentSlots::ExpandedCodes EquippedCodes{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
+  const int32 Code = GetEquipmentSlotCode(Slot);
+  EquippedCodes[Slot] = Code;
+ }
  int32 BestScores[MoonfallEquipmentSlots::SlotCount];
  int32 BestIndices[MoonfallEquipmentSlots::SlotCount];
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
-  BestScores[Slot] = -1;
+  BestScores[Slot] = 0;
   BestIndices[Slot] = INDEX_NONE;
-  const int32 Code = GetEquipmentSlotCode(Slot);
-  // Invalid, unowned and incorrectly slotted worn codes are treated as empty.
+  const int32 Code = EquippedCodes[Slot];
   if (Code <= 0) continue;
-  const int32 Affix = Code / 100000;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+  BestScores[Slot] = MoonfallEquipmentSlots::AdvisorItemScore(Code, Slot, EquippedCodes);
  }
+ // Scan the bag once, considering the exact same affix/set bonus as the UI.
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
   const int32 Code = InventoryItemCodes[Index];
   if (Code <= 0) continue;
   const int32 Slot = (Code / 10000) % 10;
   if (!MoonfallEquipmentSlots::IsCanonicalForSlot(Code, Slot)) continue;
-  const int32 Affix = Code / 100000;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+  const int32 Score = MoonfallEquipmentSlots::AdvisorItemScore(Code, Slot, EquippedCodes);
   if (Score > BestScores[Slot]) {
    BestScores[Slot] = Score;
    BestIndices[Slot] = Index;
@@ -2356,7 +2357,11 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   const int32 Index = BestIndices[Slot];
-  if (Index != INDEX_NONE && EquipInventoryItem(Index))
+  // Earlier slot swaps may have changed which set bonus is active. Recheck
+  // against live worn gear so an originally promising choice cannot lower
+  // the advisor score after the loadout begins to change.
+  if (Index != INDEX_NONE && GetEquipmentUpgradeScore(Index) > 0
+      && EquipInventoryItem(Index))
    ++UpgradesEquipped;
  }
  OnBestLoadoutEquipped(UpgradesEquipped);
