@@ -874,8 +874,19 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 void AMoonfallHeroPawn::Turn(float Value) {
  if (bTalentWebOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {
-   if (PC->IsInputKeyDown(EKeys::RightMouseButton) && FMath::IsFinite(Value))
-    TalentWebPan.X = FMath::Clamp(TalentWebPan.X + Value / FMath::Max(TalentWebZoom, 0.08f), -2500.f, 2500.f);
+   const float Zoom = FMath::Clamp(FMath::IsFinite(TalentWebZoom) ? TalentWebZoom : 0.2f, 0.08f, 2.1f);
+   if (PC->IsInputKeyDown(EKeys::RightMouseButton) && FMath::IsFinite(Value)) {
+    TalentWebPan.X = FMath::Clamp(TalentWebPan.X + Value / Zoom, -2500.f, 2500.f);
+   } else if (GetWorld()) {
+    // Analog right stick pans the constellation at a frame-rate-independent
+    // speed. Mouse-look stays disabled while the talent menu is open.
+    const float Stick = PC->GetInputAnalogKeyState(EKeys::Gamepad_RightX);
+    const float Delta = GetWorld()->GetDeltaSeconds();
+    if (FMath::IsFinite(Stick) && FMath::Abs(Stick) > 0.18f
+        && FMath::IsFinite(Delta) && Delta > 0.f)
+     TalentWebPan.X = FMath::Clamp(TalentWebPan.X + Stick *
+         FMath::Clamp(Delta, 0.f, 0.05f) * 320.f / Zoom, -2500.f, 2500.f);
+   }
   }
   return;
  }
@@ -883,8 +894,17 @@ void AMoonfallHeroPawn::Turn(float Value) {
 void AMoonfallHeroPawn::LookUp(float Value) {
  if (bTalentWebOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {
-   if (PC->IsInputKeyDown(EKeys::RightMouseButton) && FMath::IsFinite(Value))
-    TalentWebPan.Y = FMath::Clamp(TalentWebPan.Y - Value / FMath::Max(TalentWebZoom, 0.08f), -2500.f, 2500.f);
+   const float Zoom = FMath::Clamp(FMath::IsFinite(TalentWebZoom) ? TalentWebZoom : 0.2f, 0.08f, 2.1f);
+   if (PC->IsInputKeyDown(EKeys::RightMouseButton) && FMath::IsFinite(Value)) {
+    TalentWebPan.Y = FMath::Clamp(TalentWebPan.Y - Value / Zoom, -2500.f, 2500.f);
+   } else if (GetWorld()) {
+    const float Stick = PC->GetInputAnalogKeyState(EKeys::Gamepad_RightY);
+    const float Delta = GetWorld()->GetDeltaSeconds();
+    if (FMath::IsFinite(Stick) && FMath::Abs(Stick) > 0.18f
+        && FMath::IsFinite(Delta) && Delta > 0.f)
+     TalentWebPan.Y = FMath::Clamp(TalentWebPan.Y - Stick *
+         FMath::Clamp(Delta, 0.f, 0.05f) * 320.f / Zoom, -2500.f, 2500.f);
+   }
   }
   return;
  }
@@ -1714,7 +1734,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bTalentWebOpen) { TalentWebPan.X = FMath::Clamp(TalentWebPan.X + 120.f, -2500.f, 2500.f); return; }
+ if (bTalentWebOpen) { TalentWebStepBranch(-1); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1724,7 +1744,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bTalentWebOpen) { TalentWebPan.X = FMath::Clamp(TalentWebPan.X - 120.f, -2500.f, 2500.f); return; }
+ if (bTalentWebOpen) { TalentWebStepBranch(1); return; }
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -2011,6 +2031,15 @@ void AMoonfallHeroPawn::TalentWebStepSelection(int32 Direction)
  if (!bTalentWebOpen || Direction == 0 || MoonfallTalents::Catalog().IsEmpty()) return;
  const int32 Count = MoonfallTalents::Catalog().Num();
  TalentWebSelected = (TalentWebSelected + (Direction > 0 ? 1 : -1) + Count) % Count;
+ MoonfallTalentWeb::Focus(TalentWebSelected, TalentWebPan);
+ bTalentRespecConfirm = false;
+}
+void AMoonfallHeroPawn::TalentWebStepBranch(int32 Direction)
+{
+ if (!bTalentWebOpen || (Direction != -1 && Direction != 1)) return;
+ const int32 NextIndex = MoonfallTalentWeb::StepBranch(TalentWebSelected, Direction);
+ if (!MoonfallTalents::Catalog().IsValidIndex(NextIndex)) return;
+ TalentWebSelected = NextIndex;
  MoonfallTalentWeb::Focus(TalentWebSelected, TalentWebPan);
  bTalentRespecConfirm = false;
 }
