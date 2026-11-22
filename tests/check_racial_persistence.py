@@ -36,6 +36,10 @@ class TestRacialPersistence(unittest.TestCase):
                        "GetRaceManaRegenBonus"):
             self.assertIn(method + "() const { return bRaceChosen ?", self.cpp)
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
+        race_active = self.cpp.split("bool AMoonfallHeroPawn::ActivateRacePower()", 1)[1].split("\n}", 1)[0]
+        for overlay in ("bInventoryOpen", "bOptionsOpen", "bAtlasOpen", "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(overlay, race_active)
+        self.assertLess(race_active.index("bAtlasOpen"), race_active.index("const float Now ="))
 
     def test_persistent_cooldown_and_save_migration(self):
         self.assertIn("int32 Version = 12", self.save)
