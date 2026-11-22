@@ -45,7 +45,10 @@ class TalentCombatPauseRegression(unittest.TestCase):
 
     def test_ordinary_and_divine_boss_telegraphs_are_cancelled(self):
         cancels = method("_v406_cancel_pending_enemy_attacks")
-        self.assertIn('_clear_divine_warning(beast)', cancels)
+        self.assertIn('beast["divine_warn_until"]=0.0', cancels)
+        self.assertIn('beast["divine_chain_pending"]=false', cancels)
+        self.assertIn('if is_instance_valid(divine_disk):divine_disk.hide()', cancels)
+        self.assertNotIn('_clear_divine_warning(beast)', cancels)
         self.assertIn('boss_telegraphs.has(boss_id)', cancels)
         self.assertIn('boss_warning.visible=false', cancels)
         self.assertIn('warning.visible=false', cancels)
