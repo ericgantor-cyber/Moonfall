@@ -337,6 +337,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Combat|LockOn") AMoonfallEnemy* GetLockedEnemy() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|LockOn") void ToggleLockOn();
  void CycleLockOn(int32 Direction);
+ void LockNext();
+ void LockPrevious();
  bool IsLockTargetValid(const AMoonfallEnemy* Enemy) const;
  void AcquireLockTarget(int32 Direction);
 
