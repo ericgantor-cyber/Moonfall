@@ -955,15 +955,16 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
  const FVector Forward = FollowCamera->GetForwardVector();
  const FVector Right = FollowCamera->GetRightVector();
  AMoonfallEnemy* Current = GetLockedEnemy();
- float CurrentSide = 0.f;
+ // Use the signed camera-relative angle rather than the lateral dot product.
+ // Lateral values collapse at the edges and could skip or reorder candidates.
+ float CurrentAngle = 0.f;
  if (Current) {
   const FVector Relative = (Current->GetActorLocation() - Origin).GetSafeNormal();
-  CurrentSide = FVector::DotProduct(Relative, Right);
+  CurrentAngle = FMath::Atan2(FVector::DotProduct(Relative, Right),
+                              FVector::DotProduct(Relative, Forward));
  }
  AMoonfallEnemy* Best = nullptr;
  float BestScore = TNumericLimits<float>::Max();
- AMoonfallEnemy* Wrapped = nullptr;
- float WrapSide = Direction < 0 ? -TNumericLimits<float>::Max() : TNumericLimits<float>::Max();
  // An input-driven search only; no per-frame enemy iteration.
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   AMoonfallEnemy* Candidate = *It;
@@ -977,19 +978,21 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
   if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
       && Hit.GetActor() != Candidate) continue;
-  const float Side = FVector::DotProduct(UnitAim, Right);
   if (!Direction || !Current) {
    const float Score = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
    if (Score < BestScore) { BestScore = Score; Best = Candidate; }
   } else {
-   const float Delta = (Side - CurrentSide) * Direction;
-   if (Delta > 0.025f && Delta < BestScore) { BestScore = Delta; Best = Candidate; }
-   if ((Direction > 0 && Side < WrapSide) || (Direction < 0 && Side > WrapSide)) {
-    WrapSide = Side; Wrapped = Candidate;
+   // Tab cycles clockwise from the current target, wrapping once at +/-PI.
+   const float Angle = FMath::Atan2(FVector::DotProduct(UnitAim, Right), Facing);
+   float Delta = Angle - CurrentAngle;
+   if (Delta <= 0.f) Delta += 2.f * PI;
+   // Ignore near-identical screen directions and avoid repeated targets.
+   if (Delta > 0.025f && Delta < BestScore) {
+    BestScore = Delta;
+    Best = Candidate;
    }
   }
  }
- if (!Best && Direction && Current) Best = Wrapped;
  if (Best) { LockedEnemy = Best; LockOccludedSince = -1.f; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
  else if (!Current) LockedEnemy.Reset();
 }
