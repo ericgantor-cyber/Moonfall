@@ -210,6 +210,18 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(FName TalentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool ResetTalentTree();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Talents") void OnTalentRanksChanged();
+ // Native lightweight Canvas constellation. UI state is transient, never saved.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") bool bTalentWebOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") bool bTalentRespecConfirm = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") int32 TalentWebSelected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") float TalentWebZoom = 0.2f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") FVector2D TalentWebPan = FVector2D::ZeroVector;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void ToggleTalentWeb();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebPurchase();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebReset();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebBack();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents|UI") void TalentWebStepSelection(int32 Direction);
+
 
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
