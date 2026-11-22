@@ -953,7 +953,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
+ const float HasteBonus = GetHasteBonus();
+ // Reject malformed/future cooldown clocks before damage, resource spending or rewards.
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[Hand])
+     || Time < LastCastTime[Hand] || !FMath::IsFinite(HasteBonus)
+     || HasteBonus < 0.f || HasteBonus > 0.20f) return false;
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + HasteBonus)) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
@@ -1090,10 +1095,13 @@ void AMoonfallHeroPawn::CastBoth()
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
- // MB5 dual-casting must use the same Haste-adjusted cooldown as a single-hand cast.
- // Validate timestamps before checking the off-hand so invalid state cannot bypass it.
- if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[1])
-     || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + GetHasteBonus())) return;
+ // Validate both hand clocks and reuse the same bounded Haste value as TryCast.
+ const float HasteBonus = GetHasteBonus();
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(HasteBonus)
+     || HasteBonus < 0.f || HasteBonus > 0.20f
+     || !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])
+     || Time < LastCastTime[0] || Time < LastCastTime[1]
+     || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)) return;
  if (TryCast(LeftSpell, 0, 2.f))
  {
   LastCastTime[1] = LastCastTime[0];
