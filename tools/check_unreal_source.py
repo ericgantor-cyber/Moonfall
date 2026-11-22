@@ -3693,6 +3693,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_ue5_target_lock_parity_preserves_inputs_and_los_guards(self):
+        # Static safety checks only, not proof of a native Unreal build.
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in config.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        for key in ("T", "MiddleMouseButton"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="LockTarget",Key={key})'), 1)
+        self.assertIn('+ActionMappings=(ActionName="RacePower",Key=N)', mappings)
+        self.assertNotIn('+ActionMappings=(ActionName="RacePower",Key=T)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="Guard",Key=Gamepad_RightThumbstick)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="ResidentContext",Key=Gamepad_DPad_Up)', mappings)
+        self.assertEqual(sum('Key=ThumbMouseButton2)' in line for line in mappings), 1)
+        self.assertIn(
+            'Input->BindAction(TEXT("LockTarget"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTargetLock);',
+            self.hero_cpp)
+        self.assertIn('AMoonfallEnemy* GetLockedTarget() const;', self.hero_h)
+        self.assertIn('TWeakObjectPtr<AMoonfallEnemy> LockedTarget;', self.hero_h)
+        self.assertIn('float NextTargetLockCheckAt = 0.f;', self.hero_h)
+        self.assertIn('bool AMoonfallHeroPawn::IsTargetLockCandidate(', self.hero_cpp)
+        self.assertIn('LineTraceSingleByChannel(Hit, Eye, Aim, ECC_Visibility, Params)', self.hero_cpp)
+        lock = self.hero_cpp.split('void AMoonfallHeroPawn::ToggleTargetLock()', 1)[1].split('\n}', 1)[0]
+        for guard in ('Health <= 0.f', 'bOptionsOpen', 'bInventoryOpen',
+                      'bAtlasOpen', 'bResidentContextOpen'):
+            self.assertIn(guard, lock)
+        self.assertIn('Examined < 512', lock)
+        self.assertIn('Alignment < 0.55f', lock)
+        self.assertIn('IsTargetLockCandidate(Candidate, true)', lock)
+        self.assertIn('OnTargetLockChanged(Best)', lock)
+        self.assertIn('Now >= NextTargetLockCheckAt', self.hero_cpp)
+        self.assertIn('if (!bReduceMotion && IsValid(FollowCamera)', self.hero_cpp)
+        cast = self.hero_cpp.split('bool AMoonfallHeroPawn::TryCast(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('const AMoonfallEnemy* Lock = GetLockedTarget()', cast)
+        self.assertIn('IsTargetLockCandidate(Lock, true)', cast)
+        self.assertLess(cast.index('IsTargetLockCandidate(Lock, true)'),
+                        cast.index('Mana -= Costs[School] * Multiplier;'))
+        npc = self.hero_cpp.split('void AMoonfallHeroPawn::OpenFocusedResidentContext()', 1)[1].split('\n}', 1)[0]
+        self.assertLess(npc.index('GetNearestResidentNPC()'), npc.index('ToggleTargetLock()'))
+        self.assertIn('ResidentContextSelection = (ResidentContextSelection + 2) % 3;', npc)
+        self.assertIn('Hero->GetLockedTarget()', self.hud)
+        self.assertIn('TARGET LOCK  |  T / MIDDLE MOUSE', self.hud)
+
     def test_mb5_dual_cast_preserves_mouse_inputs_and_modal_guards(self):
         # Static contract: physical MB5 has exactly one combat action; menus
         # cannot spend mana or cast a spell through that action.
