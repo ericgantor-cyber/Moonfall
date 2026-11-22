@@ -2084,6 +2084,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
                         reward.index("PerfectDodgeWindowUntil = -1.f;"))
 
+    def test_pb_dodge_input_buffer_is_bounded_and_modal_safe(self):
+        self.assertIn('ClampMin="0.0", ClampMax="0.18"', self.hero_h)
+        self.assertIn("float DodgeInputBufferSeconds = 0.12f;", self.hero_h)
+        self.assertIn("float QueuedDodgeUntil = -1.f;", self.hero_h)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("if (Now < NextDodgeAt || Now < DamageImmunityUntil) {", dodge)
+        self.assertIn("const float ReadyAt = FMath::Max(NextDodgeAt, DamageImmunityUntil);", dodge)
+        self.assertIn("FMath::Clamp(DodgeInputBufferSeconds, 0.f, 0.18f)", dodge)
+        self.assertIn("Window > 0.f && ReadyAt > Now && ReadyAt - Now <= Window", dodge)
+        self.assertIn("QueuedDodgeUntil = ReadyAt + 0.04f;", dodge)
+        self.assertLess(dodge.index("QueuedDodgeUntil = ReadyAt + 0.04f;"),
+                        dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertIn("QueuedDodgeUntil = -1.f;", dodge)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        buffered = tick.split("if (QueuedDodgeUntil >= 0.f) {", 1)[1].split(
+            "// Throttled automatic pickup", 1)[0]
+        for rejection in ("!FMath::IsFinite(DodgeNow)", "DodgeNow > QueuedDodgeUntil",
+                          "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                          "bResidentContextOpen", "FocusedResident.IsValid()",
+                          "Health <= 0.f", "!FMath::IsFinite(NextDodgeAt)"):
+            self.assertIn(rejection, buffered)
+        self.assertIn("DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil", buffered)
+        self.assertLess(buffered.index("QueuedDodgeUntil = -1.f;\n   Dodge();"),
+                        buffered.rindex("Dodge();"))
+        for function in ("ToggleInventory", "ToggleAtlas", "OpenOptions",
+                         "OpenFocusedResidentContext", "RespawnAtCheckpoint"):
+            block = self.hero_cpp.split(
+                f"void AMoonfallHeroPawn::{function}()", 1)[1].split("\n}", 1)[0]
+            self.assertIn("QueuedDodgeUntil = -1.f;", block, function)
+
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
