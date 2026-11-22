@@ -15,13 +15,28 @@ AMoonfallArena::AMoonfallArena() {
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
  DungeonRoad = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonRoad"));
  DungeonRoad->SetupAttachment(GetRootComponent());
+ RegionalWaystationFloors = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RegionalWaystationFloors"));
+ RegionalWaystationFloors->SetupAttachment(GetRootComponent());
+ RegionalWaystationFloors->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ RegionalWaystationFloors->SetCollisionResponseToAllChannels(ECR_Block);
+ RegionalWaystationFloors->SetCullDistances(16000, 26000);
+ RegionalWaystationRuins = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RegionalWaystationRuins"));
+ RegionalWaystationRuins->SetupAttachment(GetRootComponent());
+ RegionalWaystationRuins->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ RegionalWaystationRuins->SetGenerateOverlapEvents(false);
+ RegionalWaystationRuins->SetCastShadow(false);
+ RegionalWaystationRuins->SetCullDistances(7000, 13000);
  DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);
  // Cull distant road tiles visually while their physical collision and
  // NavMesh geometry remain intact for uninterrupted travel across zones.
  DungeonRoad->SetCullDistances(24000, 34000);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
- if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
+ if (Cube.Succeeded()) {
+  DungeonRoad->SetStaticMesh(Cube.Object);
+  RegionalWaystationFloors->SetStaticMesh(Cube.Object);
+  RegionalWaystationRuins->SetStaticMesh(Cube.Object);
+ }
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  // Reuse the mesh already loaded for the instanced dungeon road rather
@@ -110,6 +125,155 @@ void AMoonfallArena::BeginPlay() {
   // Initialize before registration to avoid a post-register transform update.
   Sign->RegisterComponent();
   DungeonZoneSigns.Add(Sign);
+ }
+ // Six optional regional waystations share the dungeon road instead of
+ // creating isolated maps, fast-travel loading screens or per-frame ticks.
+ // Platform north edge stays safely away from the southern dungeon entrances;
+ // its south edge overlaps the road by 230 units at the same floor height.
+ if (bEnableRegionalWaystations && GetWorld() && RegionalWaystationFloors
+     && RegionalWaystationRuins && RegionalWaystationFloors->GetStaticMesh()) {
+  struct FWaystationSite {
+   const TCHAR* Name;
+   const TCHAR* ShrineId;
+   const TCHAR* ShrineTitle;
+   const TCHAR* ScoutId;
+   const TCHAR* ScoutName;
+   const TCHAR* CompanionId;
+   const TCHAR* CompanionName;
+   const TCHAR* Faction;
+   const TCHAR* CompanionRole;
+   const TCHAR* ScoutGreeting;
+   const TCHAR* CompanionGreeting;
+   int32 ScoutRace;
+   int32 CompanionRace;
+  };
+  // Stable IDs deliberately differ from the four pre-existing shrines and
+  // from the twelve Crossroads residents. Their existing persisted quest
+  // and bond maps can store these residents without a new save version.
+  static const FWaystationSite Sites[6] = {
+   {TEXT("EMBERWATCH CAMP"), TEXT("waystation_ashen"), TEXT("Emberwatch Shrine"),
+    TEXT("waystation_ashen_scout"), TEXT("Cinder Runner"),
+    TEXT("waystation_ashen_artisan"), TEXT("Ashforge Keeper"),
+    TEXT("AshenClans"), TEXT("Merchant"),
+    TEXT("Ashen paths are unsafe beyond the third dungeon. Stay near the beacons."),
+    TEXT("Trade salvage here before the ash storms return."), 5, 3},
+   {TEXT("SILVERLEAF REFUGE"), TEXT("waystation_moonveil"), TEXT("Silverleaf Shrine"),
+    TEXT("waystation_moonveil_scout"), TEXT("Mira Fernstep"),
+    TEXT("waystation_moonveil_scholar"), TEXT("Selune Whisper"),
+    TEXT("VerdantCircle"), TEXT("Scholar"),
+    TEXT("The forest remembers each traveler who leaves the road."),
+    TEXT("I study the old moon-runes hidden in these groves."), 2, 1},
+   {TEXT("DEEPSTONE HAVEN"), TEXT("waystation_hollows"), TEXT("Deepstone Shrine"),
+    TEXT("waystation_hollows_scout"), TEXT("Nox Tunnelwatch"),
+    TEXT("waystation_hollows_tinker"), TEXT("Dara Flint"),
+    TEXT("StoneHearth"), TEXT("Tinker"),
+    TEXT("Deep tunnels shift. Return here before the lanterns fade."),
+    TEXT("I can repair your kit when my workshop opens."), 3, 6},
+   {TEXT("SPARKFALL RELAY"), TEXT("waystation_foundry"), TEXT("Sparkfall Shrine"),
+    TEXT("waystation_foundry_scout"), TEXT("Kora Spark"),
+    TEXT("waystation_foundry_tinker"), TEXT("Mek Ironhand"),
+    TEXT("StoneHearth"), TEXT("Tinker"),
+    TEXT("The foundry roars again. Mind the broken machinery."),
+    TEXT("Bring me salvage from the ironworks when you return."), 6, 3},
+   {TEXT("WINTERGLASS LODGE"), TEXT("waystation_frost"), TEXT("Winterglass Shrine"),
+    TEXT("waystation_frost_scout"), TEXT("Eira Froststep"),
+    TEXT("waystation_frost_scholar"), TEXT("Orin Snowbind"),
+    TEXT("MoonCoven"), TEXT("Scholar"),
+    TEXT("The frozen trail is safe only near these lights."),
+    TEXT("The ice preserves stories older than our shrines."), 10, 1},
+   {TEXT("DUSKWATCH REFUGE"), TEXT("waystation_eclipse"), TEXT("Duskwatch Shrine"),
+    TEXT("waystation_eclipse_scout"), TEXT("Sable Nightroad"),
+    TEXT("waystation_eclipse_elder"), TEXT("Vesper Rune"),
+    TEXT("MoonCoven"), TEXT("Elder"),
+    TEXT("The eclipse frontier begins beyond this last refuge."),
+    TEXT("Return from the wastes and tell me what survived."), 9, 11}
+  };
+  RegionalWaystationFloors->ClearInstances();
+  RegionalWaystationRuins->ClearInstances();
+  for (int32 Zone = 0; Zone < 6; ++Zone) {
+   const FWaystationSite& Site = Sites[Zone];
+   // The third of each five-dungeon region is the center of its road segment.
+   const float ZoneCenterX = (static_cast<float>(Zone * 5 + 2) - 14.5f) * 1350.f;
+   RegionalWaystationFloors->AddInstance(FTransform(FRotator::ZeroRotator,
+     FVector(ZoneCenterX, -1800.f, -20.f), FVector(7.4f, 9.6f, 0.4f)));
+   // Four non-colliding pillars per camp, instanced in a single mesh draw.
+   // Do not obstruct the 400-unit center walking route to the shrine.
+   for (int32 Side = -1; Side <= 1; Side += 2) {
+    for (int32 End = -1; End <= 1; End += 2) {
+     const float Height = 2.3f + 0.14f * Zone + (End == 1 ? 0.35f : 0.f);
+     RegionalWaystationRuins->AddInstance(FTransform(FRotator::ZeroRotator,
+       FVector(ZoneCenterX + 300.f * Side, -1800.f + 290.f * End,
+         Height * 50.f), FVector(0.8f, 0.8f, Height)));
+    }
+   }
+   UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(
+     this, FName(*FString::Printf(TEXT("RegionalWaystationSign_%d"), Zone)));
+   if (IsValid(Sign)) {
+    Sign->SetupAttachment(GetRootComponent());
+    Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Sign->SetGenerateOverlapEvents(false);
+    Sign->SetText(FText::FromString(FString::Printf(
+      TEXT("%s\nSHRINE | RESIDENTS | CONTRACTS"), Site.Name)));
+    Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+    Sign->SetWorldSize(44.f);
+    Sign->SetTextRenderColor(FColor(180, 225, 245));
+    Sign->SetRelativeLocation(FVector(ZoneCenterX, -1590.f, 155.f));
+    Sign->RegisterComponent();
+    RegionalWaystationSigns.Add(Sign);
+   }
+   // A separate road-facing cue is visible before the player turns north.
+   // It never blocks movement or relies on a colored map pin.
+   UTextRenderComponent* RoadGuide = NewObject<UTextRenderComponent>(
+     this, FName(*FString::Printf(TEXT("RegionalRoadGuideSign_%d"), Zone)));
+   if (IsValid(RoadGuide)) {
+    RoadGuide->SetupAttachment(GetRootComponent());
+    RoadGuide->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    RoadGuide->SetGenerateOverlapEvents(false);
+    RoadGuide->SetText(FText::FromString(FString::Printf(
+      TEXT("NORTH: %s\nSHRINE + CONTRACTS"), Site.Name)));
+    RoadGuide->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+    RoadGuide->SetWorldSize(32.f);
+    RoadGuide->SetTextRenderColor(FColor(255, 216, 148));
+    RoadGuide->SetRelativeLocation(FVector(ZoneCenterX, -2150.f, 170.f));
+    RoadGuide->RegisterComponent();
+    RegionalWaystationSigns.Add(RoadGuide);
+   }
+   const FVector ShrineLocation = GetActorTransform().TransformPosition(
+     FVector(ZoneCenterX, -1500.f, 0.f));
+   const FTransform ShrineTransform(FRotator::ZeroRotator, ShrineLocation);
+   AMoonfallCheckpointShrine* Shrine =
+     GetWorld()->SpawnActorDeferred<AMoonfallCheckpointShrine>(
+       AMoonfallCheckpointShrine::StaticClass(), ShrineTransform, this, nullptr,
+       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+   if (IsValid(Shrine)) {
+    Shrine->ShrineId = FName(Site.ShrineId);
+    Shrine->MapDisplayName = FText::FromString(Site.ShrineTitle);
+    Shrine->FinishSpawning(ShrineTransform);
+   }
+   // These NPCs use the existing mouse/controller conversation, reputation,
+   // one-time salvage contract, resident-bond and save pathways.
+   for (int32 Resident = 0; Resident < 2; ++Resident) {
+    const FVector Local(ZoneCenterX + (Resident == 0 ? -180.f : 180.f),
+                        -1890.f, 60.f);
+    const FTransform NpcTransform(FRotator::ZeroRotator,
+      GetActorTransform().TransformPosition(Local));
+    AMoonfallWorldNPC* Person = GetWorld()->SpawnActorDeferred<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(), NpcTransform, this, nullptr,
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+    if (!IsValid(Person)) continue;
+    Person->ResidentId = FName(Resident == 0 ? Site.ScoutId : Site.CompanionId);
+    Person->DisplayName = FText::FromString(
+      Resident == 0 ? Site.ScoutName : Site.CompanionName);
+    Person->Greeting = FText::FromString(
+      Resident == 0 ? Site.ScoutGreeting : Site.CompanionGreeting);
+    Person->RaceId = Resident == 0 ? Site.ScoutRace : Site.CompanionRace;
+    Person->FactionId = FName(Site.Faction);
+    Person->SettlementId = FName(Site.ShrineId);
+    Person->SocialRole = FName(Resident == 0 ? TEXT("Scout") : Site.CompanionRole);
+    Person->InteractRange = 300.f;
+    Person->FinishSpawning(NpcTransform);
+   }
+  }
  }
  if (bEnableStartingSanctuary) {
   // Clear, readable world-space directions instead of forced modal tutorials.
