@@ -988,7 +988,10 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen || bAtlasOpen) return;
+ // R3 is also a menu command. Never queue a combat cast behind inventory,
+ // the Atlas, options, NPC dialogue or defeat.
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -1310,7 +1313,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
- // R3 guards in combat, toggles Character Stats in the inventory,
+ // R3 dual-casts in combat, toggles Character Stats in inventory,
  // and switches Chronicle focus in the Atlas.
  if (bInventoryOpen && !bAtlasOpen) {
   ToggleCharacterStats();
