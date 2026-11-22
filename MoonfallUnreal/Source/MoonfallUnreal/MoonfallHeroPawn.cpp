@@ -2093,7 +2093,9 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
 }
 int32 AMoonfallHeroPawn::GetTalentRank(FName TalentId) const
 {
- return MoonfallTalents::Find(TalentId) ? TalentRanks.FindRef(TalentId) : 0;
+ // Rank queries occur for every visible star and link on each HUD redraw.
+ // Runtime/load transactions validate IDs, so no catalog scan is needed.
+ return TalentId.IsNone() ? 0 : TalentRanks.FindRef(TalentId);
 }
 TArray<FName> AMoonfallHeroPawn::GetTalentIds() const
 {
