@@ -6471,6 +6471,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()", controller_back)
         self.assertLess(controller_back.index("OpenOptions();"), controller_back.index("Dodge();"))
         self.assertIn("void GamepadBack();", self.hero_h)
+        self.assertIn("D-pad up/down + A  |  B / Esc / RMB: close", self.hud)
+        self.assertIn("D-pad Left/R3: bag | B/Esc: back", self.hud)
         for action, key in (("GamepadContextLeft", "Gamepad_DPad_Left"), ("GamepadContextRight", "Gamepad_DPad_Right")):
             self.assertIn(f'ActionName="{action}",Key={key}', inputs)
             self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
