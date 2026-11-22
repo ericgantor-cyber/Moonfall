@@ -6490,6 +6490,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", self.hero_cpp)
         self.assertIn("Locked ? Locked->GetActorLocation()", self.hero_cpp)
         spell = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        # Free-aim attacks are a first-class combat mode, not a lock-on fallback.
+        self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton', inputs)
+        self.assertIn('ActionName="CastRightMouse",Key=RightMouseButton', inputs)
+        self.assertIn('BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick)', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse)', self.hero_cpp)
+        left_click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("void AMoonfallHeroPawn::TalkToNearestNPC()", 1)[0]
+        self.assertIn("if (!bResidentContextOpen) { CastLeft(); return; }", left_click)
+        right_click = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("void AMoonfallHeroPawn::ReleaseInventoryPointer()", 1)[0]
+        self.assertIn("CastRight();", right_click)
+        self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", spell)
+        self.assertIn("Locked ? Locked->GetActorLocation() + FVector(0.f, 0.f, 60.f)", spell)
+        self.assertIn(": Origin + FollowCamera->GetForwardVector() * 1800.f;", spell)
+        self.assertIn("if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;", spell)
         self.assertIn("if (Locked && Enemy != Locked) return false;", spell)
         self.assertLess(spell.index("LineTraceSingleByChannel(Hit, Origin, End"),
                         spell.index("if (Locked && Enemy != Locked) return false;"))
