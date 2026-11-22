@@ -54,19 +54,17 @@ void AMoonfallCombatHUD::DrawHUD()
    return FCString::Strcmp(N.Branch,TEXT("might"))==0 ? Crimson
       : FCString::Strcmp(N.Branch,TEXT("agility"))==0 ? Teal : Violet;
   };
+  const auto& Links=MoonfallTalentWeb::Dependencies();
   for (int32 Index=0; Index<Nodes.Num(); ++Index) {
    const auto& N=Nodes[Index];
    const FVector2D B=MoonfallTalentWeb::ScreenPosition(Index,P,Hero->TalentWebZoom,Hero->TalentWebPan);
    if (!MoonfallTalentWeb::InMap(P,B)) continue;
-   for (const TCHAR* Parent : {N.RequiresA,N.RequiresB}) {
-    if (!Parent[0]) continue;
-    for (int32 ParentIndex=0;ParentIndex<Nodes.Num();++ParentIndex) {
-     if (FCString::Strcmp(Nodes[ParentIndex].Id,Parent)!=0) continue;
-     const FVector2D A=MoonfallTalentWeb::ScreenPosition(ParentIndex,P,Hero->TalentWebZoom,Hero->TalentWebPan);
-     if (MoonfallTalentWeb::InMap(P,A))
-      DrawLine(A.X,A.Y,B.X,B.Y,Hero->GetTalentRank(FName(Parent))>0?NodeColor(N):Dim,1.4f);
-     break;
-    }
+   for (const int32 ParentIndex : {Links[Index].A,Links[Index].B}) {
+    if (!Nodes.IsValidIndex(ParentIndex)) continue;
+    const FVector2D A=MoonfallTalentWeb::ScreenPosition(ParentIndex,P,Hero->TalentWebZoom,Hero->TalentWebPan);
+    if (MoonfallTalentWeb::InMap(P,A))
+     DrawLine(A.X,A.Y,B.X,B.Y,
+       Hero->GetTalentRank(FName(Nodes[ParentIndex].Id))>0?NodeColor(N):Dim,1.4f);
    }
   }
   const int32 Available=Hero->GetUnspentTalentPoints();
