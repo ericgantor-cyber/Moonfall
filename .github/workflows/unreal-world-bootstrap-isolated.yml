@@ -1,0 +1,42 @@
+name: Moonfall isolated UE5 world bootstrap verification
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnrealGameMode.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnrealGameMode.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldBootstrap.h'
+      - 'tools/test_unreal_world_bootstrap.cpp'
+      - 'tools/test_unreal_world_bootstrap_source.py'
+      - '.github/workflows/unreal-world-bootstrap-isolated.yml'
+  workflow_dispatch:
+
+jobs:
+  portable-policy:
+    name: Isolated world startup policy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify world startup source contracts
+        run: python tools/test_unreal_world_bootstrap_source.py
+      - name: GCC portable startup tests
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_world_bootstrap.cpp -o /tmp/moonfall_world_bootstrap
+          /tmp/moonfall_world_bootstrap
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: MSVC portable startup tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_world_bootstrap.exe tools/test_unreal_world_bootstrap.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_world_bootstrap.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
