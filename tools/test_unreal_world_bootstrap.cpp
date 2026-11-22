@@ -4,6 +4,7 @@
 namespace M=MoonfallWorldBootstrap;
 int main() {
  static_assert(M::LegacyZoneCount==6 && M::TotalDungeons==30);
+ static_assert(M::MaxLayoutsPerBatch==4);
  const auto Legacy=M::DefaultPolicy();
  const auto Isolated=M::IsolatedWorldPolicy();
  assert(M::ShouldSpawnArena(Legacy,false));
@@ -15,8 +16,8 @@ int main() {
   const int Batch=M::BatchCount(N);
   assert(Batch>=0 && Batch<=M::MaxLayoutsPerBatch);
   if(N<0 || N>=30) assert(Batch==0);
-  if(N>=0 && N<29) assert(Batch==2);
-  if(N==29) assert(Batch==1);
+  if(N>=0 && N<=26) assert(Batch==4);
+  if(N>=27 && N<=29) assert(Batch==30-N);
  }
  const M::FPolicy ArenaOnly{true,false};
  const M::FPolicy DungeonsOnly{false,true};
