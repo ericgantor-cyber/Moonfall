@@ -590,7 +590,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         stats = self.hero_cpp.split(
             "void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
-        self.assertIn("D-pad Right / R3: character", self.hud)
+        self.assertIn("D-pad Right/R3: stats", self.hud)
         self.assertIn("D-pad Left/R3: bag", self.hud)
         self.assertNotIn("C / P / A: back to inventory", self.hud)
 
@@ -1103,8 +1103,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / P / A: back to inventory", hud)
-        self.assertIn("C / P / A: character stats", hud)
+        # Contextual controller shortcuts replace stale A-key hints.
+        self.assertIn("D-pad Left/R3: bag", hud)
+        self.assertIn("D-pad Right/R3: stats", hud)
+        self.assertNotIn("C / P / A: back to inventory", hud)
+        self.assertNotIn("C / P / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
