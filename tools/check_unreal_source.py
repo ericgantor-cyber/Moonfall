@@ -642,6 +642,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LockedEnemy.Reset();", lock)
         self.assertNotIn("if (bReduceMotion) LockedEnemy.Reset()", lock)
 
+    def test_native_unreal_input_automation_covers_current_controller_layout(self):
+        # The native test is compiled and run only by a real Unreal Editor.
+        # Keep its expected mappings synchronized with this source-check suite.
+        native_path = ROOT / "MoonfallInputNativeTests.cpp"
+        self.assertTrue(native_path.is_file())
+        native = native_path.read_text(encoding="utf-8")
+        self.assertIn("#if WITH_DEV_AUTOMATION_TESTS", native)
+        self.assertIn("GetDefault<UInputSettings>()", native)
+        self.assertIn("GetActionMappings()", native)
+        self.assertIn("Moonfall.Controls.MB5DualCastBindings", native)
+        self.assertIn("AllMB5Bindings, 1", native)
+        for action, key in (
+            ("DualCast", "ThumbMouseButton2"),
+            ("DualCast", "Gamepad_LeftTrigger"),
+            ("CastLeft", "Gamepad_LeftShoulder"),
+            ("CastRight", "Gamepad_RightShoulder"),
+            ("Guard", "Gamepad_RightThumbstick"),
+            ("ChronicleFocus", "Gamepad_RightThumbstick"),
+            ("Jump", "Gamepad_FaceButton_Bottom"),
+            ("GamepadBack", "Gamepad_FaceButton_Right"),
+            ("LockOn", "T"),
+            ("LockOn", "MiddleMouseButton"),
+            ("ResidentContext", "Gamepad_DPad_Up"),
+            ("RacePower", "N"),
+        ):
+            self.assertIn(f'CountBinding(TEXT("{action}"), EKeys::{key})', native)
+        for forbidden in (
+            'CountBinding(TEXT("LockTarget")',
+            'CountBinding(TEXT("DualCast"), EKeys::Gamepad_RightThumbstick), 1',
+            'CountBinding(TEXT("Dodge"), EKeys::Gamepad_RightShoulder), 1',
+        ):
+            self.assertNotIn(forbidden, native)
+
     def test_authoritative_mb5_layout_rejects_controller_regressions(self):
         import re
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
