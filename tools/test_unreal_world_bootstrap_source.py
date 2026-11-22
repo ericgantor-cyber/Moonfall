@@ -119,6 +119,30 @@ assert "!ReconcileSpawnedDungeonSlot(Slot) &&" in batch
 assert "!RetriedDungeonSlots[Slot]" in batch
 assert batch.index("ReconcileSpawnedDungeonSlot(Slot)") < batch.index(
     "OnDungeonWorldReady(ReadyDungeonCount);")
+assert "MatchesDungeonSlot(5,4,29)" in policy
+assert "constexpr bool MatchesDungeonSlot(int Zone,int Dungeon,int Slot)" in policy
+assert "AMoonfallDungeonLayout* FindExistingDungeonForSlot(int32 Slot) const;" in header
+assert "AMoonfallUnrealGameMode::FindExistingDungeonForSlot(" in cpp
+fallback=cpp.split("AMoonfallUnrealGameMode::FindExistingDungeonForSlot(",1)[1]
+assert "if (!GetWorld() || Slot < 0 || Slot >= TotalDungeons) return nullptr;" in fallback
+assert "TActorIterator<AMoonfallDungeonLayout> It(GetWorld())" in fallback
+assert "!IsValid(Candidate) || Candidate->IsActorBeingDestroyed()" in fallback
+assert "MoonfallWorldBootstrap::MatchesDungeonSlot(" in fallback
+assert "Candidate->ZoneIndex, Candidate->DungeonIndex, Slot" in fallback
+assert "if (AMoonfallDungeonLayout* Alternate = FindExistingDungeonForSlot(Slot))" in reconcile
+assert reconcile.index("FindExistingDungeonForSlot(Slot)") < reconcile.index(
+    "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);")
+assert "if (AMoonfallDungeonLayout* Alternate = FindExistingDungeonForSlot(Slot))" in generated
+assert generated.index("FindExistingDungeonForSlot(Slot)") < generated.index(
+    "ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);")
+assert "if (ReconcileSpawnedDungeonSlot(Slot)) continue;" in batch
+assert "if (bRetryAttempt) {" in batch
+assert "if (AMoonfallDungeonLayout* Existing = FindExistingDungeonForSlot(Slot))" in batch
+assert "AuthoredDungeonActors[Slot] = Existing;" in batch
+assert batch.index("FindExistingDungeonForSlot(Slot)") < batch.index(
+    "SpawnActorDeferred<AMoonfallDungeonLayout>(")
+assert "AuthoredDungeonSlots[Slot] && !ReconcileAuthoredDungeonSlot(Slot) &&" in batch
+assert "!RetriedDungeonSlots[Slot]" in batch
 assert "ShouldRetainAuthoredSlot(true,false)" in policy
 assert "!ShouldRetainAuthoredSlot(true,true)" in policy
 assert "MoonfallWorldBootstrap::ShouldQueueRetry(bSpawnSucceeded,bRetryAttempt)" in batch
