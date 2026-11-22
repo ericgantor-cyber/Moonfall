@@ -136,8 +136,15 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor::White,SideX+12.f,P.Top+P.Height-62.f,nullptr,0.72f);
   DrawText(TEXT("K/ESC close | Wheel zoom | RMB pan | Pad A buy  B back  LT reset"),
       FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.64f);
-  DrawText(TEXT("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan"),
-      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
+  const float NoticeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
+  const bool bShowNotice = FMath::IsFinite(NoticeNow) &&
+      FMath::IsFinite(Hero->TalentWebNoticeUntil) && !Hero->TalentWebNotice.IsEmpty() &&
+      Hero->TalentWebNoticeUntil > NoticeNow;
+  DrawText(bShowNotice ? Hero->TalentWebNotice
+       : TEXT("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan"),
+      bShowNotice ? (Hero->bTalentWebNoticeSuccess ? Teal : Gold)
+       : FLinearColor(0.74f,0.81f,0.92f),
+      P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
   return;
  }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
