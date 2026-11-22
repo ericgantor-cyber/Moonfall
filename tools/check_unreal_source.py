@@ -1032,7 +1032,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        # Gamepad A must remain Jump/dialog confirm, not open Character Stats
+        # in the same input dispatch. Character sheet remains on C/P.
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertEqual(inputs.count('Key=Gamepad_FaceButton_Bottom'), 1)
+        self.assertIn('BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump)', self.hero_cpp)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
