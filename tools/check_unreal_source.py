@@ -1719,10 +1719,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_opening_menus_releases_held_sprint(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
-        self.assertIn("if (!bInventoryOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", inventory)
+        self.assertIn("if (!bInventoryOpen) {\n  QueuedDodgeUntil = -1.f;\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", inventory)
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
-        self.assertIn("if (!bOptionsOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)
+        self.assertIn("if (!bOptionsOpen) {\n  QueuedDodgeUntil = -1.f;\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)
 
     def test_options_cannot_reopen_while_hero_is_defeated(self):
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
