@@ -1,7 +1,7 @@
-"""Regression checks for the 141-node talent-web combat pause.
+"""Source-level regression checks for the 141-node talent-web combat pause.
 
-This deliberately inspects the live Godot runtime, not a mock UI. It ensures
-future UI changes cannot silently re-enable attacks while talents are open.
+These assert safety guards in the real gameplay script. The separate Godot
+headless script-chain test verifies that the runtime actually compiles.
 """
 from pathlib import Path
 import unittest
