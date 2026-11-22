@@ -6461,7 +6461,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn)', self.hero_cpp)
         self.assertIn('BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget)', self.hero_cpp)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleLockOn()", 1)[1].split("void AMoonfallHeroPawn::AcquireLockTarget", 1)[0]
-        self.assertIn("if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); return; }", toggle)
+        self.assertIn("if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }", toggle)
         self.assertIn("AcquireLockTarget(0);", toggle)
         switch = self.hero_cpp.split("void AMoonfallHeroPawn::SwitchLockedTarget()", 1)[1].split("void AMoonfallHeroPawn::AcquireLockTarget", 1)[0]
         self.assertIn("bAtlasOpen", switch)
@@ -6475,6 +6475,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockAcquire)", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockVisibility)", self.hero_cpp)
         self.assertIn("NextLockVisibilityCheckAt = Now + 0.2f;", self.hero_cpp)
+        self.assertIn("float LockOccludedSince = -1.f;", self.hero_h)
+        self.assertIn("Now - LockOccludedSince >= 0.45f", self.hero_cpp)
+        self.assertIn("if (LockedEnemy.IsValid() && LockOccludedSince < 0.f)", self.hero_cpp)
+        self.assertIn("else LockOccludedSince = -1.f;", self.hero_cpp)
         self.assertIn("Controller->SetControlRotation(FMath::RInterpTo", self.hero_cpp)
         self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", self.hero_cpp)
         self.assertIn("Locked ? Locked->GetActorLocation()", self.hero_cpp)
