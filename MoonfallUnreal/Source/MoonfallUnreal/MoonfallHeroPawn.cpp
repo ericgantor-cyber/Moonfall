@@ -390,7 +390,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    QueuedDodgeUntil = -1.f;
   } else if (DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil) {
    QueuedDodgeUntil = -1.f;
+   bExecutingBufferedDodge = true;
    Dodge();
+   bExecutingBufferedDodge = false;
+   QueuedDodgeDirection = FVector::ZeroVector;
   }
  }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
@@ -1112,10 +1115,28 @@ void AMoonfallHeroPawn::Dodge()
       ? FMath::Clamp(DodgeInputBufferSeconds, 0.f, 0.18f) : 0.f;
   // Only accept presses near readiness. A 40ms grace period allows for
   // discrete frame timing while still bounding how long input is remembered.
-  if (Window > 0.f && ReadyAt > Now && ReadyAt - Now <= Window)
-   QueuedDodgeUntil = ReadyAt + 0.04f;
+  if (Window > 0.f && ReadyAt > Now && ReadyAt - Now <= Window) {
+   const FVector QueuedPending = GetPendingMovementInputVector().GetSafeNormal2D();
+   const FVector QueuedLast = GetLastMovementInputVector().GetSafeNormal2D();
+   const FVector QueuedForward = GetActorForwardVector().GetSafeNormal2D();
+   const FVector IntendedDirection = !QueuedPending.IsNearlyZero() ? QueuedPending
+       : (!QueuedLast.IsNearlyZero() ? QueuedLast : QueuedForward);
+   if (!IntendedDirection.ContainsNaN() && !IntendedDirection.IsNearlyZero()) {
+    QueuedDodgeDirection = IntendedDirection;
+    QueuedDodgeUntil = ReadyAt + 0.04f;
+   }
+  }
   return;
  }
+ // Determine the direction before consuming stamina or granting invulnerability.
+ // A replayed press uses its saved direction, not the current thumbstick.
+ const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
+ const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
+ const FVector LiveDirection = !PendingDirection.IsNearlyZero() ? PendingDirection
+     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ const FVector Direction = bExecutingBufferedDodge ? QueuedDodgeDirection : LiveDirection;
+ if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;
  // One valid attempt consumes the pending input; cost/immunity follow here.
  QueuedDodgeUntil = -1.f;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
@@ -1129,13 +1150,7 @@ void AMoonfallHeroPawn::Dodge()
  NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
- // Prefer live input for responsive controller/keyboard dodges. On frames
- // without new input, use the most recently consumed movement direction.
- const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
- const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
- const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
- const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
-     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ // Direction was validated and locked before committing stamina/cooldowns.
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
 }
 
