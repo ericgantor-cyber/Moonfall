@@ -1343,6 +1343,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("C / P / R3: back to inventory", hud)
         self.assertIn("C / P / R3: character stats", hud)
 
+    def test_native_editor_input_bindings_cover_talent_modal_and_mb5(self):
+        # The C++ automation test is for a real Unreal Editor. This source
+        # check only verifies it exists and stays aligned with current inputs.
+        native_path = ROOT / "MoonfallInputNativeTests.cpp"
+        self.assertTrue(native_path.is_file())
+        native = native_path.read_text(encoding="utf-8")
+        self.assertIn("#if WITH_DEV_AUTOMATION_TESTS", native)
+        self.assertIn("GetDefault<UInputSettings>()", native)
+        self.assertIn("GetActionMappings()", native)
+        self.assertIn("Moonfall.Controls.MB5DualCastBindings", native)
+        self.assertIn("AllMB5Bindings, 1", native)
+        for action, physical in (
+            ("DualCast", "ThumbMouseButton2"),
+            ("DualCast", "Gamepad_LeftTrigger"),
+            ("CastLeft", "Gamepad_LeftShoulder"),
+            ("CastRight", "Gamepad_RightShoulder"),
+            ("Guard", "Gamepad_RightThumbstick"),
+            ("ChronicleFocus", "Gamepad_RightThumbstick"),
+            ("Jump", "Gamepad_FaceButton_Bottom"),
+            ("TalentsSpend", "Gamepad_FaceButton_Bottom"),
+            ("TalentsReset", "Gamepad_LeftTrigger"),
+            ("GamepadBack", "Gamepad_FaceButton_Right"),
+            ("AscendGear", "Gamepad_FaceButton_Top"),
+            ("ResidentContext", "Gamepad_DPad_Up"),
+            ("RacePower", "N"),
+        ):
+            self.assertIn(f'CountBinding(TEXT("{action}"), EKeys::{physical})', native)
+        self.assertIn('CountBinding(TEXT("Dodge"), EKeys::Gamepad_FaceButton_Right), 0', native)
+        self.assertIn('CountBinding(TEXT("TalentsBack"), EKeys::Gamepad_FaceButton_Right), 0', native)
+        self.assertIn('CountBinding(TEXT("RacePower"), EKeys::T), 0', native)
+        self.assertNotIn('CountBinding(TEXT("LockOn"), EKeys::T), 1', native)
+        self.assertIn("void GamepadBack();", self.hero_h)
+
     def test_gamepad_b_is_one_contextual_action_and_mb5_is_exclusive(self):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
