@@ -38,6 +38,12 @@ constexpr bool HasPendingDungeonWork(int NextSlot,int NextRetry,int FailedCount)
  return NextSlot<TotalDungeons ||
   (NextRetry>=0 && FailedCount>NextRetry);
 }
+// Audit exactly once only after all primary and queued attempts finish.
+constexpr bool ShouldAuditAuthoredDungeons(bool AlreadyAudited,
+ int NextSlot,int NextRetry,int FailedCount) {
+ return !AlreadyAudited &&
+  !HasPendingDungeonWork(NextSlot,NextRetry,FailedCount);
+}
 struct FPolicy {
  bool SpawnLegacyArena;
  bool GenerateLegacyDungeons;
@@ -76,4 +82,8 @@ static_assert(!ShouldQueueRetry(false,true) && !ShouldQueueRetry(true,false));
 static_assert(HasPendingDungeonWork(0,0,0));
 static_assert(HasPendingDungeonWork(30,0,1));
 static_assert(!HasPendingDungeonWork(30,1,1));
+static_assert(!ShouldAuditAuthoredDungeons(false,29,0,0));
+static_assert(!ShouldAuditAuthoredDungeons(false,30,0,1));
+static_assert(ShouldAuditAuthoredDungeons(false,30,1,1));
+static_assert(!ShouldAuditAuthoredDungeons(true,30,1,1));
 } // namespace MoonfallWorldBootstrap
