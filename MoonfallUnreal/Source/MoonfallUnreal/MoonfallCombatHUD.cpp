@@ -130,9 +130,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.15f,0.33f,0.27f),SideX,P.Top+P.Height-118.f,224.f,37.f);
   DrawText(TEXT("UNLOCK / RANK UP"),FLinearColor::White,
       SideX+12.f,P.Top+P.Height-110.f,nullptr,0.76f);
-  DrawRect(Hero->bTalentRespecConfirm?FLinearColor(0.48f,0.14f,0.18f)
+  // Do not visually advertise an expired destructive confirmation.
+  const float RespecNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
+  const bool bRespecArmed = FMath::IsFinite(RespecNow) &&
+      Hero->bTalentRespecConfirm && FMath::IsFinite(Hero->TalentRespecConfirmUntil) &&
+      RespecNow < Hero->TalentRespecConfirmUntil;
+  DrawRect(bRespecArmed?FLinearColor(0.48f,0.14f,0.18f)
        :FLinearColor(0.23f,0.17f,0.29f),SideX,P.Top+P.Height-70.f,224.f,37.f);
-  DrawText(Hero->bTalentRespecConfirm?TEXT("CONFIRM FULL RESPEC"):TEXT("RESET ALL TALENTS"),
+  DrawText(bRespecArmed?TEXT("CONFIRM FULL RESPEC"):TEXT("RESET ALL TALENTS"),
       FLinearColor::White,SideX+12.f,P.Top+P.Height-62.f,nullptr,0.72f);
   DrawText(TEXT("K/ESC close | Enter / Pad A buy | Backspace / LT reset | Pad B back"),
       FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.64f);
