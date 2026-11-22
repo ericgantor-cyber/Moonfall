@@ -1032,7 +1032,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -1056,8 +1056,76 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / P / A: back to inventory", hud)
-        self.assertIn("C / P / A: character stats", hud)
+        self.assertIn("C / P / R3: back to inventory", hud)
+        self.assertIn("C / P / R3: character stats", hud)
+
+    def test_tick_clears_invalid_target_lock_and_stale_resident_dialogue(self):
+        # Lock and NPC cleanup must agree with the per-action validity guards.
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        lock = tick.split("if (LockedTarget.IsValid()) {", 1)[1].split(
+            "// A nonfinite frame delta", 1)[0]
+        self.assertIn("!FMath::IsFinite(Health)", lock)
+        self.assertIn("ClearTargetLock();", lock)
+        self.assertLess(lock.index("!FMath::IsFinite(Health)"), lock.index("ClearTargetLock();"))
+        resident = tick.split("if (bResidentContextOpen) {", 1)[1].split(
+            "// Keep one save slot forever", 1)[0]
+        for guard in ("!IsValid(Resident)", "Health <= 0.f",
+                      "!FMath::IsFinite(Health)", "bAtlasOpen"):
+            self.assertIn(guard, resident)
+        self.assertIn("CloseResidentContext();", resident)
+        self.assertLess(resident.index("!FMath::IsFinite(Health)"),
+                        resident.index("CloseResidentContext();"))
+
+    def test_gamepad_a_and_npc_actions_block_invalid_health_and_atlas(self):
+        # Source contract: never confirm a quest or jump with invalid vitals.
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "\n}", 1)[0]
+        hp_guard = "if (Health <= 0.f || !FMath::IsFinite(Health)) return;"
+        self.assertIn(hp_guard, jump)
+        self.assertLess(jump.index(hp_guard), jump.index("if (bResidentContextOpen)"))
+        self.assertLess(jump.index(hp_guard), jump.index("Jump();"))
+        npc = (ROOT / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        interact = npc.split("bool AMoonfallWorldNPC::CanHeroInteract(", 1)[1].split(
+            "\n}", 1)[0]
+        for guard in ("Hero->Health <= 0.f", "!FMath::IsFinite(Hero->Health)",
+                      "Hero->bAtlasOpen", "Hero->bInventoryOpen",
+                      "Hero->bOptionsOpen"):
+            self.assertIn(guard, interact)
+            self.assertLess(interact.index(guard), interact.index("GetActorLocation()"))
+        quest = self.hero_cpp.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("Resident->CanHeroInteract(this)", quest)
+        self.assertLess(quest.index("Resident->CanHeroInteract(this)"),
+                        quest.index("Resident->TurnInResidentQuest(this)"))
+
+    def test_gamepad_a_conflict_is_removed_and_r3_stats_are_inventory_only(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in config.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        self.assertEqual(mappings.count(
+            '+ActionMappings=(ActionName="Jump",Key=Gamepad_FaceButton_Bottom)'), 1)
+        self.assertFalse(any('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom'
+                             in line for line in mappings))
+        self.assertEqual(mappings.count(
+            '+ActionMappings=(ActionName="ChronicleFocus",Key=Gamepad_RightThumbstick)'), 1)
+        self.assertEqual(mappings.count(
+            '+ActionMappings=(ActionName="Guard",Key=Gamepad_RightThumbstick)'), 1)
+        switch = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bInventoryOpen && !bAtlasOpen)", switch)
+        self.assertLess(switch.index("ToggleCharacterStats();"),
+                        switch.index("if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;"))
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bInventoryOpen", guard)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bResidentContextOpen)", jump)
+        self.assertIn("ChooseResidentContextAction(ResidentContextSelection)", jump)
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("C / P / R3: character stats", hud)
+        self.assertIn("C / P / R3: back to inventory", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1101,7 +1169,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("Cooldowns[School] / (1.f + HasteBonus)", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
         self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
@@ -3693,6 +3761,147 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_spell_cooldown_clock_and_haste_guards_precede_effects(self):
+        # Source-only defense against NaN, infinite and future cooldown state.
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        for guard in ("!FMath::IsFinite(Time)", "!FMath::IsFinite(LastCastTime[Hand])",
+                      "Time < LastCastTime[Hand]", "!FMath::IsFinite(HasteBonus)",
+                      "HasteBonus < 0.f || HasteBonus > 0.20f"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier;"))
+        for guard in ("!FMath::IsFinite(Time)", "!FMath::IsFinite(LastCastTime[0])",
+                      "!FMath::IsFinite(LastCastTime[1])", "Time < LastCastTime[0]",
+                      "Time < LastCastTime[1]", "!FMath::IsFinite(HasteBonus)",
+                      "HasteBonus < 0.f || HasteBonus > 0.20f"):
+            self.assertIn(guard, dual)
+            self.assertLess(dual.index(guard), dual.index("TryCast(LeftSpell, 0, 2.f)"))
+        self.assertIn("Cooldowns[School] / (1.f + HasteBonus)", cast)
+        self.assertIn("Cooldowns[LeftSpell] / (1.f + HasteBonus)", dual)
+
+    def test_mb5_dual_cast_haste_cooldown_matches_individual_casts(self):
+        # Source contract, not a native UE gameplay timing test.
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)", dual)
+        self.assertIn("!FMath::IsFinite(Time)", dual)
+        self.assertIn("!FMath::IsFinite(LastCastTime[1])", dual)
+        self.assertNotIn("Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;", dual)
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+
+    def test_native_ue5_mb5_input_checks_are_fail_closed(self):
+        # Static contract only. A passing source test is not a native UE5 run.
+        native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
+        script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        workflow = (ROOT.parents[2] / ".github" / "workflows"
+                    / "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallMB5InputBindingsTest", native)
+        self.assertIn('"Moonfall.Controls.MB5DualCastBindings"', native)
+        self.assertIn("Settings->GetActionMappings()", native)
+        self.assertIn("EKeys::ThumbMouseButton2", native)
+        self.assertIn("AllMB5Bindings, 1", native)
+        self.assertIn("EKeys::Gamepad_LeftTrigger", native)
+        self.assertIn("EKeys::LeftMouseButton", native)
+        self.assertIn("EKeys::RightMouseButton", native)
+        self.assertIn("EKeys::MiddleMouseButton", native)
+        self.assertIn("EKeys::T", native)
+        self.assertIn("EKeys::N", native)
+        self.assertIn("EKeys::Z", native)
+        self.assertIn("EKeys::X", native)
+        self.assertIn("Automation RunTests Moonfall; Quit", script)
+        self.assertIn("'Moonfall.Controls.MB5DualCastBindings'", script)
+        self.assertIn("'Moonfall.Controls.MB5DualCastBindings'", workflow)
+        self.assertIn('if (-not $contents.Contains("$required=True"))', workflow)
+        self.assertIn("if ($editorExit -ne 0 -or $failedMarker", script)
+
+    def test_ue5_target_lock_parity_preserves_inputs_and_los_guards(self):
+        # Static safety checks only, not proof of a native Unreal build.
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in config.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        for key in ("T", "MiddleMouseButton"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="LockTarget",Key={key})'), 1)
+        self.assertIn('+ActionMappings=(ActionName="RacePower",Key=N)', mappings)
+        self.assertNotIn('+ActionMappings=(ActionName="RacePower",Key=T)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="Guard",Key=Gamepad_RightThumbstick)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="ResidentContext",Key=Gamepad_DPad_Up)', mappings)
+        self.assertEqual(sum('Key=ThumbMouseButton2)' in line for line in mappings), 1)
+        self.assertIn(
+            'Input->BindAction(TEXT("LockTarget"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTargetLock);',
+            self.hero_cpp)
+        self.assertIn('AMoonfallEnemy* GetLockedTarget() const;', self.hero_h)
+        self.assertIn('TWeakObjectPtr<AMoonfallEnemy> LockedTarget;', self.hero_h)
+        self.assertIn('float NextTargetLockCheckAt = 0.f;', self.hero_h)
+        self.assertIn('bool AMoonfallHeroPawn::IsTargetLockCandidate(', self.hero_cpp)
+        self.assertIn('LineTraceSingleByChannel(Hit, Eye, Aim, ECC_Visibility, Params)', self.hero_cpp)
+        lock = self.hero_cpp.split('void AMoonfallHeroPawn::ToggleTargetLock()', 1)[1].split('\n}', 1)[0]
+        for guard in ('Health <= 0.f', 'bOptionsOpen', 'bInventoryOpen',
+                      'bAtlasOpen', 'bResidentContextOpen'):
+            self.assertIn(guard, lock)
+        self.assertIn('Examined < 512', lock)
+        self.assertIn('Alignment < 0.55f', lock)
+        self.assertIn('IsTargetLockCandidate(Candidate, true)', lock)
+        self.assertIn('OnTargetLockChanged(Best)', lock)
+        self.assertIn('Now >= NextTargetLockCheckAt', self.hero_cpp)
+        self.assertIn('if (!bReduceMotion && IsValid(FollowCamera)', self.hero_cpp)
+        cast = self.hero_cpp.split('bool AMoonfallHeroPawn::TryCast(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('const AMoonfallEnemy* Lock = GetLockedTarget()', cast)
+        self.assertIn('IsTargetLockCandidate(Lock, true)', cast)
+        self.assertLess(cast.index('IsTargetLockCandidate(Lock, true)'),
+                        cast.index('Mana -= Costs[School] * Multiplier;'))
+        npc = self.hero_cpp.split('void AMoonfallHeroPawn::OpenFocusedResidentContext()', 1)[1].split('\n}', 1)[0]
+        self.assertLess(npc.index('GetNearestResidentNPC()'), npc.index('ToggleTargetLock()'))
+        self.assertIn('ResidentContextSelection = (ResidentContextSelection + 2) % 3;', npc)
+        self.assertIn('Hero->GetLockedTarget()', self.hud)
+        self.assertIn('TARGET LOCK  |  T / MIDDLE MOUSE', self.hud)
+
+    def test_lock_scan_budget_counts_only_eligible_in_cone_enemies(self):
+        # Static contract. Actor iteration remains input-triggered, and far or
+        # behind-camera enemies cannot exhaust the 512-candidate budget.
+        lock = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTargetLock()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn(
+            "for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && Examined < 512; ++It) {",
+            lock)
+        self.assertNotIn("++It, ++Examined", lock)
+        range_guard = "if (!IsTargetLockCandidate(Candidate, false)) continue;"
+        cone_guard = "if (!FMath::IsFinite(Alignment) || Alignment < 0.55f) continue;"
+        self.assertIn(range_guard, lock)
+        self.assertIn(cone_guard, lock)
+        self.assertEqual(lock.count("++Examined;"), 1)
+        self.assertLess(lock.index(range_guard), lock.index("++Examined;"))
+        self.assertLess(lock.index(cone_guard), lock.index("++Examined;"))
+        self.assertLess(lock.index("++Examined;"),
+                        lock.index("IsTargetLockCandidate(Candidate, true)"))
+        self.assertIn("OnTargetLockChanged(Best)", lock)
+
+    def test_mb5_dual_cast_preserves_mouse_inputs_and_modal_guards(self):
+        # Static contract: physical MB5 has exactly one combat action; menus
+        # cannot spend mana or cast a spell through that action.
+        input_config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in input_config.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        self.assertEqual(mappings.count('+ActionMappings=(ActionName="DualCast",Key=ThumbMouseButton2)'), 1)
+        self.assertIn('+ActionMappings=(ActionName="ResidentMouseClick",Key=LeftMouseButton)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastRightMouse",Key=RightMouseButton)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastLeft",Key=Gamepad_LeftShoulder)', mappings)
+        self.assertIn('+ActionMappings=(ActionName="CastRight",Key=Gamepad_RightShoulder)', mappings)
+        self.assertFalse(any('Key=Z)' in line or 'Key=X)' in line for line in mappings))
+        self.assertEqual(sum('Key=ThumbMouseButton2)' in line for line in mappings), 1)
+        preflight_workflow = (ROOT.parents[2] / ".github" / "workflows" / "windows-unreal-preflight.yml").read_text(encoding="utf-8")
+        self.assertIn("- 'MoonfallUnreal/Config/**'", preflight_workflow)
+        input_handler = self.hero_cpp.split('void AMoonfallHeroPawn::SetupPlayerInputComponent(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);', input_handler)
+        self.assertIn('Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);', input_handler)
+        self.assertIn('Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);', input_handler)
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        for guard in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen", "bResidentContextOpen"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier;"))
+
     def test_spell_cast_validates_health_state(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "MaxHealth <= 0.f"):
@@ -4278,7 +4487,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+    def test_native_dungeon_readme_matches_safe_five_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4291,6 +4500,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.SeededRoomArchetypes",
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+            "Moonfall.Controls.MB5DualCastBindings",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4306,7 +4516,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
                                          "2. `Moonfall.Dungeons.",
                                          "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons."))
+                                         "4. `Moonfall.Dungeons.",
+                                         "5. `Moonfall.Controls."))
         ]
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
@@ -4330,7 +4541,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UnrealEditor-Cmd.exe", script)
         self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
-        self.assertIn("-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit", script)
+        self.assertIn("-ExecCmds=Automation RunTests Moonfall; Quit", script)
         self.assertIn("-TestExit=Automation Test Queue Empty", script)
         self.assertIn("Test Completed", script)
         self.assertIn("Passed", script)
@@ -4338,7 +4549,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Moonfall-Dungeon-TestResult.txt", script)
         self.assertIn("$editorExit -ne 0", script)
         self.assertIn("$results.Values -contains $false", script)
-        self.assertIn("MOONFALL_NATIVE_DUNGEON_TESTS_PASS", script)
+        self.assertIn("MOONFALL_NATIVE_TESTS_PASS", script)
         self.assertLess(script.index("if (Test-Path -LiteralPath $log)"),
                         script.index("& $editor $project"))
         self.assertNotIn("merge_pull_request", script)
@@ -4350,7 +4561,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         workflow = (ROOT.parents[2] / ".github" / "workflows" /
                     "windows-unreal-preflight.yml").read_text(encoding="utf-8")
         self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-4]", workflow)
-        self.assertIn("name: Run real UE5.4 dungeon automation tests", workflow)
+        self.assertIn("name: Run real UE5.4 dungeon and MB5 input automation tests", workflow)
         self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
         self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
@@ -4362,8 +4573,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                      "BossVictoryLedgerDefaults", "BossVictorySaveRoundTrip"):
             self.assertIn("Moonfall.Dungeons." + name, workflow)
         self.assertLess(workflow.index("name: Compile Moonfall Unreal Editor"),
-                        workflow.index("name: Run real UE5.4 dungeon automation tests"))
-        self.assertLess(workflow.index("name: Run real UE5.4 dungeon automation tests"),
+                        workflow.index("name: Run real UE5.4 dungeon and MB5 input automation tests"))
+        self.assertLess(workflow.index("name: Run real UE5.4 dungeon and MB5 input automation tests"),
                         workflow.index("name: Preserve native dungeon test evidence"))
         self.assertIn("if: always()", workflow)
 
@@ -4557,7 +4768,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all four native tests explicitly passed", runner)
+        self.assertIn("all five dungeon and MB5 input tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")

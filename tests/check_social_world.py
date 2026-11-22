@@ -99,7 +99,8 @@ class TestSocialWorld(unittest.TestCase):
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
   self.assertIn("if (bResidentContextOpen) {",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
-  self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
+  self.assertIn("if (!IsValid(Resident) || Health <= 0.f || !FMath::IsFinite(Health)",self.hero)
+  self.assertIn("|| bOptionsOpen || bInventoryOpen || bAtlasOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
@@ -140,6 +141,30 @@ class TestSocialWorld(unittest.TestCase):
   close=body("CloseResidentContext","OpenFocusedResidentContext")
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
+ def test_npc_dialogue_entry_clears_lock_without_stopping_movement(self):
+  # Dialogue must preserve walking/jumping/guard (existing game contract)
+  # while immediately relinquishing combat lock/camera tracking.
+  controller=self.hero.split(
+      "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  mouse=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::ReleaseInventoryPointer()",1)[0]
+  for path,valid_guard in (
+      (controller,"if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {"),
+      (mouse,"if (Resident->CanHeroInteract(this)) {")):
+   self.assertIn(valid_guard,path)
+   modal=path.split(valid_guard,1)[1]
+   self.assertIn("ClearTargetLock();",modal)
+   self.assertLess(modal.index("ClearTargetLock();"),
+                   modal.index("FocusedResident = Resident;"))
+   self.assertLess(modal.index("ClearTargetLock();"),
+                   modal.index("bResidentContextOpen = true;"))
+   opening=modal.split("bResidentContextOpen = true;",1)[0]
+   for forbidden in ("StopJumping();","StopMovementImmediately();",
+                     "EndSprint();","EndGuard();"):
+    self.assertNotIn(forbidden,opening)
+
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)

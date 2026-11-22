@@ -4,9 +4,21 @@ Experimental parallel Unreal Engine 5.4 C++ project. This does **not** replace t
 
 No Z/Nyra sprites or meshes are included or altered. Import the user's approved original designs unchanged before adding hero visuals. No WoW action bars. Never delete Moonfall3D until a validated feature-parity migration exists.
 
-## Migration step 2: combat input scaffold
+## Current mouse casting controls
 
-Added keyboard and Xbox-style controller bindings for Space/A jump, Q/B dodge, Z/LB left cast, X/RB right cast, and C dual cast. Six spell indices expose base mana costs and cooldowns and Blueprint event `OnSpellCast` to hook custom VFX and gameplay. Healing is prototyped for Restoration; other spells currently spend mana and fire a Blueprint event but **do not damage enemies**. Dual cast checks cooldowns for both hands. No dungeon map, enemies, UI, Options menu, crafted items or art has been ported yet. This Unreal starter **has not been built or run**. The complete Godot version remains available under `Moonfall3D/`.
+During gameplay, **left-click casts the left-hand spell**, **right-click casts the right-hand spell**, and **MB5 (the second side/thumb mouse button) dual-casts** when both hands have the same spell. Mouse clicks on residents, inventory, and menus retain their contextual actions. **Z and X are not spell shortcuts.** On a controller, LB/RB cast the separate hands and left trigger dual-casts. **A is reserved for jump and dialogue confirmation**, and no longer opens Character Stats at the same time. **While Inventory is open, R3 switches between inventory and Character Stats.** Outside inventory, R3 remains Guard during gameplay and Chronicle reading focus in the Atlas. The native InputSettings automation test checks these mappings, but real button handling still requires Windows playtesting.
+
+## Godot → UE5 feature parity (draft)
+
+See [the evidence-based parity audit](GODOT_UE5_PARITY_AUDIT.md) for what's present in Unreal source, what's incomplete, and what remains exclusive to the active Godot v38 project. The audit does **not** certify UE5 playability.
+
+This draft adds enemy lock-on with **T or middle-click**. A controller **D-pad Up** press still prioritizes nearby resident conversation; when no reachable resident is present, it toggles target lock instead. **N** activates the racial power; the gamepad racial-power button remains unchanged. MB5 remains dual-cast and Z/X remain unbound. Lock-on scans only on input and limits scoring to the first 512 eligible enemies in front of the camera; out-of-range and behind-camera enemies do not consume that budget. The lock is automatically dropped when the target dies, is occluded, leaves range, or a menu opens. Locked spells use a fresh line-of-sight check before damage. Reduced Motion suppresses camera following, not the lock itself.
+
+**Unverified:** UE5.4 C++ native compile, packaged Windows controls, physical MB5/middle mouse input, full controller interaction, and gameplay/aim feel. Source checks are not gameplay tests. No original Z or Nyra art is modified.
+
+## Migration step 2: combat input scaffold (historical)
+
+The initial prototype used keyboard and Xbox-style controller bindings for Space/A jump, Q/B dodge, Z/LB left cast, X/RB right cast, and C dual cast; the current mouse bindings above supersede those early defaults. Six spell indices expose base mana costs and cooldowns and Blueprint event `OnSpellCast` to hook custom VFX and gameplay. Healing is prototyped for Restoration; other spells currently spend mana and fire a Blueprint event but **do not damage enemies**. Dual cast checks cooldowns for both hands. No dungeon map, enemies, UI, Options menu, crafted items or art has been ported yet. This Unreal starter **has not been built or run**. The complete Godot version remains available under `Moonfall3D/`.
 
 ## Migration step 3: experimental arena and spell hits
 
@@ -117,17 +129,18 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNati
 ```
 
 The runner **always compiles the checked-out Unreal C++ source** first.
-There is no `-SkipBuild` option. It then runs these four real Unreal Editor
+There is no `-SkipBuild` option. It then runs five real Unreal Editor
 automation tests:
 
 1. `Moonfall.Dungeons.All30EntranceLocations`
 2. `Moonfall.Dungeons.SeededRoomArchetypes`
 3. `Moonfall.Dungeons.BossVictoryLedgerDefaults`
 4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
+5. `Moonfall.Controls.MB5DualCastBindings` (UE-loaded mouse, controller, target-lock and no-Z/X action mappings)
 
 It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
 and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
-A passing source workflow does not count: verify all **four** native test
+A passing source workflow does not count: verify all **five** native test
 results are explicitly `True`, `EditorExitCode=0`, and
 `AnyNativeTestFailed=False`. If compilation, Editor execution or any test
 fails, the native runner must not report success.
@@ -136,15 +149,18 @@ For an authorized self-hosted GitHub Actions runner, select the
 `Windows Unreal build prerequisites` workflow, choose the **PR branch**,
 and dispatch with `compile_on_self_hosted=true`. That job requires a
 Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
-environment variable. It compiles, runs all four tests, and uploads
+environment variable. It compiles, runs all five tests, and uploads
 `moonfall-unreal-native-dungeon-test-evidence` containing the log and
 result report. Normal hosted GitHub preflight checks do **not** run these tests.
 
-Even four passing Editor automation tests do not prove the runtime gameplay
+Even five passing Editor automation tests do not prove the runtime gameplay
 loop. In Play In Editor, separately check physical dungeon connections,
 enemy navigation and hazards, boss spawn/death, rewards and exactly-once
 victory persistence after saving and relaunching. Also test the packaged
-Windows installer and accessibility controls before release.
+Windows installer and accessibility controls before release. The MB5 native
+automation test checks loaded mappings, **not** physical button delivery,
+whether dual-casting deals damage and spends mana correctly, or gameplay
+focus/remapping conflicts. Verify those with an actual MB5 mouse on Windows.
 
 
 The **new startup map generator** now places a second, broad NavMeshBoundsVolume

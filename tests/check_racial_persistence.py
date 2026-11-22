@@ -21,7 +21,9 @@ class TestRacialPersistence(unittest.TestCase):
                      "Orc", "Goblin", "Troll", "Entkin", "Shadowborn",
                      "Moonborn", "Draconid"):
             self.assertIn('TEXT("' + race + '")', roster)
-        self.assertIn('ActionName="RacePower",Key=T', self.input)
+        self.assertIn('ActionName="RacePower",Key=N', self.input)
+        self.assertIn('ActionName="LockTarget",Key=T', self.input)
+        self.assertNotIn('ActionName="RacePower",Key=T', self.input)
         self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
         self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)

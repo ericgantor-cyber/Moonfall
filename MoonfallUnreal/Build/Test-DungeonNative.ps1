@@ -32,8 +32,8 @@ $report = Join-Path $ReportDirectory 'Moonfall-Dungeon-TestResult.txt'
 New-Item -ItemType Directory -Force -Path $ReportDirectory | Out-Null
 if (Test-Path -LiteralPath $log) { Remove-Item -LiteralPath $log -Force }
 if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
-Write-Host 'Running real UE5.4 native dungeon tests (not GitHub source checks).'
-& $editor $project -unattended -nop4 -NullRHI '-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit' '-TestExit=Automation Test Queue Empty' "-abslog=$log"
+Write-Host 'Running real UE5.4 dungeon and MB5 input tests (not GitHub source checks).'
+& $editor $project -unattended -nop4 -NullRHI '-ExecCmds=Automation RunTests Moonfall; Quit' '-TestExit=Automation Test Queue Empty' "-abslog=$log"
 $editorExit = $LASTEXITCODE
 if (-not (Test-Path -LiteralPath $log -PathType Leaf)) {
     throw "Unreal did not write the automation log. Editor exit code: $editorExit"
@@ -43,7 +43,8 @@ $required = @(
     'Moonfall.Dungeons.All30EntranceLocations',
     'Moonfall.Dungeons.SeededRoomArchetypes',
     'Moonfall.Dungeons.BossVictoryLedgerDefaults',
-    'Moonfall.Dungeons.BossVictorySaveRoundTrip'
+    'Moonfall.Dungeons.BossVictorySaveRoundTrip',
+    'Moonfall.Controls.MB5DualCastBindings'
 )
 # Fail closed. A test being discovered or started does not count as success.
 $results = @{}
@@ -66,4 +67,4 @@ $summary | ForEach-Object { Write-Host $_ }
 if ($editorExit -ne 0 -or $failedMarker -or ($results.Values -contains $false)) {
     throw "Native dungeon tests NOT verified as passed. Inspect $log and $report."
 }
-Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all four native tests explicitly passed in UE5.4.'
+Write-Host 'MOONFALL_NATIVE_TESTS_PASS: all five dungeon and MB5 input tests explicitly passed in UE5.4.'

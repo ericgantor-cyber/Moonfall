@@ -46,6 +46,10 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
+ // Godot-style directional target lock, weakly held and never saved.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Targeting") AMoonfallEnemy* GetLockedTarget() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Targeting") void ToggleTargetLock();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Targeting") void OnTargetLockChanged(AMoonfallEnemy* NewTarget);
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void OpenFocusedResidentContext();
@@ -380,6 +384,11 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
+ TWeakObjectPtr<AMoonfallEnemy> LockedTarget;
+ float NextTargetLockCheckAt = 0.f;
+ static constexpr float TargetLockMaxRange = 1600.f;
+ bool IsTargetLockCandidate(const AMoonfallEnemy* Enemy, bool bCheckLineOfSight) const;
+ void ClearTargetLock();
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
