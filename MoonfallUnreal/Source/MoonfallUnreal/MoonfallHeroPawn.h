@@ -331,6 +331,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Transient, read-only counter cue; not persisted in world saves.
+ float GetParryCounterRemaining() const;
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
