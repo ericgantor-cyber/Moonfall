@@ -353,6 +353,9 @@ private:
  // Collision-aware teleport during load can fire shrine overlaps before all
  // progress has been restored. Never allow nested discovery saves in this phase.
  bool bWorldProgressLoadInProgress = false;
+ // A worn-armor craft calls OnHealthChanged before it can deduct salvage.
+ // Blueprint callbacks must not persist or reenter that partial transaction.
+ bool bEquipmentCraftInProgress = false;
  // Protect an existing unsupported or unreadable slot from routine autosaves.
  // Cleared only after a supported save has been loaded successfully.
  bool bPersistentSaveWritesBlocked = false;
