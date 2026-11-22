@@ -390,6 +390,10 @@ private:
    meta=(ClampMin="0.0", ClampMax="0.18"))
  float DodgeInputBufferSeconds = 0.12f;
  float QueuedDodgeUntil = -1.f;
+ // Snapshot the world-space intent at the press. A buffered dodge must not
+ // follow later stick movement or a target turn before cooldown finishes.
+ FVector QueuedDodgeDirection = FVector::ZeroVector;
+ bool bExecutingBufferedDodge = false;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
