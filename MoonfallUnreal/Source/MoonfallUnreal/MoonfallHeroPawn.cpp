@@ -3654,9 +3654,12 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
- // A conversation must not inherit an unconsumed dodge press.
+ // A conversation cannot inherit a buffered dodge or keep camera lock.
+ // Existing walking/jumping/sprint/guard states are intentionally not forced off.
  QueuedDodgeUntil = -1.f;
- // A conversation should release held combat movement immediately.
+ QueuedDodgeDirection = FVector::ZeroVector;
+ LockedEnemy.Reset();
+ LockOccludedSince = -1.f;
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -3703,6 +3706,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    // Match D-pad dialogue cleanup; no replayed dodge or locked-enemy camera.
+    QueuedDodgeUntil = -1.f;
+    QueuedDodgeDirection = FVector::ZeroVector;
+    LockedEnemy.Reset();
+    LockOccludedSince = -1.f;
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
