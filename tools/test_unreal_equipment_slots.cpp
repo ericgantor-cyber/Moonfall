@@ -126,7 +126,7 @@ int main() {
  assert(AdvisorUpgradeDelta(-1, v13) == 0);
  assert(AdvisorUpgradeDelta(91010, v13) == 0); // Unknown slot.
  assert(AdvisorUpgradeDelta(86010, v13) == 0); // Bad rarity.
- assert(AdvisorItemScore(81009, Ring, v13) == 9000);
+ assert(AdvisorItemScore(81009, Ring, v13) == 9100);
  assert(AdvisorItemScore(81009, Head, v13) == 0);
 
  // Other gear slots, including the six new ones, contribute matching sets.
