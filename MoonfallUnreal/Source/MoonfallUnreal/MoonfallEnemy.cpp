@@ -416,7 +416,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bTalentWebOpen) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
