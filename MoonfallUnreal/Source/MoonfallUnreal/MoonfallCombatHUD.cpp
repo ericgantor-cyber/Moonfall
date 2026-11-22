@@ -134,7 +134,7 @@ void AMoonfallCombatHUD::DrawHUD()
        :FLinearColor(0.23f,0.17f,0.29f),SideX,P.Top+P.Height-70.f,224.f,37.f);
   DrawText(Hero->bTalentRespecConfirm?TEXT("CONFIRM FULL RESPEC"):TEXT("RESET ALL TALENTS"),
       FLinearColor::White,SideX+12.f,P.Top+P.Height-62.f,nullptr,0.72f);
-  DrawText(TEXT("K/ESC close | Wheel zoom | RMB pan | Pad A buy  B back  LT reset"),
+  DrawText(TEXT("K/ESC close | Enter buy | Backspace reset | Wheel zoom | RMB pan"),
       FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.64f);
   const float NoticeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
   const bool bShowNotice = FMath::IsFinite(NoticeNow) &&
