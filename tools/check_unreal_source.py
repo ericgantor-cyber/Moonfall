@@ -6484,6 +6484,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bAtlasOpen", switch)
         self.assertIn("AcquireLockTarget(1);", switch)
         self.assertIn("void SwitchLockedTarget();", self.hero_h)
+        race_active = self.hero_cpp.split("bool AMoonfallHeroPawn::ActivateRacePower()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()", race_active)
+        self.assertLess(race_active.index("bResidentContextOpen"), race_active.index("RacePowerReadyAt"))
         self.assertNotIn("LockPrevious", self.hero_h)
         self.assertIn("TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;", self.hero_h)
         self.assertIn("bool AMoonfallHeroPawn::IsLockTargetValid", self.hero_cpp)
