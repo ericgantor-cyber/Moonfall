@@ -942,7 +942,9 @@ bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
 }
 void AMoonfallHeroPawn::ToggleLockOn()
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return;
  // A destroyed, defeated or out-of-range enemy is no longer a real lock.
  // Reacquire on this same T press instead of requiring a second press.
  if (GetLockedEnemy()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
@@ -3641,7 +3643,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bResidentContextOpen) {
   // Do not select another resident behind a stale conversation.
   if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
@@ -3653,7 +3655,12 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // Match the MB5 draft: D-pad Up targets enemies only away from residents.
+  // ToggleLockOn owns defeat, menu and dialogue safety checks.
+  ToggleLockOn();
+  return;
+ }
  // A conversation cannot inherit a buffered dodge or keep camera lock.
  // Existing walking/jumping/sprint/guard states are intentionally not forced off.
  QueuedDodgeUntil = -1.f;
