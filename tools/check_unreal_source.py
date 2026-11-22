@@ -3101,7 +3101,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bReverseCombatWallSlide) Side *= -1.f;", tick)
         self.assertIn("bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;", tick)
         self.assertIn("else if (!Hit.bBlockingHit)", tick)
+        self.assertIn("bool bSidestepClearedObstacle = false;", tick)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && !Side.IsNearlyZero();", tick)
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
+        retry = tick.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", 1)[1].split(
+            "} else if (Distance <= AttackRange", 1)[0]
+        self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
+        self.assertIn("if (!bSidestepClearedObstacle) {", retry)
+        self.assertLess(retry.index("if (!bSidestepClearedObstacle) {"),
+                        retry.index("NextPathRefreshAt = 0.f;"))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
