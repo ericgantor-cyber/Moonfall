@@ -6453,10 +6453,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_combat_lock_on_is_transient_visible_and_context_safe(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for action, key in (("LockOn", "L"), ("LockOn", "MiddleMouseButton"),
+        for action, key in (("LockOn", "Period"), ("LockOn", "MiddleMouseButton"),
                             ("LockOn", "Gamepad_DPad_Down"),
                             ("LockPrevious", "Comma"), ("LockPrevious", "Gamepad_DPad_Left"),
-                            ("LockNext", "Period"), ("LockNext", "Gamepad_DPad_Right")):
+                            ("LockNext", "Slash"), ("LockNext", "Gamepad_DPad_Right")):
             self.assertIn(f'ActionName="{action}",Key={key}', inputs)
         for action, method in (("LockOn", "ToggleLockOn"),
                                ("LockNext", "LockNext"), ("LockPrevious", "LockPrevious")):
@@ -6475,6 +6475,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallHeroPawn::LockPrevious() { CycleLockOn(-1); }", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::LockNext() { CycleLockOn(1); }", self.hero_cpp)
         # A/D remain movement keys, never lock-cycle actions.
+        self.assertNotIn('ActionName="LockOn",Key=L)', inputs)
+        self.assertNotIn('ActionName="LockNext",Key=Period)', inputs)
         self.assertNotIn('ActionName="LockNext",Key=D)', inputs)
         self.assertNotIn('ActionName="LockPrevious",Key=A)', inputs)
         for method in ("ToggleAtlas", "ToggleInventory", "OpenOptions", "RespawnAtCheckpoint"):
