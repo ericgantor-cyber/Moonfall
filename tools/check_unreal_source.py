@@ -1956,6 +1956,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
+    def test_talent_web_stops_enemy_attacks_before_windup_resolution(self):
+        # The constellation disables player movement, casting and dodging.
+        # Enemies must honor the same pause as Inventory/Atlas/Options so
+        # reading or spending points cannot leave a hero exposed to AI damage.
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        modal = tick.split(
+            "if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        self.assertIn("Hero->bTalentWebOpen", modal)
+        self.assertLess(modal.index("Hero->bTalentWebOpen"), modal.index("CancelDivineSignature();"))
+        for cleanup in ("CancelDivineSignature();",
+                        "WindupEndsAt = -1.f;",
+                        "BossWarningEndTime = -1.f;",
+                        "bComboSecondHitPending = false;",
+                        "bComboSecondHitActive = false;",
+                        "LockedAttackDirection = FVector::ZeroVector;",
+                        "NextAttackAt = FMath::Max("):
+            self.assertIn(cleanup, modal)
+            self.assertLess(modal.index("Hero->bTalentWebOpen"), modal.index(cleanup))
+        self.assertLess(modal.index("Hero->bTalentWebOpen"), modal.index("return;"))
+        self.assertLess(tick.index("Hero->bTalentWebOpen"),
+                        tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("EndSprint();", opening)
+        self.assertIn("EndGuard();", opening)
+        self.assertLess(opening.index("EndGuard();"), opening.index("bTalentWebOpen = true;"))
+
     def test_batch_menus_cancel_enemy_windups_and_followups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         menu = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
