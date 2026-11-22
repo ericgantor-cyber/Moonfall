@@ -596,6 +596,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("D-pad Left/R3: bag", self.hud)
         self.assertNotIn("C / P / A: back to inventory", self.hud)
 
+    def test_reduced_motion_keeps_lock_without_auto_rotating_camera(self):
+        # Reduced Motion is an accessibility guarantee, not just a slower pan.
+        # Check the lock tracking block specifically, not other camera inputs.
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        tracking = tick.split("// Reduced Motion must suppress automatic camera tracking", 1)[1].split(
+            "// Consume a buffered dodge", 1)[0]
+        self.assertIn("if (!bReduceMotion && LockedEnemy.IsValid() && LockOccludedSince < 0.f)", tracking)
+        self.assertIn("Controller->SetControlRotation(FMath::RInterpTo(", tracking)
+        self.assertLess(tracking.index("if (!bReduceMotion"), tracking.index("Controller->SetControlRotation("))
+        self.assertNotIn("bReduceMotion ? 4.f : 7.f", tracking)
+        # Target tracking must still exist, with visibility checks, even if
+        # Reduced Motion disables automatic camera steering.
+        lock = tick.split("AMoonfallEnemy* LockTarget = LockedEnemy.Get();", 1)[1].split(
+            "// Consume a buffered dodge", 1)[0]
+        self.assertIn("NextLockVisibilityCheckAt", lock)
+        self.assertIn("const bool bBlocked = !bHitTarget;", lock)
+        self.assertIn("LockedEnemy.Reset();", lock)
+        self.assertNotIn("if (bReduceMotion) LockedEnemy.Reset()", lock)
+
     def test_pb_inspired_controller_combat_bindings_are_context_safe(self):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -6529,7 +6549,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextLockVisibilityCheckAt = Now + 0.2f;", self.hero_cpp)
         self.assertIn("float LockOccludedSince = -1.f;", self.hero_h)
         self.assertIn("Now - LockOccludedSince >= 0.45f", self.hero_cpp)
-        self.assertIn("if (LockedEnemy.IsValid() && LockOccludedSince < 0.f)", self.hero_cpp)
+        self.assertIn("if (!bReduceMotion && LockedEnemy.IsValid() && LockOccludedSince < 0.f)", self.hero_cpp)
         self.assertIn("else LockOccludedSince = -1.f;", self.hero_cpp)
         self.assertIn("Controller->SetControlRotation(FMath::RInterpTo", self.hero_cpp)
         self.assertIn("const AMoonfallEnemy* Locked = GetLockedEnemy();", self.hero_cpp)
