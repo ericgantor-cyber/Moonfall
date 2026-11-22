@@ -33,10 +33,20 @@ assert endplay.index("if (GetWorld())") < endplay.index(
     "GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);")
 assert endplay.index("GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);") < endplay.index(
     "Super::EndPlay(EndPlayReason);")
-assert "constexpr int32 MaxLayoutsPerBatch = 4;" in cpp
-assert "inline constexpr int MaxLayoutsPerBatch=4;" in policy
-for slot, expected_batch in ((0,4),(26,4),(27,3),(28,2),(29,1),(30,0)):
-    assert f"BatchCount({slot})=={expected_batch}" in policy
+assert "constexpr int32 MaxLayoutsPerBatch = 8;" in cpp
+assert "inline constexpr int MaxLayoutsPerBatch=8;" in policy
+assert "int32 MaxDungeonLayoutsPerBatch = 8;" in header
+assert "float DungeonSpawnBudgetMs = 2.5f;" in header
+assert '#include "HAL/PlatformTime.h"' in cpp
+batch=cpp.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[1]
+assert "MoonfallWorldBootstrap::ClampBatchSize(" in batch
+assert "MoonfallWorldBootstrap::ClampBatchTimeBudgetMs(" in batch
+assert "FPlatformTime::Seconds()" in batch
+assert "MoonfallWorldBootstrap::ShouldContinueBatch(" in batch
+assert batch.index("ShouldContinueBatch(")<batch.index("const int32 Slot = NextDungeonSlot++;")
+for value in ("BatchCount(0)==8","BatchCount(22)==8","BatchCount(23)==7",
+              "BatchCount(27)==3","BatchCount(29)==1","BatchCount(30)==0"):
+    assert value in policy
 assert "MoonfallWorldBootstrap::MaxLayoutsPerBatch == MaxLayoutsPerBatch" in cpp
 assert "constexpr FPolicy IsolatedWorldPolicy()" in policy
 assert "static_assert(TotalDungeons==30)" in policy
