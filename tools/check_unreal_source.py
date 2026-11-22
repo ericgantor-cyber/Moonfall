@@ -3831,19 +3831,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         recommendation = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
-        for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)", "InventoryItemCodes.Contains(Code)",
-                         "MoonfallEquipmentSlots::IsCanonicalForSlot(Code, ExpectedSlot)",
-                         "OtherSlot < MoonfallEquipmentSlots::SlotCount",
-                         "Candidate == EquippedCodes[Slot]", "FMath::IsFinite(Health)"):
-            self.assertIn(contract, score)
-        self.assertIn("GetEquipmentUpgradeScore(Index)", recommendation)
-        self.assertIn("MatchingPieces >= 2", score)
-        self.assertIn("GetEquipmentSlotCode(EquippedSlot)", score)
+        # Both paths use identical nine-slot scoring after ownership was checked
+        # once for each equipped code. A full bag must not call the row scorer
+        # 10,000 times and repeat inventory ownership searches.
+        for body in (score, recommendation):
+            self.assertIn("MoonfallEquipmentSlots::ExpandedCodes EquippedCodes{}", body)
+            self.assertIn("GetEquipmentSlotCode(Slot)", body)
+            self.assertIn("MoonfallEquipmentSlots::SlotCount", body)
+            self.assertIn("MoonfallEquipmentSlots::AdvisorUpgradeDelta(", body)
+            for forbidden in ("InventoryItemCodes.Contains(", "EquipInventoryItem(",
+                              "SaveWorldProgress(", "InventoryItemCodes.Add(",
+                              "InventoryItemCodes.Remove", "InventoryItemCodes.Sort("):
+                self.assertNotIn(forbidden, body)
+        self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", score)
+        self.assertIn("FMath::IsFinite(Health)", score)
+        self.assertIn("InventoryItemCodes[InventoryIndex], EquippedCodes", score)
+        self.assertIn("InventoryItemCodes[Index], EquippedCodes", recommendation)
         self.assertIn("Improvement > BestImprovement", recommendation)
         self.assertIn("return INDEX_NONE;", recommendation)
-        for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.Add(",
-                          "InventoryItemCodes.Remove", "InventoryItemCodes.Sort("):
-            self.assertNotIn(forbidden, score + recommendation)
+        self.assertNotIn("GetEquipmentUpgradeScore(Index)", recommendation)
+        helper = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
+        self.assertIn("constexpr int AdvisorItemScore(", helper)
+        self.assertIn("constexpr int AdvisorUpgradeDelta(", helper)
+        self.assertIn("if (!IsCanonicalForSlot(candidate, slot)", helper)
+        self.assertIn("matchingPieces >= 2 ? 80", helper)
 
 
     def test_inventory_advisor_is_read_only_and_scans_selected_row_only(self):
