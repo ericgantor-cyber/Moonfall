@@ -6473,6 +6473,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;", self.hero_h)
         self.assertIn("bool AMoonfallHeroPawn::IsLockTargetValid", self.hero_cpp)
         self.assertIn("FMath::IsFinite(Enemy->Health)", self.hero_cpp)
+        target_validity = self.hero_cpp.split("bool AMoonfallHeroPawn::IsLockTargetValid(", 1)[1].split("void AMoonfallHeroPawn::ToggleLockOn()", 1)[0]
+        self.assertIn("!FMath::IsFinite(Enemy->MaxHealth)", target_validity)
+        self.assertIn("Enemy->MaxHealth <= 0.f", target_validity)
+        self.assertIn("Enemy->Health > Enemy->MaxHealth", target_validity)
         self.assertIn("TActorIterator<AMoonfallEnemy>", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockAcquire)", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallLockVisibility)", self.hero_cpp)
