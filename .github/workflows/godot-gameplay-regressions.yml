@@ -24,6 +24,10 @@ jobs:
           godot --version
       - name: Import project resources
         run: godot --headless --path godot-v38 --editor --import --quit
+      - name: Compile full Moonfall gameplay script chain
+        run: godot --headless --path godot-v38 --script res://tests/game_script_chain_parse.gd
+      - name: Check talent-web enemy pause regression
+        run: python3 -m unittest discover -s godot-v38/tests -p test_talent_combat_pause.py -v
       - name: Run gameplay, controller, combat rhythm and boss-dodge regressions
         shell: bash
         run: |
