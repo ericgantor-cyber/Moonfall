@@ -928,13 +928,15 @@ void AMoonfallHeroPawn::ToggleTargetLock()
  AMoonfallEnemy* Best = nullptr;
  float BestScore = -2.f;
  int32 Examined = 0;
- // Only scan on user input, not every frame or HUD draw.
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && Examined < 512; ++It, ++Examined) {
+ // Scan only on lock input. Count at most 512 eligible, in-cone enemies;
+ // distant/dead/behind-camera actors must not consume the target budget.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && Examined < 512; ++It) {
   AMoonfallEnemy* Candidate = *It;
   if (!IsTargetLockCandidate(Candidate, false)) continue;
   const FVector ToEnemy = (Candidate->GetActorLocation() + FVector(0.f,0.f,60.f) - Eye).GetSafeNormal();
   const float Alignment = FVector::DotProduct(Forward, ToEnemy);
   if (!FMath::IsFinite(Alignment) || Alignment < 0.55f) continue;
+  ++Examined;
   const float RangeRatio = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation())
       / FMath::Square(TargetLockMaxRange);
   const float Score = Alignment - 0.25f * RangeRatio;
