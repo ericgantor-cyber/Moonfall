@@ -2023,6 +2023,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
+    def test_skyrim_style_talent_menu_rejects_hits_before_hp_or_parry(self):
+        # Enemy AI pauses in the constellation, but a hit queued in the same
+        # frame may still enter the hero damage API. Both must be protected.
+        damage = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", damage)
+        self.assertLess(damage.index("if (bTalentWebOpen) return;"),
+                        damage.index("const float Now = GetWorld()->GetTimeSeconds();"))
+        self.assertLess(damage.index("if (bTalentWebOpen) return;"),
+                        damage.index("const float PreviousHealth = Health;"))
+        self.assertLess(damage.index("if (bTalentWebOpen) return;"),
+                        damage.index("const bool bPerfectParry ="))
+        self.assertLess(damage.index("if (bTalentWebOpen) return;"),
+                        damage.index("Health = FMath::Max("))
+        # Directional and dodge-only hits must flow through the same guarded
+        # authority rather than independently applying damage behind the UI.
+        directional = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[1].split(
+            "void AMoonfallHeroPawn::ApplyMoonfallDamage(", 1)[0]
+        self.assertIn("ApplyMoonfallDamage(Amount);", directional)
+        dodge_only = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("ApplyMoonfallDamageFrom(Amount, SourceLocation)", dodge_only)
+        # Do not use SetPause, which would also disable keyboard/controller
+        # navigation in the Unreal menu unless all bindings are reworked.
+        toggle = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
+        self.assertNotIn("SetPause(", toggle)
+        self.assertNotIn("SetGamePaused(", toggle)
+        self.assertIn("bTalentWebOpen = false;", toggle)
+        self.assertIn("bTalentWebOpen = true;", toggle)
+        self.assertIn("PC->bShowMouseCursor = true;", toggle)
+
     def test_talent_web_stops_enemy_attacks_before_windup_resolution(self):
         # The constellation disables player movement, casting and dodging.
         # Enemies must honor the same pause as Inventory/Atlas/Options so
