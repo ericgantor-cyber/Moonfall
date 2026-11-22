@@ -25,6 +25,14 @@ constexpr bool ShouldContinueBatch(int Processed,int RequestedBatchSize,
       (ElapsedMs>=0.0 &&
        ElapsedMs<ClampBatchTimeBudgetMs(RequestedBudgetMs)));
 }
+// One retry only, after the initial pass has considered all 30 slots.
+constexpr bool ShouldQueueRetry(bool Succeeded,bool AlreadyRetried) {
+ return !Succeeded && !AlreadyRetried;
+}
+constexpr bool HasPendingDungeonWork(int NextSlot,int NextRetry,int FailedCount) {
+ return NextSlot<TotalDungeons ||
+  (NextRetry>=0 && FailedCount>NextRetry);
+}
 struct FPolicy {
  bool SpawnLegacyArena;
  bool GenerateLegacyDungeons;
@@ -55,4 +63,9 @@ static_assert(BatchCount(0,4)==4 && BatchCount(29,4)==1);
 static_assert(ClampBatchSize(0)==1 && ClampBatchSize(100)==8);
 static_assert(ShouldContinueBatch(0,8,999.0,2.5));
 static_assert(!ShouldContinueBatch(1,8,3.0,2.5));
+static_assert(ShouldQueueRetry(false,false));
+static_assert(!ShouldQueueRetry(false,true) && !ShouldQueueRetry(true,false));
+static_assert(HasPendingDungeonWork(0,0,0));
+static_assert(HasPendingDungeonWork(30,0,1));
+static_assert(!HasPendingDungeonWork(30,1,1));
 } // namespace MoonfallWorldBootstrap
