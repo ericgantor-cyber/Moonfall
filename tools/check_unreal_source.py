@@ -67,6 +67,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for slot in ("Weapon", "Armor", "Accessory"):
             self.assertIn("Save->Equipped" + slot + "Code = Equipped" + slot + "Code;", self.hero_cpp)
 
+    def test_ue5_talent_hud_rank_queries_use_cached_index(self):
+        # A visible 141-star constellation must not scan the complete talent
+        # catalog for each rank query or rebuild its ID index each frame.
+        rules = (ROOT / "MoonfallTalentRules.h").read_text(encoding="utf-8")
+        lookup = rules.split("inline const FNode* Find(FName Id)", 1)[1].split(
+            "inline int32 EarnedPoints(int32 Level)", 1)[0]
+        self.assertIn("static const TMap<FName, int32> ById = []()", lookup)
+        self.assertIn("Index.Reserve(Nodes.Num());", lookup)
+        self.assertIn("Index.Add(FName(Nodes[I].Id), I);", lookup)
+        self.assertIn("const int32* Index = ById.Find(Id);", lookup)
+        self.assertIn("return Index && Catalog().IsValidIndex(*Index)", lookup)
+        self.assertNotIn("for (const FNode& Node : Catalog())", lookup)
+        rank = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetTalentRank(FName TalentId) const", 1)[1].split(
+            "TArray<FName> AMoonfallHeroPawn::GetTalentIds()", 1)[0]
+        self.assertIn("return TalentId.IsNone() ? 0 : TalentRanks.FindRef(TalentId);", rank)
+        self.assertNotIn("MoonfallTalents::Find(TalentId)", rank)
+        hud = self.hud.split("if (Hero->bTalentWebOpen) {", 1)[1].split(
+            "// Native Canvas resident menu.", 1)[0]
+        self.assertEqual(hud.count("Hero->GetUnspentTalentPoints()"), 1)
+        self.assertIn("const int32 Available=Hero->GetUnspentTalentPoints();", hud)
+        self.assertIn("Hero->Level,Available)", hud)
+        self.assertIn("const int32 Rank=Hero->GetTalentRank(FName(N.Id));", hud)
+        # Save validation and point/rank enforcement remain authoritative.
+        self.assertIn("if (!MoonfallTalents::Validate(Level, TalentRanks)) return false;", self.hero_cpp)
+        self.assertIn("if (!Validate(Level, Candidate)) return false;", rules)
+
     def test_ue5_talent_save_failure_restores_every_cached_bonus(self):
         """Failed talent purchases/respecs must restore ranks, vitals and cached effects."""
         commit = self.hero_cpp.split(
