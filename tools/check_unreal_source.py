@@ -563,8 +563,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
-        for action, key in (("OptionsLeft", "Gamepad_DPad_Left"),
-                            ("OptionsRight", "Gamepad_DPad_Right"),
+        for action, key in (("GamepadContextLeft", "Gamepad_DPad_Left"),
+                            ("GamepadContextRight", "Gamepad_DPad_Right"),
                             ("ChronicleFocus", "Gamepad_RightThumbstick"),
                             ("DualCast", "Gamepad_RightThumbstick"),
                             ("Guard", "Gamepad_LeftShoulder"),
