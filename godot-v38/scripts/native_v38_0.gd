@@ -745,6 +745,12 @@ func _v398_toggle_tree()->void:
   _v406_cancel_pending_enemy_attacks()
   _v406_fit_panel_to_viewport()
   _v398_refresh_tree()
+ else:
+  # The world clock may advance during browsing. Do not instantly retrigger
+  # a scheduled boss tell when the constellation closes.
+  for beast in beasts:
+   if bool(beast.get("alive",false)) and bool(beast.get("v400_bloodline",false)):
+    beast["v404_tell_next"]=maxf(float(beast.get("v404_tell_next",0.0)),map_time+2.0)
 
 func _unhandled_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
