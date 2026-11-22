@@ -221,7 +221,10 @@ if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
     throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
 }
 if ($LaunchSmokeTest) {
-    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName
+    # Only on an explicitly requested Windows GPU smoke run; packaged DX12
+    # and fallback DX11 should both remain launchable after cooking.
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX12
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName -GraphicsRHI DX11
 }
 Write-Host 'Building self-contained Windows launcher...'
 $launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
