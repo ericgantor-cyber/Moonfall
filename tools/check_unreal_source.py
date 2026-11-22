@@ -1205,7 +1205,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("Cooldowns[School] / (1.f + HasteBonus)", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
         self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
@@ -3850,6 +3850,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(SpellPowerMultiplier)", cast)
         self.assertIn("SpellPowerMultiplier <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Mana)"), cast.index("Mana -= Costs[School] * Multiplier"))
+
+    def test_pb_spell_cooldowns_reject_invalid_clocks_and_haste(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("const float HasteBonus = GetHasteBonus();", cast)
+        for guard in ("!FMath::IsFinite(Time)",
+                      "!FMath::IsFinite(LastCastTime[Hand])",
+                      "Time < LastCastTime[Hand]",
+                      "!FMath::IsFinite(HasteBonus)",
+                      "HasteBonus < 0.f || HasteBonus > 0.20f",
+                      "Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + HasteBonus)"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index(
+                "Mana -= Costs[School] * Multiplier;"))
+        self.assertLess(cast.index("Time < LastCastTime[Hand]"), cast.index(
+            "LineTraceSingleByChannel("))
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("HasteBonus < 0.f || HasteBonus > 0.20f", dual)
+        self.assertLess(dual.index("HasteBonus > 0.20f"), dual.index(
+            "TryCast(LeftSpell, 0, 2.f)"))
 
     def test_pb_combat_guard_attack_haste_and_counter_hud(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
