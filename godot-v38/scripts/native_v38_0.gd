@@ -738,6 +738,12 @@ func _update_beasts(delta:float)->void:
  if _v406_talents_pause_enemies():return
  super._update_beasts(delta)
 
+func _physics_process(delta:float)->void:
+ # Match the existing world-menu pause: no player movement or combat ticks
+ # while browsing the talents, even if movement keys remain held.
+ if _v406_talents_pause_enemies():return
+ super._physics_process(delta)
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
@@ -1170,7 +1176,7 @@ func _v384_refresh_vitals()->void:
 func _unhandled_key_input(event:InputEvent)->void:
  # Godot dispatches unhandled key events before generic unhandled input.
  # Intercept Escape here before main.gd can open its pause screen.
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and _v406_talents_pause_enemies():
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies():
   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
   return
