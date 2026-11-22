@@ -729,7 +729,11 @@ func _v406_cancel_pending_enemy_attacks()->void:
   beast["v28_sleep_dt"]=0.0
   # The inherited AI also owns ordinary boss warning disks and divine
   # signature combos. Clear those pending effects, not only bloodline tells.
-  if beast.has("divine_id"):_clear_divine_warning(beast)
+  if beast.has("divine_id"):
+   beast["divine_warn_until"]=0.0
+   beast["divine_chain_pending"]=false
+   var divine_disk:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+   if is_instance_valid(divine_disk):divine_disk.hide()
   var boss_id:int=int(beast.get("boss_id",-1))
   if boss_telegraphs.has(boss_id):
    var boss_warning:MeshInstance3D=boss_telegraphs[boss_id] as MeshInstance3D
