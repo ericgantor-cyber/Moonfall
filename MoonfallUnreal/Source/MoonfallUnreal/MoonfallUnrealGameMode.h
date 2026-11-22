@@ -51,8 +51,10 @@ private:
  int32 NextDungeonSlot = 0;
  int32 NextFailedDungeonRetry = 0;
  bool bDungeonWorldReadyNotified = false;
+ bool bFinalAuthoredAuditComplete = false;
  TArray<uint8> AuthoredDungeonSlots;
  TArray<TWeakObjectPtr<AMoonfallDungeonLayout>> AuthoredDungeonActors;
  TArray<int32> FailedDungeonSlots;
  void SpawnDungeonBatch();
+ bool ReconcileAuthoredDungeonSlot(int32 Slot);
 };
