@@ -3502,7 +3502,9 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
- if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ // Face-button Race Power must never consume its cooldown behind Atlas or NPC overlays.
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
