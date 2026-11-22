@@ -4521,7 +4521,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (usingDx12)", launch)
         self.assertIn('MessageBoxButtons.YesNo, MessageBoxIcon.Warning', launch)
         self.assertIn("rendererChoice.SelectedIndex = 1;", launch)
-        self.assertIn('status.Text = "DX11 selected. Press PLAY to retry."; ', launch + " ")
+        self.assertIn('status.Text = "DX11 selected. Press PLAY to retry.";', launch)
         self.assertNotIn('await LaunchGameAsync();', launch)
         self.assertIn("play.Enabled = HasGameFiles(AppContext.BaseDirectory);", launch)
         self.assertIn("rendererChoice.Enabled = true;", launch)
