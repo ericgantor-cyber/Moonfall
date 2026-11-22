@@ -941,7 +941,7 @@ void AMoonfallHeroPawn::ToggleLockOn()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  // A destroyed, defeated or out-of-range enemy is no longer a real lock.
- // Reacquire on this same Y press instead of requiring a second press.
+ // Reacquire on this same T press instead of requiring a second press.
  if (GetLockedEnemy()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
  LockedEnemy.Reset();
  LockOccludedSince = -1.f;
