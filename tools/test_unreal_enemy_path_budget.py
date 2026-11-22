@@ -17,6 +17,232 @@ class EnemyPathBudgetTests(unittest.TestCase):
             self.source.index("Nav->FindPathToLocationSynchronously("),
         )
 
+    def test_partial_nav_routes_follow_reachable_waypoints(self):
+        # Unreal may produce a useful partial route when the target is behind
+        # an unreachable doorway. Follow its first corner rather than the
+        # projected destination that may be on the opposite side of a wall.
+        path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1)[0]
+        self.assertIn("const bool bHasPathSegment = IsValid(Path) && Path->IsValid()", path)
+        self.assertIn("&& Path->PathPoints.Num() > 1;", path)
+        self.assertIn("? Path->PathPoints[1] : FVector::ZeroVector;", path)
+        self.assertNotIn("!Path->IsPartial()", path)
+        # Preserve one cached query with no extra navigation probes.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertLess(path.index("const bool bHasPathSegment"), path.index("Path->PathPoints[1]"))
+        self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
+
+    def test_nonfinite_nav_target_and_projection_fail_closed(self):
+        # Nonfinite targets must not reach Unreal navigation queries. Even
+        # when a projection succeeds, its output must be finite before solve.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("if (!Target.ContainsNaN()", nav)
+        self.assertIn("&& Nav->ProjectPointToNavigation(Target, Point)", nav)
+        self.assertIn("&& !Point.Location.ContainsNaN())", nav)
+        self.assertLess(nav.index("!Target.ContainsNaN()"),
+                        nav.index("Nav->ProjectPointToNavigation(Target, Point)"))
+        self.assertLess(nav.index("!Point.Location.ContainsNaN()"),
+                        nav.index("Nav->FindPathToLocationSynchronously("))
+        self.assertIn("bNavigationRouteUnavailable = true;", nav)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", nav)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_invalid_nav_path_object_is_not_treated_as_reachable(self):
+        # UObject validity alone cannot establish whether Unreal found a
+        # navigable route. Both complete and partial paths must be valid.
+        path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("IsValid(Path) && Path->IsValid()", path)
+        self.assertIn("&& Path->PathPoints.Num() > 1;", path)
+        self.assertLess(path.index("IsValid(Path) && Path->IsValid()"),
+                        path.index("Path->PathPoints[1]"))
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", path)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+
+    def test_duplicate_starting_corners_are_skipped_with_bounded_work(self):
+        # NavMesh paths can contain several coincident points near a doorway.
+        # Consume reached points from the one cached route without extra solves.
+        route = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("CachedWaypoint = bHasCachedNavigationWaypoint ? FirstCorner : FVector::ZeroVector;", route)
+        self.assertIn("const int32 MaxCornersToCheck = FMath::Min(Path->PathPoints.Num(), 9);", route)
+        self.assertIn("for (int32 CornerIndex = 2; CornerIndex < MaxCornersToCheck", route)
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f)", route)
+        self.assertIn("const FVector NextCorner = Path->PathPoints[CornerIndex];", route)
+        self.assertIn("if (NextCorner.ContainsNaN())", route)
+        self.assertIn("bNavigationRouteUnavailable = true;", route)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", route)
+        self.assertIn("CachedWaypoint = NextCorner;", route)
+        self.assertLess(route.index("NextCorner.ContainsNaN()"), route.index("CachedWaypoint = NextCorner;"))
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_duplicate_path_corner_skip_never_crosses_floors(self):
+        # Arrival checks include height; a corner above the enemy is not reached.
+        route = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint)", route)
+        self.assertNotIn("FVector::DistSquared2D(GetActorLocation(), CachedWaypoint)", route)
+        # A safety limit bounds per-solve path-point processing for large packs.
+        self.assertIn("FMath::Min(Path->PathPoints.Num(), 9)", route)
+
+    def test_multilevel_nav_corners_require_3d_arrival(self):
+        # Two NavMesh corners can share XY coordinates on different floors.
+        # Neither the optimized first-corner skip nor cached-waypoint
+        # arrival may discard the meaningful vertical separation.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f)", nav)
+        self.assertNotIn("FVector::DistSquared2D(GetActorLocation(), FirstCorner)", nav)
+        waypoint = nav.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
+            "} else {\n   // Preserve direct chase without NavSystem", 1
+        )[0]
+        self.assertIn("const FVector ToWaypoint = CachedWaypoint - GetActorLocation();", waypoint)
+        self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
+        self.assertNotIn("ToWaypoint.Z = 0.f;", waypoint)
+        # The existing chase vector remains explicitly horizontal and
+        # retains one cached solve, not a new projection or perception trace.
+        chase = self.source.split("FVector Direction = Target - GetActorLocation();", 1)[1]
+        self.assertIn("Direction.Z = 0.f;", chase)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_nonfinite_nav_waypoints_fail_closed_without_repath_spam(self):
+        # Unreal can return a path object whose next corner contains NaN or
+        # infinity. Never feed such a corner to pursuit movement.
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", nav)
+        self.assertLess(nav.index("FirstCorner.ContainsNaN()"),
+                        nav.index("CachedWaypoint = bHasCachedNavigationWaypoint"))
+        cached = nav.split("if (CachedWaypoint.ContainsNaN()) {", 1)[1].split(
+            "if (bHasCachedNavigationWaypoint) {", 1
+        )[0]
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", cached)
+        self.assertIn("bNavigationRouteUnavailable = true;", cached)
+        self.assertIn("NextPathRefreshAt <= Now", cached)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", cached)
+        self.assertNotIn("NextPathRefreshAt = 0.f;", cached)
+        self.assertLess(cached.index("bNavigationRouteUnavailable = true;"),
+                        cached.index("NextPathRefreshAt = Now + 0.25f;"))
+        self.assertLess(nav.index("if (CachedWaypoint.ContainsNaN())"),
+                        nav.index("if (bNavigationRouteUnavailable) return;"))
+        self.assertEqual(nav.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(nav.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_unreachable_navmesh_goal_does_not_trigger_direct_wall_chase(self):
+        # A target projection alone does not guarantee a reachable path.
+        # Refuse direct pursuit until cached navigation finds a real corner.
+        header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        self.assertIn("bool bNavigationRouteUnavailable = false;", header)
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1)[0]
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", nav)
+        self.assertIn("bNavigationRouteUnavailable = true;", nav)
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", nav)
+        self.assertIn("bNavigationRouteUnavailable = false;", nav)
+        self.assertIn("if (bNavigationRouteUnavailable) return;", nav)
+        self.assertNotIn("CachedWaypoint = Target;", nav)
+        self.assertLess(nav.index("Nav->FindPathToLocationSynchronously("),
+                        nav.index("if (bNavigationRouteUnavailable) return;"))
+        # This change adds no queries or collision sweeps and preserves
+        # the original timed cache even for missing/invalid nav routes.
+        self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", nav)
+        self.assertEqual(nav.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(nav.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertEqual(nav.count("AddActorWorldOffset("), 0)
+
+    def test_reaching_partial_corner_never_restores_direct_wall_chase(self):
+        # A waypoint can be close enough to trigger repathing without being
+        # the hero's reachable destination. On that tick, keep steering along
+        # the corner rather than reverting to the far target behind a wall.
+        # Scope this test to the arrival handler. The earlier path-corner
+        # loop and corrupt-cache handler have their own separate retry logic.
+        waypoint = self.source.split("const FVector ToWaypoint = CachedWaypoint - GetActorLocation();", 1)[1].split(
+            "} else {\n   // Preserve direct chase without NavSystem", 1
+        )[0]
+        self.assertIn("Target = CachedWaypoint;", waypoint)
+        self.assertIn("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", waypoint)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", waypoint)
+        self.assertIn("NextPathRefreshAt > Now + 0.25f", waypoint)
+        self.assertIn("!FMath::IsFinite(NextPathRefreshAt)", waypoint)
+        self.assertLess(waypoint.index("Target = CachedWaypoint;"),
+                        waypoint.index("if (ToWaypoint.SizeSquared()"))
+        self.assertLess(waypoint.index("if (ToWaypoint.SizeSquared()"),
+                        waypoint.index("NextPathRefreshAt = Now + 0.25f;"))
+        self.assertNotIn("NextPathRefreshAt = 0.f;", waypoint)
+        self.assertNotIn("} else {\n     Target = ", waypoint)
+        # Refresh is scheduled, not performed again in the same frame.
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_world_origin_navigation_corner_is_a_valid_waypoint(self):
+        # A reachable (0,0,0) waypoint must not be mistaken for a missing
+        # cache. Validity comes from path results, not vector magnitude.
+        header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        self.assertIn("bool bHasCachedNavigationWaypoint = false;", header)
+        nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
+            "FVector Direction = Target - GetActorLocation();", 1
+        )[0]
+        self.assertIn("bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;", nav)
+        self.assertIn("CachedWaypoint = bHasCachedNavigationWaypoint", nav)
+        self.assertIn("if (bHasCachedNavigationWaypoint) {", nav)
+        self.assertIn("Target = CachedWaypoint;", nav)
+        self.assertNotIn("if (!CachedWaypoint.IsNearlyZero())", nav)
+        self.assertLess(nav.index("bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;"),
+                        nav.index("if (bHasCachedNavigationWaypoint) {"))
+        # All existing cache invalidations clear the explicit validity bit.
+        lines = self.source.splitlines()
+        resets = [index for index, line in enumerate(lines)
+                  if line.strip() == "CachedWaypoint = FVector::ZeroVector;"]
+        self.assertGreaterEqual(len(resets), 15)
+        for index in resets:
+            self.assertGreater(index, 0)
+            self.assertEqual(lines[index - 1].strip(),
+                             "bHasCachedNavigationWaypoint = false;")
+        # Losing NavSystem discards the old waypoint but keeps the original
+        # direct-chase fallback and allows immediate refresh when Nav returns.
+        no_nav = nav.split("// Preserve direct chase without NavSystem", 1)[1].split(
+            "if (bNavigationRouteUnavailable) return;", 1
+        )[0]
+        self.assertIn("bNavigationRouteUnavailable = false;", no_nav)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", no_nav)
+        self.assertIn("NextPathRefreshAt = 0.f;", no_nav)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+
+    def test_partial_path_retry_deadline_is_not_sliding(self):
+        waypoint = self.source.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
+            "} else {\n   // Preserve direct chase without NavSystem", 1
+        )[0]
+        arrived = waypoint.split("if (ToWaypoint.SizeSquared() < FMath::Square(65.f))", 1)[1]
+        # The strict deadline comparison ensures repeated 0.1-second AI
+        # ticks do not postpone an already scheduled retry forever.
+        self.assertIn("|| NextPathRefreshAt > Now + 0.25f)", arrived)
+        self.assertIn("NextPathRefreshAt = Now + 0.25f;", arrived)
+        self.assertLess(arrived.index("NextPathRefreshAt > Now + 0.25f"),
+                        arrived.index("NextPathRefreshAt = Now + 0.25f;"))
+        # A pre-existing urgent retry stays urgent; invalid deadlines
+        # become short bounded retries instead of immediate query loops.
+        def next_retry(now, scheduled):
+            if scheduled != scheduled or scheduled > now + 0.25:
+                return now + 0.25
+            return scheduled
+        scheduled = next_retry(5.0, 5.8)
+        for now in (5.1, 5.2):
+            self.assertEqual(next_retry(now, scheduled), scheduled)
+        self.assertEqual(next_retry(5.0, 0.0), 0.0)
+        self.assertEqual(next_retry(5.0, float("nan")), 5.25)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_far_mobs_only_receive_lower_repath_frequency(self):
         self.assertIn("(!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f", self.source)
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
@@ -72,8 +298,49 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("!bFastPerception && Distance > 1200.f ? 0.7f : 0.45f", self.source)
         self.assertIn("NextSightCheckAt = Now + SightInterval", self.source)
 
+    def test_successful_wall_slide_preserves_cached_route(self):
+        # Avoid immediate synchronous re-path after the sweep already escaped.
+        # Failed or unavailable sidesteps still use the original cooldown.
+        chase = self.source.split("// Collision can trap packs at tight doorways.", 1)[1].split(
+            "} else if (Distance <= AttackRange || bDivineRangedCastReady)", 1
+        )[0]
+        self.assertIn("bool bSidestepClearedObstacle = false;", self.source)
+        self.assertIn("const FVector EscapeStart = GetActorLocation();", chase)
+        self.assertIn("const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())", chase)
+        self.assertIn("> FMath::Square(1.f);", chase)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;", chase)
+        self.assertIn("bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;", chase)
+        self.assertLess(chase.index("const FVector EscapeStart"), chase.index("AddActorWorldOffset(Side * EscapeDistance"))
+        self.assertLess(chase.index("AddActorWorldOffset(Side * EscapeDistance"), chase.index("bEscapeMadeProgress"))
+        self.assertLess(chase.index("bEscapeMadeProgress ="), chase.index("bSidestepClearedObstacle ="))
+        retry = chase.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {", 1)[1]
+        self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
+        self.assertIn("if (!bSidestepClearedObstacle) {", retry)
+        self.assertLess(retry.index("if (!bSidestepClearedObstacle) {"),
+                        retry.index("NextPathRefreshAt = 0.f;"))
+        self.assertIn("bHasCachedNavigationWaypoint = false;", retry)
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", retry)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_chase_step_does_not_overshoot_nearby_waypoints(self):
+        # Full-speed movement can otherwise bounce around a close corner.
+        chase = self.source.split("const float SafeChaseSpeed = FMath::Clamp(", 1)[1].split(
+            "// Collision can trap packs at tight doorways.", 1
+        )[0]
+        self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", chase)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", chase)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", chase)
+        self.assertLess(chase.index("const float ChaseStep"), chase.index("AddActorWorldOffset("))
+        # This is purely movement budgeting; no second collision sweep or solve.
+        self.assertEqual(chase.count("AddActorWorldOffset("), 1)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_combat_safety_and_existing_sweep_remain(self):
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", self.source)
+        self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", self.source)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", self.source)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
         self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier", self.source)
         self.assertNotIn("bWithinAttackArc && Difference.Size() <=", self.source)

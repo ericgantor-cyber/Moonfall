@@ -133,6 +133,11 @@ private:
  float NextTacticalRetreatAt = 0.f;
  bool bRetreatFlankLeft = false;
  FVector CachedWaypoint = FVector::ZeroVector;
+ // World origin (0,0,0) is a valid NavMesh waypoint, not a cache sentinel.
+ bool bHasCachedNavigationWaypoint = false;
+ // Retain a failed route until the existing cached path refresh retries it.
+ // This prevents direct pursuit into walls when NavMesh cannot find a route.
+ bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  // -1 by default; authored tag selects one deterministic guardian footprint.

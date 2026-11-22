@@ -1688,7 +1688,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
         self.assertIn("const float SafeChaseSpeed = FMath::Clamp(", tick)
         self.assertIn("ChaseSpeed : 0.f, 0.f, 2000.f);", tick)
-        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", tick)
+        self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", tick)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", tick)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", tick)
         self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
 
     def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
@@ -3097,9 +3099,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);", tick)
         self.assertIn("bool bReverseCombatWallSlide = false;", self.enemy_h)
         self.assertIn("if (bReverseCombatWallSlide) Side *= -1.f;", tick)
-        self.assertIn("bReverseCombatWallSlide = EscapeHit.bBlockingHit ? !bReverseCombatWallSlide : false;", tick)
+        self.assertIn("const FVector EscapeStart = GetActorLocation();", tick)
+        self.assertIn("const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())", tick)
+        self.assertIn("bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;", tick)
         self.assertIn("else if (!Hit.bBlockingHit)", tick)
+        self.assertIn("bool bSidestepClearedObstacle = false;", tick)
+        self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;", tick)
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
+        retry = tick.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", 1)[1].split(
+            "} else if (Distance <= AttackRange", 1)[0]
+        self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
+        self.assertIn("if (!bSidestepClearedObstacle) {", retry)
+        self.assertLess(retry.index("if (!bSidestepClearedObstacle) {"),
+                        retry.index("NextPathRefreshAt = 0.f;"))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
