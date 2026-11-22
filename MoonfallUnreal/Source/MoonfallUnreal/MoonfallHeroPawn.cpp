@@ -408,13 +408,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      } else LockOccludedSince = -1.f;
     }
    }
-   // Pause automatic camera rotation while the sight line is blocked.
-   if (LockedEnemy.IsValid() && LockOccludedSince < 0.f) {
+   // Reduced Motion must suppress automatic camera tracking, not weaken it.
+   // Keep the lock itself for spell aiming and target HUD, but never rotate the view.
+   // Also pause automatic tracking while sight is blocked.
+   if (!bReduceMotion && LockedEnemy.IsValid() && LockOccludedSince < 0.f) {
     const FVector Aim = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f) - FollowCamera->GetComponentLocation();
     if (!Aim.ContainsNaN() && !Aim.IsNearlyZero()) {
      const FRotator Desired = Aim.Rotation();
-     const float TrackingSpeed = bReduceMotion ? 4.f : 7.f;
-     Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), Desired, SafeTimerDelta, TrackingSpeed));
+     Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), Desired, SafeTimerDelta, 7.f));
     }
    }
   }
