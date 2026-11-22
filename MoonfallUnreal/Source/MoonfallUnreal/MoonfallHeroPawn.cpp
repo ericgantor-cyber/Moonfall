@@ -3503,12 +3503,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   ToggleTargetLock();
   return;
  }
- // Dialogue begins only after range and line-of-sight validation.
- // Release existing locomotion and target/guard state as well as blocking new input.
- StopJumping();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
- EndSprint();
- EndGuard();
+ // Dialogue may begin while moving; preserve jump, velocity, sprint and guard.
+ // Clear only combat targeting so a lock-on camera does not follow the enemy.
  ClearTargetLock();
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -3556,11 +3552,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
-    // Match controller dialogue entry: no drifting, held guard or stale target.
-    StopJumping();
-    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
-    EndSprint();
-    EndGuard();
+    // Match controller dialogue: preserve locomotion, clear combat target only.
     ClearTargetLock();
     FocusedResident = Resident;
     bResidentContextOpen = true;
