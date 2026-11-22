@@ -34,6 +34,13 @@ int main() {
  assert(!M::ShouldContinueBatch(7,8,2.5,2.5));
  assert(!M::ShouldContinueBatch(1,8,-1.0,2.5));
  assert(M::ShouldContinueBatch(0,1,500.0,0.5));
+ // A destroyed or unloaded authored actor must not reserve a dungeon slot.
+ for (int Valid=0;Valid<=1;++Valid) {
+  for (int Destroying=0;Destroying<=1;++Destroying) {
+   assert(M::ShouldRetainAuthoredSlot(Valid!=0,Destroying!=0)
+     ==(Valid!=0 && Destroying==0));
+  }
+ }
  // Every failed primary slot gets at most one late retry.
  assert(M::ShouldQueueRetry(false,false));
  assert(!M::ShouldQueueRetry(false,true));
