@@ -91,13 +91,13 @@ jobs:
           path: ${{ runner.temp }}/moonfall-unreal-native-compile.txt
           if-no-files-found: error
           retention-days: 30
-      - name: Run real UE5.4 dungeon automation tests
+      - name: Run real UE5.4 dungeon and MB5 input automation tests
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           # The runner always compiles this checkout itself; no stale-binary bypass.
           & ./MoonfallUnreal/Build/Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT
-          if (-not $?) { throw 'Native UE5.4 dungeon tests failed.' }
+          if (-not $?) { throw 'Native UE5.4 dungeon or MB5 input tests failed.' }
           $report = 'MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt'
           if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
             throw 'Native dungeon test report is missing.'
@@ -107,7 +107,8 @@ jobs:
             'Moonfall.Dungeons.All30EntranceLocations',
             'Moonfall.Dungeons.SeededRoomArchetypes',
             'Moonfall.Dungeons.BossVictoryLedgerDefaults',
-            'Moonfall.Dungeons.BossVictorySaveRoundTrip'
+            'Moonfall.Dungeons.BossVictorySaveRoundTrip',
+            'Moonfall.Controls.MB5DualCastBindings'
           )) {
             if (-not $contents.Contains("$required=True")) {
               throw "Native dungeon test was not verified as passing: $required"
@@ -117,7 +118,7 @@ jobs:
               -not $contents.Contains('AnyNativeTestFailed=False')) {
             throw 'Native dungeon test report does not show a successful Editor run.'
           }
-          "Native UE5.4 dungeon automation: all four tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          "Native UE5.4 automation: all five dungeon and MB5 input tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
       - name: Preserve native dungeon test evidence
         if: always()
         uses: actions/upload-artifact@v4
