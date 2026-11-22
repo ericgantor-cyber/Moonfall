@@ -5,7 +5,7 @@ namespace MoonfallWorldBootstrap {
 inline constexpr int LegacyZoneCount=6;
 inline constexpr int DungeonsPerZone=5;
 inline constexpr int TotalDungeons=LegacyZoneCount*DungeonsPerZone;
-inline constexpr int MaxLayoutsPerBatch=2;
+inline constexpr int MaxLayoutsPerBatch=4;
 struct FPolicy {
  bool SpawnLegacyArena;
  bool GenerateLegacyDungeons;
@@ -28,5 +28,7 @@ static_assert(DefaultPolicy().SpawnLegacyArena);
 static_assert(DefaultPolicy().GenerateLegacyDungeons);
 static_assert(!ShouldSpawnArena(IsolatedWorldPolicy(),false));
 static_assert(!ShouldGenerateDungeons(IsolatedWorldPolicy()));
-static_assert(BatchCount(0)==2 && BatchCount(29)==1 && BatchCount(30)==0);
+static_assert(BatchCount(0)==4 && BatchCount(26)==4);
+static_assert(BatchCount(27)==3 && BatchCount(28)==2);
+static_assert(BatchCount(29)==1 && BatchCount(30)==0);
 } // namespace MoonfallWorldBootstrap
