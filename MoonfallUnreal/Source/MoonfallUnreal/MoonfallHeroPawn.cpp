@@ -968,6 +968,7 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
  }
  AMoonfallEnemy* Best = nullptr;
  float BestScore = TNumericLimits<float>::Max();
+ float BestDistanceSq = TNumericLimits<float>::Max();
  // An input-driven search only; no per-frame enemy iteration.
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   AMoonfallEnemy* Candidate = *It;
@@ -992,8 +993,14 @@ void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
    float Delta = Angle - CurrentAngle;
    if (Delta <= 0.f) Delta += 2.f * PI;
    // Ignore near-identical screen directions and avoid repeated targets.
-   if (Delta > 0.025f && Delta < BestScore) {
+   // When two enemies share nearly the same angle, prefer the closer one
+   // instead of letting world actor iteration order decide the Tab target.
+   const float DistanceSq = Aim.SizeSquared();
+   if (Delta > 0.025f
+       && (Delta < BestScore - 0.0001f
+           || (FMath::Abs(Delta - BestScore) <= 0.0001f && DistanceSq < BestDistanceSq))) {
     BestScore = Delta;
+    BestDistanceSq = DistanceSq;
     Best = Candidate;
    }
   }
