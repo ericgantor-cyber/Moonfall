@@ -83,6 +83,7 @@ jobs:
           assert 'ActionName="CastLeft",Key=Z' not in inputs
           assert 'ActionName="CastRight",Key=X' not in inputs
           assert 'ActionName="DualCast",Key=LeftControl' in inputs
+          assert 'ActionName="DualCast",Key=RightControl' in inputs
           assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
           assert 'ActionName="TalkNPC"' not in inputs
           assert 'ActionName="ResidentQuest"' not in inputs
