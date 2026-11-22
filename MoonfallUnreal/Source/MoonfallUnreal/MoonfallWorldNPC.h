@@ -14,6 +14,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") UStaticMeshComponent* Body;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText DisplayName;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText Greeting;
+ // Optional per-resident story evidence, spoken only after a completed quest.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Quest") FText CompletedStoryClue;
  // Native Canvas HUD can show spoken lines even without a Blueprint widget.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FText LastSpokenLine;
  // Assigned by settlement/world spawner. Any ancestry may be friendly.

@@ -126,6 +126,23 @@ def create_new_startup_level():
     # Dynamic nav with player invokers keeps generated tile work localized.
     # Still press P and check real agent navigability during Editor playtests.
 
+    # Extra 7km2 outdoor blockout is north of the 30 dungeon lanes.
+    # Preserve the legacy two bounds volumes. Dynamic invokers generate
+    # only nearby nav tiles despite this larger outer brush envelope.
+    province_nav = actors.spawn_actor_from_class(
+        unreal.NavMeshBoundsVolume, unreal.Vector(0.0, 170000.0, 100.0),
+        unreal.Rotator(0.0, 0.0, 0.0))
+    if province_nav is None:
+        raise RuntimeError("Could not create expanded overworld NavMeshBoundsVolume")
+    province_nav.set_actor_label("Moonfall_ExpandedWorld_NavBounds")
+    province_nav.set_actor_scale3d(unreal.Vector(1900.0, 2000.0, 6.0))
+    province_origin, province_extent = province_nav.get_actor_bounds(False)
+    if (province_origin.x - province_extent.x > -170500.0
+            or province_origin.x + province_extent.x < 170500.0
+            or province_origin.y - province_extent.y > 12000.0
+            or province_origin.y + province_extent.y < 352000.0):
+        raise RuntimeError("Expanded-world nav brush too small; startup map NOT saved")
+
     if not levels.save_current_level():
         raise RuntimeError("Could not save MoonfallStart; configuration is unchanged")
 

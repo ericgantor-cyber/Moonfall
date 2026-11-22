@@ -110,8 +110,8 @@ class ChronicleIntegration(unittest.TestCase):
             "const int32 ChapterIndex = Hero->AtlasChronicleChapter >= 0",
             "MoonfallChronicle::BeatState(",
             "const bool bSelected = Chapter == ChapterIndex",
-            "ChapterState == MoonfallChronicle::EBeatState::Hidden",
-            "ChapterState == MoonfallChronicle::EBeatState::Cleared",
+            "ChapterState == 0",
+            "ChapterState == 2",
             "ChronicleCard.TabLeft + ChronicleCard.TabWidth * Chapter",
             "ChronicleCard.ToggleLeft",
             'Hero->bAtlasChronicleFocus ? TEXT("MAP") : TEXT("READ")',
@@ -119,7 +119,7 @@ class ChronicleIntegration(unittest.TestCase):
             'TEXT("CLEARED")',
             'TEXT("DISCOVERED")',
             'TEXT("CHAPTER %d/7  |  UNDISCOVERED")',
-            "const FString Lore = ChronicleBeat",
+            "const FString Lore = bReadingIsle",
             "ChronicleBeat->Lore",
             "LoreLineLimit = MapWidth >= 480.f ? 78 : 48",
             "LoreLines = ChronicleCard.LoreLines",
@@ -198,16 +198,18 @@ class ChronicleIntegration(unittest.TestCase):
             self.hero,
         )
         self.assertIn("AtlasChronicleChapter = -1;", self.pawn)
-        self.assertIn("if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1",
+        self.assertIn("if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1;",
                       self.pawn)
         self.assertIn(
-            "if (AtlasSelectedRegion != Slot / 5) AtlasChronicleChapter = -1",
+            "if (AtlasSelectedRegion != Slot / 5) {",
             self.pawn,
         )
         self.assertIn(
-            "if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1",
+            "if (AtlasSelectedRegion != PreviousRegion) {",
             self.pawn,
         )
+        self.assertIn("bAtlasIsleReader = false;", self.pawn)
+        self.assertIn("MoonfallIsleChronicle::NextReadableChapter(", self.pawn)
         self.assertIn("NextChapter(", self.ui)
         self.assertIn("return (Base+Direction+Tabs)%Tabs;", self.ui)
         self.assertNotIn("SaveWorldProgress(", self.preview)

@@ -1413,7 +1413,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (const auto& Entry : FactionReputation)", save)
         self.assertIn("Entry.Value < -100 || Entry.Value > 100", save)
         self.assertIn("for (const auto& Entry : ResidentBonds)", save)
-        self.assertIn("if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;", save)
+        self.assertIn("if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)", save)
         self.assertIn("Save->FactionReputation", load)
         self.assertIn("Save->ResidentBonds", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
@@ -1423,6 +1423,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         load.index("bWorldProgressLoadInProgress = true;"))
         self.assertLess(load.index("invalid resident bond"),
                         load.index("bWorldProgressLoadInProgress = true;"))
+
+    def test_gothic_isle_residents_and_factions_are_valid_for_save_and_reload(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        faction_runtime = self.hero_cpp.split("bool IsMoonfallFaction(FName Faction) {", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetFactionReputation", 1)[0]
+        residents_runtime = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetResidentBond", 1)[0]
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        for faction in ("GothicHarbor", "BlackbellOrder", "Gravewardens",
+                        "Duskwatch", "Thornwraith"):
+            marker = f'FName(TEXT("{faction}"))'
+            self.assertIn(marker, faction_runtime)
+        for resident in ("GothicRavenHarbormaster", "GothicBlackbellKeeper",
+                         "GothicGraveWarden", "GothicDuskwatchSentinel",
+                         "GothicThornwraithScholar"):
+            marker = f'FName(TEXT("{resident}"))'
+            self.assertIn(marker, residents_runtime)
+        self.assertIn("!IsMoonfallFaction(Entry.Key)", save)
+        self.assertIn("!IsMoonfallFaction(Entry.Key)", load)
+        self.assertIn("!IsNamedMoonfallResident(Entry.Key)", save)
+        self.assertIn("!IsNamedMoonfallResident(Entry.Key)", load)
+        for duplicate in ("SaveFactionIds", "SaveResidentIds", "AllowedFactionIds", "AllowedResidentIds"):
+            self.assertNotIn(duplicate, self.hero_cpp)
+        self.assertIn("IsNamedMoonfallResident(Entry.Key)", self.hero_cpp)
+        self.assertIn("if (!IsMoonfallFaction(Faction)) return false;", self.hero_cpp)
 
     def test_resident_quest_state_save_and_load_reject_lossy_records(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
@@ -1931,7 +1958,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         controls = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[1].split(
             "bool AMoonfallHeroPawn::TryCast(", 1)[0]
         self.assertIn('BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);', controls)
-        self.assertIn('BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);', controls)
+        self.assertIn('BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);', controls)
+        release = controls.split("void AMoonfallHeroPawn::ReleaseJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("bSwimAscendHeld = false;", release)
+        self.assertIn("StopJumping();", release)
+        self.assertLess(release.index("bSwimAscendHeld = false;"), release.index("StopJumping();"))
         self.assertIn("void TryJump();", self.hero_h)
         jump = controls.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
             "void AMoonfallHeroPawn::MoveForward", 1)[0]

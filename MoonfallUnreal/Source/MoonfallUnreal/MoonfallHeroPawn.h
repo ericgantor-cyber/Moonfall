@@ -255,6 +255,8 @@ public:
  // -1 follows the region's automatically featured discovered chapter.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") int32 AtlasChronicleChapter = -1;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasChronicleFocus = false;
+ // Optional island reader uses the same Atlas card and input, never saved.
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasIsleReader = false;
  void ToggleAtlasChronicleFocus();
  void StepAtlasChronicle(int32 Direction);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;
@@ -263,6 +265,14 @@ public:
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FVector> AtlasDiscoveredShrineLocations;
  // Parallel names for the discovered-shrine cache. Never a persisted location leak.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") TArray<FString> AtlasDiscoveredShrineNames;
+ // IDs are cached only for displayed, already discovered shrine markers.
+ UPROPERTY(Transient) TArray<FName> AtlasDiscoveredShrineIds;
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FName AtlasFastTravelPendingShrine = NAME_None;
+ // A selection expires after five real-time seconds; never persisted.
+ UPROPERTY(Transient) float AtlasFastTravelConfirmUntil = 0.f;
+ bool TryAtlasFastTravel(FName ShrineId);
+ void AtlasTravelSelect();
+ void CycleAtlasTravel(int32 Direction);
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") FVector AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasHasActiveRespawnShrineLocation = false;
  // V12 permanent explored-world cells: six 8-by-7 grids, bounded to 56 bits each.
@@ -432,6 +442,8 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ bool bSwimAscendHeld = false;
+ void ReleaseJump();
  void TryJump();
  void MoveForward(float Amount);
  void MoveRight(float Amount);

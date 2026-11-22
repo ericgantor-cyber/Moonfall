@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallChronicle.h"
+#include "MoonfallIsleChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,6 +23,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
+#include "MoonfallGothicFerry.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
@@ -370,6 +372,12 @@ void AMoonfallHeroPawn::BeginPlay() {
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
+ // Held swim ascent must be reapplied each frame, not just on key press.
+ // Keep combat, dialogue, menu and defeated input locks authoritative.
+ if (bSwimAscendHeld && Health > 0.f && !bOptionsOpen && !bInventoryOpen
+     && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
+  AddMovementInput(FVector::UpVector, 1.f);
  Super::Tick(DeltaSeconds);
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
@@ -566,7 +574,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
- Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("Jump"), IE_Released, this, &AMoonfallHeroPawn::ReleaseJump);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
@@ -593,6 +601,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("AtlasTravelSelect"), IE_Pressed, this, &AMoonfallHeroPawn::AtlasTravelSelect);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -832,15 +841,29 @@ void AMoonfallHeroPawn::TryJump()
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ // Track held jump before entering the water, too. A player who
+ // jumps/falls into the sea while holding Jump should immediately ascend
+ // once swimming starts without releasing and pressing the key again.
+ bSwimAscendHeld = true;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
+  return;
  Jump();
+}
+void AMoonfallHeroPawn::ReleaseJump()
+{
+ bSwimAscendHeld = false;
+ StopJumping();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
-  const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
-  AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X), Value);
+  // Swim towards the camera's pitch; normal walking stays yaw-only.
+  const FRotator Rotation = GetCharacterMovement() && GetCharacterMovement()->IsSwimming()
+     ? Controller->GetControlRotation()
+     : FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f);
+  AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::X), Value);
  }
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
@@ -1265,6 +1288,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
+  AtlasDiscoveredShrineIds.Reset();
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
   bAtlasHasActiveRespawnShrineLocation = false;
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
@@ -1314,6 +1340,24 @@ void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
  // chapter tab is selected, it stays readable until the region changes.
+ if (bAtlasChronicleFocus && bAtlasIsleReader) {
+  const int Quests[5] = {
+   GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto Mainland = MoonfallChronicle::SummarizeWorld(
+   static_cast<uint32>(DiscoveredDungeonMask),
+   static_cast<uint32>(DefeatedDungeonBossMask));
+  AtlasChronicleChapter = MoonfallIsleChronicle::NextReadableChapter(
+   AtlasChronicleChapter, 0,
+   HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+   HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+   Quests, Mainland.Valid && Mainland.ChronicleComplete);
+  return;
+ }
  if (bAtlasChronicleFocus && AtlasChronicleChapter < 0) {
   const auto State = MoonfallChronicle::Summarize(
     FMath::Clamp(AtlasSelectedRegion, 0, 5),
@@ -1324,6 +1368,24 @@ void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
 }
 void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
  if (!bAtlasOpen || !bAtlasChronicleFocus || (Direction != -1 && Direction != 1)) return;
+ if (bAtlasIsleReader) {
+  const int Quests[5] = {
+   GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto Mainland = MoonfallChronicle::SummarizeWorld(
+   static_cast<uint32>(DiscoveredDungeonMask),
+   static_cast<uint32>(DefeatedDungeonBossMask));
+  AtlasChronicleChapter = MoonfallIsleChronicle::NextReadableChapter(
+   AtlasChronicleChapter, Direction,
+   HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+   HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+   Quests, Mainland.Valid && Mainland.ChronicleComplete);
+  return;
+ }
  const auto State = MoonfallChronicle::Summarize(
    FMath::Clamp(AtlasSelectedRegion, 0, 5),
    static_cast<uint32>(DiscoveredDungeonMask),
@@ -1340,6 +1402,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (!bAtlasOpen) {
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
+  bAtlasIsleReader = false;
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1349,6 +1412,9 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   // per Atlas opening. No per-frame world actor scan or new save fields.
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
+  AtlasDiscoveredShrineIds.Reset();
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
   bAtlasHasActiveRespawnShrineLocation = false;
   AtlasActiveRespawnShrineLocation = FVector::ZeroVector;
   if (GetWorld()) {
@@ -1366,6 +1432,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
     const FString ShrineTitle = Shrine->GetMapDisplayName();
     AtlasDiscoveredShrineLocations.Add(ShrinePos);
     AtlasDiscoveredShrineNames.Add(ShrineTitle.Left(36));
+    AtlasDiscoveredShrineIds.Add(Shrine->ShrineId);
     if (ActiveShrineId == Shrine->ShrineId
         && IsCurrentRespawnLocation(Shrine->GetRespawnLocation())) {
      AtlasActiveRespawnShrineLocation = ShrinePos;
@@ -1375,6 +1442,10 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   }
  }
  bAtlasOpen = !bAtlasOpen;
+ if (!bAtlasOpen) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+ }
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
@@ -1615,7 +1686,10 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
-  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  if (AtlasSelectedRegion != PreviousRegion) {
+   AtlasChronicleChapter = -1;
+   bAtlasIsleReader = false;
+  }
   return;
  }
  if (bResidentContextOpen) {
@@ -1643,7 +1717,10 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
-  if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
+  if (AtlasSelectedRegion != PreviousRegion) {
+   AtlasChronicleChapter = -1;
+   bAtlasIsleReader = false;
+  }
   return;
  }
  if (bResidentContextOpen) {
@@ -1670,6 +1747,10 @@ void AMoonfallHeroPawn::OptionsDown() {
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
+  if (!AtlasFastTravelPendingShrine.IsNone() && GetWorld()
+      && GetWorld()->GetRealTimeSeconds() <= AtlasFastTravelConfirmUntil) {
+   CycleAtlasTravel(-1); return;
+  }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
@@ -1679,6 +1760,10 @@ void AMoonfallHeroPawn::OptionsLeft() {
 void AMoonfallHeroPawn::OptionsRight() {
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
+  if (!AtlasFastTravelPendingShrine.IsNone() && GetWorld()
+      && GetWorld()->GetRealTimeSeconds() <= AtlasFastTravelConfirmUntil) {
+   CycleAtlasTravel(1); return;
+  }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
@@ -2388,6 +2473,7 @@ namespace {
 const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 // Defined with the faction/relationship helpers below; shared by save migration.
 bool IsNamedMoonfallResident(FName Id);
+bool IsMoonfallFaction(FName Faction);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
  const int32 Trait = Code / 100000;
@@ -2424,6 +2510,112 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
  return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
 }
 // Touching a new shrine sets the next death checkpoint, not every autosave.
+// Controller/keyboard Atlas travel: the first press selects a discovered
+// loaded shrine, another confirms; Left/Right cycles while selected.
+void AMoonfallHeroPawn::AtlasTravelSelect() {
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f || bAtlasChronicleFocus
+     || !GetWorld()) return;
+ const float Now = GetWorld()->GetRealTimeSeconds();
+ if (FMath::IsFinite(Now) && !AtlasFastTravelPendingShrine.IsNone()
+     && Now <= AtlasFastTravelConfirmUntil) {
+  TryAtlasFastTravel(AtlasFastTravelPendingShrine);
+  return;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
+ CycleAtlasTravel(1);
+}
+void AMoonfallHeroPawn::CycleAtlasTravel(int32 Direction) {
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f
+     || bAtlasChronicleFocus || !GetWorld()
+     || (Direction != -1 && Direction != 1)) return;
+ const int32 Count = AtlasDiscoveredShrineIds.Num();
+ if (Count == 0 || Count != AtlasDiscoveredShrineLocations.Num()) return;
+ const int32 Selected = AtlasDiscoveredShrineIds.IndexOfByKey(AtlasFastTravelPendingShrine);
+ const int32 Base = Selected >= 0 ? Selected
+     : Direction > 0 ? Count - 1 : 0;
+ for (int32 Attempt = 1; Attempt <= Count; ++Attempt) {
+  const int32 Index = (Base + Direction * Attempt + Count * 2) % Count;
+  const FName Id = AtlasDiscoveredShrineIds[Index];
+  if (Id.IsNone() || !HasDiscoveredShrine(Id)) continue;
+  bool bLoaded = false;
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
+   if (IsValid(*It) && !It->IsActorBeingDestroyed() && It->ShrineId == Id) {
+    bLoaded = true;
+    break;
+   }
+  }
+  if (!bLoaded) continue;
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+  TryAtlasFastTravel(Id);
+  return;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
+ OnResidentQuestFeedback(FText::FromString(
+   TEXT("No loaded discovered shrine available for fast travel.")), false);
+}
+bool AMoonfallHeroPawn::TryAtlasFastTravel(FName ShrineId) {
+ // Only a loaded, previously discovered actor can be a fast-travel
+ // destination. Two separate clicks on the same marker confirm the action.
+ if (!bAtlasOpen || bOptionsOpen || Health <= 0.f
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || ShrineId.IsNone() || !HasDiscoveredShrine(ShrineId)
+     || !AtlasDiscoveredShrineIds.Contains(ShrineId) || !GetWorld()) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+  return false;
+ }
+ // Resolve the actual loaded actor *before* arming a confirmation.
+ AMoonfallCheckpointShrine* Target = nullptr;
+ for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It) {
+  if (IsValid(*It) && !It->IsActorBeingDestroyed()
+      && It->ShrineId == ShrineId) { Target = *It; break; }
+ }
+ if (!Target) {
+  AtlasFastTravelPendingShrine = NAME_None;
+  AtlasFastTravelConfirmUntil = 0.f;
+  OnResidentQuestFeedback(FText::FromString(
+    TEXT("Shrine is not loaded. Move closer before fast traveling.")), false);
+  return false;
+ }
+ const float Now = GetWorld()->GetRealTimeSeconds();
+ if (!FMath::IsFinite(Now)) return false;
+ if (AtlasFastTravelPendingShrine != ShrineId
+     || Now > AtlasFastTravelConfirmUntil) {
+  AtlasFastTravelPendingShrine = ShrineId;
+  AtlasFastTravelConfirmUntil = Now + 5.f;
+  OnResidentQuestFeedback(FText::FromString(
+    TEXT("Click this shrine again within five seconds to travel.")), true);
+  return false;
+ }
+ AtlasFastTravelPendingShrine = NAME_None;
+ AtlasFastTravelConfirmUntil = 0.f;
+ const FVector Landing = Target->GetRespawnLocation();
+ if (Landing.ContainsNaN() || Landing.SizeSquared() >= 1.0e14f) return false;
+ const UCapsuleComponent* Capsule = GetCapsuleComponent();
+ if (!Capsule) return false;
+ float Radius = 0.f, HalfHeight = 0.f;
+ Capsule->GetScaledCapsuleSize(Radius, HalfHeight);
+ if (!FMath::IsFinite(Radius) || !FMath::IsFinite(HalfHeight)
+     || Radius <= 0.f || HalfHeight < Radius) return false;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAtlasFastTravel), false);
+ Params.AddIgnoredActor(this);
+ Params.AddIgnoredActor(Target);
+ if (GetWorld()->OverlapBlockingTestByChannel(Landing, GetActorQuat(),
+     ECC_Pawn, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params))
+  return false;
+ // Do not change the discovered-shrine ledger or active respawn point.
+ StopJumping();
+ EndSprint();
+ EndGuard();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ if (!TeleportTo(Landing, GetActorRotation(), false, false)) return false;
+ ToggleAtlas();
+ OnResidentQuestFeedback(FText::FromString(TEXT("Fast travel complete.")), true);
+ return true;
+}
 bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
  return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
 }
@@ -2733,29 +2925,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
    return false;
  // Reputation and bond maps must round-trip without silently dropping keys
  // or clamping values on the next load.
- static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
-  FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
- static const FName SaveResidentIds[] = {
-  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
- };
+ // Single canonical allowlists handle both saving and loading.
  for (const auto& Entry : FactionReputation)
-  if (!SaveFactionIds[0].IsNone() &&
-      !((Entry.Key == SaveFactionIds[0]) || (Entry.Key == SaveFactionIds[1])
-       || (Entry.Key == SaveFactionIds[2]) || (Entry.Key == SaveFactionIds[3])
-       || (Entry.Key == SaveFactionIds[4])) || Entry.Value < -100 || Entry.Value > 100)
+  if (!IsMoonfallFaction(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)
    return false;
- for (const auto& Entry : ResidentBonds) {
-  bool bKnownResident = false;
-  for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
-  if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
- }
+ for (const auto& Entry : ResidentBonds)
+  if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)
+   return false;
  TSet<FGuid> UniqueWorldDrops;
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
   if (!Record.DropId.IsValid() || UniqueWorldDrops.Contains(Record.DropId)
@@ -2845,13 +3021,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Reputation and bond records must be valid before restoration; otherwise
  // the allowlist/clamping below would silently alter the next saved version.
  if (Save->Version >= 4) {
-  static const FName AllowedFactionIds[] = {FName(TEXT("Wanderers")),
-   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
-   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
   for (const auto& Entry : Save->FactionReputation) {
-   bool bKnown = false;
-   for (const FName Id : AllowedFactionIds) if (Entry.Key == Id) { bKnown = true; break; }
-   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+   if (!IsMoonfallFaction(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid faction reputation; original save protected."));
     return false;
@@ -2859,19 +3030,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
  }
  if (Save->Version >= 5) {
-  static const FName AllowedResidentIds[] = {
-   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
-  };
   for (const auto& Entry : Save->ResidentBonds) {
-   bool bKnown = false;
-   for (const FName Id : AllowedResidentIds) if (Entry.Key == Id) { bKnown = true; break; }
-   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+   if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident bond; original save protected."));
     return false;
@@ -3377,7 +3537,22 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // Controller D-pad Up near either ferry dock boards the Nightferry.
+  // This is an input-driven check, never a per-tick world actor scan.
+  for (TActorIterator<AMoonfallGothicFerry> It(GetWorld()); It; ++It) {
+   AMoonfallGothicFerry* Ferry = *It;
+   if (IsValid(Ferry) && !Ferry->IsUnderway() && Ferry->TryBoard(this)) {
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+    return;
+   }
+  }
+  // Context-sensitive controller Atlas shortcut: D-pad Up opens J's map
+  // only if no resident or dock action handled the input. The existing
+  // controller Start/Options button closes it through OpenOptions().
+  ToggleAtlas();
+  return;
+ }
  // A conversation should release held combat movement immediately.
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -3422,6 +3597,15 @@ void AMoonfallHeroPawn::CastRightMouse() {
   }
  }
  if (bHit) {
+  if (AMoonfallGothicFerry* Ferry = Cast<AMoonfallGothicFerry>(Hit.GetActor())) {
+   // Targeted right-click boards ONLY when in range of a moored ferry.
+   // Aimed at any other world object, right-click remains a spell.
+   if (Ferry->TryBoard(this))
+    OnResidentQuestFeedback(FText::FromString(TEXT("The Nightferry sets sail.")), true);
+   else
+    OnResidentQuestFeedback(FText::FromString(TEXT("Approach the dock to board.")), false);
+   return;
+  }
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
@@ -3470,6 +3654,32 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     }
     const float SidebarWidth = FMath::Clamp(PanelW * 0.27f, 132.f, 238.f);
     const float RowGap = FMath::Clamp((PanelH - 145.f) / 6.f, 24.f, 78.f);
+    // Click the island story footer to enter/leave its separate reader.
+    // The island must actually have been discovered to expose the card.
+    if (MouseX >= PanelL + 13.f && MouseX <= PanelL + SidebarWidth - 9.f
+        && MouseY >= PanelT + PanelH - 48.f
+        && MouseY <= PanelT + PanelH - 25.f) {
+     const int Quests[5] = {
+      GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+      GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+      GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+      GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+      GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+     };
+     const bool bHarbor = HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing")));
+     const bool bCathedral = HasDiscoveredShrine(FName(TEXT("gothic_blackbell")));
+     const auto Mainland = MoonfallChronicle::SummarizeWorld(
+       static_cast<uint32>(DiscoveredDungeonMask),
+       static_cast<uint32>(DefeatedDungeonBossMask));
+     const auto Island = MoonfallIsleChronicle::Summarize(
+       bHarbor, bCathedral, Quests, Mainland.Valid && Mainland.ChronicleComplete);
+     if (Island.Valid && Island.Revealed > 0) {
+      bAtlasIsleReader = !bAtlasIsleReader;
+      AtlasChronicleChapter = -1;
+      bAtlasChronicleFocus = bAtlasIsleReader;
+     }
+     return;
+    }
     // Region selections are confined to the sidebar, never the painted map.
     if (MouseX >= PanelL + 13.f && MouseX <= PanelL + SidebarWidth - 9.f) {
      for (int32 Zone = 0; Zone < 6; ++Zone) {
@@ -3477,6 +3687,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
       if (MouseY >= RowY - 4.f && MouseY < RowY - 4.f + FMath::Max(20.f, RowGap - 4.f)) {
        if (AtlasSelectedRegion != Zone) AtlasChronicleChapter = -1;
        AtlasSelectedRegion = Zone;
+       bAtlasIsleReader = false;
        return;
       }
      }
@@ -3498,13 +3709,32 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     const int32 ClickedBeat = MoonfallChronicleUI::HitChapter(
       ChronicleCard, MouseX, MouseY);
     if (ClickedBeat >= 0) {
+     if (bAtlasIsleReader) {
+      const int Quests[5] = {
+       GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+       GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+       GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+       GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+       GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+      };
+      const auto Mainland = MoonfallChronicle::SummarizeWorld(
+       static_cast<uint32>(DiscoveredDungeonMask),
+       static_cast<uint32>(DefeatedDungeonBossMask));
+      if (MoonfallIsleChronicle::ChapterState(ClickedBeat,
+           HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+           HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+           Quests, Mainland.Valid && Mainland.ChronicleComplete)
+           == MoonfallIsleChronicle::EState::Hidden) return;
+     }
      AtlasChronicleChapter = ClickedBeat;
      bAtlasChronicleFocus = true;
      return;
     }
     if (MoonfallChronicleUI::HitCard(ChronicleCard, MouseX, MouseY))
      return;
-    // Clicking the parchment chart pans toward the chosen XY world coordinate.
+    // Clicking the parchment chart pans only when no discovered shrine
+    // pin was clicked. Chapter-card hit testing always wins first.
+    // Reuse the same projected shrine-pin geometry as the HUD.
     const float MapL = PanelL + SidebarWidth + 19.f;
     const float MapW = FMath::Max(40.f, PanelW - SidebarWidth - 36.f);
     const float MapT = PanelT + 105.f;
@@ -3516,9 +3746,31 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float WorldX = WorldCenterX + ((MouseX - MapL) / MapW - 0.5f) * (42000.f / Zoom);
      const float SafeAtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
      const float WorldY = SafeAtlasPanY + (0.5f - (MouseY - MapT) / MapH) * (13000.f / Zoom);
+     // Pin hit boxes match the 11-pixel HUD hover affordance, with no
+     // selection of hidden or undiscovered shrine locations.
+     const float HalfSpanX = 21000.f / Zoom;
+     const float HalfSpanY = 6500.f / Zoom;
+     for (int32 Index = 0; Index < AtlasDiscoveredShrineLocations.Num(); ++Index) {
+      if (!AtlasDiscoveredShrineIds.IsValidIndex(Index)) break;
+      const FVector Pin = AtlasDiscoveredShrineLocations[Index];
+      if (Pin.ContainsNaN()) continue;
+      const float PX = MapL + MapW * (0.5f + (Pin.X - WorldCenterX) / (2.f * HalfSpanX));
+      const float PY = MapT + MapH * (0.5f - (Pin.Y - SafeAtlasPanY) / (2.f * HalfSpanY));
+      if (PX < MapL + 6.f || PX > MapL + MapW - 6.f
+          || PY < MapT + 6.f || PY > MapT + MapH - 6.f) continue;
+      if (FMath::Abs(MouseX - PX) <= 11.f && FMath::Abs(MouseY - PY) <= 11.f) {
+       TryAtlasFastTravel(AtlasDiscoveredShrineIds[Index]);
+       return;
+      }
+     }
+     AtlasFastTravelPendingShrine = NAME_None;
+     AtlasFastTravelConfirmUntil = 0.f;
      if (FMath::IsFinite(WorldX) && FMath::IsFinite(WorldY)) {
       const int32 Slot = FMath::Clamp(FMath::RoundToInt(WorldX / 1350.f + 14.5f), 0, 29);
-      if (AtlasSelectedRegion != Slot / 5) AtlasChronicleChapter = -1;
+      if (AtlasSelectedRegion != Slot / 5) {
+       AtlasChronicleChapter = -1;
+       bAtlasIsleReader = false;
+      }
       AtlasSelectedRegion = Slot / 5;
       AtlasPanY = FMath::Clamp(WorldY, -12000.f, 12000.f);
      }
@@ -3693,7 +3945,12 @@ bool IsMoonfallFaction(FName Faction) {
     || Faction == FName(TEXT("VerdantCircle"))
     || Faction == FName(TEXT("StoneHearth"))
     || Faction == FName(TEXT("MoonCoven"))
-    || Faction == FName(TEXT("AshenClans"));
+    || Faction == FName(TEXT("AshenClans"))
+    || Faction == FName(TEXT("GothicHarbor"))
+    || Faction == FName(TEXT("BlackbellOrder"))
+    || Faction == FName(TEXT("Gravewardens"))
+    || Faction == FName(TEXT("Duskwatch"))
+    || Faction == FName(TEXT("Thornwraith"));
 }
 }
 int32 AMoonfallHeroPawn::GetFactionReputation(FName Faction) const {
@@ -3725,7 +3982,12 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("GothicRavenHarbormaster")),
+  FName(TEXT("GothicBlackbellKeeper")),
+  FName(TEXT("GothicGraveWarden")),
+  FName(TEXT("GothicDuskwatchSentinel")),
+  FName(TEXT("GothicThornwraithScholar"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;

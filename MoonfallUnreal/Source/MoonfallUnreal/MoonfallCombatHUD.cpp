@@ -1,5 +1,6 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallChronicle.h"
+#include "MoonfallIsleChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
@@ -135,9 +136,22 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"),
     FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f,
     nullptr, Scale * 0.75f);
+  // Keep the controller destination visible even when its pin is offscreen.
+  const int32 SelectedTravelIndex = Hero->AtlasDiscoveredShrineIds.IndexOfByKey(
+      Hero->AtlasFastTravelPendingShrine);
+  const bool bTravelSelected = !Hero->AtlasFastTravelPendingShrine.IsNone()
+      && SelectedTravelIndex >= 0 && Hero->GetWorld()
+      && FMath::IsFinite(Hero->GetWorld()->GetRealTimeSeconds())
+      && Hero->GetWorld()->GetRealTimeSeconds() <= Hero->AtlasFastTravelConfirmUntil;
+  const FString TravelGuide = bTravelSelected
+    ? FString::Printf(TEXT("FAST TRAVEL: %s | X/F confirm | Left/Right cycle"),
+        Hero->AtlasDiscoveredShrineNames.IsValidIndex(SelectedTravelIndex)
+          ? *Hero->AtlasDiscoveredShrineNames[SelectedTravelIndex].Left(20)
+          : TEXT("Discovered shrine"))
+    : FString(TEXT("Mouse: select a region or pan the chart | Tab / R3: read | X/F: travel"));
   DrawText(Hero->bAtlasChronicleFocus
-      ? TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom")
-      : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
+      ? FString(TEXT("Tab / R3: map | Mouse: chapter tabs | Wheel: zoom"))
+      : TravelGuide,
     FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
     nullptr, Scale * 0.72f);
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
@@ -190,6 +204,49 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(WorldLabel, FLinearColor(0.91f, 0.80f, 0.60f),
        Left + 14.f, Top + Height - 24.f,
        nullptr, Scale * AtlasSideTextScale * 0.79f);
+  }
+  // The isle's optional seventh witness is separate from all 42 mainland
+  // chapters. Existing shrine and NPC contract saves drive this read-only
+  // progress display, never a fabricated world-boss kill or new save flag.
+  const int IslandContracts[5] = {
+   Hero->GetResidentQuestState(FName(TEXT("GothicRavenHarbormaster"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicBlackbellKeeper"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicGraveWarden"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicDuskwatchSentinel"))),
+   Hero->GetResidentQuestState(FName(TEXT("GothicThornwraithScholar")))
+  };
+  const auto IsleStory = MoonfallIsleChronicle::Summarize(
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+    IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete);
+  // The first real Ashen Wilds dungeon-boss victory starts a cross-sea
+  // discovery objective. Raven's Landing's persisted shrine ends it.
+  // No teleportation, automatic ferry boarding, or new save field.
+  const auto SeaJourney = MoonfallIsleChronicle::SeaJourneyState(
+    Hero->HasDefeatedDungeonBoss(0, 0),
+    Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))));
+  const FString IsleStoryLabel = IsleStory.Valid && IsleStory.Revealed > 0
+     ? (AtlasSidebarWidth < 175.f
+       ? FString::Printf(TEXT("ISLE %d/7"), IsleStory.Revealed)
+       : FString::Printf(TEXT("ISLE %d/7 | %d/5 QUESTS"),
+           IsleStory.Revealed, IsleStory.CompletedContracts))
+     : SeaJourney == MoonfallIsleChronicle::ESeaJourney::SailToIsle
+       ? TEXT("ISLE QUEST: SAIL NORTH") : TEXT("ISLE STORY LOCKED");
+  DrawText(IsleStoryLabel, FLinearColor(0.69f, 0.78f, 0.88f),
+      Left + 14.f, Top + Height - 44.f,
+      nullptr, Scale * AtlasSideTextScale * 0.74f);
+  // Compact objective preview uses existing saved shrine/contract state.
+  // Draw only when the island story is found and there is enough sidebar
+  // width for the text, avoiding overlap on narrow 640px Atlas layouts.
+  if (IsleStory.Valid && IsleStory.Revealed > 0 && AtlasSidebarWidth >= 200.f) {
+   const FString NextIsleObjective = UTF8_TO_TCHAR(
+     MoonfallIsleChronicle::NextObjective(
+       Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+       Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+       IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete));
+   DrawText(NextIsleObjective.Left(29), FLinearColor(0.83f, 0.77f, 0.59f),
+       Left + 14.f, Top + Height - 25.f,
+       nullptr, Scale * AtlasSideTextScale * 0.65f);
   }
   // Large, readable map viewport. Match the pointer hit tests in HeroPawn.
   const float MapLeft = Left + AtlasSidebarWidth + 19.f;
@@ -334,6 +391,10 @@ void AMoonfallCombatHUD::DrawHUD()
   for (const FVector& ShrinePos : Hero->AtlasDiscoveredShrineLocations) {
    const FString ShrineTitle = Hero->AtlasDiscoveredShrineNames.IsValidIndex(AtlasShrineIndex)
        ? Hero->AtlasDiscoveredShrineNames[AtlasShrineIndex] : FString(TEXT("Discovered Shrine"));
+   const bool bPendingFastTravel = Hero->AtlasDiscoveredShrineIds.IsValidIndex(AtlasShrineIndex)
+       && Hero->AtlasFastTravelPendingShrine == Hero->AtlasDiscoveredShrineIds[AtlasShrineIndex]
+       && Hero->GetWorld() && FMath::IsFinite(Hero->GetWorld()->GetRealTimeSeconds())
+       && Hero->GetWorld()->GetRealTimeSeconds() <= Hero->AtlasFastTravelConfirmUntil;
    ++AtlasShrineIndex;
    if (!FMath::IsFinite(ShrinePos.X) || !FMath::IsFinite(ShrinePos.Y)) continue;
    const float ShrineX = ProjectX(ShrinePos.X);
@@ -348,7 +409,9 @@ void AMoonfallCombatHUD::DrawHUD()
     bHoveredActiveRespawn = bActiveRespawn;
     HoveredShrineTitle = ShrineTitle;
    }
-   DrawRect(bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f) : FLinearColor(0.32f, 0.91f, 0.91f),
+   DrawRect(bPendingFastTravel ? FLinearColor(1.f, 0.83f, 0.35f)
+       : bActiveRespawn ? FLinearColor(0.70f, 0.49f, 0.95f)
+       : FLinearColor(0.32f, 0.91f, 0.91f),
        ShrineX - 5.f, ShrineY - 5.f, 10.f, 10.f);
    DrawRect(FLinearColor(0.025f, 0.035f, 0.085f), ShrineX - 2.f, ShrineY - 2.f, 4.f, 4.f);
   }
@@ -373,12 +436,21 @@ void AMoonfallCombatHUD::DrawHUD()
     Selected, ChronicleDiscovered, ChronicleDefeated);
   const MoonfallChronicleUI::FCard ChronicleCard = MoonfallChronicleUI::Layout(
     MapLeft, MapTop, MapWidth, MapHeight, Hero->bAtlasChronicleFocus);
+  const bool bReadingIsle = Hero->bAtlasIsleReader && IsleStory.Valid
+    && IsleStory.Revealed > 0;
   const int32 ChapterIndex = Hero->AtlasChronicleChapter >= 0
     && Hero->AtlasChronicleChapter < MoonfallChronicle::BeatsPerAct
-    ? Hero->AtlasChronicleChapter : Chronicle.FeaturedBeat;
-  const MoonfallChronicle::FBeat* ChronicleBeat = Chronicle.Valid
+    ? Hero->AtlasChronicleChapter
+    : bReadingIsle ? IsleStory.FeaturedChapter : Chronicle.FeaturedBeat;
+  const MoonfallChronicle::FBeat* ChronicleBeat = !bReadingIsle && Chronicle.Valid
     ? MoonfallChronicle::RevealedBeat(Selected, ChapterIndex,
         ChronicleDiscovered, ChronicleDefeated)
+    : nullptr;
+  const MoonfallIsleChronicle::FChapter* IsleBeat = bReadingIsle
+    ? MoonfallIsleChronicle::RevealedChapter(ChapterIndex,
+        Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+        Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+        IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete)
     : nullptr;
   const bool bChroniclePointer = bAtlasPointerInsideMap
     && MoonfallChronicleUI::HitCard(ChronicleCard, AtlasPointerX, AtlasPointerY);
@@ -387,8 +459,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const float CW = ChronicleCard.Width, CH = ChronicleCard.Height;
    DrawRect(FLinearColor(0.038f, 0.041f, 0.067f, 0.97f), CL, CT, CW, CH);
    DrawRect(FLinearColor(0.73f, 0.56f, 0.32f, 0.96f), CL, CT, 3.f, CH);
-   const FString ActLabel = FString::Printf(TEXT("ACT %d/6  |  %s"),
-     Selected + 1, UTF8_TO_TCHAR(MoonfallChronicle::ActNames[Selected]));
+   const FString ActLabel = bReadingIsle
+     ? FString(TEXT("GOTHIC ISLE | THE SEVENTH WITNESS"))
+     : FString::Printf(TEXT("ACT %d/6  |  %s"),
+         Selected + 1, UTF8_TO_TCHAR(MoonfallChronicle::ActNames[Selected]));
    DrawText(ActLabel.Left(MapWidth < 420.f ? 24 : 44),
      FLinearColor(0.96f, 0.84f, 0.62f),
      CL + 10.f, CT + 5.f, nullptr, Scale * 0.74f);
@@ -402,15 +476,18 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor::White, ChronicleCard.ToggleLeft + 8.f,
      ChronicleCard.ToggleTop + 2.f, nullptr, Scale * 0.66f);
    for (int32 Chapter = 0; Chapter < MoonfallChronicle::BeatsPerAct; ++Chapter) {
-    const auto ChapterState = MoonfallChronicle::BeatState(
-      Selected, Chapter, ChronicleDiscovered, ChronicleDefeated);
+    const auto ChapterState = bReadingIsle
+      ? static_cast<int32>(MoonfallIsleChronicle::ChapterState(Chapter,
+          Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+          Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+          IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete))
+      : static_cast<int32>(MoonfallChronicle::BeatState(
+          Selected, Chapter, ChronicleDiscovered, ChronicleDefeated));
     const bool bSelected = Chapter == ChapterIndex;
     const FLinearColor ChapterInk =
-      ChapterState == MoonfallChronicle::EBeatState::Hidden
-        ? FLinearColor(0.29f, 0.29f, 0.32f)
-        : ChapterState == MoonfallChronicle::EBeatState::Cleared
-          ? FLinearColor(0.23f, 0.58f, 0.45f)
-          : FLinearColor(0.67f, 0.48f, 0.24f);
+      ChapterState == 0 ? FLinearColor(0.29f, 0.29f, 0.32f)
+        : ChapterState == 2 ? FLinearColor(0.23f, 0.58f, 0.45f)
+        : FLinearColor(0.67f, 0.48f, 0.24f);
     const float TabX = ChronicleCard.TabLeft + ChronicleCard.TabWidth * Chapter;
     DrawRect(bSelected ? ChapterInk : ChapterInk * 0.48f,
       TabX + 1.f, ChronicleCard.TabTop,
@@ -420,31 +497,35 @@ void AMoonfallCombatHUD::DrawHUD()
        TabX + 1.f, ChronicleCard.TabTop + ChronicleCard.TabHeight - 2.f,
        ChronicleCard.TabWidth - 2.f, 2.f);
     DrawText(FString::FromInt(Chapter + 1),
-      ChapterState == MoonfallChronicle::EBeatState::Hidden
+      ChapterState == 0
         ? FLinearColor(0.77f, 0.76f, 0.75f) : FLinearColor::White,
       TabX + (ChronicleCard.TabWidth - 11.f) * 0.5f,
       ChronicleCard.TabTop + 2.f, nullptr, Scale * 0.75f);
    }
-   const auto SelectedState = MoonfallChronicle::BeatState(
-     Selected, ChapterIndex, ChronicleDiscovered, ChronicleDefeated);
-   const TCHAR* ChapterStatus =
-     SelectedState == MoonfallChronicle::EBeatState::Hidden ? TEXT("LOCKED")
-       : SelectedState == MoonfallChronicle::EBeatState::Cleared ? TEXT("CLEARED")
-       : TEXT("DISCOVERED");
-   const FString ChapterLabel = ChronicleBeat
-     ? FString::Printf(TEXT("CHAPTER %d/7  |  %s"),
-          ChapterIndex + 1, UTF8_TO_TCHAR(ChronicleBeat->Title))
-     : FString::Printf(TEXT("CHAPTER %d/7  |  UNDISCOVERED"),
-          ChapterIndex + 1);
+   const int32 SelectedState = bReadingIsle
+     ? static_cast<int32>(MoonfallIsleChronicle::ChapterState(ChapterIndex,
+         Hero->HasDiscoveredShrine(FName(TEXT("gothic_ravens_landing"))),
+         Hero->HasDiscoveredShrine(FName(TEXT("gothic_blackbell"))),
+         IslandContracts, WorldChronicle.Valid && WorldChronicle.ChronicleComplete))
+     : static_cast<int32>(MoonfallChronicle::BeatState(
+         Selected, ChapterIndex, ChronicleDiscovered, ChronicleDefeated));
+   const TCHAR* ChapterStatus = SelectedState == 0 ? TEXT("LOCKED")
+     : SelectedState == 2 ? TEXT("CLEARED") : TEXT("DISCOVERED");
+   const FString ChapterLabel = (bReadingIsle && IsleBeat) || ChronicleBeat
+     ? FString::Printf(TEXT("CHAPTER %d/7  |  %s"), ChapterIndex + 1,
+          UTF8_TO_TCHAR(bReadingIsle ? IsleBeat->Title : ChronicleBeat->Title))
+     : FString::Printf(TEXT("CHAPTER %d/7  |  UNDISCOVERED"), ChapterIndex + 1);
    DrawText(ChapterLabel.Left(MapWidth < 400.f ? 38 : 59),
      FLinearColor::White, CL + 10.f, CT + 51.f, nullptr, Scale * 0.77f);
    // Never touch Acts[][] for unrevealed chapters. The text must not leak
    // via titles, labels, pointer tooltips or automatic next-page selection.
-   const FString Lore = ChronicleBeat
-     ? FString(UTF8_TO_TCHAR(ChronicleBeat->Lore))
-     : ChapterIndex == 6
-       ? FString(TEXT("Defeat all five regional dungeon bosses to reveal this chapter."))
-       : FString(TEXT("Discover the corresponding dungeon entrance to reveal this chapter."));
+   const FString Lore = bReadingIsle
+     ? IsleBeat ? FString(UTF8_TO_TCHAR(IsleBeat->Lore))
+       : FString(TEXT("Complete the corresponding island contract to uncover this evidence."))
+     : ChronicleBeat ? FString(UTF8_TO_TCHAR(ChronicleBeat->Lore))
+       : ChapterIndex == 6
+         ? FString(TEXT("Defeat all five regional dungeon bosses to reveal this chapter."))
+         : FString(TEXT("Discover the corresponding dungeon entrance to reveal this chapter."));
    const int32 LoreLineLimit = MapWidth >= 480.f ? 78 : 48;
    const int32 LoreLines = ChronicleCard.LoreLines;
    int32 LoreCursor = 0;
@@ -465,8 +546,11 @@ void AMoonfallCombatHUD::DrawHUD()
     while (LoreCursor < Lore.Len() && Lore[LoreCursor] == TCHAR(' '))
      ++LoreCursor;
    }
-   DrawText(FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
-       Chronicle.Revealed, Chronicle.BossesDefeated, ChapterStatus),
+   DrawText(bReadingIsle
+       ? FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 CONTRACTS  |  %s"),
+           IsleStory.Revealed, IsleStory.CompletedContracts, ChapterStatus)
+       : FString::Printf(TEXT("%d/7 REVEALED  |  %d/5 BOSSES  |  %s"),
+           Chronicle.Revealed, Chronicle.BossesDefeated, ChapterStatus),
      FLinearColor(0.66f, 0.86f, 0.78f),
      CL + 10.f, CT + CH - 19.f, nullptr, Scale * 0.67f);
   }
@@ -494,7 +578,8 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(bHoveredActiveRespawn ? TEXT("Active respawn shrine") : TEXT("Discovered Shrine"),
         FLinearColor(0.82f, 0.80f, 0.75f), TooltipX + 7.f, TooltipY + 22.f,
         nullptr, Scale * 0.68f);
-    DrawText(TEXT("Permanent discovery"), FLinearColor(0.76f, 0.76f, 0.72f),
+    DrawText(bHoveredActiveRespawn ? TEXT("Permanent discovery")
+        : TEXT("Click twice to fast travel"), FLinearColor(0.76f, 0.76f, 0.72f),
         TooltipX + 7.f, TooltipY + 37.f, nullptr, Scale * 0.60f);
    } else {
     const bool bDungeonCleared = Hero->HasDefeatedDungeonBoss(
