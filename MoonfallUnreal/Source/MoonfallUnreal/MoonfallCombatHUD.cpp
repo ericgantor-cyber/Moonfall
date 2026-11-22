@@ -98,11 +98,34 @@ void AMoonfallCombatHUD::DrawHUD()
   const FString Parents=FString(N.RequiresA)+(N.RequiresB[0]?TEXT(" + ")+FString(N.RequiresB):TEXT(""));
   DrawText(Parents.IsEmpty()?TEXT("No prerequisite"):Parents.Left(30),
       FLinearColor(0.83f,0.82f,0.92f),SideX+10.f,P.MapTop+131.f,nullptr,0.67f);
-  DrawText(FString::Printf(TEXT("%+.2f %s / rank"),N.AmountPerRank,
-       N.bPercent?TEXT("fraction"):TEXT("flat")),
-      Gold,SideX+10.f,P.MapTop+167.f,nullptr,0.72f);
-  DrawText(TEXT("MIGHT   AGILITY   ARCANA"),FLinearColor(0.75f,0.75f,0.84f),
-      SideX+10.f,P.MapTop+214.f,nullptr,0.61f);
+  // Display the stat and a human-readable percentage, never an internal
+  // fraction such as "+0.03" that disguises a 3% talent improvement.
+  const TCHAR* EffectLabel = N.Stat == MoonfallTalents::EStat::Health ? TEXT("Max HP")
+      : N.Stat == MoonfallTalents::EStat::Mana ? TEXT("Max mana")
+      : N.Stat == MoonfallTalents::EStat::Stamina ? TEXT("Max stamina")
+      : N.Stat == MoonfallTalents::EStat::MeleeDamage ? TEXT("Melee damage")
+      : N.Stat == MoonfallTalents::EStat::RangedDamage ? TEXT("Ranged damage")
+      : TEXT("Magic damage");
+  DrawText(FString::Printf(TEXT("%s: %+.1f%s / rank"),EffectLabel,
+       N.bPercent ? N.AmountPerRank * 100.f : N.AmountPerRank,
+       N.bPercent ? TEXT("%") : TEXT("")),
+       Gold,SideX+10.f,P.MapTop+167.f,nullptr,0.67f);
+  // One unambiguous block reason on the currently selected node. The same
+  // prerequisites and costs used by MoonfallTalents::TryAllocate apply here.
+  const int32 SelectedRank = Hero->GetTalentRank(FName(N.Id));
+  const bool bMissingParentA = N.RequiresA[0]
+      && Hero->GetTalentRank(FName(N.RequiresA)) < 1;
+  const bool bMissingParentB = N.RequiresB[0]
+      && Hero->GetTalentRank(FName(N.RequiresB)) < 1;
+  const TCHAR* PurchaseStatus = SelectedRank >= N.MaxRank ? TEXT("MAX RANK")
+      : Hero->Level < N.MinLevel ? TEXT("LEVEL LOCKED")
+      : (bMissingParentA || bMissingParentB) ? TEXT("PREREQUISITE LOCKED")
+      : Available < N.CostPerRank ? TEXT("NOT ENOUGH POINTS")
+      : TEXT("READY TO UNLOCK");
+  const bool bCanPurchase = SelectedRank < N.MaxRank && Hero->Level >= N.MinLevel
+      && !bMissingParentA && !bMissingParentB && Available >= N.CostPerRank;
+  DrawText(PurchaseStatus, bCanPurchase ? Teal : FLinearColor(0.86f,0.62f,0.65f),
+      SideX+10.f,P.MapTop+205.f,nullptr,0.72f);
   DrawRect(FLinearColor(0.15f,0.33f,0.27f),SideX,P.Top+P.Height-118.f,224.f,37.f);
   DrawText(TEXT("UNLOCK / RANK UP"),FLinearColor::White,
       SideX+12.f,P.Top+P.Height-110.f,nullptr,0.76f);
