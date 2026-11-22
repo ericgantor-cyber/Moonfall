@@ -1,0 +1,41 @@
+name: UE5 Northern discovery routes (C++17)
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
+      - 'tools/test_unreal_north_discovery_routes.cpp'
+      - '.github/workflows/unreal-north-discovery-routes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discovered-routes:
+    name: Nine-province route C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GCC route regressions
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror tools/test_unreal_north_discovery_routes.cpp -o /tmp/moonfall_north_routes
+          /tmp/moonfall_north_routes
+      - name: Configure Windows MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run MSVC route regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_north_discovery_routes.cpp /Fe:moonfall_north_routes.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_north_routes.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
