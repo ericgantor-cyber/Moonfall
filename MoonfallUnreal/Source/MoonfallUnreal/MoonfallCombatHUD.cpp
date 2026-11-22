@@ -1353,6 +1353,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
  }
+ // PB-style follow-up cue uses the actual timer by the existing resource orb,
+ // not a popup above the hero. No new animations or HUD panels.
+ const float CounterRemaining = Hero->GetParryCounterRemaining();
+ if (!bCompactScreen && CounterRemaining > 0.f) {
+  DrawText(FString::Printf(TEXT("PARRY COUNTER  %.1fs"), CounterRemaining),
+    FLinearColor(0.43f,0.86f,1.f),
+    CX + Radius + 14.f, CY - Radius * 0.55f, nullptr, 0.82f * LabelScale);
+ }
  DrawText(FString::Printf(TEXT("%.0f / %.0f HP"), FMath::Max(0.f, Hero->Health), Hero->MaxHealth),
           bCriticalHealth ? FLinearColor(1.f, 0.95f, 0.95f) : FLinearColor::White,
           CX - Radius * 0.39f, CY - Radius * 0.19f, nullptr, 0.88f * LabelScale);
