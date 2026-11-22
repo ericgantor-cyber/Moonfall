@@ -67,6 +67,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for slot in ("Weapon", "Armor", "Accessory"):
             self.assertIn("Save->Equipped" + slot + "Code = Equipped" + slot + "Code;", self.hero_cpp)
 
+    def test_ue5_talent_save_failure_restores_every_cached_bonus(self):
+        """Failed talent purchases/respecs must restore ranks, vitals and cached effects."""
+        commit = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CommitTalentRanks(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[0]
+        before_save, failed_save = commit.split("if (!SaveWorldProgress()) {", 1)
+        rollback = failed_save.split("return false;", 1)[0]
+        self.assertIn("TalentRanks = Candidate;", before_save)
+        self.assertIn("RefreshTalentBonuses();", before_save)
+        self.assertIn("TalentRanks = Previous;", rollback)
+        for resource in ("Health", "Mana", "Stamina"):
+            self.assertIn(f"{resource} = Previous{resource};", rollback)
+            self.assertIn(f"Max{resource} = PreviousMax{resource};", rollback)
+            self.assertIn(f"TalentApplied{resource}Bonus = Previous{resource}Bonus;", rollback)
+        for school in ("Melee", "Ranged", "Magic"):
+            self.assertIn(f"Talent{school}DamageBonus = Previous{school}Bonus;", rollback)
+        self.assertNotIn("OnTalentRanksChanged();", rollback)
+        self.assertIn("OnTalentRanksChanged();", failed_save.split("return false;", 1)[1])
+        load = self.hero_cpp.split("TalentRanks = Save->Version >= 13 ?", 1)[1]
+        self.assertIn("Save->TalentRanks : TMap<FName, int32>();", load)
+
     def test_ue5_classless_constellation_canvas_controller_and_safe_input(self):
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallTalentWebLayout.h").read_text(encoding="utf-8")
