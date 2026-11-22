@@ -3491,6 +3491,7 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
  if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ if (bTalentWebOpen) return false; // Modal cannot activate racial abilities.
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
