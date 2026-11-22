@@ -375,6 +375,33 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // One weak target, no world scan per frame. Camera tracking is reduced-motion aware.
+ AMoonfallEnemy* LockTarget = LockedEnemy.Get();
+ if (LockTarget) {
+  if (!IsLockTargetValid(LockTarget) || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid() || Health <= 0.f) {
+   LockedEnemy.Reset();
+  } else if (Controller && IsValid(FollowCamera)) {
+   const float Now = GetWorld()->GetTimeSeconds();
+   if (FMath::IsFinite(Now) && Now >= NextLockVisibilityCheckAt) {
+    NextLockVisibilityCheckAt = Now + 0.2f;
+    FHitResult Hit;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockVisibility), false, this);
+    const FVector AimPoint = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+    if (GetWorld()->LineTraceSingleByChannel(Hit, FollowCamera->GetComponentLocation(), AimPoint, ECC_Visibility, Params)
+        && Hit.GetActor() != LockTarget) LockedEnemy.Reset();
+   }
+   if (LockedEnemy.IsValid()) {
+    const FVector Aim = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f) - FollowCamera->GetComponentLocation();
+    if (!Aim.ContainsNaN() && !Aim.IsNearlyZero()) {
+     const FRotator Desired = Aim.Rotation();
+     const float TrackingSpeed = bReduceMotion ? 4.f : 7.f;
+     Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), Desired, SafeTimerDelta, TrackingSpeed));
+    }
+   }
+  }
+ }
+
  // Consume a buffered dodge on the first eligible gameplay frame. A queued
  // press costs no stamina, gives no immunity and never survives a modal.
  if (QueuedDodgeUntil >= 0.f) {
@@ -596,6 +623,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
@@ -873,6 +901,77 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
+
+AMoonfallEnemy* AMoonfallHeroPawn::GetLockedEnemy() const
+{
+ AMoonfallEnemy* Enemy = LockedEnemy.Get();
+ return IsLockTargetValid(Enemy) ? Enemy : nullptr;
+}
+bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
+{
+ if (!IsValid(Enemy) || !GetWorld() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) return false;
+ const FVector Offset = Enemy->GetActorLocation() - GetActorLocation();
+ const float Range = FMath::IsFinite(LockRange) ? FMath::Clamp(LockRange, 300.f, 2500.f) : 1600.f;
+ return !Offset.ContainsNaN() && Offset.SizeSquared() <= FMath::Square(Range);
+}
+void AMoonfallHeroPawn::ToggleLockOn()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (LockedEnemy.IsValid()) { LockedEnemy.Reset(); return; }
+ AcquireLockTarget(0);
+}
+void AMoonfallHeroPawn::CycleLockOn(int32 Direction)
+{
+ if (Direction == 0 || !LockedEnemy.IsValid() || Health <= 0.f
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) return;
+ AcquireLockTarget(Direction < 0 ? -1 : 1);
+}
+void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
+{
+ if (!IsValid(FollowCamera) || !GetWorld()) return;
+ const FVector Origin = FollowCamera->GetComponentLocation();
+ const FVector Forward = FollowCamera->GetForwardVector();
+ const FVector Right = FollowCamera->GetRightVector();
+ AMoonfallEnemy* Current = GetLockedEnemy();
+ float CurrentSide = 0.f;
+ if (Current) {
+  const FVector Relative = (Current->GetActorLocation() - Origin).GetSafeNormal();
+  CurrentSide = FVector::DotProduct(Relative, Right);
+ }
+ AMoonfallEnemy* Best = nullptr;
+ float BestScore = TNumericLimits<float>::Max();
+ AMoonfallEnemy* Wrapped = nullptr;
+ float WrapSide = Direction < 0 ? -TNumericLimits<float>::Max() : TNumericLimits<float>::Max();
+ // An input-driven search only; no per-frame enemy iteration.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  AMoonfallEnemy* Candidate = *It;
+  if (!IsLockTargetValid(Candidate) || Candidate == Current) continue;
+  const FVector Aim = Candidate->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin;
+  if (Aim.ContainsNaN() || Aim.IsNearlyZero()) continue;
+  const FVector UnitAim = Aim.GetSafeNormal();
+  const float Facing = FVector::DotProduct(UnitAim, Forward);
+  if (Facing < 0.15f) continue;
+  FHitResult Hit;
+  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
+  if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
+      && Hit.GetActor() != Candidate) continue;
+  const float Side = FVector::DotProduct(UnitAim, Right);
+  if (!Direction || !Current) {
+   const float Score = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
+   if (Score < BestScore) { BestScore = Score; Best = Candidate; }
+  } else {
+   const float Delta = (Side - CurrentSide) * Direction;
+   if (Delta > 0.025f && Delta < BestScore) { BestScore = Delta; Best = Candidate; }
+   if ((Direction > 0 && Side < WrapSide) || (Direction < 0 && Side > WrapSide)) {
+    WrapSide = Side; Wrapped = Candidate;
+   }
+  }
+ }
+ if (!Best && Direction && Current) Best = Wrapped;
+ if (Best) { LockedEnemy = Best; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
+ else if (!Current) LockedEnemy.Reset();
+}
+
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
@@ -898,7 +997,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
   const FVector Origin = FollowCamera->GetComponentLocation();
-  const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  const AMoonfallEnemy* Locked = GetLockedEnemy();
+  const FVector End = Locked ? Locked->GetActorLocation() + FVector(0.f, 0.f, 60.f)
+      : Origin + FollowCamera->GetForwardVector() * 1800.f;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
@@ -1417,6 +1518,7 @@ void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
    AtlasChronicleChapter, State.Valid ? State.FeaturedBeat : 0, Direction);
 }
 void AMoonfallHeroPawn::ToggleAtlas() {
+ LockedEnemy.Reset();
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  // Blueprint and corrupt transient values must never poison projected map pixels.
  AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
@@ -1464,6 +1566,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
+ LockedEnemy.Reset();
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
@@ -1673,6 +1776,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ LockedEnemy.Reset();
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -1756,6 +1860,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (!bAtlasOpen && !bInventoryOpen && !bOptionsOpen && !bResidentContextOpen && LockedEnemy.IsValid()) { CycleLockOn(-1); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1770,6 +1875,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (!bAtlasOpen && !bInventoryOpen && !bOptionsOpen && !bResidentContextOpen && LockedEnemy.IsValid()) { CycleLockOn(1); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
@@ -3221,6 +3327,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ LockedEnemy.Reset();
  QueuedDodgeUntil = -1.f;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
