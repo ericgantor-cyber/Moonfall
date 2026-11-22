@@ -4502,6 +4502,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('"DirectX 12 (recommended)"', launcher)
         self.assertIn('"DirectX 11 (compatibility)"', launcher)
         self.assertIn("rendererChoice.SelectedIndex = 0;", launcher)
+        self.assertIn("MinimumSize = new Size(760, 550);", launcher)
+        self.assertIn("Bounds = new Rectangle(25, 462, 220, 32)", launcher)
+        # On minimum width 760, Play moves 50px left due to center anchoring.
+        self.assertLess(25 + 220, 315 - (860 - 760) // 2)
         self.assertIn("rendererChoice.SelectedIndexChanged += (_, _) => UpdateStatus();", launcher)
         self.assertIn("Controls.AddRange([title, subtitle, play, rendererLabel, rendererChoice,", launcher)
         launch = launcher.split("private void LaunchGame()", 1)[1].split("\n    }", 1)[0]
