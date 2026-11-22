@@ -6501,7 +6501,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("(Current->GetActorLocation() - Origin).GetSafeNormal()", acquire)
         self.assertIn("const float Angle = FMath::Atan2(", acquire)
         self.assertIn("if (Delta <= 0.f) Delta += 2.f * PI;", acquire)
-        self.assertIn("if (Delta > 0.025f && Delta < BestScore)", acquire)
+        self.assertIn("float BestDistanceSq = TNumericLimits<float>::Max();", acquire)
+        self.assertIn("const float DistanceSq = Aim.SizeSquared();", acquire)
+        self.assertIn("FMath::Abs(Delta - BestScore) <= 0.0001f && DistanceSq < BestDistanceSq", acquire)
+        self.assertIn("BestDistanceSq = DistanceSq;", acquire)
         self.assertNotIn("WrapSide", acquire)
         self.assertNotIn("CurrentSide", acquire)
         # A/D remain movement keys, never lock-cycle actions.
