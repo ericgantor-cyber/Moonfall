@@ -134,10 +134,10 @@ void AMoonfallCombatHUD::DrawHUD()
        :FLinearColor(0.23f,0.17f,0.29f),SideX,P.Top+P.Height-70.f,224.f,37.f);
   DrawText(Hero->bTalentRespecConfirm?TEXT("CONFIRM FULL RESPEC"):TEXT("RESET ALL TALENTS"),
       FLinearColor::White,SideX+12.f,P.Top+P.Height-62.f,nullptr,0.72f);
-  DrawText(TEXT("K/ESC: close   Wheel: zoom   RMB drag: pan"),
-      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.68f);
-  DrawText(TEXT("Pad: UP/DOWN choose  A buy  B back  LT reset"),
-      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.66f);
+  DrawText(TEXT("K/ESC close | Wheel zoom | RMB pan | Pad A buy  B back  LT reset"),
+      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-46.f,nullptr,0.64f);
+  DrawText(TEXT("D-pad UP/DOWN: stars  LEFT/RIGHT: branch  Right stick: pan"),
+      FLinearColor(0.74f,0.81f,0.92f),P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
   return;
  }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
