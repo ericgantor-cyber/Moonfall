@@ -2028,9 +2028,10 @@ void AMoonfallHeroPawn::TalentWebBack()
 }
 void AMoonfallHeroPawn::TalentWebStepSelection(int32 Direction)
 {
- if (!bTalentWebOpen || Direction == 0 || MoonfallTalents::Catalog().IsEmpty()) return;
- const int32 Count = MoonfallTalents::Catalog().Num();
- TalentWebSelected = (TalentWebSelected + (Direction > 0 ? 1 : -1) + Count) % Count;
+ if (!bTalentWebOpen || (Direction != -1 && Direction != 1)) return;
+ const int32 NextIndex = MoonfallTalentWeb::StepWithinBranch(TalentWebSelected, Direction);
+ if (!MoonfallTalents::Catalog().IsValidIndex(NextIndex)) return;
+ TalentWebSelected = NextIndex;
  MoonfallTalentWeb::Focus(TalentWebSelected, TalentWebPan);
  bTalentRespecConfirm = false;
 }
@@ -3639,7 +3640,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
- if (bTalentWebOpen) return;
+ // The D-pad Up key is bound to ResidentContext, not OptionsUp. Route it
+ // into the constellation before NPC acquisition; otherwise Up does nothing.
+ if (bTalentWebOpen) { TalentWebStepSelection(-1); return; }
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
