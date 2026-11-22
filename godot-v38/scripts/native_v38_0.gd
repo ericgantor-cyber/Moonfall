@@ -713,20 +713,74 @@ func _v406_respec()->void:
  _save_game()
  _v398_refresh_tree()
 
+# World combat pauses while the full-screen 141-node talent constellation is open.
+func _v406_talents_pause_enemies()->bool:
+ return is_instance_valid(v398_panel) and v398_panel.visible
+
+func _v406_cancel_pending_enemy_attacks()->void:
+ for beast in beasts:
+  if not bool(beast.get("alive",false)):continue
+  beast["windup"]=0.0
+  beast["elite_lunge_windup"]=0.0
+  beast["v404_attack_pending"]=false
+  beast["v404_tell_until"]=0.0
+  beast["v407_release_until"]=0.0
+  beast["v407_counter_open_until"]=0.0
+  beast["v28_sleep_dt"]=0.0
+  # The inherited AI also owns ordinary boss warning disks and divine
+  # signature combos. Clear those pending effects, not only bloodline tells.
+  if beast.has("divine_id"):
+   beast["divine_warn_until"]=0.0
+   beast["divine_chain_pending"]=false
+   var divine_disk:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+   if is_instance_valid(divine_disk):divine_disk.hide()
+  var boss_id:int=int(beast.get("boss_id",-1))
+  if boss_telegraphs.has(boss_id):
+   var boss_warning:MeshInstance3D=boss_telegraphs[boss_id] as MeshInstance3D
+   if is_instance_valid(boss_warning):boss_warning.visible=false
+  var warning:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
+  if is_instance_valid(warning):warning.visible=false
+  var nameplate:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(nameplate) and bool(beast.get("v400_bloodline",false)):
+   nameplate.text=str(beast.get("v400_family_name",""))+"  •  PHASE "+str(beast.get("boss_phase",1))
+   nameplate.modulate=Color.WHITE
+
+func _update_beasts(delta:float)->void:
+ if _v406_talents_pause_enemies():return
+ super._update_beasts(delta)
+
+func _physics_process(delta:float)->void:
+ # Match the existing world-menu pause: no player movement or combat ticks
+ # while browsing the talents, even if movement keys remain held.
+ if _v406_talents_pause_enemies():return
+ super._physics_process(delta)
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
  if v398_panel.visible:
+  _v406_cancel_pending_enemy_attacks()
   _v406_fit_panel_to_viewport()
   _v398_refresh_tree()
+ else:
+  # The world clock may advance during browsing. Do not instantly retrigger
+  # a scheduled boss tell when the constellation closes.
+  for beast in beasts:
+   if bool(beast.get("alive",false)) and bool(beast.get("v400_bloodline",false)):
+    beast["v404_tell_next"]=maxf(float(beast.get("v404_tell_next",0.0)),map_time+2.0)
+   if bool(beast.get("alive",false)) and beast.has("divine_id"):
+    beast["divine_next_at"]=maxf(float(beast.get("divine_next_at",0.0)),map_time+2.0)
 
 func _unhandled_input(event:InputEvent)->void:
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
-  _v401_end_z_intro()
+ if _v406_talents_pause_enemies():
+  # Let focused talent controls receive events first; never forward unused
+  # mouse/controller actions to the game world behind the open overlay.
+  if event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_B,JOY_BUTTON_START]:
+   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
   return
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K:
-  _v398_toggle_tree()
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
+  _v401_end_z_intro()
   get_viewport().set_input_as_handled()
   return
  if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
@@ -744,6 +798,7 @@ func _unhandled_input(event:InputEvent)->void:
  super._unhandled_input(event)
 
 func _apply_incoming_damage(raw:float)->void:
+ if _v406_talents_pause_enemies():return
  # Alt + right-drag orbits the camera, not a defensive guard.
  # The camera handler marks that state when orbit begins, even after Alt is
  # released while the right button is still held.
@@ -804,6 +859,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
 
 
 func _update_beast_step(beast:Dictionary,delta:float)->void:
+ if _v406_talents_pause_enemies():return
  super._update_beast_step(beast,delta)
  if bool(beast.get("alive",false)) and bool(beast.get("boss",false)) and bool(beast.get("v400_bloodline",false)):
   var boss_name:String=str(beast.get("v400_family_name",""))
@@ -950,6 +1006,7 @@ func _hero_damage_multiplier()->float:
  return base
 
 func _attack()->void:
+ if _v406_talents_pause_enemies():return
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
   return
@@ -985,6 +1042,7 @@ func _attack()->void:
    attack_cooldown=maxf(attack_cooldown,0.62)
 
 func _spell(which:String)->void:
+ if _v406_talents_pause_enemies():return
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or ability_cooldown>0.0:
@@ -1024,6 +1082,7 @@ func _v407_precision_dodge_target()->Dictionary:
  return {}
 
 func _dodge()->void:
+ if _v406_talents_pause_enemies():return
  # Inactive gameplay must not trigger dodge actions or resource warnings.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or dodge_cooldown>0.0:
@@ -1134,6 +1193,21 @@ func _v384_refresh_vitals()->void:
  v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(_v406_resource_max("mana",V385_MAX_MANA)),experience,experience_target,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
 
 func _unhandled_key_input(event:InputEvent)->void:
+ # Godot dispatches unhandled key events before generic unhandled input.
+ # Intercept Escape here before main.gd can open its pause screen.
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_pause_enemies():
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
+ # The base key handler consumes all game keys, including K. Open and close
+ # the constellation before forwarding keyboard events to the world.
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K and hero_playing and not death_active and not menu_open:
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
+ if _v406_talents_pause_enemies():
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
   v380_status_enabled=not v380_status_enabled
   if v380_status_enabled:
