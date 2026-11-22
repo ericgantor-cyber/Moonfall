@@ -388,7 +388,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
-        self.assertIn("if (bInventoryOpen) return;", toggle)
+        # D-pad Left and Right now navigate between inventory and character
+        # details without activating the equip/craft actions.
+        self.assertIn("if (bInventoryOpen) {", toggle)
+        self.assertIn("if (bCharacterStatsOpen) ToggleCharacterStats();", toggle)
+        self.assertIn("if (!bCharacterStatsOpen) ToggleCharacterStats();", toggle)
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
