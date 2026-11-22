@@ -46,26 +46,34 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", path)
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
 
-    def test_reached_first_corner_advances_without_extra_path_queries(self):
-        # An engine-provided path can start with a near-zero movement segment.
-        # Once the first corner is reached, use the next finite corner of the
-        # same path rather than spending another synchronous path query.
+    def test_duplicate_starting_corners_are_skipped_with_bounded_work(self):
+        # NavMesh paths can contain several coincident points near a doorway.
+        # Consume reached points from the one cached route without extra solves.
         route = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
             "if (CachedWaypoint.ContainsNaN())", 1
         )[0]
-        self.assertIn("const bool bAdvancePastReachedCorner = bHasCachedNavigationWaypoint", route)
-        self.assertIn("&& Path->PathPoints.Num() > 2", route)
-        self.assertIn("FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", route)
-        self.assertIn("&& !Path->PathPoints[2].ContainsNaN();", route)
-        self.assertIn("? (bAdvancePastReachedCorner ? Path->PathPoints[2] : FirstCorner)", route)
-        self.assertLess(route.index("&& Path->PathPoints.Num() > 2"),
-                        route.index("Path->PathPoints[2].ContainsNaN()"))
-        self.assertLess(route.index("Path->PathPoints[2].ContainsNaN()"),
-                        route.index("CachedWaypoint = bHasCachedNavigationWaypoint"))
-        # Existing path cadence, obstacle sweeps, valid origin and boss
-        # combat behavior are preserved without any new NavMesh solves.
+        self.assertIn("CachedWaypoint = bHasCachedNavigationWaypoint ? FirstCorner : FVector::ZeroVector;", route)
+        self.assertIn("const int32 MaxCornersToCheck = FMath::Min(Path->PathPoints.Num(), 9);", route)
+        self.assertIn("for (int32 CornerIndex = 2; CornerIndex < MaxCornersToCheck", route)
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f)", route)
+        self.assertIn("const FVector NextCorner = Path->PathPoints[CornerIndex];", route)
+        self.assertIn("if (NextCorner.ContainsNaN())", route)
+        self.assertIn("bNavigationRouteUnavailable = true;", route)
+        self.assertIn("bHasCachedNavigationWaypoint = false;", route)
+        self.assertIn("CachedWaypoint = NextCorner;", route)
+        self.assertLess(route.index("NextCorner.ContainsNaN()"), route.index("CachedWaypoint = NextCorner;"))
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
+
+    def test_duplicate_path_corner_skip_never_crosses_floors(self):
+        # Arrival checks include height; a corner above the enemy is not reached.
+        route = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint)", route)
+        self.assertNotIn("FVector::DistSquared2D(GetActorLocation(), CachedWaypoint)", route)
+        # A safety limit bounds per-solve path-point processing for large packs.
+        self.assertIn("FMath::Min(Path->PathPoints.Num(), 9)", route)
 
     def test_multilevel_nav_corners_require_3d_arrival(self):
         # Two NavMesh corners can share XY coordinates on different floors.
@@ -74,7 +82,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         nav = self.source.split("// Solve paths only when the cache expires.", 1)[1].split(
             "FVector Direction = Target - GetActorLocation();", 1
         )[0]
-        self.assertIn("FVector::DistSquared(GetActorLocation(), FirstCorner) < FMath::Square(65.f)", nav)
+        self.assertIn("FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f)", nav)
         self.assertNotIn("FVector::DistSquared2D(GetActorLocation(), FirstCorner)", nav)
         waypoint = nav.split("if (bHasCachedNavigationWaypoint) {", 1)[1].split(
             "} else {\n   // Preserve direct chase without NavSystem", 1
