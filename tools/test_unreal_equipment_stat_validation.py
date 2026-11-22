@@ -145,6 +145,39 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", body)
         self.assertNotIn("InventoryItemCodes.Contains(Codes[Slot])", body)
 
+    def test_crafting_blocks_reentrant_save_and_inventory_actions(self):
+        header = (SOURCE.parent / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("bool bEquipmentCraftInProgress = false;", header)
+        saver = self.source.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("|| bEquipmentCraftInProgress || bPersistentSaveWritesBlocked", saver)
+        self.assertIn("if (bEquipmentCraftInProgress) return false;", loader)
+        for method in ("EquipInventoryItem", "SalvageInventoryItem"):
+            body = self.source.split(
+                "bool AMoonfallHeroPawn::" + method + "(int32 InventoryIndex)", 1
+            )[1].split("\n}", 1)[0]
+            self.assertIn("bEquipmentCraftInProgress", body, method)
+        best = self.source.split(
+            "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1
+        )[1].split("\n}", 1)[0]
+        self.assertIn("if (bEquipmentCraftInProgress || !bInventoryOpen", best)
+        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity"):
+            body = self.source.split(
+                "bool AMoonfallHeroPawn::" + method + "(int32 InventoryIndex)", 1
+            )[1].split("\n}", 1)[0]
+            self.assertIn("if (bEquipmentCraftInProgress || !bInventoryOpen", body, method)
+            self.assertLess(body.index("bEquipmentCraftInProgress = true;"),
+                            body.index("InventoryItemCodes[InventoryIndex] = NewCode;"), method)
+            rollback = body.index("InventoryItemCodes[InventoryIndex] = Code;")
+            self.assertLess(rollback,
+                            body.index("bEquipmentCraftInProgress = false;", rollback), method)
+            self.assertEqual(body.count("bEquipmentCraftInProgress = false;"), 2, method)
+            self.assertLess(body.rindex("bEquipmentCraftInProgress = false;"),
+                            body.index("OnEquipment", body.index("Salvage -= Cost;")), method)
+
     def test_worn_armor_crafting_preserves_validated_previous_tier(self):
         # The inventory code is rewritten before re-equip, so the old worn
         # code is no longer owned. Without the pre-mutation tier override,
