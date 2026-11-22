@@ -23,7 +23,8 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # projected destination that may be on the opposite side of a wall.
         path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
             "if (CachedWaypoint.ContainsNaN())", 1)[0]
-        self.assertIn("const bool bHasPathSegment = IsValid(Path) && Path->PathPoints.Num() > 1;", path)
+        self.assertIn("const bool bHasPathSegment = IsValid(Path) && Path->IsValid()", path)
+        self.assertIn("&& Path->PathPoints.Num() > 1;", path)
         self.assertIn("? Path->PathPoints[1] : FVector::ZeroVector;", path)
         self.assertNotIn("!Path->IsPartial()", path)
         # Preserve one cached query with no extra navigation probes.
@@ -31,6 +32,19 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
         self.assertLess(path.index("const bool bHasPathSegment"), path.index("Path->PathPoints[1]"))
         self.assertIn("NextPathRefreshAt = Now + PathRefreshBase", self.source)
+
+    def test_invalid_nav_path_object_is_not_treated_as_reachable(self):
+        # UObject validity alone cannot establish whether Unreal found a
+        # navigable route. Both complete and partial paths must be valid.
+        path = self.source.split("UNavigationPath* Path = Nav->FindPathToLocationSynchronously(", 1)[1].split(
+            "if (CachedWaypoint.ContainsNaN())", 1
+        )[0]
+        self.assertIn("IsValid(Path) && Path->IsValid()", path)
+        self.assertIn("&& Path->PathPoints.Num() > 1;", path)
+        self.assertLess(path.index("IsValid(Path) && Path->IsValid()"),
+                        path.index("Path->PathPoints[1]"))
+        self.assertIn("bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();", path)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
 
     def test_reached_first_corner_advances_without_extra_path_queries(self):
         # An engine-provided path can start with a near-zero movement segment.
