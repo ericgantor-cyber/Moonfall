@@ -1393,7 +1393,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", body)
+        self.assertIn("if (bEquipmentCraftInProgress || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", body)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
         self.assertIn("const int32 Code = GetEquipmentSlotCode(Slot);", body)
         self.assertIn("MoonfallEquipmentSlots::SlotCount", body)
