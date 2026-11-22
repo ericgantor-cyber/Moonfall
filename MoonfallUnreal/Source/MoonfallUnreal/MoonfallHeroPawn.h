@@ -213,6 +213,8 @@ public:
  // Native lightweight Canvas constellation. UI state is transient, never saved.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") bool bTalentWebOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") bool bTalentRespecConfirm = false;
+ // Full respec requires a second press within a bounded 15-second window.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") float TalentRespecConfirmUntil = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") int32 TalentWebSelected = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") float TalentWebZoom = 0.2f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents|UI") FVector2D TalentWebPan = FVector2D::ZeroVector;
