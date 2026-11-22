@@ -56,13 +56,13 @@ internal sealed class LaunchWindow : Form
         // DX12 is preferred. Offer DX11 only as a deliberate compatibility
         // option; never silently fall back or change saved gameplay settings.
         var rendererLabel = new Label {
-            Text = "GRAPHICS API", Bounds = new Rectangle(58, 433, 225, 23),
+            Text = "GRAPHICS API", Bounds = new Rectangle(25, 433, 225, 23),
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
             ForeColor = Color.FromArgb(203, 199, 232), TextAlign = ContentAlignment.MiddleLeft
         };
         rendererChoice = new ComboBox {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Bounds = new Rectangle(58, 462, 225, 32),
+            Bounds = new Rectangle(25, 462, 220, 32),
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
             BackColor = Color.FromArgb(49, 35, 68),
             ForeColor = Color.WhiteSmoke,
