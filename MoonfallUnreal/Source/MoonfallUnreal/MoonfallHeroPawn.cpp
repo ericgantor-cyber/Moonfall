@@ -643,6 +643,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
  Input->BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget);
+ Input->BindAction(TEXT("GamepadContextLeft"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadContextLeft);
+ Input->BindAction(TEXT("GamepadContextRight"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadContextRight);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
@@ -1902,6 +1904,16 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
+}
+// Dedicated D-pad handlers keep combat target changes off A/D and arrow keys.
+// In overlays the same buttons retain the existing menu and Atlas behavior.
+void AMoonfallHeroPawn::GamepadContextLeft() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) { OptionsLeft(); return; }
+ if (GetLockedEnemy() && Health > 0.f && !FocusedResident.IsValid()) AcquireLockTarget(-1);
+}
+void AMoonfallHeroPawn::GamepadContextRight() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) { OptionsRight(); return; }
+ if (GetLockedEnemy() && Health > 0.f && !FocusedResident.IsValid()) AcquireLockTarget(1);
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen) {
