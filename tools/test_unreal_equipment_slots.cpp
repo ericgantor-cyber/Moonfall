@@ -116,4 +116,37 @@ int main() {
  ExpandedCodes emptyOutput{};
  assert(TryPrepareV13(emptyLegacy, emptyFuture, nullptr, 0, emptyOutput));
  assert(emptyOutput == FromLegacy(emptyLegacy));
+
+ // Advisor compares all nine slots without ownership scans inside the
+ // scoring function. Exact same item, invalid item and lower tier are safe.
+ assert(AdvisorUpgradeDelta(81009, v13) == 0);
+ assert(AdvisorUpgradeDelta(81010, v13) == 1000);
+ assert(AdvisorUpgradeDelta(81008, v13) == -1000);
+ assert(AdvisorUpgradeDelta(0, v13) == 0);
+ assert(AdvisorUpgradeDelta(-1, v13) == 0);
+ assert(AdvisorUpgradeDelta(91010, v13) == 0); // Unknown slot.
+ assert(AdvisorUpgradeDelta(86010, v13) == 0); // Bad rarity.
+ assert(AdvisorItemScore(81009, Ring, v13) == 9000);
+ assert(AdvisorItemScore(81009, Head, v13) == 0);
+
+ // Other gear slots, including the six new ones, contribute matching sets.
+ // With three or more other matches the threshold stays at its cap.
+ ExpandedCodes setGear{};
+ setGear[Weapon] = 202010; // Ward weapon, tier 10 / rarity 2.
+ setGear[Head] = 132010; // Force head.
+ assert(AdvisorUpgradeDelta(102010, setGear) == 40);
+ setGear[Shoulders] = 142010;
+ assert(AdvisorUpgradeDelta(102010, setGear) == 80);
+ setGear[Hands] = 152010;
+ assert(AdvisorUpgradeDelta(102010, setGear) == 80);
+ // Invalid, wrongly slotted gear must not inflate the matching-piece count.
+ setGear[Head] = 142010;
+ setGear[Shoulders] = 0;
+ setGear[Hands] = 0;
+ assert(AdvisorUpgradeDelta(102010, setGear) == 0);
+
+ // Portable contract: score computations never change equipped codes.
+ const ExpandedCodes beforeAdvisor = setGear;
+ (void)AdvisorUpgradeDelta(102010, setGear);
+ assert(setGear == beforeAdvisor);
 }
