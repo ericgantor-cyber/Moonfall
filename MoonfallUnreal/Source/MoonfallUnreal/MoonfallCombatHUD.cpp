@@ -44,6 +44,11 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("LEVEL %d  |  %d UNALLOCATED  |  141 STARS"),
        Hero->Level,Available),FLinearColor(0.78f,0.86f,0.97f),
        P.Left+16.f,P.Top+42.f,nullptr,0.77f);
+  // An unobtrusive pause cue on spacious layouts; narrow layouts keep
+  // the talent point count readable instead of overlapping the heading.
+  if (P.Width >= 850.f)
+   DrawText(TEXT("ENEMY ATTACKS PAUSED"),Teal,
+      P.Left+P.Width-232.f,P.Top+43.f,nullptr,0.64f);
   DrawRect(FLinearColor(0.36f,0.14f,0.21f),P.Left+P.Width-42.f,P.Top+12.f,28.f,28.f);
   DrawText(TEXT("X"),FLinearColor::White,P.Left+P.Width-33.f,P.Top+15.f,nullptr,0.85f);
   DrawRect(FLinearColor(0.055f,0.075f,0.13f),P.MapLeft,P.MapTop,P.MapWidth,P.MapHeight);
