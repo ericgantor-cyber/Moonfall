@@ -44,7 +44,7 @@ jobs:
           export XDG_DATA_HOME="${RUNNER_TEMP}/moonfall-gameplay-data"
           export MOONFALL_TEST_PROFILE="${XDG_DATA_HOME}/godot/app_userdata"
           mkdir -p "${MOONFALL_TEST_PROFILE}"
-          for test in v38_2_procedural.gd v38_0_overhaul.gd equipment_catalog.gd equipment_inventory.gd equipment_rng.gd loot_capacity_integrity.gd material_capacity_integrity.gd crafting_capacity.gd v30_4_inventory_rules.gd aim_v38_8.gd key_ring.gd talent_tree_runtime.gd talent_web_runtime.gd talent_panel_layout_runtime.gd combat_rhythm_test.gd combat_rhythm_live_test.gd talent_world_live.gd panels_world_live.gd; do
+          for test in v31_3_gameplay.gd v38_2_procedural.gd v38_0_overhaul.gd equipment_catalog.gd equipment_inventory.gd equipment_rng.gd loot_capacity_integrity.gd material_capacity_integrity.gd crafting_capacity.gd v30_4_inventory_rules.gd aim_v38_8.gd key_ring.gd talent_tree_runtime.gd talent_web_runtime.gd talent_panel_layout_runtime.gd combat_rhythm_test.gd combat_rhythm_live_test.gd talent_world_live.gd panels_world_live.gd; do
             echo "::group::${test}"
             godot --headless --path godot-v38 --script "res://tests/${test}"
             echo "::endgroup::"
