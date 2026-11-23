@@ -394,9 +394,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Legacy full-screen pause modals still suspend hostiles. The talent web
- // is informational: queued strikes, boss telegraphs and combo follow-ups
- // must continue while its 141 nodes are visible.
+ // Only genuine blocking states suspend hostiles. The right-docked
+ // inventory/character sheet and the constellation leave world attacks live.
+ // Actual defeat, the options/Atlas modal and resident dialogue retain cleanup.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  // An unpossessed old pawn may remain valid after respawn or hero switching.
  // Never allow it to receive another cached-target attack.
@@ -415,8 +415,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
+     || Hero->bOptionsOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
