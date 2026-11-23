@@ -2174,7 +2174,9 @@ func _unhandled_input(event: InputEvent) -> void:
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:_attack()
 
 func _physics_process(delta: float) -> void:
- if not hero_playing or menu_open or wait_open or wait_transition_active:return
+ # Raven Atlas tabs are UI overlays; combat, movement and world time keep running.
+ # The explicit rest transition and death flow retain their own lifecycle guards.
+ if not hero_playing or wait_open or wait_transition_active:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
  dodge_time=COMBAT_RULES.dodge_timer_after_frame(dodge_time,delta)

@@ -655,6 +655,12 @@ func _atlas_zoom(factor:float)->void:
  atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 or atlas_regional_dungeon>=0 else atlas_zoom_radius)
  _refresh_atlas()
 
+# The map belongs to this extension layer; only this class can safely
+# access it while entering the Raven Atlas menu.
+func _toggle_menu()->void:
+ if not menu_open and is_instance_valid(atlas_panel):atlas_panel.hide()
+ super._toggle_menu()
+
 func _toggle_atlas()->void:
  if not hero_playing or menu_open or death_active or not is_instance_valid(atlas_panel):return
  atlas_panel.visible=not atlas_panel.visible

@@ -169,19 +169,18 @@ func _run()->void:
      combo_game.call("_spell","fire")
      check(is_equal_approx(float(combo_game.get("v385_mana")),cost) and is_zero_approx(float(combo_game.get("ability_cooldown"))) and is_equal_approx(float(target["hp"]),hp_after),"aimed flame blocked during "+blocked_state)
      combo_game.set(blocked_state,false)
-    # Aimed Flame is overridden in native_v38_7. It must honor the same
-    # active talent constellation pause even when invoked directly.
+    # Aimed Flame is a live-world spell even with the constellation open.
     var talent_panel:PanelContainer=combo_game.get("v398_panel") as PanelContainer
-    check(is_instance_valid(talent_panel),"talent constellation exists for special-spell pause test")
+    check(is_instance_valid(talent_panel),"talent constellation exists for live-spell test")
     if is_instance_valid(talent_panel):
      combo_game.set("v385_mana",cost)
      combo_game.set("ability_cooldown",0.0)
-     var hp_before_pause:float=float(target["hp"])
+     var hp_before_web_cast:float=float(target["hp"])
      talent_panel.visible=true
      combo_game.call("_spell","fire")
-     check(is_equal_approx(float(combo_game.get("v385_mana")),cost),"talent web blocks aimed Flame mana spend")
-     check(is_zero_approx(float(combo_game.get("ability_cooldown"))),"talent web blocks aimed Flame cooldown")
-     check(is_equal_approx(float(target["hp"]),hp_before_pause),"talent web blocks aimed Flame damage")
+     check(is_zero_approx(float(combo_game.get("v385_mana"))),"talent web does not block aimed Flame mana spend")
+     check(float(combo_game.get("ability_cooldown"))>0.0,"talent web does not block aimed Flame cooldown")
+     check(float(target["hp"])<hp_before_web_cast,"talent web does not block aimed Flame damage")
      talent_panel.visible=false
   combo_game.queue_free()
  quit(1 if failures>0 else 0)
