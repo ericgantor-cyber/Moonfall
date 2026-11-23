@@ -227,6 +227,14 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
  // A committed melee swing uses an automatic angle: high/right/low/left.
  // Optional Blueprint hook can play a montage or weapon trail for that angle.
+ // Skyrim-inspired right-hand slot: weapon/unarmed or explicitly readied spell.
+ // Defaults to weapon; right-click NPC interactions and spell hotkeys remain separate.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Hands") bool bRightHandSpellReadied = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void RightHandAction();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ToggleRightHandLoadout();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool ReadyRightHandSpell(int32 School);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ReadyRightHandWeapon();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 CurrentSwordAngle = -1;
