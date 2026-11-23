@@ -2434,7 +2434,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
  if engaged and not bool(beast.get("boss",false)):
-  var v383_role:String="ambusher" if kind=="panther" else "bruiser"
+  var v383_role:String=V383_COMBAT_RULES.fauna_combat_role(kind)
   var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
   v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
  var activity:Dictionary=beast.get("ecology_target",{})
