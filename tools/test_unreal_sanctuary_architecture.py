@@ -103,6 +103,23 @@ int main() {
         self.assertIn("GetActorTransform().TransformPosition(Placement.Offset)",arena)
         self.assertIn("FeaturedDivineBossId",arena)
 
+    def test_firstlight_dialogue_keeps_lore_and_existing_contract(self):
+        dialogue = (SRC / "MoonfallWorldNPC.cpp").read_text(encoding="utf-8")
+        speak = dialogue.split("bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero)",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest",1)[0]
+        for text in ('SettlementId == FName(TEXT("Firstlight"))',
+                     "Spoken.ToString() + TEXT(\" \") + Offer",
+                     "I have a task for you. Select Accept in our conversation.",
+                     'Hero->GetResidentQuestState(ResidentId) == 1',
+                     "GetContractSalvageCost()",
+                     'Hero->GetResidentQuestState(ResidentId) == 2',
+                     'Disposition != TEXT("Hostile")'):
+            self.assertIn(text,speak)
+        self.assertIn(": FText::FromString(Offer);",speak)
+        self.assertIn("OnDialogueStarted(Hero, Reaction);",speak)
+        # No new quest currency, save object or ambient actor timer.
+        self.assertNotIn("SaveGameToSlot",speak)
+
     def test_two_persistent_id_residents_without_new_quest_schema(self):
         scene=self.arena.split("// Two stable, no-Tick sanctuary residents",1)[1].split(
             "// Twelve fixed representatives",1)[0]

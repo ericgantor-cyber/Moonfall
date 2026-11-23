@@ -113,8 +113,15 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  // Accepted one-time contracts have useful, contextual status.
- if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0)
-  Reaction = FText::FromString(TEXT("I have a task for you. Select Accept in our conversation."));
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0) {
+  // Firstlight residents can tell their authored story on first meeting
+  // while retaining the existing one-time salvage contract acceptance.
+  // All Crossroads and other NPC dialogue remains unchanged.
+  const FString Offer = TEXT("I have a task for you. Select Accept in our conversation.");
+  Reaction = SettlementId == FName(TEXT("Firstlight"))
+    ? FText::FromString(Spoken.ToString() + TEXT(" ") + Offer)
+    : FText::FromString(Offer);
+ }
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
   Reaction = FText::FromString(FString::Printf(
     TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
