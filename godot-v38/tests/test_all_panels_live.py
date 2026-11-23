@@ -63,6 +63,15 @@ class AllPanelsRemainLive(unittest.TestCase):
         self.assertNotIn("menu_open", process[start:end])
         self.assertIn("v387_stamina_regen_wait-=delay_used", process[start:end])
 
+    def test_menu_entry_closes_stacked_overlays(self):
+        toggle = function("native_v38_0.gd", "_toggle_menu")
+        self.assertIn("if not menu_open:", toggle)
+        self.assertIn("v398_panel.hide()", toggle)
+        self.assertIn("atlas_panel.hide()", toggle)
+        self.assertIn("super._toggle_menu()", toggle)
+        self.assertLess(toggle.index("v398_panel.hide()"), toggle.index("super._toggle_menu()"))
+        self.assertLess(toggle.index("atlas_panel.hide()"), toggle.index("super._toggle_menu()"))
+
     def test_underwater_danger_remains_real(self):
         oxygen = function("native_v37_2.gd", "_physics_process")
         self.assertIn("can_dive(v37_swimming,hero_playing,false,mounted,death_active)", oxygen)
