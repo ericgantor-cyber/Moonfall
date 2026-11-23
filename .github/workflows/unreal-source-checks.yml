@@ -80,7 +80,7 @@ jobs:
           assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
           assert 'ActionName="CastLeft",Key=Z' in inputs
           assert 'ActionName="CastRight",Key=X' in inputs
-          assert 'MeleeAttack(); return;' in hero and 'CastRight();' in hero
+          assert 'RightHandAction(); return;' in hero and 'CastRight();' in hero
           assert 'ActionName="TalkNPC"' not in inputs
           assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
