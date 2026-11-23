@@ -1932,11 +1932,11 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
-  SwordBuffer.Clear();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  SwordBuffer.Clear(); // Menu entry cancels a queued attack.
  }
  bOptionsOpen = !bOptionsOpen;
  // Match the inventory close workflow and allow the Options X to be clicked.
