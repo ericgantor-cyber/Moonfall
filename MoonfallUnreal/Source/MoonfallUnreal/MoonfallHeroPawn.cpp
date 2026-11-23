@@ -1347,6 +1347,7 @@ void AMoonfallHeroPawn::Dodge()
  PerfectDodgeWindowUntil = Now + 0.14f;
  // Direction was validated and locked before committing stamina/cooldowns.
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
+ QueuedDodgeDirection = FVector::ZeroVector;
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -1598,6 +1599,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
   // Discover active, already-visited shrines from their real actors once
   // per Atlas opening. No per-frame world actor scan or new save fields.
   AtlasDiscoveredShrineLocations.Reset();
@@ -1641,6 +1643,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -1862,6 +1865,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
  }
  bOptionsOpen = !bOptionsOpen;
  // Match the inventory close workflow and allow the Options X to be clicked.
@@ -3411,6 +3415,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  LockedEnemy.Reset();
  QueuedDodgeUntil = -1.f;
+ QueuedDodgeDirection = FVector::ZeroVector;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
