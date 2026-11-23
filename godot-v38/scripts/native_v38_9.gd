@@ -47,11 +47,15 @@ func _menu_hit_flash_begin()->void:
 
 func _menu_hit_flash_draw()->void:
  if not is_instance_valid(menu_hit_flash_rect):return
+ # This runs every frame; avoid clock reads and repeated UI writes when idle.
+ if menu_hit_flash_until_ms<=0:
+  if menu_hit_flash_rect.visible:menu_hit_flash_rect.visible=false
+  return
  var remaining_ms:int=menu_hit_flash_until_ms-Time.get_ticks_msec()
  if remaining_ms<=0 or not _menu_hit_flash_panel_open():
   # Never resurrect an old hit if the player closes and reopens a menu.
   menu_hit_flash_until_ms=0
-  menu_hit_flash_rect.visible=false
+  if menu_hit_flash_rect.visible:menu_hit_flash_rect.visible=false
   return
  # A single soft fade, not a repeated strobe or warning text.
  var portion:float=clampf(float(remaining_ms)/float(MENU_HIT_FLASH_MS),0.0,1.0)
