@@ -14,6 +14,292 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_ue5_full_godot_141_talent_catalog_and_atomic_save(self):
+        import json
+        import re
+        source = (ROOT / "MoonfallTalentRules.h").read_text(encoding="utf-8")
+        original = json.loads((ROOT.parents[2] / "godot-v38" / "data" /
+                               "moonfall_talents.json").read_text(encoding="utf-8"))
+        pattern = (r'^\s*\{TEXT\("([^"]+)"\), TEXT\("([^"]+)"\), TEXT\("([^"]+)"\), '
+                   r'(\d+), (\d+), (\d+), (\d+), TEXT\("([^"]*)"\), TEXT\("([^"]*)"\), '
+                   r'EStat::(\w+), (true|false), ([\d.]+)f\},?$')
+        rows = re.findall(pattern, source, re.MULTILINE)
+        self.assertEqual(len(rows), 141)
+        self.assertEqual(len({row[0] for row in rows}), 141)
+        self.assertEqual(original["points_per_level"], 2)
+        self.assertEqual(original["maximum_level"], 100)
+        self.assertEqual(original["starting_points"], 0)
+        self.assertIn("return Level >= 1 && Level <= 100 ? (Level - 1) * 2 : -1;", source)
+        stats = {"health": "Health", "mana": "Mana", "stamina": "Stamina",
+                 "melee_damage": "MeleeDamage", "ranged_damage": "RangedDamage",
+                 "magic_damage": "MagicDamage"}
+        for row, node in zip(rows, original["nodes"]):
+            with self.subTest(node=node["id"]):
+                self.assertEqual(row[0:3], (node["id"], node["title"], node["branch"]))
+                self.assertEqual(tuple(map(int, row[3:7])),
+                                 (node["tier"], node["min_level"], node["max_rank"],
+                                  node["cost_per_rank"]))
+                req = node["requires"] + ["", ""]
+                self.assertEqual(row[7:9], (req[0], req[1]))
+                self.assertEqual(row[9], stats[node["effect"]["stat"]])
+                self.assertEqual(row[10], str(node["effect"]["kind"] == "percent").lower())
+                self.assertAlmostEqual(float(row[11]), node["effect"]["amount_per_rank"], places=6)
+        for guard in ("Ranks.Num() > Catalog().Num()", "Entry.Value > Node->MaxRank",
+                      "Level < Node->MinLevel", "Ranks.FindRef(FName(Node->RequiresA)) < 1",
+                      "Ranks.FindRef(FName(Node->RequiresB)) < 1", "Spent > Earned",
+                      "if (!Validate(Level, Candidate)) return false;"):
+            self.assertIn(guard, source)
+        save = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("Version = 13;", save)
+        self.assertIn("TMap<FName, int32> TalentRanks;", save)
+        self.assertIn("Save->Version > 13", self.hero_cpp)
+        self.assertIn("Save->TalentRanks = TalentRanks;", self.hero_cpp)
+        self.assertIn("Save->Version >= 13 && !MoonfallTalents::Validate(Save->Level, Save->TalentRanks)", self.hero_cpp)
+        self.assertLess(self.hero_cpp.index("Save->Version >= 13 && !MoonfallTalents::Validate"),
+                        self.hero_cpp.index("Level = FMath::Clamp(Save->Level, 1, 100)"))
+        self.assertIn("TalentRanks = Save->Version >= 13 ? Save->TalentRanks : TMap<FName, int32>();", self.hero_cpp)
+        self.assertIn("TalentRanks = Previous;", self.hero_cpp)
+        self.assertIn("* (1.f + TalentMagicDamageBonus)", self.hero_cpp)
+        self.assertIn("if (Level != PreviousLevel) OnTalentRanksChanged();", self.hero_cpp)
+        for api in ("GetTalentIds()", "GetTalentNodeDetails(", "SpendTalentPoint(",
+                    "ResetTalentTree()", "GetUnspentTalentPoints()", "GetTalentStatBonus("):
+            self.assertIn(api, self.hero_h)
+        for slot in ("Weapon", "Armor", "Accessory"):
+            self.assertIn("Save->Equipped" + slot + "Code = Equipped" + slot + "Code;", self.hero_cpp)
+
+    def test_ue5_talent_hud_rank_queries_use_cached_index(self):
+        # A visible 141-star constellation must not scan the complete talent
+        # catalog for each rank query or rebuild its ID index each frame.
+        rules = (ROOT / "MoonfallTalentRules.h").read_text(encoding="utf-8")
+        lookup = rules.split("inline const FNode* Find(FName Id)", 1)[1].split(
+            "inline int32 EarnedPoints(int32 Level)", 1)[0]
+        self.assertIn("static const TMap<FName, int32> ById = []()", lookup)
+        self.assertIn("Index.Reserve(Nodes.Num());", lookup)
+        self.assertIn("Index.Add(FName(Nodes[I].Id), I);", lookup)
+        self.assertIn("const int32* Index = ById.Find(Id);", lookup)
+        self.assertIn("return Index && Catalog().IsValidIndex(*Index)", lookup)
+        self.assertNotIn("for (const FNode& Node : Catalog())", lookup)
+        rank = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetTalentRank(FName TalentId) const", 1)[1].split(
+            "TArray<FName> AMoonfallHeroPawn::GetTalentIds()", 1)[0]
+        self.assertIn("return TalentId.IsNone() ? 0 : TalentRanks.FindRef(TalentId);", rank)
+        self.assertNotIn("MoonfallTalents::Find(TalentId)", rank)
+        hud = self.hud.split("if (Hero->bTalentWebOpen) {", 1)[1].split(
+            "// Native Canvas resident menu.", 1)[0]
+        self.assertEqual(hud.count("Hero->GetUnspentTalentPoints()"), 1)
+        self.assertIn("const int32 Available=Hero->GetUnspentTalentPoints();", hud)
+        self.assertIn("Hero->Level,Available)", hud)
+        self.assertIn("const int32 Rank=Hero->GetTalentRank(FName(N.Id));", hud)
+        # Save validation and point/rank enforcement remain authoritative.
+        self.assertIn("if (!MoonfallTalents::Validate(Level, TalentRanks)) return false;", self.hero_cpp)
+        self.assertIn("if (!Validate(Level, Candidate)) return false;", rules)
+
+    def test_ue5_talent_save_failure_restores_every_cached_bonus(self):
+        """Failed talent purchases/respecs must restore ranks, vitals and cached effects."""
+        commit = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CommitTalentRanks(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[0]
+        before_save, failed_save = commit.split("if (!SaveWorldProgress()) {", 1)
+        rollback = failed_save.split("return false;", 1)[0]
+        self.assertIn("TalentRanks = Candidate;", before_save)
+        self.assertIn("RefreshTalentBonuses();", before_save)
+        self.assertIn("TalentRanks = Previous;", rollback)
+        for resource in ("Health", "Mana", "Stamina"):
+            self.assertIn(f"{resource} = Previous{resource};", rollback)
+            self.assertIn(f"Max{resource} = PreviousMax{resource};", rollback)
+            self.assertIn(f"TalentApplied{resource}Bonus = Previous{resource}Bonus;", rollback)
+        for school in ("Melee", "Ranged", "Magic"):
+            self.assertIn(f"Talent{school}DamageBonus = Previous{school}Bonus;", rollback)
+        self.assertNotIn("OnTalentRanksChanged();", rollback)
+        self.assertIn("OnTalentRanksChanged();", failed_save.split("return false;", 1)[1])
+        load = self.hero_cpp.split("TalentRanks = Save->Version >= 13 ?", 1)[1]
+        self.assertIn("Save->TalentRanks : TMap<FName, int32>();", load)
+
+    def test_ue5_classless_constellation_canvas_controller_and_safe_input(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallTalentWebLayout.h").read_text(encoding="utf-8")
+        for mapping in ('ActionName="Talents",Key=K',
+                        'ActionName="TalentsSpend",Key=Gamepad_FaceButton_Bottom',
+                        'ActionName="GamepadBack",Key=Gamepad_FaceButton_Right',
+                        'ActionName="TalentsReset",Key=Gamepad_LeftTrigger'):
+            self.assertIn(mapping, config)
+        self.assertIn("const TArray<FVector2D> Points = []()", layout)
+        self.assertIn("MoonfallTalents::Catalog().Num()", layout)
+        self.assertIn("LaneAngles[4]", layout)
+        self.assertIn("inline int32 HitTest(", layout)
+        self.assertIn("if (!FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Pan.X)", layout)
+        self.assertIn("|| !FMath::IsFinite(Pan.Y) || !P.bUsable || !InMap(P, Mouse)) return INDEX_NONE;", layout)
+        self.assertIn("!FMath::IsFinite(Pan.X) || !FMath::IsFinite(Pan.Y)) return Center;", layout)
+        self.assertIn("inline void Focus(", layout)
+        self.assertIn("if (Hero->bTalentWebOpen)", self.hud)
+        self.assertIn("const auto& Positions = MoonfallTalentWeb::Positions();", self.hud)
+        self.assertIn("MOONFALL  |  CELESTIAL TALENT CONSTELLATION", self.hud)
+        self.assertIn("141 STARS", self.hud)
+        # A selected star must show WHAT changes, how much it changes, and
+        # why its next rank is locked. Godot percent fractions are not labels.
+        self.assertIn('N.Stat == MoonfallTalents::EStat::MeleeDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::RangedDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::MagicDamage', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Health', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Mana', self.hud)
+        self.assertIn('N.Stat == MoonfallTalents::EStat::Stamina', self.hud)
+        self.assertIn('N.bPercent ? N.AmountPerRank * 100.f : N.AmountPerRank', self.hud)
+        self.assertNotIn('TEXT("fraction")', self.hud)
+        for condition in ('SelectedRank >= N.MaxRank', 'Hero->Level < N.MinLevel',
+                          'bMissingParentA || bMissingParentB', 'Available < N.CostPerRank'):
+            self.assertIn(condition, self.hud)
+        for state in ('MAX RANK', 'LEVEL LOCKED', 'PREREQUISITE LOCKED',
+                      'NOT ENOUGH POINTS', 'READY TO UNLOCK'):
+            self.assertIn(state, self.hud)
+        self.assertIn("CONFIRM FULL RESPEC", self.hud)
+        self.assertIn("Enter / Pad A buy", self.hud)
+        self.assertIn("Backspace / LT reset", self.hud)
+        self.assertIn("Pad B back", self.hud)
+        self.assertEqual(config.count('ActionName="TalentsSpend",Key=Enter'), 1)
+        self.assertEqual(config.count('ActionName="TalentsReset",Key=BackSpace'), 1)
+        # Keyboard activation is only actionable while the constellation is
+        # open. It must not spend ranks while traversing the world or menus.
+        purchase = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[0]
+        reset = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetUnspentTalentPoints()", 1)[0]
+        self.assertIn("if (!bTalentWebOpen ||", purchase)
+        self.assertIn("if (!bTalentWebOpen || TalentRanks.IsEmpty() || !GetWorld()) return;", reset)
+        self.assertIn("bTalentRespecConfirm = true;", reset)
+        self.assertIn("if (ResetTalentTree())", reset)
+        for key in ("Enter", "BackSpace"):
+            physical = [m for m in config.splitlines()
+                        if m.startswith("+ActionMappings=") and m.endswith("Key="+key+")")]
+            self.assertEqual(len(physical), 1, key)
+        self.assertIn("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan", self.hud)
+        self.assertIn("inline int32 StepBranch(int32 CurrentIndex, int32 Direction)", layout)
+        self.assertIn("inline int32 StepWithinBranch(int32 CurrentIndex, int32 Direction)", layout)
+        self.assertIn("Candidate = (Candidate + (Direction > 0 ? 1 : Count - 1)) % Count;", layout)
+        self.assertIn("FCString::Strcmp(Nodes[Candidate].Branch, Nodes[CurrentIndex].Branch) == 0", layout)
+        self.assertIn("MoonfallTalentWeb::StepWithinBranch(TalentWebSelected, Direction)", self.hero_cpp)
+        self.assertIn("TalentWebStepSelection(-1);", self.hero_cpp)
+        context = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastRightMouse()", 1)[0]
+        self.assertLess(context.index("TalentWebStepSelection(-1)"),
+                        context.index("GetNearestResidentNPC()"))
+        # Do not bind D-pad Up twice: NPC/context owns the physical button,
+        # then forwards to talent navigation only when that menu is open.
+        self.assertEqual(config.count('ActionName="ResidentContext",Key=Gamepad_DPad_Up'), 1)
+        self.assertNotIn('ActionName="OptionsUp",Key=Gamepad_DPad_Up', config)
+        # Canonical Godot catalog interleaves branches; ensure advancing
+        # within one branch can reach all of its nodes without crossing another.
+        import json
+        nodes = json.loads((ROOT.parents[2] / "godot-v38" / "data" /
+                            "moonfall_talents.json").read_text(encoding="utf-8"))["nodes"]
+        for branch in ("might", "agility", "arcana"):
+            indices = [i for i, node in enumerate(nodes) if node["branch"] == branch]
+            self.assertGreater(len(indices), 1)
+            start = indices[0]
+            visited = set()
+            cursor = start
+            for _ in range(len(indices)):
+                self.assertEqual(nodes[cursor]["branch"], branch)
+                self.assertNotIn(cursor, visited)
+                visited.add(cursor)
+                cursor = next((i for i in range(cursor + 1, len(nodes))
+                               if nodes[i]["branch"] == branch), start)
+            self.assertEqual(cursor, start)
+            self.assertEqual(visited, set(indices))
+        # Branch changes must handle invalid input, cycle the three canonical
+        # branches, and choose the closest tier only when the user presses.
+        self.assertIn("!Nodes.IsValidIndex(CurrentIndex) || (Direction != -1 && Direction != 1)", layout)
+        self.assertIn('TEXT("might"), TEXT("agility"), TEXT("arcana")', layout)
+        self.assertIn("const int32 TargetBranch = (BranchIndex + (Direction > 0 ? 1 : 2)) % 3;", layout)
+        self.assertIn("const int32 Difference = FMath::Abs(Nodes[Index].Tier - CurrentTier);", layout)
+        self.assertIn("TalentWebStepBranch(-1)", self.hero_cpp)
+        self.assertIn("TalentWebStepBranch(1)", self.hero_cpp)
+        self.assertIn("MoonfallTalentWeb::StepBranch(TalentWebSelected, Direction)", self.hero_cpp)
+        self.assertIn("void TalentWebStepBranch(int32 Direction);", self.hero_h)
+        self.assertIn("PC->GetInputAnalogKeyState(EKeys::Gamepad_RightX)", self.hero_cpp)
+        self.assertIn("PC->GetInputAnalogKeyState(EKeys::Gamepad_RightY)", self.hero_cpp)
+        self.assertIn("FMath::Abs(Stick) > 0.18f", self.hero_cpp)
+        self.assertIn("FMath::Clamp(Delta, 0.f, 0.05f) * 320.f / Zoom", self.hero_cpp)
+        self.assertIn("PC->IsInputKeyDown(EKeys::RightMouseButton)", self.hero_cpp)
+        self.assertIn("MoonfallTalentWeb::HitTest(", self.hero_cpp)
+        self.assertIn("if (bTalentWebOpen) {", self.hero_cpp)
+        self.assertIn("if (bTalentWebOpen) return;", self.hero_cpp)
+        self.assertIn("TalentWebStepSelection(1)", self.hero_cpp)
+        self.assertIn("TalentWebStepSelection(-1)", self.hero_cpp)
+        self.assertIn("if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }", self.hero_cpp)
+        self.assertIn("if (!bTalentRespecConfirm || !FMath::IsFinite(TalentRespecConfirmUntil)", self.hero_cpp)
+        self.assertIn("if (ResetTalentTree())", self.hero_cpp)
+        self.assertIn("if (SpendTalentPoint(TalentId))", self.hero_cpp)
+        self.assertIn("if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds)", self.hero_cpp)
+        input_handler = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[1].split("\n}", 1)[0]
+        for api in ("ToggleTalentWeb", "TalentWebPurchase", "TalentWebReset", "TalentWebBack"):
+            self.assertIn(f"&AMoonfallHeroPawn::{api}", input_handler)
+        talent_mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "// Handle all Atlas pointer actions", 1)[0]
+        self.assertIn("if (bTalentWebOpen)", talent_mouse)
+        self.assertIn("MoonfallTalentWeb::HitTest", talent_mouse)
+        self.assertIn("return;", talent_mouse)
+        self.assertIn("bTalentWebOpen = false;", self.hero_cpp)
+        self.assertIn("bTalentWebOpen = true;", self.hero_cpp)
+
+    def test_talent_web_reports_only_committed_purchases_and_respecs(self):
+        purchase = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[0]
+        reset = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::TalentWebReset()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetUnspentTalentPoints()", 1)[0]
+        self.assertIn("TMap<FName, int32> Proposed = TalentRanks;", purchase)
+        self.assertIn("!MoonfallTalents::TryAllocate(Level, Proposed, TalentId)", purchase)
+        self.assertIn("if (SpendTalentPoint(TalentId))", purchase)
+        self.assertIn("TALENT LOCKED: CHECK LEVEL, LINKS, RANK OR POINTS", purchase)
+        self.assertIn("TALENT NOT SAVED: PREVIOUS RANKS KEPT", purchase)
+        self.assertIn("TALENT RANK PURCHASED AND SAVED", purchase)
+        self.assertLess(purchase.index("if (SpendTalentPoint(TalentId))"),
+                        purchase.index("TALENT RANK PURCHASED AND SAVED"))
+        self.assertIn("bTalentRespecConfirm = true;", reset)
+        self.assertIn("PRESS RESET AGAIN WITHIN 15 SECONDS TO CONFIRM", reset)
+        self.assertIn("if (ResetTalentTree())", reset)
+        self.assertIn("FULL RESPEC SAVED: POINTS RESTORED", reset)
+        self.assertIn("RESPEC NOT SAVED: PREVIOUS TALENTS KEPT", reset)
+        # Confirmation must expire without spending or silently arming the
+        # destructive action forever (including after the HUD notice fades).
+        self.assertIn("const float Now = GetWorld()->GetTimeSeconds();", reset)
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", reset)
+        self.assertIn("!FMath::IsFinite(TalentRespecConfirmUntil)", reset)
+        self.assertIn("Now >= TalentRespecConfirmUntil", reset)
+        self.assertIn("TalentRespecConfirmUntil = Now + 15.f;", reset)
+        self.assertIn("TalentRespecConfirmUntil = 0.f;", reset)
+        self.assertLess(reset.index("Now >= TalentRespecConfirmUntil"),
+                        reset.index("if (ResetTalentTree())"))
+        self.assertIn("float TalentRespecConfirmUntil = 0.f;", self.hero_h)
+        self.assertIn("Hero->TalentRespecConfirmUntil", self.hud)
+        self.assertIn("const bool bRespecArmed =", self.hud)
+        self.assertIn("RespecNow < Hero->TalentRespecConfirmUntil", self.hud)
+        self.assertIn("DrawText(bRespecArmed?TEXT(\"CONFIRM FULL RESPEC\")", self.hud)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        self.assertEqual(toggle.count("TalentRespecConfirmUntil = 0.f;"), 2)
+        self.assertLess(reset.index("if (ResetTalentTree())"),
+                        reset.index("FULL RESPEC SAVED: POINTS RESTORED"))
+        self.assertIn("TalentWebNotice.Empty();", self.hero_cpp)
+        for field in ("FString TalentWebNotice;", "bool bTalentWebNoticeSuccess = false;",
+                      "float TalentWebNoticeUntil = 0.f;"):
+            self.assertIn(field, self.hero_h)
+        self.assertIn("TalentWebNoticeUntil > NoticeNow", self.hud)
+        self.assertIn("Hero->bTalentWebNoticeSuccess ? Teal : Gold", self.hud)
+        self.assertIn("Hero->TalentWebNotice.IsEmpty()", self.hud)
+        self.assertIn("FMath::IsFinite(NoticeNow)", self.hud)
+        # Saved progress continues to be validated and rolled back atomically;
+        # the HUD may not label a failed SaveWorldProgress transaction successful.
+        commit = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CommitTalentRanks(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[0]
+        self.assertLess(commit.index("if (!SaveWorldProgress())"),
+                        commit.index("OnTalentRanksChanged();"))
+        self.assertIn("TalentRanks = Previous;", commit)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
@@ -959,11 +1245,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
-        self.assertIn("int32 Version = 12;", persistent)
+        self.assertIn("int32 Version = 13;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
         self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
-        self.assertIn("Save->Version > 12", self.hero_cpp)
+        self.assertIn("Save->Version > 13", self.hero_cpp)
         self.assertIn("Save->Version >= 11", self.hero_cpp)
         self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
         self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
@@ -1032,7 +1318,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -1056,8 +1342,114 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / P / A: back to inventory", hud)
-        self.assertIn("C / P / A: character stats", hud)
+        self.assertIn("C / P / R3: back to inventory", hud)
+        self.assertIn("C / P / R3: character stats", hud)
+
+    def test_native_editor_input_bindings_cover_talent_modal_and_mb5(self):
+        # The C++ automation test is for a real Unreal Editor. This source
+        # check only verifies it exists and stays aligned with current inputs.
+        native_path = ROOT / "MoonfallInputNativeTests.cpp"
+        self.assertTrue(native_path.is_file())
+        native = native_path.read_text(encoding="utf-8")
+        self.assertIn("#if WITH_DEV_AUTOMATION_TESTS", native)
+        self.assertIn("GetDefault<UInputSettings>()", native)
+        self.assertIn("GetActionMappings()", native)
+        self.assertIn("Moonfall.Controls.MB5DualCastBindings", native)
+        self.assertIn("AllMB5Bindings, 1", native)
+        for action, physical in (
+            ("DualCast", "ThumbMouseButton2"),
+            ("DualCast", "Gamepad_LeftTrigger"),
+            ("CastLeft", "Gamepad_LeftShoulder"),
+            ("CastRight", "Gamepad_RightShoulder"),
+            ("Guard", "Gamepad_RightThumbstick"),
+            ("ChronicleFocus", "Gamepad_RightThumbstick"),
+            ("Jump", "Gamepad_FaceButton_Bottom"),
+            ("TalentsSpend", "Gamepad_FaceButton_Bottom"),
+            ("TalentsReset", "Gamepad_LeftTrigger"),
+            ("GamepadBack", "Gamepad_FaceButton_Right"),
+            ("AscendGear", "Gamepad_FaceButton_Top"),
+            ("ResidentContext", "Gamepad_DPad_Up"),
+            ("RacePower", "N"),
+        ):
+            self.assertIn(f'CountBinding(TEXT("{action}"), EKeys::{physical})', native)
+        self.assertIn('CountBinding(TEXT("Dodge"), EKeys::Gamepad_FaceButton_Right), 0', native)
+        self.assertIn('CountBinding(TEXT("TalentsBack"), EKeys::Gamepad_FaceButton_Right), 0', native)
+        self.assertIn('CountBinding(TEXT("RacePower"), EKeys::T), 0', native)
+        self.assertNotIn('CountBinding(TEXT("LockOn"), EKeys::T), 1', native)
+        self.assertIn("void GamepadBack();", self.hero_h)
+
+    def test_gamepad_b_is_one_contextual_action_and_mb5_is_exclusive(self):
+        import re
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        bindings = re.findall(r'^\+ActionMappings=\(ActionName="([^"]+)",Key=([^),]+)\)',
+                              inputs, re.MULTILINE)
+        def actions(key):
+            return {action for action, physical in bindings if physical == key}
+        self.assertEqual(actions("Gamepad_FaceButton_Right"), {"GamepadBack"})
+        self.assertEqual(actions("ThumbMouseButton2"), {"DualCast"})
+        self.assertEqual(actions("Gamepad_LeftTrigger"), {"DualCast", "EquipBest", "TalentsReset"})
+        self.assertEqual(actions("Gamepad_FaceButton_Top"), {"RacePower", "AscendGear"})
+        self.assertEqual(actions("Gamepad_FaceButton_Bottom"), {"Jump", "TalentsSpend"})
+        self.assertIn(("RacePower", "N"), bindings)
+        self.assertNotIn(("RacePower", "T"), bindings)
+        for name in ("CastLeft", "CastRight", "DualCast"):
+            self.assertNotIn((name, "Z"), bindings)
+            self.assertNotIn((name, "X"), bindings)
+        self.assertIn(
+            'BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack)',
+            self.hero_cpp)
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split(
+            "\n}", 1)[0]
+        for state in ("bTalentWebOpen", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                      "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(state, back)
+        self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
+        self.assertIn("void GamepadBack();", self.hero_h)
+        self.assertIn("R / Y: ascend", self.hud)
+        power = self.hero_cpp.split("bool AMoonfallHeroPawn::ActivateRacePower()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bInventoryOpen || bOptionsOpen", power)
+        self.assertNotIn("if (bTalentWebOpen) return false;", power)
+        self.assertNotIn('ActionName="TalentsBack",Key=Gamepad_FaceButton_Right', inputs)
+
+    def test_gamepad_a_and_r3_contexts_do_not_trigger_three_actions(self):
+        # A is Jump/dialogue in the world and Spend only in the talent modal.
+        # R3 is Guard in combat, Character Stats in Inventory, focus in Atlas.
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        mappings = [line.strip() for line in inputs.splitlines()
+                    if line.startswith("+ActionMappings=")]
+        for action in ("Jump", "TalentsSpend"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="{action}",Key=Gamepad_FaceButton_Bottom)'), 1)
+        self.assertNotIn(
+            '+ActionMappings=(ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom)',
+            mappings)
+        for action in ("Guard", "ChronicleFocus"):
+            self.assertEqual(mappings.count(
+                f'+ActionMappings=(ActionName="{action}",Key=Gamepad_RightThumbstick)'), 1)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("PC->IsInputKeyDown(EKeys::SpaceBar)", jump)
+        self.assertLess(jump.index("PC->IsInputKeyDown(EKeys::SpaceBar)"), jump.index("Jump();"))
+        purchase = self.hero_cpp.split("void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (!bTalentWebOpen ||", purchase)
+        stats = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", stats)
+        focus = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertLess(focus.index("if (bTalentWebOpen) return;"),
+                        focus.index("if (bInventoryOpen && !bAtlasOpen)"))
+        self.assertLess(focus.index("ToggleCharacterStats();"),
+                        focus.index("if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;"))
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("bInventoryOpen", guard)
+        self.assertIn("bAtlasOpen", guard)
+        self.assertNotIn("if (bTalentWebOpen) return;", guard)
+        self.assertIn("C / P / R3: character stats", self.hud)
+        self.assertIn("C / P / R3: back to inventory", self.hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1186,7 +1578,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="AscendGear",Key=R', inputs)
-        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Top', inputs)
         self.assertIn('BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool AscendInventoryItemRarity(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
@@ -1207,7 +1599,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;", hud)
         self.assertIn("SelectedRarity < 5", hud)
-        self.assertIn("R / B: ascend", hud)
+        self.assertIn("R / Y: ascend", hud)
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1633,9 +2025,71 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
+    def test_talent_web_has_no_world_live_or_enemy_pause_banner(self):
+        hud = self.hud.split("if (Hero->bTalentWebOpen) {", 1)[1].split(
+            "// Native Canvas resident menu.", 1)[0]
+        self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', hud)
+        self.assertNotIn('TEXT("ENEMY ATTACKS PAUSED")', hud)
+        self.assertIn('TEXT("X")', hud)  # Talent close control remains.
+
+    def test_skyrim_style_talent_menu_rejects_hits_before_hp_or_parry(self):
+
+        # Browsing talents may no longer make the player invulnerable.
+        damage = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertNotIn("if (bTalentWebOpen) return;", damage)
+        for authority in ("const float PreviousHealth = Health;",
+                          "const bool bPerfectParry =",
+                          "Health = FMath::Max(0.f, Health - DamageAfterGuard);"):
+            self.assertIn(authority, damage)
+        self.assertIn("if (bTalentWebOpen) ToggleTalentWeb();", damage)
+        self.assertLess(damage.index("EndGuard();"),
+                        damage.index("if (bTalentWebOpen) ToggleTalentWeb();"))
+        directional = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[1].split(
+            "void AMoonfallHeroPawn::ApplyMoonfallDamage(", 1)[0]
+        self.assertIn("ApplyMoonfallDamage(Amount);", directional)
+        dodge_only = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("ApplyMoonfallDamageFrom(Amount, SourceLocation)", dodge_only)
+        toggle = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
+        self.assertNotIn("SetPause(", toggle)
+        self.assertNotIn("SetGamePaused(", toggle)
+        self.assertIn("bTalentWebOpen = false;", toggle)
+        self.assertIn("bTalentWebOpen = true;", toggle)
+
+    def test_talent_web_stops_enemy_attacks_before_windup_resolution(self):
+
+        enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        modal = enemy_tick.split(
+            "if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        self.assertNotIn("Hero->bTalentWebOpen", modal)
+        for state in ("Hero->bOptionsOpen", "Hero->bInventoryOpen", "Hero->bAtlasOpen"):
+            self.assertIn(state, modal)
+        self.assertIn("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)", enemy_tick)
+        self.assertIn("CancelDivineSignature();", modal)  # Still used for defeat/real pauses.
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        for reset in ("StopMovementImmediately();", "StopJumping();",
+                      "EndSprint();", "EndGuard();", "HitComboStage = 0;",
+                      "LastHitComboTarget.Reset();", "LastSuccessfulHitAt = -100.f;"):
+            self.assertNotIn(reset, opening)
+        for axis in ("MoveForward", "MoveRight"):
+            movement = self.hero_cpp.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split("\n}", 1)[0]
+            self.assertNotIn("if (bTalentWebOpen) return;", movement)
+        for method in ("BeginGuard", "BeginSprint", "Dodge"):
+            combat = self.hero_cpp.split(f"void AMoonfallHeroPawn::{method}()", 1)[1].split("\n}", 1)[0]
+            self.assertNotIn("if (bTalentWebOpen) return;", combat)
+        casting = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertNotIn("|| bTalentWebOpen", casting)
+
     def test_batch_menus_cancel_enemy_windups_and_followups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+        menu = tick.split("// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
             "// A shatter follow-up expires", 1)[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
         self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
@@ -1647,7 +2101,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextAttackAt = FMath::Max(", menu)
         self.assertIn("Now + 0.35f", menu)
         self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
-        self.assertLess(tick.index("// Pause hostile behavior during any gameplay modal, including Atlas, and"),
+        self.assertLess(tick.index("// Legacy full-screen pause modals still suspend hostiles."),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
@@ -1797,7 +2251,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
         self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
@@ -1807,6 +2261,40 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost", tick)
+
+    def test_live_talent_ui_reserves_inputs_without_stealing_wasd(self):
+        # WASD moves the hero, while arrows and D-pad navigate the constellation.
+        for handler, movement_key, arrow in (
+            ("OptionsUp", "W", "Up"), ("OptionsDown", "S", "Down"),
+            ("OptionsLeft", "A", "Left"), ("OptionsRight", "D", "Right")
+        ):
+            section = self.hero_cpp.split(f"void AMoonfallHeroPawn::{handler}()", 1)[1].split("\n}", 1)[0]
+            self.assertIn(f"PC->IsInputKeyDown(EKeys::{movement_key})", section)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::{arrow})", section)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split("void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("PC->IsInputKeyDown(EKeys::SpaceBar)", jump)
+        self.assertIn("if (!PC || !PC->IsInputKeyDown(EKeys::SpaceBar)) return;", jump)
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", dual)  # LT confirms respec.
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split("void AMoonfallHeroPawn::Dodge()", 1)[0]
+        self.assertIn("if (bTalentWebOpen || bOptionsOpen", back)  # Pad B closes the web.
+        self.assertIn("if (bTalentWebOpen) return; // RMB drag pans the constellation.", self.hero_cpp)
+
+    def test_talent_web_recovers_resources_without_guard_or_sprint_drain(self):
+
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", tick)
+        self.assertIn("&& !bInCombatRecoveryWindow) {", tick)
+        self.assertIn("!bAtlasOpen && Health > 0.f", tick)
+        self.assertGreaterEqual(tick.count("if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()"), 2)
+        self.assertIn("} else if (bGuarding && !bOptionsOpen && Health > 0.f) {", tick)
+        self.assertNotIn("!bTalentWebOpen && Health > 0.f", tick)
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        self.assertNotIn("EndSprint();", opening)
+        self.assertNotIn("EndGuard();", opening)
 
     def test_menu_health_regen_waits_after_real_damage(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -1943,7 +2431,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 "}", 1)[0]
             self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
-            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+            body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
+                "void AMoonfallHeroPawn::", 1)[0]
+            self.assertIn("if (bTalentWebOpen)", body)
+            self.assertIn("PC->IsInputKeyDown(EKeys::RightMouseButton)", body)
+            self.assertLess(body.index("if (bTalentWebOpen)"), body.index(call))
+            self.assertIn("Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)", body)
 
     def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
@@ -3804,9 +4297,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 12", self.hero_cpp)
+        self.assertIn("Version > 13", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -4450,7 +4943,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4460,7 +4953,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 12", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 13", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -5934,7 +6427,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v12_atlas_geographic_fog_is_bounded_persistent_and_legacy_safe(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 12;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
         self.assertIn("UPROPERTY() TArray<int64> ExploredZoneFogMasks;", save_h)
         self.assertIn("TArray<int64> ExploredZoneFogMasks;", self.hero_h)
         self.assertIn("bool HasExploredAtlasCell(int32 Zone, int32 Column, int32 Row) const;", self.hero_h)
@@ -5965,7 +6458,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;", save)
         self.assertLess(save.index("ExploredZoneFogMasks.Num() != 6"),
                         save.index("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;"))
-        self.assertIn("Save->Version < 1 || Save->Version > 12", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 13", load)
         self.assertIn("if (Save->Version >= 12) {", load)
         self.assertIn("if (Save->ExploredZoneFogMasks.Num() != 6)", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
@@ -6207,7 +6700,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         enemy_modal = enemy_tick.split(
-            "// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+            "// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
             "// A corrupt nonfinite windup", 1)[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", enemy_modal)
         for cancel in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
@@ -6219,8 +6712,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
         self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("&& !bSprinting && !bGuarding && GetWorld()", tick)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
@@ -6255,6 +6748,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(collect.index("Hero->bAtlasOpen"),
                         collect.index("const FVector HeroPosition = Hero->GetActorLocation();"))
 
+
+    def test_talent_web_clears_hero_combo_and_suspends_finisher_visuals(self):
+
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        for reset in ("HitComboStage = 0;", "LastHitComboTarget.Reset();",
+                      "LastSuccessfulHitAt = -100.f;"):
+            self.assertNotIn(reset, opening)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertNotIn("bAtlasOpen || bTalentWebOpen || !IsValid(ComboTarget)", tick)
+        finish = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "// Godot's complete constellation", 1)[0]
+        self.assertNotIn("bTalentWebOpen", finish)
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertNotIn("bTalentWebOpen", register)
 
 if __name__ == "__main__":
     unittest.main()

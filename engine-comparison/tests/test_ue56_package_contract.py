@@ -100,7 +100,12 @@ class PackageContract(unittest.TestCase):
 
     def test_run_isolated_windows_archive(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}", workflow)
+        # A job may set its isolated package dir through env: or through
+        # GITHUB_ENV on a preceding step. Both must bind to the current run
+        # and attempt, never a shared or checked-in output directory.
+        env_binding = "MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}"
+        step_binding = '"MOONFALL_PACKAGE_DIR=$env:RUNNER_TEMP/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_ENV'
+        self.assertTrue(env_binding in workflow or step_binding in workflow)
         self.assertIn("-OutputDirectory $env:MOONFALL_PACKAGE_DIR", workflow)
         self.assertEqual(workflow.count("$root = $env:MOONFALL_PACKAGE_DIR"), 2)
         self.assertIn("path: ${{ env.MOONFALL_PACKAGE_DIR }}/", workflow)

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Moonfall portable 141-node talent allocation state",
+  "description": "Interchange data contract for Godot v38, Unreal 5, and a future Verse+Scene Graph UE6 adapter. Rules, earned points and bonuses must be recomputed and validated against godot-v38/data/moonfall_talents.json. This is not a UE6 implementation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "level",
+    "allocations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "catalog_id": {
+      "type": "string",
+      "const": "moonfall-classless-141-v1"
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "allocations": {
+      "type": "object",
+      "maxProperties": 141,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5
+      }
+    }
+  }
+}

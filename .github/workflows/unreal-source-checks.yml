@@ -78,12 +78,17 @@ jobs:
           # Context-aware mouse handlers preserve combat when not on an NPC.
           assert 'ActionName="ResidentMouseClick",Key=LeftMouseButton' in inputs
           assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
-          assert 'ActionName="CastLeft",Key=Z' in inputs
-          assert 'ActionName="CastRight",Key=X' in inputs
+          assert 'ActionName="CastLeft",Key=Z' not in inputs
+          assert 'ActionName="CastRight",Key=X' not in inputs
           assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
           assert 'ActionName="TalkNPC"' not in inputs
           assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
+          assert 'ActionName="DualCast",Key=ThumbMouseButton2' in inputs
+          assert 'ActionName="GamepadBack",Key=Gamepad_FaceButton_Right' in inputs
+          assert 'ActionName="AscendGear",Key=Gamepad_FaceButton_Top' in inputs
+          assert 'ActionName="RacePower",Key=N' in inputs
+          assert 'ActionName="TalentsBack",Key=Gamepad_FaceButton_Right' not in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')

@@ -260,12 +260,13 @@ class EnemyPathBudgetTests(unittest.TestCase):
 
     def test_character_and_resident_panels_cancel_enemy_windups(self):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu_guard = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+        menu_guard = tick.split("// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
             "// A corrupt nonfinite windup", 1
         )[0]
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu_guard)
         self.assertIn("Hero->bAtlasOpen", menu_guard)
         self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu_guard)
+        self.assertNotIn("Hero->bTalentWebOpen", menu_guard)
         self.assertIn("CancelDivineSignature();", menu_guard)
         self.assertIn("WindupEndsAt = -1.f;", menu_guard)
         self.assertIn("bComboSecondHitPending = false;", menu_guard)
