@@ -746,10 +746,11 @@ func _unhandled_input(event:InputEvent)->void:
   _v401_end_z_intro()
   get_viewport().set_input_as_handled()
   return
- # Sword angles use a deliberate Alt+1/2/3/4 chord, not movement input.
- if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and hero_playing and not menu_open and not death_active:
-  if event.keycode in [KEY_1,KEY_2,KEY_3,KEY_4]:
-   v394_strike_direction=[KEY_1,KEY_2,KEY_3,KEY_4].find(event.keycode)
+ # Numpad 8/6/2/4 chooses sword angles. Alt+1-4 is reserved for abilities
+ # in native_v38_8, while WASD and arrows must only move the hero.
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
+  if event.keycode in [KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4]:
+   v394_strike_direction=[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)
    v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
    _show_message("Sword angle: "+v394_strike_direction_label,0.55)
    get_viewport().set_input_as_handled()
@@ -978,7 +979,7 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<heavy_cost:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
- # Use the last explicit Alt+number selection. Moving during an attack cannot
+ # Use the last explicit numpad selection. Moving during an attack cannot
  # accidentally change strike angle or bypass an enemy's directional guard.
  v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
  var cooldown_before:float=attack_cooldown
