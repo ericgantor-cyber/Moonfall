@@ -2890,6 +2890,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  MoonfallTalents::Ranks ValidTalentRanks{};
  MoonfallTalents::Snapshot ValidTalentSummary;
  if (!ReadMoonfallTalentRanks(Level,TalentRanks,ValidTalentRanks,ValidTalentSummary))return false;
+ // Persist the permanent/gear-adjusted health cap only. Saving the temporary
+ // talent capacity would reapply the same points every time we load.
+ const double BaseHealthCap=static_cast<double>(MaxHealth)
+     - ValidTalentSummary.Flat[static_cast<int>(MoonfallTalents::Stat::Health)];
+ if (!std::isfinite(BaseHealthCap) || BaseHealthCap<1.0 || BaseHealthCap>100000.0)
+  return false;
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
@@ -2914,7 +2920,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->TalentRanks = TalentRanks;
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
- Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
+ Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->EquippedWeaponCode = EquippedWeaponCode;
