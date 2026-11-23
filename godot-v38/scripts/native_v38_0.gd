@@ -723,6 +723,14 @@ func _respawn_player()->void:
  if is_instance_valid(v398_panel):v398_panel.hide()
  super._respawn_player()
 
+# Main-menu transitions must never leave a full-screen map or talent panel
+# over the Raven Atlas. Close overlays on entry, not one render frame later.
+func _toggle_menu()->void:
+ if not menu_open:
+  if is_instance_valid(v398_panel):v398_panel.hide()
+  if is_instance_valid(atlas_panel):atlas_panel.hide()
+ super._toggle_menu()
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
