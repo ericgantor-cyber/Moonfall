@@ -2427,7 +2427,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   # Do not postpone guaranteed damage behind a wall or into a new encounter.
   beast["melee_windup_until"]=0.0
   melee_tell_until=0.0
-  if not engaged:
+  # Cancel the anticipation pose even when staggered enemies retain sight.
+  # An active hit reaction or swing owns its animation until that timer ends.
+  if map_time>=react_until and map_time>=swing_until:
    var tell_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
    if is_instance_valid(tell_mesh):tell_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  # v38.3: role-aware low-health retreat for live hostile fauna.
