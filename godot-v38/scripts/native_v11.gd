@@ -566,7 +566,7 @@ func _spawn_beast(at: Vector3, kind: String, zone: int, variant: String="normal"
  var def:Dictionary=BEASTS[kind]
  var scaling:float=SPAWN_RULES.health_scale(int(REGIONS[zone]["tier"]),variant,boss)
  var spawn_id:=beasts.size()
- var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"attack_swing_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
+ var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"attack_swing_until":0.0,"melee_windup_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
  beasts.append(creature)
  zone_beast_lists[zone].append(creature)
 
@@ -2389,12 +2389,16 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    hit_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
  var react_until:float=float(beast.get("hit_react_until",0.0))
  var swing_until:float=float(beast.get("attack_swing_until",0.0))
- if react_until>0.0 or swing_until>0.0:
+ var melee_tell_until:float=float(beast.get("melee_windup_until",0.0))
+ if react_until>0.0 or swing_until>0.0 or melee_tell_until>0.0:
   var hit_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
   if is_instance_valid(hit_mesh):
    var pose_degrees:float=90.0
    if map_time<react_until:
     pose_degrees+=V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false)))
+   elif map_time<melee_tell_until:
+    var tell_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+    pose_degrees+=tell_side*V383_FEEDBACK.melee_tell_degrees(melee_tell_until-map_time)
    elif map_time<swing_until:
     var swing_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
     pose_degrees+=swing_side*V383_FEEDBACK.attack_followthrough_degrees(swing_until-map_time)
@@ -2418,6 +2422,14 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ if melee_tell_until>0.0 and (not engaged or staggered):
+  # Losing sight or being staggered cancels the promised ordinary strike.
+  # Do not postpone guaranteed damage behind a wall or into a new encounter.
+  beast["melee_windup_until"]=0.0
+  melee_tell_until=0.0
+  if not engaged:
+   var tell_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
+   if is_instance_valid(tell_mesh):tell_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
@@ -2435,6 +2447,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=Vector3.ZERO
  elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:
   # Hold position while the existing boss warning disk resolves.
+  body.velocity=Vector3.ZERO
+ elif melee_tell_until>0.0:
+  # An ordinary attack is a committed, visibly anticipated motion.
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
@@ -2482,6 +2497,15 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  body.move_and_slide()
  # v9 stagger cancels regular attacks. Boss windups remain uninterruptible.
  if staggered:return
+ if melee_tell_until>0.0:
+  if map_time<melee_tell_until:return
+  beast["melee_windup_until"]=0.0
+  # Never apply delayed damage to a player who dodged, escaped or broke sight.
+  if V383_FEEDBACK.melee_strike_allowed(engaged,distance,staggered,dodge_time>0.0,_has_clear_sight(body,player)):
+   _apply_incoming_damage(float(BEASTS[kind]["atk"]))
+  beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
+  beast["attack"]=1.5
+  return
  # Elite creatures telegraph a longer reach attack with a fixed target point.
  if elite:
   if float(beast.get("elite_lunge_windup",0.0))>0.0:
@@ -2528,12 +2552,19 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and distance<1.7 and float(beast["attack"])<=0.0:
-  if dodge_time<=0 and _has_clear_sight(body,player):
-   _apply_incoming_damage(float(BEASTS[kind]["atk"]))
-  # Visual follow-through only; preserve established hit timing and damage.
-  beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
-  beast["attack"]=1.5
+ elif engaged and distance<V383_FEEDBACK.MELEE_STRIKE_RANGE and float(beast["attack"])<=0.0:
+  if elite:
+   # Elite melee retains its established immediate swing; its special lunge
+   # already has a separate locked-target warning and counterplay window.
+   if dodge_time<=0.0 and _has_clear_sight(body,player):
+    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
+   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
+   beast["attack"]=1.5
+  else:
+   # Wind up an ordinary hostile's strike. No damage until the next tick
+   # reaches the committed impact time and all fairness gates pass.
+   beast["melee_windup_until"]=map_time+V383_FEEDBACK.MELEE_TELL_SECONDS
+   body.velocity=Vector3.ZERO
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["alive"]=false
@@ -2541,6 +2572,7 @@ func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["ecology_target"]={}
  beast["hunting_until"]=0.0
  beast["windup"]=0.0
+ beast["melee_windup_until"]=0.0
  beast["respawn_at"]=-1.0 if bool(beast.get("boss",false)) else map_time+maxf(15.0,delay)
  var body:CharacterBody3D=beast["body"]
  if is_instance_valid(body):
@@ -2556,6 +2588,7 @@ func _reset_native_beast(beast:Dictionary) -> void:
  beast["alive"]=true
  beast["hp"]=float(beast["max"])
  beast["attack"]=0.0
+ beast["melee_windup_until"]=0.0
  beast["hit_react_until"]=0.0
  beast["hit_react_critical"]=false
  beast["hit_flash_until"]=0.0
