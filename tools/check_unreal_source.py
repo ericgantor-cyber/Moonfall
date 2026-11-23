@@ -2023,15 +2023,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
-    def test_talent_web_shows_truthful_combat_pause_cue_on_wide_layouts(self):
-
+    def test_talent_web_has_no_world_live_or_enemy_pause_banner(self):
         hud = self.hud.split("if (Hero->bTalentWebOpen) {", 1)[1].split(
             "// Native Canvas resident menu.", 1)[0]
-        self.assertIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', hud)
+        self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', hud)
         self.assertNotIn('TEXT("ENEMY ATTACKS PAUSED")', hud)
-        self.assertIn("if (P.Width >= 850.f)", hud)
-        self.assertLess(hud.index("if (P.Width >= 850.f)"),
-                        hud.index('TEXT("WORLD LIVE / ENEMIES ATTACK")'))
+        self.assertIn('TEXT("X")', hud)  # Talent close control remains.
 
     def test_skyrim_style_talent_menu_rejects_hits_before_hp_or_parry(self):
 
