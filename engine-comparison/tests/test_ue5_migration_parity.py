@@ -160,7 +160,13 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("VisibleMax.X <= VisibleMin.X", hud)
         self.assertIn("Screen.X >= ClipMin.X + 5.f", hud)
         self.assertIn("Wheel zoom", hud)
-        self.assertIn("Arrows pan", hud)
+        self.assertIn("Right stick pans", hud)
+        for action in ("MapPanHorizontal", "MapPanVertical"):
+            self.assertFalse(any(
+                'AxisName="' + action + '"' in line and
+                any('Key=' + key + ')' in line for key in ("Up", "Down", "Left", "Right"))
+                for line in keys.splitlines()
+            ), "Arrow keys must not pan the map.")
 
     def test_escape_closes_atlas_and_navigation_state_resets(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"

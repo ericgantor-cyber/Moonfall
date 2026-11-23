@@ -2042,7 +2042,7 @@ func _set_wait_display() -> void:
   var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
   var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
   if is_instance_valid(wait_clock_art):wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ☽   ✦" if future_phase=="Day" or future_phase=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
-  wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Home/End 1/24h • Enter accept • Esc cancel\nController: D-pad adjust • LB/RB 1/24h • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
+  wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\nPgUp/PgDn +/−1h • Shift+PgUp/PgDn +/−6h • Home/End 1/24h • Enter accept • Esc cancel\nController: D-pad adjust • LB/RB 1/24h • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
 
 func _finish_wait(confirm:bool) -> void:
  # The visible transition panel must not permit a second wait or cancellation.
@@ -2091,10 +2091,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
  if wait_open:
   match event.keycode:
-   KEY_LEFT:wait_hours=maxi(1,wait_hours-1)
-   KEY_RIGHT:wait_hours=mini(24,wait_hours+1)
-   KEY_DOWN:wait_hours=maxi(1,wait_hours-6)
-   KEY_UP:wait_hours=mini(24,wait_hours+6)
+   KEY_PAGEDOWN:wait_hours=maxi(1,wait_hours-(6 if event.shift_pressed else 1))
+   KEY_PAGEUP:wait_hours=mini(24,wait_hours+(6 if event.shift_pressed else 1))
    KEY_HOME:wait_hours=1
    KEY_END:wait_hours=24
    KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)

@@ -372,7 +372,7 @@ connects prerequisite paths, highlights purchased and available upgrades
 and lets players inspect any talent before spending a point.
 
 Controls: **mouse wheel** zoom; **drag empty map** to pan; **click a
-node** to inspect; **+/-** zoom and **arrow keys** pan while the web has
+node** to inspect; **+/-** zoom and **numpad 4/6/8/2** pan while the web has
 keyboard focus; **Home** recenters; dedicated buttons focus a branch or
 fit the entire map to the screen. A keyboard-friendly talent index, clear
 details and spend button, and **RESET ALL TALENT POINTS** remain available
