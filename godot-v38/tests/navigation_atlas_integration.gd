@@ -321,7 +321,12 @@ func _run()->void:
   check(float(entry["health_scale"])>=1.0 and float(entry["health_scale"])<=1.25 and float(entry["attack_scale"])>=1.0 and float(entry["attack_scale"])<=1.30 and float(entry["cooldown_scale"])>=0.85,"profile health and offensive scaling remains bounded")
  check(GUARDIAN_55.profile(-1).is_empty() and GUARDIAN_55.profile(55).is_empty(),"out-of-range types cannot spawn")
  for species_id in range(4):
-  check(GUARDIAN_55.suitable_profiles(species_id).size()>=12,"each native guardian species has at least twelve distinct profiles")
+  var suitable:Array[int]=GUARDIAN_55.suitable_profiles(species_id)
+  check(suitable.size()>=13 and suitable.size()<=14,"all four native species have balanced guardian profile pools")
+  var attacks:Dictionary={}
+  for profile_id in suitable:
+   attacks[int(GUARDIAN_55.profile(profile_id)["trait"])]=true
+  check(attacks.size()==4,"each native species can roll all four avoidable guardian attack types")
  var special_crest:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
  check(special_crest.get("rarity")=="Legendary" and str(special_crest.get("name","")).contains("Sovereign"),"the final guardian type grants real legendary equipment")
  check("func _atlas_roll_guardian_profiles()" in source and "used[choice]=true" in source,"thirty dungeon bosses are randomized without repeating a guardian type")
