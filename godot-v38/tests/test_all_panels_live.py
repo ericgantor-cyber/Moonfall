@@ -43,6 +43,26 @@ class AllPanelsRemainLive(unittest.TestCase):
             self.assertNotIn("or menu_open", body)
             self.assertNotIn("and not menu_open", body)
 
+    def test_live_boss_warnings_survive_open_menus(self):
+        divine = function("native_v38_8.gd", "_update_beast_step")
+        self.assertIn("beast.get(\"divine_warn_until\"", divine)
+        self.assertIn("_clear_divine_warning(beast)", divine)
+        self.assertNotIn("or menu_open", divine)
+        self.assertIn("or death_active or wait_open or wait_transition_active", divine)
+        commander = function("native_v34_4.gd", "_process")
+        self.assertIn("v342_phase_clock+=clampf(delta,0.0,0.15)*extra", commander)
+        self.assertNotIn("or menu_open", commander)
+
+    def test_mana_and_stamina_regen_in_all_panels(self):
+        process = function("native_v38_0.gd", "_process")
+        self.assertIn("if hero_playing and not death_active:", process)
+        self.assertIn("v385_mana=minf(", process)
+        self.assertIn("v387_stamina=minf(", process)
+        start = process.index("if hero_playing and not death_active:")
+        end = process.index("if is_instance_valid(v384_vitals_panel):", start)
+        self.assertNotIn("menu_open", process[start:end])
+        self.assertIn("v387_stamina_regen_wait-=delay_used", process[start:end])
+
     def test_underwater_danger_remains_real(self):
         oxygen = function("native_v37_2.gd", "_physics_process")
         self.assertIn("can_dive(v37_swimming,hero_playing,false,mounted,death_active)", oxygen)
