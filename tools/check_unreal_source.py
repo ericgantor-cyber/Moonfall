@@ -5195,7 +5195,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", code)
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", code)
         self.assertIn("PreviewImage->SetBrushFromTexture(PreviewTexture);", code)
-        for key in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down",
+        # Keyboard arrows are now exclusive to movement. The race chooser
+        # uses PageUp/PageDown while controller D-pad navigation is retained.
+        for key in ("EKeys::PageUp", "EKeys::PageDown",
                     "EKeys::Gamepad_DPad_Left", "EKeys::Gamepad_DPad_Right",
                     "EKeys::Gamepad_DPad_Up", "EKeys::Gamepad_DPad_Down"):
             self.assertIn(key, code)
@@ -5408,9 +5410,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "OnRaceConfirmed.Broadcast(Selection.RaceId)",
         ):
             self.assertIn(required, widget)
-        # Preview controls must not directly mutate the real player or source art.
-        self.assertNotIn("Key == EKeys::PageUp", widget)
-        self.assertNotIn("Key == EKeys::PageDown", widget)
+        # PageUp/PageDown now select races only; keyboard movement arrows
+        # must not navigate this UI or change preview/source artwork.
+        self.assertIn("Key == EKeys::PageUp", widget)
+        self.assertIn("Key == EKeys::PageDown", widget)
+        for arrow in ("Up", "Down", "Left", "Right"):
+            self.assertNotIn("Key == EKeys::" + arrow + " ||", widget)
         self.assertNotIn("SetSkeletalMesh(", widget)
         self.assertNotIn("SaveGameToSlot(", widget)
 
