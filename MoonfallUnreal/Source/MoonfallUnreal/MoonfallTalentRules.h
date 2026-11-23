@@ -4,6 +4,8 @@
 // Unreal assets or runtime JSON parsing. See tools/test_unreal_talent_parity.py.
 // This is a pure gameplay rule module; it does not modify character artwork.
 #include <array>
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace MoonfallTalents {
@@ -217,6 +219,43 @@ inline Result Spend(int Level,Ranks& Allocated,int NodeIndex) {
  if (Next==Result::Ok) Allocated=Candidate;
  return Next;
 }
+// All 70 resource talents in the Godot catalog are FLAT bonuses. Reconcile
+// the previous and next allocations transactionally, never adding the full
+// bonus a second time after a save load or an extra respec.
+struct Resources {
+ double MaxHealth=100.0, Health=100.0;
+ double MaxMana=100.0, Mana=100.0;
+ double MaxStamina=100.0, Stamina=100.0;
+};
+inline bool ApplyResourceDelta(Resources& Live,const Snapshot& Before,const Snapshot& After) {
+ const double DH=After.Flat[static_cast<int>(Stat::Health)]-Before.Flat[static_cast<int>(Stat::Health)];
+ const double DM=After.Flat[static_cast<int>(Stat::Mana)]-Before.Flat[static_cast<int>(Stat::Mana)];
+ const double DS=After.Flat[static_cast<int>(Stat::Stamina)]-Before.Flat[static_cast<int>(Stat::Stamina)];
+ const double NextHealth=Live.MaxHealth+DH;
+ const double NextMana=Live.MaxMana+DM;
+ const double NextStamina=Live.MaxStamina+DS;
+ if (!std::isfinite(Live.MaxHealth) || !std::isfinite(Live.Health)
+  || !std::isfinite(Live.MaxMana) || !std::isfinite(Live.Mana)
+  || !std::isfinite(Live.MaxStamina) || !std::isfinite(Live.Stamina)
+  || !std::isfinite(NextHealth) || !std::isfinite(NextMana)
+  || !std::isfinite(NextStamina)
+  || Live.MaxHealth<1.0 || Live.MaxMana<=0.0 || Live.MaxStamina<=0.0
+  || NextHealth<1.0 || NextMana<=0.0 || NextStamina<=0.0
+  || NextHealth>100000.0 || NextMana>100000.0 || NextStamina>100000.0)
+  return false;
+ Resources Candidate=Live;
+ Candidate.MaxHealth=NextHealth;
+ Candidate.MaxMana=NextMana;
+ Candidate.MaxStamina=NextStamina;
+ // Spending adds only the new capacity, not a full heal. Respec removes
+ // capacity without granting health or resurrecting a defeated character.
+ Candidate.Health=std::clamp(Live.Health+DH,0.0,NextHealth);
+ Candidate.Mana=std::clamp(Live.Mana+DM,0.0,NextMana);
+ Candidate.Stamina=std::clamp(Live.Stamina+DS,0.0,NextStamina);
+ Live=Candidate;
+ return true;
+}
+
 inline Result Respec(int Level,Ranks& Allocated) {
  Snapshot Before;
  const Result Old=Evaluate(Level,Allocated,Before);
