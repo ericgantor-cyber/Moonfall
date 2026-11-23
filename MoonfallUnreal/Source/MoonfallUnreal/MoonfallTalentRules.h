@@ -249,7 +249,7 @@ inline bool ApplyResourceDelta(Resources& Live,const Snapshot& Before,const Snap
  Candidate.MaxStamina=NextStamina;
  // Spending adds only the new capacity, not a full heal. Respec removes
  // capacity without granting health or resurrecting a defeated character.
- Candidate.Health=std::clamp(Live.Health+DH,0.0,NextHealth);
+ Candidate.Health=Live.Health<=0.0 ? 0.0 : std::clamp(Live.Health+DH,0.0,NextHealth);
  Candidate.Mana=std::clamp(Live.Mana+DM,0.0,NextMana);
  Candidate.Stamina=std::clamp(Live.Stamina+DS,0.0,NextStamina);
  Live=Candidate;
