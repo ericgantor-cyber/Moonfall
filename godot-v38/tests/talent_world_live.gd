@@ -84,6 +84,13 @@ func _run()->void:
  game.call("_v398_toggle_tree")
  check(not panel.visible,"Constellation closes")
  check(is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),scheduled),"Closing talents does not delay a pending boss attack")
+ # Dying during the web must expose the existing death/sanctuary controls.
+ game.call("_v398_toggle_tree")
+ game.set("phoenix_used_this_expedition",true)
+ game.set("hp",10.0)
+ game.call("_apply_incoming_damage",100000.0)
+ check(bool(game.get("death_active")),"Fatal combat damage reaches the normal death flow")
+ check(not panel.visible,"Death overlay cannot be obscured by the talent constellation")
  game.queue_free()
  print("MOONFALL LIVE TALENT WORLD "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
