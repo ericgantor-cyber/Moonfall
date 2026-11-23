@@ -57,6 +57,11 @@ class TalentCombatLiveRegression(unittest.TestCase):
         self.assertIn("v385_mana-=cost", aimed)
         self.assertNotIn("_v406_talents_visible()", aimed)
 
+    def test_fatal_damage_clears_constellation_before_death_ui(self):
+        respawn = method("_respawn_player")
+        self.assertIn("if is_instance_valid(v398_panel):v398_panel.hide()", respawn)
+        self.assertLess(respawn.index("v398_panel.hide()"), respawn.index("super._respawn_player()"))
+
     def test_keyboard_shortcuts_close_and_world_input_continues(self):
         key_handler = method("_unhandled_key_input")
         self.assertIn("event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_visible()", key_handler)
