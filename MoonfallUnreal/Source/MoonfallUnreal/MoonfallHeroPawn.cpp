@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -1041,11 +1042,60 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
  OnRightHandLoadoutChanged(false, RightSpell);
 }
 
+// The spell book is an inventory page; no movement/attack shortcut is added.
+void AMoonfallHeroPawn::ToggleSpellBook()
+{
+ if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ bSpellBookOpen = !bSpellBookOpen;
+ if (bSpellBookOpen) {
+  bCharacterStatsOpen = false;
+  SpellBookSelection = FMath::Clamp(SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
+ }
+ bInventoryScrollbarDragging = false;
+}
+
+bool AMoonfallHeroPawn::EquipSpellBookSelection(bool bLeftHand)
+{
+ if (!bInventoryOpen || !bSpellBookOpen || bCharacterStatsOpen || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
+     || !MoonfallSpellBook::IsValid(SpellBookSelection)) return false;
+ if (bLeftHand) {
+  LeftSpell = SpellBookSelection;
+  // Already persisted in the existing world-save format; normal autosave
+  // handles the change. No spell can be cast while this panel is visible.
+  return true;
+ }
+ return ReadyRightHandSpell(SpellBookSelection);
+}
+
+bool AMoonfallHeroPawn::HandleSpellBookPointer()
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+     || bResidentContextOpen || Health <= 0.f) return false;
+ APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 W = 0, H = 0;
+ float X = 0.f, Y = 0.f;
+ PC->GetViewportSize(W,H);
+ if (W <= 0 || H <= 0 || !PC->GetMousePosition(X,Y)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ const auto Rect = MoonfallSpellBook::Layout(static_cast<float>(W), static_cast<float>(H));
+ const int Hit = MoonfallSpellBook::Hit(Rect,X,Y,bSpellBookOpen);
+ if (Hit == MoonfallSpellBook::None) return false;
+ if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();
+ else if (MoonfallSpellBook::IsValid(Hit)) SpellBookSelection = Hit;
+ else if (Hit == MoonfallSpellBook::EquipLeft) EquipSpellBookSelection(true);
+ else if (Hit == MoonfallSpellBook::EquipRight) EquipSpellBookSelection(false);
+ return true;
+}
+
 // Equip from the existing inventory favorites strip, not a gameplay hotkey.
 // 0 is the equipped weapon (or unarmed); 1..6 are the existing spell schools.
 bool AMoonfallHeroPawn::EquipRightHandFavorite(int32 FavoriteIndex)
 {
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen || bAtlasOpen
      || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health)
      || FavoriteIndex < 0 || FavoriteIndex > 6) return false;
  if (FavoriteIndex == 0) {
