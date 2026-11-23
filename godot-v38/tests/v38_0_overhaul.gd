@@ -308,6 +308,7 @@ func _run()->void:
    hero_body.global_position=Vector3(1.2,40.0,0.0)
    queued_melee_foe["hit_react_until"]=0.0
    queued_melee_foe["attack_swing_until"]=0.0
+   queued_melee_foe["attack"]=0.0
    queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
    queued_melee_foe["stagger_until"]=float(game.get("map_time"))+2.0
    melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
@@ -315,7 +316,13 @@ func _run()->void:
    check(bool(queued_melee_foe.get("engaged",false)),"staggered melee attacker still has clear sight")
    check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"stagger cancels the pending melee damage")
    check(is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"stagger restores the ordinary enemy's neutral pose")
+   check(float(queued_melee_foe.get("attack",0.0))>=0.35,"stagger interruption starts bounded recovery")
    queued_melee_foe["stagger_until"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"recovering enemy cannot instantly restart canceled tell")
+   queued_melee_foe["attack"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(float(queued_melee_foe.get("melee_windup_until",0.0))>float(game.get("map_time")),"ordinary melee remains available once recovery ends")
    foe_body.velocity=Vector3.ZERO
    foe_body.global_position=foe_before
    hero_body.global_position=hero_before
