@@ -2187,7 +2187,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_perfect_dodge_rewards_require_live_valid_window(self):
         reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
-        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen", reward)
+        self.assertIn("Health <= 0.f || !FMath::IsFinite(Health)", reward)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", reward)
+        self.assertIn("bResidentContextOpen || FocusedResident.IsValid()", reward)
+        for modal in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                      "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertLess(reward.index(modal), reward.index("LastPerfectDodgeRewardAt = Now;"))
         for field in ("Now", "PerfectDodgeWindowUntil", "LastPerfectDodgeRewardAt"):
             self.assertIn(f"!FMath::IsFinite({field})", reward)
         self.assertIn("Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f", reward)
@@ -2218,6 +2223,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "bResidentContextOpen", "FocusedResident.IsValid()",
                           "Health <= 0.f", "!FMath::IsFinite(NextDodgeAt)"):
             self.assertIn(rejection, buffered)
+        self.assertIn(
+            "QueuedDodgeUntil = -1.f;\\n   QueuedDodgeDirection = FVector::ZeroVector;\\n  } else if",
+            buffered, "Rejected or expired dodge input must discard its cached movement vector.")
         self.assertIn("DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil", buffered)
         self.assertIn("QueuedDodgeUntil = -1.f;\n   bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", buffered)
         self.assertIn("QueuedDodgeDirection = FVector::ZeroVector;", buffered)
