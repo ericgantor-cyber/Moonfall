@@ -1950,6 +1950,23 @@ bool ReadMoonfallTalentRanks(int32 Level,const TArray<int32>& Values,
  }
  return MoonfallTalents::Evaluate(Level,Out,Summary)==MoonfallTalents::Result::Ok;
 }
+bool ReconcileMoonfallTalentResources(AMoonfallHeroPawn* Hero,
+    const MoonfallTalents::Snapshot& Before,const MoonfallTalents::Snapshot& After) {
+ if (!IsValid(Hero) || Hero->Health<=0.f)return false;
+ MoonfallTalents::Resources Current{
+  Hero->MaxHealth,Hero->Health,Hero->MaxMana,Hero->Mana,
+  Hero->MaxStamina,Hero->Stamina};
+ if (!MoonfallTalents::ApplyResourceDelta(Current,Before,After))return false;
+ // All six values are validated and bounded before mutating the character.
+ Hero->MaxHealth=static_cast<float>(Current.MaxHealth);
+ Hero->Health=static_cast<float>(Current.Health);
+ Hero->MaxMana=static_cast<float>(Current.MaxMana);
+ Hero->Mana=static_cast<float>(Current.Mana);
+ Hero->MaxStamina=static_cast<float>(Current.MaxStamina);
+ Hero->Stamina=static_cast<float>(Current.Stamina);
+ Hero->OnHealthChanged(Hero->Health,Hero->MaxHealth);
+ return true;
+}
 }
 
 int32 AMoonfallHeroPawn::GetTalentNodeCount() const {
@@ -1977,12 +1994,15 @@ float AMoonfallHeroPawn::GetTalentBonus(FName StatId,bool bPercent) const {
  return 0.f;
 }
 bool AMoonfallHeroPawn::SpendTalentNode(FName TalentId) {
- if (bPersistentSaveWritesBlocked || TalentId.IsNone())return false;
+ if (bPersistentSaveWritesBlocked || TalentId.IsNone() || Health<=0.f)return false;
  MoonfallTalents::Ranks Allocated{};
  MoonfallTalents::Snapshot Before;
  if (!ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Before))return false;
  const int Index=MoonfallTalents::FindNode(TCHAR_TO_UTF8(*TalentId.ToString()));
  if (MoonfallTalents::Spend(Level,Allocated,Index)!=MoonfallTalents::Result::Ok)return false;
+ MoonfallTalents::Snapshot After;
+ if (MoonfallTalents::Evaluate(Level,Allocated,After)!=MoonfallTalents::Result::Ok
+     || !ReconcileMoonfallTalentResources(this,Before,After))return false;
  TalentRanks.SetNumZeroed(MoonfallTalents::NodeCount);
  for (int i=0;i<MoonfallTalents::NodeCount;++i)TalentRanks[i]=Allocated[i];
  // Existing autosave persists this ledger. An immediate safe save is attempted
@@ -1991,11 +2011,14 @@ bool AMoonfallHeroPawn::SpendTalentNode(FName TalentId) {
  return true;
 }
 bool AMoonfallHeroPawn::RespecAllTalents() {
- if (bPersistentSaveWritesBlocked)return false;
+ if (bPersistentSaveWritesBlocked || Health<=0.f)return false;
  MoonfallTalents::Ranks Allocated{};
  MoonfallTalents::Snapshot Before;
  if (!ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Before)
      || MoonfallTalents::Respec(Level,Allocated)!=MoonfallTalents::Result::Ok)return false;
+ MoonfallTalents::Snapshot After;
+ if (MoonfallTalents::Evaluate(Level,Allocated,After)!=MoonfallTalents::Result::Ok
+     || !ReconcileMoonfallTalentResources(this,Before,After))return false;
  TalentRanks.Reset(); // Canonical zero-rank state, saves as an empty array.
  SaveWorldProgress();
  return true;
