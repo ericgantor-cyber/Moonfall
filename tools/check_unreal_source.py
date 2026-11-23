@@ -1233,7 +1233,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (HitTestInventoryEquipButton())", click)
         self.assertIn("EquipSelectedInventoryItem();", click)
         self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
-        self.assertIn("if (HitIndex != INDEX_NONE) {\\n   InventorySelection = HitIndex;\\n   return;\\n  }", click)
+        self.assertIn("if (HitIndex != INDEX_NONE) {\n   InventorySelection = HitIndex;\n   return;\n  }", click)
         self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
         self.assertIn("const float EquipY = Top + 87.f;", self.hud)
 
