@@ -363,24 +363,25 @@ if errorlevel 1 goto failed
 findstr /c:"MOONFALL AIM SCENE RUNTIME PASS" GODOT_AIM_SCENE_LOG.txt >nul
 if errorlevel 1 goto failed
 rem The live 141-node talent web and every panel must keep enemy AI/damage active.
-rem Run the real Godot scene regressions on Windows as well as Linux CI.
+rem Run both actual scenes through the existing isolated test runner on Windows.
+rem Its 90-second import/test subprocess limits fail closed on hangs and parse errors.
 echo MOONFALL: Verifying live talent combat and panel damage flashes on Windows.
-"%ENGINE%" --headless --path "%CD%" --script res://tests/talent_world_live.gd > GODOT_TALENT_WORLD_LIVE_LOG.txt 2>&1
+python tools\run_tests.py --script res://tests/talent_world_live.gd > GODOT_TALENT_WORLD_LIVE_LOG.txt 2>&1
 if errorlevel 1 (
  type GODOT_TALENT_WORLD_LIVE_LOG.txt
  goto failed
 )
-findstr /c:"MOONFALL LIVE TALENT WORLD PASS" GODOT_TALENT_WORLD_LIVE_LOG.txt >nul
+findstr /c:"PASS talent_world_live" GODOT_TALENT_WORLD_LIVE_LOG.txt >nul
 if errorlevel 1 (
  type GODOT_TALENT_WORLD_LIVE_LOG.txt
  goto failed
 )
-"%ENGINE%" --headless --path "%CD%" --script res://tests/panels_world_live.gd > GODOT_PANELS_WORLD_LIVE_LOG.txt 2>&1
+python tools\run_tests.py --script res://tests/panels_world_live.gd > GODOT_PANELS_WORLD_LIVE_LOG.txt 2>&1
 if errorlevel 1 (
  type GODOT_PANELS_WORLD_LIVE_LOG.txt
  goto failed
 )
-findstr /c:"MOONFALL ALL PANELS LIVE PASS" GODOT_PANELS_WORLD_LIVE_LOG.txt >nul
+findstr /c:"PASS panels_world_live" GODOT_PANELS_WORLD_LIVE_LOG.txt >nul
 if errorlevel 1 (
  type GODOT_PANELS_WORLD_LIVE_LOG.txt
  goto failed
