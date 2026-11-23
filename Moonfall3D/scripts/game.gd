@@ -1097,7 +1097,7 @@ func _pressed(action: String) -> bool:
 func _render_binds() -> void:
     if binds_panel == null:
         return
-    var lines := PackedStringArray(["KEYBINDS [F10] Close", "Up/Down: select | Enter: remap | Esc: cancel"])
+    var lines := PackedStringArray(["KEYBINDS [F10] Close", "PgUp/PgDn: select | Enter: remap | Esc: cancel"])
     for i in range(BIND_ORDER.size()):
         var action: String = BIND_ORDER[i]
         var prefix := "> " if i == binding_index else "  "
@@ -1122,18 +1122,37 @@ func _load_bindings() -> void:
     var parsed = JSON.parse_string(file.get_as_text())
     if not parsed is Dictionary:
         return
-    for action in BIND_ORDER:
-        if not parsed.has(action) or int(parsed[action]) <= 0:
-            continue
-        # Legacy saves must not reassign movement keys to attacks or menus.
-        if action not in ["forward", "back", "left", "right"] and _is_movement_key(int(parsed[action])):
-            continue
-        bindings[action] = int(parsed[action])
-    # Migrate saved profiles: Space was dodge; now Space must jump.
-    if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
-        bindings["jump"] = KEY_SPACE
-        bindings["dodge"] = KEY_Q
+    _restore_saved_bindings(parsed)
     _save_bindings()
+
+# Repair legacy and corrupted keybind profiles before they reach _pressed().
+# An old movement remap must never steal another action's key, and stale
+# ability bindings cannot steal WASD or arrow movement. No save-schema change.
+func _restore_saved_bindings(parsed: Dictionary) -> void:
+    var repaired: Dictionary = bindings.duplicate()
+    for action in BIND_ORDER:
+        if not parsed.has(action):
+            continue
+        var raw_key: Variant = parsed[action]
+        if typeof(raw_key) != TYPE_INT and typeof(raw_key) != TYPE_FLOAT:
+            continue
+        var number: float = float(raw_key)
+        if not is_finite(number) or number < 1.0 or number > 16777215.0 or number != floorf(number):
+            continue
+        var key: int = int(number)
+        if action not in ["forward", "back", "left", "right"] and _is_movement_key(key):
+            continue
+        if key == KEY_F10 or key == KEY_ESCAPE:
+            continue
+        var collision: bool = false
+        for other in BIND_ORDER:
+            if other != action and int(repaired[other]) == key:
+                collision = true
+                break
+        if collision:
+            continue
+        repaired[action] = key
+    bindings = repaired
 
 func _next_target() -> Node3D:
     var candidates: Array[Node3D] = []
