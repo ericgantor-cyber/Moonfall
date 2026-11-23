@@ -448,6 +448,11 @@ func _run()->void:
   check(covered_traits.size()==4,"every species can use all four distinct guardian attack traits")
  var final_guardian_relic:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
  check(final_guardian_relic.get("rarity")=="Legendary" and str(final_guardian_relic.get("name","")).contains("Sovereign"),"fifty-fifth guardian awards a real named legendary")
+ check(GUARDIAN_55.guardian_relic(54,-1,4,"Fury").is_empty(),"negative guardian zone never creates an invalid legendary")
+ check(GUARDIAN_55.guardian_relic(54,6,4,"Fury").is_empty(),"out-of-world region cannot create a guardian reward")
+ check(GUARDIAN_55.guardian_relic(54,5,-1,"Fury").is_empty(),"negative dungeon never creates guardian loot")
+ check(GUARDIAN_55.guardian_relic(54,5,5,"Fury").is_empty(),"sixth dungeon in a five-dungeon region is rejected")
+ check(GUARDIAN_55.guardian_relic(-1,5,4,"Fury").is_empty(),"missing guardian profile cannot forge relic")
  check("func _atlas_roll_guardian_profiles()" in source and "GUARDIAN_55.roll_unique_profiles(atlas_regional_guardian_rolls,rng)" in source,"live guardian selection invokes the tested allocator")
  var expected_species:Array[int]=[]
  for region in range(6):
