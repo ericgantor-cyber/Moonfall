@@ -113,6 +113,10 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_sanctuary_architecture
 
+      - name: Verify Firstlight tutorial and safe practice sentry AI
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_firstlight_training
+
       - name: Verify UE5 combat momentum and immediate flinch regressions
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_integrity

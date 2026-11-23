@@ -1763,7 +1763,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f", tick)
         self.assertLess(tick.index("!FMath::IsFinite(IncomingAttackDamage)"),
                         tick.index("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();"))
-        self.assertIn("IncomingAttackDamage, GetActorLocation());", tick)
+        self.assertIn("EffectiveAttackDamage, GetActorLocation());", tick)
 
     def test_boss_batch_invalid_nav_cache_resets_before_chasing(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -4754,8 +4754,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bDungeonBossAttackDodgeOnly = BossSpecialMove == 2", enemy)
         self.assertIn("BossSpecialMove == 3 || BossSpecialMove == 5;", enemy)
         self.assertIn("bDungeonBossAttackDodgeOnly = false;", enemy)
-        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
-        self.assertIn("Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation())", enemy)
         self.assertIn("const bool bRedDodge = bRegionalBoss && Boss->bDungeonBossAttackDodgeOnly;", hud)
         self.assertIn("const bool bBlueParry =", hud)
         for cue in ("RED - DODGE ONLY", "BLUE - PARRY / DODGE",

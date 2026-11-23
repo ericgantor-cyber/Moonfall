@@ -1,6 +1,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
+#include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -537,10 +538,23 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Only deliberate close-range approaches activate their forgiving attacks.
  const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
  if (bSanctuaryPractice && Distance > 450.f) {
+  // A trainee may freely retreat: no lingering aim, tells or instant strike.
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
+  LockedAttackDirection = FVector::ZeroVector;
+  bCanSeeHero = false;
+  LastSawHeroAt = -100.f;
+  InvestigationEndsAt = -1.f;
+  SearchTravelEndsAt = -1.f;
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
+  NextAttackAt = FMath::Max(
+      FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now,
+      Now + MoonfallPracticeAI::ReapproachDelay);
+  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, MoonfallPracticeAI::IdleTickSeconds))
+   SetActorTickInterval(MoonfallPracticeAI::IdleTickSeconds);
   bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
@@ -698,6 +712,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Damage must be finite and positive before dodge or parry callbacks fire.
     const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);
     if (!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f) return;
+    // Practice uses the same damage/parry pipeline, but stops at one HP.
+    const float EffectiveAttackDamage = bSanctuaryPractice
+      ? MoonfallPracticeAI::NonLethalDamage(IncomingAttackDamage, Hero->Health)
+      : IncomingAttackDamage;
+    if (!FMath::IsFinite(EffectiveAttackDamage) || EffectiveAttackDamage <= 0.f) return;
     // One actual timed dodge rewards the hero and pressures only the
     // attacking enemy. Repeated overlapping hits cannot farm posture.
     const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
@@ -722,8 +741,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))
       && bDungeonBossAttackDodgeOnly;
     const bool bParried = bDodgeOnlyStrike
-      ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())
-      : Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation());
+      ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())
+      : Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation());
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -1240,6 +1259,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    AdaptiveSweepReadyUntil = -1.f;
    Pattern = MoonfallEliteTactics::SelectPattern(
      Pattern, bElite, bBoss, bEliteAdaptiveSweep);
+   // Training sentries alternate strike/sweep; normal foes and gods don't.
+   if (bSanctuaryPractice)
+    Pattern = MoonfallPracticeAI::PatternFor(AttackSequence);
    if (bBoss) {
     // Select uniformly from all other basic patterns. No extra actor,
     // ticker, path solve or unbounded retry loop is needed.
@@ -1349,6 +1371,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackRangeMultiplier = FMath::Max(CurrentAttackRangeMultiplier, 2.0f);
     bComboSecondHitPending = false;
     BossSpecialMove = 0;
+   }
+   if (bSanctuaryPractice) {
+    // Allow new players to read and react to the existing visual tell.
+    CurrentWindup = MoonfallPracticeAI::ReadableWindup(CurrentWindup, AttackSequence);
+    CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.f);
+    CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
    }
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
