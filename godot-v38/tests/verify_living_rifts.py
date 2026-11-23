@@ -13,7 +13,7 @@ assert active_scene_inherits(r, 'native_v34_4.gd')
 assert ' _depth_build_surges()' in m('_build_scene')
 assert ' _depth_surge_tick(delta)' in m('_process')
 assert 'depth_surge_nodes:Array[Dictionary]=[]' in s
-assert 'if not hero_playing or death_active or menu_open or mounted' in m('_depth_surge_tick')
+assert 'if not hero_playing or death_active or mounted' in m('_depth_surge_tick')
 assert 'if dodge_time>0.0:' in m('_depth_surge_tick')
 assert 'distance_squared_to(root.global_position)<=DEPTH_SURGE_HIT_RADIUS_SQ' in m('_depth_surge_tick')
 assert 'root.visible=false' in m('_depth_surge_tick')
