@@ -54,6 +54,11 @@ func _run()->void:
  enemy["v404_tell_next"]=planned
  enemy["v407_release_until"]=planned
 
+ # Resources must recover during informational panels while the world
+ # continues to advance. Make the recovery deterministic and observable.
+ game.set("v385_mana",15.0)
+ game.set("v387_stamina",15.0)
+ game.set("v387_stamina_regen_wait",0.0)
  game.call("_toggle_menu")
  check(menu.visible and bool(game.get("menu_open")),"Raven Atlas menu opens")
  check(float(enemy.get("windup",-1.0))==4.0 and bool(enemy.get("v404_attack_pending",false)) and is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),planned),"Opening main menu does not cancel pending attacks")
