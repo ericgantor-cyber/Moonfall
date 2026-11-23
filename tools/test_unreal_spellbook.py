@@ -144,8 +144,39 @@ int main() {
         self.assertIn("int32 SpellBookSelection = 0;", header)
         self.assertIn("if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower();", header)
         self.assertIn("bSpellBookOpen = false;", hero)
-        self.assertNotIn('ActionName="SpellBook"', (
+        self.assertIn('ActionName="SpellBook",Key=P', (
             ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text())
+
+    def test_p_opens_spellbook_directly_and_closes_it_without_rebinding_movement(self):
+        config = (ROOT / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text()
+        hero = HERO.read_text()
+        header = HEADER.read_text()
+        hud = HUD.read_text()
+        self.assertEqual(config.count('ActionName="SpellBook",Key=P'), 1)
+        self.assertNotIn('ActionName="CharacterStats",Key=P', config)
+        self.assertIn('ActionName="CharacterStats",Key=C', config)
+        self.assertIn('BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut)', hero)
+        self.assertIn("void ToggleSpellBookShortcut();", header)
+        self.assertIn("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", hero)
+        shortcut = hero.split("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleSpellBook()", 1)[0]
+        for guard in ("bOptionsOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
+                      "Health <= 0.f", "!FMath::IsFinite(Health)"):
+            self.assertIn(guard, shortcut)
+        self.assertIn("if (!bInventoryOpen) {", shortcut)
+        self.assertIn("ToggleInventory();", shortcut)
+        self.assertIn("if (bInventoryOpen) ToggleSpellBook();", shortcut)
+        self.assertIn("if (bSpellBookOpen) {", shortcut)
+        self.assertIn("ToggleInventory(); // Also clears the spell-book state", shortcut)
+        self.assertIn("ToggleSpellBook();", shortcut)
+        self.assertIn("P: spell book", hud)
+        self.assertIn("P: CLOSE", hud)
+        self.assertNotIn("C / P / A:", hud)
+        for movement in ("W", "A", "S", "D", "Up", "Down", "Left", "Right"):
+            self.assertTrue(any(line.startswith("+AxisMappings=") and "Key=" + movement + ")" in line
+                                for line in config.splitlines()), movement)
+            self.assertFalse(any(line.startswith("+ActionMappings=") and "Key=" + movement + ")" in line
+                                 for line in config.splitlines()), movement)
 
     def test_pointer_priority_and_modal_input_safety(self):
         hero = HERO.read_text()
