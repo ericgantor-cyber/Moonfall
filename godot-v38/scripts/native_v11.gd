@@ -2427,6 +2427,10 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   # Do not postpone guaranteed damage behind a wall or into a new encounter.
   beast["melee_windup_until"]=0.0
   melee_tell_until=0.0
+  # A canceled tell must have a short recovery, otherwise regaining sight
+  # immediately can restart the same windup and jitter the visible attack.
+  # Never shorten an existing attack cooldown when an interruption occurs.
+  beast["attack"]=maxf(float(beast.get("attack",0.0)),V383_FEEDBACK.MELEE_CANCEL_COOLDOWN)
   # Cancel the anticipation pose even when staggered enemies retain sight.
   # An active hit reaction or swing owns its animation until that timer ends.
   if map_time>=react_until and map_time>=swing_until:
