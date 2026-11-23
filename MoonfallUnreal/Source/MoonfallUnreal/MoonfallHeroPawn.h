@@ -314,6 +314,8 @@ public:
  bool HitTestInventoryEquipButton() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
+ // World mouse clicks are allowed only outside the right-docked inventory rectangle.
+ bool IsPointerOutsideInventoryPanel() const;
  // Clickable scrollbar track changes only the transient display window.
  bool ScrollInventoryToMouseTrack();
  // Mouse drag is transient and cannot mutate inventory or equipped items.
@@ -505,5 +507,5 @@ private:
  void RefreshTalentBonuses();
  void SetTalentWebNotice(const FString& Message, bool bSuccess);
  bool CommitTalentRanks(const TMap<FName, int32>& Candidate);
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, bool bInventoryPointerCast = false);
 };
