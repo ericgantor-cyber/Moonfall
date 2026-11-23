@@ -434,6 +434,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       || bResidentContextOpen || FocusedResident.IsValid()
       || Health <= 0.f || !FMath::IsFinite(Health)) {
    QueuedDodgeUntil = -1.f;
+   QueuedDodgeDirection = FVector::ZeroVector;
   } else if (DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil) {
    QueuedDodgeUntil = -1.f;
    bExecutingBufferedDodge = true;
@@ -1354,7 +1355,9 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  // Rewards are earned only during live gameplay, not behind paused overlays.
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  // Invalid or expired windows must never grant an unearned dodge reward.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
