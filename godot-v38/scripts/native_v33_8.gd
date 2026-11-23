@@ -308,7 +308,7 @@ func _depth_reset_surge()->void:
 
 func _depth_surge_tick(delta:float)->void:
  # Only the current rift is considered; O(3) proximity, O(1) damage.
- if not hero_playing or death_active or menu_open or mounted or not is_instance_valid(player):
+ if not hero_playing or death_active or mounted or not is_instance_valid(player):
   if depth_surge_site>=0 or depth_surge_phase!=0:_depth_reset_surge()
   return
  var site:int=_depth_near_corruption()
