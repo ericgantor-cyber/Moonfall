@@ -17,7 +17,17 @@ func _run()->void:
  assert(source.contains("func _dodge()->void:"))
  assert(source.contains("func _rhythm_confirmed_enemy_dodge()->void:"))
  assert(source.contains("RHYTHM.perfect_dodge(elapsed,true)"))
- assert(not source.contains("func _apply_incoming_damage(raw:float)->void:"))
+ # An optional hit-flash observer may override damage, but must delegate once
+ # to the authoritative combat pipeline without altering rhythm state.
+ var damage_signature:String="func _apply_incoming_damage(raw:float)->void:"
+ var damage_start:int=source.find(damage_signature)
+ if damage_start>=0:
+  var next_method:int=source.find("\nfunc ",damage_start+damage_signature.length())
+  var damage_body:String=source.substr(damage_start,next_method-damage_start) if next_method>=0 else source.substr(damage_start)
+  assert(damage_body.count("super._apply_incoming_damage(raw)")==1)
+  assert(damage_body.contains("hp<before_hp"))
+  assert(not damage_body.contains("rhythm_chain="))
+  assert(not damage_body.contains("rhythm_counter_until="))
  var boss_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_8.gd")
  assert(boss_source.contains("_rhythm_confirmed_enemy_dodge()"))
  assert(source.contains("RHYTHM_COUNTER_MULTIPLIER"))
