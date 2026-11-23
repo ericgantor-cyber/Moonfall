@@ -88,7 +88,7 @@ inline FVector2D ScreenPosition(int32 Index, const FPanel& P,
 {
  const FVector2D Center(P.MapLeft + P.MapWidth * 0.5f,
                         P.MapTop + P.MapHeight * 0.5f);
- if (!Positions().IsValidIndex(Index)) return Center;
+ if (!Positions().IsValidIndex(Index) || !FMath::IsFinite(Pan.X) || !FMath::IsFinite(Pan.Y)) return Center;
  return Center + (Positions()[Index] + Pan) * FMath::Clamp(
      FMath::IsFinite(Zoom) ? Zoom : 0.2f, 0.08f, 2.1f);
 }
@@ -102,7 +102,8 @@ inline int32 HitTest(float ViewWidth, float ViewHeight, float Zoom,
 {
  const FPanel P = Panel(ViewWidth, ViewHeight);
  const FVector2D Mouse(X, Y);
- if (!P.bUsable || !InMap(P, Mouse)) return INDEX_NONE;
+ if (!FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Pan.X)
+     || !FMath::IsFinite(Pan.Y) || !P.bUsable || !InMap(P, Mouse)) return INDEX_NONE;
  int32 Best = INDEX_NONE;
  float BestDistSq = FMath::Square(17.f);
  for (int32 Index = 0; Index < Positions().Num(); ++Index) {
