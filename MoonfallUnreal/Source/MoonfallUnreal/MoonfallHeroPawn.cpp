@@ -1153,9 +1153,18 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Might = static_cast<float>(GetMight());
  const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
      : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
+ // Same bounded, same-target combo rule as spell combat: a miss or a
+ // different target earns no inherited power, and hit 13 starts at stage 1.
+ const int32 IncomingStage = bNextSameTarget ? FMath::Clamp(HitComboStage, 0, 12) : 0;
+ const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;
+ const float ComboStep = FMath::IsFinite(HitComboDamagePerStage)
+     ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
+ const float HitComboMultiplier = 1.f + ComboStep
+     * FMath::Clamp(EffectiveIncomingStage, 0, 3);
  const float Damage = (18.f + Tier * 1.15f
      + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
-     * AngleBonus * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus());
+     * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
+     * (1.f + GetVersatilityBonus());
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
@@ -1184,7 +1193,9 @@ void AMoonfallHeroPawn::MeleeAttack()
   }
   // The swing montage already played at attack commitment, even on a
   // missed or lethal strike. Do not restart it upon damage resolution.
-  OnSuccessfulHitCombo(HitComboStage, true);
+  // The equipped sword is the right-hand action. The Blueprint event must
+  // not label these hits as left-hand casts.
+  OnSuccessfulHitCombo(HitComboStage, false);
  }
  OnMeleeSwing(CurrentSwordAngle, bConnected);
 }
