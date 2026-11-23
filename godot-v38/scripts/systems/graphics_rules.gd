@@ -13,7 +13,7 @@ const OPTIONS:Dictionary = {
  "window_mode":["Windowed","Borderless","Fullscreen"],
  "resolution":["1280x800","1600x900","1920x1080","2560x1440","3840x2160"],
  "render_scale":["50%","67%","75%","85%","100%","125%"],
- "upscaler":["Bilinear","FSR 1.0"],
+ "upscaler":["Bilinear","FSR 1.0","FSR 2.2"],
  "dynamic_resolution":["Off","On"],
  "target_fps":["30","60","90","120"],
  "vsync":["Off","On","Adaptive"],
@@ -57,7 +57,7 @@ const DEFAULTS:Dictionary={
  "texture_filter":"Linear","anisotropy":"4x","brightness":"Normal","contrast":"Normal","cinematic_lighting":"Natural","foliage_quality":"High","scenery_lod":"Balanced","combat_effects":"Medium","projected_telegraphs":"Always Visible"}
 const UNSUPPORTED:Array[String]=[
  "DLSS / NVIDIA Reflex / Intel XeSS (requires vendor integration)",
- "FSR 2.2 temporal upscaling and vendor-specific sharpen controls (not configured)",
+ "Advanced FSR sharpening and vendor-specific frame generation (not configured)",
  "Ray-traced shadows and variable-rate shading (not implemented)",
  "DirectX/Vulkan graphics API switching at runtime (requires restart/build flags)",
  "GPU/device selection, triple buffering and compute effects (renderer-managed)",
@@ -71,6 +71,15 @@ const UNSUPPORTED:Array[String]=[
  "WoW raid graphics overrides (no separate raid mode in this connected world)",
  "Texture resolution switch (requires multiple source texture sets)",
  "Liquid detail, depth-of-field and compute effects (no corresponding scalable scene system)"]
+# Resolve the requested upscaler against the real rendering method and scale.
+# Forward+ supports temporal FSR2, including native 100% TAA quality.
+# All supersampling (>100%) uses bilinear downsampling. Unsupported devices
+# fall back without changing the player's saved graphics preference.
+static func effective_upscaler(selected:String,rendering_method:String,scale:float)->String:
+ if selected=="FSR 2.2" and rendering_method=="forward_plus" and scale<=1.0:return "FSR 2.2"
+ if selected=="FSR 1.0" and rendering_method!="gl_compatibility" and scale<1.0:return "FSR 1.0"
+ return "Bilinear"
+
 static func normalize(values:Dictionary)->Dictionary:
  var output:Dictionary=DEFAULTS.duplicate(true)
  for key in DEFAULTS:
