@@ -231,9 +231,11 @@ public:
  // Defaults to weapon; right-click NPC interactions and spell hotkeys remain separate.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Hands") bool bRightHandSpellReadied = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void RightHandAction();
- UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ToggleRightHandLoadout();
- UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool ReadyRightHandSpell(int32 School);
+  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool ReadyRightHandSpell(int32 School);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ReadyRightHandWeapon();
+ // Favorites are equipped from Inventory, not a dedicated gameplay toggle.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool EquipRightHandFavorite(int32 FavoriteIndex);
+ int32 HitTestRightHandFavorite() const;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
