@@ -37,6 +37,14 @@ static func loot(seed:int,level:int=1)->Dictionary:
 static func encounter(seed:int,level:int=1)->Dictionary:
  return {"enemy":enemy(seed,level),"boss":boss(seed+1,level),"loot":loot(seed+2,level),"arena":_pick(ARENAS,floori(float(seed)/11.0),10)}
 
+## A small role map gives species distinct tactics without new AI actors,
+## schedulers, behavior trees, animations, or loot changes.
+static func fauna_combat_role(kind:String)->String:
+ match kind:
+  "wolf":return "skirmisher"
+  "panther","serpent":return "ambusher"
+  _:return "bruiser"
+
 ## Pure combat decision policy; one bounded decision per actor update.
 ## Runtime integration is deliberately separate so existing enemy movement is unaffected.
 static func combat_intent(role:String,distance:float,hp_ratio:float,attack_ready:bool,has_sight:bool)->String:
@@ -55,4 +63,4 @@ static func combat_intent(role:String,distance:float,hp_ratio:float,attack_ready
   return "pursue"
  if attack_ready:
   return "attack"
- return "strafe" if ranged or role=="ambusher" else "guard"
+ return "strafe" if ranged or role in ["ambusher","skirmisher"] else "guard"
