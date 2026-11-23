@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 // UE5-independent spell metadata and Canvas layout. No invented spell effects:
 // all six entries correspond to existing TryCast schools and their exact costs.
 namespace MoonfallSpellBook {
@@ -21,6 +22,34 @@ inline constexpr FSpell Spells[6] = {
 inline constexpr int SpellCount = 6;
 static_assert(sizeof(Spells) / sizeof(Spells[0]) == SpellCount, "Spell book schools must match TryCast");
 inline constexpr bool IsValid(int index) { return index >= 0 && index < SpellCount; }
+// This is a read-only cast preflight, not a promise that a hostile target exists.
+// TryCast remains the only authority on target LOS, damage, and resource spend.
+enum class EReadiness { Ready, Cooldown, LowMana, FullHealth, Invalid };
+struct FCastState {
+ EReadiness State;
+ float CooldownRemaining;
+ float ManaShortfall;
+};
+inline FCastState Evaluate(int index, float mana, float maxMana,
+ float health, float maxHealth, float power, float now, float lastCast, float haste)
+{
+ if (!IsValid(index) || !std::isfinite(mana) || !std::isfinite(maxMana)
+  || !std::isfinite(health) || !std::isfinite(maxHealth) || !std::isfinite(power)
+  || !std::isfinite(now) || !std::isfinite(lastCast) || !std::isfinite(haste)
+  || mana < 0.f || maxMana <= 0.f || health <= 0.f || maxHealth <= 0.f
+  || health > maxHealth || power <= 0.f || haste <= -1.f)
+  return {EReadiness::Invalid,0.f,0.f};
+ const float remaining = Spells[index].Cooldown/(1.f+haste) - (now-lastCast);
+ if (!std::isfinite(remaining)) return {EReadiness::Invalid,0.f,0.f};
+ const float wait = remaining > 0.f ? remaining : 0.f;
+ const float shortfall = mana < Spells[index].ManaCost
+    ? Spells[index].ManaCost - mana : 0.f;
+ if (Spells[index].bHealing && health >= maxHealth)
+  return {EReadiness::FullHealth,wait,shortfall};
+ if (shortfall > 0.f) return {EReadiness::LowMana,wait,shortfall};
+ if (wait > 0.f) return {EReadiness::Cooldown,wait,0.f};
+ return {EReadiness::Ready,0.f,0.f};
+}
 inline float Min(float a, float b) { return a < b ? a : b; }
 inline float Max(float a, float b) { return a > b ? a : b; }
 inline float Clamp(float a, float lo, float hi) { return Min(hi, Max(lo, a)); }
@@ -31,18 +60,24 @@ struct FLayout {
  float EquipLeftX, EquipRightX, EquipY, EquipWidth, EquipHeight;
  float DetailsY;
 };
-inline FLayout Layout(float screenWidth, float screenHeight) {
- const float w = Min(720.f, Max(280.f, Min(screenWidth - 24.f, screenWidth * 0.48f)));
- const float h = Min(860.f, Max(280.f, screenHeight - 24.f));
- const float l = screenWidth - w - 12.f;
- const float t = (screenHeight - h) * 0.5f;
- const float gap = Clamp((h - 198.f) / 6.f, 15.f, 48.f);
- const float equipW = Min(175.f, (w - 48.f) * 0.5f);
+inline FLayout Layout(float screenWidth, float screenHeight, bool bBookOpen = false) {
+ // Inventory remains right-docked. Opening the grimoire creates a wider
+ // centered reading surface without altering any keyboard movement bindings.
+ const float w = bBookOpen
+  ? Min(1080.f,Max(280.f,screenWidth-24.f))
+  : Min(720.f,Max(280.f,Min(screenWidth-24.f,screenWidth*0.48f)));
+ const float h = Min(860.f,Max(280.f,screenHeight-24.f));
+ const float l = bBookOpen ? (screenWidth-w)*0.5f : screenWidth-w-12.f;
+ const float t = (screenHeight-h)*0.5f;
+ const float gap = bBookOpen ? Clamp((h-255.f)/6.f,15.f,67.f)
+  : Clamp((h-198.f)/6.f,15.f,48.f);
+ const float equipW = Min(195.f,(w-48.f)*0.5f);
+ const float rowY = t+(bBookOpen ? 123.f : 123.f);
  return {l,t,w,h,
-  l+18.f,t+80.f,130.f,28.f,
-  l+18.f,t+123.f,w-36.f,gap,Max(12.f,gap-3.f),
+  l+18.f,t+80.f,140.f,28.f,
+  l+18.f,rowY,w-36.f,gap,Max(12.f,gap-3.f),
   l+18.f,l+w-18.f-equipW,t+h-47.f,equipW,30.f,
-  t+123.f+6.f*gap+9.f};
+  rowY+6.f*gap+9.f};
 }
 // Hit actions: 0..5 choose spell, 6 equip left, 7 equip right, 8 tab,
 // -1 outside. The same geometry drives mouse hit testing and HUD rendering.
