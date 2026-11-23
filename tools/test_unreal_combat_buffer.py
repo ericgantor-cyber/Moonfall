@@ -133,6 +133,35 @@ int main() {
         respawn=hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()",1)[1]
         self.assertIn("SwordBuffer.Clear();\n MoonfallOmniattack::Reset(SwordFlow);",respawn)
 
+    def test_mouse_npc_dialogue_cancels_melee_and_stale_focus_recovers(self):
+        hero = HERO.read_text(encoding="utf-8")
+        # Both mouse and controller paths must cancel a previously queued
+        # sword press at the moment a real NPC conversation begins.
+        mouse = hero.split("void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+            "void AMoonfallHeroPawn::ReleaseInventoryPointer()",1)[0]
+        open_dialogue = mouse.split("if (Resident->CanHeroInteract(this)) {",1)[1].split(
+            "OnResidentContextOpened(",1)[0]
+        self.assertIn("SwordBuffer.Clear();", open_dialogue)
+        self.assertLess(open_dialogue.index("SwordBuffer.Clear();"),
+                        open_dialogue.index("FocusedResident = Resident;"))
+        controller = hero.split(
+            "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+            "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+        self.assertIn("SwordBuffer.Clear();", controller)
+        # A failed or incomplete modal transition must not soft-lock input
+        # or leave an enemy permanently paused against a stale focus.
+        tick = hero.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)",1)[1].split(
+            " // A second click shortly before recovery",1)[0]
+        self.assertIn("if (!bResidentContextOpen && FocusedResident.IsValid())",tick)
+        self.assertIn("CloseResidentContext();",tick)
+        self.assertLess(tick.index("if (!bResidentContextOpen && FocusedResident.IsValid())"),
+                        tick.index("if (bResidentContextOpen) {"))
+        close = hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split(
+            "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
+        self.assertIn("FocusedResident.Reset();", close)
+        self.assertIn("SwordBuffer.Clear();", close)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
+
     def test_enemy_cancels_attack_tells_during_focused_npc_interaction(self):
         enemy=ENEMY.read_text(encoding="utf-8")
         tick=enemy.split("void AMoonfallEnemy::Tick(float DeltaSeconds)",1)[1]

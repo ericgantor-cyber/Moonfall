@@ -396,6 +396,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   else
    ScrollInventoryToMouseTrack();
  }
+ // Dialogue focus and modal state must agree. A stale focused resident
+ // otherwise blocks movement/attacks and keeps enemy AI paused indefinitely.
+ // This is a cheap pointer check, with no per-frame actor search or trace.
+ if (!bResidentContextOpen && FocusedResident.IsValid())
+  CloseResidentContext();
  // A streaming/despawned resident must not leave player cursor or input locked.
  if (bResidentContextOpen) {
   const AMoonfallWorldNPC* Resident = FocusedResident.Get();
@@ -3809,6 +3814,9 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    // Right-click dialogue must cancel queued sword attacks immediately,
+    // just like the controller/D-pad dialogue entry path.
+    SwordBuffer.Clear();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
