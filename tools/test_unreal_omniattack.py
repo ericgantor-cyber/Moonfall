@@ -145,6 +145,26 @@ int main() {
         self.assertIn('Input->BindAction(TEXT("RightHandAction"), IE_Pressed', hero)
         self.assertIn("if (!bResidentContextOpen) { RightHandAction(); return; }", hero)
 
+    def test_explicit_spell_hotkeys_cannot_cast_into_focused_npc(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        guard = cast.split("const float Time =", 1)[0]
+        for required in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                         "bResidentContextOpen", "FocusedResident.IsValid()",
+                         "Health <= 0.f", "School < 0", "Hand < 0"):
+            self.assertIn(required, guard)
+        self.assertIn("return false;", guard)
+        self.assertLess(cast.index("FocusedResident.IsValid()"),
+                        cast.index("GetWorld()->LineTraceSingleByChannel("))
+        self.assertIn("TryCast(LeftSpell, 0, 1.f)", hero)
+        self.assertIn("TryCast(RightSpell, 1, 1.f)", hero)
+        both = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "void AMoonfallHeroPawn::RightHandAction()", 1)[0]
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", both)
+        self.assertLess(both.index("TryCast(LeftSpell, 0, 2.f)"),
+                        both.index("LastCastTime[1] = LastCastTime[0];"))
+
     def test_favorites_only_equip_inside_inventory(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         header = (SRC / "MoonfallHeroPawn.h").read_text()
