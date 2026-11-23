@@ -20,6 +20,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallTalentRules.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
@@ -1924,6 +1925,71 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
    : FLinearColor(0.2f, 0.78f, 1.f));
  FinisherFlash->SetIntensity((bReduceMotion ? 900.f : (bNativeFinisherBoss ? 4800.f : 3500.f)) * Envelope);
  FinisherFlash->SetVisibility(true);
+}
+
+// Pure, bounded talent ledger reconstruction. Old V1-V12 save files have no
+// talent array and therefore legitimately represent an unspent constellation.
+namespace {
+bool ReadMoonfallTalentRanks(int32 Level,const TArray<int32>& Values,
+                            MoonfallTalents::Ranks& Out,
+                            MoonfallTalents::Snapshot& Summary) {
+ if (Values.Num()!=0 && Values.Num()!=MoonfallTalents::NodeCount) return false;
+ Out.fill(0);
+ for (int i=0;i<Values.Num();++i) {
+  if (Values[i]<0 || Values[i]>MoonfallTalents::Nodes[i].MaxRank) return false;
+  Out[i]=Values[i];
+ }
+ return MoonfallTalents::Evaluate(Level,Out,Summary)==MoonfallTalents::Result::Ok;
+}
+}
+
+int32 AMoonfallHeroPawn::GetTalentNodeCount() const {
+ return MoonfallTalents::NodeCount;
+}
+int32 AMoonfallHeroPawn::GetAvailableTalentPoints() const {
+ MoonfallTalents::Ranks Allocated{};
+ MoonfallTalents::Snapshot Summary;
+ return ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Summary) ? Summary.Available : 0;
+}
+int32 AMoonfallHeroPawn::GetTalentRank(FName TalentId) const {
+ if (TalentId.IsNone() || TalentRanks.Num()!=MoonfallTalents::NodeCount) return 0;
+ const int Index=MoonfallTalents::FindNode(TCHAR_TO_UTF8(*TalentId.ToString()));
+ return Index>=0 ? TalentRanks[Index] : 0;
+}
+float AMoonfallHeroPawn::GetTalentBonus(FName StatId,bool bPercent) const {
+ MoonfallTalents::Ranks Allocated{};
+ MoonfallTalents::Snapshot Summary;
+ if (!ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Summary)) return 0.f;
+ const char* Names[]={"health","mana","stamina","melee_damage","ranged_damage","magic_damage"};
+ const FString Requested=StatId.ToString();
+ for (int i=0;i<static_cast<int>(MoonfallTalents::Stat::Count);++i)
+  if (Requested.Equals(UTF8_TO_TCHAR(Names[i]),ESearchCase::IgnoreCase))
+   return static_cast<float>(bPercent ? Summary.Percent[i] : Summary.Flat[i]);
+ return 0.f;
+}
+bool AMoonfallHeroPawn::SpendTalentNode(FName TalentId) {
+ if (bPersistentSaveWritesBlocked || TalentId.IsNone())return false;
+ MoonfallTalents::Ranks Allocated{};
+ MoonfallTalents::Snapshot Before;
+ if (!ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Before))return false;
+ const int Index=MoonfallTalents::FindNode(TCHAR_TO_UTF8(*TalentId.ToString()));
+ if (MoonfallTalents::Spend(Level,Allocated,Index)!=MoonfallTalents::Result::Ok)return false;
+ TalentRanks.SetNumZeroed(MoonfallTalents::NodeCount);
+ for (int i=0;i<MoonfallTalents::NodeCount;++i)TalentRanks[i]=Allocated[i];
+ // Existing autosave persists this ledger. An immediate safe save is attempted
+ // but the action is still valid when the initial checkpoint is not ready.
+ SaveWorldProgress();
+ return true;
+}
+bool AMoonfallHeroPawn::RespecAllTalents() {
+ if (bPersistentSaveWritesBlocked)return false;
+ MoonfallTalents::Ranks Allocated{};
+ MoonfallTalents::Snapshot Before;
+ if (!ReadMoonfallTalentRanks(Level,TalentRanks,Allocated,Before)
+     || MoonfallTalents::Respec(Level,Allocated)!=MoonfallTalents::Result::Ok)return false;
+ TalentRanks.Reset(); // Canonical zero-rank state, saves as an empty array.
+ SaveWorldProgress();
+ return true;
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
