@@ -338,6 +338,45 @@ func _run()->void:
    foe_body.velocity=Vector3.ZERO
    foe_body.global_position=foe_before
    hero_body.global_position=hero_before
+  # Phoenix Feather is an in-place revive, not the normal shrine teleport.
+  # The real inherited revive path must share the same melee cleanup, while
+  # consuming the feather exactly once and retaining its protection window.
+  var phoenix_items:Dictionary=(game.get("materials") as Dictionary).duplicate()
+  phoenix_items["Moon Phoenix Feather"]=1
+  game.set("materials",phoenix_items)
+  game.set("phoenix_used_this_expedition",false)
+  game.set("death_active",false)
+  game.set("hp",0.0)
+  queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+  if is_instance_valid(melee_mesh):melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
+  var phoenix_position:Vector3=hero_body.global_position
+  game.call("_respawn_player")
+  check(bool(game.get("phoenix_used_this_expedition")),"Phoenix Feather auto-revival is consumed")
+  check(int((game.get("materials") as Dictionary).get("Moon Phoenix Feather",0))==0,"Phoenix Feather cannot be consumed twice")
+  check(float(game.get("hp"))>0.0 and not bool(game.get("death_active")),"Phoenix restores health without a death-screen overlay")
+  check(hero_body.global_position.distance_squared_to(phoenix_position)<0.001,"Phoenix resurrection preserves hero position")
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"Phoenix revival clears stale ordinary melee")
+  check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"Phoenix revival resets enemy attack anticipation pose")
+  check(float(game.get("phoenix_grace_until"))>float(game.get("map_time")),"Phoenix protection is retained after melee cleanup")
+  # Both revive routes use the same helper. Cancel the queued hit without
+  # snapping an *active* enemy reaction or follow-through to neutral.
+  if is_instance_valid(melee_mesh):
+   var now:float=float(game.get("map_time"))
+   queued_melee_foe["melee_windup_until"]=now+1.0
+   queued_melee_foe["hit_react_until"]=now+0.16
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
+   game.call("_cancel_native_melee_tells")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"revive helper cancels attack even during hit recoil")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,104.0),"revive helper preserves active hit recoil")
+   queued_melee_foe["hit_react_until"]=0.0
+   queued_melee_foe["melee_windup_until"]=now+1.0
+   queued_melee_foe["attack_swing_until"]=now+0.22
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,101.0)
+   game.call("_cancel_native_melee_tells")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"revive helper cancels attack even during follow-through")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,101.0),"revive helper preserves active follow-through")
+   queued_melee_foe["attack_swing_until"]=0.0
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
