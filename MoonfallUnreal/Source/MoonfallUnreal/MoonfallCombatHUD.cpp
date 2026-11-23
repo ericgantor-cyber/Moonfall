@@ -805,6 +805,57 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WORLD LIVE | ENEMIES ATTACK"),
     FLinearColor(0.97f, 0.52f, 0.47f), Left + 18.f, Top + 78.f,
     nullptr, PanelWidth < 550.f ? 0.57f : 0.73f);
+  // The usual lower-left orb is rendered after the menu returns below. Give
+  // both live right-docked panels a compact, real-time vitals strip so the
+  // hero cannot lose HP or dodge stamina without any visible resource cue.
+  // Keep it left of the dock on ordinary windows and inside the viewport
+  // even on narrow windows; no extra widgets or actor scans per frame.
+  const float VitalsWidth = FMath::Clamp(Left - 28.f, 26.f, 224.f);
+  const float VitalsTop = FMath::Max(8.f, Canvas->SizeY - 168.f);
+  const bool bTightVitals = VitalsWidth < 140.f;
+  const float VitalsScale = bTightVitals ? 0.60f : 0.78f;
+  const float VitalMaxHealth = FMath::IsFinite(Hero->MaxHealth)
+    ? FMath::Max(1.f, Hero->MaxHealth) : 1.f;
+  const float VitalMaxMana = FMath::IsFinite(Hero->MaxMana)
+    ? FMath::Max(1.f, Hero->MaxMana) : 1.f;
+  const float VitalMaxStamina = FMath::IsFinite(Hero->MaxStamina)
+    ? FMath::Max(1.f, Hero->MaxStamina) : 1.f;
+  const float VitalHealth = FMath::IsFinite(Hero->Health)
+    ? FMath::Clamp(Hero->Health, 0.f, VitalMaxHealth) : 0.f;
+  const float VitalMana = FMath::IsFinite(Hero->Mana)
+    ? FMath::Clamp(Hero->Mana, 0.f, VitalMaxMana) : 0.f;
+  const float VitalStamina = FMath::IsFinite(Hero->Stamina)
+    ? FMath::Clamp(Hero->Stamina, 0.f, VitalMaxStamina) : 0.f;
+  const float VitalXP = static_cast<float>(FMath::Max(0, Hero->Experience));
+  const float VitalMaxXP = static_cast<float>(FMath::Max(1, Hero->ExperienceToNextLevel));
+  const bool bVitalsCritical = Hero->Health > 0.f && VitalHealth <= VitalMaxHealth * 0.25f;
+  DrawRect(FLinearColor(0.035f, 0.039f, 0.072f, 0.91f),
+    8.f, VitalsTop, VitalsWidth + 16.f, 157.f);
+  DrawText(bVitalsCritical ? TEXT("LOW HP | WORLD LIVE") : TEXT("LIVE RESOURCES"),
+    bVitalsCritical ? FLinearColor(1.f, 0.38f, 0.43f) : FLinearColor(0.80f, 0.87f, 1.f),
+    13.f, VitalsTop + 6.f, nullptr, VitalsScale);
+  const auto DrawVital = [this, VitalsTop, VitalsWidth, VitalsScale, bTightVitals](
+    int32 Row, const TCHAR* ShortLabel, float Current, float Maximum,
+    const FLinearColor& Ink) {
+    const float Y = VitalsTop + 26.f + Row * 32.f;
+    const float Fraction = FMath::Clamp(Current / Maximum, 0.f, 1.f);
+    const FString Caption = bTightVitals
+      ? FString(ShortLabel)
+      : FString::Printf(TEXT("%s %.0f / %.0f"), ShortLabel, Current, Maximum);
+    DrawText(Caption, FLinearColor::White, 13.f, Y, nullptr, VitalsScale);
+    DrawRect(FLinearColor(0.15f, 0.15f, 0.20f, 0.96f),
+      13.f, Y + 15.f, VitalsWidth - 10.f, 6.f);
+    DrawRect(Ink, 13.f, Y + 15.f,
+      (VitalsWidth - 10.f) * Fraction, 6.f);
+  };
+  DrawVital(0, TEXT("HP"), VitalHealth, VitalMaxHealth,
+    FLinearColor(0.95f, 0.12f, 0.19f));
+  DrawVital(1, TEXT("MANA"), VitalMana, VitalMaxMana,
+    FLinearColor(0.18f, 0.56f, 0.99f));
+  DrawVital(2, TEXT("STAM"), VitalStamina, VitalMaxStamina,
+    FLinearColor(0.22f, 0.86f, 0.43f));
+  DrawVital(3, TEXT("XP"), FMath::Min(VitalXP, VitalMaxXP), VitalMaxXP,
+    FLinearColor(0.70f, 0.32f, 1.f));
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
