@@ -1377,6 +1377,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterStatsOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
+  // Defeat is its own screen, not a menu and not a lingering damage tint.
+  MenuDamageFlashUntil = -1.f;
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
@@ -3543,12 +3545,15 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
+ MenuDamageFlashUntil = -1.f;
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  bWorldProgressLoadInProgress = false;
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ // Never replay a pre-death menu hit flash after the checkpoint restores.
+ MenuDamageFlashUntil = -1.f;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
