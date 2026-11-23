@@ -448,7 +448,39 @@ func _run()->void:
   check(covered_traits.size()==4,"every species can use all four distinct guardian attack traits")
  var final_guardian_relic:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
  check(final_guardian_relic.get("rarity")=="Legendary" and str(final_guardian_relic.get("name","")).contains("Sovereign"),"fifty-fifth guardian awards a real named legendary")
- check("func _atlas_roll_guardian_profiles()" in source and "used[choice]=true" in source,"thirty guardian profiles are randomized without repetition")
+ check("func _atlas_roll_guardian_profiles()" in source and "GUARDIAN_55.roll_unique_profiles(atlas_regional_guardian_rolls,rng)" in source,"live guardian selection invokes the tested allocator")
+ var expected_species:Array[int]=[]
+ for region in range(6):
+  for species_id in range(4):expected_species.append(species_id)
+  expected_species.append(region%4)
+ var guardian_rng:=RandomNumberGenerator.new()
+ guardian_rng.seed=42
+ var first_roll:Array[int]=GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng)
+ guardian_rng.seed=42
+ check(first_roll==GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng),"same seed produces the same thirty boss profiles")
+ var all_rosters_valid:bool=true
+ for seed in range(1111):
+  guardian_rng.seed=seed+1
+  var rolled_roster:Array[int]=GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng)
+  if rolled_roster.size()!=expected_species.size():
+   all_rosters_valid=false
+   break
+  var seen_profile_ids:Dictionary={}
+  for index in range(rolled_roster.size()):
+   var rolled_id:int=rolled_roster[index]
+   if seen_profile_ids.has(rolled_id) or not GUARDIAN_55.valid_profile(rolled_id) or int(GUARDIAN_55.profile(rolled_id)["species"])!=expected_species[index]:
+    all_rosters_valid=false
+    break
+   seen_profile_ids[rolled_id]=true
+  if not all_rosters_valid:break
+ check(all_rosters_valid,"1,111 seeded adventures roll thirty distinct species-matched guardians")
+ var impossible_species:Array[int]=[]
+ for index in range(15):impossible_species.append(3)
+ check(GUARDIAN_55.roll_unique_profiles(impossible_species,guardian_rng).is_empty(),"exhausted species pool fails closed without a partial roster")
+ var invalid_species:Array[int]=[0,4,1]
+ check(GUARDIAN_55.roll_unique_profiles(invalid_species,guardian_rng).is_empty(),"corrupt species IDs never create a partial roster")
+ var empty_species:Array[int]=[]
+ check(GUARDIAN_55.roll_unique_profiles(empty_species,guardian_rng).is_empty(),"empty adventures do not create spurious guardians")
  check('data["atlas_regional_guardian_profiles"]' in source and 'extras.get("atlas_regional_guardian_profiles",[])' in source,"guardian assignments are saved and recovered")
  check("GUARDIAN_55.profile(int(guardian_profile_id))" in source and "unique_profiles.has(guardian_profile_id)" in source,"corrupt duplicate or species-incompatible save profiles are rejected")
  check("regional_guardian_attack_scale" in source and "regional_guardian_cooldown_scale" in source,"profile offense and cooldowns affect real hostile moves")
