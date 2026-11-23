@@ -392,7 +392,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -1048,7 +1048,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ToggleInventory();", stats)
         self.assertIn("bCharacterStatsOpen = true;", stats)
         self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
-        self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
+        self.assertIn("if (bTalentWebOpen || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
         self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
@@ -1285,7 +1285,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
-        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bTalentWebOpen && !bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
@@ -1797,7 +1797,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("(bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
         self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
@@ -1941,9 +1941,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
+            self.assertIn("Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
-            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
     def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
@@ -5882,7 +5882,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             with self.subTest(method=method):
                 body = method_body(method)
                 self.assertIn(guard, body)
-                self.assertLess(body.index(guard), body.index("return;"))
+                # A talent action can be consumed before Atlas's older guard.
+                # Both guards must still precede the actual gameplay action.
+                self.assertIn("if (bTalentWebOpen)", body)
+                self.assertLess(body.index("if (bTalentWebOpen)"), body.index(guard))
+                self.assertIn("return;", body[body.index(guard):])
 
         right = method_body("CastRightMouse")
         self.assertLess(right.index("if (bAtlasOpen) return;"), right.index("if (bInventoryOpen) {"))
@@ -6216,11 +6220,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(cancel, enemy_modal)
         self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
-        self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
+        self.assertIn("&& !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
-        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
+        self.assertIn("(bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
+        self.assertIn("(bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
         self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("&& !bSprinting && !bGuarding && GetWorld()", tick)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
