@@ -5195,7 +5195,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", code)
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", code)
         self.assertIn("PreviewImage->SetBrushFromTexture(PreviewTexture);", code)
-        for key in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down",
+        # Keyboard arrows are now exclusive to movement. The race chooser
+        # uses PageUp/PageDown while controller D-pad navigation is retained.
+        for key in ("EKeys::PageUp", "EKeys::PageDown",
                     "EKeys::Gamepad_DPad_Left", "EKeys::Gamepad_DPad_Right",
                     "EKeys::Gamepad_DPad_Up", "EKeys::Gamepad_DPad_Down"):
             self.assertIn(key, code)
