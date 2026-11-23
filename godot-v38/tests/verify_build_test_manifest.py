@@ -25,6 +25,13 @@ checks={
     "Windows inspects the playable scene root script": "Get-Content 'scenes/main.tscn'" in windows_workflow and '$rootScript.Groups[1].Value' in windows_workflow and 'VALIDATING PLAYABLE ROOT SCRIPT:' in windows_workflow,
     "Windows rejects circular and missing inherited scripts": 'Circular script inheritance detected' in windows_workflow and 'Missing inherited script:' in windows_workflow,
     "Windows fails on resource import errors": 'Godot resource import failed before script-chain validation' in windows_workflow,
+    "Windows preflight and release build use same pinned Godot binary": all(
+        token in windows_workflow for token in (
+            "Godot_v4.7.2-stable_win64.exe",
+            'Get-Item -LiteralPath $enginePath',
+            'MOONFALL_GODOT_EXE=$($engine.FullName)'
+        )
+    ) and "Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe'" not in windows_workflow,
     "Godot preflight subprocesses have bounded wait and tree kill": all(
         token in windows_workflow for token in (
             'function Invoke-GodotChecked', 'WaitForExit($TimeoutSeconds * 1000)',
