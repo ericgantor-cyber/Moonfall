@@ -1362,9 +1362,13 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  // Subtle, nonflashing right-hand readout. No extra HUD panels or asset changes.
  if (!bCompactScreen) {
-  const TCHAR* RightMode = Hero->bRightHandSpellReadied ? TEXT("SPELL")
-      : (Hero->GetValidatedEquippedTier(0) > 0 ? TEXT("WEAPON") : TEXT("UNARMED"));
-  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), RightMode),
+  // Show the actual readied spell, not an ambiguous generic "SPELL".
+  // The fourth native spell restores health; no new invented spell schools.
+  const FString RightMode = Hero->bRightHandSpellReadied
+      ? (Hero->RightSpell == 3 ? FString(TEXT("SPELL 4: HEAL"))
+          : FString::Printf(TEXT("SPELL %d"), FMath::Clamp(Hero->RightSpell + 1, 1, 6)))
+      : (Hero->GetValidatedEquippedTier(0) > 0 ? TEXT("SWORD") : TEXT("UNARMED"));
+  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), *RightMode),
     FLinearColor(0.79f, 0.88f, 0.98f),
     CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
  }
