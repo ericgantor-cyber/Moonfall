@@ -22,7 +22,7 @@ func _process(delta:float)->void:
  _v361_animate(delta)
  # Higher commander phases attack more often, but NEVER shorten their marked
  # warning window. Inherited logic still owns hazard and invader budgets.
- if not hero_playing or death_active or menu_open or mounted or v341_active_site<0 or v341_wave!=3 or v342_phase!=0 or not is_instance_valid(player):return
+ if not hero_playing or death_active or mounted or v341_active_site<0 or v341_wave!=3 or v342_phase!=0 or not is_instance_valid(player):return
  var site:int=v341_active_site
  if region_index!=int(v341_sites[site]["zone"]):return
  if player.global_position.distance_squared_to(v341_sites[site]["anchor"])>55.0*55.0:return
