@@ -35,6 +35,28 @@ static func suitable_profiles(species_index:int)->Array[int]:
   if int(profile(profile_id).get("species",-1))==species_index:choices.append(profile_id)
  return choices
 
+
+# Shared assignment rule: never emit a partially rolled or duplicate roster.
+# Uses the game's existing RNG so save/replay behavior remains deterministic.
+static func roll_unique_profiles(species_rolls:Array[int], randomizer:RandomNumberGenerator)->Array[int]:
+ var assigned:Array[int]=[]
+ if randomizer==null or species_rolls.is_empty() or species_rolls.size()>PROFILE_COUNT:return assigned
+ var taken:Dictionary={}
+ for species_id in species_rolls:
+  if species_id<0 or species_id>=4:
+   assigned.clear()
+   return assigned
+  var eligible:Array[int]=[]
+  for candidate_id in suitable_profiles(species_id):
+   if not taken.has(candidate_id):eligible.append(candidate_id)
+  if eligible.is_empty():
+   assigned.clear()
+   return assigned
+  var choice:int=eligible[randomizer.randi_range(0,eligible.size()-1)]
+  assigned.append(choice)
+  taken[choice]=true
+ return assigned
+
 static func guardian_relic(profile_id:int,zone:int,dungeon_id:int,affix:String)->Dictionary:
  var entry:Dictionary=profile(profile_id)
  if entry.is_empty():return {}
