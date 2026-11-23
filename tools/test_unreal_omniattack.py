@@ -60,13 +60,48 @@ int main() {
                          "LastHitComboTarget"):
             self.assertIn(required, code)
         self.assertNotIn("TryCast(", code)
-        self.assertIn("if (!bResidentContextOpen) { MeleeAttack(); return; }", hero)
-        self.assertIn('Input->BindAction(TEXT("MeleeAttack"), IE_Pressed', hero)
+        self.assertIn("if (!bResidentContextOpen) { RightHandAction(); return; }", hero)
+        self.assertIn('Input->BindAction(TEXT("RightHandAction"), IE_Pressed', hero)
         self.assertIn("void AMoonfallHeroPawn::CastLeft()", hero)
         self.assertIn("void AMoonfallHeroPawn::CastRight()", hero)
         enemy = (SRC / "MoonfallEnemy.cpp").read_text()
         self.assertIn("void AMoonfallEnemy::TakeMeleeDamage(float Amount)", enemy)
         self.assertIn("TakeSpellDamage(Amount);", enemy)
+
+    def test_skyrim_style_primary_uses_equipped_right_hand(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        header = (SRC / "MoonfallHeroPawn.h").read_text()
+        action = hero.split("void AMoonfallHeroPawn::RightHandAction()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleRightHandLoadout()", 1)[0]
+        self.assertIn("if (bRightHandSpellReadied) CastRight();", action)
+        self.assertIn("else MeleeAttack();", action)
+        self.assertIn("bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)", hero)
+        ready_spell = hero.split("bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)", 1)[1].split(
+            "void AMoonfallHeroPawn::ReadyRightHandWeapon()", 1)[0]
+        self.assertIn("School < 0 || School >= 6", ready_spell)
+        self.assertIn("RightSpell = School;", ready_spell)
+        self.assertIn("bRightHandSpellReadied = true;", ready_spell)
+        equip_weapon = hero.split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[1].split(
+            "bool AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("if (SlotIndex == 0) ReadyRightHandWeapon();", equip_weapon)
+        self.assertIn("bool bRightHandSpellReadied = false;", header)
+        self.assertIn("OnRightHandLoadoutChanged", header)
+        self.assertNotIn("TryCast(", action)
+
+    def test_hand_swap_never_operates_inside_menus_or_dialogue(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        switch = hero.split("void AMoonfallHeroPawn::ToggleRightHandLoadout()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReadyRightHandSpell", 1)[0]
+        for locked in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen",
+                       "bAtlasOpen", "bResidentContextOpen",
+                       "FocusedResident.IsValid()"):
+            self.assertIn(locked, switch)
+        self.assertIn("bRightHandSpellReadied = !bRightHandSpellReadied;", switch)
+        self.assertIn("void AMoonfallHeroPawn::CastLeft()", hero)
+        self.assertIn("void AMoonfallHeroPawn::CastRight()", hero)
+        cfg = (GAME / "Config" / "DefaultInput.ini").read_text()
+        self.assertIn('ActionName="CastLeft",Key=Z', cfg)
+        self.assertIn('ActionName="CastRight",Key=X', cfg)
 
     def test_sword_flow_clears_only_after_safe_respawn(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
@@ -100,8 +135,13 @@ int main() {
         for key in reserved:
             self.assertTrue(any(line.startswith("+AxisMappings=")
                                 and "Key=" + key + ")" in line for line in lines), key)
-        self.assertTrue(any('ActionName="MeleeAttack",Key=Gamepad_RightTrigger'
+        self.assertTrue(any('ActionName="RightHandAction",Key=Gamepad_RightTrigger'
                             in line for line in lines))
+        self.assertTrue(any('ActionName="ToggleRightHandLoadout",Key=V'
+                            in line for line in lines))
+        self.assertTrue(any('ActionName="ToggleRightHandLoadout",Key=Gamepad_DPad_Left'
+                            in line for line in lines))
+        self.assertFalse(any("\\n" in line for line in lines))
 
 
 if __name__ == "__main__":
