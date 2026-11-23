@@ -3,6 +3,7 @@
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallOmniattack.h"
+#include "MoonfallCombatInputBuffer.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
@@ -416,6 +417,7 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
  MoonfallOmniattack::FFlow SwordFlow;
+ MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
  float LastSuccessfulHitAt = -100.f;

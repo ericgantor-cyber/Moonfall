@@ -409,6 +409,18 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ // A second click shortly before recovery may queue exactly one next swing.
+ // No extra timer, animation, actor scan, trace, or stamina charge per frame.
+ // All modal/defense transitions discard it before an attack can resolve.
+ if (SwordBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(SwordBuffer.ExpiresAt)) {
+  const float CombatNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
+  const bool bCanDispatchBufferedMelee = GetWorld() && Health > 0.f
+    && FMath::IsFinite(Health) && !bOptionsOpen && !bInventoryOpen
+    && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+    && !bGuarding && !bRightHandSpellReadied;
+  if (SwordBuffer.Consume(CombatNow, NextMeleeAttackAt, bCanDispatchBufferedMelee))
+   MeleeAttack();
+ }
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
   RevealAtlasAtWorldLocation();
@@ -1025,6 +1037,13 @@ void AMoonfallHeroPawn::RightHandAction()
  if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid()) return;
+ // Buffer one additional sword press only within the final 180ms of recovery.
+ // Spells retain their existing immediate cast path and never queue a sword.
+ if (!bRightHandSpellReadied && !bGuarding) {
+  const float CombatNow = GetWorld()->GetTimeSeconds();
+  if (SwordBuffer.Queue(CombatNow, NextMeleeAttackAt)) return;
+ }
+ SwordBuffer.Clear();
  if (bRightHandSpellReadied) CastRight();
  else MeleeAttack();
 }
@@ -1036,6 +1055,7 @@ bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
  if (School < 0 || School >= 6 || Health <= 0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;
  RightSpell = School;
+ SwordBuffer.Clear();
  bRightHandSpellReadied = true;
  if (GConfig) {
   GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), true, GGameUserSettingsIni);
@@ -1202,6 +1222,7 @@ void AMoonfallHeroPawn::MeleeAttack()
 
  // A click spends its stamina and recovery even when it misses. Do not
  // advance the angle on menu clicks, invalid input or cooldown spam.
+ SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
  NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
  Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(
@@ -1323,6 +1344,8 @@ void AMoonfallHeroPawn::BeginGuard()
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
      || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
+ // Blocking/parrying supersedes a queued sword swing.
+ SwordBuffer.Clear();
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
  bGuarding = true;
@@ -1384,6 +1407,7 @@ void AMoonfallHeroPawn::Dodge()
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ SwordBuffer.Clear(); // Dodge always wins over a pending attack.
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
@@ -1639,6 +1663,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
   if (bInventoryOpen) ToggleInventory();
@@ -1683,6 +1708,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  SwordBuffer.Clear();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -1906,6 +1932,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
+  SwordBuffer.Clear();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -3491,6 +3518,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
+ SwordBuffer.Clear();
  MoonfallOmniattack::Reset(SwordFlow);
  CurrentSwordAngle = -1;
  SwordFlowStep = 0;
@@ -3690,6 +3718,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  bResidentContextOpen = false;
  FocusedResident.Reset();
+ SwordBuffer.Clear();
  // Return cursor ownership to whichever native modal is still active.
  // The Atlas must keep its cursor if streaming closes a dialogue.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
@@ -3719,7 +3748,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
- // A conversation should release held combat movement immediately.
+ // A conversation must cancel any queued swing before taking input.
+ SwordBuffer.Clear();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
