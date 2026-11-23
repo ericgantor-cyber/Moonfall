@@ -19,6 +19,10 @@ HERO_H = ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h"
 HERO_CPP = ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp"
 SAVE = ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h"
 TEST_CPP = ROOT / "tools/test_unreal_talent_rules.cpp"
+TEST_WEB_CPP = ROOT / "tools/test_unreal_talent_web.cpp"
+WEB = ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallTalentWeb.h"
+HUD = ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp"
+INPUT = ROOT / "MoonfallUnreal/Config/DefaultInput.ini"
 
 ROW = re.compile(
     r'^\s*\{"([^"]+)","([^"]+)",Branch::(\w+),(\d+),(\d+),(-?\d+),(-?\d+),'
@@ -137,6 +141,59 @@ class UnrealTalentParityTests(unittest.TestCase):
         self.assertIn("MaxStamina = static_cast<float>(LoadedStaminaCap);", load)
         self.assertLess(load.index("if (!std::isfinite(LoadedHealthCap)"),
                         load.index("TeleportTo(SavedCheckpoint"))
+
+    def test_live_talent_web_controls_and_shared_canvas_geometry(self) -> None:
+        cpp = HERO_CPP.read_text(encoding="utf-8")
+        hud = HUD.read_text(encoding="utf-8")
+        keys = INPUT.read_text(encoding="utf-8")
+        web = WEB.read_text(encoding="utf-8")
+        hero = HERO_H.read_text(encoding="utf-8")
+        for action, key in (("TalentWeb", "K"), ("TalentSpend", "Enter"),
+                            ("TalentRespec", "BackSpace")):
+            self.assertIn(f'ActionName="{action}",Key={key}', keys)
+        self.assertIn("bTalentWebOpen", hero)
+        self.assertIn("void AMoonfallHeroPawn::ToggleTalentWeb()", cpp)
+        self.assertIn("void AMoonfallHeroPawn::TalentPointerClick()", cpp)
+        self.assertIn("void AMoonfallHeroPawn::TalentConfirmRespec()", cpp)
+        self.assertIn("void AMoonfallHeroPawn::TalentSpendSelected()", cpp)
+        self.assertIn("TalentRespecArmUntil=Now+3.0f", cpp)
+        self.assertIn("if (bTalentWebOpen) {TalentPointerClick();return;}", cpp)
+        self.assertIn("if (bTalentWebOpen) {TalentSpendSelected();return;}", cpp)
+        self.assertIn("if (bTalentWebOpen) {TalentChangeBranch(-1);return;}", cpp)
+        self.assertIn("if (bTalentWebOpen) {TalentChangeBranch(1);return;}", cpp)
+        self.assertIn("if (bTalentWebOpen) {TalentConfirmRespec();return;}", cpp)
+        self.assertIn("if (bTalentWebOpen) {OptionsUp();return;}", cpp)
+        self.assertIn("MoonfallTalentWeb::HitNode(", cpp)
+        self.assertIn("MoonfallTalentWeb::NodeRect(", hud)
+        self.assertIn("MoonfallTalentWeb::SpendRect(", hud)
+        self.assertIn("MoonfallTalentWeb::RespecRect(", hud)
+        self.assertLess(hud.index("if (Hero->bTalentWebOpen)"),
+                        hud.index("if (Hero->bAtlasOpen)"))
+        self.assertIn("inline Rect NodeRect(", web)
+        self.assertIn("inline int HitNode(", web)
+        self.assertIn("inline int Move(", web)
+        self.assertIn("if (bTalentWebOpen && Health<=0.f)ToggleTalentWeb();", cpp)
+        # Prevent accidental input fallthrough into combat and item pickups
+        # while the constellation owns the mouse or gamepad.
+        for method_name in ("TryCast", "MoveForward", "MoveRight",
+                            "PickupNearestGroundLoot", "ActivateRacePower"):
+            self.assertIn("bTalentWebOpen",
+                cpp.split(f"AMoonfallHeroPawn::{method_name}(", 1)[1].split("}", 1)[0])
+        # The original 141 talent slots are drawn from the same canonical catalog.
+        self.assertIn("for(int I=0;I<MoonfallTalents::NodeCount;++I)", hud)
+
+    def test_portable_talent_web_navigation_cpp(self) -> None:
+        compiler = shutil.which("g++") or shutil.which("clang++")
+        self.assertIsNotNone(compiler, "C++17 required for native web geometry checks")
+        with tempfile.TemporaryDirectory(prefix="moonfall_web_") as tmp:
+            exe = Path(tmp) / "talent_web"
+            subprocess.run(
+                [compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                 "-pedantic", str(TEST_WEB_CPP), "-o", str(exe)],
+                check=True, cwd=ROOT, capture_output=True, text=True,
+            )
+            subprocess.run([str(exe)], check=True, cwd=ROOT,
+                           capture_output=True, text=True)
 
     def test_portable_cplusplus_rules(self) -> None:
         compiler = shutil.which("g++") or shutil.which("clang++")
