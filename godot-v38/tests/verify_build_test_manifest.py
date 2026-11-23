@@ -25,6 +25,19 @@ checks={
     "Windows inspects the playable scene root script": "Get-Content 'scenes/main.tscn'" in windows_workflow and '$rootScript.Groups[1].Value' in windows_workflow and 'VALIDATING PLAYABLE ROOT SCRIPT:' in windows_workflow,
     "Windows rejects circular and missing inherited scripts": 'Circular script inheritance detected' in windows_workflow and 'Missing inherited script:' in windows_workflow,
     "Windows fails on resource import errors": 'Godot resource import failed before script-chain validation' in windows_workflow,
+    "Godot preflight subprocesses have bounded wait and tree kill": all(
+        token in windows_workflow for token in (
+            'function Invoke-GodotChecked', 'WaitForExit($TimeoutSeconds * 1000)',
+            '$process.Kill($true)', '-TimeoutSeconds 600', '-TimeoutSeconds 180'
+        )
+    ),
+    "Playable leaf compiled first, ancestor diagnosis only on failure": all(
+        token in windows_workflow for token in (
+            'VERIFY FULL PLAYABLE SCRIPT CHAIN:', 'foreach ($ancestor in $chain)',
+            'FIRST FAILING SCRIPT:', 'PASS: playable inheritance chain checked'
+        )
+    ) and windows_workflow.index('VERIFY FULL PLAYABLE SCRIPT CHAIN:') <
+        windows_workflow.index('foreach ($ancestor in $chain)'),
     "Live-panel Windows tests use supervised isolated runner": all(
         f"python tools\\run_tests.py --script res://tests/{name}.gd" in bat
         and f'findstr /c:"PASS {name}"' in bat
