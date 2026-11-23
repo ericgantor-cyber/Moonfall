@@ -163,6 +163,13 @@ class UnrealTalentParityTests(unittest.TestCase):
         self.assertIn("if (bTalentWebOpen) {TalentChangeBranch(1);return;}", cpp)
         self.assertIn("if (bTalentWebOpen) {TalentConfirmRespec();return;}", cpp)
         self.assertIn("if (bTalentWebOpen) {OptionsUp();return;}", cpp)
+        stats = cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[0]
+        self.assertIn("if (bTalentWebOpen || bOptionsOpen", stats)
+        # Gamepad A has both Jump and CharacterStats bindings. Spending
+        # must consume the A event without toggling the inventory panel.
+        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', keys)
+        self.assertIn("if (!bTalentWebOpen && !bCharacterStatsOpen)", cpp)
         self.assertIn("MoonfallTalentWeb::HitNode(", cpp)
         self.assertIn("MoonfallTalentWeb::NodeRect(", hud)
         self.assertIn("MoonfallTalentWeb::SpendRect(", hud)
