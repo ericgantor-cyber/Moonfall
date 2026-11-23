@@ -296,6 +296,20 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
+  // Immediate ordinary-enemy flinch: cancel live windups before the next
+  // throttled AI tick. Bosses retain their normal phase/posture safeguards.
+  if (!bBoss && ActualDamage > 0.f && Health > 0.f
+      && FMath::IsFinite(Now) && WindupEndsAt > Now) {
+   WindupEndsAt = -1.f;
+   BossWarningEndTime = -1.f;
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = false;
+   LockedAttackDirection = FVector::ZeroVector;
+   NextAttackAt = FMath::Max(
+       FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
+  }
   if (Health <= 0.0f) {
    // Defeat cancels pending divine warnings before notifying VFX and death
    // animations. Never leave a danger marker active on a defeated god.
