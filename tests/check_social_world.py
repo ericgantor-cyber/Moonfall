@@ -14,6 +14,14 @@ class TestSocialWorld(unittest.TestCase):
   cls.save=(ROOT/"MoonfallPersistentSave.h").read_text()
   cls.arena=(ROOT/"MoonfallArena.cpp").read_text()
   cls.input=(ROOT.parents[1]/"Config"/"DefaultInput.ini").read_text()
+ def _assert_spell_cast_modal_guard(self):
+  # Check the spell authority's guard, not brittle one-line source layout.
+  cast=self.hero.split("bool AMoonfallHeroPawn::TryCast(",1)[1].split(
+   "const float Time =",1)[0]
+  for condition in ("bOptionsOpen","bInventoryOpen","bAtlasOpen",
+     "bResidentContextOpen","FocusedResident.IsValid()","!GetWorld()",
+     "School < 0","Hand < 0","return false;"):
+   self.assertIn(condition,cast)
  def test_fixed_settlement(self):
   self.assertIn('SettlementId = FName(TEXT("Crossroads"))',self.arena)
   for resident in ("Birchroot","Anvilkeeper","Silverwatch","Ember Scout"):
@@ -82,7 +90,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentContextSelection = Row;",self.hero)
   self.assertIn("ChooseResidentContextAction(Row)",self.hero)
   self.assertIn("ChooseResidentContextAction(ResidentContextSelection)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self._assert_spell_cast_modal_guard()
   self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton',self.input)
  def test_native_spoken_dialogue_without_blueprint_widget(self):
   self.assertIn("LastSpokenLine",self.npc_h)
@@ -102,7 +110,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self._assert_spell_cast_modal_guard()
  def test_npc_dialogue_blocks_stale_controller_and_keyboard_input(self):
   # This verifies native source guard ordering; it does not run UE5 gameplay.
   def body(name,next_name):
