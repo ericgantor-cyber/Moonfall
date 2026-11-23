@@ -48,7 +48,7 @@ static func wildlife_flee_radius(kind:String,weather:String,day_phase:String)->f
   "elk":radius=5.5
   _:pass
  if day_phase=="Night":
-  radius+=(-0.6 if kind in ["fox","owl"] else 0.4)
+  radius+=(-0.6 if (kind=="fox" or kind=="owl") else 0.4)
  match weather:
   "Mist":radius-=0.65
   "Rain":radius-=0.3
