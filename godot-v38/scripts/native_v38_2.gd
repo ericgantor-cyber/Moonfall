@@ -152,7 +152,9 @@ func _ai_art_update_animations(delta:float)->void:
  ai_art_anim_clock+=clampf(delta,0.0,0.2)
  if ai_art_anim_clock<0.08:return
  ai_art_anim_clock=fmod(ai_art_anim_clock,0.08)
- if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
+ # Menus and map overlays keep combat/world simulation live, so imported
+ # creature animations must continue too. Death and non-gameplay states stop.
+ if not hero_playing or death_active or not is_instance_valid(player):return
  ai_art_anim_poll_cycle+=1
  for animal in ai_art_live_animal_models:
   var animated:Dictionary=animal.get("ai_art_animation_binding",{})
@@ -894,7 +896,10 @@ func _guardian_update_trait_attacks(delta:float)->void:
  guardian_trait_attack_clock+=clampf(delta,0.0,0.2)
  if guardian_trait_attack_clock<0.10:return
  guardian_trait_attack_clock=fmod(guardian_trait_attack_clock,0.10)
- if not hero_playing or death_active or menu_open or not is_instance_valid(player):
+ # The world remains live behind Raven Atlas. Never cancel an active
+ # guardian warning just because a menu is visible. Actual death still
+ # clears transient attacks before the sanctuary or title transition.
+ if not hero_playing or death_active or not is_instance_valid(player):
   for guardian_id in atlas_regional_guardian_actors.keys():
    var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
    guardian["trait_warning_until"]=0.0

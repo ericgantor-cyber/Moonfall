@@ -61,6 +61,42 @@ func _run()->void:
  game.set("v387_stamina_regen_wait",0.0)
  game.call("_toggle_menu")
  check(menu.visible and bool(game.get("menu_open")),"Raven Atlas menu opens")
+ # Real animation polling must continue behind the live main menu.
+ # Previously its menu_open guard froze imported GLB creature poses despite
+ # the world clock and enemy attack AI continuing to advance.
+ var animation_before:int=int(game.get("ai_art_anim_poll_cycle"))
+ game.set("ai_art_anim_clock",0.0)
+ game.call("_ai_art_update_animations",0.1)
+ check(int(game.get("ai_art_anim_poll_cycle"))>animation_before,"Imported creature animations keep polling behind Raven Atlas")
+ # Simulate a loaded regional guardian using a live enemy body, so this
+ # regression exercises the real trait-attack loop without spawning actors.
+ var guardian_body:CharacterBody3D=enemy.get("body") as CharacterBody3D
+ if is_instance_valid(guardian_body):
+  var original_guard_pos:Vector3=guardian_body.global_position
+  guardian_body.global_position=player.global_position+Vector3(0.0,0.0,4.0)
+  var test_guardian:Dictionary={
+   "alive":true,"zone":int(game.get("region_index")),"body":guardian_body,
+   "regional_guardian_trait":0,
+   "trait_warning_until":float(game.get("map_time"))+4.0,
+   "trait_next_at":float(game.get("map_time"))+10.0
+  }
+  var guardian_actors:Dictionary=game.get("atlas_regional_guardian_actors")
+  guardian_actors[-9999]=test_guardian
+  game.set("atlas_regional_guardian_actors",guardian_actors)
+  var warning_before:float=float(test_guardian["trait_warning_until"])
+  game.set("guardian_trait_attack_clock",0.0)
+  game.call("_guardian_update_trait_attacks",0.12)
+  check(is_equal_approx(float(test_guardian["trait_warning_until"]),warning_before),"Regional guardian warning stays queued while Raven Atlas is open")
+  game.set("death_active",true)
+  game.set("guardian_trait_attack_clock",0.0)
+  game.call("_guardian_update_trait_attacks",0.12)
+  check(is_zero_approx(float(test_guardian["trait_warning_until"])),"Real death still cancels regional guardian warning")
+  game.set("death_active",false)
+  guardian_actors.erase(-9999)
+  game.set("atlas_regional_guardian_actors",guardian_actors)
+  guardian_body.global_position=original_guard_pos
+ else:
+  check(false,"Regional guardian live-menu regression has an actual enemy body")
  check(float(enemy.get("windup",-1.0))==4.0 and bool(enemy.get("v404_attack_pending",false)) and is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),planned),"Opening main menu does not cancel pending attacks")
 
  var tabs:PackedStringArray=["Character","World","Wallet","Inventory","Materials","Hero Skills","Tamer","Professions","Hunter","Bestiary","System"]
@@ -124,6 +160,10 @@ func _run()->void:
  check(not menu.visible and not bool(game.get("menu_open")),"Raven Atlas closes")
  game.call("_toggle_atlas")
  check(atlas.visible,"Separate map overlay opens")
+ animation_before=int(game.get("ai_art_anim_poll_cycle"))
+ game.set("ai_art_anim_clock",0.0)
+ game.call("_ai_art_update_animations",0.1)
+ check(int(game.get("ai_art_anim_poll_cycle"))>animation_before,"Imported creature animations keep polling beneath the map")
  var atlas_clock:float=float(game.get("map_time"))
  for frame in range(5):await physics_frame
  check(float(game.get("map_time"))>atlas_clock,"World time advances under the map")

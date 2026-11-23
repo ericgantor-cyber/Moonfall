@@ -91,6 +91,12 @@ func _run()->void:
  check(rig_binding.has("clips") and (rig_binding.get("clips",{}) as Dictionary).has("idle"),"real imported Skeleton3D plus AnimationPlayer is recognized")
  var fake_actor:Dictionary={"alive":true,"body":fake_rig,"attack_swing_until":3.0,"hit_react_until":0.0,"windup":0.0}
  check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="attack","original enemy attack feedback controls visual attack clip selection")
+ fake_actor["attack_swing_until"]=0.0
+ fake_actor["melee_windup_until"]=3.5
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="telegraph","ordinary melee windup drives imported rig anticipation")
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,3.5)=="idle","expired melee windup no longer keeps telegraph animation")
+ fake_actor["attack_swing_until"]=3.2
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="attack","active swing wins over a queued melee anticipation")
  fake_actor["hit_react_until"]=3.0
  check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="hurt","native hit reaction overrides animation attack pose")
  fake_actor["alive"]=false
@@ -575,7 +581,11 @@ func _run()->void:
  check("TraitAttackCaption" in source and "cue.outline_size=12" in source,"warning labels remain readable without relying only on color")
  check("warning_until-map_time" in source and "ATTACK_NAMES[trait_id].to_upper()" in source,"warning countdown belongs to the active attack")
  check("horizontal.length_squared()>18.0*18.0" in source and 'guardian["trait_next_at"]=map_time+2.0' in source,"leaving the boss encounter cancels an unsafe delayed hit")
- check("not hero_playing or death_active or menu_open or not is_instance_valid(player)" in source and "old_warning.visible=false" in source,"death and menu transitions hide guardian attacks")
+ var guardian_tick_start:int=source.find("func _guardian_update_trait_attacks(delta:float)")
+ var guardian_tick_end:int=source.find("\nfunc ",guardian_tick_start+1)
+ var guardian_tick:String=source.substr(guardian_tick_start,(guardian_tick_end-guardian_tick_start) if guardian_tick_end>guardian_tick_start else -1) if guardian_tick_start>=0 else ""
+ check("if not hero_playing or death_active or not is_instance_valid(player):" in guardian_tick and "old_warning.visible=false" in guardian_tick,"real death and inactive world clear guardian attack warnings")
+ check("or menu_open" not in guardian_tick,"open Raven Atlas never cancels or suppresses regional guardian attacks")
  check("far_warning.visible=false" in source and 'guardian.get("zone",-1)' in source,"region transitions clear hostile warnings")
  check("if is_instance_valid(warning_root):warning_root.visible=false" in source,"defeated guardians leave no attack warning")
 
