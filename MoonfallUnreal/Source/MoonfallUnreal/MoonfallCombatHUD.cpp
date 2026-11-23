@@ -14,6 +14,22 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+// A subtle, single-hit full-screen tint stays visible even when a Canvas
+// panel covers the world. This is visual feedback only, never a combat pause.
+void AMoonfallCombatHUD::DrawMenuDamageFlash(const AMoonfallHeroPawn* Hero)
+{
+ if (!Canvas || !IsValid(Hero) || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ const float Until = Hero->MenuDamageFlashUntil;
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(Until) || Until <= Now
+     || !FMath::IsFinite(Canvas->SizeX) || !FMath::IsFinite(Canvas->SizeY)
+     || Canvas->SizeX <= 0.f || Canvas->SizeY <= 0.f) return;
+ // One short fade for actual HP loss; no strobing or permanent danger banner.
+ const float Fraction = FMath::Clamp((Until - Now) / 0.28f, 0.f, 1.f);
+ const float Alpha = (Hero->bReduceMotion ? 0.09f : 0.22f) * Fraction;
+ DrawRect(FLinearColor(0.94f, 0.07f, 0.11f, Alpha),
+   0.f, 0.f, Canvas->SizeX, Canvas->SizeY);
+}
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -29,6 +45,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!P.bUsable) {
    DrawText(TEXT("TALENT WEB | Enlarge window | K / ESC: close"),
      FLinearColor::White, 12.f, 12.f, nullptr, 0.85f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   const int32 Available=Hero->GetUnspentTalentPoints();
@@ -150,6 +167,7 @@ void AMoonfallCombatHUD::DrawHUD()
       bShowNotice ? (Hero->bTalentWebNoticeSuccess ? Teal : Gold)
        : FLinearColor(0.74f,0.81f,0.92f),
       P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
@@ -214,6 +232,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
  }
@@ -222,6 +241,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Canvas->SizeX < 300.f || Canvas->SizeY < 240.f) {
    DrawText(TEXT("ATLAS | Enlarge window | J / ESC: close"),
        FLinearColor(0.91f, 0.84f, 0.68f), 12.f, 14.f, nullptr, 0.75f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
@@ -669,6 +689,7 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.70f, 0.70f, 0.66f), MapLeft, MapTop + MapHeight + 20.f,
        nullptr, Scale * 0.66f);
   }
+  DrawMenuDamageFlash(Hero);
   return;
  }
  if (Hero->bOptionsOpen) {
@@ -777,6 +798,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  if (Hero->bInventoryOpen) {
@@ -900,6 +922,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("C / P / R3: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -1220,6 +1243,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / P / R3: character stats    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
