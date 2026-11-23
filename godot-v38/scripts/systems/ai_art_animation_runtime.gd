@@ -49,7 +49,7 @@ static func state_for_actor(actor:Dictionary,now:float)->String:
  if not bool(actor.get("alive",false)):return "death"
  if float(actor.get("hit_react_until",0.0))>now:return "hurt"
  if float(actor.get("attack_swing_until",0.0))>now:return "attack"
- if float(actor.get("windup",0.0))>0.0 or float(actor.get("elite_lunge_windup",0.0))>0.0:
+ if float(actor.get("melee_windup_until",0.0))>now or float(actor.get("windup",0.0))>0.0 or float(actor.get("elite_lunge_windup",0.0))>0.0:
   return "telegraph"
  if float(actor.get("trait_warning_until",0.0))>now:return "telegraph"
  var body:CharacterBody3D=actor.get("body") as CharacterBody3D
