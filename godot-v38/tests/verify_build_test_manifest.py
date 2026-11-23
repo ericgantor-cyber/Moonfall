@@ -43,6 +43,11 @@ checks={
         and f'findstr /c:"PASS {name}"' in bat
         for name in ("talent_world_live", "panels_world_live")
     ),
+    "Windows Python regression runner uses selected Godot binary": (
+        'set "GODOT_BIN=%ENGINE%"' in bat
+        and bat.index('set "GODOT_BIN=%ENGINE%"') < bat.index('python tools\\run_tests.py --script')
+        and "os.environ.get('GODOT_BIN')" in (root/'tools/run_tests.py').read_text(encoding='utf-8')
+    ),
 }
 for name,ok in checks.items():print(('PASS' if ok else 'FAIL')+': '+name)
 if missing:print('Missing:',missing)
