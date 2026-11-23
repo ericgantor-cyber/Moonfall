@@ -37,6 +37,26 @@ static func daylight(clock:float,day_length:float,weather:String)->float:
  elif weather=="Rain":amount*=0.72
  return amount
 
+## Ambient species react to visibility, weather and their day/night habits.
+## Deterministic and allocation-free: callers keep existing flee movement,
+## ecology simulation, actor budgets, and checkpoint data unchanged.
+static func wildlife_flee_radius(kind:String,weather:String,day_phase:String)->float:
+ var radius:float=6.0
+ match kind:
+  "fox":radius=7.0
+  "owl":radius=6.2
+  "elk":radius=5.5
+  _:pass
+ if day_phase=="Night":
+  radius+=(-0.6 if (kind=="fox" or kind=="owl") else 0.4)
+ match weather:
+  "Mist":radius-=0.65
+  "Rain":radius-=0.3
+  "Eclipse":radius+=0.9
+  _:pass
+ # Never extend visibility checks beyond the native nearby-wildlife budget.
+ return clampf(radius,4.5,7.8)
+
 static func fog_density(weather:String)->float:
  return 0.017 if weather=="Mist" else 0.012 if weather=="Rain" else 0.010 if weather=="Eclipse" else 0.008
 

@@ -18,6 +18,20 @@ func _run()->void:
  check(is_equal_approx(CYCLE.daylight(240.0,480.0,"Rain"),0.72),"rain darkens daytime")
  check(is_equal_approx(CYCLE.daylight(240.0,480.0,"Eclipse"),0.38),"eclipse darkens daytime")
  check(is_equal_approx(CYCLE.fog_density("Mist"),0.017),"mist fog rule")
+ check(is_equal_approx(CYCLE.wildlife_flee_radius("stag","Clear","Day"),6.0),"baseline wildlife flight range unchanged")
+ check(CYCLE.wildlife_flee_radius("fox","Clear","Day")>CYCLE.wildlife_flee_radius("elk","Clear","Day"),"foxes are more alert than elk")
+ check(CYCLE.wildlife_flee_radius("fox","Clear","Night")<CYCLE.wildlife_flee_radius("fox","Clear","Day"),"nocturnal fox relaxes after dark")
+ check(CYCLE.wildlife_flee_radius("owl","Clear","Night")<CYCLE.wildlife_flee_radius("owl","Clear","Day"),"nocturnal owl is less startled at night")
+ check(CYCLE.wildlife_flee_radius("stag","Clear","Night")>CYCLE.wildlife_flee_radius("stag","Clear","Day"),"herd animals are wary at night")
+ check(CYCLE.wildlife_flee_radius("stag","Mist","Day")<CYCLE.wildlife_flee_radius("stag","Clear","Day"),"mist reduces visible approach range")
+ check(CYCLE.wildlife_flee_radius("stag","Eclipse","Day")>CYCLE.wildlife_flee_radius("stag","Clear","Day"),"unnatural eclipse increases wildlife alarm")
+ var native_script:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
+ check("WORLD_CYCLE.wildlife_flee_radius(kind,weather_name,_day_phase())" in native_script,"live passive animals use dynamic world alert rules")
+ for species in ["stag","fox","owl","elk","unknown"]:
+  for weather in ["Clear","Mist","Rain","Eclipse","unknown"]:
+   for time_of_day in ["Dawn","Day","Dusk","Night"]:
+    var flee_radius:float=CYCLE.wildlife_flee_radius(species,weather,time_of_day)
+    check(flee_radius>=4.5 and flee_radius<=7.8,"bounded wildlife alert: "+species+"/"+weather+"/"+time_of_day)
  var rng:=RandomNumberGenerator.new()
  rng.seed=301
  var next:Dictionary=CYCLE.advance(479.0,2,"Clear",0.1,0,0.25,1.2,rng,480.0,145.0,["Clear","Mist","Rain","Eclipse"])
