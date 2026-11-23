@@ -140,6 +140,32 @@ int main() {
         self.assertIn("RIGHT HAND: %s  |  B: choose", hud)
         self.assertNotIn("V / D-PAD LEFT", hud)
 
+    def test_equipped_hand_survives_restart_without_save_schema_change(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        save_header = (SRC / "MoonfallPersistentSave.h").read_text()
+        begin = hero.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        spell = hero.split("bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)", 1)[1].split(
+            "void AMoonfallHeroPawn::ReadyRightHandWeapon()", 1)[0]
+        weapon = hero.split("void AMoonfallHeroPawn::ReadyRightHandWeapon()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipRightHandFavorite(", 1)[0]
+        self.assertIn('GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), bRightHandSpellReadied, GGameUserSettingsIni)', begin)
+        self.assertIn('GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), true, GGameUserSettingsIni)', spell)
+        self.assertIn('GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), false, GGameUserSettingsIni)', weapon)
+        for method in (spell, weapon):
+            self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', method)
+        self.assertIn("RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);", hero)
+        self.assertIn("UPROPERTY() int32 Version = 12;", save_header)
+        self.assertNotIn("RightHandSpellReadied", save_header)
+
+    def test_active_hand_hud_disambiguates_heal_and_sword(self):
+        hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
+        self.assertIn('TEXT("SWORD")', hud)
+        self.assertIn('TEXT("SPELL 4: HEAL")', hud)
+        self.assertIn('FMath::Clamp(Hero->RightSpell + 1, 1, 6)', hud)
+        self.assertIn('RIGHT HAND: %s  |  B: choose', hud)
+        self.assertNotIn("V / D-PAD LEFT", hud)
+
     def test_sword_flow_clears_only_after_safe_respawn(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
