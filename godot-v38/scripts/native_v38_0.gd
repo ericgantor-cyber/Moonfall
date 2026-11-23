@@ -717,6 +717,12 @@ func _v406_respec()->void:
 func _v406_talents_visible()->bool:
  return is_instance_valid(v398_panel) and v398_panel.visible
 
+func _respawn_player()->void:
+ # Live combat can kill the hero during talent browsing. Do not leave the
+ # constellation over the death/sanctuary UI after a fatal strike.
+ if is_instance_valid(v398_panel):v398_panel.hide()
+ super._respawn_player()
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
