@@ -1185,7 +1185,9 @@ func _process(delta:float)->void:
     if is_instance_valid(target) and player.global_position.distance_to(target.global_position)<18.0:
      _v401_begin_z_intro()
      break
- if hero_playing and not death_active and not menu_open:
+ # Mana and stamina regenerate against the same live clock as incoming
+ # damage, including while the Raven Atlas or talent constellation is open.
+ if hero_playing and not death_active:
   v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA),v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
   if v387_stamina_regen_wait>0.0:
