@@ -736,19 +736,6 @@ func _v398_toggle_tree()->void:
   _v406_fit_panel_to_viewport()
   _v398_refresh_tree()
 
-func _unhandled_key_input(event:InputEvent)->void:
- # native_v11 consumes unhandled keys before _unhandled_input runs.
- # Intercept dedicated numpad combat angles here, never WASD or arrows.
- # Alt+1-4 stays reserved for abilities in the native_v38_8 descendant.
- if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active and not _v406_talents_visible():
-  if event.keycode in [KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4]:
-   v394_strike_direction=[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)
-   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
-   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
-   get_viewport().set_input_as_handled()
-   return
- super._unhandled_key_input(event)
-
 func _unhandled_input(event:InputEvent)->void:
  # Controller B/Start closes the web. Other gameplay continues normally.
  if _v406_talents_visible() and event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_B,JOY_BUTTON_START]:
@@ -1159,6 +1146,15 @@ func _v384_refresh_vitals()->void:
 func _unhandled_key_input(event:InputEvent)->void:
  # Godot dispatches unhandled key events before generic unhandled input.
  # Intercept Escape here before main.gd can open its pause screen.
+ # Numpad chooses sword angles before native_v11 consumes keyboard input.
+ # WASD/arrows only move; Alt+1–4 remains reserved for ability shortcuts.
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active and not _v406_talents_visible():
+  if event.keycode in [KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4]:
+   v394_strike_direction=[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)
+   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
+   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
+   get_viewport().set_input_as_handled()
+   return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_visible():
   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
