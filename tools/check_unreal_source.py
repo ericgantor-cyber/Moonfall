@@ -5408,9 +5408,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "OnRaceConfirmed.Broadcast(Selection.RaceId)",
         ):
             self.assertIn(required, widget)
-        # Preview controls must not directly mutate the real player or source art.
-        self.assertNotIn("Key == EKeys::PageUp", widget)
-        self.assertNotIn("Key == EKeys::PageDown", widget)
+        # PageUp/PageDown now select races only; keyboard movement arrows
+        # must not navigate this UI or change preview/source artwork.
+        self.assertIn("Key == EKeys::PageUp", widget)
+        self.assertIn("Key == EKeys::PageDown", widget)
+        for arrow in ("Up", "Down", "Left", "Right"):
+            self.assertNotIn("Key == EKeys::" + arrow + " ||", widget)
         self.assertNotIn("SetSkeletalMesh(", widget)
         self.assertNotIn("SaveGameToSlot(", widget)
 
