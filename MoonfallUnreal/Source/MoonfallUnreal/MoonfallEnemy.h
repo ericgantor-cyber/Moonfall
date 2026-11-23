@@ -194,4 +194,6 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
+ // Melee resolves through the same bounded health, boss-phase, posture and loot pipeline.
+ UFUNCTION(BlueprintCallable, Category="Combat") void TakeMeleeDamage(float Amount);
 };
