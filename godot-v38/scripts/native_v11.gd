@@ -3275,6 +3275,9 @@ func _cancel_native_melee_tells()->void:
  for creature in beasts:
   if float(creature.get("melee_windup_until",0.0))<=0.0:continue
   creature["melee_windup_until"]=0.0
+  # A current recoil or follow-through owns this reused actor mesh.
+  # Clearing the old tell must not snap an active reaction to neutral.
+  if map_time<float(creature.get("hit_react_until",0.0)) or map_time<float(creature.get("attack_swing_until",0.0)):continue
   var tell_mesh:MeshInstance3D=creature.get("hit_visual") as MeshInstance3D
   if is_instance_valid(tell_mesh):tell_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
 
