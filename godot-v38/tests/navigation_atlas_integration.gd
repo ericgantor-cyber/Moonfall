@@ -512,6 +512,31 @@ func _run()->void:
  check(GUARDIAN_ATTACKS.valid_trait(0) and GUARDIAN_ATTACKS.valid_trait(3) and not GUARDIAN_ATTACKS.valid_trait(-1) and not GUARDIAN_ATTACKS.valid_trait(4),"guardian attacks accept only four named traits")
  check(GUARDIAN_ATTACKS.WARNING_SECONDS>=1.0 and GUARDIAN_ATTACKS.ATTACK_NAMES.size()==4 and GUARDIAN_ATTACKS.COUNTER_HINTS.size()==4,"guardian warnings have readable countdown and counterplay")
  check(GUARDIAN_ATTACKS.cooldown(0,1)>GUARDIAN_ATTACKS.WARNING_SECONDS and GUARDIAN_ATTACKS.damage(0,1)>0.0,"guardian cooldown and damage remain bounded")
+
+ # Recover counterplay regressions from legacy PR #641 without replaying its
+ # outdated world file over main's current art and dungeon systems.
+ var boss_point:=Vector3.ZERO
+ var marked_point:=Vector3(3,0,3)
+ check(GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(3,0,0),Vector2.RIGHT),"Moonbound ring hits its announced donut")
+ check(not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(1,0,0),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(7,0,0),Vector2.RIGHT),"Moonbound offers inner and outer safe zones")
+ check(GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,0.2),Vector2.RIGHT),"Ember strikes inside the forward lane")
+ check(not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,2),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(-2,0,0),Vector2.RIGHT),"Ember can be sidestepped or avoided from behind")
+ check(GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,marked_point,Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,Vector3(7,0,7),Vector2.RIGHT),"Venom targets the original marked location, not the moving hero")
+ check(GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(0.2,0,4),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(3,0,3),Vector2.RIGHT),"Eclipse leaves diagonal escape lanes")
+ check(not GUARDIAN_ATTACKS.hit(-1,boss_point,marked_point,boss_point,Vector2.RIGHT),"invalid trait IDs never add damage")
+ for trait_id in range(4):
+  check(GUARDIAN_ATTACKS.cooldown(trait_id,3)>=4.5 and GUARDIAN_ATTACKS.damage(trait_id,3)<30.0,"trait attack cooldowns and damage remain bounded")
+ check("func _guardian_update_trait_attacks(delta:float)" in source and "_guardian_update_trait_attacks(delta)" in source,"guardian attacks reuse the existing world tick")
+ check("func _guardian_create_trait_warning(trait_id:int,guardian_id:int)" in source and "MeshInstance3D.new()" in source,"guardian attacks warn without extra collision actors")
+ check("GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)" in source and "dodge_time<=0.0" in source,"telegraphed hitboxes match real dodgeable attacks")
+ check("_show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]" in source and "GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id]" in source,"named warnings describe useful counterplay")
+ check("TraitAttackCaption" in source and "cue.outline_size=12" in source,"warning labels remain readable without relying only on color")
+ check("warning_until-map_time" in source and "ATTACK_NAMES[trait_id].to_upper()" in source,"warning countdown belongs to the active attack")
+ check("horizontal.length_squared()>18.0*18.0" in source and 'guardian["trait_next_at"]=map_time+2.0' in source,"leaving the boss encounter cancels an unsafe delayed hit")
+ check("not hero_playing or death_active or menu_open or not is_instance_valid(player)" in source and "old_warning.visible=false" in source,"death and menu transitions hide guardian attacks")
+ check("far_warning.visible=false" in source and 'guardian.get("zone",-1)' in source,"region transitions clear hostile warnings")
+ check("if is_instance_valid(warning_root):warning_root.visible=false" in source,"defeated guardians leave no attack warning")
+
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
