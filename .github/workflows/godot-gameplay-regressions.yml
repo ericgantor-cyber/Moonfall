@@ -36,6 +36,8 @@ jobs:
         run: godot --headless --path godot-v38 --script res://tests/dodge_timer_corruption.gd
       - name: Verify 55 guardian profiles, deterministic rosters and safe relics
         run: godot --headless --path godot-v38 --script res://tests/navigation_atlas_integration.gd
+      - name: Verify Omniattack angle shuffle in Godot runtime
+        run: godot --headless --path godot-v38 --script res://tests/omniattack_flow.gd
       - name: Run gameplay, controller, combat rhythm and boss-dodge regressions
         shell: bash
         run: |
