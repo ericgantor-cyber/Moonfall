@@ -80,6 +80,15 @@ int main() {
                      "LastHitComboTarget.Reset();"):
             self.assertIn(item, respawn)
 
+    def test_character_creator_leaves_movement_arrows_unbound(self):
+        creator = (SRC / "MoonfallCharacterCreationWidget.cpp").read_text()
+        for key in ("Left", "Right", "Up", "Down"):
+            self.assertNotIn("Key == EKeys::" + key, creator)
+        self.assertIn("Key == EKeys::PageUp", creator)
+        self.assertIn("Key == EKeys::PageDown", creator)
+        self.assertIn("EKeys::Gamepad_DPad_Left", creator)
+        self.assertIn("EKeys::Gamepad_DPad_Right", creator)
+
     def test_movement_keys_are_exclusively_movement(self):
         lines = (GAME / "Config" / "DefaultInput.ini").read_text().splitlines()
         reserved = {"W", "A", "S", "D", "Up", "Down", "Left", "Right"}
