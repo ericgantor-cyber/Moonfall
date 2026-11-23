@@ -1704,6 +1704,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   TalentWebStepSelection(-1);
   return;
  }
+ // Up must not change inventory selection when W is held for live movement.
+ // Arrow Up and D-pad Up remain contextual navigation controls.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::W) && !PC->IsInputKeyDown(EKeys::Up)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Up)) return;
+  }
+ }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
@@ -1739,6 +1747,13 @@ void AMoonfallHeroPawn::OptionsDown() {
   }
   TalentWebStepSelection(1);
   return;
+ }
+ // S moves the hero; only Down/D-pad Down scrolls the inventory selection.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::S) && !PC->IsInputKeyDown(EKeys::Down)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Down)) return;
+  }
  }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
@@ -1792,6 +1807,14 @@ void AMoonfallHeroPawn::OptionsRight() {
   }
   TalentWebStepBranch(1);
   return;
+ }
+ // D strafes while the character sheet is open. Require Right/D-pad Right
+ // for the character-sheet-to-constellation shortcut.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::D) && !PC->IsInputKeyDown(EKeys::Right)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Right)) return;
+  }
  }
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) {
