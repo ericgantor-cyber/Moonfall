@@ -571,7 +571,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
- Input->BindAction(TEXT("ToggleRightHandLoadout"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleRightHandLoadout);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -1011,15 +1010,6 @@ void AMoonfallHeroPawn::RightHandAction()
  else MeleeAttack();
 }
 
-void AMoonfallHeroPawn::ToggleRightHandLoadout()
-{
- if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
-     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
-     || FocusedResident.IsValid()) return;
- bRightHandSpellReadied = !bRightHandSpellReadied;
- OnRightHandLoadoutChanged(bRightHandSpellReadied, RightSpell);
-}
-
 bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
 {
  // Equipping from a future spell/favorites panel is allowed while its
@@ -1038,6 +1028,46 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
      || bAtlasOpen || bResidentContextOpen) return;
  bRightHandSpellReadied = false;
  OnRightHandLoadoutChanged(false, RightSpell);
+}
+
+// Equip from the existing inventory favorites strip, not a gameplay hotkey.
+// 0 is the equipped weapon (or unarmed); 1..6 are the existing spell schools.
+bool AMoonfallHeroPawn::EquipRightHandFavorite(int32 FavoriteIndex)
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+     || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health)
+     || FavoriteIndex < 0 || FavoriteIndex > 6) return false;
+ if (FavoriteIndex == 0) {
+  ReadyRightHandWeapon();
+  return true;
+ }
+ return ReadyRightHandSpell(FavoriteIndex - 1);
+}
+
+int32 AMoonfallHeroPawn::HitTestRightHandFavorite() const
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+     || Health <= 0.f) return INDEX_NONE;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return INDEX_NONE;
+ // Keep these coordinates identical to the seven-button inventory HUD.
+ const float PanelWidth = FMath::Min(720.f,
+     FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f,
+     FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float StripX = Left + 18.f;
+ const float StripY = Top + 119.f;
+ const float SlotWidth = (PanelWidth - 36.f) / 7.f;
+ if (MouseX < StripX || MouseX >= StripX + 7.f * SlotWidth
+     || MouseY < StripY || MouseY >= StripY + 22.f) return INDEX_NONE;
+ return FMath::Clamp(FMath::FloorToInt((MouseX - StripX) / SlotWidth), 0, 6);
 }
 
 // Native UE5 melee, independent from spell casting. One bounded visibility
@@ -1810,7 +1840,13 @@ void AMoonfallHeroPawn::OptionsLeft() {
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen && !bOptionsOpen) {
+   const int32 Current = bRightHandSpellReadied ? FMath::Clamp(RightSpell + 1, 1, 6) : 0;
+   EquipRightHandFavorite((Current + 6) % 7);
+  }
+  return;
+ }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
@@ -1819,7 +1855,13 @@ void AMoonfallHeroPawn::OptionsRight() {
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen && !bOptionsOpen) {
+   const int32 Current = bRightHandSpellReadied ? FMath::Clamp(RightSpell + 1, 1, 6) : 0;
+   EquipRightHandFavorite((Current + 1) % 7);
+  }
+  return;
+ }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -3731,6 +3773,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   }
   if (HitTestInventoryEquipButton()) {
    EquipSelectedInventoryItem();
+   return;
+  }
+  const int32 Favorite = HitTestRightHandFavorite();
+  if (Favorite != INDEX_NONE) {
+   EquipRightHandFavorite(Favorite);
    return;
   }
   if (ScrollInventoryToMouseTrack()) return;
