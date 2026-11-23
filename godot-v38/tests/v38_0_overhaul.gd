@@ -273,9 +273,71 @@ func _run()->void:
   check('beast["melee_windup_until"]=map_time+V383_FEEDBACK.MELEE_TELL_SECONDS' in tick,"ordinary melee starts anticipation instead of instant damage")
   check('elif melee_tell_until>0.0:' in tick and 'body.velocity=Vector3.ZERO' in tick,"melee attacker holds position during windup")
   check('V383_FEEDBACK.melee_strike_allowed(' in tick and 'if map_time<melee_tell_until:return' in tick,"melee impact rechecks range, dodge and sight after tell")
-  check('beast["melee_windup_until"]=0.0' in tick and 'if melee_tell_until>0.0 and (not engaged or staggered):' in tick,"lost sight and stagger cancel pending ordinary strike")
+  check('beast["melee_windup_until"]=0.0' in tick and 'if melee_tell_until>0.0 and (not engaged or staggered or map_time<react_until):' in tick,"lost sight, stagger and active hit recoil cancel pending ordinary strike")
   check('if elite:' in tick and 'Elite melee retains its established immediate swing' in tick,"existing elite lunge and melee behavior isolated")
   check('var melee_tell_until:float=float(beast.get("melee_windup_until",0.0))' in tick and 'V383_FEEDBACK.melee_tell_degrees(' in tick,"visual anticipation animates existing enemy mesh")
+ # AAA combat lifecycle: a real playable-scene respawn invalidates every
+ # ordinary hostile's pending strike, with no phantom hit after revival.
+ var queued_melee_foe:Dictionary={}
+ for candidate in game.get("beasts"):
+  if bool(candidate.get("alive",false)) and bool(candidate.get("hostile",false)) and not bool(candidate.get("boss",false)) and str(candidate.get("variant","normal"))=="normal":
+   queued_melee_foe=candidate
+   break
+ check(not queued_melee_foe.is_empty(),"live scene includes ordinary hostile for respawn windup regression")
+ if not queued_melee_foe.is_empty():
+  queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+  var melee_mesh:MeshInstance3D=queued_melee_foe.get("hit_visual") as MeshInstance3D
+  if is_instance_valid(melee_mesh):melee_mesh.rotation_degrees=Vector3(0.0,0.0,103.0)
+  # The real death UI intercepts _respawn_player. Returning to a shrine
+  # explicitly calls the older sanctuary teleport via super, so test that
+  # playable user action rather than directly invoking the death handler.
+  game.set("death_active",true)
+  game.call("_death_return_to_sanctuary")
+  check(not bool(game.get("death_active")),"sanctuary return exits the death overlay")
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"sanctuary return clears queued ordinary melee")
+  check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"sanctuary return restores melee anticipation pose")
+  # Force a real engaged melee enemy to be staggered mid-telegraph. The
+  # interruption must not leave the reused body mesh stuck in the pullback.
+  var foe_body:CharacterBody3D=queued_melee_foe.get("body") as CharacterBody3D
+  var hero_body:CharacterBody3D=game.get("player") as CharacterBody3D
+  check(is_instance_valid(foe_body) and is_instance_valid(hero_body) and is_instance_valid(melee_mesh),"melee stagger regression has actual actor meshes")
+  if is_instance_valid(foe_body) and is_instance_valid(hero_body) and is_instance_valid(melee_mesh):
+   var hero_before:Vector3=hero_body.global_position
+   var foe_before:Vector3=foe_body.global_position
+   foe_body.global_position=Vector3(0.0,40.0,0.0)
+   hero_body.global_position=Vector3(1.2,40.0,0.0)
+   queued_melee_foe["hit_react_until"]=0.0
+   queued_melee_foe["attack_swing_until"]=0.0
+   queued_melee_foe["attack"]=0.0
+   queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+   queued_melee_foe["stagger_until"]=float(game.get("map_time"))+2.0
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(bool(queued_melee_foe.get("engaged",false)),"staggered melee attacker still has clear sight")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"stagger cancels the pending melee damage")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"stagger restores the ordinary enemy's neutral pose")
+   check(float(queued_melee_foe.get("attack",0.0))>=0.35,"stagger interruption starts bounded recovery")
+   queued_melee_foe["stagger_until"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"recovering enemy cannot instantly restart canceled tell")
+   queued_melee_foe["attack"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(float(queued_melee_foe.get("melee_windup_until",0.0))>float(game.get("map_time")),"ordinary melee remains available once recovery ends")
+   # A landed but non-staggering hit plays recoil. It must cancel any
+   # concurrently queued ordinary tell instead of hiding its warning.
+   queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+0.2
+   queued_melee_foe["attack"]=0.0
+   queued_melee_foe["hit_react_until"]=float(game.get("map_time"))+0.16
+   queued_melee_foe["stagger_until"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(bool(queued_melee_foe.get("engaged",false)),"non-staggering recoil still has a visible player target")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"hit recoil cancels hidden ordinary melee warning")
+   check(float(queued_melee_foe.get("attack",0.0))>=0.35,"hit-recoil interruption retains short attack recovery")
+   check(not is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"hit-recoil animation remains visible after tell cancellation")
+   queued_melee_foe["hit_react_until"]=0.0
+   foe_body.velocity=Vector3.ZERO
+   foe_body.global_position=foe_before
+   hero_body.global_position=hero_before
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)

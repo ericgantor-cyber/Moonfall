@@ -2422,12 +2422,19 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
- if melee_tell_until>0.0 and (not engaged or staggered):
-  # Losing sight or being staggered cancels the promised ordinary strike.
+ if melee_tell_until>0.0 and (not engaged or staggered or map_time<react_until):
+  # Losing sight, stagger or an active hit-recoil animation cancels the tell.
+  # A recoil must not conceal the strike's entire readable warning period.
   # Do not postpone guaranteed damage behind a wall or into a new encounter.
   beast["melee_windup_until"]=0.0
   melee_tell_until=0.0
-  if not engaged:
+  # A canceled tell must have a short recovery, otherwise regaining sight
+  # immediately can restart the same windup and jitter the visible attack.
+  # Never shorten an existing attack cooldown when an interruption occurs.
+  beast["attack"]=maxf(float(beast.get("attack",0.0)),V383_FEEDBACK.MELEE_CANCEL_COOLDOWN)
+  # Cancel the anticipation pose even when staggered enemies retain sight.
+  # An active hit reaction or swing owns its animation until that timer ends.
+  if map_time>=react_until and map_time>=swing_until:
    var tell_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
    if is_instance_valid(tell_mesh):tell_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  # v38.3: role-aware low-health retreat for live hostile fauna.
@@ -3262,6 +3269,14 @@ func _equipment_power() -> int:
  return INVENTORY_RULES.equipment_power(equipped)
 
 func _respawn_player() -> void:
+ # A defeated hero must not return to a queued ordinary melee strike.
+ # Only pending anticipation is cleared; enemy HP, boss phase, loot, and
+ # normal attack cooldowns remain authoritative. No scene-node allocation.
+ for creature in beasts:
+  if float(creature.get("melee_windup_until",0.0))<=0.0:continue
+  creature["melee_windup_until"]=0.0
+  var tell_mesh:MeshInstance3D=creature.get("hit_visual") as MeshInstance3D
+  if is_instance_valid(tell_mesh):tell_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  hp=max_hp
  mounted=false
  mount_combat_time=0
