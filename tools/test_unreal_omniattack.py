@@ -128,7 +128,7 @@ int main() {
         self.assertIn("ActiveFavorite == Slot", hud)
         # Inventory slot zero must say sword, not W: W only moves forward.
         self.assertIn('TEXT("SWORD")', hud)
-        self.assertIn('TEXT("SWD")', hud)
+        self.assertNotIn('TEXT("SWD")', hud)
         self.assertNotIn('Slot == 0 ? TEXT("W")', hud)
         for direction, offset in (("Left", "+ 6"), ("Right", "+ 1")):
             block = hero.split(f"void AMoonfallHeroPawn::Options{direction}()", 1)[1].split(
