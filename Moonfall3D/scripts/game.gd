@@ -303,9 +303,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if spell_menu_open:
-            if event.keycode == KEY_UP:
+            if event.keycode == KEY_PAGEUP:
                 spell_cursor = posmod(spell_cursor - 1, spells.size())
-            elif event.keycode == KEY_DOWN:
+            elif event.keycode == KEY_PAGEDOWN:
                 spell_cursor = (spell_cursor + 1) % spells.size()
             elif event.keycode == KEY_Z:
                 left_spell = spell_cursor
@@ -328,9 +328,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if binds_open:
-            if event.keycode == KEY_UP:
+            if event.keycode == KEY_PAGEUP:
                 binding_index = posmod(binding_index - 1, BIND_ORDER.size())
-            elif event.keycode == KEY_DOWN:
+            elif event.keycode == KEY_PAGEDOWN:
                 binding_index = (binding_index + 1) % BIND_ORDER.size()
             elif event.keycode == KEY_ENTER:
                 binding_capture = true
@@ -452,13 +452,13 @@ func _process(dt: float) -> void:
     dodge_left = maxf(0.0, dodge_left - dt)
     invulnerable = maxf(0.0, invulnerable - dt)
     var motion := Vector3.ZERO
-    if _pressed("left") or Input.is_key_pressed(KEY_LEFT):
+    if _pressed("left") or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
         motion.x -= 1
-    if _pressed("right") or Input.is_key_pressed(KEY_RIGHT):
+    if _pressed("right") or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
         motion.x += 1
-    if _pressed("forward") or Input.is_key_pressed(KEY_UP):
+    if _pressed("forward") or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
         motion.z -= 1
-    if _pressed("back") or Input.is_key_pressed(KEY_DOWN):
+    if _pressed("back") or Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
         motion.z += 1
     var stick := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
@@ -1125,6 +1125,9 @@ func _load_bindings() -> void:
     for action in BIND_ORDER:
         if not parsed.has(action) or int(parsed[action]) <= 0:
             continue
+        # Legacy saves must not reassign movement keys to attacks or menus.
+        if action not in ["forward", "back", "left", "right"] and _is_movement_key(int(parsed[action])):
+            continue
         bindings[action] = int(parsed[action])
     # Migrate saved profiles: Space was dodge; now Space must jump.
     if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
@@ -1146,7 +1149,12 @@ func _next_target() -> Node3D:
 
 # Twelve visible action slots. Every slot uses the current placeholder attack,
 # with three distinct variants and individual cooldowns. Future abilities can replace these.
+func _is_movement_key(key: int) -> bool:
+    return key in [KEY_W, KEY_A, KEY_S, KEY_D, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]
+
 func _key_in_use(key: int, except_action: String) -> bool:
+    if _is_movement_key(key) and except_action not in ["forward", "back", "left", "right"]:
+        return true
     for action in bindings:
         if action != except_action and int(bindings[action]) == key:
             return true
