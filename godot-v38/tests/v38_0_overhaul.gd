@@ -288,9 +288,14 @@ func _run()->void:
   queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
   var melee_mesh:MeshInstance3D=queued_melee_foe.get("hit_visual") as MeshInstance3D
   if is_instance_valid(melee_mesh):melee_mesh.rotation_degrees=Vector3(0.0,0.0,103.0)
-  game.call("_respawn_player")
-  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"respawn clears queued ordinary melee")
-  check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"respawn restores melee anticipation pose")
+  # The real death UI intercepts _respawn_player. Returning to a shrine
+  # explicitly calls the older sanctuary teleport via super, so test that
+  # playable user action rather than directly invoking the death handler.
+  game.set("death_active",true)
+  game.call("_death_return_to_sanctuary")
+  check(not bool(game.get("death_active")),"sanctuary return exits the death overlay")
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"sanctuary return clears queued ordinary melee")
+  check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"sanctuary return restores melee anticipation pose")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
