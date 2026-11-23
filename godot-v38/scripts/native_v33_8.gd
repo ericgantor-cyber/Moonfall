@@ -501,6 +501,9 @@ func _respawn_player()->void:
   var oath_active:bool=int(materials.get(MOON_OATH,0))>0
   hp=maxf(1.0,max_hp*(0.45 if oath_active else 0.30))
   phoenix_grace_until=map_time+(3.0 if oath_active else PHOENIX_GRACE_SECONDS)
+  # In-place resurrection bypasses the normal shrine teleport. Clear
+  # ordinary pre-death melee tells, but leave guardian phase and loot intact.
+  _cancel_native_melee_tells()
   dodge_time=0.0
   combat_combo=0
   mounted=false
