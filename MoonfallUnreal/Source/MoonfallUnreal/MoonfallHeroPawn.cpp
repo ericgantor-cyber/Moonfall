@@ -1964,7 +1964,7 @@ bool ReconcileMoonfallTalentResources(AMoonfallHeroPawn* Hero,
  Hero->Mana=static_cast<float>(Current.Mana);
  Hero->MaxStamina=static_cast<float>(Current.MaxStamina);
  Hero->Stamina=static_cast<float>(Current.Stamina);
- Hero->OnHealthChanged(Hero->Health,Hero->MaxHealth);
+ // Defer the Blueprint notification until the new talent ledger is committed.
  return true;
 }
 }
@@ -2005,6 +2005,7 @@ bool AMoonfallHeroPawn::SpendTalentNode(FName TalentId) {
      || !ReconcileMoonfallTalentResources(this,Before,After))return false;
  TalentRanks.SetNumZeroed(MoonfallTalents::NodeCount);
  for (int i=0;i<MoonfallTalents::NodeCount;++i)TalentRanks[i]=Allocated[i];
+ OnHealthChanged(Health,MaxHealth);
  // Existing autosave persists this ledger. An immediate safe save is attempted
  // but the action is still valid when the initial checkpoint is not ready.
  SaveWorldProgress();
@@ -2020,6 +2021,7 @@ bool AMoonfallHeroPawn::RespecAllTalents() {
  if (MoonfallTalents::Evaluate(Level,Allocated,After)!=MoonfallTalents::Result::Ok
      || !ReconcileMoonfallTalentResources(this,Before,After))return false;
  TalentRanks.Reset(); // Canonical zero-rank state, saves as an empty array.
+ OnHealthChanged(Health,MaxHealth);
  SaveWorldProgress();
  return true;
 }
