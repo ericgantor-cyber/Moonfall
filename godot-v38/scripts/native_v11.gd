@@ -2466,7 +2466,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=Vector3.ZERO
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
- elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
+ elif not is_hostile and (distance<WORLD_CYCLE.wildlife_flee_radius(kind,weather_name,_day_phase()) or map_time<float(beast.get("scared_until",0.0))):
   var escape:= -diff.normalized()
   if distance>8.0:
    escape=Vector3(cos(map_time+float(beast["boss_id"])),0,sin(map_time+float(beast["boss_id"])))
