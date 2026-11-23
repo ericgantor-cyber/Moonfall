@@ -322,6 +322,9 @@ void AMoonfallHeroPawn::BeginPlay() {
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
+ // Keep the inventory-selected combat hand across relaunches without changing
+ // the established world-save schema or risking a checkpoint migration.
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), bRightHandSpellReadied, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -1018,6 +1021,10 @@ bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
      || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;
  RightSpell = School;
  bRightHandSpellReadied = true;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), true, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
+ }
  OnRightHandLoadoutChanged(true, RightSpell);
  return true;
 }
@@ -1027,6 +1034,10 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen) return;
  bRightHandSpellReadied = false;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), false, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
+ }
  OnRightHandLoadoutChanged(false, RightSpell);
 }
 
@@ -3296,7 +3307,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
- RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
+ // Six native spell schools; a stale or externally edited save must never
+ // restore an unusable right-hand spell while magic is selected.
+ RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
