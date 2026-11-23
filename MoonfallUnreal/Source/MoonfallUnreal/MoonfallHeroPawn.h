@@ -209,6 +209,20 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") float GetTalentBonus(FName StatId, bool bPercent) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentNode(FName TalentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecAllTalents();
+ // The original classless web stays live behind the panel, like Raven Atlas.
+ // Presentation/navigation are transient; only bought ranks are persisted.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
+ float TalentRespecArmUntil = -1.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void TalentSpendSelected();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void TalentConfirmRespec();
+ void TalentMove(int32 TierDirection, int32 RowDirection);
+ void TalentChangeBranch(int32 Direction);
+ void TalentPointerClick();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
