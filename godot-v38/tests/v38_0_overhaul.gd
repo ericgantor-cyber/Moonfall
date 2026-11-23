@@ -323,6 +323,18 @@ func _run()->void:
    queued_melee_foe["attack"]=0.0
    game.call("_update_beast_step",queued_melee_foe,0.0)
    check(float(queued_melee_foe.get("melee_windup_until",0.0))>float(game.get("map_time")),"ordinary melee remains available once recovery ends")
+   # A landed but non-staggering hit plays recoil. It must cancel any
+   # concurrently queued ordinary tell instead of hiding its warning.
+   queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+0.2
+   queued_melee_foe["attack"]=0.0
+   queued_melee_foe["hit_react_until"]=float(game.get("map_time"))+0.16
+   queued_melee_foe["stagger_until"]=0.0
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(bool(queued_melee_foe.get("engaged",false)),"non-staggering recoil still has a visible player target")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"hit recoil cancels hidden ordinary melee warning")
+   check(float(queued_melee_foe.get("attack",0.0))>=0.35,"hit-recoil interruption retains short attack recovery")
+   check(not is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"hit-recoil animation remains visible after tell cancellation")
+   queued_melee_foe["hit_react_until"]=0.0
    foe_body.velocity=Vector3.ZERO
    foe_body.global_position=foe_before
    hero_body.global_position=hero_before
