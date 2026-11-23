@@ -44,11 +44,6 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("LEVEL %d  |  %d UNALLOCATED  |  141 STARS"),
        Hero->Level,Available),FLinearColor(0.78f,0.86f,0.97f),
        P.Left+16.f,P.Top+42.f,nullptr,0.77f);
-  // Honest warning: the world remains live behind this informational panel.
-  // On narrow screens omit the cue rather than covering the point count.
-  if (P.Width >= 850.f)
-   DrawText(TEXT("WORLD LIVE / ENEMIES ATTACK"),Crimson,
-      P.Left+P.Width-265.f,P.Top+43.f,nullptr,0.60f);
   DrawRect(FLinearColor(0.36f,0.14f,0.21f),P.Left+P.Width-42.f,P.Top+12.f,28.f,28.f);
   DrawText(TEXT("X"),FLinearColor::White,P.Left+P.Width-33.f,P.Top+15.f,nullptr,0.85f);
   DrawRect(FLinearColor(0.055f,0.075f,0.13f),P.MapLeft,P.MapTop,P.MapWidth,P.MapHeight);
@@ -800,11 +795,6 @@ void AMoonfallCombatHUD::DrawHUD()
   const float CloseButtonX = CloseSortX - 36.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
-  // Right-docked inventory and character stats do not pause the world.
-  // Keep the warning clear of the close button, item rows and page controls.
-  DrawText(TEXT("WORLD LIVE | ENEMIES ATTACK"),
-    FLinearColor(0.97f, 0.52f, 0.47f), Left + 18.f, Top + 78.f,
-    nullptr, PanelWidth < 550.f ? 0.57f : 0.73f);
   // The usual lower-left orb is rendered after the menu returns below. Give
   // both live right-docked panels a compact, real-time vitals strip so the
   // hero cannot lose HP or dodge stamina without any visible resource cue.
@@ -831,7 +821,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bVitalsCritical = Hero->Health > 0.f && VitalHealth <= VitalMaxHealth * 0.25f;
   DrawRect(FLinearColor(0.035f, 0.039f, 0.072f, 0.91f),
     8.f, VitalsTop, VitalsWidth + 16.f, 157.f);
-  DrawText(bVitalsCritical ? TEXT("LOW HP | WORLD LIVE") : TEXT("LIVE RESOURCES"),
+  DrawText(bVitalsCritical ? TEXT("LOW HP") : TEXT("RESOURCES"),
     bVitalsCritical ? FLinearColor(1.f, 0.38f, 0.43f) : FLinearColor(0.80f, 0.87f, 1.f),
     13.f, VitalsTop + 6.f, nullptr, VitalsScale);
   const auto DrawVital = [this, VitalsTop, VitalsWidth, VitalsScale, bTightVitals](
