@@ -113,7 +113,13 @@ func _run()->void:
   game.call("_toggle_menu")
   game.call("_menu_hit_flash_draw")
   check(menu.visible and not flash.visible,"Reopening a menu never revives a stale injury flash")
+  # Idle frames must not restart a flash or change a hidden tint.
   game.call("_menu_hit_flash_reset")
+  var idle_color:Color=flash.color
+  for idle_frame in range(12):
+   game.call("_menu_hit_flash_draw")
+  check(not flash.visible and int(game.get("menu_hit_flash_until_ms"))==0,"Idle frames keep menu damage overlay inactive")
+  check(flash.color==idle_color,"Idle flash updates leave overlay color unchanged")
 
  # The two divine world bosses must not lose queued signature windups just
  # because a player is browsing a regular menu.
