@@ -377,6 +377,23 @@ func _run()->void:
    check(is_equal_approx(melee_mesh.rotation_degrees.z,101.0),"revive helper preserves active follow-through")
    queued_melee_foe["attack_swing_until"]=0.0
    melee_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
+  # A real player hit must interrupt a queued ordinary melee strike
+  # immediately, without waiting for another enemy AI physics update.
+  # Keep this separate from stagger so recoil alone is responsible.
+  queued_melee_foe["hp"]=maxf(1.0,float(queued_melee_foe["max"]))
+  queued_melee_foe["stagger_until"]=0.0
+  queued_melee_foe["hit_react_until"]=0.0
+  queued_melee_foe["attack"]=0.0
+  queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+  game.call("_apply_player_hit",queued_melee_foe,0.01,0.0)
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"landed player hit cancels queued ordinary melee immediately")
+  check(float(queued_melee_foe.get("hit_react_until",0.0))>float(game.get("map_time")),"landed player hit keeps enemy recoil active")
+  check(float(queued_melee_foe.get("attack",0.0))>=0.35,"direct hit interruption applies bounded recovery")
+  queued_melee_foe["attack"]=1.5
+  queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+  game.call("_apply_player_hit",queued_melee_foe,0.01,0.0)
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"repeated player hit still clears queued melee")
+  check(float(queued_melee_foe.get("attack",0.0))>=1.5,"direct hit cannot shorten longer enemy cooldown")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
