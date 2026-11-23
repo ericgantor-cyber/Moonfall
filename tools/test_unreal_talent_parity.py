@@ -105,6 +105,39 @@ class UnrealTalentParityTests(unittest.TestCase):
         )
         self.assertLess(max_bonus, 1.0)
 
+    def test_live_resource_caps_and_save_roundtrip_hooks(self) -> None:
+        cpp = HERO_CPP.read_text(encoding="utf-8")
+        rules = HEADER.read_text(encoding="utf-8")
+        self.assertIn("inline bool ApplyResourceDelta(Resources& Live", rules)
+        self.assertIn("Candidate.Health=Live.Health<=0.0 ? 0.0", rules)
+        self.assertIn("bool ReconcileMoonfallTalentResources(AMoonfallHeroPawn* Hero", cpp)
+        apply = cpp.split("bool ReconcileMoonfallTalentResources(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetTalentNodeCount()", 1)[0]
+        for field in ("MaxHealth", "Health", "MaxMana", "Mana", "MaxStamina", "Stamina"):
+            self.assertIn(f"Hero->{field}=static_cast<float>(Current.{field});", apply)
+        for method, boundary in (("SpendTalentNode", "RespecAllTalents"),
+                                 ("RespecAllTalents", "AwardExperience")):
+            action = cpp.split(f"bool AMoonfallHeroPawn::{method}(", 1)[1].split(
+                f"AMoonfallHeroPawn::{boundary}(", 1)[0]
+            self.assertLess(action.index("ReconcileMoonfallTalentResources(this,Before,After)"),
+                            action.index("SaveWorldProgress();"))
+            self.assertIn("Health<=0.f", action, "A defeated hero cannot gain capacity")
+        save = cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("BaseHealthCap=static_cast<double>(MaxHealth)", save)
+        self.assertIn("ValidTalentSummary.Flat[static_cast<int>(MoonfallTalents::Stat::Health)]", save)
+        self.assertIn("Save->MaxHealth = static_cast<float>(BaseHealthCap);", save)
+        load = cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("PreviousSummary.Flat[static_cast<int>(MoonfallTalents::Stat::Mana)]", load)
+        self.assertIn("PreviousSummary.Flat[static_cast<int>(MoonfallTalents::Stat::Stamina)]", load)
+        self.assertIn("LoadedSummary.Flat[static_cast<int>(MoonfallTalents::Stat::Health)]", load)
+        self.assertIn("MaxHealth = static_cast<float>(LoadedHealthCap);", load)
+        self.assertIn("MaxMana = static_cast<float>(LoadedManaCap);", load)
+        self.assertIn("MaxStamina = static_cast<float>(LoadedStaminaCap);", load)
+        self.assertLess(load.index("if (!std::isfinite(LoadedHealthCap)"),
+                        load.index("TeleportTo(SavedCheckpoint"))
+
     def test_portable_cplusplus_rules(self) -> None:
         compiler = shutil.which("g++") or shutil.which("clang++")
         self.assertIsNotNone(compiler, "A C++17 compiler is required for talent parity checks")
