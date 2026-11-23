@@ -1319,7 +1319,9 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ // Gamepad A also maps to character details in the existing inventory flow.
+ // While talents own A for spending, it must not open inventory behind us.
+ if (bTalentWebOpen || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  // The C character sheet must open directly, without first pressing B.
  // Reuse inventory opening to apply its movement, mouse and modal cleanup.
  if (!bInventoryOpen) {
