@@ -4,6 +4,7 @@ from pathlib import Path
 import re, sys
 root=Path(__file__).resolve().parents[1]
 bat=(root/'BUILD_WINDOWS.bat').read_text()
+windows_workflow=(root.parent/'.github/workflows/godot-v38-windows-installer.yml').read_text(encoding='utf-8')
 commands=re.findall(r'--script res://(tests/[A-Za-z0-9_]+\.gd)',bat)
 missing=[path for path in commands if not (root/path).is_file()]
 dupes=sorted({x for x in commands if commands.count(x)>1})
@@ -21,6 +22,9 @@ checks={
     "Windows export executes after tests":bat.find('v34_4_invasion_guard.gd')<bat.find('--export-release "Windows Desktop"'),
     "Windows export uses official template":'GODOT_TEMPLATE_SOURCE' in bat and '--export-release "Windows Desktop"' in bat,
     "No obsolete editor embedding":'EMBED_SINGLE_EXE.ps1' not in bat,
+    "Windows inspects the playable scene root script": "Get-Content 'scenes/main.tscn'" in windows_workflow and '$rootScript.Groups[1].Value' in windows_workflow and 'VALIDATING PLAYABLE ROOT SCRIPT:' in windows_workflow,
+    "Windows rejects circular and missing inherited scripts": 'Circular script inheritance detected' in windows_workflow and 'Missing inherited script:' in windows_workflow,
+    "Windows fails on resource import errors": 'Godot resource import failed before script-chain validation' in windows_workflow,
 }
 for name,ok in checks.items():print(('PASS' if ok else 'FAIL')+': '+name)
 if missing:print('Missing:',missing)
