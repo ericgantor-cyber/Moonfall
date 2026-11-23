@@ -120,7 +120,7 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  ResetView->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleResetPreview);
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
- AddLabel(WidgetTree, Right, TEXT("Arrows / D-pad: race and family | Enter / A: continue"), 15);
+ AddLabel(WidgetTree, Right, TEXT("PgUp/PgDn: race | D-pad: race/family | Enter / A: continue"), 15);
  AddLabel(WidgetTree, Right, TEXT("Q/E or shoulder buttons: family | Mouse wheel: character zoom"), 15);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
  FamilyTitle = AddLabel(WidgetTree, Right, TEXT(""), 17);
