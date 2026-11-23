@@ -2224,7 +2224,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "Health <= 0.f", "!FMath::IsFinite(NextDodgeAt)"):
             self.assertIn(rejection, buffered)
         self.assertIn(
-            "QueuedDodgeUntil = -1.f;\\n   QueuedDodgeDirection = FVector::ZeroVector;\\n  } else if",
+            "QueuedDodgeUntil = -1.f;\n   QueuedDodgeDirection = FVector::ZeroVector;\n  } else if",
             buffered, "Rejected or expired dodge input must discard its cached movement vector.")
         self.assertIn("DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil", buffered)
         self.assertIn("QueuedDodgeUntil = -1.f;\n   bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", buffered)
