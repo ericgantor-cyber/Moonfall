@@ -452,7 +452,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+ const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
      ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
  // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
  const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
@@ -471,7 +471,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
  // Recovery in any menu, including the Atlas, is bounded and never revives a defeated hero.
- if ((bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f && FMath::IsFinite(Health)
+ if ((bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
      && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
@@ -492,7 +492,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -512,7 +512,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const bool bSprinting = bCanSprint && !bSprintExhausted;
  // Invalid Blueprint resource tuning cannot leave the hero guarding forever.
  // BreakGuard also restores movement speed and clears the counterattack window.
- if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+ if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()
      && (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
          || MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)
          || GuardStaminaCost < 0.f)) {
@@ -520,7 +520,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Sustained guarding is a deliberate defensive commitment. Drain only on
  // playable frames and never allow invalid Blueprint values to corrupt stamina.
- if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+ if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f) {
   const float GuardDrain = FMath::IsFinite(GuardStaminaDrainPerSecond)
@@ -542,7 +542,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    GetCharacterMovement()->MaxWalkSpeed = FMath::FInterpTo(
        FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, NormalWalkSpeed, TargetSpeed),
        TargetSpeed, StaminaDelta, FMath::Clamp(SprintAccelerationRate, 1.f, 20.f));
-  } else if (bGuarding && !bOptionsOpen && Health > 0.f) {
+  } else if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f) {
    // Guarding is deliberate, not a full-speed retreat. Invalid tuning uses
    // normal speed instead of passing nonfinite values to CharacterMovement.
    const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
