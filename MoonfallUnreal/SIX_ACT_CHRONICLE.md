@@ -26,8 +26,8 @@ The existing six contiguous zones and their five physical dungeons per zone prov
   never pan the underlying map.
 - **Keyboard/controller:** while the Atlas is open, **Tab** or **R3**
   (controller right-stick press) toggles reading focus. In reading mode,
-  left/right arrows or D-pad select chapters; outside reading mode they
-  retain the existing map pan. Up/down still select regions.
+  Home/End (keyboard) or D-pad left/right select chapters; outside
+  reading mode Home/End pan the map. PageUp/PageDown select regions.
   J/Esc still close the Atlas, and mouse-wheel zoom is unchanged.
   Q stays Dodge outside the Atlas. R3 remains Guard during gameplay,
   with its normal Atlas guard lock preventing interference.
@@ -254,7 +254,7 @@ The overarching mystery is intentionally not resolved yet. The six epilogues rev
 6. Defeat all five regional bosses and confirm the regional epilogue appears once and remains available after save and reload.
 7. Load a corrupted/out-of-range progress mask. The chronicle should refuse unsafe disclosure and must not crash or create rewards.
 8. Test mouse chapter tabs, READ/MAP toggle, Tab and controller R3 focus,
-   left/right chapter navigation, Up/Down region selection, map click
+   Home/End chapter navigation, PageUp/PageDown region selection, map click
    and mouse-wheel zoom, J / Escape, and gameplay Guard/Dodge after closing
    the Atlas. Hover tooltips must not draw on top of the chapter reader.
 9. Verify the original artwork, animations and divine identities of Z and Nyra have not changed.
