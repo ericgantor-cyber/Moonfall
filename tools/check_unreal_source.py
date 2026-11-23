@@ -2830,7 +2830,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_inventory_menu_cancels_pending_finisher_visuals(self):
         update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience", 1)[0]
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {", update)
         self.assertIn("WaitingEnemy->BeginFinisherDefeat(Pending.Style);", update)
         self.assertIn("PendingFinishers.Reset();", update)
         self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration", update)
@@ -2843,13 +2843,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
         update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {", register)
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {", register)
         self.assertIn("if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);", register)
         self.assertLess(register.index("FinisherManaRestore"), register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"))
         self.assertLess(register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"),
                         register.index("PendingFinishers.Num() > 0"))
         self.assertIn("const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;", update)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {", update)
         self.assertLess(update.index("WaitingEnemy->BeginFinisherDefeat(Pending.Style);"),
                         update.index("PendingFinishers.Reset();"))
         self.assertLess(update.index("PendingFinishers.Reset();"),
