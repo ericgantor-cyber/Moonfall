@@ -44,11 +44,6 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("LEVEL %d  |  %d UNALLOCATED  |  141 STARS"),
        Hero->Level,Available),FLinearColor(0.78f,0.86f,0.97f),
        P.Left+16.f,P.Top+42.f,nullptr,0.77f);
-  // Honest warning: the world remains live behind this informational panel.
-  // On narrow screens omit the cue rather than covering the point count.
-  if (P.Width >= 850.f)
-   DrawText(TEXT("WORLD LIVE / ENEMIES ATTACK"),Crimson,
-      P.Left+P.Width-265.f,P.Top+43.f,nullptr,0.60f);
   DrawRect(FLinearColor(0.36f,0.14f,0.21f),P.Left+P.Width-42.f,P.Top+12.f,28.f,28.f);
   DrawText(TEXT("X"),FLinearColor::White,P.Left+P.Width-33.f,P.Top+15.f,nullptr,0.85f);
   DrawRect(FLinearColor(0.055f,0.075f,0.13f),P.MapLeft,P.MapTop,P.MapWidth,P.MapHeight);
