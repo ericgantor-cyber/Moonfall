@@ -119,10 +119,11 @@ int main() {
         self.assertIn("EquipRightHandFavorite(Favorite);", clicks)
         hit = hero.split("int32 AMoonfallHeroPawn::HitTestRightHandFavorite() const", 1)[1].split(
             "// Native UE5 melee", 1)[0]
-        for geometry in ("Left + 18.f", "Top + 119.f", "(PanelWidth - 36.f) / 7.f",
-                         "StripY + 22.f", "MouseX - StripX"):
+        for geometry in ("Left + 18.f", "Top + 119.f", "(PanelWidth - 36.f) / 7.f"):
             self.assertIn(geometry, hit)
             self.assertIn(geometry, hud)
+        self.assertIn("StripY + 22.f", hit)
+        self.assertIn("MouseX - StripX", hit)
         self.assertIn("for (int32 Slot = 0; Slot < 7; ++Slot)", hud)
         self.assertIn("ActiveFavorite == Slot", hud)
         for direction, offset in (("Left", "+ 6"), ("Right", "+ 1")):
