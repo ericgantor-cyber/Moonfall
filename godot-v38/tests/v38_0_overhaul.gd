@@ -127,16 +127,29 @@ func _run()->void:
  check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*maxf(0.20,0.35-0.035*float(v398_ranks.get(\"defense_guard\",0)))" in orb_source,"right mouse guard mitigates damage and scales with defense talents")
  check("V393_RIPOSTE_WINDOW" in orb_source and "v393_riposte_until=map_time+V393_RIPOSTE_WINDOW" in orb_source,"timed parries open riposte opportunity")
  check("V393_RIPOSTE_MULTIPLIER" in orb_source and "v393_riposte_active=false" in orb_source,"riposte damage returns to normal after attack")
- check("func _v394_next_auto_angle(previous:int,step:int)->int:" in orb_source and "randi_range(1,3)" in attack_code,"Omniattack selects a varied sword angle per available melee swing")
+ check("func _v394_next_auto_angle()->int:" in orb_source and "v394_omni_deck.shuffle()" in orb_source,"Omniattack shuffles all four sword angles")
  check("if attack_cooldown<=0.0 and not mounted:" in attack_code and "super._attack()" in attack_code,"Omniattack respects cooldown and mounted combat gate")
  check(not ("KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4" in orb_source) and not ("Input.is_key_pressed(KEY_UP)" in attack_code),"directional strikes never require manual numpad or movement keys")
- for old_angle in range(4):
-  var choices:Dictionary={}
-  for step in range(1,4):
-   var next_angle:int=int(game.call("_v394_next_auto_angle",old_angle,step))
-   check(next_angle>=0 and next_angle<4 and next_angle!=old_angle,"Omniattack rotates to another legal sword angle")
-   choices[next_angle]=true
-  check(choices.size()==3,"Omniattack can reach all three other angles without repeats")
+ check("_v394_reset_omniattack()" in orb_source and "v394_omni_deck.clear()" in orb_source,"new-game and checkpoint restores discard stale attack flow")
+ check("OMNIATTACK  " in orb_source and "v380_status_enabled" in orb_source,"attack-flow cue is restricted to the existing optional status panel")
+ var omni_legal:bool=true
+ var omni_distinct:bool=true
+ var omni_no_repeat:bool=true
+ var omni_last:int=-1
+ for cycle in range(16):
+  var omni_seen:Dictionary={}
+  for step in range(4):
+   var angle:int=int(game.call("_v394_next_auto_angle"))
+   omni_legal=omni_legal and angle>=0 and angle<4
+   omni_no_repeat=omni_no_repeat and angle!=omni_last
+   omni_seen[angle]=true
+   omni_last=angle
+  omni_distinct=omni_distinct and omni_seen.size()==4
+ check(omni_legal,"Omniattack always chooses one of four legal angles")
+ check(omni_no_repeat,"Omniattack never repeats an angle on consecutive swings, including cycle boundaries")
+ check(omni_distinct,"each Omniattack four-swing cycle visits every angle exactly once")
+ game.call("_v394_reset_omniattack")
+ check(int(game.get("v394_omni_last"))==-1 and (game.get("v394_omni_deck") as Array).is_empty(),"Omniattack reset clears transient sequence state")
  check("angle_damage" in orb_source and "angle_stagger" in orb_source,"high and low attack angles affect hit results")
  check("V395_GUARD_PERIOD" in orb_source and "v395_guarding" in orb_source,"hostiles get periodic guard windows")
  check("GUARD BROKEN!" in orb_source and "V395_GUARD_REDUCTION" in orb_source,"heavy attacks or ripostes break enemy guards")
