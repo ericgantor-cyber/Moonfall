@@ -13,7 +13,7 @@ var companion_cached_target:Dictionary={}
 
 func _process(delta:float)->void:
  super._process(delta)
- if not hero_playing or death_active or menu_open or not is_instance_valid(player):
+ if not hero_playing or death_active or not is_instance_valid(player):
   companion_cached_target.clear()
   companion_scan_timer=0.0
   return
