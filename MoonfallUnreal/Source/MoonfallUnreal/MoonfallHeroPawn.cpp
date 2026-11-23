@@ -380,7 +380,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
-     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
+     && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
@@ -428,7 +428,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -451,7 +451,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+ const float MenuRecoveryBoost = (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
      ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
  // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
  const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
@@ -470,7 +470,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
  // Recovery in any menu, including the Atlas, is bounded and never revives a defeated hero.
- if ((bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f && FMath::IsFinite(Health)
+ if ((bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
      && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
@@ -1006,7 +1006,8 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bTalentWebOpen)return;
+ // LT is a two-press guarded respec only inside the constellation menu.
+ if (bTalentWebOpen) {TalentConfirmRespec();return;}
  if (bOptionsOpen || bAtlasOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
@@ -2415,7 +2416,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  // Do not pick up world items while a resident conversation owns input.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
+ if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
@@ -2448,7 +2449,7 @@ void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bTalentWebOpen && !bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
@@ -3511,7 +3512,7 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
- if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bTalentWebOpen || bInventoryOpen || bOptionsOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
