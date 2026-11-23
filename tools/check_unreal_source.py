@@ -2108,6 +2108,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 self.assertEqual(len(calls), expected)
         self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
         self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', self.hud)
+        # A hit from a prior life/save must not tint the next checkpoint,
+        # even if a player opens the inventory in the same rendered frame.
+        respawn = self.hero_cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split("\n}", 1)[0]
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("\n}", 1)[0]
+        death = damage.split("if (Health <= 0.f) {", 1)[1].split("OnDamageImpact(DamageTaken);", 1)[0]
+        self.assertIn("MenuDamageFlashUntil = -1.f;", respawn)
+        self.assertIn("MenuDamageFlashUntil = -1.f;", load)
+        self.assertIn("MenuDamageFlashUntil = -1.f;", death)
 
     def test_live_inventory_and_character_sheet_show_bounded_resources(self):
         # The normal red/blue/purple combat orb is drawn after the inventory
