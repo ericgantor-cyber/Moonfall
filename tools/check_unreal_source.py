@@ -2260,8 +2260,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Throttled automatic pickup", 1)[0]
         self.assertIn("bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", tick)
         self.assertIn("QueuedDodgeDirection = FVector::ZeroVector;", tick)
-        self.assertLess(tick.index("bExecutingBufferedDodge = false;"),
-                        tick.index("QueuedDodgeDirection = FVector::ZeroVector;"))
+        self.assertIn("bExecutingBufferedDodge = false;\n   QueuedDodgeDirection = FVector::ZeroVector;", tick)
 
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
