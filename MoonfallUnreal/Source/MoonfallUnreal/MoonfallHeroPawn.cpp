@@ -1342,6 +1342,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  // Only actual HP loss triggers visual feedback. A fully blocked or
+  // parried strike must never flash the menus red. No global pause.
+  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+      || bResidentContextOpen)
+   MenuDamageFlashUntil = Now + 0.28f;
   CombatRecoveryEndsAt = FMath::Max(
        FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
        Now + (FMath::IsFinite(CombatRecoverySeconds)
