@@ -105,6 +105,6 @@ int main() {
  // No point spending or respec may grant a free resurrection.
  Resources Defeated{};
  Defeated.Health=0.0;
- assert(ApplyResourceDelta(Defeated,Zero,Bought) && Defeated.Health==8.0);
+ assert(ApplyResourceDelta(Defeated,Zero,Bought) && Defeated.Health==0.0);
  return 0;
 }
