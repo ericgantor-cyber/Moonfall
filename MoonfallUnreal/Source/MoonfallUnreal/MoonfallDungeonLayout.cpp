@@ -262,8 +262,8 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
 {
  if (!bBonusEncounterActive || !GetWorld() || !IsValid(Hero)
      || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
-     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
-     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen)
+     || Hero->Health <= 0.f || Hero->bOptionsOpen
+     || Hero->bAtlasOpen || Hero->bResidentContextOpen)
   return false;
  int32 Group = INDEX_NONE;
  for (int32 Candidate = 0; Candidate < 3; ++Candidate) {
