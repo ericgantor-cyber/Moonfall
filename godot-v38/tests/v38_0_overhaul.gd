@@ -358,6 +358,25 @@ func _run()->void:
   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"Phoenix revival clears stale ordinary melee")
   check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"Phoenix revival resets enemy attack anticipation pose")
   check(float(game.get("phoenix_grace_until"))>float(game.get("map_time")),"Phoenix protection is retained after melee cleanup")
+  # Both revive routes use the same helper. Cancel the queued hit without
+  # snapping an *active* enemy reaction or follow-through to neutral.
+  if is_instance_valid(melee_mesh):
+   var now:float=float(game.get("map_time"))
+   queued_melee_foe["melee_windup_until"]=now+1.0
+   queued_melee_foe["hit_react_until"]=now+0.16
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
+   game.call("_cancel_native_melee_tells")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"revive helper cancels attack even during hit recoil")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,104.0),"revive helper preserves active hit recoil")
+   queued_melee_foe["hit_react_until"]=0.0
+   queued_melee_foe["melee_windup_until"]=now+1.0
+   queued_melee_foe["attack_swing_until"]=now+0.22
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,101.0)
+   game.call("_cancel_native_melee_tells")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"revive helper cancels attack even during follow-through")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,101.0),"revive helper preserves active follow-through")
+   queued_melee_foe["attack_swing_until"]=0.0
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
