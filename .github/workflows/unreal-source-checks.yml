@@ -5,6 +5,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
@@ -13,6 +14,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
@@ -80,7 +82,7 @@ jobs:
           assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
           assert 'ActionName="CastLeft",Key=Z' in inputs
           assert 'ActionName="CastRight",Key=X' in inputs
-          assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
+          assert 'RightHandAction(); return;' in hero and 'CastRight();' in hero
           assert 'ActionName="TalkNPC"' not in inputs
           assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
@@ -94,6 +96,22 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+
+      - name: Verify WASD and arrow keys are movement-only across engines
+        shell: bash
+        run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
+
+      - name: Verify native Omniattack and movement-only keyboard controls
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_omniattack
+
+      - name: Verify buffered sword combos and enemy NPC pause behavior
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_buffer
+
+      - name: Verify native Spell Book catalog, layout, and modal controls
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_spellbook
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.

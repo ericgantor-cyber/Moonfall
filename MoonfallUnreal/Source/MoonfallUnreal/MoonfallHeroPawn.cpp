@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
@@ -36,6 +37,7 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
@@ -321,6 +323,9 @@ void AMoonfallHeroPawn::BeginPlay() {
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
+ // Keep the inventory-selected combat hand across relaunches without changing
+ // the established world-save schema or risking a checkpoint migration.
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), bRightHandSpellReadied, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -391,6 +396,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   else
    ScrollInventoryToMouseTrack();
  }
+ // Dialogue focus and modal state must agree. A stale focused resident
+ // otherwise blocks movement/attacks and keeps enemy AI paused indefinitely.
+ // This is a cheap pointer check, with no per-frame actor search or trace.
+ if (!bResidentContextOpen && FocusedResident.IsValid())
+  CloseResidentContext();
  // A streaming/despawned resident must not leave player cursor or input locked.
  if (bResidentContextOpen) {
   const AMoonfallWorldNPC* Resident = FocusedResident.Get();
@@ -403,6 +413,18 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       Resident->GetActorLocation().ContainsNaN() ||
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
+ }
+ // A second click shortly before recovery may queue exactly one next swing.
+ // No extra timer, animation, actor scan, trace, or stamina charge per frame.
+ // All modal/defense transitions discard it before an attack can resolve.
+ if (SwordBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(SwordBuffer.ExpiresAt)) {
+  const float CombatNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
+  const bool bCanDispatchBufferedMelee = GetWorld() && Health > 0.f
+    && FMath::IsFinite(Health) && !bOptionsOpen && !bInventoryOpen
+    && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+    && !bGuarding && !bRightHandSpellReadied;
+  if (SwordBuffer.Consume(CombatNow, NextMeleeAttackAt, bCanDispatchBufferedMelee))
+   MeleeAttack();
  }
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
@@ -569,6 +591,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -586,6 +609,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
+ Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
@@ -803,6 +827,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
@@ -812,6 +837,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
  }
@@ -858,7 +884,13 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ // Explicit Z/X and controller spell shortcuts use this same authority.
+ // Do not cast into a focused NPC interaction even if its menu flag is stale.
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
+     || bResidentContextOpen || FocusedResident.IsValid() || !GetWorld()
+     || School < 0 || School >= 6 || Hand < 0 || Hand > 1
+     || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f
+     || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -984,11 +1016,23 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft()
+{
+ if (bOptionsOpen || bAtlasOpen) return;
+ SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
+ TryCast(LeftSpell, 0, 1.f);
+}
+void AMoonfallHeroPawn::CastRight()
+{
+ if (bOptionsOpen || bAtlasOpen) return;
+ SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
+ TryCast(RightSpell, 1, 1.f);
+}
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
+ // Cancel queued sword input even if this attempted dual cast cannot resolve.
+ SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -999,6 +1043,299 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+// Right-hand input mirrors equipped-hand combat: the same click/trigger
+// invokes weapon melee or the prepared right-hand spell. Explicit Z/X and
+// shoulder spell shortcuts continue working regardless of this selection.
+void AMoonfallHeroPawn::RightHandAction()
+{
+ // RT and primary-action input must not dispatch either attack path while
+ // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
+ // even though TryCast/MeleeAttack also enforce their own safety checks.
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid()) return;
+ // Buffer one additional sword press only within the final 180ms of recovery.
+ // Spells retain their existing immediate cast path and never queue a sword.
+ if (!bRightHandSpellReadied && !bGuarding) {
+  const float CombatNow = GetWorld()->GetTimeSeconds();
+  if (SwordBuffer.Queue(CombatNow, NextMeleeAttackAt)) return;
+ }
+ SwordBuffer.Clear();
+ if (bRightHandSpellReadied) CastRight();
+ else MeleeAttack();
+}
+
+bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
+{
+ // Equipping from a future spell/favorites panel is allowed while its
+ // inventory UI is open; casting never leaks through the open menu.
+ if (School < 0 || School >= 6 || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;
+ RightSpell = School;
+ SwordBuffer.Clear();
+ bRightHandSpellReadied = true;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), true, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
+ }
+ OnRightHandLoadoutChanged(true, RightSpell);
+ return true;
+}
+
+void AMoonfallHeroPawn::ReadyRightHandWeapon()
+{
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen) return;
+ bRightHandSpellReadied = false;
+ if (GConfig) {
+  GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), false, GGameUserSettingsIni);
+  GConfig->Flush(false, GGameUserSettingsIni);
+ }
+ OnRightHandLoadoutChanged(false, RightSpell);
+}
+
+// P opens directly from gameplay or any inventory page. Repeating P closes
+// the entire overlay so the user returns to play. No movement key is reused.
+void AMoonfallHeroPawn::ToggleSpellBookShortcut()
+{
+ // The Atlas owns map input. A P press must not silently close the map
+ // through ToggleInventory() and open an unrelated modal behind it.
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || Health <= 0.f
+     || !FMath::IsFinite(Health)) return;
+ if (!bInventoryOpen) {
+  // Reuse the safe modal entry path: stop movement, guard and sprint, and
+  // give the mouse cursor to the inventory before showing the spell book.
+  ToggleInventory();
+  if (bInventoryOpen) ToggleSpellBook();
+  return;
+ }
+ if (bSpellBookOpen) {
+  ToggleInventory(); // Also clears the spell-book state and frees the cursor.
+  return;
+ }
+ ToggleSpellBook();
+}
+
+// The grimoire is still an inventory page for the B/Select and mouse tabs.
+void AMoonfallHeroPawn::ToggleSpellBook()
+{
+ if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ bSpellBookOpen = !bSpellBookOpen;
+ if (bSpellBookOpen) {
+  bCharacterStatsOpen = false;
+  SpellBookSelection = FMath::Clamp(SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
+ }
+ bInventoryScrollbarDragging = false;
+}
+
+bool AMoonfallHeroPawn::EquipSpellBookSelection(bool bLeftHand)
+{
+ if (!bInventoryOpen || !bSpellBookOpen || bCharacterStatsOpen || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
+     || !MoonfallSpellBook::IsValid(SpellBookSelection)) return false;
+ if (bLeftHand) {
+  LeftSpell = SpellBookSelection;
+  // Already persisted in the existing world-save format; normal autosave
+  // handles the change. No spell can be cast while this panel is visible.
+  return true;
+ }
+ return ReadyRightHandSpell(SpellBookSelection);
+}
+
+MoonfallSpellBook::FCastState AMoonfallHeroPawn::GetSpellBookCastState(
+ int32 School, bool bLeftHand) const
+{
+ if (!GetWorld())
+  return {MoonfallSpellBook::EReadiness::Invalid,0.f,0.f};
+ return MoonfallSpellBook::Evaluate(School,Mana,MaxMana,Health,MaxHealth,
+     SpellPowerMultiplier,GetWorld()->GetTimeSeconds(),
+     LastCastTime[bLeftHand ? 0 : 1],GetHasteBonus());
+}
+
+bool AMoonfallHeroPawn::HandleSpellBookPointer()
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+     || bResidentContextOpen || Health <= 0.f) return false;
+ APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 W = 0, H = 0;
+ float X = 0.f, Y = 0.f;
+ PC->GetViewportSize(W,H);
+ if (W <= 0 || H <= 0 || !PC->GetMousePosition(X,Y)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ const auto Rect = MoonfallSpellBook::Layout(static_cast<float>(W), static_cast<float>(H), bSpellBookOpen);
+ const int Hit = MoonfallSpellBook::Hit(Rect,X,Y,bSpellBookOpen);
+ if (Hit == MoonfallSpellBook::None) return false;
+ if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();
+ else if (MoonfallSpellBook::IsValid(Hit)) SpellBookSelection = Hit;
+ else if (Hit == MoonfallSpellBook::EquipLeft) EquipSpellBookSelection(true);
+ else if (Hit == MoonfallSpellBook::EquipRight) EquipSpellBookSelection(false);
+ return true;
+}
+
+// Equip from the existing inventory favorites strip, not a gameplay hotkey.
+// 0 is the equipped weapon (or unarmed); 1..6 are the existing spell schools.
+bool AMoonfallHeroPawn::EquipRightHandFavorite(int32 FavoriteIndex)
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen || bAtlasOpen
+     || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health)
+     || FavoriteIndex < 0 || FavoriteIndex > 6) return false;
+ if (FavoriteIndex == 0) {
+  ReadyRightHandWeapon();
+  return true;
+ }
+ return ReadyRightHandSpell(FavoriteIndex - 1);
+}
+
+int32 AMoonfallHeroPawn::HitTestRightHandFavorite() const
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
+     || Health <= 0.f) return INDEX_NONE;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return INDEX_NONE;
+ // Keep these coordinates identical to the seven-button inventory HUD.
+ const float PanelWidth = FMath::Min(720.f,
+     FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f,
+     FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float StripX = Left + 18.f;
+ const float StripY = Top + 119.f;
+ const float SlotWidth = (PanelWidth - 36.f) / 7.f;
+ if (MouseX < StripX || MouseX >= StripX + 7.f * SlotWidth
+     || MouseY < StripY || MouseY >= StripY + 22.f) return INDEX_NONE;
+ return FMath::Clamp(FMath::FloorToInt((MouseX - StripX) / SlotWidth), 0, 6);
+}
+
+// Native UE5 melee, independent from spell casting. One bounded visibility
+// sweep stops at cover and cannot damage enemies behind an intervening wall.
+// No animation asset is required; the Blueprint event can add authored trails.
+void AMoonfallHeroPawn::MeleeAttack()
+{
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
+     || bResidentContextOpen || FocusedResident.IsValid() || bGuarding
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(Stamina)
+     || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
+     || !FMath::IsFinite(MeleeStaminaCost) || MeleeStaminaCost < 0.f
+     || !FMath::IsFinite(MeleeAttackCooldown) || MeleeAttackCooldown <= 0.f
+     || !FMath::IsFinite(MeleeAttackRange) || MeleeAttackRange <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextMeleeAttackAt)
+     || Now < NextMeleeAttackAt) return;
+ const float Cost = FMath::Clamp(MeleeStaminaCost, 0.f, 50.f);
+ if (Stamina < Cost) return;
+ const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
+ const FVector Position = GetActorLocation();
+ if (Facing.IsNearlyZero() || Position.ContainsNaN()) return;
+
+ // A click spends its stamina and recovery even when it misses. Do not
+ // advance the angle on menu clicks, invalid input or cooldown spam.
+ SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
+ NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
+ Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
+ StaminaRegenStartsAt = FMath::Max(
+     FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : 0.f,
+     Now + 0.35f);
+ CombatRecoveryEndsAt = FMath::Max(
+     FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+     Now + 3.f);
+ CurrentSwordAngle = MoonfallOmniattack::Next(SwordFlow,
+     static_cast<unsigned>(FMath::RandHelper(4)));
+ SwordFlowStep = SwordFlow.Step;
+
+ const FVector Start = Position + FVector(0.f, 0.f, 65.f);
+ const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange, 60.f, 350.f);
+ FHitResult Hit;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallMelee), false, this);
+ Params.AddIgnoredActor(this);
+ const bool bBlocked = GetWorld()->SweepSingleByChannel(
+     Hit, Start, End, FQuat::Identity, ECC_Visibility,
+     FCollisionShape::MakeSphere(55.f), Params);
+ AMoonfallEnemy* Enemy = bBlocked ? Cast<AMoonfallEnemy>(Hit.GetActor()) : nullptr;
+ const bool bLivingTarget = IsValid(Enemy) && FMath::IsFinite(Enemy->Health)
+     && Enemy->Health > 0.f;
+ // A committed melee attack should animate even on a miss or killing blow.
+ // Predict the next connected combo animation without granting a combo stage:
+ // only TakeMeleeDamage below may advance combat progress or posture.
+ const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+     ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+ const bool bNextSameTarget = bLivingTarget && LastHitComboTarget.Get() == Enemy
+     && FMath::IsFinite(LastSuccessfulHitAt) && Now >= LastSuccessfulHitAt
+     && Now - LastSuccessfulHitAt <= ComboWindow;
+ const int32 NextSwingStage = bNextSameTarget && HitComboStage >= 1
+     && HitComboStage < 12 ? HitComboStage + 1 : 1;
+ if (!bReduceMotion && GetMesh() && ComboMontages.IsValidIndex(NextSwingStage - 1)) {
+  if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
+   if (UAnimMontage* Montage = ComboMontages[NextSwingStage - 1].Get())
+    Anim->Montage_Play(Montage, 1.f);
+  }
+ }
+ if (!bLivingTarget) {
+  OnMeleeSwing(CurrentSwordAngle, false);
+  return;
+ }
+ const bool bWeaponOwned = InventoryItemCodes.Contains(EquippedWeaponCode);
+ const float Tier = bWeaponOwned
+     ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
+ const float Might = static_cast<float>(GetMight());
+ const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
+     : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
+ // Same bounded, same-target combo rule as spell combat: a miss or a
+ // different target earns no inherited power, and hit 13 starts at stage 1.
+ const int32 IncomingStage = bNextSameTarget ? FMath::Clamp(HitComboStage, 0, 12) : 0;
+ const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;
+ const float ComboStep = FMath::IsFinite(HitComboDamagePerStage)
+     ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
+ const float HitComboMultiplier = 1.f + ComboStep
+     * FMath::Clamp(EffectiveIncomingStage, 0, 3);
+ const float Damage = (18.f + Tier * 1.15f
+     + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
+     * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
+     * (1.f + GetVersatilityBonus());
+ if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
+  OnMeleeSwing(CurrentSwordAngle, false);
+  return;
+ }
+ const float HealthBefore = Enemy->Health;
+ // Shared enemy health, posture, phase and loot resolution. No mana used.
+ Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));
+ const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
+ const bool bConnected = Dealt > 0.f;
+ if (bConnected) {
+  // Low sweeps pressure posture; the original enemy posture-break caps apply.
+  if (Enemy->Health > 0.f)
+   Enemy->ApplyPostureDamage(Dealt * (CurrentSwordAngle == 2 ? 0.45f : 0.15f));
+  const float Window = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  const bool bContinues = LastHitComboTarget.Get() == Enemy
+      && Now >= LastSuccessfulHitAt && Now - LastSuccessfulHitAt <= Window;
+  const int32 PreviousStage = bContinues ? FMath::Clamp(HitComboStage, 0, 12) : 0;
+  HitComboStage = bContinues && PreviousStage < 12 ? PreviousStage + 1 : 1;
+  LastHitComboTarget = Enemy;
+  LastSuccessfulHitAt = Now;
+  if (Enemy->Health > 0.f && (HitComboStage == 4 || HitComboStage == 8
+      || HitComboStage == 12)) {
+   Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
+   Enemy->RegisterComboMilestone(HitComboStage);
+  }
+  // The swing montage already played at attack commitment, even on a
+  // missed or lethal strike. Do not restart it upon damage resolution.
+  // The equipped sword is the right-hand action. The Blueprint event must
+  // not label these hits as left-hand casts.
+  OnSuccessfulHitCombo(HitComboStage, false);
+ }
+ OnMeleeSwing(CurrentSwordAngle, bConnected);
+}
+
 void AMoonfallHeroPawn::BreakGuard()
 {
  if (!bGuarding || !GetWorld()) return;
@@ -1024,6 +1361,8 @@ void AMoonfallHeroPawn::BeginGuard()
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
      || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
+ // Blocking/parrying supersedes a queued sword swing.
+ SwordBuffer.Clear();
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
  bGuarding = true;
@@ -1085,6 +1424,7 @@ void AMoonfallHeroPawn::Dodge()
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ SwordBuffer.Clear(); // Dodge always wins over a pending attack.
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
@@ -1260,6 +1600,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
   bInventoryScrollbarDragging = false;
@@ -1306,6 +1647,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   return;
  }
  bCharacterStatsOpen = !bCharacterStatsOpen;
+ if (bCharacterStatsOpen) bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
 
@@ -1338,6 +1680,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
   if (bInventoryOpen) ToggleInventory();
@@ -1386,6 +1729,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -1393,14 +1737,17 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bInventoryScrollbarDragging = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bInventoryOpen;
- if (!bInventoryOpen) bCharacterStatsOpen = false;
+ if (!bInventoryOpen) {
+  bCharacterStatsOpen = false;
+  bSpellBookOpen = false;
+ }
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
@@ -1518,7 +1865,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
@@ -1557,7 +1904,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) AscendInventoryItemRarity(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
@@ -1577,12 +1924,12 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
@@ -1597,6 +1944,7 @@ void AMoonfallHeroPawn::OpenOptions() {
    bInventoryScrollbarDragging = false;
    return;
   }
+  if (bSpellBookOpen) { bSpellBookOpen = false; return; }
   ToggleInventory(); // Same cleanup path as the mouse close button.
   return;
  }
@@ -1605,6 +1953,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  SwordBuffer.Clear(); // Menu entry cancels a queued attack.
  }
  bOptionsOpen = !bOptionsOpen;
  // Match the inventory close workflow and allow the Options X to be clicked.
@@ -1630,6 +1979,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (bInventoryOpen) {
+  if (bSpellBookOpen) {
+   SpellBookSelection = FMath::Max(0, SpellBookSelection - 1);
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -1658,6 +2011,10 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (bInventoryOpen) {
+  if (bSpellBookOpen) {
+   SpellBookSelection = FMath::Min(MoonfallSpellBook::SpellCount - 1, SpellBookSelection + 1);
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -1668,21 +2025,35 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen && !bOptionsOpen) {
+   const int32 Current = bRightHandSpellReadied ? FMath::Clamp(RightSpell + 1, 1, 6) : 0;
+   EquipRightHandFavorite((Current + 6) % 7);
+  }
+  return;
+ }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen && !bOptionsOpen) {
+   const int32 Current = bRightHandSpellReadied ? FMath::Clamp(RightSpell + 1, 1, 6) : 0;
+   EquipRightHandFavorite((Current + 1) % 7);
+  }
+  return;
+ }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -2239,7 +2610,7 @@ void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
@@ -2372,6 +2743,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
+ // An explicitly equipped weapon becomes the active right-hand action,
+ // just as explicitly equipping a spell readies the spell.
+ if (SlotIndex == 0) ReadyRightHandWeapon();
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
@@ -3114,7 +3488,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
- RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
+ // Six native spell schools; a stale or externally edited save must never
+ // restore an unusable right-hand spell while magic is selected.
+ RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
@@ -3157,6 +3533,16 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   OnHealthChanged(Health, MaxHealth);
  }
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
+ // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
+ // combo target or cooldown from the defeated character.
+ SwordBuffer.Clear();
+ MoonfallOmniattack::Reset(SwordFlow);
+ CurrentSwordAngle = -1;
+ SwordFlowStep = 0;
+ NextMeleeAttackAt = 0.f;
+ HitComboStage = 0;
+ LastHitComboTarget.Reset();
+ LastSuccessfulHitAt = -100.f;
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  if (GetWorld()) {
   const float Now = GetWorld()->GetTimeSeconds();
@@ -3349,6 +3735,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  bResidentContextOpen = false;
  FocusedResident.Reset();
+ SwordBuffer.Clear();
  // Return cursor ownership to whichever native modal is still active.
  // The Atlas must keep its cursor if streaming closes a dialogue.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
@@ -3378,7 +3765,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
- // A conversation should release held combat movement immediately.
+ // A conversation must cancel any queued swing before taking input.
+ SwordBuffer.Clear();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -3393,6 +3781,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
@@ -3425,6 +3814,9 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    // Right-click dialogue must cancel queued sword attacks immediately,
+    // just like the controller/D-pad dialogue entry path.
+    SwordBuffer.Clear();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
@@ -3570,6 +3962,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  if (bInventoryOpen) {
+  // Book pointer and backdrop always take priority. The bag's hidden X must
+  // not close or mutate the inventory through the full-width grimoire.
+  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventoryCloseButton()) {
    // The X and Esc must back out of character details the same way.
    OpenOptions();
@@ -3584,12 +3979,17 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    EquipSelectedInventoryItem();
    return;
   }
+  const int32 Favorite = HitTestRightHandFavorite();
+  if (Favorite != INDEX_NONE) {
+   EquipRightHandFavorite(Favorite);
+   return;
+  }
   if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
  }
- if (!bResidentContextOpen) { CastLeft(); return; }
+ if (!bResidentContextOpen) { RightHandAction(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
  APlayerController* PC = Cast<APlayerController>(Controller);

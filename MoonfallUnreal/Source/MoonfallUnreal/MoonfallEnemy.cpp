@@ -173,6 +173,12 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
+ // Keep a single authoritative damage/defeat path while UE5 melee gains its
+ // own hit detection, stamina cost and directional animation hook.
+ TakeSpellDamage(Amount);
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
@@ -416,7 +422,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->FocusedResident.IsValid()) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);

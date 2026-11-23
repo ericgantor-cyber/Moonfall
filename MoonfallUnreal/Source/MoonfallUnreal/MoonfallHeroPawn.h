@@ -2,6 +2,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallOmniattack.h"
+#include "MoonfallCombatInputBuffer.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -86,7 +89,9 @@ public:
 
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
- void TriggerRacePower() { ActivateRacePower(); }
+ // The already-bound controller Y button opens the spell book ONLY inside
+ // inventory; gameplay still activates the same ancestry power.
+ void TriggerRacePower() { if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower(); }
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
@@ -224,6 +229,25 @@ public:
  // These do not replace or alter the original character art.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> ComboMontages;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
+ // A committed melee swing uses an automatic angle: high/right/low/left.
+ // Optional Blueprint hook can play a montage or weapon trail for that angle.
+ // Skyrim-inspired right-hand slot: weapon/unarmed or explicitly readied spell.
+ // Defaults to weapon; right-click NPC interactions and spell hotkeys remain separate.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Hands") bool bRightHandSpellReadied = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void RightHandAction();
+  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool ReadyRightHandSpell(int32 School);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ReadyRightHandWeapon();
+ // Favorites are equipped from Inventory, not a dedicated gameplay toggle.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool EquipRightHandFavorite(int32 FavoriteIndex);
+ int32 HitTestRightHandFavorite() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 CurrentSwordAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 SwordFlowStep = 0;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.1", ClampMax="1.5")) float MeleeAttackCooldown = 0.48f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="50.0")) float MeleeStaminaCost = 8.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="60.0", ClampMax="350.0")) float MeleeAttackRange = 225.f;
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
@@ -271,6 +295,18 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Atlas") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
+ // Separate spell book page inside the existing B/Select inventory modal.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") bool bSpellBookOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") int32 SpellBookSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBook();
+ // Direct P shortcut: opens the grimoire from gameplay, closes it on repeat.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBookShortcut();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") bool EquipSpellBookSelection(bool bLeftHand);
+ // Read-only per-hand status. Target/line of sight is verified by TryCast
+ // only when actually casting, never by the UI every frame.
+ MoonfallSpellBook::FCastState GetSpellBookCastState(int32 School, bool bLeftHand) const;
+ bool HandleSpellBookPointer();
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient visible row offset; wheel scrolling never changes selection or equipment.
@@ -380,6 +416,9 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
+ MoonfallOmniattack::FFlow SwordFlow;
+ MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
+ float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};

@@ -388,7 +388,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
-        self.assertIn("if (bInventoryOpen) return;", toggle)
+        self.assertIn("if (bInventoryOpen) {", toggle)
+        self.assertIn("EquipRightHandFavorite(", toggle)
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
@@ -547,7 +548,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("InventorySelection =", nav)
             self.assertIn("KeepInventorySelectionVisible();", nav)
         for horizontal in (left, right):
-            self.assertIn("if (bInventoryOpen) return;", horizontal)
+            self.assertIn("if (bInventoryOpen) {", horizontal)
+            self.assertIn("!bCharacterStatsOpen && !bOptionsOpen", horizontal)
+            self.assertIn("EquipRightHandFavorite(", horizontal)
+            # D-pad selects spell/weapon favorites only, never equips a
+            # highlighted gear item or bypasses the inventory's confirm action.
             self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
             self.assertNotIn("EquipInventoryItem(", horizontal)
         self.assertNotIn("InventoryConfirm()", self.hero_cpp)
@@ -1030,7 +1035,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertIn('ActionName="SpellBook",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
@@ -1049,15 +1055,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bCharacterStatsOpen = true;", stats)
         self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
         self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
-        self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
+        self.assertIn("if (!bInventoryOpen) {", self.hero_cpp)
+        self.assertIn("bCharacterStatsOpen = false;", self.hero_cpp)
+        self.assertIn("bSpellBookOpen = false;", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / P / A: back to inventory", hud)
-        self.assertIn("C / P / A: character stats", hud)
+        self.assertIn("C / A: back to inventory", hud)
+        self.assertIn("P: spell book", hud)
+        self.assertIn("C / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1285,7 +1294,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
-        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
@@ -5195,7 +5204,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", code)
         self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", code)
         self.assertIn("PreviewImage->SetBrushFromTexture(PreviewTexture);", code)
-        for key in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down",
+        # Keyboard arrows are now exclusive to movement. The race chooser
+        # uses PageUp/PageDown while controller D-pad navigation is retained.
+        for key in ("EKeys::PageUp", "EKeys::PageDown",
                     "EKeys::Gamepad_DPad_Left", "EKeys::Gamepad_DPad_Right",
                     "EKeys::Gamepad_DPad_Up", "EKeys::Gamepad_DPad_Down"):
             self.assertIn(key, code)
@@ -5408,9 +5419,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "OnRaceConfirmed.Broadcast(Selection.RaceId)",
         ):
             self.assertIn(required, widget)
-        # Preview controls must not directly mutate the real player or source art.
-        self.assertNotIn("Key == EKeys::PageUp", widget)
-        self.assertNotIn("Key == EKeys::PageDown", widget)
+        # PageUp/PageDown now select races only; keyboard movement arrows
+        # must not navigate this UI or change preview/source artwork.
+        self.assertIn("Key == EKeys::PageUp", widget)
+        self.assertIn("Key == EKeys::PageDown", widget)
+        for arrow in ("Up", "Down", "Left", "Right"):
+            self.assertNotIn("Key == EKeys::" + arrow + " ||", widget)
         self.assertNotIn("SetSkeletalMesh(", widget)
         self.assertNotIn("SaveGameToSlot(", widget)
 

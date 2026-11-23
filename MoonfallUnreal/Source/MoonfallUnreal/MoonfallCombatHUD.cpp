@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -656,7 +657,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Left = Canvas->SizeX - PanelWidth - 12.f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
-  DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
+  DrawText(Hero->bSpellBookOpen ? TEXT("MOONFALL  |  SPELL BOOK")
+    : (PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY")),
     FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
   // Shared close button is visible on inventory and character views.
   const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
@@ -715,9 +717,141 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
+   DrawText(TEXT("C / A: back to inventory    P: spell book    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   return;
+  }
+  // The closed book's tab lives in the bag. The open book expands into a
+  // centered, readable grimoire. Geometry is shared with mouse hit testing.
+  const auto Book = MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY, Hero->bSpellBookOpen);
+  if (Hero->bSpellBookOpen) {
+   // Mask the underlying bag; clicks cannot leak through the book modal.
+   DrawRect(FLinearColor(0.009f,0.010f,0.025f,0.94f),
+       0.f,0.f,Canvas->SizeX,Canvas->SizeY);
+   DrawRect(FLinearColor(0.035f,0.031f,0.078f,0.99f),
+       Book.Left,Book.Top,Book.Width,Book.Height);
+   DrawRect(FLinearColor(0.43f,0.28f,0.52f,0.92f),
+       Book.Left,Book.Top,Book.Width,5.f);
+   DrawText(TEXT("MOONFALL  |  THE GRIMOIRE"),
+       FLinearColor(0.96f,0.88f,0.76f),Book.Left+18.f,Book.Top+13.f,
+       nullptr,Book.Width<500.f ? 0.88f : 1.36f);
+   DrawText(FString::Printf(TEXT("SIX KNOWN SPELLS   |   MANA %.0f / %.0f"),
+       FMath::IsFinite(Hero->Mana) ? Hero->Mana : 0.f,
+       FMath::IsFinite(Hero->MaxMana) ? Hero->MaxMana : 0.f),
+       FLinearColor(0.72f,0.82f,0.97f), Book.Left+18.f,Book.Top+47.f,
+       nullptr,Book.Width<500.f ? 0.62f : 0.85f);
+  }
+  DrawRect(Hero->bSpellBookOpen ? FLinearColor(0.29f,0.39f,0.33f,0.96f)
+      : FLinearColor(0.24f,0.20f,0.37f,0.95f),
+      Book.TabX, Book.TabY, Book.TabWidth, Book.TabHeight);
+  DrawText(Hero->bSpellBookOpen ? TEXT("BACK TO BAG") : TEXT("SPELL BOOK"),
+      FLinearColor::White,Book.TabX+9.f,Book.TabY+5.f,
+      nullptr,Book.Width<500.f ? 0.67f : 0.79f);
+  if (Hero->bSpellBookOpen) {
+   const int32 SelectedSpell = FMath::Clamp(Hero->SpellBookSelection,
+       0,MoonfallSpellBook::SpellCount-1);
+   for (int32 School=0; School<MoonfallSpellBook::SpellCount; ++School) {
+    const auto& Entry = MoonfallSpellBook::Spells[School];
+    const float Y = Book.RowY + School*Book.RowGap;
+    const bool bSelected = SelectedSpell == School;
+    const bool bLeft = Hero->LeftSpell == School;
+    const bool bRight = Hero->bRightHandSpellReadied && Hero->RightSpell == School;
+    DrawRect(bSelected ? FLinearColor(0.31f,0.30f,0.48f,0.99f)
+        : FLinearColor(0.10f,0.12f,0.21f,0.96f),
+        Book.RowX,Y,Book.RowWidth,Book.RowHeight);
+    DrawRect(bSelected ? FLinearColor(0.78f,0.62f,0.37f,0.97f)
+        : FLinearColor(0.27f,0.25f,0.43f,0.92f),
+        Book.RowX,Y,4.f,Book.RowHeight);
+    const FString Name(ANSI_TO_TCHAR(Entry.Name));
+    DrawText(FString::Printf(TEXT("%d  %s"),School+1,*Name),
+        bSelected ? FLinearColor::White : FLinearColor(0.86f,0.88f,0.96f),
+        Book.RowX+12.f,Y+2.f,nullptr,
+        Book.Width<500.f ? 0.63f : 0.94f);
+    // Use rows as full selectable surfaces, never as cast buttons.
+    if (Book.Width >= 700.f) {
+     DrawText(FString(ANSI_TO_TCHAR(Entry.School)),
+       FLinearColor(0.78f,0.77f,0.95f),
+       Book.RowX+Book.RowWidth*0.42f,Y+3.f,nullptr,0.78f);
+     DrawText(FString::Printf(TEXT("%.0f MANA  |  %.2fs  %s%s"),
+       Entry.ManaCost,Entry.Cooldown,
+       bLeft ? TEXT("[L]") : TEXT(""),
+       bRight ? TEXT("[R]") : TEXT("")),
+       FLinearColor(0.69f,0.87f,0.92f),
+       Book.RowX+Book.RowWidth-241.f,Y+3.f,nullptr,0.72f);
+     if (Book.RowHeight >= 35.f) {
+      const FString Role = Entry.bHealing ? TEXT("RESTORE") : TEXT("DAMAGE");
+      DrawText(Role,FLinearColor(0.67f,0.85f,0.65f),
+         Book.RowX+14.f,Y+26.f,nullptr,0.67f);
+     }
+    } else if (Book.Width >= 440.f) {
+     DrawText(FString::Printf(TEXT("%.0f MP %s%s"),Entry.ManaCost,
+       bLeft ? TEXT("L") : TEXT(""),bRight ? TEXT("R") : TEXT("")),
+       FLinearColor(0.69f,0.87f,0.92f),
+       Book.RowX+Book.RowWidth-110.f,Y+3.f,nullptr,0.62f);
+    } else if (bLeft || bRight) {
+     DrawText(bLeft && bRight ? TEXT("L/R") : bLeft ? TEXT("L") : TEXT("R"),
+       FLinearColor(0.68f,0.95f,0.73f),
+       Book.RowX+Book.RowWidth-30.f,Y+2.f,nullptr,0.59f);
+    }
+   }
+   // Read-only state uses the same mana and per-hand haste/cooldown formula
+   // as TryCast. Hostile spells still require target acquisition at cast time.
+   const auto& Selected = MoonfallSpellBook::Spells[SelectedSpell];
+   const auto LeftStatus = Hero->GetSpellBookCastState(SelectedSpell,true);
+   const auto RightStatus = Hero->GetSpellBookCastState(SelectedSpell,false);
+   const auto StatusText = [](const MoonfallSpellBook::FCastState& State, bool bHealing)->FString {
+    switch (State.State) {
+     case MoonfallSpellBook::EReadiness::Ready: return bHealing ? TEXT("READY TO HEAL") : TEXT("READY TO AIM");
+     case MoonfallSpellBook::EReadiness::Cooldown:
+      return FString::Printf(TEXT("COOLDOWN %.1fs"),State.CooldownRemaining);
+     case MoonfallSpellBook::EReadiness::LowMana:
+      return FString::Printf(TEXT("NEED %.0f MANA"),State.ManaShortfall);
+     case MoonfallSpellBook::EReadiness::FullHealth: return TEXT("FULL HEALTH");
+     default: return TEXT("UNAVAILABLE");
+    }
+   };
+   const auto StatusColor = [](MoonfallSpellBook::EReadiness State)->FLinearColor {
+    return State==MoonfallSpellBook::EReadiness::Ready
+      ? FLinearColor(0.52f,0.94f,0.66f)
+      : FLinearColor(0.95f,0.70f,0.42f);
+   };
+   if (Book.DetailsY+33.f < Book.EquipY) {
+    DrawText(FString::Printf(TEXT("%s  |  %.0f MANA  |  %.2fs BASE COOLDOWN"),
+      ANSI_TO_TCHAR(Selected.School),Selected.ManaCost,Selected.Cooldown),
+      FLinearColor(0.94f,0.82f,0.54f),Book.RowX,Book.DetailsY,nullptr,
+      Book.Width<500.f ? 0.57f : 0.88f);
+    const FString Detail(ANSI_TO_TCHAR(Selected.Description));
+    DrawText(Book.Width<450.f ? Detail.Left(39) : Detail,
+       FLinearColor(0.86f,0.87f,0.94f),
+       Book.RowX,Book.DetailsY+23.f,nullptr,
+       Book.Width<500.f ? 0.60f : 0.80f);
+   }
+   if (Book.DetailsY+80.f < Book.EquipY) {
+    DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus,Selected.bHealing),
+      Hero->LeftSpell==SelectedSpell ? TEXT("  [EQUIPPED]") : TEXT("")),
+      StatusColor(LeftStatus.State),Book.RowX,Book.DetailsY+49.f,nullptr,
+      Book.Width<500.f ? 0.59f : 0.78f);
+    DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus,Selected.bHealing),
+      Hero->bRightHandSpellReadied && Hero->RightSpell==SelectedSpell
+       ? TEXT("  [EQUIPPED]") : TEXT("")),
+      StatusColor(RightStatus.State),Book.RowX,Book.DetailsY+72.f,nullptr,
+      Book.Width<500.f ? 0.59f : 0.78f);
+   }
+   DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.98f),
+      Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawRect(FLinearColor(0.24f,0.43f,0.34f,0.98f),
+      Book.EquipRightX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawText(TEXT("EQUIP LEFT"),FLinearColor::White,
+      Book.EquipLeftX+7.f,Book.EquipY+5.f,nullptr,
+      Book.Width<500.f ? 0.62f : 0.85f);
+   DrawText(TEXT("EQUIP RIGHT"),FLinearColor::White,
+      Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
+      Book.Width<500.f ? 0.62f : 0.85f);
+   if (Book.Width >= 440.f)
+    DrawText(TEXT("P: CLOSE  |  Y: BAG  |  D-PAD UP/DOWN: SELECT  |  LEFT/RIGHT: EQUIP"),
+       FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
+       Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -739,6 +873,26 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
+  }
+  // Skyrim-style equipped-hand favorites inside the regular inventory.
+  // Same 7 rectangles as HitTestRightHandFavorite; no gameplay toggle key.
+  const float StripX = Left + 18.f;
+  const float StripY = Top + 119.f;
+  const float SlotWidth = (PanelWidth - 36.f) / 7.f;
+  const int32 ActiveFavorite = Hero->bRightHandSpellReadied
+      ? FMath::Clamp(Hero->RightSpell + 1, 1, 6) : 0;
+  for (int32 Slot = 0; Slot < 7; ++Slot) {
+   const bool bEquipped = ActiveFavorite == Slot;
+   const float X = StripX + Slot * SlotWidth;
+   DrawRect(bEquipped ? FLinearColor(0.28f, 0.55f, 0.46f, 0.96f)
+                     : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
+       X, StripY, SlotWidth - 3.f, 22.f);
+   // A weapon name, not "W": W is reserved exclusively for walking forward.
+   const FString Label = Slot == 0 ? TEXT("SWORD")
+       : FString::Printf(TEXT("S%d"), Slot);
+   DrawText(Label, bEquipped ? FLinearColor::White : FLinearColor(0.77f, 0.83f, 0.98f),
+       X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
+       Slot == 0 ? 0.55f : 0.68f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
@@ -1036,7 +1190,7 @@ void AMoonfallCombatHUD::DrawHUD()
     PanelWidth < 550.f ? 0.56f : 0.74f);
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }
@@ -1339,6 +1493,18 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(bStaminaLow ? TEXT("LOW STAMINA") : TEXT("SPRINT RECOVERING"),
     FLinearColor(1.f,0.80f,0.40f),
     CX + Radius + 14.f, CY + 15.f, nullptr, 0.82f * LabelScale);
+ }
+ // Subtle, nonflashing right-hand readout. No extra HUD panels or asset changes.
+ if (!bCompactScreen) {
+  // Show the actual readied spell, not an ambiguous generic "SPELL".
+  // The fourth native spell restores health; no new invented spell schools.
+  const FString RightMode = Hero->bRightHandSpellReadied
+      ? (Hero->RightSpell == 3 ? FString(TEXT("SPELL 4: HEAL"))
+          : FString::Printf(TEXT("SPELL %d"), FMath::Clamp(Hero->RightSpell + 1, 1, 6)))
+      : (Hero->GetValidatedEquippedTier(0) > 0 ? TEXT("SWORD") : TEXT("UNARMED"));
+  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), *RightMode),
+    FLinearColor(0.79f, 0.88f, 0.98f),
+    CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
  }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
