@@ -2259,7 +2259,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
         self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
@@ -2269,6 +2269,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost", tick)
+
+    def test_talent_web_recovers_resources_without_guard_or_sprint_drain(self):
+        # The 141-node web is a real gameplay modal: enemies are paused and
+        # the hero must receive the same bounded recovery as other menus.
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
+        self.assertIn("if ((bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", tick)
+        self.assertIn("&& !bInCombatRecoveryWindow) {", tick)
+        self.assertIn("!bAtlasOpen && !bTalentWebOpen && Health > 0.f", tick)
+        self.assertGreaterEqual(tick.count("if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()"), 2)
+        self.assertIn("} else if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f) {", tick)
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        self.assertLess(opening.index("EndSprint();"), opening.index("bTalentWebOpen = true;"))
+        self.assertLess(opening.index("EndGuard();"), opening.index("bTalentWebOpen = true;"))
 
     def test_menu_health_regen_waits_after_real_damage(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -2550,7 +2567,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
         self.assertIn("Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina)", tick)
         self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
-        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
+        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && Health > 0.f", tick)
         self.assertIn("GetLastMovementInputVector().SizeSquared2D() > 0.01f", tick)
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
@@ -2566,7 +2583,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::FInterpTo(", tick)
         self.assertIn("FMath::Clamp(SprintAccelerationRate, 1.f, 20.f)", tick)
         self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", tick)
-        self.assertLess(tick.index("if (bSprinting) {"), tick.index("} else if (bGuarding && !bOptionsOpen && Health > 0.f) {"))
+        self.assertLess(tick.index("if (bSprinting) {"), tick.index("} else if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f) {"))
         self.assertIn("float GuardMoveSpeedMultiplier = 0.65f;", self.hero_h)
         self.assertIn("FMath::IsFinite(GuardMoveSpeedMultiplier)", tick)
         self.assertIn("NormalWalkSpeed * GuardMultiplier", tick)
@@ -3310,7 +3327,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float GuardStaminaDrainPerSecond = 6.f;", self.hero_h)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
-        self.assertIn("bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()", tick)
+        self.assertIn("bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(GuardStaminaDrainPerSecond)", tick)
         self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
         self.assertIn("|| MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)", tick)
@@ -6663,7 +6680,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
-        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
         self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("&& !bSprinting && !bGuarding && GetWorld()", tick)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
