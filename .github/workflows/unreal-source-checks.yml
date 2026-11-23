@@ -95,6 +95,10 @@ jobs:
         shell: bash
         run: python3 tools/check_unreal_source.py
 
+      - name: Verify WASD and arrow keys are movement-only across engines
+        shell: bash
+        run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
+
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
       - name: Run Unreal equipment and loot safety regression tests
