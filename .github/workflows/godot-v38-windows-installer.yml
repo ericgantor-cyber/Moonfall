@@ -135,8 +135,27 @@ jobs:
         run: |
           $engine = Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe' -Recurse -File | Select-Object -First 1
           if (-not $engine) { throw 'Godot engine executable missing' }
-          & $engine.FullName --headless --editor --path . --import 2>&1 | Out-String | Write-Host
-          $script = 'scripts/native_v38_0.gd'
+          $ErrorActionPreference = 'Stop'
+          $importOutput = (& $engine.FullName --headless --editor --path . --import --quit 2>&1 | Out-String)
+          Write-Host $importOutput
+          if ($LASTEXITCODE -ne 0 -or $importOutput -match 'SCRIPT ERROR|Parse Error|Failed to load script') {
+            throw 'Godot resource import failed before script-chain validation'
+          }
+          # Resolve the executable scene's *actual* root script instead of a
+          # hardcoded earlier v38 ancestor. Future gameplay subclasses must be checked.
+          $scene = Get-Content 'scenes/main.tscn' -Raw -Encoding utf8
+          $rootScript = [regex]::Match($scene, '(?m)^script\s*=\s*ExtResource\("([^"]+)"\)')
+          if (-not $rootScript.Success) { throw 'Playable scene has no root script reference' }
+          $resourceId = $rootScript.Groups[1].Value
+          $script = $null
+          foreach ($resource in [regex]::Matches($scene, '(?m)^\[ext_resource\s+type="Script"\s+path="res://([^"]+)"\s+id="([^"]+)"\]')) {
+            if ($resource.Groups[2].Value -eq $resourceId) {
+              $script = $resource.Groups[1].Value
+              break
+            }
+          }
+          if (-not $script) { throw "Playable scene script resource not found: $resourceId" }
+          Write-Host "VALIDATING PLAYABLE ROOT SCRIPT: $script"
           $chain = [System.Collections.Generic.List[string]]::new()
           while ($script -and -not $chain.Contains($script)) {
             if (-not (Test-Path $script)) { throw "Missing inherited script: $script" }
@@ -145,6 +164,7 @@ jobs:
             $m = [regex]::Match($content, '(?m)^extends\s+"res://([^"]+)"')
             if ($m.Success) { $script = $m.Groups[1].Value } else { $script = $null }
           }
+          if ($script) { throw "Circular script inheritance detected at $script" }
           $chain.Reverse()
           $firstFailure = $null
           foreach ($script in $chain) {
