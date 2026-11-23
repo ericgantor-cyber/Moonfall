@@ -473,13 +473,15 @@ FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  const FKey Key = InKeyEvent.GetKey();
  if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == EKeys::Gamepad_FaceButton_Bottom)
  { HandleConfirmRace(); return FReply::Handled(); }
- if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
+ // Keyboard arrows are reserved for movement, including while menus exist.
+ // PageUp/PageDown cycle races; Q/E cycle families; gamepad D-pad is unchanged.
+ if (Key == EKeys::PageUp || Key == EKeys::Gamepad_DPad_Left)
  { AdvanceRace(false); return FReply::Handled(); }
- if (Key == EKeys::Right || Key == EKeys::Gamepad_DPad_Right)
+ if (Key == EKeys::PageDown || Key == EKeys::Gamepad_DPad_Right)
  { AdvanceRace(true); return FReply::Handled(); }
- if (Key == EKeys::Up || Key == EKeys::Gamepad_DPad_Up)
+ if (Key == EKeys::Gamepad_DPad_Up)
  { AdvanceFamily(false); return FReply::Handled(); }
- if (Key == EKeys::Down || Key == EKeys::Gamepad_DPad_Down)
+ if (Key == EKeys::Gamepad_DPad_Down)
  { AdvanceFamily(true); return FReply::Handled(); }
  if (Key == EKeys::Q || Key == EKeys::Gamepad_LeftShoulder)
  { AdvanceFamily(false); return FReply::Handled(); }
