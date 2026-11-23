@@ -23,6 +23,7 @@ class UnrealSpellBookTests(unittest.TestCase):
 #include <cmath>
 #include <cstring>
 #include <initializer_list>
+#include <limits>
 int main() {
  using namespace MoonfallSpellBook;
  static_assert(SpellCount==6, "six existing spell schools");
@@ -38,18 +39,41 @@ int main() {
  }
  if (IsValid(-1) || IsValid(6)) return 2;
  for (const auto pair : {320,480,760,1280,1920}) {
-  const auto g = Layout(static_cast<float>(pair), 720.f);
-  if (Hit(g,g.TabX+3.f,g.TabY+3.f,false)!=Tab) return 3;
-  if (Hit(g,g.RowX+4.f,g.RowY+4.f,false)!=None) return 4;
+  const auto bag = Layout(static_cast<float>(pair),720.f,false);
+  const auto g = Layout(static_cast<float>(pair),720.f,true);
+  if (Hit(bag,bag.TabX+3.f,bag.TabY+3.f,false)!=Tab) return 3;
+  if (Hit(bag,bag.RowX+4.f,bag.RowY+4.f,false)!=None) return 4;
+  if (g.Width<bag.Width) return 5; // Opening expands the reading surface.
+  if (Hit(g,g.TabX+3.f,g.TabY+3.f,true)!=Tab) return 6;
   for (int i=0; i<SpellCount; ++i) {
    const float y=g.RowY+i*g.RowGap+g.RowHeight*0.5f;
-   if (Hit(g,g.RowX+3.f,y,true)!=i) return 5;
+   if (Hit(g,g.RowX+3.f,y,true)!=i) return 7;
   }
-  if (Hit(g,g.EquipLeftX+3.f,g.EquipY+3.f,true)!=EquipLeft) return 6;
-  if (Hit(g,g.EquipRightX+3.f,g.EquipY+3.f,true)!=EquipRight) return 7;
-  if (Hit(g,g.Left-100.f,g.Top-100.f,true)!=None) return 8;
-  if (g.EquipLeftX+g.EquipWidth>=g.EquipRightX) return 9;
+  if (Hit(g,g.EquipLeftX+3.f,g.EquipY+3.f,true)!=EquipLeft) return 8;
+  if (Hit(g,g.EquipRightX+3.f,g.EquipY+3.f,true)!=EquipRight) return 9;
+  if (Hit(g,g.Left-100.f,g.Top-100.f,true)!=None) return 10;
+  if (g.EquipLeftX+g.EquipWidth>=g.EquipRightX) return 11;
  }
+ const auto ready = Evaluate(0,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
+ if (ready.State!=EReadiness::Ready || ready.CooldownRemaining!=0.f) return 12;
+ const auto cooldown = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.2f,0.f,0.f);
+ if (cooldown.State!=EReadiness::Cooldown ||
+     std::fabs(cooldown.CooldownRemaining-0.6f)>0.001f) return 13;
+ const auto withHaste = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.6f,0.f,1.f);
+ if (withHaste.State!=EReadiness::Ready) return 14;
+ const auto noMana = Evaluate(0,5.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
+ if (noMana.State!=EReadiness::LowMana || noMana.ManaShortfall!=11.f) return 15;
+ const auto full = Evaluate(3,100.f,100.f,100.f,100.f,1.f,5.f,-100.f,0.f);
+ if (full.State!=EReadiness::FullHealth) return 16;
+ const auto canHeal = Evaluate(3,100.f,100.f,50.f,100.f,1.f,5.f,-100.f,0.f);
+ if (canHeal.State!=EReadiness::Ready) return 17;
+ const auto invalidSchool = Evaluate(6,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
+ if (invalidSchool.State!=EReadiness::Invalid) return 18;
+ const auto invalidMana = Evaluate(1,std::numeric_limits<float>::quiet_NaN(),
+   100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
+ if (invalidMana.State!=EReadiness::Invalid) return 19;
+ const auto invalidHaste = Evaluate(1,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,-1.f);
+ if (invalidHaste.State!=EReadiness::Invalid) return 20;
  return 0;
 }
 """
@@ -80,6 +104,25 @@ int main() {
             self.assertEqual(actual, expected)
         self.assertIn('{"Mending Light", "Restoration",', book)
         self.assertIn("static_assert(sizeof(Spells)", book)
+
+    def test_cast_state_policy_is_read_only_and_uses_real_per_hand_timers(self):
+        book = (SRC / "MoonfallSpellBook.h").read_text()
+        hero = HERO.read_text()
+        header = HEADER.read_text()
+        method = hero.split("MoonfallSpellBook::FCastState AMoonfallHeroPawn::GetSpellBookCastState(",1)[1].split(
+            "bool AMoonfallHeroPawn::HandleSpellBookPointer()",1)[0]
+        self.assertIn("GetSpellBookCastState(int32 School, bool bLeftHand) const;",header)
+        self.assertIn("LastCastTime[bLeftHand ? 0 : 1]",method)
+        self.assertIn("GetHasteBonus()",method)
+        self.assertIn("SpellPowerMultiplier",method)
+        self.assertIn("GetWorld()->GetTimeSeconds()",method)
+        self.assertIn("EReadiness::Cooldown",book)
+        self.assertIn("EReadiness::FullHealth",book)
+        self.assertIn("EReadiness::LowMana",book)
+        self.assertIn("EReadiness::Ready",book)
+        self.assertNotIn("LineTrace",method)
+        self.assertNotIn("TryCast(",method)
+        self.assertNotIn("Mana -=",method)
 
     def test_inventory_only_book_and_safe_two_hand_equip(self):
         hero = HERO.read_text()
@@ -137,7 +180,16 @@ int main() {
     def test_book_is_drawn_using_shared_geometry_with_actual_spell_details(self):
         book = (SRC / "MoonfallSpellBook.h").read_text()
         hud = HUD.read_text()
-        self.assertIn("MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY)", hud)
+        self.assertIn("MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY, Hero->bSpellBookOpen)", hud)
+        self.assertIn("0.f,0.f,Canvas->SizeX,Canvas->SizeY", hud)
+        self.assertIn("THE GRIMOIRE", hud)
+        self.assertIn("GetSpellBookCastState(SelectedSpell,true)", hud)
+        self.assertIn("GetSpellBookCastState(SelectedSpell,false)", hud)
+        self.assertIn('TEXT("READY TO HEAL")', hud)
+        self.assertIn('TEXT("READY TO AIM")', hud)
+        self.assertIn('TEXT("FULL HEALTH")', hud)
+        self.assertIn('TEXT("COOLDOWN %.1fs")', hud)
+        self.assertIn('TEXT("NEED %.0f MANA")', hud)
         self.assertIn("MoonfallSpellBook::Spells[School]", hud)
         self.assertIn("MoonfallSpellBook::Spells[SelectedSpell]", hud)
         self.assertIn("Book.RowY + School*Book.RowGap", hud)
