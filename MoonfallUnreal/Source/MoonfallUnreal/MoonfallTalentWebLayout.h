@@ -15,6 +15,10 @@ struct FPanel
 
 inline FPanel Panel(float ViewWidth, float ViewHeight)
 {
+ // Invalid or minimized viewports must never produce interactive map geometry.
+ if (!FMath::IsFinite(ViewWidth) || !FMath::IsFinite(ViewHeight)
+     || ViewWidth <= 0.f || ViewHeight <= 0.f)
+  return {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, false};
  const float Width = FMath::Max(0.f, FMath::Min(1100.f, ViewWidth - 24.f));
  const float Height = FMath::Max(0.f, FMath::Min(740.f, ViewHeight - 24.f));
  const float Left = (ViewWidth - Width) * 0.5f;
