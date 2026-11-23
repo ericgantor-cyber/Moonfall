@@ -74,7 +74,10 @@ const V393_RIPOSTE_MULTIPLIER:float=1.35
 var v393_riposte_until:float=-999.0
 var v393_riposte_active:bool=false
 var v394_strike_direction:int=0
-var v394_strike_direction_label:String="FRONT"
+var v394_strike_direction_label:String="READY"
+# Transient four-angle shuffle bag. Never persist this to a checkpoint.
+var v394_omni_deck:Array[int]=[]
+var v394_omni_last:int=-1
 const V395_GUARD_WINDOW:float=0.9
 const V395_GUARD_PERIOD:float=5.0
 const V395_GUARD_REDUCTION:float=0.4
@@ -959,10 +962,27 @@ func _hero_damage_multiplier()->float:
  if v406_damage_context=="magic":return base*(1.0+_v406_bonus("magic_damage","percent"))+_v406_bonus("magic_damage","flat")
  return base
 
-# Omniattack uses one of the other three sword angles on each committed swing.
-# It is intentionally blind to enemy guards, so it cannot auto-counter every block.
-func _v394_next_auto_angle(previous:int,step:int)->int:
- return posmod(posmod(previous,4)+clampi(step,1,3),4)
+# Omniattack plays every angle once in a four-swing cycle, in a shuffled
+# order. Prevent a repeat across cycle boundaries without reading enemy guards.
+# Randomness is rolled only for committed swings, never during movement or Tick.
+func _v394_next_auto_angle()->int:
+ if v394_omni_deck.is_empty():
+  v394_omni_deck=[0,1,2,3]
+  v394_omni_deck.shuffle()
+  if v394_omni_deck[0]==v394_omni_last:
+   var swap_index:int=randi_range(1,3)
+   var swap_value:int=v394_omni_deck[0]
+   v394_omni_deck[0]=v394_omni_deck[swap_index]
+   v394_omni_deck[swap_index]=swap_value
+ var next_angle:int=v394_omni_deck.pop_front()
+ v394_omni_last=next_angle
+ return next_angle
+
+func _v394_reset_omniattack()->void:
+ v394_omni_deck.clear()
+ v394_omni_last=-1
+ v394_strike_direction=0
+ v394_strike_direction_label="READY"
 
 func _attack()->void:
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
@@ -979,7 +999,7 @@ func _attack()->void:
  # available swing. Movement input does not steer attacks and no enemy
  # guard information is read. Invalid cooldown/mounted inputs leave it alone.
  if attack_cooldown<=0.0 and not mounted:
-  v394_strike_direction=_v394_next_auto_angle(v394_strike_direction,randi_range(1,3))
+  v394_strike_direction=_v394_next_auto_angle()
   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
@@ -1070,6 +1090,7 @@ func _dodge()->void:
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ _v394_reset_omniattack()
  v406_applied_health_bonus=0.0
  _v406_invalidate_bonus_cache()
  _v400_apply_adventurer_look()
@@ -1087,6 +1108,7 @@ func _checkpoint_extra_data()->Dictionary:
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
+ _v394_reset_omniattack()
  _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
@@ -1239,6 +1261,8 @@ func _process(delta:float)->void:
  var luck_odds:Dictionary=preload("res://scripts/systems/equipment_rng.gd").rarity_odds_per_thousand(equipment_luck)
  var rare_or_better:int=int(luck_odds["Rare"])+int(luck_odds["Epic"])+int(luck_odds["Legendary"])
  v380_status_text.text+="\nLUCK "+str(equipment_luck)+"  •  Enemy Rare+ "+str(rare_or_better/10.0)+"%  •  Legendary "+str(float(luck_odds["Legendary"])/10.0)+"% (RNG, no guarantees)"
+ if v394_omni_last>=0:
+  v380_status_text.text+="\nOMNIATTACK  "+v394_strike_direction_label+"  •  flow "+str(4-v394_omni_deck.size())+"/4"
  v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
   v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])
