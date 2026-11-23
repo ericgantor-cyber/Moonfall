@@ -746,9 +746,10 @@ func _unhandled_input(event:InputEvent)->void:
   _v401_end_z_intro()
   get_viewport().set_input_as_handled()
   return
- if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
-  if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
-   v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
+ # Sword angles use a deliberate Alt+1/2/3/4 chord, not movement input.
+ if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and hero_playing and not menu_open and not death_active:
+  if event.keycode in [KEY_1,KEY_2,KEY_3,KEY_4]:
+   v394_strike_direction=[KEY_1,KEY_2,KEY_3,KEY_4].find(event.keycode)
    v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
    _show_message("Sword angle: "+v394_strike_direction_label,0.55)
    get_viewport().set_input_as_handled()
@@ -977,14 +978,9 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<heavy_cost:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
- # Arrow keys select one of four sword angles; normal attack remains usable without selection.
- var chosen_direction:int=v394_strike_direction
- if Input.is_key_pressed(KEY_UP):chosen_direction=0
- elif Input.is_key_pressed(KEY_RIGHT):chosen_direction=1
- elif Input.is_key_pressed(KEY_DOWN):chosen_direction=2
- elif Input.is_key_pressed(KEY_LEFT):chosen_direction=3
- v394_strike_direction=chosen_direction
- v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][chosen_direction]
+ # Use the last explicit Alt+number selection. Moving during an attack cannot
+ # accidentally change strike angle or bypass an enemy's directional guard.
+ v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
