@@ -570,7 +570,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
- Input->BindAction(TEXT("MeleeAttack"), IE_Pressed, this, &AMoonfallHeroPawn::MeleeAttack);
+ Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
+ Input->BindAction(TEXT("ToggleRightHandLoadout"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleRightHandLoadout);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -1001,6 +1002,44 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+// Right-hand input mirrors equipped-hand combat: the same click/trigger
+// invokes weapon melee or the prepared right-hand spell. Explicit Z/X and
+// shoulder spell shortcuts continue working regardless of this selection.
+void AMoonfallHeroPawn::RightHandAction()
+{
+ if (bRightHandSpellReadied) CastRight();
+ else MeleeAttack();
+}
+
+void AMoonfallHeroPawn::ToggleRightHandLoadout()
+{
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid()) return;
+ bRightHandSpellReadied = !bRightHandSpellReadied;
+ OnRightHandLoadoutChanged(bRightHandSpellReadied, RightSpell);
+}
+
+bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
+{
+ // Equipping from a future spell/favorites panel is allowed while its
+ // inventory UI is open; casting never leaks through the open menu.
+ if (School < 0 || School >= 6 || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bAtlasOpen || bResidentContextOpen) return false;
+ RightSpell = School;
+ bRightHandSpellReadied = true;
+ OnRightHandLoadoutChanged(true, RightSpell);
+ return true;
+}
+
+void AMoonfallHeroPawn::ReadyRightHandWeapon()
+{
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen) return;
+ bRightHandSpellReadied = false;
+ OnRightHandLoadoutChanged(false, RightSpell);
+}
+
 // Native UE5 melee, independent from spell casting. One bounded visibility
 // sweep stops at cover and cannot damage enemies behind an intervening wall.
 // No animation asset is required; the Blueprint event can add authored trails.
@@ -2470,6 +2509,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
+ // An explicitly equipped weapon becomes the active right-hand action,
+ // just as explicitly equipping a spell readies the spell.
+ if (SlotIndex == 0) ReadyRightHandWeapon();
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
@@ -3696,7 +3738,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
  }
- if (!bResidentContextOpen) { MeleeAttack(); return; }
+ if (!bResidentContextOpen) { RightHandAction(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
  APlayerController* PC = Cast<APlayerController>(Controller);
