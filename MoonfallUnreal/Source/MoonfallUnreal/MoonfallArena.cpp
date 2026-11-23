@@ -6,6 +6,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/PointLightComponent.h"
+#include "MoonfallSanctuaryArchitecture.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -46,6 +48,91 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
 FVector AMoonfallArena::GetStartingSanctuaryLocation() const {
  return GetActorTransform().TransformPosition(FVector(0.f, 3500.f, 120.f));
 }
+void AMoonfallArena::CreateSanctuaryAtmosphere() {
+ if (!bEnableStartingSanctuary || !bEnableSanctuaryAtmosphere || !DungeonRoad) return;
+ UStaticMesh* StoneMesh = DungeonRoad->GetStaticMesh();
+ if (!StoneMesh) return;
+ // Both catalogs are fixed C++17 layouts and share the existing cube mesh.
+ // Batch all transforms before registration: two instancing components
+ // instead of dozens of ticking scene actors or per-block draw components.
+ using MoonfallSanctuaryArchitecture::FPiece;
+ const auto BuildDetails = [&](const TCHAR* Name, const FPiece* Pieces,
+                               int32 Count) -> UInstancedStaticMeshComponent* {
+  UInstancedStaticMeshComponent* Details =
+      NewObject<UInstancedStaticMeshComponent>(this, FName(Name));
+  if (!IsValid(Details)) return nullptr;
+  Details->SetupAttachment(GetRootComponent());
+  Details->SetStaticMesh(StoneMesh);
+  Details->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Details->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Details->SetGenerateOverlapEvents(false);
+  Details->SetCastShadow(false);
+  Details->SetCullDistances(14000, 22000);
+  for (int32 Index = 0; Index < Count; ++Index) {
+   const FPiece& Piece = Pieces[Index];
+   Details->AddInstance(FTransform(
+       FRotator(0.f, Piece.YawDegrees, 0.f),
+       FVector(Piece.X, Piece.Y, Piece.Z),
+       FVector(Piece.ScaleX, Piece.ScaleY, Piece.ScaleZ)));
+  }
+  AddInstanceComponent(Details);
+  Details->RegisterComponent();
+  return Details;
+ };
+ SanctuaryGothicDetails = BuildDetails(TEXT("SanctuaryGothicDetails"),
+     MoonfallSanctuaryArchitecture::GothicStone,
+     static_cast<int32>(MoonfallSanctuaryArchitecture::GothicCount));
+ SanctuaryMoonstoneDetails = BuildDetails(TEXT("SanctuaryMoonstoneDetails"),
+     MoonfallSanctuaryArchitecture::MoonstoneRelics,
+     static_cast<int32>(MoonfallSanctuaryArchitecture::RelicCount));
+
+ // Four soft moon-blue beacons. No shadow casters, extra ticking or FX systems.
+ // Lights and all stonework inherit the arena transform if a map is rotated.
+ const FVector Lanterns[] = {
+  FVector(-465.f, 3480.f, 260.f), FVector(465.f, 3480.f, 260.f),
+  FVector(-760.f, 4160.f, 310.f), FVector(760.f, 4160.f, 310.f)
+ };
+ for (const FVector& Position : Lanterns) {
+  UPointLightComponent* MoonLight = NewObject<UPointLightComponent>(this);
+  if (!IsValid(MoonLight)) continue;
+  MoonLight->SetupAttachment(GetRootComponent());
+  MoonLight->SetRelativeLocation(Position);
+  MoonLight->SetLightColor(FLinearColor(0.32f, 0.56f, 0.92f));
+  MoonLight->SetIntensity(550.f);
+  MoonLight->SetAttenuationRadius(660.f);
+  MoonLight->SetCastShadows(false);
+  AddInstanceComponent(MoonLight);
+  MoonLight->RegisterComponent();
+  SanctuaryMoonLights.Add(MoonLight);
+ }
+
+ // Optional lore is readable in the world, never a forced blocking tutorial.
+ struct FStoryPlaque { const TCHAR* Id; const TCHAR* Caption; FVector At; };
+ const FStoryPlaque Plaques[] = {
+  {TEXT("FirstlightOath"), TEXT("THE FIRSTLIGHT OATH\\nTHE SIX ROADS HOLD DIFFERENT TRUTHS"),
+      FVector(560.f, 3850.f, 180.f)},
+  {TEXT("FirstlightWarden"), TEXT("A BROKEN GATE, AN OPEN ROAD\\nFOLLOW THE SOUTHERN PASS"),
+      FVector(-560.f, 2940.f, 165.f)},
+  {TEXT("FirstlightMoon"), TEXT("THE MOON IS SHATTERED\\nLET THE WITNESSES SPEAK"),
+      FVector(570.f, 4430.f, 165.f)}
+ };
+ for (const FStoryPlaque& Plaque : Plaques) {
+  UTextRenderComponent* LoreMarker =
+      NewObject<UTextRenderComponent>(this, FName(Plaque.Id));
+  if (!IsValid(LoreMarker)) continue;
+  LoreMarker->SetupAttachment(GetRootComponent());
+  LoreMarker->SetText(FText::FromString(Plaque.Caption));
+  LoreMarker->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  LoreMarker->SetWorldSize(29.f);
+  LoreMarker->SetTextRenderColor(FColor(172, 215, 246));
+  LoreMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  LoreMarker->SetGenerateOverlapEvents(false);
+  LoreMarker->SetRelativeLocation(Plaque.At);
+  LoreMarker->RegisterComponent();
+  SanctuaryGuideSigns.Add(LoreMarker);
+ }
+}
+
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
@@ -71,6 +158,7 @@ void AMoonfallArena::BeginPlay() {
   CreateBlock(FVector(900,3850,60),FVector(1.3f,1.3f,2.4f));
   CreateBlock(FVector(-900,2800,60),FVector(1.3f,1.3f,2.4f));
   CreateBlock(FVector(900,2800,60),FVector(1.3f,1.3f,2.4f));
+  CreateSanctuaryAtmosphere();
  } else {
   // Avoid an exit into empty world space when the sanctuary is disabled.
   CreateBlock(FVector(0,1500,200),FVector(30,1,5));
@@ -218,6 +306,35 @@ void AMoonfallArena::BeginPlay() {
   Guide->SocialRole = FName(TEXT("Guide"));
   Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
   Guide->Greeting = FText::FromString(TEXT("The Sanctuary is safe. Follow the southern gate to the Crossroads, then the road to all six regions."));
+ }
+ // Two stable, no-Tick sanctuary residents add role-based conversations
+ // and use the existing resident contract/bond system without new save fields.
+ if (bEnableStartingSanctuary) {
+  struct FSanctuaryResident {
+   const TCHAR* Id; const TCHAR* Name; const TCHAR* Role;
+   const TCHAR* Faction; const TCHAR* Greeting; int32 Race; FVector Position;
+  };
+  const FSanctuaryResident People[] = {
+   {TEXT("FirstlightArchivist"), TEXT("Archivist Veyra"), TEXT("Scholar"),
+    TEXT("MoonCoven"), TEXT("Every road remembers a different fragment of the broken oath."),
+    1, FVector(510.f, 4040.f, 60.f)},
+   {TEXT("FirstlightWatchkeeper"), TEXT("Warden Cael"), TEXT("Guard"),
+    TEXT("The northern sentries are for practice. The southern gate leads to the Crossroads."),
+    0, FVector(-515.f, 3220.f, 60.f)}
+  };
+  for (const FSanctuaryResident& Entry : People) {
+   const FVector WorldPosition = GetActorTransform().TransformPosition(Entry.Position);
+   if (AMoonfallWorldNPC* Person = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
+       AMoonfallWorldNPC::StaticClass(), WorldPosition, GetActorRotation())) {
+    Person->ResidentId = FName(Entry.Id);
+    Person->DisplayName = FText::FromString(Entry.Name);
+    Person->SocialRole = FName(Entry.Role);
+    Person->FactionId = FName(Entry.Faction);
+    Person->SettlementId = FName(TEXT("Firstlight"));
+    Person->RaceId = Entry.Race;
+    Person->Greeting = FText::FromString(Entry.Greeting);
+   }
+  }
  }
  // Twelve fixed representatives from every playable ancestry, coexisting
  // in one Crossroads settlement. No NPC tick, random spawn or new game mode.

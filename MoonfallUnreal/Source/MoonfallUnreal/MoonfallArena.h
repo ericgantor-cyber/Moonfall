@@ -4,6 +4,7 @@
 #include "MoonfallArena.generated.h"
 class UInstancedStaticMeshComponent;
 class UTextRenderComponent;
+class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
@@ -17,6 +18,13 @@ public:
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
  // Nonblocking starter directions share the same no-Tick text approach as zone signs.
  UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> SanctuaryGuideSigns;
+ // Visual-only instanced gothic architecture: no additional collision or Tick.
+ UPROPERTY(Transient) TObjectPtr<UInstancedStaticMeshComponent> SanctuaryGothicDetails;
+ UPROPERTY(Transient) TObjectPtr<UInstancedStaticMeshComponent> SanctuaryMoonstoneDetails;
+ UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> SanctuaryMoonLights;
+ // Artist-facing opt-out. Doesn't affect the physical shrine or world routes.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
+ bool bEnableSanctuaryAtmosphere = true;
  // Keeps the new-player sanctuary on the same continuous world map.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
  bool bEnableStartingSanctuary = true;
@@ -27,4 +35,5 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
  void CreateBlock(FVector Position, FVector Scale);
+ void CreateSanctuaryAtmosphere();
 };
