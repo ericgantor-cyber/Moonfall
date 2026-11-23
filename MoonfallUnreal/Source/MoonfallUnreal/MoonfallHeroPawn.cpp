@@ -36,6 +36,7 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
@@ -569,6 +570,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("MeleeAttack"), IE_Pressed, this, &AMoonfallHeroPawn::MeleeAttack);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
@@ -999,6 +1001,102 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+// Native UE5 melee, independent from spell casting. One bounded visibility
+// sweep stops at cover and cannot damage enemies behind an intervening wall.
+// No animation asset is required; the Blueprint event can add authored trails.
+void AMoonfallHeroPawn::MeleeAttack()
+{
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
+     || bResidentContextOpen || FocusedResident.IsValid() || bGuarding
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(Stamina)
+     || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
+     || !FMath::IsFinite(MeleeStaminaCost) || MeleeStaminaCost < 0.f
+     || !FMath::IsFinite(MeleeAttackCooldown) || MeleeAttackCooldown <= 0.f
+     || !FMath::IsFinite(MeleeAttackRange) || MeleeAttackRange <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextMeleeAttackAt)
+     || Now < NextMeleeAttackAt) return;
+ const float Cost = FMath::Clamp(MeleeStaminaCost, 0.f, 50.f);
+ if (Stamina < Cost) return;
+ const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
+ const FVector Position = GetActorLocation();
+ if (Facing.IsNearlyZero() || Position.ContainsNaN()) return;
+
+ // A click spends its stamina and recovery even when it misses. Do not
+ // advance the angle on menu clicks, invalid input or cooldown spam.
+ NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
+ Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
+ StaminaRegenStartsAt = FMath::Max(
+     FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : 0.f,
+     Now + 0.35f);
+ CombatRecoveryEndsAt = FMath::Max(
+     FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+     Now + 3.f);
+ CurrentSwordAngle = MoonfallOmniattack::Next(SwordFlow,
+     static_cast<unsigned>(FMath::RandHelper(4)));
+ SwordFlowStep = SwordFlow.Step;
+
+ const FVector Start = Position + FVector(0.f, 0.f, 65.f);
+ const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange, 60.f, 350.f);
+ FHitResult Hit;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallMelee), false, this);
+ Params.AddIgnoredActor(this);
+ const bool bBlocked = GetWorld()->SweepSingleByChannel(
+     Hit, Start, End, FQuat::Identity, ECC_Visibility,
+     FCollisionShape::MakeSphere(55.f), Params);
+ AMoonfallEnemy* Enemy = bBlocked ? Cast<AMoonfallEnemy>(Hit.GetActor()) : nullptr;
+ if (!IsValid(Enemy) || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+  OnMeleeSwing(CurrentSwordAngle, false);
+  return;
+ }
+ const bool bWeaponOwned = InventoryItemCodes.Contains(EquippedWeaponCode);
+ const float Tier = bWeaponOwned
+     ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
+ const float Might = static_cast<float>(GetMight());
+ const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
+     : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
+ const float Damage = (18.f + Tier * 1.15f
+     + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
+     * AngleBonus * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus());
+ if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
+  OnMeleeSwing(CurrentSwordAngle, false);
+  return;
+ }
+ const float HealthBefore = Enemy->Health;
+ // Shared enemy health, posture, phase and loot resolution. No mana used.
+ Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));
+ const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
+ const bool bConnected = Dealt > 0.f;
+ if (bConnected) {
+  // Low sweeps pressure posture; the original enemy posture-break caps apply.
+  if (Enemy->Health > 0.f)
+   Enemy->ApplyPostureDamage(Dealt * (CurrentSwordAngle == 2 ? 0.45f : 0.15f));
+  const float Window = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  const bool bContinues = LastHitComboTarget.Get() == Enemy
+      && Now >= LastSuccessfulHitAt && Now - LastSuccessfulHitAt <= Window;
+  const int32 PreviousStage = bContinues ? FMath::Clamp(HitComboStage, 0, 12) : 0;
+  HitComboStage = bContinues && PreviousStage < 12 ? PreviousStage + 1 : 1;
+  LastHitComboTarget = Enemy;
+  LastSuccessfulHitAt = Now;
+  if (Enemy->Health > 0.f && (HitComboStage == 4 || HitComboStage == 8
+      || HitComboStage == 12)) {
+   Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
+   Enemy->RegisterComboMilestone(HitComboStage);
+  }
+  // Reuse the authored combo animation slots when present. Missing assets
+  // still yield a valid hit, and reduced-motion players skip the montage.
+  if (Enemy->Health > 0.f && !bReduceMotion
+      && ComboMontages.IsValidIndex(HitComboStage - 1) && GetMesh()) {
+   if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+    if (UAnimMontage* Montage = ComboMontages[HitComboStage - 1].Get())
+     Anim->Montage_Play(Montage, 1.f);
+  }
+  OnSuccessfulHitCombo(HitComboStage, true);
+ }
+ OnMeleeSwing(CurrentSwordAngle, bConnected);
+}
+
 void AMoonfallHeroPawn::BreakGuard()
 {
  if (!bGuarding || !GetWorld()) return;
@@ -3589,7 +3687,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
  }
- if (!bResidentContextOpen) { CastLeft(); return; }
+ if (!bResidentContextOpen) { MeleeAttack(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
  APlayerController* PC = Cast<APlayerController>(Controller);
