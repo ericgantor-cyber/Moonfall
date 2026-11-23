@@ -298,6 +298,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") bool bSpellBookOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") int32 SpellBookSelection = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBook();
+ // Direct P shortcut: opens the grimoire from gameplay, closes it on repeat.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBookShortcut();
  UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") bool EquipSpellBookSelection(bool bLeftHand);
  // Read-only per-hand status. Target/line of sight is verified by TryCast
  // only when actually casting, never by the UI every frame.
