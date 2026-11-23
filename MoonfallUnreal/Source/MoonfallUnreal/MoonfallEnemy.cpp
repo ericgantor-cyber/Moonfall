@@ -147,6 +147,9 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
  WindupEndsAt = -1.f;
  BossWarningEndTime = -1.f;
+ // A posture break cancels the warning instantly, without waiting for Tick.
+ if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+  AttackTellMarker->SetVisibility(false);
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
  NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
@@ -237,6 +240,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
    WindupEndsAt = -1.f;
+   // Wounded elite retreats cancel the pending warning immediately.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
    bHasCachedNavigationWaypoint = false;
@@ -318,6 +324,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    BossWarningEndTime = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
+   // Tick is disabled for queued corpses: hide the canceled warning NOW.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    // Disable combat immediately but retain the mesh for real native defeat
    // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);

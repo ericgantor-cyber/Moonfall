@@ -52,6 +52,26 @@ class CombatIntegrityTests(unittest.TestCase):
                         melee.index("if (!bLivingTarget) {"))
         self.assertIn("OnSuccessfulHitCombo(HitComboStage, false);", melee)
 
+    def test_cancelled_enemy_attacks_hide_warning_before_next_tick(self):
+        enemy = self.enemy
+        posture = enemy.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::RegisterComboMilestone", 1)[0]
+        retreat = enemy.split("TacticalRetreatUntil = Now + 2.f;", 1)[1].split(
+            "if (bShatterFinisher && ActualDamage > 0.f)", 1)[0]
+        death = enemy.split("if (Health <= 0.0f) {", 1)[1].split(
+            "SetActorTickEnabled(false);", 1)[0]
+        for state, block in (("posture", posture), ("retreat", retreat), ("fatal", death)):
+            with self.subTest(state=state):
+                self.assertIn("WindupEndsAt = -1.f;", block)
+                self.assertIn("AttackTellMarker->SetVisibility(false);", block)
+                self.assertIn("IsValid(AttackTellMarker) && AttackTellMarker->IsVisible()", block)
+                self.assertLess(block.index("WindupEndsAt = -1.f;"),
+                                block.index("AttackTellMarker->SetVisibility(false);"))
+        # Death turns off actor Tick, so marker cleanup cannot be deferred.
+        self.assertIn("SetActorTickEnabled(false);", enemy)
+        self.assertLess(death.index("AttackTellMarker->SetVisibility(false);"),
+                        death.index("SetActorEnableCollision(false);"))
+
     def test_nonboss_hit_interrupts_active_windup_without_pathfinding(self):
         damage = self.enemy.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
             "void AMoonfallEnemy::", 1)[0]
