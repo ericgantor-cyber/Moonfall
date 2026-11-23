@@ -27,7 +27,9 @@ static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:flo
  if not is_finite(offset_x) or not is_finite(offset_z):return true
  var d_sq:float=offset_x*offset_x+offset_z*offset_z
  if not is_finite(d_sq):return true
- return d_sq>=1.9*1.9 or (is_finite(dodge_remaining) and dodge_remaining>0.0)
+ # Timer validity is part of immunity, even before the next physics tick.
+ # A corrupted 0.56+ second dodge must not dodge a genuine marked strike.
+ return d_sq>=1.9*1.9 or (is_finite(dodge_remaining) and dodge_remaining>0.0 and dodge_remaining<=0.55)
 
 static func guardian_attack_cooldown(phase:int) -> float:
  # Preserve existing phases 1-6 while preventing corrupt negative phases from stalling bosses.
