@@ -6661,7 +6661,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
-        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
+        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f", tick)
         self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
@@ -6697,6 +6697,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", collect)
         self.assertLess(collect.index("Hero->bAtlasOpen"),
                         collect.index("const FVector HeroPosition = Hero->GetActorLocation();"))
+
+
+    def test_talent_web_clears_hero_combo_and_suspends_finisher_visuals(self):
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split(
+            "void AMoonfallHeroPawn::TalentWebBack()", 1)[0]
+        for cleanup in ("HitComboStage = 0;", "LastHitComboTarget.Reset();",
+                        "LastSuccessfulHitAt = -100.f;"):
+            self.assertIn(cleanup, opening)
+            self.assertLess(opening.index(cleanup), opening.index("bTalentWebOpen = true;"))
+        finish = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "// Godot's complete constellation", 1)[0]
+        self.assertIn("bTalentWebOpen || bMissingFinisherVisuals", finish)
+        self.assertIn("!bTalentWebOpen && Age >= Duration", finish)
+        self.assertIn("bTalentWebOpen || Age < 0.f", finish)
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("bTalentWebOpen || !FinisherSlashA", register)
+
 
 
 if __name__ == "__main__":
