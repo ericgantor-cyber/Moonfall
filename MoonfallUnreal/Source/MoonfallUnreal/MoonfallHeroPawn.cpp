@@ -1323,8 +1323,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
-  // Fatal damage immediately dismisses the informational overlay.
-  if (bTalentWebOpen) ToggleTalentWeb();
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
@@ -1332,6 +1330,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
+  // Fatal damage dismisses the talent overlay before the death HUD is drawn.
+  if (bTalentWebOpen) ToggleTalentWeb();
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
