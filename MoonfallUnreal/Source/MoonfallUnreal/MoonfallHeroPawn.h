@@ -3,6 +3,7 @@
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallOmniattack.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -298,6 +299,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") int32 SpellBookSelection = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBook();
  UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") bool EquipSpellBookSelection(bool bLeftHand);
+ // Read-only per-hand status. Target/line of sight is verified by TryCast
+ // only when actually casting, never by the UI every frame.
+ MoonfallSpellBook::FCastState GetSpellBookCastState(int32 School, bool bLeftHand) const;
  bool HandleSpellBookPointer();
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
