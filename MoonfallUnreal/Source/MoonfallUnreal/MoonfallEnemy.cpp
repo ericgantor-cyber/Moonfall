@@ -394,9 +394,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Pause hostile behavior during any gameplay modal, including Atlas, and
- // after defeat. Cancel winding attacks so closing a menu cannot trigger
- // an instant hit against a player who was unable to attack or dodge.
+ // Legacy full-screen pause modals still suspend hostiles. The talent web
+ // is informational: queued strikes, boss telegraphs and combo follow-ups
+ // must continue while its 141 nodes are visible.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  // An unpossessed old pawn may remain valid after respawn or hero switching.
  // Never allow it to receive another cached-target attack.
@@ -416,8 +416,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
-     || Hero->bTalentWebOpen) {
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
