@@ -65,14 +65,21 @@ func _gfx_apply(apply_display:bool=true)->void:
  if not gfx_ready:return
  gfx_settings=GRAPHICS_RULES.normalize(gfx_settings)
  var vp:Viewport=get_viewport()
- vp.scaling_3d_scale=float(str(gfx_settings["render_scale"]).trim_suffix("%"))/100.0
+ var scale:float=float(str(gfx_settings["render_scale"]).trim_suffix("%"))/100.0
+ var detail:int=int(gfx_settings["environment_detail"])
+ # Inherited quality also changes viewport MSAA. Apply requested graphics
+ # settings AFTER it, or the user's anti-aliasing choice gets overwritten.
+ super._apply_graphics_quality("Smooth" if detail<=2 else "Full")
+ vp.scaling_3d_scale=scale
+ var selected_upscaler:String=str(gfx_settings["upscaler"])
+ var rendering_method:String=RenderingServer.get_current_rendering_method()
+ var effective:String=GRAPHICS_RULES.effective_upscaler(selected_upscaler,rendering_method,scale)
+ vp.scaling_3d_mode=Viewport.SCALING_3D_MODE_FSR2 if effective=="FSR 2.2" else Viewport.SCALING_3D_MODE_FSR if effective=="FSR 1.0" else Viewport.SCALING_3D_MODE_BILINEAR
  var aa:String=str(gfx_settings["aa"])
  vp.msaa_3d=Viewport.MSAA_2X if aa=="MSAA 2x" else Viewport.MSAA_4X if aa=="MSAA 4x" else Viewport.MSAA_DISABLED
  vp.screen_space_aa=Viewport.SCREEN_SPACE_AA_FXAA if aa=="FXAA" else Viewport.SCREEN_SPACE_AA_DISABLED
- vp.use_taa=aa=="TAA"
- var detail:int=int(gfx_settings["environment_detail"])
- # Match existing visual LOD paths, without disabling elite attack warnings.
- super._apply_graphics_quality("Smooth" if detail<=2 else "Full")
+ # FSR2 supplies its own temporal AA; do not stack Godot's separate TAA.
+ vp.use_taa=aa=="TAA" and effective!="FSR 2.2"
  var light:DirectionalLight3D=get_node_or_null("TwinMoonlight")
  var shadow:String=str(gfx_settings["shadow_quality"])
  if is_instance_valid(light):
@@ -162,7 +169,10 @@ func _gfx_show_section()->void:
  var message:String="[b]MOONFALL GRAPHICS[/b]   •  Inspired by WoW's settings layout\n"
  message+="Real Godot effects are applied immediately. Machine-specific preferences are stored separately from hero saves.\n"
  message+="Combat telegraphs are ALWAYS visible, even at minimum settings.\n\n"
- if gfx_section=="Display":message+="4K UHD: select 3840x2160 in Windowed mode on a 4K monitor. Fullscreen uses your display resolution. Reduce Render Scale or select FSR 1.0 if needed for FPS. UI scales with the window; use UI Text for readability.\n\n"
+ if gfx_section=="Display":
+  message+="4K UHD: choose 3840x2160 on a 4K monitor, or fullscreen at your display resolution. Reduce Render Scale for more FPS. FSR 2.2 adds temporal upscaling on Forward+ (including 100% native AA), but may ghost in motion. Unsupported renderer or >100% scale uses bilinear safely. UI text stays at display resolution.\n\n"
+  if str(gfx_settings.get("upscaler","Bilinear"))=="FSR 2.2" and GRAPHICS_RULES.effective_upscaler("FSR 2.2",RenderingServer.get_current_rendering_method(),float(str(gfx_settings["render_scale"]).trim_suffix("%"))/100.0)!="FSR 2.2":
+   message+="[color=#ffd3a8]FSR 2.2 unavailable with this rendering method/scale: using bilinear instead.[/color]\n\n"
  for group in ["Presets","Display","World","Effects","Advanced","Unavailable"]:
   _atlas_action(("▶ " if gfx_section==group else "   ")+group,"gfx_group:"+group)
  if gfx_section=="Presets":
