@@ -6318,9 +6318,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
         final = dungeon.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
             "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        # World overlaps remain live behind inventory/character stats.
+        # Only genuinely blocking modals suppress room one-shots.
         menu_guards = (
-            "Hero->bOptionsOpen", "Hero->bInventoryOpen",
-            "Hero->bCharacterStatsOpen", "Hero->bResidentContextOpen"
+            "Hero->bOptionsOpen", "Hero->bAtlasOpen", "Hero->bResidentContextOpen"
         )
         for guard in menu_guards:
             self.assertIn(guard, bonus)
@@ -6328,6 +6329,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, final)
             self.assertLess(chamber.index(guard), chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
             self.assertLess(final.index(guard), final.index("StartFinalBossChamber(Hero)"))
+        for informational in ("Hero->bInventoryOpen", "Hero->bCharacterStatsOpen"):
+            self.assertNotIn(informational, bonus)
+            self.assertNotIn(informational, chamber)
+            self.assertNotIn(informational, final)
+        hazards = dungeon.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[0]
+        for informational in ("Hero->bInventoryOpen", "Hero->bCharacterStatsOpen"):
+            self.assertNotIn(informational, hazards)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen", hazards)
+        entrance = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("Hero->bInventoryOpen", entrance)
+        self.assertNotIn("Hero->bCharacterStatsOpen", entrance)
         self.assertLess(chamber.index("EnteredChambersMask |= Bit;"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
         self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
