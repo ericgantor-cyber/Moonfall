@@ -2269,7 +2269,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             ("OptionsUp", "W", "Up"), ("OptionsDown", "S", "Down"),
             ("OptionsLeft", "A", "Left"), ("OptionsRight", "D", "Right")
         ):
-            section = self.hero_cpp.split(f"void AMoonfallHeroPawn::{handler}()", 1)[1].split("\\n}", 1)[0]
+            section = self.hero_cpp.split(f"void AMoonfallHeroPawn::{handler}()", 1)[1].split("\n}", 1)[0]
             self.assertIn(f"PC->IsInputKeyDown(EKeys::{movement_key})", section)
             self.assertIn(f"!PC->IsInputKeyDown(EKeys::{arrow})", section)
         jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split("void AMoonfallHeroPawn::MoveForward", 1)[0]
