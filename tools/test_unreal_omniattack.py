@@ -84,12 +84,32 @@ int main() {
                         melee.index("Enemy->TakeMeleeDamage("))
         self.assertIn("OnMeleeSwing(CurrentSwordAngle, false);", melee)
         self.assertIn("OnMeleeSwing(CurrentSwordAngle, bConnected);", melee)
-        self.assertIn("OnSuccessfulHitCombo(HitComboStage, true);", melee)
+        # Native sword hits report the right hand, never the left spell hand.
+        self.assertIn("OnSuccessfulHitCombo(HitComboStage, false);", melee)
+        self.assertNotIn("OnSuccessfulHitCombo(HitComboStage, true);", melee)
         # An accepted miss expends resources and may animate, but does not
         # increment connected-hit combo stages or award posture pressure.
         miss = melee.split("if (!bLivingTarget) {", 1)[1].split("\n }", 1)[0]
         self.assertNotIn("HitComboStage =", miss)
         self.assertNotIn("ApplyPostureDamage(", miss)
+
+    def test_melee_combo_power_is_bounded_and_target_specific(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("const bool bNextSameTarget = bLivingTarget && LastHitComboTarget.Get() == Enemy", melee)
+        self.assertIn("Now - LastSuccessfulHitAt <= ComboWindow", melee)
+        self.assertIn("IncomingStage = bNextSameTarget ? FMath::Clamp(HitComboStage, 0, 12) : 0;", melee)
+        self.assertIn("EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", melee)
+        self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", melee)
+        self.assertIn("* FMath::Clamp(EffectiveIncomingStage, 0, 3);", melee)
+        self.assertIn("* AngleBonus * HitComboMultiplier *", melee)
+        self.assertLess(melee.index("if (!bLivingTarget) {"),
+                        melee.index("const float HitComboMultiplier"))
+        self.assertLess(melee.index("const float HitComboMultiplier"),
+                        melee.index("Enemy->TakeMeleeDamage("))
+        self.assertIn("OnSuccessfulHitCombo(HitComboStage, false);", melee)
+        self.assertIn("LastHitComboTarget = Enemy;", melee)
 
     def test_skyrim_style_primary_uses_equipped_right_hand(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
