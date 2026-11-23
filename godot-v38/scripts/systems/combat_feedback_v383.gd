@@ -6,6 +6,24 @@ const CRITICAL_ANGLE:float=14.0
 const ATTACK_SWING_SECONDS:float=0.22
 const ATTACK_SWING_ANGLE:float=13.0
 
+# Ordinary melee foes telegraph before contact. Elite lunges and guardian
+# windups retain their separate, existing schedulers and timing.
+const MELEE_TELL_SECONDS:float=0.42
+const MELEE_TELL_ANGLE:float=12.0
+const MELEE_STRIKE_RANGE:float=1.7
+const MELEE_CANCEL_COOLDOWN:float=0.35
+
+static func melee_tell_degrees(time_remaining:float)->float:
+ # Visual anticipation starts neutral and pulls back as the strike approaches.
+ # Existing actor meshes only: no new animation nodes or texture alterations.
+ var fraction:float=clampf(time_remaining/MELEE_TELL_SECONDS,0.0,1.0)
+ return -MELEE_TELL_ANGLE*(1.0-fraction)
+
+static func melee_strike_allowed(engaged:bool,distance:float,staggered:bool,dodging:bool,has_sight:bool)->bool:
+ # Recheck at impact: leaving range, breaking sight, dodging or staggering
+ # the attacker must never leave behind a guaranteed delayed hit.
+ return engaged and distance<MELEE_STRIKE_RANGE and not staggered and not dodging and has_sight
+
 static func attack_followthrough_degrees(time_remaining:float)->float:
  # Short post-strike arc: zero at the start and end, peaking mid-animation.
  var fraction:float=clampf(time_remaining/ATTACK_SWING_SECONDS,0.0,1.0)
