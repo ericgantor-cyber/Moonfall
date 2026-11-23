@@ -12,6 +12,10 @@ if not exist "%ENGINE%" (
  echo ERROR: Copy official Godot_v4.7.2-stable_win64.exe into Godot_4.7.2 next to this script.
  exit /b 1
 )
+rem Use the same verified engine for the batch and supervised Python scene tests.
+rem Otherwise an override via MOONFALL_GODOT_EXE or active_godot.txt can
+rem produce a release tested against a different Godot executable.
+set "GODOT_BIN=%ENGINE%"
 python tests\verify_official_windows_export.py
 if errorlevel 1 goto failed
 python tests\verify_build_test_manifest.py
