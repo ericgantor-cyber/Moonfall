@@ -95,6 +95,17 @@ func _run()->void:
   game.set("menu_hit_flash_until_ms",Time.get_ticks_msec()-1)
   game.call("_menu_hit_flash_draw")
   check(not flash.visible,"Damage flash expires without a permanent red tint")
+  # Environmental HP loss may bypass the central incoming-hit function.
+  # Observing it in _process should pulse once, not on every subsequent frame.
+  game.set("hp",float(game.get("max_hp")))
+  game.call("_menu_hit_flash_reset")
+  game.set("hp",float(game.get("hp"))-7.0)
+  game.call("_process",0.0)
+  check(flash.visible and flash.color.a>0.0,"Direct environmental HP loss flashes on the live menu")
+  var first_hazard_flash_until:int=int(game.get("menu_hit_flash_until_ms"))
+  game.call("_process",0.0)
+  check(int(game.get("menu_hit_flash_until_ms"))==first_hazard_flash_until,"One environmental hit does not retrigger the flash every frame")
+  game.call("_menu_hit_flash_reset")
 
  # The two divine world bosses must not lose queued signature windups just
  # because a player is browsing a regular menu.
