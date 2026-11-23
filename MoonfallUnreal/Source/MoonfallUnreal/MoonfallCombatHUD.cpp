@@ -800,9 +800,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const auto& Selected = MoonfallSpellBook::Spells[SelectedSpell];
    const auto LeftStatus = Hero->GetSpellBookCastState(SelectedSpell,true);
    const auto RightStatus = Hero->GetSpellBookCastState(SelectedSpell,false);
-   const auto StatusText = [](const MoonfallSpellBook::FCastState& State)->FString {
+   const auto StatusText = [](const MoonfallSpellBook::FCastState& State, bool bHealing)->FString {
     switch (State.State) {
-     case MoonfallSpellBook::EReadiness::Ready: return TEXT("READY TO AIM");
+     case MoonfallSpellBook::EReadiness::Ready: return bHealing ? TEXT("READY TO HEAL") : TEXT("READY TO AIM");
      case MoonfallSpellBook::EReadiness::Cooldown:
       return FString::Printf(TEXT("COOLDOWN %.1fs"),State.CooldownRemaining);
      case MoonfallSpellBook::EReadiness::LowMana:
@@ -828,11 +828,11 @@ void AMoonfallCombatHUD::DrawHUD()
        Book.Width<500.f ? 0.60f : 0.80f);
    }
    if (Book.DetailsY+80.f < Book.EquipY) {
-    DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus),
+    DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus,Selected.bHealing),
       Hero->LeftSpell==SelectedSpell ? TEXT("  [EQUIPPED]") : TEXT("")),
       StatusColor(LeftStatus.State),Book.RowX,Book.DetailsY+49.f,nullptr,
       Book.Width<500.f ? 0.59f : 0.78f);
-    DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus),
+    DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus,Selected.bHealing),
       Hero->bRightHandSpellReadied && Hero->RightSpell==SelectedSpell
        ? TEXT("  [EQUIPPED]") : TEXT("")),
       StatusColor(RightStatus.State),Book.RowX,Book.DetailsY+72.f,nullptr,
