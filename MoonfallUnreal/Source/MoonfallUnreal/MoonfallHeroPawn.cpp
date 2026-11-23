@@ -429,7 +429,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bOptionsOpen || bAtlasOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -492,7 +492,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -853,12 +853,12 @@ void AMoonfallHeroPawn::TryJump()
   return;
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -867,7 +867,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -1115,7 +1115,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
+ if (bOptionsOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1145,7 +1145,7 @@ void AMoonfallHeroPawn::GamepadBack()
 }
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -1467,10 +1467,8 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
-  StopJumping();
-  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
-  EndSprint();
-  EndGuard();
+  // The right-docked inventory is informational for world simulation.
+  // Do not halt movement/sprint or clear already-earned combo momentum.
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
