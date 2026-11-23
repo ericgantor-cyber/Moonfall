@@ -577,6 +577,7 @@ func _run()->void:
  check("func _guardian_update_trait_attacks(delta:float)" in source and "_guardian_update_trait_attacks(delta)" in source,"guardian attacks reuse the existing world tick")
  check("func _guardian_create_trait_warning(trait_id:int,guardian_id:int)" in source and "MeshInstance3D.new()" in source,"guardian attacks warn without extra collision actors")
  check("GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)" in source and "dodge_time<=0.0" in source,"telegraphed hitboxes match real dodgeable attacks")
+ check("if hit and dodge_time<=0.0 and not mounted and _has_clear_sight(body,player):" in source,"guardian impact rechecks physical cover after the warning")
  check("_show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]" in source and "GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id]" in source,"named warnings describe useful counterplay")
  check("TraitAttackCaption" in source and "cue.outline_size=12" in source,"warning labels remain readable without relying only on color")
  check("warning_until-map_time" in source and "ATTACK_NAMES[trait_id].to_upper()" in source,"warning countdown belongs to the active attack")
