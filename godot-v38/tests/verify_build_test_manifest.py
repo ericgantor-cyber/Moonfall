@@ -25,6 +25,11 @@ checks={
     "Windows inspects the playable scene root script": "Get-Content 'scenes/main.tscn'" in windows_workflow and '$rootScript.Groups[1].Value' in windows_workflow and 'VALIDATING PLAYABLE ROOT SCRIPT:' in windows_workflow,
     "Windows rejects circular and missing inherited scripts": 'Circular script inheritance detected' in windows_workflow and 'Missing inherited script:' in windows_workflow,
     "Windows fails on resource import errors": 'Godot resource import failed before script-chain validation' in windows_workflow,
+    "Live-panel Windows tests use supervised isolated runner": all(
+        f"python tools\\run_tests.py --script res://tests/{name}.gd" in bat
+        and f'findstr /c:"PASS {name}"' in bat
+        for name in ("talent_world_live", "panels_world_live")
+    ),
 }
 for name,ok in checks.items():print(('PASS' if ok else 'FAIL')+': '+name)
 if missing:print('Missing:',missing)
