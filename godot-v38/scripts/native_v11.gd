@@ -2802,6 +2802,12 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
    target["hit_flash_until"]=map_time+0.18
   target["hit_react_until"]=map_time+V383_FEEDBACK.REACTION_SECONDS
   target["hit_react_critical"]=critical
+  # Interrupt an ordinary hostile's committed strike at the exact moment
+  # hit recoil starts, even when AI ticks are budgeted or deferred.
+  # An unreadable pending attack must never survive a landed player hit.
+  if bool(target.get("hostile",false)) and str(target.get("variant","normal"))=="normal" and float(target.get("melee_windup_until",0.0))>map_time:
+   target["melee_windup_until"]=0.0
+   target["attack"]=maxf(float(target.get("attack",0.0)),V383_FEEDBACK.MELEE_CANCEL_COOLDOWN)
  last_hit_damage=int(round(damage))
  _show_floating_damage(target,last_hit_damage,critical)
  if critical:
