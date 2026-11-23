@@ -3876,12 +3876,14 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  if (bInventoryOpen) {
+  // Book pointer and backdrop always take priority. The bag's hidden X must
+  // not close or mutate the inventory through the full-width grimoire.
+  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventoryCloseButton()) {
    // The X and Esc must back out of character details the same way.
    OpenOptions();
    return;
   }
-  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
