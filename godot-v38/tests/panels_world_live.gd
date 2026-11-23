@@ -92,6 +92,50 @@ func _run()->void:
   game.call("_guardian_update_trait_attacks",0.12)
   check(is_zero_approx(float(test_guardian["trait_warning_until"])),"Real death still cancels regional guardian warning")
   game.set("death_active",false)
+  # A wall encountered DURING an announced attack must block the hit.
+  # Exercise real physics line-of-sight with an actual layer-1 collider,
+  # not a mocked boss decision or an invented warning path.
+  var saved_hero_position:Vector3=player.global_position
+  var saved_hero_hp:float=float(game.get("hp"))
+  var was_physics_active:bool=game.is_physics_processing()
+  game.set_physics_process(false)
+  guardian_body.global_position=Vector3(-40.0,80.0,0.0)
+  player.global_position=Vector3(-36.0,80.0,0.0)
+  var wall:StaticBody3D=StaticBody3D.new()
+  wall.collision_layer=1
+  wall.collision_mask=1
+  var shape_node:CollisionShape3D=CollisionShape3D.new()
+  var wall_shape:BoxShape3D=BoxShape3D.new()
+  wall_shape.size=Vector3(0.6,3.0,5.0)
+  shape_node.shape=wall_shape
+  wall.add_child(shape_node)
+  game.add_child(wall)
+  wall.global_position=Vector3(-38.0,80.45,0.0)
+  await physics_frame
+  var blocked:bool=not bool(game.call("_has_clear_sight",guardian_body,player))
+  check(blocked,"Physical cover breaks sight between regional guardian and hero")
+  test_guardian["trait_origin"]=guardian_body.global_position
+  test_guardian["trait_target"]=player.global_position
+  test_guardian["trait_facing"]=Vector2.RIGHT
+  test_guardian["trait_warning_until"]=float(game.get("map_time"))-0.001
+  game.set("mounted",false)
+  game.set("dodge_time",0.0)
+  var guardian_hits_before:int=int(game.get("guardian_trait_hits"))
+  var guardian_counters_before:int=int(game.get("guardian_trait_counters"))
+  game.set("guardian_trait_attack_clock",0.0)
+  game.call("_guardian_update_trait_attacks",0.12)
+  check(int(game.get("guardian_trait_hits"))==guardian_hits_before,"Regional guardian strike cannot damage through newly reached cover")
+  check(int(game.get("guardian_trait_counters"))>guardian_counters_before,"Cover is counted as a successful guardian counter")
+  wall.queue_free()
+  await physics_frame
+  check(bool(game.call("_has_clear_sight",guardian_body,player)),"Without cover the guardian has clear sight again")
+  test_guardian["trait_warning_until"]=float(game.get("map_time"))-0.001
+  game.set("guardian_trait_attack_clock",0.0)
+  game.call("_guardian_update_trait_attacks",0.12)
+  check(int(game.get("guardian_trait_hits"))==guardian_hits_before+1,"Unobstructed marked guardian strike still lands")
+  player.global_position=saved_hero_position
+  game.set("hp",saved_hero_hp)
+  game.set_physics_process(was_physics_active)
   guardian_actors.erase(-9999)
   game.set("atlas_regional_guardian_actors",guardian_actors)
   guardian_body.global_position=original_guard_pos

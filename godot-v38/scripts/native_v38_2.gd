@@ -944,7 +944,10 @@ func _guardian_update_trait_attacks(delta:float)->void:
    var target:Vector3=guardian.get("trait_target",warning_origin)
    var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
    var hit:bool=GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)
-   if hit and dodge_time<=0.0 and not mounted:
+   # The shape was locked at tell start, but cover can change during 1.35s.
+   # Recheck sight at impact: a wall must never let a warned strike ghost-hit
+   # the hero. Short-circuit before the raycast when dodged or out of shape.
+   if hit and dodge_time<=0.0 and not mounted and _has_clear_sight(body,player):
     _apply_incoming_damage(GUARDIAN_TRAIT_ATTACKS.damage(trait_id,int(guardian.get("boss_phase",1)))*float(guardian.get("regional_guardian_attack_scale",1.0)))
     guardian_trait_hits+=1
    else:
