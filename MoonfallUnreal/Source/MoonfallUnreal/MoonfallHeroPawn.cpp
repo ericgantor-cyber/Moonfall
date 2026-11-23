@@ -1011,11 +1011,23 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft()
+{
+ if (bOptionsOpen || bAtlasOpen) return;
+ SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
+ TryCast(LeftSpell, 0, 1.f);
+}
+void AMoonfallHeroPawn::CastRight()
+{
+ if (bOptionsOpen || bAtlasOpen) return;
+ SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
+ TryCast(RightSpell, 1, 1.f);
+}
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
+ // Cancel queued sword input even if this attempted dual cast cannot resolve.
+ SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};

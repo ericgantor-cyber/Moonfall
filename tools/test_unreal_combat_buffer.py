@@ -89,6 +89,30 @@ int main() {
                         melee.index("NextMeleeAttackAt = Now +"))
         self.assertEqual(tick.count("SwordBuffer.Consume("),1)
 
+    def test_explicit_spells_supersede_buffered_melee(self):
+        hero = HERO.read_text(encoding="utf-8")
+        for name, following, cast in (
+            ("CastLeft", "CastRight", "TryCast(LeftSpell, 0, 1.f)"),
+            ("CastRight", "CastBoth", "TryCast(RightSpell, 1, 1.f)"),
+            ("CastBoth", "RightHandAction", "TryCast(LeftSpell, 0, 2.f)"),
+        ):
+            with self.subTest(action=name):
+                body = hero.split(
+                    f"void AMoonfallHeroPawn::{name}()", 1)[1].split(
+                    f"void AMoonfallHeroPawn::{following}()", 1)[0]
+                self.assertIn("SwordBuffer.Clear();", body)
+                self.assertLess(body.index("SwordBuffer.Clear();"),
+                                body.index(cast))
+                self.assertLess(body.index("if (bOptionsOpen || bAtlasOpen) return;"),
+                                body.index("SwordBuffer.Clear();"))
+        dual = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "void AMoonfallHeroPawn::RightHandAction()", 1)[0]
+        self.assertLess(dual.index("SwordBuffer.Clear();"),
+                        dual.index("if (LeftSpell != RightSpell || !GetWorld()) return;"))
+        action = hero.split("void AMoonfallHeroPawn::RightHandAction()",1)[1].split(
+            "bool AMoonfallHeroPawn::ReadyRightHandSpell",1)[0]
+        self.assertIn("if (bRightHandSpellReadied) CastRight();", action)
+
     def test_defense_menus_respawn_and_hand_change_cancel_queue(self):
         hero = HERO.read_text(encoding="utf-8")
         methods = (
