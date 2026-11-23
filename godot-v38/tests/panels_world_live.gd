@@ -1,4 +1,5 @@
 extends SceneTree
+const GRAPHICS_RULES=preload("res://scripts/systems/graphics_rules.gd")
 ## Playable-scene test: every Raven Atlas tab and the separate map overlay
 ## must leave the world live. Use the isolated CI save profile, never user saves.
 var failures:int=0
@@ -37,6 +38,34 @@ func _run()->void:
   game.queue_free()
   quit(1)
   return
+
+ # UE5-style render scaling parity: real Godot FSR 2.2, preserved MSAA,
+ # and safe fallback for unsupported renderers or supersampling.
+ var base_graphics:Dictionary=(game.get("gfx_settings") as Dictionary).duplicate(true)
+ check("FSR 2.2" in GRAPHICS_RULES.OPTIONS["upscaler"],"FSR 2.2 can be selected in graphics options")
+ check(GRAPHICS_RULES.effective_upscaler("FSR 2.2","forward_plus",0.75)=="FSR 2.2","Forward+ enables real temporal FSR 2.2 scaling")
+ check(GRAPHICS_RULES.effective_upscaler("FSR 2.2","mobile",0.75)=="Bilinear" and GRAPHICS_RULES.effective_upscaler("FSR 2.2","gl_compatibility",0.75)=="Bilinear","unsupported renderers fall back without unsupported FSR2")
+ check(GRAPHICS_RULES.effective_upscaler("FSR 2.2","forward_plus",1.25)=="Bilinear","supersampled 125 percent uses bilinear downscaling")
+ check(GRAPHICS_RULES.effective_upscaler("FSR 1.0","forward_plus",0.75)=="FSR 1.0","existing spatial FSR1 option continues working")
+ var fsr_graphics:Dictionary=base_graphics.duplicate(true)
+ fsr_graphics["upscaler"]="FSR 2.2"
+ fsr_graphics["render_scale"]="75%"
+ fsr_graphics["aa"]="MSAA 2x"
+ game.set("gfx_settings",fsr_graphics)
+ game.call("_gfx_apply",false)
+ var root_viewport:Viewport=game.get_viewport()
+ var expected_mode:Viewport.Scaling3DMode=Viewport.SCALING_3D_MODE_FSR2 if RenderingServer.get_current_rendering_method()=="forward_plus" else Viewport.SCALING_3D_MODE_BILINEAR
+ check(root_viewport.scaling_3d_mode==expected_mode,"Graphics apply selects FSR2 on Forward+ or safe fallback on other renderers")
+ check(is_equal_approx(root_viewport.scaling_3d_scale,0.75),"Selected 75 percent internal 3D render scale applies")
+ check(root_viewport.msaa_3d==Viewport.MSAA_2X,"Inherited quality adjustment cannot overwrite chosen MSAA")
+ if expected_mode==Viewport.SCALING_3D_MODE_FSR2:
+  check(not root_viewport.use_taa,"FSR 2.2 supplies its own temporal anti-aliasing")
+ fsr_graphics["upscaler"]="Bilinear"
+ game.set("gfx_settings",fsr_graphics)
+ game.call("_gfx_apply",false)
+ check(root_viewport.scaling_3d_mode==Viewport.SCALING_3D_MODE_BILINEAR,"Switching off temporal upscaling restores bilinear scaling")
+ game.set("gfx_settings",base_graphics)
+ game.call("_gfx_apply",false)
 
  var enemy:Dictionary={}
  for candidate in game.get("beasts"):
