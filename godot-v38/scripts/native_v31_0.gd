@@ -9,9 +9,10 @@ func _release_label()->String:return "v31.0"
 func _gfx_apply(apply_display:bool=true)->void:
  super._gfx_apply(apply_display)
  if not gfx_ready:return
- # FSR1 upscales the 3D scene only; text and HUD remain native-resolution.
+ # Parent graphics settings now own Bilinear, FSR1, and temporal FSR2,
+ # including renderer-safe fallback. Do not overwrite that mode here.
+ # This layer only seeds its existing adaptive scale and anisotropic filters.
  var vp:Viewport=get_viewport()
- vp.scaling_3d_mode=Viewport.SCALING_3D_MODE_FSR if str(gfx_settings["upscaler"])=="FSR 1.0" and float(str(gfx_settings["render_scale"]).trim_suffix("%"))<=100.0 else Viewport.SCALING_3D_MODE_BILINEAR
  gfx31_dynamic_scale=vp.scaling_3d_scale
  var level:String=str(gfx_settings["anisotropy"])
  var anisotropy:int={"Off":0,"2x":1,"4x":2,"8x":3,"16x":4}.get(level,2)
