@@ -957,7 +957,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Existing physics velocity, jumps and held defensive stances must end
         # before the NPC overlay takes keyboard/controller focus.
         opening = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         self.assertLess(opening.index("if (!IsValid(Resident) || !Resident->CanHeroInteract(this))"),
                         opening.index("StopJumping();"))
         for cleanup in ("QueuedDodgeUntil = -1.f;",
