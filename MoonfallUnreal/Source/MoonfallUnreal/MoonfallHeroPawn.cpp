@@ -705,6 +705,31 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
         MouseY >= Top + 14.f && MouseY <= Top + 42.f;
 }
 
+bool AMoonfallHeroPawn::IsPointerOutsideInventoryPanel() const
+{
+ // Fail closed on absent/stale cursor information: clicks must not reach
+ // combat when the panel's visible hit region cannot be established.
+ if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f) return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)
+     || MouseX < 0.f || MouseY < 0.f
+     || MouseX >= float(Width) || MouseY >= float(Height)) return false;
+ // Match the dock's Canvas geometry, including compact viewport sizing.
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ return MouseX < Left || MouseX > Left + PanelWidth
+     || MouseY < Top || MouseY > Top + PanelHeight;
+}
+
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
@@ -912,19 +937,29 @@ void AMoonfallHeroPawn::LookUp(float Value) {
   return;
  }
  if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bInventoryPointerCast)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || (bInventoryOpen && !bInventoryPointerCast) || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
-  const FVector Origin = FollowCamera->GetComponentLocation();
-  const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  FVector Origin = FollowCamera->GetComponentLocation();
+  FVector AimDirection = FollowCamera->GetForwardVector();
+  if (bInventoryPointerCast) {
+   // When a dock is open, aim into the exposed world under the actual mouse
+   // cursor rather than firing through the center of the character sheet.
+   APlayerController* PC = Cast<APlayerController>(Controller);
+   if (!PC || !PC->bShowMouseCursor
+       || !PC->DeprojectMousePositionToWorld(Origin, AimDirection)
+       || Origin.ContainsNaN() || AimDirection.ContainsNaN()
+       || AimDirection.IsNearlyZero()) return false;
+  }
+  const FVector End = Origin + AimDirection * 1800.f;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
@@ -3788,7 +3823,12 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
    EquipInventoryItem(HitIndex);
+   return;
   }
+  // Inside the dock, even empty pixels belong to inventory UI.
+  // Only a valid pointer outside the entire panel may attack the world.
+  if (!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel())
+   TryCast(RightSpell, 1, 1.f, true);
   return;
  }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
@@ -4003,7 +4043,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   }
   if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
-  if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  if (HitIndex != INDEX_NONE) {
+   InventorySelection = HitIndex;
+   return;
+  }
+  if (!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel())
+   TryCast(LeftSpell, 0, 1.f, true);
   return;
  }
  if (!bResidentContextOpen) { CastLeft(); return; }
