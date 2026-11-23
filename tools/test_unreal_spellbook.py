@@ -160,9 +160,13 @@ int main() {
         self.assertIn("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", hero)
         shortcut = hero.split("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", 1)[1].split(
             "void AMoonfallHeroPawn::ToggleSpellBook()", 1)[0]
-        for guard in ("bOptionsOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
-                      "Health <= 0.f", "!FMath::IsFinite(Health)"):
+        for guard in ("bOptionsOpen", "bAtlasOpen", "bResidentContextOpen",
+                      "FocusedResident.IsValid()", "Health <= 0.f",
+                      "!FMath::IsFinite(Health)"):
             self.assertIn(guard, shortcut)
+        # P must never dismiss the atlas via ToggleInventory's atlas-close path.
+        self.assertLess(shortcut.index("bAtlasOpen"),
+                        shortcut.index("ToggleInventory();"))
         self.assertIn("if (!bInventoryOpen) {", shortcut)
         self.assertIn("ToggleInventory();", shortcut)
         self.assertIn("if (bInventoryOpen) ToggleSpellBook();", shortcut)

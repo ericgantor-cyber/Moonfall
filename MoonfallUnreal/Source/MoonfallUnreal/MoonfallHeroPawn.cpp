@@ -1055,8 +1055,11 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
 // the entire overlay so the user returns to play. No movement key is reused.
 void AMoonfallHeroPawn::ToggleSpellBookShortcut()
 {
- if (bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()
-     || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ // The Atlas owns map input. A P press must not silently close the map
+ // through ToggleInventory() and open an unrelated modal behind it.
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || Health <= 0.f
+     || !FMath::IsFinite(Health)) return;
  if (!bInventoryOpen) {
   // Reuse the safe modal entry path: stop movement, guard and sprint, and
   // give the mouse cursor to the inventory before showing the spell book.
