@@ -74,6 +74,9 @@ inline Rect BranchTab(const Layout& p,int branch) {
 inline Rect CloseRect(const Layout& p) {
  return p.Valid ? Rect{p.Panel.X+p.Panel.W-43.0,p.Panel.Y+12.0,28.0,28.0}:Rect{};
 }
+inline Rect SpendRect(const Layout& p) {
+ return p.Valid ? Rect{p.Panel.X+p.Panel.W-368.0,p.Panel.Y+p.Panel.H-49.0,164.0,30.0}:Rect{};
+}
 inline Rect RespecRect(const Layout& p) {
  return p.Valid ? Rect{p.Panel.X+p.Panel.W-186.0,p.Panel.Y+p.Panel.H-49.0,164.0,30.0}:Rect{};
 }
