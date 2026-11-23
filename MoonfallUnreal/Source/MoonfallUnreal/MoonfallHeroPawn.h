@@ -416,6 +416,7 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
+ void ResetMeleeHitCombo();
  MoonfallOmniattack::FFlow SwordFlow;
  MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;

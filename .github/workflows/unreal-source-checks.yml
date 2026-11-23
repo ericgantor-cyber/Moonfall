@@ -109,6 +109,10 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_buffer
 
+      - name: Verify UE5 combat momentum and immediate flinch regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_integrity
+
       - name: Verify native Spell Book catalog, layout, and modal controls
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_spellbook

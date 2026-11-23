@@ -147,6 +147,9 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
  WindupEndsAt = -1.f;
  BossWarningEndTime = -1.f;
+ // A posture break cancels the warning instantly, without waiting for Tick.
+ if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+  AttackTellMarker->SetVisibility(false);
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
  NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
@@ -237,6 +240,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
    WindupEndsAt = -1.f;
+   // Wounded elite retreats cancel the pending warning immediately.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
    bHasCachedNavigationWaypoint = false;
@@ -296,6 +302,20 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
+  // Immediate ordinary-enemy flinch: cancel live windups before the next
+  // throttled AI tick. Bosses retain their normal phase/posture safeguards.
+  if (!bBoss && ActualDamage > 0.f && Health > 0.f
+      && FMath::IsFinite(Now) && WindupEndsAt > Now) {
+   WindupEndsAt = -1.f;
+   BossWarningEndTime = -1.f;
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = false;
+   LockedAttackDirection = FVector::ZeroVector;
+   NextAttackAt = FMath::Max(
+       FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
+  }
   if (Health <= 0.0f) {
    // Defeat cancels pending divine warnings before notifying VFX and death
    // animations. Never leave a danger marker active on a defeated god.
@@ -304,6 +324,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    BossWarningEndTime = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
+   // Tick is disabled for queued corpses: hide the canceled warning NOW.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    // Disable combat immediately but retain the mesh for real native defeat
    // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);

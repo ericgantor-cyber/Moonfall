@@ -1086,6 +1086,8 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
 {
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen) return;
+ // Changing the equipped hand must not inherit a queued old sword swing.
+ SwordBuffer.Clear();
  bRightHandSpellReadied = false;
  if (GConfig) {
   GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("RightHandSpellReadied"), false, GGameUserSettingsIni);
@@ -1216,6 +1218,14 @@ int32 AMoonfallHeroPawn::HitTestRightHandFavorite() const
  return FMath::Clamp(FMath::FloorToInt((MouseX - StripX) / SlotWidth), 0, 6);
 }
 
+// One reset path for missed and fully absorbed sword swings.
+void AMoonfallHeroPawn::ResetMeleeHitCombo()
+{
+ HitComboStage = 0;
+ LastHitComboTarget.Reset();
+ LastSuccessfulHitAt = -100.f;
+}
+
 // Native UE5 melee, independent from spell casting. One bounded visibility
 // sweep stops at cover and cannot damage enemies behind an intervening wall.
 // No animation asset is required; the Blueprint event can add authored trails.
@@ -1280,6 +1290,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   }
  }
  if (!bLivingTarget) {
+  ResetMeleeHitCombo(); // Committed misses break the momentum chain.
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
  }
@@ -1302,6 +1313,7 @@ void AMoonfallHeroPawn::MeleeAttack()
      * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
      * (1.f + GetVersatilityBonus());
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
+  ResetMeleeHitCombo();
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
  }
@@ -1332,6 +1344,9 @@ void AMoonfallHeroPawn::MeleeAttack()
   // The equipped sword is the right-hand action. The Blueprint event must
   // not label these hits as left-hand casts.
   OnSuccessfulHitCombo(HitComboStage, false);
+ } else {
+  // Fully absorbed strikes cannot retain a powered combo.
+  ResetMeleeHitCombo();
  }
  OnMeleeSwing(CurrentSwordAngle, bConnected);
 }
@@ -1582,6 +1597,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   MenuHealthRegenStartsAt = Now + (FMath::IsFinite(MenuHealthRegenDelaySeconds)
        ? FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f);
   ParryCounterUntil = -1.f;
+  // Only real health damage cancels a queued follow-up sword attack.
+  // Fully blocked and parried hits leave the queue untouched.
+  SwordBuffer.Clear();
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
   FinisherMomentumUntil = -1.f;
