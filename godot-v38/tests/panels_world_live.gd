@@ -105,6 +105,14 @@ func _run()->void:
   var first_hazard_flash_until:int=int(game.get("menu_hit_flash_until_ms"))
   game.call("_process",0.0)
   check(int(game.get("menu_hit_flash_until_ms"))==first_hazard_flash_until,"One environmental hit does not retrigger the flash every frame")
+  # The remaining tint is retired on menu exit, not resurrected on return.
+  game.call("_toggle_menu")
+  check(not menu.visible,"Main menu closes during pending damage flash")
+  game.call("_menu_hit_flash_draw")
+  check(not flash.visible and int(game.get("menu_hit_flash_until_ms"))==0,"Leaving menu clears pending damage overlay")
+  game.call("_toggle_menu")
+  game.call("_menu_hit_flash_draw")
+  check(menu.visible and not flash.visible,"Reopening a menu never revives a stale injury flash")
   game.call("_menu_hit_flash_reset")
 
  # The two divine world bosses must not lose queued signature windups just
