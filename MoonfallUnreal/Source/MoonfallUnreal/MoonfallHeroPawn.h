@@ -198,6 +198,17 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Godot's original 141-node classless tree, saved as ordered ranks.
+ // Zero-rank allocation is represented by an empty array in older saves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") TArray<int32> TalentRanks;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetAvailableTalentPoints() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetTalentNodeCount() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetTalentRank(FName TalentId) const;
+ // Returns the sum of flat or fractional bonuses for the six canonical stats.
+ // Effects are exposed for later combat wiring; no hidden stat mutation.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") float GetTalentBonus(FName StatId, bool bPercent) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentNode(FName TalentId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecAllTalents();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
