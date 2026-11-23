@@ -1072,6 +1072,16 @@ bool AMoonfallHeroPawn::EquipSpellBookSelection(bool bLeftHand)
  return ReadyRightHandSpell(SpellBookSelection);
 }
 
+MoonfallSpellBook::FCastState AMoonfallHeroPawn::GetSpellBookCastState(
+ int32 School, bool bLeftHand) const
+{
+ if (!GetWorld())
+  return {MoonfallSpellBook::EReadiness::Invalid,0.f,0.f};
+ return MoonfallSpellBook::Evaluate(School,Mana,MaxMana,Health,MaxHealth,
+     SpellPowerMultiplier,GetWorld()->GetTimeSeconds(),
+     LastCastTime[bLeftHand ? 0 : 1],GetHasteBonus());
+}
+
 bool AMoonfallHeroPawn::HandleSpellBookPointer()
 {
  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bAtlasOpen
@@ -1083,7 +1093,7 @@ bool AMoonfallHeroPawn::HandleSpellBookPointer()
  PC->GetViewportSize(W,H);
  if (W <= 0 || H <= 0 || !PC->GetMousePosition(X,Y)
      || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
- const auto Rect = MoonfallSpellBook::Layout(static_cast<float>(W), static_cast<float>(H));
+ const auto Rect = MoonfallSpellBook::Layout(static_cast<float>(W), static_cast<float>(H), bSpellBookOpen);
  const int Hit = MoonfallSpellBook::Hit(Rect,X,Y,bSpellBookOpen);
  if (Hit == MoonfallSpellBook::None) return false;
  if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();
