@@ -185,7 +185,7 @@ class UnrealTalentParityTests(unittest.TestCase):
         for method_name in ("TryCast", "MoveForward", "MoveRight",
                             "PickupNearestGroundLoot", "ActivateRacePower"):
             self.assertIn("bTalentWebOpen",
-                cpp.split(f"AMoonfallHeroPawn::{method_name}(", 1)[1].split("}", 1)[0])
+                cpp.split(f"AMoonfallHeroPawn::{method_name}(", 1)[1].split("\n}", 1)[0])
         # The original 141 talent slots are drawn from the same canonical catalog.
         self.assertIn("for(int I=0;I<MoonfallTalents::NodeCount;++I)", hud)
 
