@@ -1,6 +1,7 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
 const GUARDIAN_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
+const GUARDIAN_55=preload("res://scripts/systems/guardian_55_profiles.gd")
 const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 const APPROVED_ART=preload("res://scripts/systems/ai_art_overrides.gd")
@@ -427,6 +428,62 @@ func _run()->void:
  check("if first_resident_clear:beast[\"respawn_at\"]=1.0e30" in source,"defeated residents never respawn")
  check('data["atlas_regional_residents_defeated"]' in source and 'decode_chambers(extras.get("atlas_regional_residents_defeated",[])' in source,"resident defeat IDs persist in validated checkpoints")
  check(stage_rules.REGIONAL_CACHE_STAGES==[7,14],"relic caches sit mid-dungeon and at the final fourteenth chamber")
+
+ check(GUARDIAN_55.PROFILE_COUNT==55 and GUARDIAN_55.FAMILIES.size()==11 and GUARDIAN_55.RANKS.size()==5,"55 unique guardian types are eleven families with five ranks")
+ var guardian_profile_names:Dictionary={}
+ for id in range(GUARDIAN_55.PROFILE_COUNT):
+  var profile:Dictionary=GUARDIAN_55.profile(id)
+  var name:String=str(profile.get("name",""))
+  check(not guardian_profile_names.has(name) and name.length()>7,"guardian profile names remain unique")
+  guardian_profile_names[name]=true
+  check(int(profile["species"])>=0 and int(profile["species"])<4 and int(profile["trait"])>=0 and int(profile["trait"])<4,"guardian species and combat traits are within native bounds")
+  check(float(profile["health_scale"])>=1.0 and float(profile["health_scale"])<=1.25 and float(profile["attack_scale"])>=1.0 and float(profile["attack_scale"])<=1.30 and float(profile["cooldown_scale"])>=0.85,"guardian health damage and cadence multipliers remain bounded")
+ check(GUARDIAN_55.profile(-1).is_empty() and GUARDIAN_55.profile(55).is_empty(),"invalid guardian profiles are rejected")
+ for species_id in range(4):
+  var suitable_profiles:Array[int]=GUARDIAN_55.suitable_profiles(species_id)
+  check(suitable_profiles.size()>=13 and suitable_profiles.size()<=14,"every native species has an evenly sized profile pool")
+  var covered_traits:Dictionary={}
+  for candidate_profile_id in suitable_profiles:
+   covered_traits[int(GUARDIAN_55.profile(candidate_profile_id)["trait"])]=true
+  check(covered_traits.size()==4,"every species can use all four distinct guardian attack traits")
+ var final_guardian_relic:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
+ check(final_guardian_relic.get("rarity")=="Legendary" and str(final_guardian_relic.get("name","")).contains("Sovereign"),"fifty-fifth guardian awards a real named legendary")
+ check("func _atlas_roll_guardian_profiles()" in source and "GUARDIAN_55.roll_unique_profiles(atlas_regional_guardian_rolls,rng)" in source,"live guardian selection invokes the tested allocator")
+ var expected_species:Array[int]=[]
+ for region in range(6):
+  for species_id in range(4):expected_species.append(species_id)
+  expected_species.append(region%4)
+ var guardian_rng:=RandomNumberGenerator.new()
+ guardian_rng.seed=42
+ var first_roll:Array[int]=GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng)
+ guardian_rng.seed=42
+ check(first_roll==GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng),"same seed produces the same thirty boss profiles")
+ var all_rosters_valid:bool=true
+ for seed in range(1111):
+  guardian_rng.seed=seed+1
+  var rolled_roster:Array[int]=GUARDIAN_55.roll_unique_profiles(expected_species,guardian_rng)
+  if rolled_roster.size()!=expected_species.size():
+   all_rosters_valid=false
+   break
+  var seen_profile_ids:Dictionary={}
+  for index in range(rolled_roster.size()):
+   var rolled_id:int=rolled_roster[index]
+   if seen_profile_ids.has(rolled_id) or not GUARDIAN_55.valid_profile(rolled_id) or int(GUARDIAN_55.profile(rolled_id)["species"])!=expected_species[index]:
+    all_rosters_valid=false
+    break
+   seen_profile_ids[rolled_id]=true
+  if not all_rosters_valid:break
+ check(all_rosters_valid,"1,111 seeded adventures roll thirty distinct species-matched guardians")
+ var impossible_species:Array[int]=[]
+ for index in range(15):impossible_species.append(3)
+ check(GUARDIAN_55.roll_unique_profiles(impossible_species,guardian_rng).is_empty(),"exhausted species pool fails closed without a partial roster")
+ var invalid_species:Array[int]=[0,4,1]
+ check(GUARDIAN_55.roll_unique_profiles(invalid_species,guardian_rng).is_empty(),"corrupt species IDs never create a partial roster")
+ var empty_species:Array[int]=[]
+ check(GUARDIAN_55.roll_unique_profiles(empty_species,guardian_rng).is_empty(),"empty adventures do not create spurious guardians")
+ check('data["atlas_regional_guardian_profiles"]' in source and 'extras.get("atlas_regional_guardian_profiles",[])' in source,"guardian assignments are saved and recovered")
+ check("GUARDIAN_55.profile(int(guardian_profile_id))" in source and "unique_profiles.has(guardian_profile_id)" in source,"corrupt duplicate or species-incompatible save profiles are rejected")
+ check("regional_guardian_attack_scale" in source and "regional_guardian_cooldown_scale" in source,"profile offense and cooldowns affect real hostile moves")
  check("func _atlas_update_dungeon_guardians(position:Vector3)" in source and "DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ" in source,"dungeon guardians appear on final-room approach without waves or manual stage triggers")
  check("_spawn_beast(room_position,monster,zone,\"elder\",true)" in source and "V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]" in source,"random dungeon guardians reuse four existing native hostile boss AI species and real combat")
  check("atlas_regional_guardian_actors.has(guardian_id)" in source and "atlas_regional_guardians_cleared.has(guardian_id)" in source,"guardian per dungeon can spawn at most once in an active adventure")
@@ -436,13 +493,13 @@ func _run()->void:
  check('data["atlas_regional_guardian_rolls"]' in source and 'extras.get("atlas_regional_guardian_rolls",[])' in source,"guardian assignment is saved so checkpoint reload does not reroll unfinished bosses")
  check("saved_guardians.size()==expected_rolls" in source and "valid_rolls=false" in source,"corrupt guardian species indices and lengths are validated before restore")
  check("if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT" in source,"legacy saves without assignments get a safe new randomized layout")
- check("GUARDIAN • %d / 5" in source and "regional_guardian_trait(zone,dungeon_id,rolled_index)" in source,"guardian nameplates display native species and a distinct thematic trait")
+ check("GUARDIAN • %d / 5" in source and 'var trait_id:int=int(profile["trait"])' in source,"guardian nameplates display named profiles and their real combat traits")
  check(stage_rules.REGIONAL_GUARDIAN_TRAITS.size()==4 and stage_rules.REGIONAL_GUARDIAN_TRAIT_COLORS.size()==4,"four complete themed boss profiles have readable visual identities")
  for species_id in range(4):
   var trait_id:int=stage_rules.regional_guardian_trait(2,3,species_id)
   check(trait_id>=0 and trait_id<4 and stage_rules.regional_guardian_health_multiplier(trait_id)>=1.0 and stage_rules.regional_guardian_health_multiplier(trait_id)<=1.35,"boss theme uses bounded HP scaling")
  check("guardian[\"max\"]=float(guardian[\"max\"])*health_scale" in source and "guardian[\"base_hp\"]=float(guardian[\"base_hp\"])*health_scale" in source,"guardian health and native respawn baseline scale together")
- check("regional_guardian_relic(zone,dungeon_id,trait_id" in source and "_create_gear_drop(guardian_drop_at" in source and "var guardian_drop_at:Vector3=" in source,"each first guardian victory awards one native bonus relic at the pre-despawn location")
+ check("GUARDIAN_55.guardian_relic(" in source and "_create_gear_drop(guardian_drop_at" in source and "var guardian_drop_at:Vector3=" in source,"each guardian rewards its own named relic at the pre-despawn location")
  var example_relic:Dictionary=stage_rules.regional_guardian_relic(2,3,1,"Fury")
  check(example_relic.get("rarity")=="Legendary" and str(example_relic.get("name","")).contains("Emberborn") and float(example_relic.get("affix_value",0))>0.0,"themed crests are valid real legendary equipment")
  check("func _defeat_beast(beast:Dictionary,pet_kill:bool)" in source and "super._defeat_beast(beast,pet_kill)" in source,"native guardian deaths retain original XP, gold, loot, boss defeat and reward handling")
@@ -492,6 +549,31 @@ func _run()->void:
  check(GUARDIAN_ATTACKS.valid_trait(0) and GUARDIAN_ATTACKS.valid_trait(3) and not GUARDIAN_ATTACKS.valid_trait(-1) and not GUARDIAN_ATTACKS.valid_trait(4),"guardian attacks accept only four named traits")
  check(GUARDIAN_ATTACKS.WARNING_SECONDS>=1.0 and GUARDIAN_ATTACKS.ATTACK_NAMES.size()==4 and GUARDIAN_ATTACKS.COUNTER_HINTS.size()==4,"guardian warnings have readable countdown and counterplay")
  check(GUARDIAN_ATTACKS.cooldown(0,1)>GUARDIAN_ATTACKS.WARNING_SECONDS and GUARDIAN_ATTACKS.damage(0,1)>0.0,"guardian cooldown and damage remain bounded")
+
+ # Recover counterplay regressions from legacy PR #641 without replaying its
+ # outdated world file over main's current art and dungeon systems.
+ var boss_point:=Vector3.ZERO
+ var marked_point:=Vector3(3,0,3)
+ check(GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(3,0,0),Vector2.RIGHT),"Moonbound ring hits its announced donut")
+ check(not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(1,0,0),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(7,0,0),Vector2.RIGHT),"Moonbound offers inner and outer safe zones")
+ check(GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,0.2),Vector2.RIGHT),"Ember strikes inside the forward lane")
+ check(not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,2),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(-2,0,0),Vector2.RIGHT),"Ember can be sidestepped or avoided from behind")
+ check(GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,marked_point,Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,Vector3(7,0,7),Vector2.RIGHT),"Venom targets the original marked location, not the moving hero")
+ check(GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(0.2,0,4),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(3,0,3),Vector2.RIGHT),"Eclipse leaves diagonal escape lanes")
+ check(not GUARDIAN_ATTACKS.hit(-1,boss_point,marked_point,boss_point,Vector2.RIGHT),"invalid trait IDs never add damage")
+ for trait_id in range(4):
+  check(GUARDIAN_ATTACKS.cooldown(trait_id,3)>=4.5 and GUARDIAN_ATTACKS.damage(trait_id,3)<30.0,"trait attack cooldowns and damage remain bounded")
+ check("func _guardian_update_trait_attacks(delta:float)" in source and "_guardian_update_trait_attacks(delta)" in source,"guardian attacks reuse the existing world tick")
+ check("func _guardian_create_trait_warning(trait_id:int,guardian_id:int)" in source and "MeshInstance3D.new()" in source,"guardian attacks warn without extra collision actors")
+ check("GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)" in source and "dodge_time<=0.0" in source,"telegraphed hitboxes match real dodgeable attacks")
+ check("_show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]" in source and "GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id]" in source,"named warnings describe useful counterplay")
+ check("TraitAttackCaption" in source and "cue.outline_size=12" in source,"warning labels remain readable without relying only on color")
+ check("warning_until-map_time" in source and "ATTACK_NAMES[trait_id].to_upper()" in source,"warning countdown belongs to the active attack")
+ check("horizontal.length_squared()>18.0*18.0" in source and 'guardian["trait_next_at"]=map_time+2.0' in source,"leaving the boss encounter cancels an unsafe delayed hit")
+ check("not hero_playing or death_active or menu_open or not is_instance_valid(player)" in source and "old_warning.visible=false" in source,"death and menu transitions hide guardian attacks")
+ check("far_warning.visible=false" in source and 'guardian.get("zone",-1)' in source,"region transitions clear hostile warnings")
+ check("if is_instance_valid(warning_root):warning_root.visible=false" in source,"defeated guardians leave no attack warning")
+
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
