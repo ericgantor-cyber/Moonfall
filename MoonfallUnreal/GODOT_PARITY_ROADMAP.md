@@ -10,7 +10,7 @@ keyboard and controller. Never recreate or modify the original Z and Nyra art.
 
 | Godot feature | Unreal source position | Next acceptance gate |
 |---|---|---|
-| 141-node classless talent constellation (2 points per level; Might, Agility, Arcana) | **This draft PR:** exact catalog, rank/prerequisite/point calculator, Blueprint spend/respec/stat queries, V13 save fields | Wire Godot's bonus effects into live health/damage/resource calculations; build mouse/controller-accessible pan/zoom web; UE editor compile and save round-trip |
+| 141-node classless talent constellation (2 points per level; Might, Agility, Arcana) | #1121 exact catalog, rank/prerequisite/point calculator, Blueprint spend/respec/stat queries, V13 save fields. **This stacked PR:** Arcana magic-damage ranks affect real hostile spell strikes | Still needs flat health/mana/stamina effects, melee/ranged damage handling, mouse/controller-accessible pan/zoom talent web, native UE editor compile and save round-trip |
 | Six connected regions, terrain, dungeons and streaming | UE world/dungeon/arena C++ scaffolds and navigation invoker exist | Traverse all six zones and dungeon entrances; compare boundaries, collisions, weather and LOD in packaged build |
 | Wildlife, ecology, roaming foes and bosses | UE enemy AI, navigation, elites and guardian rules exist | Species-by-species behavior and encounter parity; benchmark dense mobs; test line of sight and attack marker accuracy |
 | Live Raven Atlas, map and talent panels | UE inventory/Atlas/Options inputs and drawing exist | Ensure world clock, enemy AI, movement and incoming damage remain live when information panels open, without trapping user input |
