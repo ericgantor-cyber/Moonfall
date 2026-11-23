@@ -72,7 +72,7 @@ int main() {
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         header = (SRC / "MoonfallHeroPawn.h").read_text()
         action = hero.split("void AMoonfallHeroPawn::RightHandAction()", 1)[1].split(
-            "void AMoonfallHeroPawn::ToggleRightHandLoadout()", 1)[0]
+            "bool AMoonfallHeroPawn::ReadyRightHandSpell", 1)[0]
         self.assertIn("if (bRightHandSpellReadied) CastRight();", action)
         self.assertIn("else MeleeAttack();", action)
         self.assertIn("bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)", hero)
@@ -88,20 +88,52 @@ int main() {
         self.assertIn("OnRightHandLoadoutChanged", header)
         self.assertNotIn("TryCast(", action)
 
-    def test_hand_swap_never_operates_inside_menus_or_dialogue(self):
+    def test_favorites_only_equip_inside_inventory(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
-        switch = hero.split("void AMoonfallHeroPawn::ToggleRightHandLoadout()", 1)[1].split(
-            "bool AMoonfallHeroPawn::ReadyRightHandSpell", 1)[0]
-        for locked in ("Health <= 0.f", "bOptionsOpen", "bInventoryOpen",
-                       "bAtlasOpen", "bResidentContextOpen",
-                       "FocusedResident.IsValid()"):
-            self.assertIn(locked, switch)
-        self.assertIn("bRightHandSpellReadied = !bRightHandSpellReadied;", switch)
+        header = (SRC / "MoonfallHeroPawn.h").read_text()
+        equip = hero.split("bool AMoonfallHeroPawn::EquipRightHandFavorite(int32 FavoriteIndex)", 1)[1].split(
+            "int32 AMoonfallHeroPawn::HitTestRightHandFavorite()", 1)[0]
+        for lock in ("!bInventoryOpen", "bCharacterStatsOpen", "bOptionsOpen",
+                     "bAtlasOpen", "bResidentContextOpen", "Health <= 0.f",
+                     "FavoriteIndex < 0 || FavoriteIndex > 6"):
+            self.assertIn(lock, equip)
+        self.assertIn("if (FavoriteIndex == 0)", equip)
+        self.assertIn("ReadyRightHandWeapon();", equip)
+        self.assertIn("return ReadyRightHandSpell(FavoriteIndex - 1);", equip)
+        self.assertIn("EquipRightHandFavorite(int32 FavoriteIndex);", header)
+        self.assertNotIn("ToggleRightHandLoadout", hero + header)
         self.assertIn("void AMoonfallHeroPawn::CastLeft()", hero)
         self.assertIn("void AMoonfallHeroPawn::CastRight()", hero)
-        cfg = (GAME / "Config" / "DefaultInput.ini").read_text()
-        self.assertIn('ActionName="CastLeft",Key=Z', cfg)
-        self.assertIn('ActionName="CastRight",Key=X', cfg)
+        config = (GAME / "Config" / "DefaultInput.ini").read_text()
+        self.assertIn('ActionName="CastLeft",Key=Z', config)
+        self.assertIn('ActionName="CastRight",Key=X', config)
+        self.assertNotIn("Key=V)", config)
+        self.assertNotIn("ToggleRightHandLoadout", config)
+
+    def test_inventory_favorites_mouse_and_controller_areas_match_hud(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
+        clicks = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("const int32 Favorite = HitTestRightHandFavorite();", clicks)
+        self.assertIn("EquipRightHandFavorite(Favorite);", clicks)
+        hit = hero.split("int32 AMoonfallHeroPawn::HitTestRightHandFavorite() const", 1)[1].split(
+            "// Native UE5 melee", 1)[0]
+        for geometry in ("Left + 18.f", "Top + 119.f", "(PanelWidth - 36.f) / 7.f",
+                         "StripY + 22.f", "MouseX - StripX"):
+            self.assertIn(geometry, hit)
+            self.assertIn(geometry, hud)
+        self.assertIn("for (int32 Slot = 0; Slot < 7; ++Slot)", hud)
+        self.assertIn("ActiveFavorite == Slot", hud)
+        for direction, offset in (("Left", "+ 6"), ("Right", "+ 1")):
+            block = hero.split(f"void AMoonfallHeroPawn::Options{direction}()", 1)[1].split(
+                "\n}", 1)[0]
+            self.assertIn("if (bInventoryOpen) {", block)
+            self.assertIn("!bCharacterStatsOpen && !bOptionsOpen", block)
+            self.assertIn("EquipRightHandFavorite(", block)
+            self.assertIn(offset, block)
+        self.assertIn("RIGHT HAND: %s  |  B: choose", hud)
+        self.assertNotIn("V / D-PAD LEFT", hud)
 
     def test_sword_flow_clears_only_after_safe_respawn(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
@@ -137,10 +169,8 @@ int main() {
                                 and "Key=" + key + ")" in line for line in lines), key)
         self.assertTrue(any('ActionName="RightHandAction",Key=Gamepad_RightTrigger'
                             in line for line in lines))
-        self.assertTrue(any('ActionName="ToggleRightHandLoadout",Key=V'
-                            in line for line in lines))
-        self.assertTrue(any('ActionName="ToggleRightHandLoadout",Key=Gamepad_DPad_Left'
-                            in line for line in lines))
+        self.assertFalse(any('ToggleRightHandLoadout' in line for line in lines))
+        self.assertFalse(any('Key=V)' in line for line in lines))
         self.assertFalse(any("\\n" in line for line in lines))
 
 
