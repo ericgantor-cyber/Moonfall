@@ -296,6 +296,29 @@ func _run()->void:
   check(not bool(game.get("death_active")),"sanctuary return exits the death overlay")
   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"sanctuary return clears queued ordinary melee")
   check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"sanctuary return restores melee anticipation pose")
+  # Force a real engaged melee enemy to be staggered mid-telegraph. The
+  # interruption must not leave the reused body mesh stuck in the pullback.
+  var foe_body:CharacterBody3D=queued_melee_foe.get("body") as CharacterBody3D
+  var hero_body:CharacterBody3D=game.get("player") as CharacterBody3D
+  check(is_instance_valid(foe_body) and is_instance_valid(hero_body) and is_instance_valid(melee_mesh),"melee stagger regression has actual actor meshes")
+  if is_instance_valid(foe_body) and is_instance_valid(hero_body) and is_instance_valid(melee_mesh):
+   var hero_before:Vector3=hero_body.global_position
+   var foe_before:Vector3=foe_body.global_position
+   foe_body.global_position=Vector3(0.0,40.0,0.0)
+   hero_body.global_position=Vector3(1.2,40.0,0.0)
+   queued_melee_foe["hit_react_until"]=0.0
+   queued_melee_foe["attack_swing_until"]=0.0
+   queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+   queued_melee_foe["stagger_until"]=float(game.get("map_time"))+2.0
+   melee_mesh.rotation_degrees=Vector3(0.0,0.0,104.0)
+   game.call("_update_beast_step",queued_melee_foe,0.0)
+   check(bool(queued_melee_foe.get("engaged",false)),"staggered melee attacker still has clear sight")
+   check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"stagger cancels the pending melee damage")
+   check(is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"stagger restores the ordinary enemy's neutral pose")
+   queued_melee_foe["stagger_until"]=0.0
+   foe_body.velocity=Vector3.ZERO
+   foe_body.global_position=foe_before
+   hero_body.global_position=hero_before
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
