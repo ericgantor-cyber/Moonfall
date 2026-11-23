@@ -2045,8 +2045,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "Health = FMath::Max(0.f, Health - DamageAfterGuard);"):
             self.assertIn(authority, damage)
         self.assertIn("if (bTalentWebOpen) ToggleTalentWeb();", damage)
-        self.assertLess(damage.index("if (bTalentWebOpen) ToggleTalentWeb();"),
-                        damage.index("CloseResidentContext();"))
+        self.assertLess(damage.index("EndGuard();"),
+                        damage.index("if (bTalentWebOpen) ToggleTalentWeb();"))
         directional = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[1].split(
             "void AMoonfallHeroPawn::ApplyMoonfallDamage(", 1)[0]
