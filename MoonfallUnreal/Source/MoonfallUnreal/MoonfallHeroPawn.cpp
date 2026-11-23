@@ -3255,6 +3255,15 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   OnHealthChanged(Health, MaxHealth);
  }
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
+ // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
+ // combo target or cooldown from the defeated character.
+ MoonfallOmniattack::Reset(SwordFlow);
+ CurrentSwordAngle = -1;
+ SwordFlowStep = 0;
+ NextMeleeAttackAt = 0.f;
+ HitComboStage = 0;
+ LastHitComboTarget.Reset();
+ LastSuccessfulHitAt = -100.f;
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  if (GetWorld()) {
   const float Now = GetWorld()->GetTimeSeconds();
