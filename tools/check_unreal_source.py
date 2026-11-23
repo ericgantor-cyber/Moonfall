@@ -2044,7 +2044,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for resource in ("Health", "Mana", "Stamina"):
             self.assertIn(f"FMath::IsFinite(Hero->Max{resource})", vitals)
             self.assertIn(f"FMath::IsFinite(Hero->{resource})", vitals)
-                self.assertIn("FMath::Clamp(Current / Maximum, 0.f, 1.f)", vitals)
+        self.assertIn("FMath::Clamp(Current / Maximum, 0.f, 1.f)", vitals)
         self.assertIn("VitalHealth <= VitalMaxHealth * 0.25f", vitals)
         self.assertIn("FMath::Min(VitalXP, VitalMaxXP)", vitals)
         self.assertLess(inventory.index("DrawVital(3,"),
