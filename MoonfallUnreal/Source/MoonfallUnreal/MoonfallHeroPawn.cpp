@@ -375,6 +375,74 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // One weak target, no world scan per frame. Camera tracking is reduced-motion aware.
+ AMoonfallEnemy* LockTarget = LockedEnemy.Get();
+ if (LockTarget) {
+  if (!IsLockTargetValid(LockTarget) || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid() || Health <= 0.f) {
+   LockedEnemy.Reset();
+   LockOccludedSince = -1.f;
+  } else if (Controller && IsValid(FollowCamera)) {
+   const float Now = GetWorld()->GetTimeSeconds();
+   if (!FMath::IsFinite(Now)) {
+    LockedEnemy.Reset();
+    LockOccludedSince = -1.f;
+   } else {
+    if (Now >= NextLockVisibilityCheckAt) {
+     NextLockVisibilityCheckAt = Now + 0.2f;
+     FHitResult Hit;
+     FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockVisibility), false, this);
+     const FVector AimPoint = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+     // A missed visibility ray cannot prove this enemy is unobstructed.
+     const bool bHitTarget = GetWorld()->LineTraceSingleByChannel(
+         Hit, FollowCamera->GetComponentLocation(), AimPoint, ECC_Visibility, Params)
+         && Hit.GetActor() == LockTarget;
+     const bool bBlocked = !bHitTarget;
+     if (bBlocked) {
+      if (LockOccludedSince < 0.f || !FMath::IsFinite(LockOccludedSince))
+       LockOccludedSince = Now;
+      if (Now - LockOccludedSince >= 0.45f) {
+       LockedEnemy.Reset();
+       LockOccludedSince = -1.f;
+      }
+     } else LockOccludedSince = -1.f;
+    }
+   }
+   // Reduced Motion must suppress automatic camera tracking, not weaken it.
+   // Keep the lock itself for spell aiming and target HUD, but never rotate the view.
+   // Also pause automatic tracking while sight is blocked.
+   if (!bReduceMotion && LockedEnemy.IsValid() && LockOccludedSince < 0.f) {
+    const FVector Aim = LockTarget->GetActorLocation() + FVector(0.f, 0.f, 60.f) - FollowCamera->GetComponentLocation();
+    if (!Aim.ContainsNaN() && !Aim.IsNearlyZero()) {
+     const FRotator Desired = Aim.Rotation();
+     Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), Desired, SafeTimerDelta, 7.f));
+    }
+   }
+  }
+ }
+
+ // Consume a buffered dodge on the first eligible gameplay frame. A queued
+ // press costs no stamina, gives no immunity and never survives a modal.
+ if (QueuedDodgeUntil >= 0.f) {
+  const UWorld* DodgeWorld = GetWorld();
+  const float DodgeNow = DodgeWorld ? DodgeWorld->GetTimeSeconds() : -1.f;
+  if (!DodgeWorld || !FMath::IsFinite(DodgeNow)
+      || !FMath::IsFinite(QueuedDodgeUntil)
+      || !FMath::IsFinite(NextDodgeAt) || !FMath::IsFinite(DamageImmunityUntil)
+      || DodgeNow > QueuedDodgeUntil
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid()
+      || Health <= 0.f || !FMath::IsFinite(Health)) {
+   QueuedDodgeUntil = -1.f;
+   QueuedDodgeDirection = FVector::ZeroVector;
+  } else if (DodgeNow >= NextDodgeAt && DodgeNow >= DamageImmunityUntil) {
+   QueuedDodgeUntil = -1.f;
+   bExecutingBufferedDodge = true;
+   Dodge();
+   bExecutingBufferedDodge = false;
+   QueuedDodgeDirection = FVector::ZeroVector;
+  }
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
@@ -575,6 +643,11 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("GamepadBack"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadBack);
+ Input->BindAction(TEXT("LockOn"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleLockOn);
+ Input->BindAction(TEXT("LockNext"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchLockedTarget);
+ Input->BindAction(TEXT("GamepadContextLeft"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadContextLeft);
+ Input->BindAction(TEXT("GamepadContextRight"), IE_Pressed, this, &AMoonfallHeroPawn::GamepadContextRight);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
@@ -852,24 +925,145 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
+
+AMoonfallEnemy* AMoonfallHeroPawn::GetLockedEnemy() const
+{
+ AMoonfallEnemy* Enemy = LockedEnemy.Get();
+ return IsLockTargetValid(Enemy) ? Enemy : nullptr;
+}
+bool AMoonfallHeroPawn::IsLockTargetValid(const AMoonfallEnemy* Enemy) const
+{
+ // The same health invariants used by damage should also govern target acquisition.
+ // Reject corrupt Blueprint state before a target can capture camera tracking.
+ if (!IsValid(Enemy) || !GetWorld() || !FMath::IsFinite(Enemy->Health)
+     || !FMath::IsFinite(Enemy->MaxHealth) || Enemy->MaxHealth <= 0.f
+     || Enemy->Health <= 0.f || Enemy->Health > Enemy->MaxHealth) return false;
+ const FVector Offset = Enemy->GetActorLocation() - GetActorLocation();
+ const float Range = FMath::IsFinite(LockRange) ? FMath::Clamp(LockRange, 300.f, 2500.f) : 1600.f;
+ return !Offset.ContainsNaN() && Offset.SizeSquared() <= FMath::Square(Range);
+}
+void AMoonfallHeroPawn::ToggleLockOn()
+{
+ if (Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return;
+ // A destroyed, defeated or out-of-range enemy is no longer a real lock.
+ // Reacquire on this same T press instead of requiring a second press.
+ if (GetLockedEnemy()) { LockedEnemy.Reset(); LockOccludedSince = -1.f; return; }
+ LockedEnemy.Reset();
+ LockOccludedSince = -1.f;
+ AcquireLockTarget(0);
+}
+void AMoonfallHeroPawn::SwitchLockedTarget()
+{
+ // Tab remains ChronicleFocus while the Atlas is open.
+ if (!LockedEnemy.IsValid() || Health <= 0.f || bOptionsOpen || bInventoryOpen
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ AcquireLockTarget(1);
+}
+void AMoonfallHeroPawn::AcquireLockTarget(int32 Direction)
+{
+ if (!IsValid(FollowCamera) || !GetWorld()) return;
+ const FVector Origin = FollowCamera->GetComponentLocation();
+ const FVector Forward = FollowCamera->GetForwardVector();
+ const FVector Right = FollowCamera->GetRightVector();
+ AMoonfallEnemy* Current = GetLockedEnemy();
+ // Use the signed camera-relative angle rather than the lateral dot product.
+ // Lateral values collapse at the edges and could skip or reorder candidates.
+ float CurrentAngle = 0.f;
+ if (Current) {
+  // Match the same elevated aim point used for every candidate angle.
+  const FVector Relative = (Current->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin).GetSafeNormal();
+  CurrentAngle = FMath::Atan2(FVector::DotProduct(Relative, Right),
+                              FVector::DotProduct(Relative, Forward));
+ }
+ AMoonfallEnemy* Best = nullptr;
+ float BestScore = TNumericLimits<float>::Max();
+ float BestDistanceSq = TNumericLimits<float>::Max();
+ // An input-driven search only; no per-frame enemy iteration.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  AMoonfallEnemy* Candidate = *It;
+  if (!IsLockTargetValid(Candidate) || Candidate == Current) continue;
+  const FVector Aim = Candidate->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Origin;
+  if (Aim.ContainsNaN() || Aim.IsNearlyZero()) continue;
+  const FVector UnitAim = Aim.GetSafeNormal();
+  const float Facing = FVector::DotProduct(UnitAim, Forward);
+  if (Facing < 0.15f) continue;
+  // Score first: collision queries are needed only for candidates that
+  // can actually improve the currently visible best target. In dense fights
+  // this skips unnecessary sight traces without changing lock preferences.
+  const float DistanceSq = Aim.SizeSquared();
+  float CandidateScore = (1.f - Facing) * 10.f + Aim.Size() / 1600.f;
+  bool bCouldImprove = false;
+  if (!Direction || !Current) {
+   bCouldImprove = FMath::IsFinite(CandidateScore) && CandidateScore < BestScore;
+  } else {
+   // Tab/right cycles clockwise; D-pad left cycles counterclockwise.
+   // Compare positive directed angular distances and wrap once at +/-PI.
+   const float Angle = FMath::Atan2(FVector::DotProduct(UnitAim, Right), Facing);
+   float Delta = Direction < 0 ? CurrentAngle - Angle : Angle - CurrentAngle;
+   if (Delta <= 0.f) Delta += 2.f * PI;
+   // Ignore near-identical screen directions and avoid repeated targets.
+   // When two enemies share nearly the same angle, prefer the closer one
+   // instead of letting world actor iteration order decide the Tab target.
+   if (Delta > 0.025f
+       && (Delta < BestScore - 0.0001f
+           || (FMath::Abs(Delta - BestScore) <= 0.0001f && DistanceSq < BestDistanceSq))) {
+    CandidateScore = Delta;
+    bCouldImprove = FMath::IsFinite(Delta);
+   }
+  }
+  if (!bCouldImprove || !FMath::IsFinite(DistanceSq)) continue;
+  FHitResult Hit;
+  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLockAcquire), false, this);
+  // Only lock a target positively hit by the sight ray. An empty trace
+  // is not evidence of visibility and would create unusable spell locks.
+  if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Aim, ECC_Visibility, Params)
+      || Hit.GetActor() != Candidate) continue;
+  BestScore = CandidateScore;
+  BestDistanceSq = DistanceSq;
+  Best = Candidate;
+ }
+ if (Best) { LockedEnemy = Best; LockOccludedSince = -1.f; NextLockVisibilityCheckAt = GetWorld()->GetTimeSeconds() + 0.2f; }
+ else if (!Current) LockedEnemy.Reset();
+}
+
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, float ManaCostMultiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.2f
+     || !FMath::IsFinite(ManaCostMultiplier) || ManaCostMultiplier < Multiplier
+     || ManaCostMultiplier > 2.8f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
+ const float HasteBonus = GetHasteBonus();
+ // The controller R3 path already checks these clocks. Single-hand casts must
+ // reject invalid timestamps and haste too, before targeting or spending mana.
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[Hand])
+     || Time < LastCastTime[Hand] || !FMath::IsFinite(HasteBonus)
+     || HasteBonus < 0.f || HasteBonus > 0.20f
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
+     || MaxHealth <= 0.f || Health > MaxHealth
+     || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f
+     || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier)
+     || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier
+     || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + HasteBonus)) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
   const FVector Origin = FollowCamera->GetComponentLocation();
-  const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  const AMoonfallEnemy* Locked = GetLockedEnemy();
+  const FVector End = Locked ? Locked->GetActorLocation() + FVector(0.f, 0.f, 60.f)
+      : Origin + FollowCamera->GetForwardVector() * 1800.f;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+  // Lock-on must never redirect a spell onto a different enemy that crosses the ray.
+  // Keep the visibility trace authoritative: neither enemies nor walls can be shot through.
+  if (Locked && Enemy != Locked) return false;
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   // Reject corrupted target resource state before damage, mana cost or combo rewards.
   if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
@@ -975,8 +1169,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
  }
- Mana -= Costs[School] * Multiplier;
+ Mana -= Costs[School] * ManaCostMultiplier;
  LastCastTime[Hand] = Time;
+ // Transition from guard into an attack only after a successful cast.
+ // Misses and failed casts keep the defensive stance active.
+ if (bGuarding) EndGuard();
  if (School == 3) {
   Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
@@ -986,14 +1183,37 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
+float AMoonfallHeroPawn::GetParryCounterRemaining() const
+{
+ const UWorld* CurrentWorld = GetWorld();
+ if (!CurrentWorld || !FMath::IsFinite(ParryCounterUntil)) return 0.f;
+ const float Now = CurrentWorld->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now >= ParryCounterUntil) return 0.f;
+ return FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f);
+}
+
 void AMoonfallHeroPawn::CastBoth()
 {
+ // R3 is also a menu command. Never queue a combat cast behind inventory,
+ // the Atlas, options, NPC dialogue or defeat.
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
- if (TryCast(LeftSpell, 0, 2.f))
+ // R3 must use the same haste-adjusted cooldown as either trigger.
+ // Reject invalid timing values before double mana or spell damage.
+ const float HasteBonus = GetHasteBonus();
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6
+     || !FMath::IsFinite(Time) || !FMath::IsFinite(HasteBonus)
+     || HasteBonus < 0.f || HasteBonus > 0.20f
+     || !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])
+     || Time < LastCastTime[0] || Time < LastCastTime[1]
+     || Time - LastCastTime[1] < Cooldowns[LeftSpell] / (1.f + HasteBonus)) return;
+ // Skyrim-style overcharge: one combined effect, 2.2x power and 2.8x mana.
+ // Both hand cooldowns advance only after a successful single transaction.
+ if (TryCast(LeftSpell, 0, 2.2f, 2.8f))
  {
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
@@ -1076,15 +1296,44 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
+ // Reject invalid clocks and resources before buffering or spending stamina.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
      || !FMath::IsFinite(DamageImmunityUntil)
-     || Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ if (Now < NextDodgeAt || Now < DamageImmunityUntil) {
+  const float ReadyAt = FMath::Max(NextDodgeAt, DamageImmunityUntil);
+  const float Window = FMath::IsFinite(DodgeInputBufferSeconds)
+      ? FMath::Clamp(DodgeInputBufferSeconds, 0.f, 0.18f) : 0.f;
+  // Only accept presses near readiness. A 40ms grace period allows for
+  // discrete frame timing while still bounding how long input is remembered.
+  if (Window > 0.f && ReadyAt > Now && ReadyAt - Now <= Window) {
+   const FVector QueuedPending = GetPendingMovementInputVector().GetSafeNormal2D();
+   const FVector QueuedLast = GetLastMovementInputVector().GetSafeNormal2D();
+   const FVector QueuedForward = GetActorForwardVector().GetSafeNormal2D();
+   const FVector IntendedDirection = !QueuedPending.IsNearlyZero() ? QueuedPending
+       : (!QueuedLast.IsNearlyZero() ? QueuedLast : QueuedForward);
+   if (!IntendedDirection.ContainsNaN() && !IntendedDirection.IsNearlyZero()) {
+    QueuedDodgeDirection = IntendedDirection;
+    QueuedDodgeUntil = ReadyAt + 0.04f;
+   }
+  }
+  return;
+ }
+ // Determine the direction before consuming stamina or granting invulnerability.
+ // A replayed press uses its saved direction, not the current thumbstick.
+ const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
+ const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
+ const FVector LiveDirection = !PendingDirection.IsNearlyZero() ? PendingDirection
+     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ const FVector Direction = bExecutingBufferedDodge ? QueuedDodgeDirection : LiveDirection;
+ if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;
+ // One valid attempt consumes the pending input; cost/immunity follow here.
+ QueuedDodgeUntil = -1.f;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
@@ -1096,14 +1345,9 @@ void AMoonfallHeroPawn::Dodge()
  NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
- // Prefer live input for responsive controller/keyboard dodges. On frames
- // without new input, use the most recently consumed movement direction.
- const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
- const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
- const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
- const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
-     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ // Direction was validated and locked before committing stamina/cooldowns.
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
+ QueuedDodgeDirection = FVector::ZeroVector;
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -1112,7 +1356,9 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  // Rewards are earned only during live gameplay, not behind paused overlays.
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
+      || bOptionsOpen || bInventoryOpen || bAtlasOpen
+      || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  // Invalid or expired windows must never grant an unearned dodge reward.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
@@ -1310,6 +1556,12 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ // R3 guards in combat, toggles Character Stats in inventory,
+ // and switches Chronicle focus in the Atlas. LT/MB5 dual-cast.
+ if (bInventoryOpen && !bAtlasOpen) {
+  ToggleCharacterStats();
+  return;
+ }
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
@@ -1332,12 +1584,14 @@ void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
    AtlasChronicleChapter, State.Valid ? State.FeaturedBeat : 0, Direction);
 }
 void AMoonfallHeroPawn::ToggleAtlas() {
+ LockedEnemy.Reset();
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  // Blueprint and corrupt transient values must never poison projected map pixels.
  AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  QueuedDodgeUntil = -1.f;
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
   if (bInventoryOpen) ToggleInventory();
@@ -1345,6 +1599,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
   // Discover active, already-visited shrines from their real actors once
   // per Atlas opening. No per-frame world actor scan or new save fields.
   AtlasDiscoveredShrineLocations.Reset();
@@ -1378,14 +1633,17 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
+ LockedEnemy.Reset();
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  QueuedDodgeUntil = -1.f;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -1586,6 +1844,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ LockedEnemy.Reset();
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -1601,10 +1860,12 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
+  QueuedDodgeUntil = -1.f;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  QueuedDodgeDirection = FVector::ZeroVector;
  }
  bOptionsOpen = !bOptionsOpen;
  // Match the inventory close workflow and allow the Options X to be clicked.
@@ -1667,13 +1928,37 @@ void AMoonfallHeroPawn::OptionsDown() {
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
+// Dedicated D-pad handlers keep combat target changes off A/D and arrow keys.
+// In overlays the same buttons retain the existing menu and Atlas behavior.
+// B is a combat dodge when no overlay is open, but backs out of modal
+// panels and resident dialogue. RB remains a dedicated combat dodge.
+void AMoonfallHeroPawn::GamepadBack() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) {
+  OpenOptions();
+  return;
+ }
+ Dodge();
+}
+void AMoonfallHeroPawn::GamepadContextLeft() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) { OptionsLeft(); return; }
+ if (GetLockedEnemy() && Health > 0.f && !FocusedResident.IsValid()) AcquireLockTarget(-1);
+}
+void AMoonfallHeroPawn::GamepadContextRight() {
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen) { OptionsRight(); return; }
+ if (GetLockedEnemy() && Health > 0.f && !FocusedResident.IsValid()) AcquireLockTarget(1);
+}
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ // D-pad Left / keyboard Left or A returns from the character pane.
+ // This never changes the selected or equipped inventory item.
+ if (bInventoryOpen) {
+  if (bCharacterStatsOpen) ToggleCharacterStats();
+  return;
+ }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
@@ -1682,7 +1967,11 @@ void AMoonfallHeroPawn::OptionsRight() {
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
   return;
  }
- if (bInventoryOpen) return;
+ // D-pad Right / keyboard Right or D opens the character pane from bag.
+ if (bInventoryOpen) {
+  if (!bCharacterStatsOpen) ToggleCharacterStats();
+  return;
+ }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -3124,6 +3413,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ LockedEnemy.Reset();
+ QueuedDodgeUntil = -1.f;
+ QueuedDodgeDirection = FVector::ZeroVector;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
@@ -3243,7 +3535,9 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
- if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ // Face-button Race Power must never consume its cooldown behind Atlas or NPC overlays.
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
@@ -3365,7 +3659,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bResidentContextOpen) {
   // Do not select another resident behind a stale conversation.
   if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
@@ -3377,8 +3671,18 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
- // A conversation should release held combat movement immediately.
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // Match the MB5 draft: D-pad Up targets enemies only away from residents.
+  // ToggleLockOn owns defeat, menu and dialogue safety checks.
+  ToggleLockOn();
+  return;
+ }
+ // A conversation cannot inherit a buffered dodge or keep camera lock.
+ // Existing walking/jumping/sprint/guard states are intentionally not forced off.
+ QueuedDodgeUntil = -1.f;
+ QueuedDodgeDirection = FVector::ZeroVector;
+ LockedEnemy.Reset();
+ LockOccludedSince = -1.f;
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -3425,6 +3729,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    // Match D-pad dialogue cleanup; no replayed dodge or locked-enemy camera.
+    QueuedDodgeUntil = -1.f;
+    QueuedDodgeDirection = FVector::ZeroVector;
+    LockedEnemy.Reset();
+    LockOccludedSince = -1.f;
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;

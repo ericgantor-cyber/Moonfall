@@ -21,7 +21,11 @@ class TestRacialPersistence(unittest.TestCase):
                      "Orc", "Goblin", "Troll", "Entkin", "Shadowborn",
                      "Moonborn", "Draconid"):
             self.assertIn('TEXT("' + race + '")', roster)
-        self.assertIn('ActionName="RacePower",Key=T', self.input)
+        self.assertIn('ActionName="RacePower",Key=N', self.input)
+        self.assertNotIn('ActionName="RacePower",Key=Y', self.input)
+        self.assertIn('ActionName="LockOn",Key=T', self.input)
+        self.assertNotIn('ActionName="RacePower",Key=T', self.input)
+        self.assertNotIn('ActionName="LockOn",Key=Y', self.input)
         self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
         self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)
@@ -33,6 +37,10 @@ class TestRacialPersistence(unittest.TestCase):
                        "GetRaceManaRegenBonus"):
             self.assertIn(method + "() const { return bRaceChosen ?", self.cpp)
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
+        race_active = self.cpp.split("bool AMoonfallHeroPawn::ActivateRacePower()", 1)[1].split("\n}", 1)[0]
+        for overlay in ("bInventoryOpen", "bOptionsOpen", "bAtlasOpen", "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(overlay, race_active)
+        self.assertLess(race_active.index("bAtlasOpen"), race_active.index("const float Now ="))
 
     def test_persistent_cooldown_and_save_migration(self):
         self.assertIn("int32 Version = 12", self.save)

@@ -140,6 +140,50 @@ class TestSocialWorld(unittest.TestCase):
   close=body("CloseResidentContext","OpenFocusedResidentContext")
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
+ def test_both_npc_dialogue_openers_clear_dodge_and_enemy_lock(self):
+  # Controller and right-click NPC entry have the same combat cleanup.
+  # Preserve the original contract: dialogue never forcibly stops movement.
+  controller=self.hero.split(
+      "void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  mouse=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::ReleaseInventoryPointer()",1)[0]
+  for source,entry_guard in (
+      (controller,"if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {"),
+      (mouse,"if (Resident->CanHeroInteract(this)) {")):
+   self.assertIn(entry_guard,source)
+   entry=source.split(entry_guard,1)[1].split("bResidentContextOpen = true;",1)[0]
+   for cleanup in ("QueuedDodgeUntil = -1.f;",
+                   "QueuedDodgeDirection = FVector::ZeroVector;",
+                   "LockedEnemy.Reset();", "LockOccludedSince = -1.f;"):
+    self.assertIn(cleanup,entry)
+    self.assertLess(entry.index(cleanup),entry.index("FocusedResident = Resident;"))
+   for forbidden in ("StopJumping();","StopMovementImmediately();",
+                     "EndSprint();","EndGuard();"):
+    self.assertNotIn(forbidden,entry)
+
+ def test_dpad_up_prioritizes_resident_and_falls_back_to_lock_on(self):
+  # A single controller action navigates overlays, cycles NPC choices,
+  # opens reachable NPC dialogue, or toggles combat lock when no NPC is near.
+  up=self.hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[0]
+  self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }",up)
+  self.assertIn("if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)) return;",up)
+  self.assertLess(up.index("if (bResidentContextOpen) {"),up.index("GetNearestResidentNPC()"))
+  self.assertIn("if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {",up)
+  fallback=up.split("if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {",1)[1].split("}",1)[0]
+  self.assertIn("ToggleLockOn();",fallback)
+  self.assertLess(fallback.index("ToggleLockOn();"),fallback.index("return;"))
+  self.assertLess(up.index("ToggleLockOn();"),up.index("bResidentContextOpen = true;"))
+  lock=self.hero.split("void AMoonfallHeroPawn::ToggleLockOn()",1)[1].split(
+      "\n}",1)[0]
+  for guard in ("Health <= 0.f","!FMath::IsFinite(Health)","bInventoryOpen",
+                "bAtlasOpen","bResidentContextOpen","FocusedResident.IsValid()"):
+   self.assertIn(guard,lock)
+  self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up',self.input)
+  self.assertIn('ActionName="LockOn",Key=Gamepad_DPad_Down',self.input)
+
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)

@@ -80,7 +80,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  B / Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    return;
@@ -715,9 +715,12 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
+   // Gamepad A is Jump/dialogue confirm, not a character-pane shortcut.
+   DrawText(PanelWidth < 500.f
+       ? TEXT("C/P | D-pad Left/R3: bag | B/Esc: back")
+       : TEXT("C/P | D-pad Left / R3: bag   B/I/Select/Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
-     nullptr, 0.8f);
+     nullptr, PanelWidth < 500.f ? 0.56f : 0.72f);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -1034,10 +1037,14 @@ void AMoonfallCombatHUD::DrawHUD()
       : FLinearColor(0.74f,0.82f,0.94f),
     Left + 18.f, Top + PanelHeight - 50.f, nullptr,
     PanelWidth < 550.f ? 0.56f : 0.74f);
-  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / Y: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
-     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  // Only one footer hint; don't overlap the gear advisor or draw stale A keys.
+  DrawText(PanelWidth < 500.f
+      ? TEXT("C/P | D-pad Right/R3: stats")
+      : TEXT("C/P | D-pad Right / R3: Character Stats   B/I/Select/Esc: close"),
+     FLinearColor(0.69f,0.91f,0.85f), Left + 18.f, Top + PanelHeight - 28.f,
+     nullptr, PanelWidth < 500.f ? 0.60f : 0.72f);
   return;
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
@@ -1345,6 +1352,14 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
   DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
+ }
+ // PB-style follow-up cue uses the actual timer by the existing resource orb,
+ // not a popup above the hero. No new animations or HUD panels.
+ const float CounterRemaining = Hero->GetParryCounterRemaining();
+ if (!bCompactScreen && CounterRemaining > 0.f) {
+  DrawText(FString::Printf(TEXT("PARRY COUNTER  %.1fs"), CounterRemaining),
+    FLinearColor(0.43f,0.86f,1.f),
+    CX + Radius + 14.f, CY - Radius * 0.55f, nullptr, 0.82f * LabelScale);
  }
  DrawText(FString::Printf(TEXT("%.0f / %.0f HP"), FMath::Max(0.f, Hero->Health), Hero->MaxHealth),
           bCriticalHealth ? FLinearColor(1.f, 0.95f, 0.95f) : FLinearColor::White,

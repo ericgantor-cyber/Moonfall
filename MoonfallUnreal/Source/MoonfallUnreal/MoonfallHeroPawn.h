@@ -331,6 +331,15 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Transient, read-only counter cue; not persisted in world saves.
+ float GetParryCounterRemaining() const;
+ // Transient camera lock: never touches saves or original hero art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Combat|LockOn") AMoonfallEnemy* GetLockedEnemy() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|LockOn") void ToggleLockOn();
+ void SwitchLockedTarget();
+ bool IsLockTargetValid(const AMoonfallEnemy* Enemy) const;
+ void AcquireLockTarget(int32 Direction);
+
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
@@ -384,6 +393,22 @@ private:
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ // A short press near cooldown completion is consumed once, never during
+ // dialogue, overlays or defeat. This is not persisted to checkpoint saves.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat",
+   meta=(ClampMin="0.0", ClampMax="0.18"))
+ float DodgeInputBufferSeconds = 0.12f;
+ float QueuedDodgeUntil = -1.f;
+ TWeakObjectPtr<AMoonfallEnemy> LockedEnemy;
+ float NextLockVisibilityCheckAt = 0.f;
+ // Transient LOS timer avoids lock flicker from brief obstructions.
+ float LockOccludedSince = -1.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat|LockOn", meta=(ClampMin="300.0", ClampMax="2500.0")) float LockRange = 1600.f;
+
+ // Snapshot the world-space intent at the press. A buffered dodge must not
+ // follow later stick movement or a target turn before cooldown finishes.
+ FVector QueuedDodgeDirection = FVector::ZeroVector;
+ bool bExecutingBufferedDodge = false;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
@@ -454,6 +479,9 @@ private:
  void OptionsDown();
  void OptionsLeft();
  void OptionsRight();
+ void GamepadBack();
+ void GamepadContextLeft();
+ void GamepadContextRight();
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
@@ -462,5 +490,5 @@ private:
  TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, float ManaCostMultiplier = 1.f);
 };
