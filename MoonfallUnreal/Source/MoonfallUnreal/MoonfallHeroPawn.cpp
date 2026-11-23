@@ -1125,7 +1125,25 @@ void AMoonfallHeroPawn::MeleeAttack()
      Hit, Start, End, FQuat::Identity, ECC_Visibility,
      FCollisionShape::MakeSphere(55.f), Params);
  AMoonfallEnemy* Enemy = bBlocked ? Cast<AMoonfallEnemy>(Hit.GetActor()) : nullptr;
- if (!IsValid(Enemy) || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+ const bool bLivingTarget = IsValid(Enemy) && FMath::IsFinite(Enemy->Health)
+     && Enemy->Health > 0.f;
+ // A committed melee attack should animate even on a miss or killing blow.
+ // Predict the next connected combo animation without granting a combo stage:
+ // only TakeMeleeDamage below may advance combat progress or posture.
+ const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+     ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+ const bool bNextSameTarget = bLivingTarget && LastHitComboTarget.Get() == Enemy
+     && FMath::IsFinite(LastSuccessfulHitAt) && Now >= LastSuccessfulHitAt
+     && Now - LastSuccessfulHitAt <= ComboWindow;
+ const int32 NextSwingStage = bNextSameTarget && HitComboStage >= 1
+     && HitComboStage < 12 ? HitComboStage + 1 : 1;
+ if (!bReduceMotion && GetMesh() && ComboMontages.IsValidIndex(NextSwingStage - 1)) {
+  if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
+   if (UAnimMontage* Montage = ComboMontages[NextSwingStage - 1].Get())
+    Anim->Montage_Play(Montage, 1.f);
+  }
+ }
+ if (!bLivingTarget) {
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
  }
@@ -1164,14 +1182,8 @@ void AMoonfallHeroPawn::MeleeAttack()
    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
    Enemy->RegisterComboMilestone(HitComboStage);
   }
-  // Reuse the authored combo animation slots when present. Missing assets
-  // still yield a valid hit, and reduced-motion players skip the montage.
-  if (Enemy->Health > 0.f && !bReduceMotion
-      && ComboMontages.IsValidIndex(HitComboStage - 1) && GetMesh()) {
-   if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
-    if (UAnimMontage* Montage = ComboMontages[HitComboStage - 1].Get())
-     Anim->Montage_Play(Montage, 1.f);
-  }
+  // The swing montage already played at attack commitment, even on a
+  // missed or lethal strike. Do not restart it upon damage resolution.
   OnSuccessfulHitCombo(HitComboStage, true);
  }
  OnMeleeSwing(CurrentSwordAngle, bConnected);
