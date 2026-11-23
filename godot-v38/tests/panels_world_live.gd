@@ -135,6 +135,21 @@ func _run()->void:
  check(not atlas.visible,"Separate map closes")
  check(is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),planned),"Closing overlays does not postpone enemy attacks")
 
+ # Raven Atlas should never open beneath another full-screen overlay.
+ var talents:Control=game.get("v398_panel") as Control
+ check(is_instance_valid(talents),"Talent overlay exists")
+ if is_instance_valid(talents):
+  game.call("_v398_toggle_tree")
+  check(talents.visible,"Talent overlay opens before Raven Atlas")
+  game.call("_toggle_menu")
+  check(menu.visible and not talents.visible,"Raven Atlas immediately closes talent overlay")
+  game.call("_toggle_menu")
+ game.call("_toggle_atlas")
+ check(atlas.visible,"Map reopens for menu-stacking check")
+ game.call("_toggle_menu")
+ check(menu.visible and not atlas.visible,"Raven Atlas immediately closes map overlay")
+ game.call("_toggle_menu")
+
  # The death screen is a genuine game-state transition, not an inventory pause.
  game.call("_toggle_menu")
  game.set("phoenix_used_this_expedition",true)
