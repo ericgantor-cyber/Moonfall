@@ -440,7 +440,12 @@ func _run()->void:
   check(float(profile["health_scale"])>=1.0 and float(profile["health_scale"])<=1.25 and float(profile["attack_scale"])>=1.0 and float(profile["attack_scale"])<=1.30 and float(profile["cooldown_scale"])>=0.85,"guardian health damage and cadence multipliers remain bounded")
  check(GUARDIAN_55.profile(-1).is_empty() and GUARDIAN_55.profile(55).is_empty(),"invalid guardian profiles are rejected")
  for species_id in range(4):
-  check(GUARDIAN_55.suitable_profiles(species_id).size()>=12,"every native species has enough unique profiles")
+  var suitable_profiles:Array[int]=GUARDIAN_55.suitable_profiles(species_id)
+  check(suitable_profiles.size()>=13 and suitable_profiles.size()<=14,"every native species has an evenly sized profile pool")
+  var covered_traits:Dictionary={}
+  for candidate_profile_id in suitable_profiles:
+   covered_traits[int(GUARDIAN_55.profile(candidate_profile_id)["trait"])]=true
+  check(covered_traits.size()==4,"every species can use all four distinct guardian attack traits")
  var final_guardian_relic:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
  check(final_guardian_relic.get("rarity")=="Legendary" and str(final_guardian_relic.get("name","")).contains("Sovereign"),"fifty-fifth guardian awards a real named legendary")
  check("func _atlas_roll_guardian_profiles()" in source and "used[choice]=true" in source,"thirty guardian profiles are randomized without repetition")
