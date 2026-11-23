@@ -59,7 +59,7 @@ class MovementKeyContracts(unittest.TestCase):
         script = read("godot-v38/scripts/native_v38_0.gd")
         self.assertIn("event.alt_pressed", script)
         self.assertIn("[KEY_1,KEY_2,KEY_3,KEY_4].find(event.keycode)", script)
-        self.assertNotRegex(script, r"KEY_(UP|DOWN|LEFT|RIGHT)\\b")
+        self.assertNotRegex(script, r"KEY_(UP|DOWN|LEFT|RIGHT)\b")
 
     def test_godot_wait_and_talent_controls_not_arrows(self):
         wait = read("godot-v38/scripts/native_v11.gd")
@@ -77,7 +77,7 @@ class MovementKeyContracts(unittest.TestCase):
     def test_unreal_creator_does_not_repurpose_movement(self):
         creator = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallCharacterCreationWidget.cpp")
         key_handler = creator.split("NativeOnKeyDown(", 1)[1]
-        self.assertNotRegex(key_handler, r"EKeys::(Up|Down|Left|Right)\\b")
+        self.assertNotRegex(key_handler, r"EKeys::(Up|Down|Left|Right)\b")
         self.assertIn("EKeys::Gamepad_DPad_Left", key_handler)
         self.assertIn("EKeys::PageUp", key_handler)
 
