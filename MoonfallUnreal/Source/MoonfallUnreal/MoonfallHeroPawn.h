@@ -4,6 +4,7 @@
 #include "MoonfallPersistentSave.h"
 #include "MoonfallOmniattack.h"
 #include "MoonfallCombatInputBuffer.h"
+#include "MoonfallFirstlightTutorial.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
@@ -31,6 +32,9 @@ public:
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
+ // Fresh-character, optional onboarding only; not persisted in world saves.
+ MoonfallFirstlightTutorial::FProgress FirstlightTutorial;
+ void RecordFirstlightAction(MoonfallFirstlightTutorial::EAction Action);
  // Cache the authored sanctuary world position once on load, not per HUD frame.
  void CacheStartingSanctuaryAnchor();
  bool bHasStartingSanctuaryAnchor = false;

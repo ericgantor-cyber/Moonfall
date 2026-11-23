@@ -278,6 +278,12 @@ void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {
  }
 }
 
+void AMoonfallHeroPawn::RecordFirstlightAction(
+ MoonfallFirstlightTutorial::EAction Action) {
+ if (bStartingSanctuaryPlaced && IsNearStartingSanctuary())
+  FirstlightTutorial.Mark(Action);
+}
+
 bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
  if (!bHasStartingSanctuaryAnchor || GetActorLocation().ContainsNaN()) return false;
  return FVector::DistSquared2D(GetActorLocation(), StartingSanctuaryAnchor)
@@ -1128,6 +1134,7 @@ void AMoonfallHeroPawn::ToggleSpellBook()
  if (bSpellBookOpen) {
   bCharacterStatsOpen = false;
   SpellBookSelection = FMath::Clamp(SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
+  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::OpenSpellbook);
  }
  bInventoryScrollbarDragging = false;
 }
@@ -1252,6 +1259,8 @@ void AMoonfallHeroPawn::MeleeAttack()
  SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
  NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
  Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
+ // Count a committed melee action, never a menu click or cooldown spam.
+ RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SwingSword);
  StaminaRegenStartsAt = FMath::Max(
      FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : 0.f,
      Now + 0.35f);
@@ -1459,6 +1468,7 @@ void AMoonfallHeroPawn::Dodge()
  const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
      : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
+ RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -2878,6 +2888,9 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
   return false;
  }
+ // Count only a persisted Firstlight discovery, never a failed checkpoint.
+ if (Shrine->ShrineId == FName(TEXT("sanctuary_firstlight")))
+  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::DiscoverShrine);
  // Shrine discovery saved the world already; restart the autosave interval.
  SecondsSinceLastWorldSave = 0.f;
  // Discovery is rare, so update visual statuses only after a saved change.
@@ -3794,6 +3807,8 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  ResidentContextSelection = 0;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+ if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
 }
 void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
@@ -3844,6 +3859,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
     ResidentContextSelection = 0;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+    if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+     RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
    } else {
     OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to interact.")), false);
    }

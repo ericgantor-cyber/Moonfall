@@ -1325,6 +1325,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
+ const bool bFirstlightLessons = bSanctuaryObjective && Hero->bStartingSanctuaryPlaced
+   && !Hero->FirstlightTutorial.Finished();
  const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
@@ -1390,6 +1392,24 @@ void AMoonfallCombatHUD::DrawHUD()
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
+  if (bFirstlightLessons) {
+   // Optional five-step learning, earned by real player actions in any order.
+   using EAction = MoonfallFirstlightTutorial::EAction;
+   switch (Hero->FirstlightTutorial.Next()) {
+    case EAction::DiscoverShrine:
+     Objective = TEXT("Approach the Firstlight Shrine"); break;
+    case EAction::SpeakToGuide:
+     Objective = TEXT("Talk to the Guide (right-click / D-pad Up)"); break;
+    case EAction::SwingSword:
+     Objective = TEXT("Try your sword (left-click / RT)"); break;
+    case EAction::PerformDodge:
+     Objective = TEXT("Dodge near the northern practice sentries"); break;
+    case EAction::OpenSpellbook:
+     Objective = TEXT("Open your Spell Book (P)"); break;
+    default: break;
+   }
+   Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");
+  }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
   const float Top = 78.f;
@@ -1416,10 +1436,15 @@ void AMoonfallCombatHUD::DrawHUD()
     Left + 14.f, Top + 92.f, TrackWidth, 5.f);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
     Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
-  DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
+  if (bFirstlightLessons)
+   DrawText(FString::Printf(TEXT("FIRST STEPS %u/5  |  OPTIONAL"), Hero->FirstlightTutorial.Count()),
+     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+  else
+   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
-    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
