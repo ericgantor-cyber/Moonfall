@@ -2422,8 +2422,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
- if melee_tell_until>0.0 and (not engaged or staggered):
-  # Losing sight or being staggered cancels the promised ordinary strike.
+ if melee_tell_until>0.0 and (not engaged or staggered or map_time<react_until):
+  # Losing sight, stagger or an active hit-recoil animation cancels the tell.
+  # A recoil must not conceal the strike's entire readable warning period.
   # Do not postpone guaranteed damage behind a wall or into a new encounter.
   beast["melee_windup_until"]=0.0
   melee_tell_until=0.0
