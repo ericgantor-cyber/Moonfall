@@ -81,6 +81,30 @@ class UnrealTalentParityTests(unittest.TestCase):
         self.assertIn("Save->Version >= 13 ? Save->TalentRanks : TArray<int32>{}", cpp)
         self.assertIn("bPersistentSaveWritesBlocked = true;", cpp)
 
+    def test_offensive_arcana_bonuses_reach_real_spell_damage(self) -> None:
+        cpp = HERO_CPP.read_text(encoding="utf-8")
+        cast = cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        hostile_start = cast.index("if (School != 3) {")
+        talent_read = cast.index('GetTalentBonus(FName(TEXT("magic_damage")), true)')
+        damage_formula = cast.index("* MightMultiplier * TalentMagicMultiplier;")
+        hit = cast.index("Enemy->TakeSpellDamage(SpellDamage);")
+        healing = cast.index("if (School == 3) {")
+        self.assertLess(hostile_start, talent_read)
+        self.assertLess(talent_read, damage_formula)
+        self.assertLess(damage_formula, hit)
+        self.assertLess(hit, healing)
+        self.assertIn("FMath::Clamp(\n      GetTalentBonus(", cast)
+        self.assertIn("const float TalentMagicMultiplier = 1.f + TalentMagicBonus;", cast)
+        # The safety ceiling is above the highest legitimate Godot allocation.
+        godot = json.loads(SOURCE.read_text(encoding="utf-8"))
+        max_bonus = sum(
+            node["max_rank"] * node["effect"]["amount_per_rank"]
+            for node in godot["nodes"]
+            if node["effect"]["stat"] == "magic_damage"
+        )
+        self.assertLess(max_bonus, 1.0)
+
     def test_portable_cplusplus_rules(self) -> None:
         compiler = shutil.which("g++") or shutil.which("clang++")
         self.assertIsNotNone(compiler, "A C++17 compiler is required for talent parity checks")
