@@ -753,9 +753,13 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(bEquipped ? FLinearColor(0.28f, 0.55f, 0.46f, 0.96f)
                      : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
        X, StripY, SlotWidth - 3.f, 22.f);
-   const FString Label = Slot == 0 ? TEXT("W") : FString::Printf(TEXT("S%d"), Slot);
+   // A weapon name, not "W": W is reserved exclusively for walking forward.
+   const FString Label = Slot == 0
+       ? (PanelWidth < 550.f ? TEXT("SWD") : TEXT("SWORD"))
+       : FString::Printf(TEXT("S%d"), Slot);
    DrawText(Label, bEquipped ? FLinearColor::White : FLinearColor(0.77f, 0.83f, 0.98f),
-       X + 7.f, StripY + 3.f, nullptr, 0.68f);
+       X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
+       Slot == 0 ? 0.55f : 0.68f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
