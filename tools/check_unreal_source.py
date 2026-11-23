@@ -2065,6 +2065,50 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen", back)
         self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
 
+    def test_actual_hp_damage_flashes_red_over_every_menu_without_pause(self):
+        import re
+        self.assertIn("float MenuDamageFlashUntil = -1.f;", self.hero_h)
+        self.assertIn('UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat")', self.hero_h)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        hit = damage.split("const float DamageTaken = PreviousHealth - Health;", 1)[1].split(
+            "if (Health <= 0.f)", 1)[0]
+        self.assertIn("if (DamageTaken > 0.f) {", hit)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen", hit)
+        self.assertIn("|| bResidentContextOpen", hit)
+        self.assertIn("MenuDamageFlashUntil = Now + 0.28f;", hit)
+        self.assertLess(hit.index("if (DamageTaken > 0.f) {"), hit.index("MenuDamageFlashUntil = Now + 0.28f;"))
+        self.assertNotIn("SetGamePaused(", hit)
+        flash = self.hud.split("void AMoonfallCombatHUD::DrawMenuDamageFlash(", 1)[1].split(
+            "void AMoonfallCombatHUD::DrawHUD()", 1)[0]
+        self.assertIn("if (!Canvas || !IsValid(Hero) || !GetWorld()) return;", flash)
+        self.assertIn("!FMath::IsFinite(Now) || !FMath::IsFinite(Until) || Until <= Now", flash)
+        self.assertIn("FMath::Clamp((Until - Now) / 0.28f, 0.f, 1.f)", flash)
+        self.assertIn("Hero->bReduceMotion ? 0.09f : 0.22f", flash)
+        self.assertIn("0.f, 0.f, Canvas->SizeX, Canvas->SizeY", flash)
+        self.assertNotIn("SetPause(", flash)
+        self.assertIn("void DrawMenuDamageFlash(const AMoonfallHeroPawn* Hero);", (
+            ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
+        # Overlay must draw after the menu contents, including tiny-viewport
+        # fallbacks, rather than be hidden by the opaque menu backgrounds.
+        menu_sections = (
+            ("talent", "if (Hero->bTalentWebOpen) {", "// Native Canvas resident menu.", 2),
+            ("resident", "// Native Canvas resident menu.", "if (Hero->bAtlasOpen) {", 1),
+            ("atlas", "if (Hero->bAtlasOpen) {", "if (Hero->bOptionsOpen) {", 2),
+            ("options", "if (Hero->bOptionsOpen) {", "if (Hero->bInventoryOpen) {", 1),
+            ("inventory/stats", "if (Hero->bInventoryOpen) {",
+             "// Reuse a single world scan for boss/posture HUD", 2),
+        )
+        for label, start, end, expected in menu_sections:
+            with self.subTest(menu=label):
+                section = self.hud.split(start, 1)[1].split(end, 1)[0]
+                calls = re.findall(
+                    r"(?m)^ {2,3}DrawMenuDamageFlash\(Hero\);\n {2,3}return;$",
+                    section)
+                self.assertEqual(len(calls), expected)
+        self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
+        self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', self.hud)
+
     def test_live_inventory_and_character_sheet_show_bounded_resources(self):
         # The normal red/blue/purple combat orb is drawn after the inventory
         # return, so the docked panels must expose current combat resources.
