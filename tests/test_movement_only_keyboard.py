@@ -98,9 +98,37 @@ class MovementKeyContracts(unittest.TestCase):
         game = read("Moonfall3D/scripts/game.gd")
         self.assertIn("func _is_movement_key(key: int)", game)
         self.assertIn("_is_movement_key(key) and except_action not in", game)
-        self.assertIn("and _is_movement_key(int(parsed[action]))", game)
+        self.assertIn("and _is_movement_key(key):", game)
+        self.assertIn('PgUp/PgDn: select | Enter: remap | Esc: cancel', game)
+        self.assertNotIn('Up/Down: select | Enter: remap | Esc: cancel', game)
+        keys = game.split("if binds_open:", 1)[1].split("if not started or dead:", 1)[0]
+        self.assertIn("KEY_PAGEUP", keys)
+        self.assertIn("KEY_PAGEDOWN", keys)
+        self.assertNotIn("KEY_UP", keys)
+        self.assertNotIn("KEY_DOWN", keys)
         for key in ("W", "A", "S", "D", "UP", "DOWN", "LEFT", "RIGHT"):
             self.assertIn(f"Input.is_key_pressed(KEY_{key})", game)
+
+    def test_godot3d_loaded_keybinds_reject_duplicates_and_malformed_profiles(self):
+        game = read("Moonfall3D/scripts/game.gd")
+        load = game.split("func _load_bindings() -> void:", 1)[1].split(
+            "func _next_target()", 1)[0]
+        restore = load.split("func _restore_saved_bindings(parsed: Dictionary) -> void:", 1)[1]
+        self.assertIn("_restore_saved_bindings(parsed)", load)
+        self.assertIn("var repaired: Dictionary = bindings.duplicate()", restore)
+        self.assertIn("TYPE_INT", restore)
+        self.assertIn("TYPE_FLOAT", restore)
+        self.assertIn("is_finite(number)", restore)
+        self.assertIn("number != floorf(number)", restore)
+        self.assertIn("key == KEY_F10 or key == KEY_ESCAPE", restore)
+        self.assertIn("if other != action and int(repaired[other]) == key:", restore)
+        self.assertIn("if collision:", restore)
+        self.assertIn("bindings = repaired", restore)
+        smoke = read("Moonfall3D/tests/smoke_test.gd")
+        self.assertIn("game._restore_saved_bindings({", smoke)
+        self.assertIn("game.bindings != original_keys", smoke)
+        self.assertIn('game._restore_saved_bindings({"jump": KEY_K, "dodge": KEY_L})', smoke)
+        self.assertIn("game.bindings = original_keys", smoke)
 
 
 if __name__ == "__main__":
