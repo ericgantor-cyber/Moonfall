@@ -2234,6 +2234,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             block = self.hero_cpp.split(
                 f"void AMoonfallHeroPawn::{function}()", 1)[1].split("\n}", 1)[0]
             self.assertIn("QueuedDodgeUntil = -1.f;", block, function)
+            self.assertIn("QueuedDodgeDirection = FVector::ZeroVector;", block, function)
 
     def test_pb_buffered_dodge_locks_direction_and_rejects_invalid_launch(self):
         self.assertIn("FVector QueuedDodgeDirection = FVector::ZeroVector;", self.hero_h)
@@ -2256,6 +2257,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
         self.assertLess(dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"),
                         dodge.index("LaunchCharacter(Direction *"))
+        self.assertLess(dodge.index("LaunchCharacter(Direction *"),
+                        dodge.index("QueuedDodgeDirection = FVector::ZeroVector;"))
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "// Throttled automatic pickup", 1)[0]
         self.assertIn("bExecutingBufferedDodge = true;\n   Dodge();\n   bExecutingBufferedDodge = false;", tick)
