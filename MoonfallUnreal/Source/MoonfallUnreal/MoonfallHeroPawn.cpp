@@ -915,10 +915,19 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
+  // Port the Godot Arcana constellation into actual hostile spell damage.
+  // The canonical 141-node tree tops out at 89.4% magic damage; a 100%
+  // safety ceiling does not alter any legitimate build. Invalid ledgers
+  // yield zero bonus, never extra damage or free resource consumption.
+  // Healing (school 3) is outside this offensive branch.
+  const float TalentMagicBonus = FMath::Clamp(
+      GetTalentBonus(FName(TEXT("magic_damage")), true), 0.f, 1.f);
+  const float TalentMagicMultiplier = 1.f + TalentMagicBonus;
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f)
+    * MightMultiplier * TalentMagicMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
