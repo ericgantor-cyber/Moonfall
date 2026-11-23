@@ -31,7 +31,7 @@ inline Layout ForViewport(double width,double height,int firstTier) {
  p.VisibleTiers=p.Panel.W<700.0 ? 3 : p.Panel.W<890.0 ? 4 : 5;
  p.FirstTier=std::clamp(firstTier,1,MaxTier-p.VisibleTiers+1);
  p.TileWidth=(p.Panel.W-44.0-12.0*p.VisibleTiers)/p.VisibleTiers;
- p.TileHeight=std::min(70.0,(p.Panel.H-200.0-24.0)/4.0);
+ p.TileHeight=std::min(70.0,(p.Panel.H-270.0)/4.0);
  p.Valid=p.TileWidth>=100.0 && p.TileHeight>=36.0;
  return p;
 }
