@@ -162,6 +162,8 @@ int main() {
         right_mouse = hero.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split(
             "\n}", 1)[0]
         self.assertLess(left_mouse.index("HandleSpellBookPointer() || bSpellBookOpen"),
+                        left_mouse.index("HitTestInventoryCloseButton()"))
+        self.assertLess(left_mouse.index("HandleSpellBookPointer() || bSpellBookOpen"),
                         left_mouse.index("HitTestInventorySortButton()"))
         self.assertLess(right_mouse.index("HandleSpellBookPointer() || bSpellBookOpen"),
                         right_mouse.index("HitTestInventorySortButton()"))
@@ -176,6 +178,8 @@ int main() {
             self.assertIn("if (bInventoryOpen && bSpellBookOpen)", fn)
             self.assertIn(expected, fn)
         self.assertIn("if (bSpellBookOpen) { bSpellBookOpen = false; return; }", hero)
+        self.assertIn("if (HandleSpellBookPointer() || bSpellBookOpen) return;", left_mouse)
+        self.assertIn("if (HandleSpellBookPointer() || bSpellBookOpen) return;", right_mouse)
 
     def test_book_is_drawn_using_shared_geometry_with_actual_spell_details(self):
         book = (SRC / "MoonfallSpellBook.h").read_text()
