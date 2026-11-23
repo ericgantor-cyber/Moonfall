@@ -379,7 +379,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
- if (bAutoLootEnabled && !bTalentWebOpen && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
@@ -429,7 +429,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -492,7 +492,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -512,7 +512,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const bool bSprinting = bCanSprint && !bSprintExhausted;
  // Invalid Blueprint resource tuning cannot leave the hero guarding forever.
  // BreakGuard also restores movement speed and clears the counterattack window.
- if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
      && (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
          || MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)
          || GuardStaminaCost < 0.f)) {
@@ -520,7 +520,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  // Sustained guarding is a deliberate defensive commitment. Drain only on
  // playable frames and never allow invalid Blueprint values to corrupt stamina.
- if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f && GetWorld()
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f) {
   const float GuardDrain = FMath::IsFinite(GuardStaminaDrainPerSecond)
@@ -542,7 +542,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    GetCharacterMovement()->MaxWalkSpeed = FMath::FInterpTo(
        FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, NormalWalkSpeed, TargetSpeed),
        TargetSpeed, StaminaDelta, FMath::Clamp(SprintAccelerationRate, 1.f, 20.f));
-  } else if (bGuarding && !bOptionsOpen && !bTalentWebOpen && Health > 0.f) {
+  } else if (bGuarding && !bOptionsOpen && Health > 0.f) {
    // Guarding is deliberate, not a full-speed retreat. Invalid tuning uses
    // normal speed instead of passing nonfinite values to CharacterMovement.
    const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
@@ -837,7 +837,11 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
- if (bTalentWebOpen) return;
+ // A buys talents on the controller; keyboard Space still jumps in the live world.
+ if (bTalentWebOpen) {
+  const APlayerController* PC = Cast<APlayerController>(Controller);
+  if (!PC || !PC->IsInputKeyDown(EKeys::SpaceBar)) return;
+ }
  // A or Space cannot leak into Jump while dialogue is still open.
  if (bResidentContextOpen) {
   if (!FocusedResident.IsValid()) {
@@ -855,7 +859,6 @@ void AMoonfallHeroPawn::TryJump()
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
- if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -865,7 +868,6 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
- if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -914,7 +916,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -1078,7 +1080,6 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
- if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
@@ -1115,7 +1116,6 @@ void AMoonfallHeroPawn::EndGuard()
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
- if (bTalentWebOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1146,7 +1146,6 @@ void AMoonfallHeroPawn::GamepadBack()
 void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
- if (bTalentWebOpen) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -1223,11 +1222,8 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- // Skyrim-style safety for the 141-node constellation: enemy AI already
- // pauses on this modal, and any hit queued immediately before it opened
- // must not drain HP/stamina or trigger a parry/defeat while controls are locked.
- // Do not globally pause the engine: the talent UI must still accept input.
- if (bTalentWebOpen) return;
+ // The constellation is informational: enemy hits, blocks, parries and
+ // death resolve through the same authoritative combat pipeline.
  // Reject invalid hero vitals and damage before guard math or HUD updates.
  if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
      || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
@@ -1327,6 +1323,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  // Fatal damage immediately dismisses the informational overlay.
+  if (bTalentWebOpen) ToggleTalentWeb();
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
@@ -1700,7 +1698,14 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
- if (bTalentWebOpen) { TalentWebStepSelection(-1); return; }
+ if (bTalentWebOpen) {
+  // WASD remains player movement; arrow keys and D-pad browse talents.
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::W) && !PC->IsInputKeyDown(EKeys::Up)) return;
+  }
+  TalentWebStepSelection(-1);
+  return;
+ }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
@@ -1729,7 +1734,14 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
- if (bTalentWebOpen) { TalentWebStepSelection(1); return; }
+ if (bTalentWebOpen) {
+  // WASD remains player movement; arrow keys and D-pad browse talents.
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::S) && !PC->IsInputKeyDown(EKeys::Down) && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Down)) return;
+  }
+  TalentWebStepSelection(1);
+  return;
+ }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
@@ -1758,7 +1770,14 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bTalentWebOpen) { TalentWebStepBranch(-1); return; }
+ if (bTalentWebOpen) {
+  // WASD remains player movement; arrow keys and D-pad browse talents.
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::A) && !PC->IsInputKeyDown(EKeys::Left) && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Left)) return;
+  }
+  TalentWebStepBranch(-1);
+  return;
+ }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1768,7 +1787,14 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bTalentWebOpen) { TalentWebStepBranch(1); return; }
+ if (bTalentWebOpen) {
+  // WASD remains player movement; arrow keys and D-pad browse talents.
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::D) && !PC->IsInputKeyDown(EKeys::Right) && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Right)) return;
+  }
+  TalentWebStepBranch(1);
+  return;
+ }
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -1890,7 +1916,7 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
  // Kills during menus must still resolve the enemy death animation, but must
  // not start or queue hidden finisher choreography.
- if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
+ if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
   if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
   return ChainStep;
  }
@@ -1952,7 +1978,7 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
  const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {
   // Resolve skipped presentations so defeated enemies never remain frozen
   // when the hero is defeated or gameplay menus interrupt choreography.
   for (const FPendingFinisher& Pending : PendingFinishers) {
@@ -1966,13 +1992,13 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  if (bMissingFinisherVisuals) return;
  // Start the oldest queued execution after the previous effect completes.
  // Presentation (including montage and Blueprint notification) occurs on start.
- if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bTalentWebOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration && PendingFinishers.Num() > 0) {
   const FPendingFinisher Pending = PendingFinishers[0];
   PendingFinishers.RemoveAt(0);
   StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
   Age = 0.f;
  }
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || Age < 0.f || Age >= Duration) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {
   FinisherSlashA->SetHiddenInGame(true);
   FinisherSlashB->SetHiddenInGame(true);
   FinisherFlash->SetVisibility(false);
@@ -2038,14 +2064,8 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
      || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
      || (bInventoryOpen && !bCharacterStatsOpen)) return;
  if (bInventoryOpen) ToggleInventory(); // Character sheet to constellation.
- StopJumping();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
- EndSprint();
- EndGuard();
- // Modal entry interrupts player combo momentum, not just hostile windups.
- HitComboStage = 0;
- LastHitComboTarget.Reset();
- LastSuccessfulHitAt = -100.f;
+ // Informational overlay: never cancel movement, sprint, guard or a live combo.
+ // Combo expiration and stamina costs remain governed by world time.
  bTalentWebOpen = true;
  bTalentRespecConfirm = false;
  TalentRespecConfirmUntil = 0.f;
@@ -2536,7 +2556,6 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  // Preserve the same authoritative world-loot modal/health checks.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
- if (bTalentWebOpen) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
@@ -3589,7 +3608,6 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
  if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
- if (bTalentWebOpen) return false; // Modal cannot activate racial abilities.
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
  // Preserve state so a failed disk save never consumes a one-time power.
