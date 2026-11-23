@@ -109,11 +109,11 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
  // Optional lore is readable in the world, never a forced blocking tutorial.
  struct FStoryPlaque { const TCHAR* Id; const TCHAR* Caption; FVector At; };
  const FStoryPlaque Plaques[] = {
-  {TEXT("FirstlightOath"), TEXT("THE FIRSTLIGHT OATH\\nTHE SIX ROADS HOLD DIFFERENT TRUTHS"),
+  {TEXT("FirstlightOath"), TEXT("THE FIRSTLIGHT OATH\nTHE SIX ROADS HOLD DIFFERENT TRUTHS"),
       FVector(560.f, 3850.f, 180.f)},
-  {TEXT("FirstlightWarden"), TEXT("A BROKEN GATE, AN OPEN ROAD\\nFOLLOW THE SOUTHERN PASS"),
+  {TEXT("FirstlightWarden"), TEXT("A BROKEN GATE, AN OPEN ROAD\nFOLLOW THE SOUTHERN PASS"),
       FVector(-560.f, 2940.f, 165.f)},
-  {TEXT("FirstlightMoon"), TEXT("THE MOON IS SHATTERED\\nLET THE WITNESSES SPEAK"),
+  {TEXT("FirstlightMoon"), TEXT("THE MOON IS SHATTERED\nLET THE WITNESSES SPEAK"),
       FVector(570.f, 4430.f, 165.f)}
  };
  for (const FStoryPlaque& Plaque : Plaques) {

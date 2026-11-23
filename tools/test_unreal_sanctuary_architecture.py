@@ -65,7 +65,7 @@ int main() {
                         method.index("Details->RegisterComponent();"))
         self.assertIn("if (!bEnableStartingSanctuary || !bEnableSanctuaryAtmosphere",method)
         self.assertIn("FVector(-760.f, 4160.f, 310.f)",method)
-        self.assertEqual(method.count("FVector("),4+3)  # 4 lanterns and 3 lore plaques
+        self.assertEqual(method.count("FVector("),1+4+3)  # 1 instance transform, 4 lanterns, 3 plaques
         self.assertNotIn("TActorIterator",method)
         self.assertNotIn("LineTrace",method)
         self.assertNotIn("SetTimer",method)
