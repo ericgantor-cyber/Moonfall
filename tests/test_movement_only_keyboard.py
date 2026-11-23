@@ -63,10 +63,15 @@ class MovementKeyContracts(unittest.TestCase):
         self.assertNotIn("event.alt_pressed", key_handler)
         self.assertNotRegex(script, r"KEY_(UP|DOWN|LEFT|RIGHT)\b")
         attack = script.split("func _attack()->void:", 1)[1].split("func _spell(", 1)[0]
-        self.assertIn("_v394_next_auto_angle(v394_strike_direction,randi_range(1,3))", attack)
+        self.assertIn("v394_strike_direction=_v394_next_auto_angle()", attack)
         self.assertIn("if attack_cooldown<=0.0 and not mounted:", attack)
         self.assertIn("super._attack()", attack)
-        self.assertIn("posmod(posmod(previous,4)+clampi(step,1,3),4)", script)
+        self.assertIn("v394_omni_deck=[0,1,2,3]", script)
+        self.assertIn("v394_omni_deck.shuffle()", script)
+        self.assertIn("if v394_omni_deck[0]==v394_omni_last:", script)
+        self.assertIn("v394_omni_deck.pop_front()", script)
+        self.assertIn("func _v394_reset_omniattack()->void:", script)
+        self.assertIn('v380_status_text.text+="\\nOMNIATTACK  "', script)
         self.assertNotIn("KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4", script)
 
     def test_godot_wait_and_talent_controls_not_arrows(self):
