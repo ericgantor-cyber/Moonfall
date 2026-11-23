@@ -1013,6 +1013,12 @@ void AMoonfallHeroPawn::CastBoth()
 // shoulder spell shortcuts continue working regardless of this selection.
 void AMoonfallHeroPawn::RightHandAction()
 {
+ // RT and primary-action input must not dispatch either attack path while
+ // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
+ // even though TryCast/MeleeAttack also enforce their own safety checks.
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid()) return;
  if (bRightHandSpellReadied) CastRight();
  else MeleeAttack();
 }

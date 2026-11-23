@@ -131,6 +131,20 @@ int main() {
         self.assertIn("OnRightHandLoadoutChanged", header)
         self.assertNotIn("TryCast(", action)
 
+    def test_primary_attack_dispatch_blocks_modals_for_controller_and_mouse(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        action = hero.split("void AMoonfallHeroPawn::RightHandAction()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReadyRightHandSpell", 1)[0]
+        for guard in ("!GetWorld()", "Health <= 0.f", "!FMath::IsFinite(Health)",
+                      "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                      "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(guard, action)
+        self.assertLess(action.index("FocusedResident.IsValid()"),
+                        action.index("if (bRightHandSpellReadied) CastRight();"))
+        self.assertIn("else MeleeAttack();", action)
+        self.assertIn('Input->BindAction(TEXT("RightHandAction"), IE_Pressed', hero)
+        self.assertIn("if (!bResidentContextOpen) { RightHandAction(); return; }", hero)
+
     def test_favorites_only_equip_inside_inventory(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         header = (SRC / "MoonfallHeroPawn.h").read_text()
