@@ -800,7 +800,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (bInventoryOpen)", left)
-        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", left)
+        self.assertIn("if (HitIndex != INDEX_NONE) {\n   InventorySelection = HitIndex;\n   return;\n  }", left)
         self.assertNotIn("EquipInventoryItem(", left)
         self.assertIn("if (bInventoryOpen)", right)
         self.assertIn("InventorySelection = HitIndex;", right)
@@ -812,6 +812,46 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Right click: equip", self.hud)
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
+
+    def test_inventory_mouse_world_combat_only_outside_docked_ui(self):
+        helper = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::IsPointerOutsideInventoryPanel() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool IsPointerOutsideInventoryPanel() const;", self.hero_h)
+        for gate in ("!bInventoryOpen", "bOptionsOpen", "bAtlasOpen", "bResidentContextOpen",
+                     "!PC || !PC->bShowMouseCursor", "PC->GetViewportSize(Width, Height)",
+                     "!PC->GetMousePosition(MouseX, MouseY)", "!FMath::IsFinite(MouseX)",
+                     "!FMath::IsFinite(MouseY)", "MouseX >= float(Width)",
+                     "MouseY >= float(Height)"):
+            self.assertIn(gate, helper)
+        self.assertIn("FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)", helper)
+        self.assertIn("float(Width) - PanelWidth - 12.f", helper)
+        self.assertIn("MouseX < Left || MouseX > Left + PanelWidth", helper)
+        self.assertIn("MouseY < Top || MouseY > Top + PanelHeight", helper)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool bInventoryPointerCast = false", self.hero_h)
+        self.assertIn("(bInventoryOpen && !bInventoryPointerCast)", cast)
+        self.assertIn("PC->DeprojectMousePositionToWorld(Origin, AimDirection)", cast)
+        self.assertIn("Origin.ContainsNaN() || AimDirection.ContainsNaN()", cast)
+        for name, spell in (("CastRightMouse", "RightSpell, 1"),
+                            ("ResidentContextMouseClick", "LeftSpell, 0")):
+            method = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
+            inventory = method.split("if (bInventoryOpen) {", 1)[1].split("\n }", 1)[0]
+            self.assertIn("if (HitIndex != INDEX_NONE) {", inventory)
+            self.assertIn("InventorySelection = HitIndex;", inventory)
+            self.assertIn("return;", inventory)
+            self.assertIn("!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel()", inventory)
+            self.assertIn(f"TryCast({spell}, 1.f, true);", inventory)
+            self.assertLess(inventory.index("InventorySelection = HitIndex;"),
+                            inventory.index("IsPointerOutsideInventoryPanel()"))
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (HitTestInventoryCloseButton())", left)
+        self.assertLess(left.index("HitTestInventoryCloseButton()"), left.index("IsPointerOutsideInventoryPanel()"))
+        self.assertLess(right.index("HitTestInventorySortButton()"), right.index("IsPointerOutsideInventoryPanel()"))
+        self.assertLess(right.index("HitTestInventoryEquipButton()"), right.index("IsPointerOutsideInventoryPanel()"))
+        self.assertIn("TryCast(LeftSpell, 0, 1.f);", self.hero_cpp)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", self.hero_cpp)
+        self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
 
     def test_controller_inventory_dpad_selects_without_confirm_equip(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
