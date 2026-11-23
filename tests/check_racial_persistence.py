@@ -24,7 +24,8 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn('ActionName="RacePower",Key=T', self.input)
         self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
-        self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)
+        self.assertIn("void TriggerRacePower() { if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower(); }", self.header)
+        self.assertIn("bool ActivateRacePower();", self.header)
 
     def test_race_is_chosen_before_passive_or_active_bonuses(self):
         self.assertIn("if (bRaceChosen || NewRaceId < 0 || NewRaceId > 11", self.cpp)
