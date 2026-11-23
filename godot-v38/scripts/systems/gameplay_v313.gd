@@ -19,7 +19,10 @@ static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_
 static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int)->int:
  if phase<=1:return 0
  if hero_max>0.0 and hero_health/hero_max<0.35:return 0 # a dodgeable single-target strike, never unavoidable damage
- return (previous+1)%mini(phase,3)
+ # Parent combat treats boss_pattern as the NEXT attack and increments it
+ # after committing a tell. Do not advance twice or lose phase-three attacks.
+ # Match the parent's min(4, phase+1) existing pattern catalog.
+ return posmod(previous,mini(4,clampi(phase,1,3)+1))
 
 static func surge_zone(elapsed:float,zones:int)->int:
  if zones<=0 or elapsed<0.0:return -1
