@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
+#include "MoonfallSpellBook.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -656,7 +657,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Left = Canvas->SizeX - PanelWidth - 12.f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
-  DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
+  DrawText(Hero->bSpellBookOpen ? TEXT("MOONFALL  |  SPELL BOOK")
+    : (PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY")),
     FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
   // Shared close button is visible on inventory and character views.
   const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
@@ -718,6 +720,72 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   return;
+  }
+  // A real spell book page, using exactly the same hit geometry as the pawn.
+  // This tab also appears on the bag; controller Y opens it without a new key.
+  const auto Book = MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY);
+  DrawRect(Hero->bSpellBookOpen ? FLinearColor(0.28f,0.39f,0.35f,0.95f)
+      : FLinearColor(0.24f,0.20f,0.37f,0.95f),
+      Book.TabX, Book.TabY, Book.TabWidth, Book.TabHeight);
+  DrawText(Hero->bSpellBookOpen ? TEXT("BACK TO BAG") : TEXT("SPELL BOOK"),
+      FLinearColor::White, Book.TabX+9.f, Book.TabY+5.f, nullptr, 0.75f);
+  if (Hero->bSpellBookOpen) {
+   const int32 SelectedSpell = FMath::Clamp(Hero->SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
+   DrawText(TEXT("SIX KNOWN SPELLS  |  SELECT, THEN EQUIP"), FLinearColor(0.76f,0.84f,0.97f),
+       Left+18.f, Top+50.f, nullptr, PanelWidth < 550.f ? 0.58f : 0.78f);
+   for (int32 School=0; School<MoonfallSpellBook::SpellCount; ++School) {
+    const auto& Entry = MoonfallSpellBook::Spells[School];
+    const float Y = Book.RowY + School*Book.RowGap;
+    const bool bSelected = SelectedSpell == School;
+    const bool bLeft = Hero->LeftSpell == School;
+    const bool bRight = Hero->bRightHandSpellReadied && Hero->RightSpell == School;
+    DrawRect(bSelected ? FLinearColor(0.31f,0.30f,0.48f,0.95f)
+      : FLinearColor(0.10f,0.12f,0.21f,0.90f),
+      Book.RowX, Y, Book.RowWidth, Book.RowHeight);
+    const FString Name(ANSI_TO_TCHAR(Entry.Name));
+    DrawText(FString::Printf(TEXT("%d. %s"), School+1, *Name),
+        bSelected ? FLinearColor::White : FLinearColor(0.83f,0.87f,0.98f),
+        Book.RowX+7.f, Y+1.f, nullptr, PanelWidth < 550.f ? 0.66f : 0.86f);
+    // Equipped hand tags never imply a spell is currently being cast.
+    if (PanelWidth >= 425.f) {
+     DrawText(FString::Printf(TEXT("%.0f mana  %.2fs  %s%s"),
+       Entry.ManaCost, Entry.Cooldown,
+       bLeft ? TEXT("[L]") : TEXT(""),
+       bRight ? TEXT("[R]") : TEXT("")),
+       FLinearColor(0.65f,0.86f,0.93f),
+       Book.RowX+Book.RowWidth-215.f, Y+2.f, nullptr, 0.65f);
+    } else if (bLeft || bRight) {
+     DrawText(bLeft && bRight ? TEXT("L/R") : bLeft ? TEXT("L") : TEXT("R"),
+       FLinearColor(0.65f,0.94f,0.73f), Book.RowX+Book.RowWidth-28.f, Y+1.f,
+       nullptr, 0.62f);
+    }
+   }
+   const auto& Selected = MoonfallSpellBook::Spells[SelectedSpell];
+   if (Book.DetailsY+64.f < Book.EquipY) {
+    DrawText(FString::Printf(TEXT("%s  |  %.0f MANA  |  %.2fs BASE COOLDOWN"),
+          ANSI_TO_TCHAR(Selected.School), Selected.ManaCost, Selected.Cooldown),
+       FLinearColor(0.88f,0.77f,0.48f), Book.RowX, Book.DetailsY, nullptr,
+       PanelWidth < 550.f ? 0.61f : 0.78f);
+    const FString Detail(ANSI_TO_TCHAR(Selected.Description));
+    DrawText(PanelWidth < 550.f ? Detail.Left(39) : Detail,
+       FLinearColor(0.84f,0.84f,0.90f), Book.RowX, Book.DetailsY+27.f, nullptr,
+       PanelWidth < 550.f ? 0.61f : 0.74f);
+    DrawText(TEXT("Select with mouse or D-pad up/down. Equip each hand below."),
+       FLinearColor(0.69f,0.77f,0.87f), Book.RowX, Book.DetailsY+52.f,
+       nullptr, PanelWidth < 550.f ? 0.54f : 0.69f);
+   }
+   DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.95f),
+      Book.EquipLeftX, Book.EquipY, Book.EquipWidth, Book.EquipHeight);
+   DrawRect(FLinearColor(0.24f,0.43f,0.34f,0.95f),
+      Book.EquipRightX, Book.EquipY, Book.EquipWidth, Book.EquipHeight);
+   DrawText(TEXT("EQUIP LEFT"), FLinearColor::White,
+      Book.EquipLeftX+6.f, Book.EquipY+5.f, nullptr, PanelWidth < 550.f ? 0.59f : 0.80f);
+   DrawText(TEXT("EQUIP RIGHT"), FLinearColor::White,
+      Book.EquipRightX+6.f, Book.EquipY+5.f, nullptr, PanelWidth < 550.f ? 0.59f : 0.80f);
+   DrawText(TEXT("Y: BOOK / BAG   |   D-PAD LEFT/RIGHT: EQUIP   |   ESC: BACK"),
+      FLinearColor(0.67f,0.76f,0.86f), Left+18.f, Top+PanelHeight-13.f,
+      nullptr, PanelWidth < 550.f ? 0.45f : 0.62f);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
