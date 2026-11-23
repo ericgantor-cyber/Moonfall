@@ -135,7 +135,10 @@ class TestSocialWorld(unittest.TestCase):
    self.assertIn("bResidentContextOpen",movement)
   for name,next_name in (("Dodge","RewardPerfectDodge"),
                          ("BeginGuard","EndGuard"),("BeginSprint","EndSprint")):
-   guard=body(name,next_name).split("return;",1)[0]
+   guard=body(name,next_name)
+   # The talent web may consume the first input return. The existing NPC
+   # conversation guard still has to protect the gameplay operation.
+   self.assertIn("if (bTalentWebOpen)",guard)
    self.assertIn("bResidentContextOpen",guard)
   close=body("CloseResidentContext","OpenFocusedResidentContext")
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
