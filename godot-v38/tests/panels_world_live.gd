@@ -71,6 +71,36 @@ func _run()->void:
   check(menu.visible and bool(game.get("menu_open")),"Tab remains open: "+tab)
   check(float(game.get("map_time"))>before,"World time advances in "+tab)
 
+ check(float(game.get("v385_mana"))>15.0,"Mana recovers across all Raven Atlas tabs")
+ check(float(game.get("v387_stamina"))>15.0,"Stamina recovers across all Raven Atlas tabs")
+
+ # The two divine world bosses must not lose queued signature windups just
+ # because a player is browsing a regular menu.
+ var divine:Dictionary={}
+ for candidate in game.get("beasts"):
+  if bool(candidate.get("alive",false)) and candidate.has("divine_id"):
+   divine=candidate
+   break
+ if divine.is_empty():
+  check(false,"Divine boss available for menu telegraph verification")
+ else:
+  var boss_body:CharacterBody3D=divine.get("body") as CharacterBody3D
+  if is_instance_valid(boss_body):
+   boss_body.global_position=player.global_position+Vector3(0.0,0.0,4.0)
+   divine["zone"]=int(game.get("region_index"))
+   divine["boss_phase"]=1
+   var tell_until:float=float(game.get("map_time"))+5.0
+   divine["divine_warn_until"]=tell_until
+   divine["divine_next_at"]=tell_until+8.0
+   divine["divine_chain_pending"]=true
+   game.call("_update_beast_step",divine,0.0)
+   check(is_equal_approx(float(divine.get("divine_warn_until",0.0)),tell_until),"Open menu preserves divine boss windup")
+   check(bool(divine.get("divine_chain_pending",false)),"Open menu preserves divine follow-up")
+   divine["divine_warn_until"]=0.0
+   divine["divine_chain_pending"]=false
+  else:
+   check(false,"Divine boss has a playable body")
+
  var move_down:InputEventKey=InputEventKey.new()
  move_down.keycode=KEY_D
  move_down.physical_keycode=KEY_D
