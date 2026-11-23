@@ -91,6 +91,12 @@ func _run()->void:
  check(rig_binding.has("clips") and (rig_binding.get("clips",{}) as Dictionary).has("idle"),"real imported Skeleton3D plus AnimationPlayer is recognized")
  var fake_actor:Dictionary={"alive":true,"body":fake_rig,"attack_swing_until":3.0,"hit_react_until":0.0,"windup":0.0}
  check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="attack","original enemy attack feedback controls visual attack clip selection")
+ fake_actor["attack_swing_until"]=0.0
+ fake_actor["melee_windup_until"]=3.5
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="telegraph","ordinary melee windup drives imported rig anticipation")
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,3.5)=="idle","expired melee windup no longer keeps telegraph animation")
+ fake_actor["attack_swing_until"]=3.2
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="attack","active swing wins over a queued melee anticipation")
  fake_actor["hit_react_until"]=3.0
  check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="hurt","native hit reaction overrides animation attack pose")
  fake_actor["alive"]=false
