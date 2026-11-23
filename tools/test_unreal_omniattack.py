@@ -68,6 +68,18 @@ int main() {
         self.assertIn("void AMoonfallEnemy::TakeMeleeDamage(float Amount)", enemy)
         self.assertIn("TakeSpellDamage(Amount);", enemy)
 
+    def test_sword_flow_clears_only_after_safe_respawn(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        self.assertLess(respawn.index("if (!bFoundSafeRespawn) {"),
+                        respawn.index("MoonfallOmniattack::Reset(SwordFlow);"))
+        for item in ("MoonfallOmniattack::Reset(SwordFlow);",
+                     "CurrentSwordAngle = -1;", "SwordFlowStep = 0;",
+                     "NextMeleeAttackAt = 0.f;", "HitComboStage = 0;",
+                     "LastHitComboTarget.Reset();"):
+            self.assertIn(item, respawn)
+
     def test_movement_keys_are_exclusively_movement(self):
         lines = (GAME / "Config" / "DefaultInput.ini").read_text().splitlines()
         reserved = {"W", "A", "S", "D", "Up", "Down", "Left", "Right"}
