@@ -722,70 +722,136 @@ void AMoonfallCombatHUD::DrawHUD()
      nullptr, 0.8f);
    return;
   }
-  // A real spell book page, using exactly the same hit geometry as the pawn.
-  // This tab also appears on the bag; controller Y opens it without a new key.
-  const auto Book = MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY);
-  DrawRect(Hero->bSpellBookOpen ? FLinearColor(0.28f,0.39f,0.35f,0.95f)
+  // The closed book's tab lives in the bag. The open book expands into a
+  // centered, readable grimoire. Geometry is shared with mouse hit testing.
+  const auto Book = MoonfallSpellBook::Layout(Canvas->SizeX, Canvas->SizeY, Hero->bSpellBookOpen);
+  if (Hero->bSpellBookOpen) {
+   // Mask the underlying bag; clicks cannot leak through the book modal.
+   DrawRect(FLinearColor(0.009f,0.010f,0.025f,0.94f),
+       0.f,0.f,Canvas->SizeX,Canvas->SizeY);
+   DrawRect(FLinearColor(0.035f,0.031f,0.078f,0.99f),
+       Book.Left,Book.Top,Book.Width,Book.Height);
+   DrawRect(FLinearColor(0.43f,0.28f,0.52f,0.92f),
+       Book.Left,Book.Top,Book.Width,5.f);
+   DrawText(TEXT("MOONFALL  |  THE GRIMOIRE"),
+       FLinearColor(0.96f,0.88f,0.76f),Book.Left+18.f,Book.Top+13.f,
+       nullptr,Book.Width<500.f ? 0.88f : 1.36f);
+   DrawText(FString::Printf(TEXT("SIX KNOWN SPELLS   |   MANA %.0f / %.0f"),
+       FMath::IsFinite(Hero->Mana) ? Hero->Mana : 0.f,
+       FMath::IsFinite(Hero->MaxMana) ? Hero->MaxMana : 0.f),
+       FLinearColor(0.72f,0.82f,0.97f), Book.Left+18.f,Book.Top+47.f,
+       nullptr,Book.Width<500.f ? 0.62f : 0.85f);
+  }
+  DrawRect(Hero->bSpellBookOpen ? FLinearColor(0.29f,0.39f,0.33f,0.96f)
       : FLinearColor(0.24f,0.20f,0.37f,0.95f),
       Book.TabX, Book.TabY, Book.TabWidth, Book.TabHeight);
   DrawText(Hero->bSpellBookOpen ? TEXT("BACK TO BAG") : TEXT("SPELL BOOK"),
-      FLinearColor::White, Book.TabX+9.f, Book.TabY+5.f, nullptr, 0.75f);
+      FLinearColor::White,Book.TabX+9.f,Book.TabY+5.f,
+      nullptr,Book.Width<500.f ? 0.67f : 0.79f);
   if (Hero->bSpellBookOpen) {
-   const int32 SelectedSpell = FMath::Clamp(Hero->SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
-   DrawText(TEXT("SIX KNOWN SPELLS  |  SELECT, THEN EQUIP"), FLinearColor(0.76f,0.84f,0.97f),
-       Left+18.f, Top+50.f, nullptr, PanelWidth < 550.f ? 0.58f : 0.78f);
+   const int32 SelectedSpell = FMath::Clamp(Hero->SpellBookSelection,
+       0,MoonfallSpellBook::SpellCount-1);
    for (int32 School=0; School<MoonfallSpellBook::SpellCount; ++School) {
     const auto& Entry = MoonfallSpellBook::Spells[School];
     const float Y = Book.RowY + School*Book.RowGap;
     const bool bSelected = SelectedSpell == School;
     const bool bLeft = Hero->LeftSpell == School;
     const bool bRight = Hero->bRightHandSpellReadied && Hero->RightSpell == School;
-    DrawRect(bSelected ? FLinearColor(0.31f,0.30f,0.48f,0.95f)
-      : FLinearColor(0.10f,0.12f,0.21f,0.90f),
-      Book.RowX, Y, Book.RowWidth, Book.RowHeight);
+    DrawRect(bSelected ? FLinearColor(0.31f,0.30f,0.48f,0.99f)
+        : FLinearColor(0.10f,0.12f,0.21f,0.96f),
+        Book.RowX,Y,Book.RowWidth,Book.RowHeight);
+    DrawRect(bSelected ? FLinearColor(0.78f,0.62f,0.37f,0.97f)
+        : FLinearColor(0.27f,0.25f,0.43f,0.92f),
+        Book.RowX,Y,4.f,Book.RowHeight);
     const FString Name(ANSI_TO_TCHAR(Entry.Name));
-    DrawText(FString::Printf(TEXT("%d. %s"), School+1, *Name),
-        bSelected ? FLinearColor::White : FLinearColor(0.83f,0.87f,0.98f),
-        Book.RowX+7.f, Y+1.f, nullptr, PanelWidth < 550.f ? 0.66f : 0.86f);
-    // Equipped hand tags never imply a spell is currently being cast.
-    if (PanelWidth >= 425.f) {
-     DrawText(FString::Printf(TEXT("%.0f mana  %.2fs  %s%s"),
-       Entry.ManaCost, Entry.Cooldown,
+    DrawText(FString::Printf(TEXT("%d  %s"),School+1,*Name),
+        bSelected ? FLinearColor::White : FLinearColor(0.86f,0.88f,0.96f),
+        Book.RowX+12.f,Y+2.f,nullptr,
+        Book.Width<500.f ? 0.63f : 0.94f);
+    // Use rows as full selectable surfaces, never as cast buttons.
+    if (Book.Width >= 700.f) {
+     DrawText(FString(ANSI_TO_TCHAR(Entry.School)),
+       FLinearColor(0.78f,0.77f,0.95f),
+       Book.RowX+Book.RowWidth*0.42f,Y+3.f,nullptr,0.78f);
+     DrawText(FString::Printf(TEXT("%.0f MANA  |  %.2fs  %s%s"),
+       Entry.ManaCost,Entry.Cooldown,
        bLeft ? TEXT("[L]") : TEXT(""),
        bRight ? TEXT("[R]") : TEXT("")),
-       FLinearColor(0.65f,0.86f,0.93f),
-       Book.RowX+Book.RowWidth-215.f, Y+2.f, nullptr, 0.65f);
+       FLinearColor(0.69f,0.87f,0.92f),
+       Book.RowX+Book.RowWidth-241.f,Y+3.f,nullptr,0.72f);
+     if (Book.RowHeight >= 35.f) {
+      const FString Role = Entry.bHealing ? TEXT("RESTORE") : TEXT("DAMAGE");
+      DrawText(Role,FLinearColor(0.67f,0.85f,0.65f),
+         Book.RowX+14.f,Y+26.f,nullptr,0.67f);
+     }
+    } else if (Book.Width >= 440.f) {
+     DrawText(FString::Printf(TEXT("%.0f MP %s%s"),Entry.ManaCost,
+       bLeft ? TEXT("L") : TEXT(""),bRight ? TEXT("R") : TEXT("")),
+       FLinearColor(0.69f,0.87f,0.92f),
+       Book.RowX+Book.RowWidth-110.f,Y+3.f,nullptr,0.62f);
     } else if (bLeft || bRight) {
      DrawText(bLeft && bRight ? TEXT("L/R") : bLeft ? TEXT("L") : TEXT("R"),
-       FLinearColor(0.65f,0.94f,0.73f), Book.RowX+Book.RowWidth-28.f, Y+1.f,
-       nullptr, 0.62f);
+       FLinearColor(0.68f,0.95f,0.73f),
+       Book.RowX+Book.RowWidth-30.f,Y+2.f,nullptr,0.59f);
     }
    }
+   // Read-only state uses the same mana and per-hand haste/cooldown formula
+   // as TryCast. Hostile spells still require target acquisition at cast time.
    const auto& Selected = MoonfallSpellBook::Spells[SelectedSpell];
-   if (Book.DetailsY+64.f < Book.EquipY) {
+   const auto LeftStatus = Hero->GetSpellBookCastState(SelectedSpell,true);
+   const auto RightStatus = Hero->GetSpellBookCastState(SelectedSpell,false);
+   const auto StatusText = [](const MoonfallSpellBook::FCastState& State)->FString {
+    switch (State.State) {
+     case MoonfallSpellBook::EReadiness::Ready: return TEXT("READY TO AIM");
+     case MoonfallSpellBook::EReadiness::Cooldown:
+      return FString::Printf(TEXT("COOLDOWN %.1fs"),State.CooldownRemaining);
+     case MoonfallSpellBook::EReadiness::LowMana:
+      return FString::Printf(TEXT("NEED %.0f MANA"),State.ManaShortfall);
+     case MoonfallSpellBook::EReadiness::FullHealth: return TEXT("FULL HEALTH");
+     default: return TEXT("UNAVAILABLE");
+    }
+   };
+   const auto StatusColor = [](MoonfallSpellBook::EReadiness State)->FLinearColor {
+    return State==MoonfallSpellBook::EReadiness::Ready
+      ? FLinearColor(0.52f,0.94f,0.66f)
+      : FLinearColor(0.95f,0.70f,0.42f);
+   };
+   if (Book.DetailsY+33.f < Book.EquipY) {
     DrawText(FString::Printf(TEXT("%s  |  %.0f MANA  |  %.2fs BASE COOLDOWN"),
-          ANSI_TO_TCHAR(Selected.School), Selected.ManaCost, Selected.Cooldown),
-       FLinearColor(0.88f,0.77f,0.48f), Book.RowX, Book.DetailsY, nullptr,
-       PanelWidth < 550.f ? 0.61f : 0.78f);
+      ANSI_TO_TCHAR(Selected.School),Selected.ManaCost,Selected.Cooldown),
+      FLinearColor(0.94f,0.82f,0.54f),Book.RowX,Book.DetailsY,nullptr,
+      Book.Width<500.f ? 0.57f : 0.88f);
     const FString Detail(ANSI_TO_TCHAR(Selected.Description));
-    DrawText(PanelWidth < 550.f ? Detail.Left(39) : Detail,
-       FLinearColor(0.84f,0.84f,0.90f), Book.RowX, Book.DetailsY+27.f, nullptr,
-       PanelWidth < 550.f ? 0.61f : 0.74f);
-    DrawText(TEXT("Select with mouse or D-pad up/down. Equip each hand below."),
-       FLinearColor(0.69f,0.77f,0.87f), Book.RowX, Book.DetailsY+52.f,
-       nullptr, PanelWidth < 550.f ? 0.54f : 0.69f);
+    DrawText(Book.Width<450.f ? Detail.Left(39) : Detail,
+       FLinearColor(0.86f,0.87f,0.94f),
+       Book.RowX,Book.DetailsY+23.f,nullptr,
+       Book.Width<500.f ? 0.60f : 0.80f);
    }
-   DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.95f),
-      Book.EquipLeftX, Book.EquipY, Book.EquipWidth, Book.EquipHeight);
-   DrawRect(FLinearColor(0.24f,0.43f,0.34f,0.95f),
-      Book.EquipRightX, Book.EquipY, Book.EquipWidth, Book.EquipHeight);
-   DrawText(TEXT("EQUIP LEFT"), FLinearColor::White,
-      Book.EquipLeftX+6.f, Book.EquipY+5.f, nullptr, PanelWidth < 550.f ? 0.59f : 0.80f);
-   DrawText(TEXT("EQUIP RIGHT"), FLinearColor::White,
-      Book.EquipRightX+6.f, Book.EquipY+5.f, nullptr, PanelWidth < 550.f ? 0.59f : 0.80f);
-   DrawText(TEXT("Y: BOOK / BAG   |   D-PAD LEFT/RIGHT: EQUIP   |   ESC: BACK"),
-      FLinearColor(0.67f,0.76f,0.86f), Left+18.f, Top+PanelHeight-13.f,
-      nullptr, PanelWidth < 550.f ? 0.45f : 0.62f);
+   if (Book.DetailsY+80.f < Book.EquipY) {
+    DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus),
+      Hero->LeftSpell==SelectedSpell ? TEXT("  [EQUIPPED]") : TEXT("")),
+      StatusColor(LeftStatus.State),Book.RowX,Book.DetailsY+49.f,nullptr,
+      Book.Width<500.f ? 0.59f : 0.78f);
+    DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus),
+      Hero->bRightHandSpellReadied && Hero->RightSpell==SelectedSpell
+       ? TEXT("  [EQUIPPED]") : TEXT("")),
+      StatusColor(RightStatus.State),Book.RowX,Book.DetailsY+72.f,nullptr,
+      Book.Width<500.f ? 0.59f : 0.78f);
+   }
+   DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.98f),
+      Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawRect(FLinearColor(0.24f,0.43f,0.34f,0.98f),
+      Book.EquipRightX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawText(TEXT("EQUIP LEFT"),FLinearColor::White,
+      Book.EquipLeftX+7.f,Book.EquipY+5.f,nullptr,
+      Book.Width<500.f ? 0.62f : 0.85f);
+   DrawText(TEXT("EQUIP RIGHT"),FLinearColor::White,
+      Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
+      Book.Width<500.f ? 0.62f : 0.85f);
+   if (Book.Width >= 440.f)
+    DrawText(TEXT("Y: BOOK / BAG   |   D-PAD UP/DOWN: SELECT   |   LEFT/RIGHT: EQUIP"),
+       FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
+       Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
