@@ -68,6 +68,29 @@ int main() {
         self.assertIn("void AMoonfallEnemy::TakeMeleeDamage(float Amount)", enemy)
         self.assertIn("TakeSpellDamage(Amount);", enemy)
 
+    def test_melee_montage_plays_once_before_hit_resolution_even_on_miss(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("const bool bLivingTarget", melee)
+        self.assertIn("const bool bNextSameTarget", melee)
+        self.assertIn("const int32 NextSwingStage", melee)
+        self.assertIn("ComboMontages.IsValidIndex(NextSwingStage - 1)", melee)
+        self.assertIn("ComboMontages[NextSwingStage - 1].Get()", melee)
+        self.assertEqual(melee.count("Anim->Montage_Play(Montage, 1.f);"), 1)
+        self.assertLess(melee.index("Anim->Montage_Play(Montage, 1.f);"),
+                        melee.index("if (!bLivingTarget) {"))
+        self.assertLess(melee.index("Anim->Montage_Play(Montage, 1.f);"),
+                        melee.index("Enemy->TakeMeleeDamage("))
+        self.assertIn("OnMeleeSwing(CurrentSwordAngle, false);", melee)
+        self.assertIn("OnMeleeSwing(CurrentSwordAngle, bConnected);", melee)
+        self.assertIn("OnSuccessfulHitCombo(HitComboStage, true);", melee)
+        # An accepted miss expends resources and may animate, but does not
+        # increment connected-hit combo stages or award posture pressure.
+        miss = melee.split("if (!bLivingTarget) {", 1)[1].split("\n }", 1)[0]
+        self.assertNotIn("HitComboStage =", miss)
+        self.assertNotIn("ApplyPostureDamage(", miss)
+
     def test_skyrim_style_primary_uses_equipped_right_hand(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         header = (SRC / "MoonfallHeroPawn.h").read_text()
