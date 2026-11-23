@@ -20,7 +20,7 @@ static func profile(profile_id:int)->Dictionary:
  return {
   "id":profile_id,
   "name":FAMILIES[family_id]+" "+RANKS[rank_id],
-  "species":posmod(profile_id,4),
+  "species":posmod(profile_id+int(family_id/2)+1,4),
   "trait":trait_id,
   "health_scale":1.0+0.045*float(rank_id)+0.015*float(family_id%4),
   "attack_scale":1.0+0.06*float(rank_id)+0.015*float(family_id%3),
