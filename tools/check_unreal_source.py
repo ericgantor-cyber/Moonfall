@@ -952,6 +952,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bResidentContextOpen = false;", close)
         self.assertIn("OnResidentContextClosed();", close)
 
+    def test_npc_dialogue_stops_held_movement_sprint_guard_and_dodge(self):
+        # A conversation must be a real modal, not merely a ban on new input.
+        # Existing physics velocity, jumps and held defensive stances must end
+        # before the NPC overlay takes keyboard/controller focus.
+        opening = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split(
+            "\\n}", 1)[0]
+        self.assertLess(opening.index("if (!IsValid(Resident) || !Resident->CanHeroInteract(this))"),
+                        opening.index("StopJumping();"))
+        for cleanup in ("QueuedDodgeUntil = -1.f;",
+                        "QueuedDodgeDirection = FVector::ZeroVector;",
+                        "LockedEnemy.Reset();",
+                        "StopJumping();",
+                        "GetCharacterMovement()->StopMovementImmediately();",
+                        "EndSprint();", "EndGuard();"):
+            self.assertIn(cleanup, opening)
+            self.assertLess(opening.index(cleanup), opening.index("bResidentContextOpen = true;"))
+        self.assertLess(opening.index("StopJumping();"), opening.index("EndSprint();"))
+        self.assertLess(opening.index("EndSprint();"), opening.index("EndGuard();"))
+        self.assertLess(opening.index("EndGuard();"), opening.index("FocusedResident = Resident;"))
+        # Navigation inside an existing dialogue still uses the original D-pad path.
+        self.assertIn("ResidentContextSelection = (ResidentContextSelection + 2) % 3;", opening)
+
     def test_npc_close_restores_cursor_and_defeat_clears_menu_transients(self):
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
