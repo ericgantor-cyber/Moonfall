@@ -2002,6 +2002,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_live_inventory_wasd_does_not_change_selection_or_open_talents(self):
+        input_ini = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for movement in ("W", "S", "A", "D"):
+            self.assertIn(f'Key={movement})', input_ini)
+        for name, next_name, moving, arrow, dpad, action in (
+            ("OptionsUp", "OptionsDown", "W", "Up", "Up", "ResidentContextSelection"),
+            ("OptionsDown", "OptionsLeft", "S", "Down", "Down", "InventorySelection"),
+            ("OptionsRight", "AdjustOption", "D", "Right", "Right", "ToggleTalentWeb();"),
+        ):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split(
+                f"void AMoonfallHeroPawn::{next_name}", 1)[0]
+            self.assertIn("if (bInventoryOpen)", body)
+            key = f"PC->IsInputKeyDown(EKeys::{moving})"
+            self.assertIn(key, body)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::{arrow})", body)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::Gamepad_DPad_{dpad})", body)
+            self.assertLess(body.index(key), body.rindex(action))
+        # Gamepad B is still a menu back command, not a hidden dodge.
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split(
+            "void AMoonfallHeroPawn::Dodge()", 1)[0]
+        self.assertIn("bInventoryOpen", back)
+        self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
+
     def test_live_inventory_and_stats_do_not_pause_enemy_or_player_movement(self):
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         modal = enemy_tick.split("if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
