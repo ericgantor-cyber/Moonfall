@@ -740,7 +740,7 @@ func _unhandled_key_input(event:InputEvent)->void:
  # native_v11 consumes unhandled keys before _unhandled_input runs.
  # Intercept dedicated numpad combat angles here, never WASD or arrows.
  # Alt+1-4 stays reserved for abilities in the native_v38_8 descendant.
- if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active and not _v406_talents_visible():
   if event.keycode in [KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4]:
    v394_strike_direction=[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)
    v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
