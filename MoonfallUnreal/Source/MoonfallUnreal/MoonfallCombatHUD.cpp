@@ -717,7 +717,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),
+   DrawText(TEXT("C / A: back to inventory    P: spell book    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    return;
@@ -849,7 +849,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
       Book.Width<500.f ? 0.62f : 0.85f);
    if (Book.Width >= 440.f)
-    DrawText(TEXT("Y: BOOK / BAG   |   D-PAD UP/DOWN: SELECT   |   LEFT/RIGHT: EQUIP"),
+    DrawText(TEXT("P: CLOSE  |  Y: BAG  |  D-PAD UP/DOWN: SELECT  |  LEFT/RIGHT: EQUIP"),
        FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
        Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    return;
@@ -1190,7 +1190,7 @@ void AMoonfallCombatHUD::DrawHUD()
     PanelWidth < 550.f ? 0.56f : 0.74f);
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }
