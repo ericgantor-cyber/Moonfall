@@ -46,6 +46,17 @@ int main() {
  assert(Evaluate(5,R,S)==Result::Ok && S.Available==6);
  assert(std::abs(S.Flat[static_cast<int>(Stat::Stamina)]-5.0)<1e-8);
  assert(std::abs(S.Flat[static_cast<int>(Stat::Mana)]-8.0)<1e-8);
+ // The first Arcana damage rank is gated by its Spirit Well prerequisite.
+ // It must become 4% more *offensive* magic damage, not free healing,
+ // and spending it must use the existing finite 2-points/level budget.
+ assert(Spend(5,R,FindNode("spell_focus"))==Result::Ok);
+ assert(Evaluate(5,R,S)==Result::Ok && S.Available==5 && S.Spent==3);
+ const double ArcanaDamage=100.0 * (1.0+S.Percent[static_cast<int>(Stat::MagicDamage)]);
+ assert(std::abs(ArcanaDamage-104.0)<1e-8);
+ // A rank cannot apply when the prerequisite is missing.
+ Ranks Disconnected{};
+ Disconnected[FindNode("spell_focus")]=1;
+ assert(Evaluate(5,Disconnected,S)==Result::MissingPrerequisite);
  R[FindNode("swift_step")]=-1;
  assert(Evaluate(5,R,S)==Result::InvalidRank);
  R.fill(0);
