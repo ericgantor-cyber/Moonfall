@@ -22,6 +22,7 @@ class UnrealSpellBookTests(unittest.TestCase):
 #include "MoonfallSpellBook.h"
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
 int main() {
  using namespace MoonfallSpellBook;
  static_assert(SpellCount==6, "six existing spell schools");
