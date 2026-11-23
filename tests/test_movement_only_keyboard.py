@@ -57,8 +57,8 @@ class MovementKeyContracts(unittest.TestCase):
 
     def test_godot_sword_angles_not_triggered_by_movement(self):
         script = read("godot-v38/scripts/native_v38_0.gd")
-        self.assertIn("event.alt_pressed", script)
-        self.assertIn("[KEY_1,KEY_2,KEY_3,KEY_4].find(event.keycode)", script)
+        self.assertIn("[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)", script)
+        self.assertNotIn("event.alt_pressed", script)
         self.assertNotRegex(script, r"KEY_(UP|DOWN|LEFT|RIGHT)\b")
 
     def test_godot_wait_and_talent_controls_not_arrows(self):
