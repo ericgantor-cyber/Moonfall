@@ -26,6 +26,19 @@ func _run()->void:
  check(is_equal_approx(COMBAT_RULES.dodge_timer_after_frame(0.5,-0.5),0.5),"negative frame delta cannot rewind dodge")
  check(is_equal_approx(COMBAT_RULES.dodge_timer_after_frame(0.5,0.0),0.5),"zero frame delta freezes timer")
  check(is_zero_approx(COMBAT_RULES.dodge_timer_after_frame(NAN,NAN)),"invalid dodge state rejected even during invalid frames")
+ # Elite marked attacks can resolve before the next physics countdown update.
+ # They must use the identical legal [0, 0.55] dodge window.
+ var strike:Vector3=Vector3.ZERO
+ var hero_near:Vector3=Vector3(0.2,0.0,0.2)
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,0.0),"undodged close elite strike lands")
+ check(COMBAT_RULES.elite_missed(strike,hero_near,0.5),"legal 0.5-second dodge evades elite attack")
+ check(COMBAT_RULES.elite_missed(strike,hero_near,0.55),"legal Shadow Dash upper window evades elite attack")
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,0.551),"overlong corrupt dodge timer grants no immunity")
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,2.0),"unbounded dodge timer cannot negate elite hit")
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,NAN),"NaN dodge timer grants no elite immunity")
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,INF),"infinite dodge timer grants no elite immunity")
+ check(not COMBAT_RULES.elite_missed(strike,hero_near,-INF),"negative infinite dodge timer grants no immunity")
+ check(COMBAT_RULES.elite_missed(strike,Vector3(3.0,0.0,0.0),0.0),"elite strike still misses distant hero")
  var all_correct:bool=true
  for i in range(11111):
   var current:float=float(i%57)*0.01

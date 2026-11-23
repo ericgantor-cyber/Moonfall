@@ -59,7 +59,9 @@ static func roll_unique_profiles(species_rolls:Array[int], randomizer:RandomNumb
 
 static func guardian_relic(profile_id:int,zone:int,dungeon_id:int,affix:String)->Dictionary:
  var entry:Dictionary=profile(profile_id)
- if entry.is_empty():return {}
+ # Invalid restored region/dungeon IDs must not create negative-power or
+ # impossible legendary rewards. Valid 6x5 adventures remain unchanged.
+ if entry.is_empty() or zone<0 or zone>=6 or dungeon_id<0 or dungeon_id>=5:return {}
  return {"name":str(entry["name"])+" Crest • Region %d Dungeon %d" % [zone+1,dungeon_id+1],
   "rarity":"Legendary","power":mini(250,56+zone*12+int(entry["power_bonus"])),
   "affix":affix,"affix_value":0.12+0.01*float(int(entry["trait"]))}
