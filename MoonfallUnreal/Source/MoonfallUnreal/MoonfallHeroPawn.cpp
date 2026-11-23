@@ -2854,6 +2854,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Falling or jumping must not suppress progress saves or ground-loot pickup.
  // Still reject invalid world positions, and validate the shrine above.
  if (GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
+ // Never overwrite the previous checkpoint with malformed/mismatched talents.
+ MoonfallTalents::Ranks ValidTalentRanks{};
+ MoonfallTalents::Snapshot ValidTalentSummary;
+ if (!ReadMoonfallTalentRanks(Level,TalentRanks,ValidTalentRanks,ValidTalentSummary))return false;
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
@@ -2876,6 +2880,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
  Save->Level = FMath::Clamp(Level, 1, 100);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ Save->TalentRanks = TalentRanks;
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
@@ -2891,7 +2896,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 13) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -3059,6 +3064,17 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // V13 validates the COMPLETE allocation ledger before any teleport, save,
+ // inventory or stat state changes. Older V1-V12 saves have zero spent ranks.
+ if (Save->Version >= 13) {
+  MoonfallTalents::Ranks LoadedRanks{};
+  MoonfallTalents::Snapshot LoadedSummary;
+  if (!ReadMoonfallTalentRanks(Save->Level,Save->TalentRanks,LoadedRanks,LoadedSummary)) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall talent save has invalid ranks, prerequisites or points; original slot protected."));
+   return false;
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3152,6 +3168,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
+ TalentRanks = Save->Version >= 13 ? Save->TalentRanks : TArray<int32>{};
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = FMath::IsFinite(Save->MaxHealth)
