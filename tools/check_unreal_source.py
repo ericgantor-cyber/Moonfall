@@ -2263,6 +2263,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
         self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost", tick)
 
+    def test_live_talent_ui_reserves_inputs_without_stealing_wasd(self):
+        # WASD moves the hero, while arrows and D-pad navigate the constellation.
+        for handler, movement_key, arrow in (
+            ("OptionsUp", "W", "Up"), ("OptionsDown", "S", "Down"),
+            ("OptionsLeft", "A", "Left"), ("OptionsRight", "D", "Right")
+        ):
+            section = self.hero_cpp.split(f"void AMoonfallHeroPawn::{handler}()", 1)[1].split("\\n}", 1)[0]
+            self.assertIn(f"PC->IsInputKeyDown(EKeys::{movement_key})", section)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::{arrow})", section)
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split("void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("PC->IsInputKeyDown(EKeys::SpaceBar)", jump)
+        self.assertIn("if (!PC || !PC->IsInputKeyDown(EKeys::SpaceBar)) return;", jump)
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("if (bTalentWebOpen) return;", dual)  # LT confirms respec.
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split("void AMoonfallHeroPawn::Dodge()", 1)[0]
+        self.assertIn("if (bTalentWebOpen || bOptionsOpen", back)  # Pad B closes the web.
+        self.assertIn("if (bTalentWebOpen) return; // RMB drag pans the constellation.", self.hero_cpp)
+
     def test_talent_web_recovers_resources_without_guard_or_sprint_drain(self):
 
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
