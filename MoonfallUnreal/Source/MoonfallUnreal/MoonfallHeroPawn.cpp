@@ -1557,6 +1557,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   return;
  }
  bCharacterStatsOpen = !bCharacterStatsOpen;
+ if (bCharacterStatsOpen) bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
 
@@ -1644,14 +1645,17 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bInventoryScrollbarDragging = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bInventoryOpen;
- if (!bInventoryOpen) bCharacterStatsOpen = false;
+ if (!bInventoryOpen) {
+  bCharacterStatsOpen = false;
+  bSpellBookOpen = false;
+ }
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
@@ -1769,7 +1773,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
@@ -1808,7 +1812,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) AscendInventoryItemRarity(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
@@ -1828,12 +1832,12 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
@@ -2502,7 +2506,7 @@ void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
