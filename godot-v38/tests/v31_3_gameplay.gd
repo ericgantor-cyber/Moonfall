@@ -14,7 +14,18 @@ func _run()->void:
  check(is_equal_approx(RULES.combo_multiplier(3),1.16),"Capped combo damage")
  check(RULES.hurt_retreat(20,100,false,true,true),"Wounded creature retreats")
  check(not RULES.hurt_retreat(20,100,true,true,true),"Bosses do not retreat")
- check(RULES.choose_boss_pattern(3,100,100,0)==1,"Boss tactics rotate")
+ check(RULES.choose_boss_pattern(3,100,100,0)==0,"Boss selector uses next queued pattern without advancing twice")
+ var boss_pattern:int=0
+ var phase_three_patterns:Dictionary={}
+ for strike_number in range(8):
+  var committed:int=RULES.choose_boss_pattern(3,100.0,100.0,boss_pattern)
+  phase_three_patterns[committed]=true
+  boss_pattern=(committed+1)%4
+ check(phase_three_patterns.size()==4,"Four attack patterns remain reachable in phase three")
+ check(RULES.choose_boss_pattern(2,100.0,100.0,3)==0,"Phase two wraps into its three-pattern catalog")
+ check(RULES.choose_boss_pattern(3,20.0,100.0,3)==0,"Low-health hero sees the safer focused telegraph")
+ check(RULES.choose_boss_pattern(1,100.0,100.0,99)==0,"Phase one retains original focused attack")
+ check(RULES.choose_boss_pattern(999,100.0,100.0,-5)>=0,"Malformed phase/previous state remains nonnegative")
  check(RULES.surge_zone(350,6)==2,"Surge cycles regions")
  check(RULES.surge_active(165),"Surge begins at interval")
  check(not RULES.surge_active(195),"Surge expires safely")
