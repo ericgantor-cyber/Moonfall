@@ -54,7 +54,7 @@ func _run()->void:
  game.set("gfx_settings",fsr_graphics)
  game.call("_gfx_apply",false)
  var root_viewport:Viewport=game.get_viewport()
- var expected_mode:Viewport.Scaling3DMode=Viewport.SCALING_3D_MODE_FSR2 if RenderingServer.get_current_rendering_method()=="forward_plus" else Viewport.SCALING_3D_MODE_BILINEAR
+ var expected_mode:int=Viewport.SCALING_3D_MODE_FSR2 if RenderingServer.get_current_rendering_method()=="forward_plus" else Viewport.SCALING_3D_MODE_BILINEAR
  check(root_viewport.scaling_3d_mode==expected_mode,"Graphics apply selects FSR2 on Forward+ or safe fallback on other renderers")
  check(is_equal_approx(root_viewport.scaling_3d_scale,0.75),"Selected 75 percent internal 3D render scale applies")
  check(root_viewport.msaa_3d==Viewport.MSAA_2X,"Inherited quality adjustment cannot overwrite chosen MSAA")
