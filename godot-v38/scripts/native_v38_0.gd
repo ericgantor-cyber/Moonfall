@@ -788,7 +788,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.65)
   _show_message("GUARD BROKEN!",0.65)
  elif guarding:
-  _show_message("Guarded "+(["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction])+"! Change angle or strike heavy.",0.65)
+  _show_message("Guarded "+(["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction])+"! Next swing varies automatically; heavy can break guard.",0.65)
  var angle_damage:float=(1.08 if v394_strike_direction==0 else 1.0)*(1.0+0.04*float(v398_ranks.get("weapon_technique",0)))
  var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
  super._apply_player_hit(target,base_damage*(V396_MATCHED_GUARD_REDUCTION if matched_guard and not guard_break else V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
@@ -959,6 +959,11 @@ func _hero_damage_multiplier()->float:
  if v406_damage_context=="magic":return base*(1.0+_v406_bonus("magic_damage","percent"))+_v406_bonus("magic_damage","flat")
  return base
 
+# Omniattack uses one of the other three sword angles on each committed swing.
+# It is intentionally blind to enemy guards, so it cannot auto-counter every block.
+func _v394_next_auto_angle(previous:int,step:int)->int:
+ return posmod(posmod(previous,4)+clampi(step,1,3),4)
+
 func _attack()->void:
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
@@ -970,9 +975,12 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<heavy_cost:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
- # Use the last explicit numpad selection. Moving during an attack cannot
- # accidentally change strike angle or bypass an enemy's directional guard.
- v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
+ # Dawnwalker-style Omniattack: select an angle automatically for an
+ # available swing. Movement input does not steer attacks and no enemy
+ # guard information is read. Invalid cooldown/mounted inputs leave it alone.
+ if attack_cooldown<=0.0 and not mounted:
+  v394_strike_direction=_v394_next_auto_angle(v394_strike_direction,randi_range(1,3))
+  v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
@@ -1146,15 +1154,8 @@ func _v384_refresh_vitals()->void:
 func _unhandled_key_input(event:InputEvent)->void:
  # Godot dispatches unhandled key events before generic unhandled input.
  # Intercept Escape here before main.gd can open its pause screen.
- # Numpad chooses sword angles before native_v11 consumes keyboard input.
- # WASD/arrows only move; Alt+1–4 remains reserved for ability shortcuts.
- if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active and not _v406_talents_visible():
-  if event.keycode in [KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4]:
-   v394_strike_direction=[KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4].find(event.keycode)
-   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
-   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
-   get_viewport().set_input_as_handled()
-   return
+ # WASD/arrows only move and sword angles are chosen by Omniattack.
+ # Alt+1-4 continues to belong to the inherited ability shortcuts.
  if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_visible():
   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
