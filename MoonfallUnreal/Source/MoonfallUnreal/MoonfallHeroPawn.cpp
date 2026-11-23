@@ -429,7 +429,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -1890,7 +1890,7 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
  // Kills during menus must still resolve the enemy death animation, but must
  // not start or queue hidden finisher choreography.
- if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
+ if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
   if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
   return ChainStep;
  }
@@ -1952,7 +1952,7 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
  const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {
   // Resolve skipped presentations so defeated enemies never remain frozen
   // when the hero is defeated or gameplay menus interrupt choreography.
   for (const FPendingFinisher& Pending : PendingFinishers) {
@@ -1966,13 +1966,13 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  if (bMissingFinisherVisuals) return;
  // Start the oldest queued execution after the previous effect completes.
  // Presentation (including montage and Blueprint notification) occurs on start.
- if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bTalentWebOpen && Age >= Duration && PendingFinishers.Num() > 0) {
   const FPendingFinisher Pending = PendingFinishers[0];
   PendingFinishers.RemoveAt(0);
   StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
   Age = 0.f;
  }
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || Age < 0.f || Age >= Duration) {
   FinisherSlashA->SetHiddenInGame(true);
   FinisherSlashB->SetHiddenInGame(true);
   FinisherFlash->SetVisibility(false);
@@ -2042,6 +2042,10 @@ void AMoonfallHeroPawn::ToggleTalentWeb()
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
  EndGuard();
+ // Modal entry interrupts player combo momentum, not just hostile windups.
+ HitComboStage = 0;
+ LastHitComboTarget.Reset();
+ LastSuccessfulHitAt = -100.f;
  bTalentWebOpen = true;
  bTalentRespecConfirm = false;
  TalentRespecConfirmUntil = 0.f;
