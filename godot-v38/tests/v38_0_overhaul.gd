@@ -127,7 +127,16 @@ func _run()->void:
  check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*maxf(0.20,0.35-0.035*float(v398_ranks.get(\"defense_guard\",0)))" in orb_source,"right mouse guard mitigates damage and scales with defense talents")
  check("V393_RIPOSTE_WINDOW" in orb_source and "v393_riposte_until=map_time+V393_RIPOSTE_WINDOW" in orb_source,"timed parries open riposte opportunity")
  check("V393_RIPOSTE_MULTIPLIER" in orb_source and "v393_riposte_active=false" in orb_source,"riposte damage returns to normal after attack")
- check("v394_strike_direction" in orb_source and "KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4" in orb_source,"sword angles use dedicated numpad keys; movement arrows and Alt abilities remain independent")
+ check("func _v394_next_auto_angle(previous:int,step:int)->int:" in orb_source and "randi_range(1,3)" in attack_code,"Omniattack selects a varied sword angle per available melee swing")
+ check("if attack_cooldown<=0.0 and not mounted:" in attack_code and "super._attack()" in attack_code,"Omniattack respects cooldown and mounted combat gate")
+ check(not ("KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4" in orb_source) and not ("Input.is_key_pressed(KEY_UP)" in attack_code),"directional strikes never require manual numpad or movement keys")
+ for old_angle in range(4):
+  var choices:Dictionary={}
+  for step in range(1,4):
+   var next_angle:int=int(game.call("_v394_next_auto_angle",old_angle,step))
+   check(next_angle>=0 and next_angle<4 and next_angle!=old_angle,"Omniattack rotates to another legal sword angle")
+   choices[next_angle]=true
+  check(choices.size()==3,"Omniattack can reach all three other angles without repeats")
  check("angle_damage" in orb_source and "angle_stagger" in orb_source,"high and low attack angles affect hit results")
  check("V395_GUARD_PERIOD" in orb_source and "v395_guarding" in orb_source,"hostiles get periodic guard windows")
  check("GUARD BROKEN!" in orb_source and "V395_GUARD_REDUCTION" in orb_source,"heavy attacks or ripostes break enemy guards")
