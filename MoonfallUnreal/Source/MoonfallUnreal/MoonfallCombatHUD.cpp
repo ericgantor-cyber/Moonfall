@@ -800,6 +800,11 @@ void AMoonfallCombatHUD::DrawHUD()
   const float CloseButtonX = CloseSortX - 36.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
+  // Right-docked inventory and character stats do not pause the world.
+  // Keep the warning clear of the close button, item rows and page controls.
+  DrawText(TEXT("WORLD LIVE | ENEMIES ATTACK"),
+    FLinearColor(0.97f, 0.52f, 0.47f), Left + 18.f, Top + 78.f,
+    nullptr, PanelWidth < 550.f ? 0.57f : 0.73f);
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
