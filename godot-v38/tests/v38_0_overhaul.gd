@@ -276,6 +276,21 @@ func _run()->void:
   check('beast["melee_windup_until"]=0.0' in tick and 'if melee_tell_until>0.0 and (not engaged or staggered):' in tick,"lost sight and stagger cancel pending ordinary strike")
   check('if elite:' in tick and 'Elite melee retains its established immediate swing' in tick,"existing elite lunge and melee behavior isolated")
   check('var melee_tell_until:float=float(beast.get("melee_windup_until",0.0))' in tick and 'V383_FEEDBACK.melee_tell_degrees(' in tick,"visual anticipation animates existing enemy mesh")
+ # AAA combat lifecycle: a real playable-scene respawn invalidates every
+ # ordinary hostile's pending strike, with no phantom hit after revival.
+ var queued_melee_foe:Dictionary={}
+ for candidate in game.get("beasts"):
+  if bool(candidate.get("alive",false)) and bool(candidate.get("hostile",false)) and not bool(candidate.get("boss",false)) and str(candidate.get("variant","normal"))=="normal":
+   queued_melee_foe=candidate
+   break
+ check(not queued_melee_foe.is_empty(),"live scene includes ordinary hostile for respawn windup regression")
+ if not queued_melee_foe.is_empty():
+  queued_melee_foe["melee_windup_until"]=float(game.get("map_time"))+1.0
+  var melee_mesh:MeshInstance3D=queued_melee_foe.get("hit_visual") as MeshInstance3D
+  if is_instance_valid(melee_mesh):melee_mesh.rotation_degrees=Vector3(0.0,0.0,103.0)
+  game.call("_respawn_player")
+  check(is_zero_approx(float(queued_melee_foe.get("melee_windup_until",-1.0))),"respawn clears queued ordinary melee")
+  check(not is_instance_valid(melee_mesh) or is_equal_approx(melee_mesh.rotation_degrees.z,90.0),"respawn restores melee anticipation pose")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
