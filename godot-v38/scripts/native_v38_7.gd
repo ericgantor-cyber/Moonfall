@@ -95,9 +95,7 @@ func _start_game(selected_hero:String)->void:
  aim_locked_id=-1
 
 func _spell(which:String)->void:
- # The aimed-fire override bypasses the base spell handler, so enforce the
- # same full talent-web world pause before either spell path executes.
- if _v406_talents_pause_enemies():return
+ # Aimed fire obeys the same live-world behavior as inherited spells.
  if which!="fire":
   super._spell(which)
   return
