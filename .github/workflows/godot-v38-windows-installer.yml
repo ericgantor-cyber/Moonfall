@@ -133,9 +133,15 @@ jobs:
       - name: Diagnose entire Godot inheritance chain root-first
         shell: pwsh
         run: |
-          $engine = Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe' -Recurse -File | Select-Object -First 1
-          if (-not $engine) { throw 'Godot engine executable missing' }
           $ErrorActionPreference = 'Stop'
+          # Use the exact SHA-verified engine installed above; never select an
+          # arbitrary Godot*.exe (for example the alternate console binary).
+          $enginePath = Join-Path (Get-Location).Path 'Godot_4.7.2\Godot_v4.7.2-stable_win64.exe'
+          if (-not (Test-Path -LiteralPath $enginePath -PathType Leaf)) { throw "Verified Godot engine executable missing: $enginePath" }
+          $engine = Get-Item -LiteralPath $enginePath
+          # Make the later BUILD_WINDOWS.bat choose this same executable, even
+          # when a runner has a stale MoonfallDev active_godot.txt preference.
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MOONFALL_GODOT_EXE=$($engine.FullName)"
           # Bound each Godot child process and capture output without waiting
           # indefinitely for a hung native import, parser, or engine startup.
           function Invoke-GodotChecked {
