@@ -2833,8 +2833,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {", update)
         self.assertIn("WaitingEnemy->BeginFinisherDefeat(Pending.Style);", update)
         self.assertIn("PendingFinishers.Reset();", update)
-        self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration", update)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {", update)
+        self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bTalentWebOpen && Age >= Duration", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || Age < 0.f || Age >= Duration) {", update)
         self.assertLess(update.index("PendingFinishers.Reset();"),
                         update.index("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen"))
 
@@ -2845,8 +2845,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
         self.assertIn("if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {", register)
         self.assertIn("if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);", register)
-        self.assertLess(register.index("FinisherManaRestore"), register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"))
-        self.assertLess(register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"),
+        self.assertLess(register.index("FinisherManaRestore"), register.index("if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA"))
+        self.assertLess(register.index("if (bOptionsOpen || bInventoryOpen || bTalentWebOpen || !FinisherSlashA"),
                         register.index("PendingFinishers.Num() > 0"))
         self.assertIn("const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;", update)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bTalentWebOpen || bMissingFinisherVisuals) {", update)
