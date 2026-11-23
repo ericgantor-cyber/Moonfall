@@ -99,6 +99,10 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_omniattack
 
+      - name: Verify native Spell Book catalog, layout, and modal controls
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_spellbook
+
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
       - name: Run Unreal equipment and loot safety regression tests
