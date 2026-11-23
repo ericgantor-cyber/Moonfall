@@ -25,6 +25,8 @@ func _run()->void:
  check(CYCLE.wildlife_flee_radius("stag","Clear","Night")>CYCLE.wildlife_flee_radius("stag","Clear","Day"),"herd animals are wary at night")
  check(CYCLE.wildlife_flee_radius("stag","Mist","Day")<CYCLE.wildlife_flee_radius("stag","Clear","Day"),"mist reduces visible approach range")
  check(CYCLE.wildlife_flee_radius("stag","Eclipse","Day")>CYCLE.wildlife_flee_radius("stag","Clear","Day"),"unnatural eclipse increases wildlife alarm")
+ var native_script:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
+ check("WORLD_CYCLE.wildlife_flee_radius(kind,weather_name,_day_phase())" in native_script,"live passive animals use dynamic world alert rules")
  for species in ["stag","fox","owl","elk","unknown"]:
   for weather in ["Clear","Mist","Rain","Eclipse","unknown"]:
    for time_of_day in ["Dawn","Day","Dusk","Night"]:
