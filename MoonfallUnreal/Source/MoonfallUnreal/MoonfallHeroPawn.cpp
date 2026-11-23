@@ -3672,16 +3672,12 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   ToggleLockOn();
   return;
  }
- // Opening dialogue is a real gameplay modal. Stop existing movement and
- // defensive stamina drains before showing NPC controls, not one frame later.
+ // A conversation cannot inherit a buffered dodge or keep camera lock.
+ // Existing walking/jumping/sprint/guard states are intentionally not forced off.
  QueuedDodgeUntil = -1.f;
  QueuedDodgeDirection = FVector::ZeroVector;
  LockedEnemy.Reset();
  LockOccludedSince = -1.f;
- StopJumping();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
- EndSprint();
- EndGuard();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
