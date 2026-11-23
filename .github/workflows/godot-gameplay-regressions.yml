@@ -28,6 +28,8 @@ jobs:
         run: godot --headless --path godot-v38 --script res://tests/game_script_chain_parse.gd
       - name: Check talent-web enemy pause regression
         run: python3 -m unittest discover -s godot-v38/tests -p test_talent_combat_pause.py -v
+      - name: Verify atlas fog rejects hidden-chamber waypoints
+        run: godot --headless --path godot-v38 --script res://tests/atlas_hidden_waypoint_test.gd
       - name: Run gameplay, controller, combat rhythm and boss-dodge regressions
         shell: bash
         run: |
