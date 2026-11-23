@@ -1340,6 +1340,14 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(1.f,0.80f,0.40f),
     CX + Radius + 14.f, CY + 15.f, nullptr, 0.82f * LabelScale);
  }
+ // Subtle, nonflashing right-hand readout. No extra HUD panels or asset changes.
+ if (!bCompactScreen) {
+  const TCHAR* RightMode = Hero->bRightHandSpellReadied ? TEXT("SPELL")
+      : (Hero->GetValidatedEquippedTier(0) > 0 ? TEXT("WEAPON") : TEXT("UNARMED"));
+  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  V / D-PAD LEFT: swap"), RightMode),
+    FLinearColor(0.79f, 0.88f, 0.98f),
+    CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
+ }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
   const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
