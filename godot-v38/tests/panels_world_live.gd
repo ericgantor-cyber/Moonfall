@@ -61,6 +61,13 @@ func _run()->void:
  game.set("v387_stamina_regen_wait",0.0)
  game.call("_toggle_menu")
  check(menu.visible and bool(game.get("menu_open")),"Raven Atlas menu opens")
+ # Real animation polling must continue behind the live main menu.
+ # Previously its menu_open guard froze imported GLB creature poses despite
+ # the world clock and enemy attack AI continuing to advance.
+ var animation_before:int=int(game.get("ai_art_anim_poll_cycle"))
+ game.set("ai_art_anim_clock",0.0)
+ game.call("_ai_art_update_animations",0.1)
+ check(int(game.get("ai_art_anim_poll_cycle"))>animation_before,"Imported creature animations keep polling behind Raven Atlas")
  check(float(enemy.get("windup",-1.0))==4.0 and bool(enemy.get("v404_attack_pending",false)) and is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),planned),"Opening main menu does not cancel pending attacks")
 
  var tabs:PackedStringArray=["Character","World","Wallet","Inventory","Materials","Hero Skills","Tamer","Professions","Hunter","Bestiary","System"]
@@ -124,6 +131,10 @@ func _run()->void:
  check(not menu.visible and not bool(game.get("menu_open")),"Raven Atlas closes")
  game.call("_toggle_atlas")
  check(atlas.visible,"Separate map overlay opens")
+ animation_before=int(game.get("ai_art_anim_poll_cycle"))
+ game.set("ai_art_anim_clock",0.0)
+ game.call("_ai_art_update_animations",0.1)
+ check(int(game.get("ai_art_anim_poll_cycle"))>animation_before,"Imported creature animations keep polling beneath the map")
  var atlas_clock:float=float(game.get("map_time"))
  for frame in range(5):await physics_frame
  check(float(game.get("map_time"))>atlas_clock,"World time advances under the map")
