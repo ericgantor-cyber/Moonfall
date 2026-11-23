@@ -754,8 +754,7 @@ void AMoonfallCombatHUD::DrawHUD()
                      : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
        X, StripY, SlotWidth - 3.f, 22.f);
    // A weapon name, not "W": W is reserved exclusively for walking forward.
-   const FString Label = Slot == 0
-       ? (PanelWidth < 550.f ? TEXT("SWD") : TEXT("SWORD"))
+   const FString Label = Slot == 0 ? TEXT("SWORD")
        : FString::Printf(TEXT("S%d"), Slot);
    DrawText(Label, bEquipped ? FLinearColor::White : FLinearColor(0.77f, 0.83f, 0.98f),
        X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
