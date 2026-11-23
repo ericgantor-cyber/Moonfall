@@ -388,7 +388,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
-        self.assertIn("if (bInventoryOpen) return;", toggle)
+        self.assertIn("if (bInventoryOpen) {", toggle)
+        self.assertIn("EquipRightHandFavorite(", toggle)
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
@@ -547,7 +548,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("InventorySelection =", nav)
             self.assertIn("KeepInventorySelectionVisible();", nav)
         for horizontal in (left, right):
-            self.assertIn("if (bInventoryOpen) return;", horizontal)
+            self.assertIn("if (bInventoryOpen) {", horizontal)
+            self.assertIn("!bCharacterStatsOpen && !bOptionsOpen", horizontal)
+            self.assertIn("EquipRightHandFavorite(", horizontal)
+            # D-pad selects spell/weapon favorites only, never equips a
+            # highlighted gear item or bypasses the inventory's confirm action.
             self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
             self.assertNotIn("EquipInventoryItem(", horizontal)
         self.assertNotIn("InventoryConfirm()", self.hero_cpp)
