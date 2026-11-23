@@ -809,6 +809,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
@@ -818,6 +819,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
  }
@@ -1511,6 +1513,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
   bInventoryScrollbarDragging = false;
@@ -1852,6 +1855,7 @@ void AMoonfallHeroPawn::OpenOptions() {
    bInventoryScrollbarDragging = false;
    return;
   }
+  if (bSpellBookOpen) { bSpellBookOpen = false; return; }
   ToggleInventory(); // Same cleanup path as the mouse close button.
   return;
  }
@@ -1885,6 +1889,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (bInventoryOpen) {
+  if (bSpellBookOpen) {
+   SpellBookSelection = FMath::Max(0, SpellBookSelection - 1);
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -1913,6 +1921,10 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (bInventoryOpen) {
+  if (bSpellBookOpen) {
+   SpellBookSelection = FMath::Min(MoonfallSpellBook::SpellCount - 1, SpellBookSelection + 1);
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -1923,6 +1935,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1938,6 +1951,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
@@ -3674,6 +3688,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
@@ -3856,6 +3871,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    OpenOptions();
    return;
   }
+  if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
