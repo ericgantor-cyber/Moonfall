@@ -273,7 +273,7 @@ func _run()->void:
   check('beast["melee_windup_until"]=map_time+V383_FEEDBACK.MELEE_TELL_SECONDS' in tick,"ordinary melee starts anticipation instead of instant damage")
   check('elif melee_tell_until>0.0:' in tick and 'body.velocity=Vector3.ZERO' in tick,"melee attacker holds position during windup")
   check('V383_FEEDBACK.melee_strike_allowed(' in tick and 'if map_time<melee_tell_until:return' in tick,"melee impact rechecks range, dodge and sight after tell")
-  check('beast["melee_windup_until"]=0.0' in tick and 'if melee_tell_until>0.0 and (not engaged or staggered):' in tick,"lost sight and stagger cancel pending ordinary strike")
+  check('beast["melee_windup_until"]=0.0' in tick and 'if melee_tell_until>0.0 and (not engaged or staggered or map_time<react_until):' in tick,"lost sight, stagger and active hit recoil cancel pending ordinary strike")
   check('if elite:' in tick and 'Elite melee retains its established immediate swing' in tick,"existing elite lunge and melee behavior isolated")
   check('var melee_tell_until:float=float(beast.get("melee_windup_until",0.0))' in tick and 'V383_FEEDBACK.melee_tell_degrees(' in tick,"visual anticipation animates existing enemy mesh")
  # AAA combat lifecycle: a real playable-scene respawn invalidates every
