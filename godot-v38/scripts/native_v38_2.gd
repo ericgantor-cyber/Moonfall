@@ -428,16 +428,7 @@ func _atlas_roll_regional_guardians()->void:
 
 # Give each dungeon a unique named profile while respecting native species rolls.
 func _atlas_roll_guardian_profiles()->void:
- atlas_regional_guardian_profiles.clear()
- var used:Dictionary={}
- for species_id in atlas_regional_guardian_rolls:
-  var available:Array[int]=[]
-  for guardian_profile_id in GUARDIAN_55.suitable_profiles(species_id):
-   if not used.has(guardian_profile_id):available.append(guardian_profile_id)
-  if available.is_empty():return
-  var choice:int=available[rng.randi_range(0,available.size()-1)]
-  atlas_regional_guardian_profiles.append(choice)
-  used[choice]=true
+ atlas_regional_guardian_profiles=GUARDIAN_55.roll_unique_profiles(atlas_regional_guardian_rolls,rng)
 
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
