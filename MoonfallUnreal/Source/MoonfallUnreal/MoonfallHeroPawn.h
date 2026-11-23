@@ -87,7 +87,9 @@ public:
 
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
- void TriggerRacePower() { ActivateRacePower(); }
+ // The already-bound controller Y button opens the spell book ONLY inside
+ // inventory; gameplay still activates the same ancestry power.
+ void TriggerRacePower() { if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower(); }
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
@@ -291,6 +293,13 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Atlas") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
+ // Separate spell book page inside the existing B/Select inventory modal.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") bool bSpellBookOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") int32 SpellBookSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBook();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") bool EquipSpellBookSelection(bool bLeftHand);
+ bool HandleSpellBookPointer();
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient visible row offset; wheel scrolling never changes selection or equipment.
