@@ -373,6 +373,7 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ if (bTalentWebOpen && Health<=0.f)ToggleTalentWeb();
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
@@ -806,6 +807,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (bTalentWebOpen) {TalentWebFirstTier=FMath::Max(1,TalentWebFirstTier-1);return;}
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
@@ -815,6 +817,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (bTalentWebOpen) {TalentWebFirstTier=FMath::Min(14-3+1,TalentWebFirstTier+1);return;}
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
@@ -825,6 +828,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
+ if (bTalentWebOpen) {TalentSpendSelected();return;}
  // A or Space cannot leak into Jump while dialogue is still open.
  if (bResidentContextOpen) {
   if (!FocusedResident.IsValid()) {
@@ -841,7 +845,7 @@ void AMoonfallHeroPawn::TryJump()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -850,20 +854,20 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bTalentWebOpen || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -1002,6 +1006,7 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; Try
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
+ if (bTalentWebOpen)return;
  if (bOptionsOpen || bAtlasOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
@@ -1027,6 +1032,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+ if (bTalentWebOpen) {TalentChangeBranch(1);return;}
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
@@ -1068,6 +1074,7 @@ void AMoonfallHeroPawn::EndGuard()
   StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
+ if (bTalentWebOpen)return;
  // Menu and defeat inputs must not latch a sprint for later gameplay.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
@@ -1088,6 +1095,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
+ if (bTalentWebOpen) {TalentChangeBranch(-1);return;}
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
@@ -1346,6 +1354,7 @@ void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
    AtlasChronicleChapter, State.Valid ? State.FeaturedBeat : 0, Direction);
 }
 void AMoonfallHeroPawn::ToggleAtlas() {
+ if (bTalentWebOpen)ToggleTalentWeb();
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  // Blueprint and corrupt transient values must never poison projected map pixels.
  AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
@@ -1392,6 +1401,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
+ if (bTalentWebOpen)ToggleTalentWeb();
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
@@ -1600,6 +1610,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bTalentWebOpen) {ToggleTalentWeb();return;}
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -1626,6 +1637,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bTalentWebOpen) {TalentMove(0,-1);return;}
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
@@ -1654,6 +1666,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bTalentWebOpen) {TalentMove(0,1);return;}
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
@@ -1682,6 +1695,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bTalentWebOpen) {TalentMove(-1,0);return;}
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) - 750.f, -12000.f, 12000.f);
@@ -1691,6 +1705,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bTalentWebOpen) {TalentMove(1,0);return;}
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
   AtlasPanY = FMath::Clamp((FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f) + 750.f, -12000.f, 12000.f);
@@ -3615,6 +3630,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
+ if (bTalentWebOpen) {OptionsUp();return;}
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
@@ -3630,7 +3646,11 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // D-pad Up opens talents when there is no NPC to interact with.
+  ToggleTalentWeb();
+  return;
+ }
  // A conversation should release held combat movement immediately.
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -3643,6 +3663,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bTalentWebOpen)return;
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
@@ -3702,6 +3723,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (bTalentWebOpen) {TalentPointerClick();return;}
  // Handle all Atlas pointer actions before gameplay/NPC input.
  if (bAtlasOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {
