@@ -2025,6 +2025,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen", back)
         self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
 
+    def test_live_inventory_and_character_sheet_show_bounded_resources(self):
+        # The normal red/blue/purple combat orb is drawn after the inventory
+        # return, so the docked panels must expose current combat resources.
+        inventory = self.hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
+            "// Reuse a single world scan for boss/posture HUD", 1)[0]
+        character_return = inventory.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
+            "return;", 1)[0]
+        vitals = inventory.split("// The usual lower-left orb is rendered", 1)[1].split(
+            "if (Hero->bCharacterStatsOpen) {", 1)[0]
+        for label in ('TEXT("HP")', 'TEXT("MANA")', 'TEXT("STAM")', 'TEXT("XP")'):
+            self.assertIn(label, vitals)
+        self.assertIn('TEXT("LIVE RESOURCES")', vitals)
+        self.assertIn('TEXT("LOW HP | WORLD LIVE")', vitals)
+        self.assertIn("VitalsWidth = FMath::Clamp(Left - 28.f, 26.f, 224.f)", vitals)
+        self.assertIn("VitalsTop = FMath::Max(8.f, Canvas->SizeY - 168.f)", vitals)
+        self.assertIn("bTightVitals = VitalsWidth < 140.f", vitals)
+        for resource in ("Health", "Mana", "Stamina"):
+            self.assertIn(f"FMath::IsFinite(Hero->Max{resource})", vitals)
+            self.assertIn(f"FMath::IsFinite(Hero->{resource})", vitals)
+                self.assertIn("FMath::Clamp(Current / Maximum, 0.f, 1.f)", vitals)
+        self.assertIn("VitalHealth <= VitalMaxHealth * 0.25f", vitals)
+        self.assertIn("FMath::Min(VitalXP, VitalMaxXP)", vitals)
+        self.assertLess(inventory.index("DrawVital(3,"),
+                        inventory.index("if (Hero->bCharacterStatsOpen) {"))
+        self.assertIn("DrawText(TEXT(\"MOONFALL  |  CHARACTER\")", character_return)
+        self.assertIn("return;", inventory)
+
     def test_live_inventory_and_stats_do_not_pause_enemy_or_player_movement(self):
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         modal = enemy_tick.split("if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
