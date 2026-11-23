@@ -113,6 +113,12 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_enemy_path_budget
 
+      # Exact Godot -> Unreal classless talent parity and portable C++17 tests.
+      # A passing source check does not establish native Unreal compilation.
+      - name: Verify 141-node Godot talent parity, saves, and C++ rules
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_talent_parity
+
       - name: Verify cooked content gates for Windows installer
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
