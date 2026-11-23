@@ -740,6 +740,23 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
   }
+  // Skyrim-style equipped-hand favorites inside the regular inventory.
+  // Same 7 rectangles as HitTestRightHandFavorite; no gameplay toggle key.
+  const float StripX = Left + 18.f;
+  const float StripY = Top + 119.f;
+  const float SlotWidth = (PanelWidth - 36.f) / 7.f;
+  const int32 ActiveFavorite = Hero->bRightHandSpellReadied
+      ? FMath::Clamp(Hero->RightSpell + 1, 1, 6) : 0;
+  for (int32 Slot = 0; Slot < 7; ++Slot) {
+   const bool bEquipped = ActiveFavorite == Slot;
+   const float X = StripX + Slot * SlotWidth;
+   DrawRect(bEquipped ? FLinearColor(0.28f, 0.55f, 0.46f, 0.96f)
+                     : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
+       X, StripY, SlotWidth - 3.f, 22.f);
+   const FString Label = Slot == 0 ? TEXT("W") : FString::Printf(TEXT("S%d"), Slot);
+   DrawText(Label, bEquipped ? FLinearColor::White : FLinearColor(0.77f, 0.83f, 0.98f),
+       X + 7.f, StripY + 3.f, nullptr, 0.68f);
+  }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
@@ -1344,7 +1361,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!bCompactScreen) {
   const TCHAR* RightMode = Hero->bRightHandSpellReadied ? TEXT("SPELL")
       : (Hero->GetValidatedEquippedTier(0) > 0 ? TEXT("WEAPON") : TEXT("UNARMED"));
-  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  V / D-PAD LEFT: swap"), RightMode),
+  DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), RightMode),
     FLinearColor(0.79f, 0.88f, 0.98f),
     CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
  }
