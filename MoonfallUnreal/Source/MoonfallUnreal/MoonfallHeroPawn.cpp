@@ -592,6 +592,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
+ Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
@@ -1044,7 +1045,27 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
  OnRightHandLoadoutChanged(false, RightSpell);
 }
 
-// The spell book is an inventory page; no movement/attack shortcut is added.
+// P opens directly from gameplay or any inventory page. Repeating P closes
+// the entire overlay so the user returns to play. No movement key is reused.
+void AMoonfallHeroPawn::ToggleSpellBookShortcut()
+{
+ if (bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()
+     || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ if (!bInventoryOpen) {
+  // Reuse the safe modal entry path: stop movement, guard and sprint, and
+  // give the mouse cursor to the inventory before showing the spell book.
+  ToggleInventory();
+  if (bInventoryOpen) ToggleSpellBook();
+  return;
+ }
+ if (bSpellBookOpen) {
+  ToggleInventory(); // Also clears the spell-book state and frees the cursor.
+  return;
+ }
+ ToggleSpellBook();
+}
+
+// The grimoire is still an inventory page for the B/Select and mouse tabs.
 void AMoonfallHeroPawn::ToggleSpellBook()
 {
  if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
