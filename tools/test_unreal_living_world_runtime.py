@@ -28,6 +28,21 @@ int main(){
  assert(RoadEncounterOffset(20250.f,0.f)==0.f);
  assert(RoadEncounterOffset(std::numeric_limits<float>::quiet_NaN(),0.f)==0.f);
  assert(RoadEncounterOffset(0.f,std::numeric_limits<float>::infinity())==0.f);
+ assert(ResidentWindowCount(0)==0);
+ assert(ResidentWindowCount(1)==1);
+ assert(ResidentWindowCount(19)==19);
+ assert(ResidentWindowCount(20)==20);
+ assert(ResidentWindowCount(21)==20);
+ assert(ResidentWindowCount(80)==20);
+ assert(ResidentWindowIndex(0,0,0)==-1);
+ assert(ResidentWindowIndex(60,19,80)==79);
+ assert(ResidentWindowIndex(60,20,80)==0);
+ // 80 residents receive exactly one turn in four 20-person pulses.
+ int visits[80]={};
+ for (int pulse=0;pulse<4;++pulse)
+  for (int step=0;step<ResidentWindowCount(80);++step)
+   ++visits[ResidentWindowIndex(pulse*20,step,80)];
+ for (int count:visits)assert(count==1);
  assert(RegionFromWorldX(-16875.f)==0);
  assert(RegionFromWorldX(0.f)==3);
  assert(RegionFromWorldX(16875.f)==5);
@@ -131,6 +146,24 @@ int main(){
         self.assertNotIn("TActorIterator",quest)
         self.assertNotIn("GetAllActorsOfClass",quest)
 
+    def test_bounded_round_robin_residents_do_not_starve(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("constexpr int ResidentBudget=20;",policy)
+        self.assertIn("constexpr int ResidentRegistryBudget=80;",policy)
+        self.assertIn("ResidentWindowIndex(int cursor,int step,int registered)",policy)
+        self.assertIn("int32 NextResidentPulseIndex = 0;",header)
+        self.assertIn("ResidentWindowCount(ResidentCount)",pulse)
+        self.assertIn("ResidentWindowIndex(",pulse)
+        self.assertIn("for (int32 Step=0;Step<ResidentSlice;++Step)",pulse)
+        self.assertIn("NextResidentPulseIndex=(NextResidentPulseIndex+ResidentSlice)%ResidentCount;",pulse)
+        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget",mode)
+        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",pulse)
+        self.assertNotIn("GetAllActorsOfClass(",pulse)
+
     def test_runtime_residents_register_without_permanent_actor_rescans(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         header=(SRC/"MoonfallUnrealGameMode.h").read_text()
@@ -140,7 +173,7 @@ int main(){
         self.assertIn("void UnregisterLivingResident(AMoonfallWorldNPC* Resident);",header)
         self.assertIn("void AMoonfallUnrealGameMode::RegisterLivingResident(",mode)
         self.assertIn("LivingResidents.ContainsByPredicate(",mode)
-        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentBudget",mode)
+        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget",mode)
         self.assertIn("LivingResidents.RemoveAll(",mode)
         self.assertIn("RegisterLivingResident(*It);",mode)
         self.assertIn("Mode->RegisterLivingResident(this);",npc)
@@ -202,7 +235,7 @@ int main(){
         self.assertIn("PulseLivingWorld()",mode)
         self.assertIn("&AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f",mode)
         self.assertIn("if (!bLivingResidentCacheInitialized)",mode)
-        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentBudget",mode)
+        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",mode)
         self.assertIn("RegisterLivingResident(*It);",mode)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)

@@ -61,7 +61,7 @@ void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident
        [Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
         return Ref.Get()==Resident;
        })) return;
- if (LivingResidents.Num() >= MoonfallLivingSimulation::ResidentBudget) return;
+ if (LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget) return;
  LivingResidents.Add(Resident);
 }
 
@@ -132,7 +132,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   bLivingResidentCacheInitialized=true;
   int32 Scanned=0;
   for (TActorIterator<AMoonfallWorldNPC> It(World);
-       It && Scanned<MoonfallLivingSimulation::ResidentBudget; ++It,++Scanned) {
+       It && Scanned<MoonfallLivingSimulation::ResidentRegistryBudget; ++It,++Scanned) {
    if (IsValid(*It) && !(*It)->IsActorBeingDestroyed() && !(*It)->bAmbientVisitor)
     RegisterLivingResident(*It);
   }
@@ -174,8 +174,18 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   ActiveAmbientExpiresAt=-1.f;
  }
  if (!bHeroReady) return;
- for (const TWeakObjectPtr<AMoonfallWorldNPC>& Ref:LivingResidents) {
-  AMoonfallWorldNPC* NPC=Ref.Get();
+ // The 80-reference registry can contain several settlements, but never
+ // simulates more than 20 residents per four-second world pulse. Round-robin
+ // prevents a late-spawned or farther resident from being starved forever.
+ const int32 ResidentCount=LivingResidents.Num();
+ const int32 ResidentSlice=MoonfallLivingSimulation::ResidentWindowCount(ResidentCount);
+ if (ResidentCount>0) NextResidentPulseIndex%=ResidentCount;
+ else NextResidentPulseIndex=0;
+ for (int32 Step=0;Step<ResidentSlice;++Step) {
+  const int32 Index=MoonfallLivingSimulation::ResidentWindowIndex(
+      NextResidentPulseIndex,Step,ResidentCount);
+  if (!LivingResidents.IsValidIndex(Index)) continue;
+  AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
   if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) continue;
   const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
   if (!FMath::IsFinite(DistSq) || DistSq>FMath::Square(1600.f)) continue;
@@ -183,6 +193,8 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    NPC->WitnessNearbyDanger(Now);
   NPC->AdvanceLivingRoutine(Now,HeroLocation);
  }
+ if (ResidentCount>0)
+  NextResidentPulseIndex=(NextResidentPulseIndex+ResidentSlice)%ResidentCount;
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;

@@ -3,7 +3,16 @@
 #include <cmath>
 namespace MoonfallLivingSimulation {
 constexpr int RegionCount=6;
+// Up to 80 weak resident references, with only 20 simulated per world pulse.
+// Four rotations cover every registered resident without per-NPC Tick.
 constexpr int ResidentBudget=20;
+constexpr int ResidentRegistryBudget=80;
+constexpr int ResidentWindowCount(int registered) {
+ return registered<=0?0:(registered<ResidentBudget?registered:ResidentBudget);
+}
+constexpr int ResidentWindowIndex(int cursor,int step,int registered) {
+ return registered<=0 || cursor<0 || step<0 ? -1 : (cursor+step)%registered;
+}
 constexpr float PulseSeconds=4.f;
 enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };
 enum class EEvent { Merchant, Patrol, Rescue, Dispute, Monster };
@@ -95,6 +104,12 @@ inline bool ShouldRetireAmbient(float now,float expiresAt,bool conversationActiv
 constexpr bool MayEncounter(int region,bool sanctuary,bool nearRoad,bool inMenu,bool eventAlive){
  return region>=0&&region<6&&!sanctuary&&nearRoad&&!inMenu&&!eventAlive;
 }
+static_assert(ResidentWindowCount(0)==0,"Empty resident registry");
+static_assert(ResidentWindowCount(8)==8,"Small settlement pulse");
+static_assert(ResidentWindowCount(80)==20,"Large settlement pulse");
+static_assert(ResidentWindowIndex(60,19,80)==79,"Final resident in a pulse");
+static_assert(ResidentWindowIndex(60,20,80)==0,"Registry wrap");
+static_assert(ResidentWindowIndex(0,0,0)==-1,"No empty modulo");
 static_assert(RegionFromWorldX(0.f)==3,"World region mapping");
 static_assert(ActivityFor(ERole::Merchant,0,EWeather::Storm)==EActivity::Shelter,"Weather routines");
 static_assert(!MayEncounter(2,true,true,false,false),"Sanctuary is safe");
