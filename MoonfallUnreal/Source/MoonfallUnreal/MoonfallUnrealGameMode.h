@@ -5,6 +5,7 @@
 class AMoonfallArena;
 class AMoonfallWorldNPC;
 class AMoonfallHeroPawn;
+class AMoonfallEnemy;
 #include "MoonfallUnrealGameMode.generated.h"
 
 UENUM(BlueprintType)
@@ -69,6 +70,7 @@ public:
  AMoonfallWorldNPC* GetLocalCompanion() const;
  // Internal hit-time support; does not attack enemies or grant immunity.
  float ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source);
+ void ReportCompanionThreat(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
@@ -97,6 +99,8 @@ private:
  uint32 LocalCompanionTraining=0;
  float LastCompanionCoverAt=-1000.f;
  float LastCompanionStrikeAt=-1000.f;
+ TWeakObjectPtr<AMoonfallEnemy> CompanionThreat;
+ float CompanionThreatAt=-1000.f;
  void TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now);
  bool IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const;
  int32 SocialSpeakerCursor = 0;
