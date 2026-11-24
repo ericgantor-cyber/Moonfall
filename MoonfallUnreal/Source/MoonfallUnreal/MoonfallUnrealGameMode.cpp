@@ -84,6 +84,7 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
  LocalCompanionRole=EMoonfallCompanionRole::Balanced;
+ LocalCompanionTraining=0;
  return true;
 }
 float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source){
@@ -105,7 +106,7 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
        MoonfallLivingSimulation::Phase(Now,360.f))))return 0.f;
  const float Cover=MoonfallWorldPolicy::CompanionCover(Damage,Now-LastCompanionCoverAt,
      FVector::DistSquared(HeroLocation,ScoutLocation),true,
-     MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole));
+     MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole),LocalCompanionTraining);
  if(Cover<=0.f)return 0.f;
  // The scout must be between the hero and the reported attack direction.
  const FVector ToSource=(Source-HeroLocation).GetSafeNormal2D();
@@ -130,7 +131,8 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  const int Rank=MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero));
  const int Role=static_cast<int>(LocalCompanionRole);
  const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(Rank,Role);
- const float ExtraPosture=MoonfallWorldPolicy::CompanionExtraPosture(Rank,Role);
+ const float ExtraPosture=MoonfallWorldPolicy::CompanionExtraPosture(Rank,Role)+
+     MoonfallWorldPolicy::ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7);
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
@@ -141,7 +143,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
      ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return;
  if(!MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
       FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true,
-      MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole)))return;
+      MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole),LocalCompanionTraining))return;
  const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
  if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
        MoonfallLivingSimulation::Phase(Now,360.f))))return;
@@ -180,12 +182,26 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionRole(AMoonfallHeroPawn* Hero,EMoo
  }
  LocalCompanionRole=Role;return true;
 }
+bool AMoonfallUnrealGameMode::TrainLocalCompanionTalent(AMoonfallHeroPawn* Hero,int32 Node){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f
+    ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero)
+    ||Hero->GetFactionReputation(LocalCompanion->FactionId)<0)return false;
+ const int Rank=MoonfallWorldPolicy::CompanionRank(LocalCompanion->GetBondWithHero(Hero));
+ const uint32 Next=MoonfallWorldPolicy::TrainCompanion(LocalCompanionTraining,Rank,static_cast<int>(LocalCompanionRole),Node);
+ if(Next==LocalCompanionTraining)return false;
+ LocalCompanionTraining=Next;return true;
+}
+bool AMoonfallUnrealGameMode::ResetLocalCompanionTalents(AMoonfallHeroPawn* Hero){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f
+    ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero))return false;
+ LocalCompanionTraining=0;return true;
+}
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero))return false;
- LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;return true;
+ LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;return true;
 }
 void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
- if(LocalCompanion.Get()==Resident){LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;}
+ if(LocalCompanion.Get()==Resident){LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;}
  LivingResidents.RemoveAll([Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
   return !Ref.IsValid() || Ref.Get()==Resident;
  });
@@ -339,7 +355,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  }
  if(!LocalCompanion.IsValid()||!CompanionOwner.IsValid()
      ||(bHeroReady&&CompanionOwner.Get()!=Hero)){
-  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;
+  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;
  }
  if (!bHeroReady) return;
  // Scan a bounded registry of <=80 weak refs, but run the expensive
