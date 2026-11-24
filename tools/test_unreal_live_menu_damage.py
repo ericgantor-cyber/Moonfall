@@ -77,7 +77,11 @@ for name, begin_marker, end_marker, expected in sections:
     end = hud.index(end_marker, begin)
     part = hud[begin:end]
     completed = re.findall(r"(?m)^( {2,4})DrawLiveMenuHitCue\(\);\n\1return;$", part)
-    returns = re.findall(r"(?m)^ {2,4}return;$", part)
+    # Inventory includes an unrelated early return in its local
+    # ReadOwnedGear decoder lambda (four-space indentation). It is not
+    # an exit from DrawHUD; panel-level exits here are two/three spaces.
+    return_indent = r" {2,3}" if name == "inventory, sheet, spellbook" else r" {2,4}"
+    returns = re.findall(r"(?m)^" + return_indent + r"return;$", part)
     assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
 
 print("UE5 live menu damage cue, reduced motion and lethal talent cleanup: source checks passed.")
