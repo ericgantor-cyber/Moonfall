@@ -1358,8 +1358,9 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Tier = bWeaponOwned
      ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
  const float Might = static_cast<float>(GetMight());
- // Might melee bonuses change only validated connected-target damage, not
- // stamina costs, miss handling, attack cadence or sword-angle selection.
+ // Might MELEE bonuses apply to every connected melee attack, including
+ // unarmed hits (Tier 0), not just sword-equipped attacks. Existing angle,
+ // stamina, misses and cooldowns retain their established behavior.
  const float TalentMeleeMultiplier = static_cast<float>(
      MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage));
  const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
