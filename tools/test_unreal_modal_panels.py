@@ -55,7 +55,7 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertIn("DrawRect(FLinearColor(1.f,0.80f,0.37f", focus)
         required = (
             "DrawSelectionRail(float(Tab.X),float(Tab.Y),float(Tab.H));",  # talent
-            "DrawSelectionRail(L+14.f,Y,43.f);",  # NPC
+            "DrawSelectionRail(L+14.f,Y,Pitch-10.f);",  # NPC
             "DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);",  # options
             "DrawSelectionRail(Left+12.f,Y-3.f,",  # inventory
             "DrawSelectionRail(Book.RowX,Y,Book.RowHeight);",  # spell book
@@ -92,7 +92,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));",
             "DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));",
             "DrawHoverFrame(NpcCloseX,T+12.f,28.f,28.f);",
-            "DrawHoverFrame(L+14.f,Y,W-28.f,43.f);",
+            "DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);",
             "DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);",
             "DrawHoverFrame(Left+13.f,Y-4.f,AtlasSidebarWidth-22.f,RowHeight);",
             "DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);",
@@ -328,7 +328,7 @@ class TestNativeModalPanels(unittest.TestCase):
 
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
-            "Canvas->SizeX < 284.f || Canvas->SizeY < 294.f",
+            "!Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)",
             "Canvas->SizeX < 264.f || Canvas->SizeY < 304.f",
             "Canvas->SizeX < 304.f || Canvas->SizeY < 304.f",
             "TEXT(\"NPC | Enlarge window | ESC / RMB: close\")",
@@ -345,10 +345,10 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertIn("Width >= 264 && Height >= 304 && PC->bShowMouseCursor", options)
         self.assertIn("FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)", options)
         self.assertLess(options.index("Width >= 264"), options.index("AdjustOption("))
-        npc = mouse.split("// Tiny-window fallback has no clickable quest actions", 1)[1]
-        self.assertIn("Width < 284 || Height < 294 || !PC->bShowMouseCursor", npc)
+        npc = mouse.split("if (!bResidentContextOpen) { RightHandAction(); return; }", 1)[1]
+        self.assertIn("!HasResidentContextPointerSurface(Width,Height) || !PC->bShowMouseCursor", npc)
         self.assertIn("!FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)", npc)
-        self.assertLess(npc.index("Width < 284"), npc.index("ChooseResidentContextAction("))
+        self.assertLess(npc.index("!HasResidentContextPointerSurface(Width,Height)"), npc.index("ChooseResidentContextAction("))
 
     def test_hidden_inventory_pointer_surface_rejects_clicks_and_drag(self):
         helper = HERO.split("bool HasVisibleInventoryPointerSurface(", 1)[1].split("\n}", 1)[0]

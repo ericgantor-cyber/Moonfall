@@ -6,6 +6,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -16,6 +17,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -164,6 +166,15 @@ jobs:
       - name: Verify six-region climate and living-world runtime
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_living_world_runtime
+
+      - name: Compile and execute V27 living AI policies (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tools/test_v27_living_world_policy.cpp tools/test_v27_npc_policy.cpp; do
+            g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -I MoonfallUnreal/Source/MoonfallUnreal "$test" -o /tmp/moonfall_v27_policy
+            /tmp/moonfall_v27_policy
+          done
 
       - name: Verify UE5 combat momentum and immediate flinch regressions
         shell: bash
