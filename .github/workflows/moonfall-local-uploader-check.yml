@@ -119,6 +119,16 @@ jobs:
           if ($attempts.Count -ne 10) { throw ('Expected 10 failed requests, got ' + $attempts.Count) }
           if (Test-Path (Join-Path $offlineCache 'sent.json')) { throw 'Failed requests should never mark receipts as uploaded' }
           Remove-Item Env:MOONFALL_GH_COUNT_FILE -ErrorAction SilentlyContinue
+          # Corrupt history must fail closed rather than resend every old result.
+          $corruptCache = Join-Path $env:RUNNER_TEMP 'corrupt-cache'
+          New-Item -ItemType Directory -Force -Path $corruptCache | Out-Null
+          Set-Content -LiteralPath (Join-Path $corruptCache 'sent.json') -Value '{not valid JSON'
+          $corruptError = $null
+          try {
+            $null = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $corruptCache -DryRun -ErrorAction Stop )
+          } catch { $corruptError = $_.Exception.Message }
+          if ($corruptError -notmatch 'upload history is unreadable') { throw 'Corrupt cache did not block resend' }
+          if ((Get-Content -LiteralPath (Join-Path $corruptCache 'sent.json') -Raw) -notmatch 'not valid JSON') { throw 'Corrupt history was overwritten' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
           # The intentionally failing fake GitHub CLI leaves LASTEXITCODE=1.
           # Explicitly reset the test harness exit status after all assertions pass.
