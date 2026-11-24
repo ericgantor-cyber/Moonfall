@@ -25,7 +25,51 @@
 
 Passive attribute/regen values are **not reimplemented**: the ancestry page queries the hero's canonical race profile and existing gameplay getters, so changes to the runtime stats remain consistent with what C displays.
 
-## Known limitation
-The separate 30-entry character-creator race browser is **not** a one-to-one mapping to the 12 saved hero gameplay ancestry IDs. This PR improves its preview text but does **not** silently remap, grant new racial abilities, or persist invalid IDs. The 12 saved abilities and effects remain the existing runtime behavior. Unifying both rosters and performing a full original-art/UE5 native Windows creator playthrough require explicit gameplay integration and validation.
+## Creator-to-gameplay ancestry bridge
+The world encyclopedia still has **30 stable race IDs**. The native creator
+now offers **15 eligible choices** (11 existing plus Orc, Goblin, Troll and
+Treekin), each with a deliberate, documented mapping into the **12 existing**
+saved hero ancestry IDs. **No save migration and no new 13th ID** are needed.
 
-This source change does not alter any save schema, gameplay race IDs, Z or Nyra original art, world map, or the existing WASD/arrow-only movement controls. GitHub source tests verify contracts but do not replace Windows UE5 Editor/UnrealBuildTool compilation.
+| Creator choice | Saved hero gameplay ancestry (ID) |
+| --- | --- |
+| Human | Human (0) |
+| High Elf, Half Elf | High Elf (1) |
+| Wood Elf | Wood Elf (2) |
+| Dwarf, Hill Dwarf, Mountain Dwarf | Dwarf (3) |
+| Smallfolk | Halfling (4) |
+| Orc | Orc (5) |
+| Goblin | Goblin (6) |
+| Troll | Troll (7) |
+| Treekin | Entkin (8) |
+| Twilight Elf (dark_elf) | Shadowborn (9) |
+| Riverfolk | Moonborn (10) |
+| Beastkin | Draconid (11) |
+
+**Regional variants share the saved ancestry's *actual* existing gameplay
+bonuses**. Their creation-screen vitality/power/speed multipliers are
+illustrative previews, not independent hidden buffs; the creator shows the
+real gameplay lineage, Might/Insight/Resolve and regeneration passives, and
+racial-power name before selection. The on-screen choice is therefore
+explicit, not a silent conversion.
+
+When a live locally controlled UE5 hero owns the character creation UI, it
+can now confirm by calling the existing `ChooseRace(int32)`. That method
+persists the race using the established checkpoint format and rolls it back
+if writing fails. The **Continue** callback and the new saved-ID delegate
+fire *only* after successful save; missing/uncontrolled heroes, nonplayable
+creatures, previously chosen ancestries, and save failures display a readable
+error. The creator automatically tries to find the current player pawn, and
+exposes `BindHeroForConfirmation` for authored player-controller flows.
+The preview actor, art and scene-capture rig remain unchanged.
+
+## Remaining integration and validation
+The character-creation widget still needs to be instantiated and presented
+by the actual UE5 game flow or a Blueprint in builds where it is not already
+present. Source tests do **not** establish that a launch-time selection menu,
+native UE5 Windows compilation, or a live creator-to-checkpoint playthrough
+has succeeded. Verify selection, confirmation, failed save/rollback, reload,
+controller and mouse input, and exact previews in Unreal Editor before release.
+
+No save schema, original Z/Nyra art, world NPC race IDs, WASD/arrow mapping, or
+existing hero race bonus formulas were altered.
