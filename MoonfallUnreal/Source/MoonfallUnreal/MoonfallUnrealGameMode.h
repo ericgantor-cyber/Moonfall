@@ -9,6 +9,8 @@ class AMoonfallHeroPawn;
 
 UENUM(BlueprintType)
 enum class EMoonfallCompanionStance : uint8 { Follow, Hold, Passive };
+UENUM(BlueprintType)
+enum class EMoonfallCompanionRole : uint8 { Balanced, Protector, Striker };
 
 // Thirty physical dungeons in six world regions. Geometry is spawned in small
 // time-sliced batches; the GameMode never polls each dungeon every frame.
@@ -48,6 +50,10 @@ public:
  bool RecruitLocalCompanion(AMoonfallHeroPawn* Hero, AMoonfallWorldNPC* Resident);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
  bool SetLocalCompanionStance(AMoonfallHeroPawn* Hero, EMoonfallCompanionStance Stance);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool SetLocalCompanionRole(AMoonfallHeroPawn* Hero, EMoonfallCompanionRole Role);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
+ EMoonfallCompanionRole LocalCompanionRole=EMoonfallCompanionRole::Balanced;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
  bool DismissLocalCompanion(AMoonfallHeroPawn* Hero);
  UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
