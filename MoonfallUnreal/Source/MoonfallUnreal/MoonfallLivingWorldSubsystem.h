@@ -3,6 +3,8 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "MoonfallLivingWorldSubsystem.generated.h"
 
+class UMoonfallNpcSocialSessionSubsystem;
+
 UENUM(BlueprintType)
 enum class EMoonfallEncounterState : uint8 { Unknown, Available, Active, Completed };
 USTRUCT(BlueprintType)
@@ -39,12 +41,13 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RegisterEncounter(FName Encounter, bool bRepeatable=false, float CooldownSeconds=300.f);
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool AdvanceEncounter(FName Encounter, EMoonfallEncounterState Next);
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") EMoonfallEncounterState GetEncounterState(FName Encounter) const;
+ // Host calls on explicit new campaign/reset; never on ordinary map travel.
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ResetNpcSocialSession();
  virtual void Deinitialize() override;
 private:
- struct FRelationship { FName Other; int32 Score=0; double LastAmbientTrustAt=-1.0; };
+ UMoonfallNpcSocialSessionSubsystem* GetSocialSession() const;
  struct FEncounter { EMoonfallEncounterState State=EMoonfallEncounterState::Available; bool bRepeatable=false; double Cooldown=300; double CompletedAt=0; };
  struct FObservation { FVector Location=FVector::ZeroVector; bool bCrime=false; double ExpiresAt=0; };
- TMap<FName,TArray<FRelationship>> Relationships;
  TMap<FName,TArray<FMoonfallWorldRumor>> Knowledge;
  TMap<FName,FObservation> Observations;
  TMap<FName,FEncounter> Encounters;
