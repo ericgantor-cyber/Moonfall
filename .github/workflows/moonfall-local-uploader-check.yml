@@ -46,4 +46,20 @@ jobs:
           if ($unreal.Count -ne 1 -or $unreal[0].client_payload.outcome -ne 'passed') { throw 'Missing Unreal pass' }
           if ($center.Count -ne 1 -or $center[0].client_payload.outcome -ne 'failed') { throw 'Missing compiler failure' }
           if ($output -match 'sample.log|test-project|BUILD SUCCEEDED|private path|build-test.log') { throw 'Leaked source details' }
+          # First-time setup must not flood GitHub with old histories.
+          $old = Join-Path $logs 'old.log'
+          Set-Content -LiteralPath $old -Value 'BUILD FAILED'
+          (Get-Item $old).LastWriteTimeUtc = [DateTime]::UtcNow.AddDays(-9)
+          $boundedRoot = Join-Path $env:RUNNER_TEMP 'batch-project'
+          $boundedLogs = Join-Path $boundedRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $boundedLogs | Out-Null
+          foreach ($i in 1..12) {
+            $logFile = Join-Path $boundedLogs ('run-' + $i + '.log')
+            Set-Content -LiteralPath $logFile -Value ('BUILD SUCCEEDED ' + $i)
+            (Get-Item $logFile).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          }
+          $batch = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $boundedRoot -BuildLogRoot (Join-Path $boundedRoot 'no-center') -DryRun )
+          if ($batch.Count -ne 10) { throw ('Expected at most 10 reports per cycle, got ' + $batch.Count) }
+          $remaining = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -BuildLogRoot $buildLogs -DryRun )
+          if ($remaining.Count -ne 2) { throw 'Stale logs should not appear in receipts' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
