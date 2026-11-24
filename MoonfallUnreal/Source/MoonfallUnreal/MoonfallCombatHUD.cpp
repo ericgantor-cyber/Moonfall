@@ -245,6 +245,23 @@ void AMoonfallCombatHUD::DrawHUD()
        !bUnlocked?(Path==0?TEXT("60 trust"):TEXT("80 trust")):Rank==3?Perks[Path]:TEXT("Perk at 100 trust"));
      }
      Names[3]=TEXT("Back");
+     Names[4]=TEXT("Train active path");
+     if(Hero->bResidentCompanionTraining){
+      static const TCHAR* Nodes[9]={TEXT("Far Watch +0.1m cover"),TEXT("First Aid +1 HP cap"),TEXT("Trail Master +0.1m ranges"),
+       TEXT("Rapid Cover -1s"),TEXT("Iron Ward +1% cover"),TEXT("Bulwark -1s / +1 cap"),
+       TEXT("Long Reach +0.1m"),TEXT("Weak Point +1 posture"),TEXT("Quick Strike -0.5s")};
+      const int Role=bRecruited?static_cast<int>(Mode->LocalCompanionRole):0;
+      const uint32 Mask=bRecruited?Mode->GetLocalCompanionTraining():0;
+      const int Branch=Role>=0&&Role<=2?Role:0;
+      for(int32 Index=0;Index<3;++Index){
+       const int Node=Branch*3+Index;
+       const int Trained=MoonfallWorldPolicy::CompanionNodeRank(Mask,Node);
+       const bool bCanTrain=bRecruited&&MoonfallWorldPolicy::CanTrainCompanion(Mask,Rank,Branch,Node);
+       Names[Index]=FString::Printf(TEXT("%s | %d/2 %s"),Nodes[Node],Trained,
+         Trained==2?TEXT("MAX"):bCanTrain?TEXT("+"):TEXT("Locked"));
+      }
+      Names[3]=TEXT("Refund all training");Names[4]=TEXT("Back");
+     }
     }
    }
    // Mouse hover and gamepad selection share row geometry.
@@ -273,6 +290,12 @@ void AMoonfallCombatHUD::DrawHUD()
          CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(Hero->bResidentCompanionTraining){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    const int Spent=Mode&&Mode->GetLocalCompanion()==Resident?MoonfallWorldPolicy::CompanionPointsSpent(Mode->GetLocalCompanionTraining()):0;
+    const int Budget=MoonfallWorldPolicy::CompanionPointBudget(CompanionRank);
+    DisplayContext=FString::Printf(TEXT("TRAINING | %d / %d points spent"),Spent,Budget);
+   }
    if(Hero->bResidentCompanionMenu){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     if(!Hero->bResidentCompanionTalents&&Mode&&Mode->GetLocalCompanion()==Resident&&CompanionRank==3){
