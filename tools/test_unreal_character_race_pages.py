@@ -58,7 +58,8 @@ assert "RaceId = OldId;" in race_choose
 assert "bRaceChosen = false;" in race_choose
 assert "MoonfallTalents::Ranks TalentRanks{};" in header
 
-# The first C press still opens familiar stats. Tab changes ONLY the C page.
+# The first C press opens Attributes; the next C switches character pages.
+# Tab remains reserved for Atlas Chronicle, not the C character sheet.
 assert 'bool bCharacterRacePageOpen = false;' in header
 assert 'void ToggleCharacterRacePage();' in header
 toggle = section(hero, "void AMoonfallHeroPawn::ToggleCharacterRacePage()",
@@ -67,7 +68,10 @@ assert 'bCharacterStatsOpen && bInventoryOpen && !bOptionsOpen' in toggle
 assert 'bCharacterRacePageOpen = !bCharacterRacePageOpen;' in toggle
 assert 'SaveWorldProgress()' not in toggle and 'ChooseRace(' not in toggle
 assert 'bCharacterStatsOpen = true;\n  bCharacterRacePageOpen = false;' in hero
-assert 'if (bInventoryOpen && bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }' in hero
+stats_action = section(hero, "void AMoonfallHeroPawn::ToggleCharacterStats()", "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()")
+assert 'if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }' in stats_action
+atlas_action = section(hero, "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", "void AMoonfallHeroPawn::StepAtlasChronicle(")
+assert 'ToggleCharacterRacePage();' not in atlas_action
 assert 'if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = false; return; }' in hero
 assert 'if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = true; return; }' in hero
 assert 'ActionName="CharacterStats",Key=C' in inputs
@@ -89,7 +93,8 @@ for token in ("Hero->bRaceChosen", "Hero->GetRaceName()",
 assert 'TEXT("MOONFALL  |  ANCESTRY")' in hud
 assert 'TEXT("RACE & PASSIVES")' in hud
 assert 'TEXT("ATTRIBUTES")' in hud
-assert 'Tab / D-pad Left/Right: stats / ancestry' in hud
+assert 'C / D-pad Left/Right: stats / ancestry' in hud
+assert 'Tab / D-pad Left/Right: stats / ancestry' not in hud
 assert 'DrawLiveMenuHitCue();' in hud
 
 # Mouse tab matches the HUD's right-header button and consumes the click.
@@ -106,7 +111,7 @@ assert "RACE TRAITS (PREVIEW)" in creator
 assert "Next.Profile.VitalityMultiplier-1.f" in creator
 assert "Next.Profile.PowerMultiplier-1.f" in creator
 assert "Next.Profile.SpeedMultiplier-1.f" in creator
-assert "C > Tab displays your saved passives." in creator
+assert "Press C again to display your saved passives." in creator
 keyboard_handler = creator.split(
     "FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(", 1)[1]
 for control in ("EKeys::Left ||", "EKeys::Right ||", "EKeys::Up ||",
