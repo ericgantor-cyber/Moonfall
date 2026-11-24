@@ -88,4 +88,16 @@ jobs:
           }
           $preview = @( & powershell.exe -NoProfile -File ./MoonfallUnreal/Build/Install-LocalTestUpload.ps1 -TestNow )
           if ($LASTEXITCODE -ne 0) { throw 'Local preview setup failed' }
+          # A concurrent scan must not dispatch or corrupt the shared cache.
+          $lockedCache = Join-Path $env:RUNNER_TEMP 'lock-cache'
+          New-Item -ItemType Directory -Force -Path $lockedCache | Out-Null
+          $lockFile = Join-Path $lockedCache 'uploader.lock'
+          $lock = [IO.File]::Open($lockFile,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+          try {
+            $blocked = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $lockedCache -DryRun )
+            if ($blocked.Count -ne 1 -or $blocked[0] -notmatch 'already running') { throw 'Concurrent scan was not blocked' }
+            if (Test-Path (Join-Path $lockedCache 'sent.json')) { throw 'Blocked scan changed the upload cache' }
+          } finally { $lock.Dispose() }
+          $afterLock = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $lockedCache -DryRun )
+          if ($afterLock.Count -ne 1 -or $afterLock[0] -notmatch 'moonfall-local-test') { throw 'Uploader did not recover after lock release' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
