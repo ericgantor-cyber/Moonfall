@@ -434,8 +434,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float CombatNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
   const bool bCanDispatchBufferedMelee = GetWorld() && Health > 0.f
     && FMath::IsFinite(Health) && !bOptionsOpen && !bInventoryOpen
-    && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
-    && !bGuarding && !bRightHandSpellReadied;
+    && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen
+    && !FocusedResident.IsValid() && !bGuarding && !bRightHandSpellReadied;
   if (SwordBuffer.Consume(CombatNow, NextMeleeAttackAt, bCanDispatchBufferedMelee))
    MeleeAttack();
  }
