@@ -83,6 +83,11 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||Resident->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Resident->FactionId)<0
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
+ // The party save stores only ResidentId; reject ambiguous authored identities before writing it.
+ if(LivingResidents.ContainsByPredicate([Resident](const auto& Ref){
+  const auto* Other=Ref.Get();
+  return IsValid(Other)&&Other!=Resident&&!Other->IsActorBeingDestroyed()&&Other->ResidentId==Resident->ResidentId;
+ }))return false;
  FMoonfallCompanionPartyRecord Next=Hero->GetCompanionParty();
  Next.Health=Next.ResidentId==Resident->ResidentId?Next.Health:Resident->CompanionHealth;
  Next.ResidentId=Resident->ResidentId;Next.Stance=static_cast<int32>(EMoonfallCompanionStance::Follow);
