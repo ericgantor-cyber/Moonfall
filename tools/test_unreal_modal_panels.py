@@ -5,6 +5,7 @@ live input testing, screen-reader compatibility or Windows packaging.
 """
 from pathlib import Path
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 HUD = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -116,6 +117,59 @@ class TestNativeModalPanels(unittest.TestCase):
             "DisplayXP = Hero->bReduceMotion ? ActualXP",
         ):
             self.assertIn(token, HUD)
+
+    def test_original_runtime_art_and_six_distinct_panel_signatures(self):
+        chrome = HUD.split("const auto DrawModalChrome = [this]", 1)[1].split(
+            "const auto DrawMoonfallSigil = [this]", 1
+        )[0]
+        self.assertIn("Original Moonfall engraving:", chrome)
+        self.assertIn("const float Inset=7.f, Corner=11.f;", chrome)
+        self.assertIn("Canvas->K2_DrawLine(", chrome)
+        art = HUD.split("const auto DrawMoonfallSigil = [this]", 1)[1].split(
+            "const auto DrawSelectionRail = [this]", 1
+        )[0]
+        self.assertEqual(HUD.count("const auto DrawMoonfallSigil = [this]"), 1)
+        for token in (
+            "constexpr int32 Segments=12;", "Radius<3.f || Radius>35.f",
+            "FMath::IsFinite(Cx)", "FMath::IsFinite(Cy)",
+            "switch (Type%4)", "Canvas->K2_DrawLine(",
+        ):
+            self.assertIn(token, art)
+        for forbidden in ("TActorIterator", "GetAllActorsOfClass",
+                          "SaveWorldProgress", "BindAction(", "GetWorld()->SpawnActor"):
+            self.assertNotIn(forbidden, art)
+        # The rendered art is wired to all six of the actual, native menus.
+        for token in (
+            "DrawMoonfallSigil(L+W-65.f,T+25.f",  # talent / NPC
+            "DrawMoonfallSigil(Left+Width-67.f,Top+24.f",  # atlas
+            "DrawMoonfallSigil(MenuLeft+MenuWidth-66.f,MenuTop+25.f",  # options
+            "DrawMoonfallSigil(Left+PanelWidth-23.f,Top+PanelHeight-23.f",  # bag
+            "DrawMoonfallSigil(Book.Left+Book.Width-26.f",  # book
+            "DrawMoonfallSigil(float(Tab.X+Tab.W-13)",  # talents
+            "DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f",  # reputation
+            "DrawMoonfallSigil(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # gear
+            "DrawMoonfallSigil(X+Width-13.f,Y+40.f",  # boss
+            "DrawMoonfallSigil(Left+Width-12.f,Top+111.f",  # quest
+            "DrawMoonfallSigil(CX,CY-Radius*1.28f",  # resource orb
+        ):
+            with self.subTest(signature=token):
+                self.assertIn(token, HUD)
+
+    def test_eclipse_source_art_is_original_editable_svg(self):
+        source = ROOT / "MoonfallUnreal/Art/UI/moonfall_eclipse_crest.svg"
+        self.assertTrue(source.is_file())
+        root = ET.parse(source).getroot()
+        self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(root.attrib.get("viewBox"), "0 0 512 512")
+        text = source.read_text(encoding="utf-8")
+        for token in ("Moonfall · Eclipse Crest", 'id="crescent"',
+                      'id="aether"', 'id="gold"'):
+            self.assertIn(token, text)
+        # Artwork is declarative reference SVG. Actual runtime visuals are
+        # drawn by the native Canvas code, not by an unverified SVG importer.
+        self.assertNotIn("<script", text)
+        self.assertNotIn("<image", text)
+        self.assertNotIn("http://", text.replace('xmlns="http://www.w3.org/2000/svg"', ""))
 
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
