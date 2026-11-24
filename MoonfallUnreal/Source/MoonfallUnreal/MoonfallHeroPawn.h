@@ -94,6 +94,9 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  uint32 GetCompanionProfile(FName ResidentId) const;
+ int32 GetCompanionGearCode(FName ResidentId,int32 Slot) const;
+ int32 GetCompanionGearTier(FName ResidentId,int32 Slot) const;
+ bool TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn);
  bool ReportScoutDeeds(AMoonfallWorldNPC* Resident);
  // Internal authoritative transaction used by the companion GameMode APIs.
  bool CommitCompanionProfile(FName ResidentId,uint32 Profile);
@@ -472,6 +475,7 @@ private:
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
  TMap<FName,int32> CompanionProfiles;
+ TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
  float RecentCompanionAssistHitAt=-100.f;
  float LastSuccessfulHitAt = -100.f;
