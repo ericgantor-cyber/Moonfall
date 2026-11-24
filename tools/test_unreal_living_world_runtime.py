@@ -383,7 +383,7 @@ int main(){
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         cover=mode.split("float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[1].split(
-            "void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[0]
+            "bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(",1)[0]
         for guard in ("IsLocalCompanionOwner(Hero)","LocalCompanionStance!=EMoonfallCompanionStance::Follow",
                       "Scout->GetBondWithHero(Hero)<60","GetFactionReputation(Scout->FactionId)<0",
                       "MoonfallLivingSimulation::Severe","FVector::DotProduct(ToSource,ToScout)<0.5",
@@ -477,7 +477,7 @@ int main(){
             "// Bounded, persistent faction relationship API.",1)[0]
         self.assertIn("bool bResidentCompanionTalents=false",header)
         self.assertIn("if(bResidentCompanionTalents)return 5;",hero)
-        self.assertIn("Mode->GetLocalCompanion()==Resident?8:3;",hero)
+        self.assertIn("Mode->GetLocalCompanion()==Resident?9:3;",hero)
         self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
         self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
         self.assertIn("if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}",choose)
@@ -486,7 +486,7 @@ int main(){
         self.assertIn("TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice))",choose)
         self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;",hero)
         self.assertLess(choose.index("if(bResidentCompanionTalents)"),choose.index("OfferResidentQuest(this)"))
-        self.assertIn("FString Names[8]",hud)
+        self.assertIn("FString Names[9]",hud)
         self.assertIn('TEXT("COMPANION TALENTS | Select a path")',hud)
         self.assertIn("Rank>=(Path==0?1:2)",hud)
         self.assertIn('TEXT("Perk at 100 trust")',hud)
@@ -635,6 +635,50 @@ int main(){
         self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
         self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
         self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
+
+    def test_v27_companion_counterattack_is_committed_and_has_no_hero_fallback(self):
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        self.assertIn("LockedCompanionTarget=Target;bCompanionAttackCommitted=true",enemy)
+        self.assertIn("RecentCompanionAttacker.Get()==Scout",enemy)
+        self.assertIn("Now-RecentCompanionAttackerAt<=8.f",enemy)
+        commit=enemy.split("if(bCompanionAttackCommitted){",1)[1].split("if (bBoss)",1)[0]
+        self.assertIn("LockedCompanionTarget.Get();LockedCompanionTarget.Reset()",commit)
+        self.assertIn("Mode->ResolveCompanionCounterAttack",commit)
+        self.assertIn("return;",commit)
+        self.assertNotIn("Hero->ApplyMoonfallDamage",commit)
+        receive=mode.split("void AMoonfallUnrealGameMode::ResolveCompanionCounterAttack(",1)[1].split(
+            "float AMoonfallUnrealGameMode::GetCompanionAbilityRemaining(",1)[0]
+        for guard in ("CanReceiveCompanionAttack(Hero,Target)","Enemy->bBoss||Enemy->bElite",
+                      "CanCompanionCounter","LineTraceSingleByChannel","FollowerIncomingDamage",
+                      "Target->CompanionHealth-Actual","Target->bCompanionDowned=true"):
+            self.assertIn(guard,receive)
+        self.assertIn("Enemy->RememberCompanionAttacker(Scout,Now)",mode)
+        self.assertIn("CanCompanionCounter",policy)
+
+    def test_v27_companion_tactics_and_active_abilities(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        ability=mode.split("bool AMoonfallUnrealGameMode::ActivateLocalCompanionAbility(",1)[1].split(
+            "void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Scout->bCompanionDowned","Scout->CanHeroInteract(Hero)",
+                      "CanActivateCompanionAbility","CompanionAbilityCooldown","GetCompanionGearTier(Scout->ResidentId,2)"):
+            self.assertIn(guard,ability)
+        self.assertIn("Scout->CompanionHealth+25.f",ability)
+        self.assertIn("Now+(Role==1?6.f:8.f)",ability)
+        self.assertIn("bPrecisionBurst?8.f:0.f",mode)
+        self.assertIn("if(bPrecisionBurst)CompanionAbilityEndsAt=-1000.f",mode)
+        self.assertIn("SelectCompanionTactic",mode)
+        for label in ("Intercepting","Flanking","Withdrawing"):
+            self.assertIn('TEXT("'+label+'")',mode)
+        for label in ("Second Wind","Brace","Precision Burst"):
+            self.assertIn('TEXT("'+label+'")',hud)
+        self.assertIn("Mode->ActivateLocalCompanionAbility(this)",hero)
+        self.assertIn("GetCompanionAbilityRemaining()",hud)
+        self.assertIn("CompanionAbilityCooldown",policy)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
