@@ -61,11 +61,11 @@ bool UMoonfallRaceLibrary::ResolveHeroAncestryId(FName CreatorRaceId, int32& Her
   return false;
  struct FAncestryBridge { const TCHAR* Race; int32 SavedId; };
  static constexpr FAncestryBridge Bridge[] = {
-  {TEXT("human"),0}, {TEXT("high_elf"),1}, {TEXT("wood_elf"),2},
-  {TEXT("dwarf"),3}, {TEXT("smallfolk"),4}, {TEXT("orc"),5},
-  {TEXT("goblin"),6}, {TEXT("troll"),7}, {TEXT("treekin"),8},
-  {TEXT("dark_elf"),9}, {TEXT("riverfolk"),10}, {TEXT("beastkin"),11},
-  {TEXT("half_elf"),1}, {TEXT("hill_dwarf"),3}, {TEXT("mountain_dwarf"),3}
+  FAncestryBridge{TEXT("human"),0}, FAncestryBridge{TEXT("high_elf"),1}, FAncestryBridge{TEXT("wood_elf"),2},
+  FAncestryBridge{TEXT("dwarf"),3}, FAncestryBridge{TEXT("smallfolk"),4}, FAncestryBridge{TEXT("orc"),5},
+  FAncestryBridge{TEXT("goblin"),6}, FAncestryBridge{TEXT("troll"),7}, FAncestryBridge{TEXT("treekin"),8},
+  FAncestryBridge{TEXT("dark_elf"),9}, FAncestryBridge{TEXT("riverfolk"),10}, FAncestryBridge{TEXT("beastkin"),11},
+  FAncestryBridge{TEXT("half_elf"),1}, FAncestryBridge{TEXT("hill_dwarf"),3}, FAncestryBridge{TEXT("mountain_dwarf"),3}
  };
  for (const FAncestryBridge& Row : Bridge)
   if (CreatorRaceId == FName(Row.Race)) {
