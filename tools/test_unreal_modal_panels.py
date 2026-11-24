@@ -14,6 +14,13 @@ INPUT = (ROOT / "MoonfallUnreal/Config/DefaultInput.ini").read_text(encoding="ut
 
 
 class TestNativeModalPanels(unittest.TestCase):
+    def test_active_page_has_one_title_and_compact_character_heading(self):
+        self.assertIn("if (!Hero->bCharacterStatsOpen && !Hero->bSpellBookOpen)\n   DrawText(PanelWidth < 550.f", HUD)
+        self.assertIn("DrawText(CharacterTitle, FLinearColor::White,", HUD)
+        self.assertIn("Top + 17.f, nullptr, PanelWidth < 550.f ? 0.80f : 1.05f", HUD)
+        for title in ("CHARACTER", "ANCESTRY", "REPUTATION"):
+            self.assertIn(f'PanelWidth < 550.f ? TEXT("{title}")', HUD)
+
     def test_one_safe_shared_chrome_without_entity_scans(self):
         frame = HUD.split("const auto DrawModalChrome = [this]", 1)[1].split(
             "const auto DrawSelectionRail = [this]", 1
