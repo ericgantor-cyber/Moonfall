@@ -900,7 +900,7 @@ void AMoonfallHeroPawn::TryJump()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (bTalentWebOpen) return;
+
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
@@ -910,7 +910,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bTalentWebOpen) return;
+
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
@@ -918,10 +918,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) {
- if (bTalentWebOpen) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) {
- if (bTalentWebOpen) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  if (bTalentWebOpen) return false;
@@ -1079,7 +1077,7 @@ void AMoonfallHeroPawn::CastRight()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bTalentWebOpen) return;
+
  if (bOptionsOpen || bAtlasOpen) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
  SwordBuffer.Clear();
@@ -1098,7 +1096,7 @@ void AMoonfallHeroPawn::CastBoth()
 // shoulder spell shortcuts continue working regardless of this selection.
 void AMoonfallHeroPawn::RightHandAction()
 {
- if (bTalentWebOpen) return;
+
  // RT and primary-action input must not dispatch either attack path while
  // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
  // even though TryCast/MeleeAttack also enforce their own safety checks.
@@ -1285,7 +1283,7 @@ void AMoonfallHeroPawn::ResetMeleeHitCombo()
 // No animation asset is required; the Blueprint event can add authored trails.
 void AMoonfallHeroPawn::MeleeAttack()
 {
- if (bTalentWebOpen) return;
+
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
      || bResidentContextOpen || FocusedResident.IsValid() || bGuarding
      || !FMath::IsFinite(Health) || !FMath::IsFinite(Stamina)
@@ -1426,7 +1424,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bTalentWebOpen) return;
+
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
@@ -1470,7 +1468,7 @@ void AMoonfallHeroPawn::EndGuard()
   StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
- if (bTalentWebOpen) return;
+
  // Menu and defeat inputs must not latch a sprint for later gameplay.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
@@ -1491,7 +1489,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bTalentWebOpen) return;
+
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
@@ -2685,7 +2683,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
- if (bTalentWebOpen) return;
+
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
@@ -2720,8 +2718,7 @@ void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() {
- if (bTalentWebOpen) return; if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
