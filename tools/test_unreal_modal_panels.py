@@ -339,6 +339,17 @@ class TestNativeModalPanels(unittest.TestCase):
             self.assertIn(token, HUD)
         self.assertIn("DrawLiveMenuHitCue();", HUD)
 
+    def test_hidden_options_and_npc_pointer_actions_are_blocked(self):
+        mouse = HERO.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = mouse.split("if (bOptionsOpen) {", 1)[1].split("if (bInventoryOpen) {", 1)[0]
+        self.assertIn("Width >= 264 && Height >= 304 && PC->bShowMouseCursor", options)
+        self.assertIn("FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)", options)
+        self.assertLess(options.index("Width >= 264"), options.index("AdjustOption("))
+        npc = mouse.split("// Tiny-window fallback has no clickable quest actions", 1)[1]
+        self.assertIn("Width < 284 || Height < 294 || !PC->bShowMouseCursor", npc)
+        self.assertIn("!FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)", npc)
+        self.assertLess(npc.index("Width < 284"), npc.index("ChooseResidentContextAction("))
+
     def test_hidden_inventory_pointer_surface_rejects_clicks_and_drag(self):
         helper = HERO.split("bool HasVisibleInventoryPointerSurface(", 1)[1].split("\n}", 1)[0]
         self.assertIn("return W>=304 && H>=304;", helper)
