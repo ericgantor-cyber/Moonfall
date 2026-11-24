@@ -4779,7 +4779,9 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
  return true;
 }
 bool AMoonfallHeroPawn::CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next){
- if(!HasAuthority()||!MoonfallWorldPolicy::ValidCompanionParty(!Next.ResidentId.IsNone(),Next.Stance,Next.Health,Next.AbilityReadyUtc)
+ // Explicit party changes require a live hero; vitals synchronization is separate.
+ if(!HasAuthority()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f
+     ||!MoonfallWorldPolicy::ValidCompanionParty(!Next.ResidentId.IsNone(),Next.Stance,Next.Health,Next.AbilityReadyUtc)
      ||(!Next.ResidentId.IsNone()&&!IsNamedMoonfallResident(Next.ResidentId)))return false;
  const auto Previous=CompanionParty;
  CompanionParty=Next;
@@ -4799,7 +4801,7 @@ uint32 AMoonfallHeroPawn::GetCompanionProfile(FName ResidentId) const {
      ?static_cast<uint32>(*Profile):0u;
 }
 bool AMoonfallHeroPawn::CommitCompanionProfile(FName ResidentId,uint32 Profile){
- if(!HasAuthority()||Health<=0.f||!IsNamedMoonfallResident(ResidentId)
+ if(!HasAuthority()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||!IsNamedMoonfallResident(ResidentId)
      ||!MoonfallWorldPolicy::ValidCompanionProfile(Profile))return false;
  const uint32 Previous=GetCompanionProfile(ResidentId);
  if(Previous==Profile)return true;
