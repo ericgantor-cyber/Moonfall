@@ -1657,6 +1657,12 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Insufficient stamina breaks guard without granting free damage reduction.
   BreakGuard();
  }
+ // A recruited nearby scout may cover part of an ordinary directional hit.
+ // Never consume support on a parry, dodge-only strike or sourceless hazard.
+ if(DamageAfterGuard>0.f&&bHasIncomingDamageSource&&!bIncomingDamageDodgeOnly){
+  if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+   DamageAfterGuard=FMath::Max(0.f,DamageAfterGuard-Mode->ConsumeLocalCompanionCover(this,DamageAfterGuard,IncomingDamageSource));
+ }
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
  // Taking actual health damage interrupts the perfect-parry offensive opening.
  // Fully blocked/parried hits leave it intact.
