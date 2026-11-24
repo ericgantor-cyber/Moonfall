@@ -145,7 +145,7 @@ for token in ('FName(TEXT("Wanderers"))', 'FName(TEXT("VerdantCircle"))',
               'Score<=-50', 'Score<=-15', 'Score>=15', 'Score>=50',
               'for (int32 FactionIndex=0;FactionIndex<5;++FactionIndex)',
               'const float Fraction=FMath::Clamp((Score+100.f)/200.f,0.f,1.f);',
-              'if (Y+ReputationRowHeight>Top+PanelHeight-66.f) break;'):
+              'if (Y+ReputationRowHeight>RowsBottom) break;'):
     assert token in rep_ui, token
 for forbidden in ("ChangeFactionReputation(", "SaveWorldProgress()",
                   "FactionReputation.Add(", "EquipInventoryItem(", "ChooseRace("):
