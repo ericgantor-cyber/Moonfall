@@ -12,7 +12,7 @@ header = (SRC / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
 save = (SRC / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
 rules = (SRC / "MoonfallTalentRules.h").read_text(encoding="utf-8")
 
-assert "int32 Version = 15;" in save
+assert "int32 Version = 16;" in save
 assert "TArray<int32> TalentRanks;" in save
 assert 'MoonfallTalents::Ranks TalentRanks{};' in header
 assert '#include "MoonfallTalentRules.h"' in header
@@ -25,7 +25,7 @@ assert "MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot)" in s
 assert save_body.index("Evaluate(Level, TalentRanks, ValidTalentSnapshot)") < save_body.index("CreateSaveGameObject")
 assert "Save->TalentRanks.Reserve(MoonfallTalents::NodeCount)" in save_body
 assert "for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank)" in save_body
-assert "Save->Version > 15" in load_body
+assert "Save->Version > 16" in load_body
 assert "MoonfallTalents::Ranks LoadedTalentRanks{};" in load_body
 assert "if (Save->Version >= 13)" in load_body
 assert "Save->TalentRanks.Num() != MoonfallTalents::NodeCount" in load_body
