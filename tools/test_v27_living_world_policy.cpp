@@ -206,5 +206,12 @@ int main(){long n=0;
   assert(CanActivateCompanionAbility(rank,role,health,now,ready,eligible)==expected);++n;
  }
  for(int tier=-1;tier<=26;++tier){assert(CompanionAbilityCooldown(tier)==30.0-0.2*Clamp(tier,0,25));++n;}
+ for(bool recruited:{false,true})for(int stance=-1;stance<=3;++stance)
+ for(float hp:{-1.f,0.f,1.f,50.f,99.f,100.f,101.f,static_cast<float>(nan),static_cast<float>(inf)})
+ for(long long ready:{-1LL,0LL,1LL,253402300799LL,253402300800LL}){
+  const bool expected=stance>=0&&stance<=2&&std::isfinite(hp)&&hp>=0&&hp<=100
+     &&ready>=0&&ready<=253402300799LL&&(recruited||(stance==2&&hp==100));
+  assert(ValidCompanionParty(recruited,stance,hp,ready)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
