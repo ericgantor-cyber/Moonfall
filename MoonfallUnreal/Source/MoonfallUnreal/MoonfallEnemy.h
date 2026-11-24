@@ -196,4 +196,6 @@ public:
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
  // Melee resolves through the same bounded health, boss-phase, posture and loot pipeline.
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeMeleeDamage(float Amount);
+ // Nonlethal companion support uses the existing damage resolution.
+ bool TryCompanionSupportStrike();
 };
