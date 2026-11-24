@@ -95,7 +95,7 @@ void AMoonfallUnrealGameMode::AttachCompanionParty(AMoonfallHeroPawn* Hero,AMoon
  Resident->bFollowerWaypointValid=false;Resident->NextFollowerPathAt=-1.f;
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=static_cast<EMoonfallCompanionStance>(Stance);
  Resident->CompanionHealth=Health;Resident->bCompanionDowned=Health<=0.f;
- bFollowerMoveOrdered=false;CompanionThreat.Reset();CompanionThreatAt=-1000.f;CompanionAbilityEndsAt=-1000.f;
+ bFollowerMoveOrdered=false;FollowerSeparatedAt=-1.f;NextFollowerCatchupAt=-1.f;CompanionThreat.Reset();CompanionThreatAt=-1000.f;CompanionAbilityEndsAt=-1000.f;
  CompanionAbilityReadyUtc=Hero->GetCompanionParty().AbilityReadyUtc;
  const int64 Remaining=FMath::Clamp<int64>(CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp(),0,30);
  CompanionAbilityReadyAt=GetWorld()->GetTimeSeconds()+static_cast<float>(Remaining);
@@ -307,7 +307,7 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EM
    Next.Stance=static_cast<int32>(Stance);
    if(!Hero->CommitCompanionParty(Next))return false;
   }
-  LocalCompanionStance=Stance;bFollowerMoveOrdered=false;
+  LocalCompanionStance=Stance;bFollowerMoveOrdered=false;FollowerSeparatedAt=-1.f;
   LocalCompanion->bFollowerWaypointValid=false;LocalCompanion->NextFollowerPathAt=-1.f;return true;
  default:return false;
  }
@@ -382,10 +382,21 @@ void AMoonfallUnrealGameMode::PulseFollower(){
  if(!IsLocalCompanionOwner(Hero)||Hero->Health<=0.f||Hero->bInventoryOpen||Hero->bOptionsOpen
     ||Hero->bAtlasOpen||Hero->bTalentWebOpen||Hero->bCharacterStatsOpen||Hero->bSpellBookOpen
     ||Hero->bResidentContextOpen)return;
- if(Scout->bCompanionDowned){Scout->LivingIntent=TEXT("Downed");return;}
+ if(Scout->bCompanionDowned){FollowerSeparatedAt=-1.f;Scout->LivingIntent=TEXT("Downed");return;}
  if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0)return;
  if(!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
  SyncCompanionVitals(Hero);
+ const double Separation=FVector::DistSquared(Hero->GetActorLocation(),Scout->GetActorLocation());
+ const bool bRecoverySafe=LocalCompanionStance==EMoonfallCompanionStance::Follow&&!bFollowerMoveOrdered
+     &&!Hero->IsRecentlyInCombatForAmbientAI()&&FMath::IsFinite(Separation)&&Separation>=FMath::Square(1800.0);
+ if(!bRecoverySafe)FollowerSeparatedAt=-1.f;
+ else {
+  if(FollowerSeparatedAt<0.f||Now<FollowerSeparatedAt)FollowerSeparatedAt=Now;
+  if(Now>=NextFollowerCatchupAt&&MoonfallWorldPolicy::CanRecoverFollower(Separation,Now-FollowerSeparatedAt,true)){
+   NextFollowerCatchupAt=Now+5.f;
+   if(Scout->TrySafeFollowerCatchup(Hero)){FollowerSeparatedAt=-1.f;return;}
+  }
+ }
  if(LocalCompanionStance==EMoonfallCompanionStance::Follow&&CompanionThreat.IsValid()
      &&Now>=CompanionThreatAt&&Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now);
  if(!IsValid(Scout)||Scout->IsActorBeingDestroyed())return;
