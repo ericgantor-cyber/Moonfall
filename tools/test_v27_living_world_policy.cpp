@@ -112,5 +112,41 @@ int main(){long n=0;
        (std::isfinite(distance)&&distance<=strikeRange*strikeRange));++n;
   }
  }
+ for(unsigned mask=0;mask<(1u<<18);++mask){
+  const bool valid=ValidCompanionTraining(mask);
+  if(!valid){
+   assert(TrainCompanion(mask,3,0,0)==mask);
+   assert(ActiveCompanionTraining(mask,3,0,0)==0);++n;continue;
+  }
+  for(int rank=0;rank<=3;++rank)for(int role=0;role<3;++role)for(int node=0;node<9;++node){
+   const int level=CompanionNodeRank(mask,node);
+   const int spent=CompanionPointsSpent(mask);
+   const bool can=rank>=1&&role==node/3&&(role==0||rank>=2)&&rank>=1+node%3
+       &&level<2&&spent<rank*2&&(node%3==0||CompanionNodeRank(mask,node-1)>0);
+   assert(CanTrainCompanion(mask,rank,role,node)==can);
+   const unsigned next=TrainCompanion(mask,rank,role,node);
+   assert(next==(can?mask+(1u<<(2*node)):mask));
+   if(can)assert(ValidCompanionTraining(next)&&CompanionPointsSpent(next)==spent+1);
+   ++n;
+  }
+ }
+ unsigned balanced=TrainCompanion(0,3,0,0);
+ balanced=TrainCompanion(balanced,3,0,1);
+ balanced=TrainCompanion(balanced,3,0,2);
+ assert(CompanionCover(100.f,12.0,360.0*360.0,true,3,0,balanced)>0.f);
+ assert(CompanionCover(100.f,12.0,371.0*371.0,true,3,0,balanced)==0.f);
+ assert(CanCompanionStrike(1.0,8.0,230.0*230.0,100.0,true,3,0,balanced));
+ unsigned protector=TrainCompanion(0,3,1,3);
+ protector=TrainCompanion(protector,3,1,4);
+ protector=TrainCompanion(protector,3,1,5);
+ assert(CompanionCover(100.f,6.0,100.0,true,3,1,protector)>0.f);
+ assert(CompanionCover(100.f,5.99,100.0,true,3,1,protector)==0.f);
+ unsigned striker=TrainCompanion(0,3,2,6);
+ striker=TrainCompanion(striker,3,2,7);
+ striker=TrainCompanion(striker,3,2,8);
+ assert(CanCompanionStrike(1.0,5.5,190.0*190.0,100.0,true,3,2,striker));
+ assert(!CanCompanionStrike(1.0,5.49,190.0*190.0,100.0,true,3,2,striker));
+ assert(ActiveCompanionTraining(striker,3,2,7)==1);
+ assert(ActiveCompanionTraining(striker,1,0,7)==0);n+=9;
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
