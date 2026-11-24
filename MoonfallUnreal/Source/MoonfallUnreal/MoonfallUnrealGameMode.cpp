@@ -67,6 +67,8 @@ void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident
  LivingResidents.Add(Resident);
 }
 
+AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanion() const { return LocalCompanion.Get(); }
+
 bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const {
  return HasAuthority()&&IsValid(Hero)&&Hero==CompanionOwner.Get()&&Hero->GetWorld()==GetWorld()
      &&Hero->IsPlayerControlled();
