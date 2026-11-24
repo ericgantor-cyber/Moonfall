@@ -30,6 +30,12 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
   &&heroDistanceSquared>240.0*240.0&&heroDistanceSquared<=600.0*600.0;
 }
 // Progression is derived from earned resident bond; no separate XP or save schema.
+// Verified contract completion and distinct dungeon victories unlock non-repeatable trust milestones.
+inline int ScoutDeedTrust(int current,int victories,bool contractComplete,int reputation){
+ if(current<0||!contractComplete||reputation<0||victories<1||victories>30)return current;
+ const int target=victories>=5?100:victories>=3?80:60;
+ return current<target?target:current;
+}
 inline int CompanionRank(int bond){return bond>=100?3:bond>=80?2:bond>=60?1:0;}
 inline int EffectiveCompanionRole(int rank,int role){return rank>=2&&rank<=3&&role>=1&&role<=2?role:0;}
 // Nine two-rank nodes, three branches. Budget is shared across all paths.
