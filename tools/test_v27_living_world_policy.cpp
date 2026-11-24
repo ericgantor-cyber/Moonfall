@@ -166,5 +166,12 @@ int main(){long n=0;
   assert(ScoutDeedTrust(current,victories,contract,reputation)==expected);
   assert(ScoutDeedTrust(expected,victories,contract,reputation)==expected);++n;
  }
+ for(double now:{-1.0,0.0,10.0,nan,inf})
+ for(double target:{-1.0,0.0,122500.0,122501.0,nan,inf})
+ for(double scout:{-1.0,0.0,250000.0,250001.0,nan,inf}){
+  const bool expected=std::isfinite(now)&&now>=0&&std::isfinite(target)&&target>=0&&target<=122500
+       &&std::isfinite(scout)&&scout>=0&&scout<=250000;
+  assert(CanReportCompanionThreat(now,target,scout)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
