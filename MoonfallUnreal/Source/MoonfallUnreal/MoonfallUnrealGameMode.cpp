@@ -125,7 +125,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
      ||LocalCompanionStance!=EMoonfallCompanionStance::Follow||Hero->Health<=0.f
      ||Hero->bInventoryOpen||Hero->bOptionsOpen||Hero->bAtlasOpen||Hero->bTalentWebOpen
-     ||Hero->bResidentContextOpen||Hero->FocusedResident.IsValid())return;
+     ||Hero->bResidentContextOpen)return;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
@@ -382,7 +382,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  bool bGuideBudgetUsed=false;
  const bool bGuideSafe=!bCombatNearby&&!Hero->bInventoryOpen&&!Hero->bOptionsOpen
      &&!Hero->bAtlasOpen&&!Hero->bCharacterStatsOpen&&!Hero->bSpellBookOpen
-     &&!Hero->bResidentContextOpen&&!Hero->FocusedResident.IsValid();
+     &&!Hero->bResidentContextOpen&&!Hero->bTalentWebOpen;
  NextResidentPulseIndex=MoonfallLivingSimulation::ProcessNearbyResidents(
      NextResidentPulseIndex,LivingResidents.Num(),
      [&](int Index) {
