@@ -41,7 +41,30 @@ bool UMoonfallLivingWorldSubsystem::RelayRumor(FName Speaker,FName Listener,FNam
 bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listener){
  if(!CanWrite())return false;
  const FName BestId=FindUsefulRumor(Speaker,Listener);
- return !BestId.IsNone()&&RelayRumor(Speaker,Listener,BestId);
+ if(BestId.IsNone())return false;
+ FMoonfallWorldRumor Previous;
+ const bool bAlreadyKnown=GetRumor(Listener,BestId,Previous);
+ if(!RelayRumor(Speaker,Listener,BestId))return false;
+ FMoonfallWorldRumor Received;
+ if(!bAlreadyKnown&&GetRumor(Listener,BestId,Received))
+  CreditUsefulNews(Listener,Speaker,Received.Confidence);
+ return true;
+}
+void UMoonfallLivingWorldSubsystem::CreditUsefulNews(FName Listener,FName Speaker,int32 Confidence){
+ if(!CanWrite())return;
+ const double Time=Now();
+ if(!FMath::IsFinite(Time)||Time<0)return;
+ if(auto* List=Relationships.Find(Listener)){
+  for(auto& R:*List)if(R.Other==Speaker){
+   const double Elapsed=R.LastAmbientTrustAt<0?60.0:Time-R.LastAmbientTrustAt;
+   const int32 Delta=MoonfallWorldPolicy::AmbientTrustDelta(R.Score,Confidence,Elapsed);
+   if(Delta>0){R.Score=MoonfallWorldPolicy::Relationship(R.Score,Delta);R.LastAmbientTrustAt=Time;}
+   return;
+  }
+ }
+ const int32 Delta=MoonfallWorldPolicy::AmbientTrustDelta(0,Confidence,60.0);
+ if(Delta<=0||!AdjustNpcRelationship(Listener,Speaker,Delta))return;
+ if(auto* List=Relationships.Find(Listener))for(auto& R:*List)if(R.Other==Speaker){R.LastAmbientTrustAt=Time;break;}
 }
 FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(FName Speaker,FName Listener) const {
  if(Speaker.IsNone()||Listener.IsNone()||Speaker==Listener)return NAME_None;
