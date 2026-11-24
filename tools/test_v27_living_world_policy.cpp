@@ -148,5 +148,16 @@ int main(){long n=0;
  assert(!CanCompanionStrike(1.0,5.49,190.0*190.0,100.0,true,3,2,striker));
  assert(ActiveCompanionTraining(striker,3,2,7)==1);
  assert(ActiveCompanionTraining(striker,1,0,7)==0);n+=9;
+ for(unsigned mask=0;mask<(1u<<18);++mask){
+  for(int role=0;role<4;++role){
+   const unsigned profile=mask|(unsigned(role)<<18);
+   const bool valid=role<3&&ValidCompanionTraining(mask);
+   assert(ValidCompanionProfile(profile)==valid);
+   assert(PackCompanionProfile(mask,role)==(valid?profile:0u));
+   if(valid){assert((profile&CompanionTrainingMask)==mask);assert((profile>>18)==unsigned(role));}
+   ++n;
+  }
+ }
+ assert(!ValidCompanionProfile(0xffffffffu));++n;
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
