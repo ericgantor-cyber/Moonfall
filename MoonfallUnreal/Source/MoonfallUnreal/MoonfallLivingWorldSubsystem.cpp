@@ -38,6 +38,22 @@ bool UMoonfallLivingWorldSubsystem::RelayRumor(FName Speaker,FName Listener,FNam
  if(!GetRumor(Speaker,RumorId,R)||!MoonfallWorldPolicy::CanRelay(R.Confidence,R.Hops))return false;
  R.LastSpeaker=Speaker;R.bDirectWitness=false;R.bWitnessReport=false;++R.Hops;R.Confidence=MoonfallWorldPolicy::RelayConfidence(R.Confidence);return StoreRumor(Listener,R);
 }
+bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listener){
+ if(!CanWrite()||Speaker.IsNone()||Listener.IsNone()||Speaker==Listener)return false;
+ int32 Attitude=0;GetNpcRelationship(Speaker,Listener,Attitude);if(Attitude<=-20)return false;
+ const auto* Source=Knowledge.Find(Speaker);if(!Source)return false;
+ // Select at most one useful rumor from the existing 32-entry memory.
+ // Do not mutate Knowledge while holding its source pointer.
+ FName BestId=NAME_None;int32 BestConfidence=0;const double Time=Now();
+ for(const auto& R:*Source){
+  if(R.bCrime||R.ExpiresAt<=Time||!MoonfallWorldPolicy::CanRelay(R.Confidence,R.Hops))continue;
+  const int32 Confidence=MoonfallWorldPolicy::RelayConfidence(R.Confidence);
+  FMoonfallWorldRumor Known;
+  if(GetRumor(Listener,R.RumorId,Known)&&(Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence))continue;
+  if(Confidence>BestConfidence){BestConfidence=Confidence;BestId=R.RumorId;}
+ }
+ return !BestId.IsNone()&&RelayRumor(Speaker,Listener,BestId);
+}
 bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(FName Witness,FName Guard,FName RumorId){
  FMoonfallWorldRumor R;if(!CanWrite()||Witness==Guard||Guard.IsNone()||!GetRumor(Witness,RumorId,R)||!R.bCrime||!R.bDirectWitness)return false;
  // Host verifies Guard's role and contact. This transfers knowledge, not a conviction or arrest order.
