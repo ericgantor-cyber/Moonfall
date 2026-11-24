@@ -193,7 +193,9 @@ $testUpload.Add_Click({
         [Windows.Forms.MessageBox]::Show('Test uploader setup is missing from this Moonfall checkout.','Moonfall Build Center')
         return
     }
+    $currentStatus = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -Status 2>&1 | Out-String
     $choice = [Windows.Forms.MessageBox]::Show(
+        ($currentStatus.Trim() + [Environment]::NewLine + [Environment]::NewLine) +
         'YES: Enable automatic GitHub test summaries every five minutes.' + [Environment]::NewLine +
         'NO: Disable automatic uploads and remove the scheduled task.' + [Environment]::NewLine +
         'CANCEL: Make no changes.' + [Environment]::NewLine + [Environment]::NewLine +
