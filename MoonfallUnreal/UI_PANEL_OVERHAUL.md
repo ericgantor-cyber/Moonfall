@@ -106,6 +106,37 @@ original Z/Nyra art.
   Native compile, 4K/hardware and in-game hitbox/legibility testing are
   required before merge.
 
+## Fifth pass: region and faction identity throughout the panels
+
+- A dedicated six-way **region emblem** renderer now provides original
+  illustrations of the six real biomes: **Ashen Wilds** (volcanic spire),
+  **Moonveil Forest** (ancient tree), **Hollow Depths** (descending strata),
+  **Iron Foundry** (anvil), **Frostbound Reach** (ice star), and
+  **Eclipse Wastes** (split moon). Their unique seals render by the existing
+  Atlas region names and in the current-region quest tracker.
+- The six symbols identify *already named regions*. They never paint unseen
+  map tiles, undiscovered dungeons, shrines, or roads. Atlas fog of war stays
+  driven exclusively by exploration and discovery state.
+- Five original **faction crests** are now tied to the saved faction IDs
+  Wanderers, VerdantCircle, StoneHearth, MoonCoven, and AshenClans. Reputation
+  rows use the unique crest for each faction, while nearby NPC dialogue
+  uses the matching crest when its faction is recognized and a neutral
+  symbol otherwise. No faction score changes.
+- The shared panel chrome gained an extra inset iron border and mirrored
+  side engravings across all six existing major menu families. All new
+  decorations are noninteractive, have finite bounded coordinates, and
+  render statically with no new world scans or actor components.
+- Two original vector design sheets are committed:
+  `Art/UI/moonfall_six_region_emblems.svg` (six zone insignia) and
+  `Art/UI/moonfall_five_faction_crests.svg` (five faction crests).
+  These SVGs are editable **source designs**, not UE5-imported textures.
+  Matching **native Canvas artwork is already coded** into the HUD.
+- Source regressions validate actual HUD call sites, five faction ID mappings,
+  the names of all six zones, safe cardinality and input-free rendering, and
+  the XML structure of both original art sheets. **Native UE5 compilation,
+  legibility on tiny screens, controller navigation and visual checks in
+  4K still require a Windows UE5 build** before merging.
+
 ## Existing controls preserved
 
 - **C**: Character. Repeated C cycles its three pages; mouse tabs and controller
