@@ -850,6 +850,13 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   // Mouse-accessible page switch shares the spare header control slot;
+   // the existing X remains a separate, immediately reachable target.
+   DrawRect(FLinearColor(0.17f,0.29f,0.37f,0.96f),
+      CloseSortX,Top+14.f,CloseSortWidth,28.f);
+   DrawText(Hero->bCharacterRacePageOpen ? TEXT("ATTRIBUTES") : TEXT("RACE & PASSIVES"),
+      FLinearColor::White,CloseSortX+7.f,Top+18.f,nullptr,
+      PanelWidth<550.f?0.66f:0.83f);
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
    if (Hero->bCharacterRacePageOpen) {
