@@ -127,7 +127,10 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return;
- const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole));
+ const int Rank=MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero));
+ const int Role=static_cast<int>(LocalCompanionRole);
+ const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(Rank,Role);
+ const float ExtraPosture=MoonfallWorldPolicy::CompanionExtraPosture(Rank,Role);
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
@@ -149,8 +152,13 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
       Target+FVector(0,0,55),ECC_Visibility,Params)&&Hit.GetActor()!=Enemy)return;
  // Commit cooldown before damage callbacks to prevent reentrant support.
  LastCompanionStrikeAt=Now;
- if(Enemy->TryCompanionSupportStrike(StrikeDamage)&&IsValid(Scout)&&!Scout->IsActorBeingDestroyed())
-  Scout->OnCompanionSupportStrike();
+ if(!Enemy->TryCompanionSupportStrike(StrikeDamage))return;
+ // Precision only adds pressure on a surviving ordinary target that is
+ // not already exposed. The enemy owns posture limits and break resolution.
+ if(ExtraPosture>0.f&&IsValid(Enemy)&&!Enemy->IsActorBeingDestroyed()&&!Enemy->bBoss&&!Enemy->bElite
+     &&Enemy->Health>0.f&&!Enemy->bPostureFinisherAvailable&&Now>=Enemy->PostureBrokenUntil)
+  Enemy->ApplyPostureDamage(ExtraPosture);
+ if(IsValid(Scout)&&!Scout->IsActorBeingDestroyed())Scout->OnCompanionSupportStrike();
 }
 bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EMoonfallCompanionStance Stance){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
