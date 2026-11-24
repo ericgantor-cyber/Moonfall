@@ -2,6 +2,10 @@
 
 Reports *small test summaries* to GitHub Actions; does not send raw logs, crash dumps, screenshots, saves, usernames, paths, or credentials.
 
+## First-launch invitation
+
+The first time Moonfall Build Center opens, it offers to enable optional automatic GitHub test summaries. **Yes** starts the existing setup script, which still requires GitHub CLI and an authenticated account; **No** leaves uploads disabled. Either answer dismisses future first-launch invitations, and the existing **AUTO TEST UPLOAD** button remains available to change the setting later. The invitation never appears in automated Build Center self-tests or when uploads are already installed. Merely running a game build never enables uploads.
+
 ## Build Center integration
 
 Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. The dialog first shows whether the scheduled uploader is currently installed. In the confirmation dialog, select **Yes** to enable five-minute reports, **No** to uninstall the uploader, or **Cancel** to leave settings alone. This is opt-in and is not triggered by normal builds. GitHub CLI must be installed and authenticated before enabling it.
