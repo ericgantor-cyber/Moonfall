@@ -265,12 +265,16 @@ int32 AMoonfallWorldNPC::GetContractSalvageCost() const {
    : 10 + (MoonfallRaces::Validated(RaceId) % 4) * 5;
 }
 bool AMoonfallWorldNPC::CanHeroInteract(const AMoonfallHeroPawn* Hero) const {
- if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
-     || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
+ // Match the HUD and dialogue Tick: invalid range/health must not open a
+ // hidden conversation, and only actors in the same live world may interact.
+ if (!IsValid(Hero) || !GetWorld() || Hero->GetWorld()!=GetWorld()
+     || IsActorBeingDestroyed() || Hero->IsActorBeingDestroyed()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bInventoryOpen || Hero->bOptionsOpen || Hero->bAtlasOpen
+     || Hero->bTalentWebOpen || !FMath::IsFinite(InteractRange)) return false;
  const FVector From = Hero->GetActorLocation();
  const FVector To = GetActorLocation();
- const float Range = FMath::IsFinite(InteractRange)
-     ? FMath::Clamp(InteractRange, 50.f, 400.f) : 240.f;
+ const float Range = FMath::Clamp(InteractRange, 50.f, 400.f);
  if (From.ContainsNaN() || To.ContainsNaN()
      || FVector::DistSquared(From, To) > FMath::Square(Range)) return false;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCTalk), false);
