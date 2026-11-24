@@ -264,10 +264,10 @@ EMoonfallNpcMood AMoonfallWorldNPC::GetEmotionalState(const AMoonfallHeroPawn* H
    bReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report);
   }
  }
- const auto Mood=MoonfallWorldPolicy::ResolveMood(GetBondWithHero(Hero),
+ const auto ResolvedMood=MoonfallWorldPolicy::ResolveMood(GetBondWithHero(Hero),
      IsValid(Hero)?Hero->GetFactionReputation(FactionId):0,bDanger,bReport,SocialRole==FName(TEXT("Guard")));
  using MoonfallWorldPolicy::Mood;
- switch(Mood){
+ switch(ResolvedMood){
   case Mood::Uneasy:return EMoonfallNpcMood::Uneasy;
   case Mood::Afraid:return EMoonfallNpcMood::Afraid;
   case Mood::Vigilant:return EMoonfallNpcMood::Vigilant;
