@@ -58,20 +58,22 @@ assert "RaceId = OldId;" in race_choose
 assert "bRaceChosen = false;" in race_choose
 assert "MoonfallTalents::Ranks TalentRanks{};" in header
 
-# The first C press opens Attributes; repeated C cycles Ancestry and Gear.
+# The first C press opens Attributes; C cycles Ancestry, Equipment and Reputation.
 # Tab always belongs to Atlas Chronicle. Only one page can be selected.
 assert 'bool bCharacterRacePageOpen = false;' in header
 assert 'bool bCharacterGearPageOpen = false;' in header
+assert 'bool bCharacterRepPageOpen = false;' in header
 assert 'void SelectCharacterPage(int32 Page);' in header
 assert 'void ToggleCharacterRacePage();' in header
 select_page = section(hero,"void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)",
                       "void AMoonfallHeroPawn::ToggleCharacterRacePage()")
-assert 'Page < 0 || Page > 2' in select_page
+assert 'Page < 0 || Page > 3' in select_page
 assert 'bCharacterStatsOpen' in select_page and 'bInventoryOpen' in select_page
 assert 'bCharacterRacePageOpen = Page == 1;' in select_page
 assert 'bCharacterGearPageOpen = Page == 2;' in select_page
+assert 'bCharacterRepPageOpen = Page == 3;' in select_page
 assert 'ChooseRace(' not in select_page and 'SaveWorldProgress()' not in select_page
-assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1));' in hero
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 3 : (bCharacterRepPageOpen ? 0 : 1)));' in hero
 stats_action = section(hero,"void AMoonfallHeroPawn::ToggleCharacterStats()",
                        "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()")
 assert 'if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }' in stats_action
@@ -79,11 +81,12 @@ assert 'bCharacterStatsOpen = true;' in stats_action
 atlas_action = section(hero,"void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",
                        "void AMoonfallHeroPawn::StepAtlasChronicle(")
 assert 'ToggleCharacterRacePage();' not in atlas_action
-assert 'SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : 2));' in hero
-assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1));' in hero
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : (bCharacterRepPageOpen ? 2 : 3)));' in hero
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 3 : (bCharacterRepPageOpen ? 0 : 1)));' in hero
 assert 'ActionName="CharacterStats",Key=C' in inputs
 assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
 assert 'bCharacterGearPageOpen = false;' in hero
+assert 'bCharacterRepPageOpen = false;' in hero
 
 # Separate page displays live power readiness, duration, passive regeneration
 # and 12-ancestry identity; not a static fantasy race profile.
@@ -131,18 +134,36 @@ assert "EquipInventoryItem(" not in gear_ui
 assert "3 SLOTS" in gear_ui
 assert 'TEXT("EQUIPMENT")' in hud
 assert 'TEXT("GEAR")' in hud
+# The Reputation page reads the five real V4+ save-backed factions only.
+assert 'TEXT("REPUTATION")' in hud and 'TEXT("REP")' in hud
+assert 'bCharacterRepPageOpen ? 3' in hud
+rep_ui = section(hud, "} else if (Hero->bCharacterRepPageOpen) {",
+                 "const FString CharacterLines[] = {")
+for token in ('FName(TEXT("Wanderers"))', 'FName(TEXT("VerdantCircle"))',
+              'FName(TEXT("StoneHearth"))', 'FName(TEXT("MoonCoven"))',
+              'FName(TEXT("AshenClans"))', 'Hero->GetFactionReputation(FactionIds[FactionIndex])',
+              'Score<=-50', 'Score<=-15', 'Score>=15', 'Score>=50',
+              'for (int32 FactionIndex=0;FactionIndex<5;++FactionIndex)',
+              'const float Fraction=FMath::Clamp((Score+100.f)/200.f,0.f,1.f);',
+              'if (Y+ReputationRowHeight>Top+PanelHeight-66.f) break;'):
+    assert token in rep_ui, token
+for forbidden in ("ChangeFactionReputation(", "SaveWorldProgress()",
+                  "FactionReputation.Add(", "EquipInventoryItem(", "ChooseRace("):
+    assert forbidden not in rep_ui, forbidden
+assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
+
 
 
 # Both visible tabs must have independent hit targets and no gameplay effect.
-assert 'const float PageTabWidth = (PanelWidth - 60.f) / 3.f;' in hud
+assert 'const float PageTabWidth = (PanelWidth - 68.f) / 4.f;' in hud
 assert 'const float PageTabTop = Top + 77.f;' in hud
-assert 'const float TabW=(PanelW-60.f)/3.f;' in hero
+assert 'const float TabW=(PanelW-68.f)/4.f;' in hero
 assert 'const float TabY=PanelT+77.f;' in hero
 mouse = section(hero, "void AMoonfallHeroPawn::ResidentContextMouseClick()",
                 "if (!bResidentContextOpen) { RightHandAction(); return; }")
 assert "if (bCharacterStatsOpen) {" in mouse
 assert 'SelectCharacterPage(Tab);' in mouse
-assert 'for (int32 Tab=0;Tab<3;++Tab)' in mouse
+assert 'for (int32 Tab=0;Tab<4;++Tab)' in mouse
 assert 'if (HitTestInventorySortButton())' in mouse
 assert mouse.index("SelectCharacterPage(Tab);") < mouse.index("if (HitTestInventorySortButton())")
 assert "ToggleCharacterRacePage();" not in mouse
