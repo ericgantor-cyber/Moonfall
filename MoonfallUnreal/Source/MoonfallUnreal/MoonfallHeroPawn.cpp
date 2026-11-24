@@ -4382,6 +4382,30 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    OpenOptions();
    return;
   }
+  if (bCharacterStatsOpen) {
+   // Hit-test the same right header tab painted in MoonfallCombatHUD.
+   // The rest of the character sheet is read-only and absorbs mouse clicks.
+   if (APlayerController* PC=Cast<APlayerController>(Controller)) {
+    int32 ViewW=0,ViewH=0;
+    float MouseX=0.f,MouseY=0.f;
+    PC->GetViewportSize(ViewW,ViewH);
+    if (ViewW>0 && ViewH>0 && PC->bShowMouseCursor
+        && PC->GetMousePosition(MouseX,MouseY)
+        && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
+     const float PanelW=FMath::Min(720.f,FMath::Max(280.f,
+        FMath::Min(float(ViewW)-24.f,float(ViewW)*0.48f)));
+     const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(ViewH)-24.f));
+     const float PanelL=float(ViewW)-PanelW-12.f;
+     const float PanelT=(float(ViewH)-PanelH)*0.5f;
+     const float TabW=PanelW<550.f?105.f:172.f;
+     const float TabX=PanelL+PanelW-TabW-14.f;
+     if (MouseX>=TabX && MouseX<=TabX+TabW
+         && MouseY>=PanelT+14.f && MouseY<=PanelT+42.f)
+      ToggleCharacterRacePage();
+    }
+   }
+   return;
+  }
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
