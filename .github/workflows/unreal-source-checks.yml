@@ -89,7 +89,7 @@ jobs:
           assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
-          assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
+          assert 'DisplayHealth = Hero->bReduceMotion ? ActualHealth : FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
