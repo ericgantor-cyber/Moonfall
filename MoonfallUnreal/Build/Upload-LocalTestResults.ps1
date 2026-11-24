@@ -1,13 +1,18 @@
 #requires -Version 5.1
 [CmdletBinding()]
 param(
- [string]$ProjectRoot=(Split-Path -Parent $PSScriptRoot),
+ [string]$ProjectRoot="",
  [string]$BuildLogRoot=(Join-Path $env:LOCALAPPDATA "MoonfallBuildCenter\Logs"),
  [string]$CacheRoot=(Join-Path $env:LOCALAPPDATA "Moonfall\TestUpload"),
  [string]$GitHubCli="gh",
  [switch]$DryRun
 )
 $ErrorActionPreference="Stop"
+# Resolve script-relative defaults after param binding, including nested powershell.exe invocations.
+if([string]::IsNullOrWhiteSpace($ProjectRoot)){
+ $ProjectRoot=Split-Path -Parent $PSScriptRoot
+}
+if([string]::IsNullOrWhiteSpace($ProjectRoot)){throw "Unable to locate the Moonfall Unreal project root."}
 $statePath=$CacheRoot
 New-Item -ItemType Directory -Force -Path $statePath | Out-Null
 $cacheFile=Join-Path $statePath "sent.json"
