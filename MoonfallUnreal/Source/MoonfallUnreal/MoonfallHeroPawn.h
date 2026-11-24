@@ -93,6 +93,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+ uint32 GetCompanionProfile(FName ResidentId) const;
+ // Internal authoritative transaction used by the companion GameMode APIs.
+ bool CommitCompanionProfile(FName ResidentId,uint32 Profile);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
  // Read-only quest eligibility shared by dialogue and Canvas/Blueprint UI.
@@ -467,6 +470,7 @@ private:
  MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
+ TMap<FName,int32> CompanionProfiles;
  TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
  float RecentCompanionAssistHitAt=-100.f;
  float LastSuccessfulHitAt = -100.f;
