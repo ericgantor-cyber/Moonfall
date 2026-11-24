@@ -35,6 +35,13 @@ inline float CompanionCover(float damage,double elapsed,double distanceSquared,b
     ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>300.0*300.0)return 0.f;
  return std::fmin(damage*0.15f,12.f);
 }
+// Only a recently player-damaged ordinary enemy qualifies for a local assist.
+inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
+                               double heroDistanceSquared,bool eligible){
+ return eligible&&std::isfinite(age)&&age>=0&&age<=5.0&&std::isfinite(cooldown)&&cooldown>=8.0
+  &&std::isfinite(scoutDistanceSquared)&&scoutDistanceSquared>=0&&scoutDistanceSquared<=180.0*180.0
+  &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
+}
 // Select only existing authored watch points. Reports never authorize pursuit.
 enum class WatchPoint { Unchanged, West, East, North, South };
 inline WatchPoint GuardWatchPoint(double dx,double dy,int confidence,bool available){
