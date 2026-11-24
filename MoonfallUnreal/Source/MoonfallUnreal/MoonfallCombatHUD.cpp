@@ -1269,7 +1269,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Shared close button is visible on inventory and character views.
   const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
   const float CloseSortX = Left + PanelWidth - CloseSortWidth - 14.f;
-  const float CloseButtonX = CloseSortX - 36.f;
+  const float CloseButtonX = Hero->bCharacterStatsOpen ? Left + PanelWidth - 42.f : CloseSortX - 36.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
   DrawHoverFrame(CloseButtonX,Top+14.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
