@@ -844,13 +844,58 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
-   DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
+   DrawText(Hero->bCharacterRacePageOpen ? TEXT("MOONFALL  |  ANCESTRY")
+     : TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
      Left + 18.f, Top + 17.f, nullptr, 1.35f);
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
+   if (Hero->bCharacterRacePageOpen) {
+    // This is the saved 12-race gameplay ancestry, not the 30-entry
+    // world-race browsing catalog. Never imply an unchosen race has bonuses.
+    const bool Chosen = Hero->bRaceChosen;
+    const float ReadyIn = Chosen ? Hero->GetRacePowerCooldownRemaining() : 0.f;
+    const float ActiveFor = Chosen ? Hero->GetRacePowerDurationRemaining() : 0.f;
+    const FString RacePowerStatus = !Chosen ? TEXT("LOCKED")
+      : ActiveFor>0.f ? FString::Printf(TEXT("ACTIVE  %.1fs"),ActiveFor)
+      : ReadyIn>0.f ? FString::Printf(TEXT("COOLDOWN  %.1fs"),ReadyIn)
+      : TEXT("READY");
+    const FString RaceLines[] = {
+      TEXT("SAVED HERO ANCESTRY"),
+      FString::Printf(TEXT("%s  |  %s"), *Hero->GetRaceName(),
+        Chosen ? TEXT("CHOSEN - PERMANENT") : TEXT("NOT YET CHOSEN")),
+      TEXT("PASSIVE ATTRIBUTE BONUSES"),
+      FString::Printf(TEXT("Might +%d  |  Insight +%d  |  Resolve +%d"),
+        Hero->GetRaceMightBonus(),Hero->GetRaceInsightBonus(),
+        Hero->GetRaceResolveBonus()),
+      FString::Printf(TEXT("Stamina regen +%.0f%%  |  Mana regen +%.0f%%"),
+        static_cast<double>(Hero->GetRaceStaminaRegenBonus())*100.0,
+        static_cast<double>(Hero->GetRaceManaRegenBonus())*100.0),
+      TEXT("PASSIVE PROFILE"),
+      Hero->GetRacePassiveSummary(),
+      TEXT("RACIAL POWER"),
+      FString::Printf(TEXT("%s  |  %s"),
+        Chosen ? *Hero->GetRacePowerName() : TEXT("LOCKED"),
+        *RacePowerStatus),
+      Hero->GetRacePowerDescription(),
+      TEXT("POWER RECHARGE"),
+      Chosen ? TEXT("45-second cooldown after activation.")
+        : TEXT("No racial power available until a race is chosen."),
+      TEXT("CHARACTER CREATION"),
+      TEXT("Ancestry choice is saved and cannot be changed here."),
+      TEXT("C displays stats  |  Tab or D-pad Left: return")
+    };
+    const float RaceRowHeight = FMath::Clamp(
+      (PanelHeight - 152.f) / UE_ARRAY_COUNT(RaceLines), 9.f, 32.f);
+    for (int32 Row=0; Row<UE_ARRAY_COUNT(RaceLines); ++Row)
+      DrawText(RaceLines[Row],
+        Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12
+          ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+        Left+18.f,StartY+Row*RaceRowHeight,nullptr,
+        PanelHeight<360.f ? 0.52f : (PanelWidth<420.f?0.63f:0.81f));
+   } else {
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
@@ -892,6 +937,9 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+   }
+   DrawText(TEXT("Tab / D-pad Left/Right: stats / ancestry"),FLinearColor(0.69f,0.89f,0.75f),
+      Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
    DrawText(TEXT("C / A: back to inventory    P: spell book    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
