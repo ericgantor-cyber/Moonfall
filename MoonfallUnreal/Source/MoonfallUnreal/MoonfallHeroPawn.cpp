@@ -844,7 +844,15 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if (bTalentWebOpen) return;
+ if (bTalentWebOpen) {
+  int ViewW=1280,ViewH=720;
+  if (const APlayerController* PC=Cast<APlayerController>(Controller))
+   PC->GetViewportSize(ViewW,ViewH);
+  const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+  if (Layout.Valid) TalentWebFirstTier=FMath::Clamp(Layout.FirstTier+(-1),1,
+      MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
+  return;
+ }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -855,7 +863,15 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if (bTalentWebOpen) return;
+ if (bTalentWebOpen) {
+  int ViewW=1280,ViewH=720;
+  if (const APlayerController* PC=Cast<APlayerController>(Controller))
+   PC->GetViewportSize(ViewW,ViewH);
+  const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+  if (Layout.Valid) TalentWebFirstTier=FMath::Clamp(Layout.FirstTier+(1),1,
+      MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
+  return;
+ }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -1944,6 +1960,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
 }
 
@@ -1985,6 +2002,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
 }
 
@@ -2008,11 +2026,13 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
 }
 
@@ -2700,7 +2720,8 @@ void AMoonfallHeroPawn::SetAutoLootEnabled(bool bEnabled)
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() {
+ if (bTalentWebOpen) return; if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
@@ -4071,6 +4092,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
+ if (bTalentWebOpen) { TalentMove(0,-1); return; }
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
@@ -4086,7 +4108,11 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // D-pad Up opens the constellation when no resident can be interacted with.
+  ToggleTalentWeb();
+  return;
+ }
  // A conversation must cancel any queued swing before taking input.
  SwordBuffer.Clear();
  FocusedResident = Resident;
