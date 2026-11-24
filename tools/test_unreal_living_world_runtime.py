@@ -225,11 +225,36 @@ int main(){
         self.assertIn("if(!RelayRumor(Speaker,Listener,BestId))return false;",share)
         self.assertIn("if(!bAlreadyKnown&&GetRumor(Listener,BestId,Received))",share)
         self.assertLess(share.index("if(!RelayRumor"),share.index("CreditUsefulNews("))
-        self.assertIn("LastAmbientTrustAt=-1.0",header)
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.h").read_text()
+        self.assertIn("LastAmbientTrustAt=-1.0",session)
+        self.assertIn("FPlatformTime::Seconds()",credit)
+        self.assertIn("Session->Relationships",credit)
         self.assertIn("Time-R.LastAmbientTrustAt",credit)
         self.assertIn("AmbientTrustDelta(R.Score,Confidence,Elapsed)",credit)
         self.assertIn("AdjustNpcRelationship(Listener,Speaker,Delta)",credit)
         self.assertNotIn("ChangeResidentBond",credit)
+
+    def test_v27_relationship_session_survives_world_teardown(self):
+        world=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        world_h=(SRC/"MoonfallLivingWorldSubsystem.h").read_text()
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.h").read_text()
+        teardown=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        self.assertIn("public UGameInstanceSubsystem",session)
+        self.assertIn("TMap<FName,TArray<FRelationship>> Relationships",session)
+        self.assertNotIn("TMap<FName,TArray<FRelationship>> Relationships",world_h)
+        self.assertIn("GetWorld()->GetGameInstance()",world)
+        self.assertIn("GetSubsystem<UMoonfallNpcSocialSessionSubsystem>()",world)
+        self.assertIn("if(!CanWrite())return nullptr;",world)
+        self.assertIn("GetNetMode()!=NM_Client",world)
+        world_end=world.split("void UMoonfallLivingWorldSubsystem::Deinitialize()",1)[1]
+        self.assertNotIn("Relationships.Reset()",world_end)
+        for local in ("Knowledge.Reset()","Observations.Reset()","Encounters.Reset()"):
+            self.assertIn(local,world_end)
+        self.assertIn("Relationships.Reset()",teardown)
+        reset=world.split("bool UMoonfallLivingWorldSubsystem::ResetNpcSocialSession()",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::GetNpcRelationship",1)[0]
+        self.assertIn("Session->Relationships.Reset()",reset)
+        self.assertNotIn("SaveGameToSlot",world)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
