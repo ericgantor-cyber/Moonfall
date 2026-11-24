@@ -698,6 +698,20 @@ int main(){
         self.assertIn("GetCompanionAbilityRemaining()",hud)
         self.assertIn("CompanionAbilityCooldown",policy)
 
+    def test_companion_commands_reject_invalid_hero_before_save(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        for method in ("CommitCompanionParty", "CommitCompanionProfile"):
+            body=hero.split("bool AMoonfallHeroPawn::"+method+"(",1)[1].split("\n}",1)[0]
+            before_save=body.split("SaveWorldProgress()",1)[0]
+            for guard in ("HasAuthority()", "IsActorBeingDestroyed()", "!FMath::IsFinite(Health)", "Health<=0.f"):
+                self.assertIn(guard,before_save)
+        owner=mode.split("bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(",1)[1].split("\n}",1)[0]
+        self.assertIn("!Hero->IsActorBeingDestroyed()",owner)
+        self.assertIn("FMath::IsFinite(Hero->Health)",owner)
+        dismiss=mode.split("bool AMoonfallUnrealGameMode::DismissLocalCompanion(",1)[1].split("\n}",1)[0]
+        self.assertLess(dismiss.index("Hero->CommitCompanionParty(Next)"),dismiss.index("LocalCompanion.Reset()"))
+
     def test_v27_companion_party_persistence_and_restoration(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         save=(SRC/"MoonfallPersistentSave.h").read_text()
