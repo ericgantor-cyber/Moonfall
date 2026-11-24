@@ -109,6 +109,18 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_buffer
 
+      - name: Verify Shattered Sanctuary gothic architecture and safe paths
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_sanctuary_architecture
+
+      - name: Verify Firstlight tutorial and safe practice sentry AI
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_firstlight_training
+
+      - name: Verify six-region climate and living-world runtime
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_living_world_runtime
+
       - name: Verify UE5 combat momentum and immediate flinch regressions
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_integrity

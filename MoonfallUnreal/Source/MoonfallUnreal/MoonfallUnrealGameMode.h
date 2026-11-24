@@ -2,6 +2,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "TimerManager.h"
+class AMoonfallArena;
+class AMoonfallWorldNPC;
 #include "MoonfallUnrealGameMode.generated.h"
 
 // Thirty physical dungeons in six world regions. Geometry is spawned in small
@@ -30,10 +32,25 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|World")
  bool GetDungeonEntranceTransform(int32 ZoneIndex, int32 DungeonIndex,
     FTransform& OutTransform) const;
+ // Read-only HUD hint from the single cached ambient event. Never scans
+ // all actors and never changes any player quest or world-save state.
+ FString GetNearbyAmbientEventHint(const FVector& HeroLocation) const;
 
 private:
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
  TArray<uint8> AuthoredDungeonSlots;
  void SpawnDungeonBatch();
+ // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
+ void PulseLivingWorld();
+ FTimerHandle LivingWorldPulseTimer;
+ bool bLivingResidentCacheInitialized = false;
+ TWeakObjectPtr<AMoonfallArena> LivingArena;
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
+ TWeakObjectPtr<AActor> ActiveAmbientEncounter;
+ // World-pulse ownership prevents the sole active encounter despawning
+ // during an open NPC conversation or an active nearby monster battle.
+ float ActiveAmbientExpiresAt = -1.f;
+ float NextAmbientEncounterAt = 120.f;
+ int32 LastAmbientEventPhase = -1;
 };

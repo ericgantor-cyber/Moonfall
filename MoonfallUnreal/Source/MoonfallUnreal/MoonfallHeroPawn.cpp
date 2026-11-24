@@ -278,6 +278,18 @@ void AMoonfallHeroPawn::CacheStartingSanctuaryAnchor() {
  }
 }
 
+void AMoonfallHeroPawn::RecordFirstlightAction(
+ MoonfallFirstlightTutorial::EAction Action) {
+ if (bStartingSanctuaryPlaced && IsNearStartingSanctuary())
+  FirstlightTutorial.Mark(Action);
+}
+
+bool AMoonfallHeroPawn::IsRecentlyInCombatForAmbientAI() const {
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health<=0.f
+     || !FMath::IsFinite(CombatRecoveryEndsAt)) return false;
+ const float Now=GetWorld()->GetTimeSeconds();
+ return FMath::IsFinite(Now) && CombatRecoveryEndsAt>Now;
+}
 bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
  if (!bHasStartingSanctuaryAnchor || GetActorLocation().ContainsNaN()) return false;
  return FVector::DistSquared2D(GetActorLocation(), StartingSanctuaryAnchor)
@@ -1128,6 +1140,7 @@ void AMoonfallHeroPawn::ToggleSpellBook()
  if (bSpellBookOpen) {
   bCharacterStatsOpen = false;
   SpellBookSelection = FMath::Clamp(SpellBookSelection, 0, MoonfallSpellBook::SpellCount - 1);
+  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::OpenSpellbook);
  }
  bInventoryScrollbarDragging = false;
 }
@@ -1252,6 +1265,8 @@ void AMoonfallHeroPawn::MeleeAttack()
  SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
  NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
  Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
+ // Count a committed melee action, never a menu click or cooldown spam.
+ RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SwingSword);
  StaminaRegenStartsAt = FMath::Max(
      FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : 0.f,
      Now + 0.35f);
@@ -1459,6 +1474,7 @@ void AMoonfallHeroPawn::Dodge()
  const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
      : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
+ RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -2878,6 +2894,9 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
   return false;
  }
+ // Count only a persisted Firstlight discovery, never a failed checkpoint.
+ if (Shrine->ShrineId == FName(TEXT("sanctuary_firstlight")))
+  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::DiscoverShrine);
  // Shrine discovery saved the world already; restart the autosave interval.
  SecondsSinceLastWorldSave = 0.f;
  // Discovery is rare, so update visual statuses only after a saved change.
@@ -4043,7 +4062,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
 }
 void AMoonfallHeroPawn::TalkToNearestNPC() {
  if (AMoonfallWorldNPC* Resident = GetNearestResidentNPC()) {
-  if (Resident->CanHeroInteract(this)) Resident->TryTalk(this);
+  if (Resident->CanHeroInteract(this) && Resident->TryTalk(this)
+      && Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+   RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
  }
 }
 void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
@@ -4060,11 +4081,23 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (Choice == 0) {
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
+  // Opening or immediately closing a menu is not a completed conversation.
+  if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+   RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
   ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
   return true;
  }
  if (Choice != 1) return false;
+ if (Resident->bAmbientVisitor) {
+  // Ambient encounters never offer an unfinishable persistent contract.
+  const FText Notice=FText::FromString(
+      TEXT("This traveler has no contract. Select Talk to hear their story."));
+  ResidentFeedbackMessage=Notice.ToString();
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  OnResidentQuestFeedback(Notice,false);
+  return false;
+ }
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
  FText Message;

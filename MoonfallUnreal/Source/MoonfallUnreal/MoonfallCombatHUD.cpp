@@ -1,4 +1,6 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallLivingSimulation.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
@@ -46,8 +48,10 @@ void AMoonfallCombatHUD::DrawHUD()
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
      L + 18.f, T + 53.f, nullptr, 0.90f);
-   const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
-   const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
+   const int32 Quest = Resident->bAmbientVisitor ? 2
+       : Hero->GetResidentQuestState(Resident->ResidentId);
+   const FString QuestAction = Resident->bAmbientVisitor ? TEXT("No contract")
+     : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
    const FString Names[3] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
@@ -66,17 +70,20 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
         : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
-    DrawText(Names[Row], Row == 1 && Quest == 2
+    DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
-   const FString ContractStatus = Quest == 0 ? TEXT("Available")
+   const FString ContractStatus = Resident->bAmbientVisitor ? TEXT("None")
+     : Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
      *ContractStatus, *Resident->FactionId.ToString()),
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
-       Hero->Salvage, Resident->GetContractSalvageCost()),
+   DrawText(Resident->bAmbientVisitor
+       ? TEXT("Road encounter  |  Talk to hear their story")
+       : FString::Printf(TEXT("Salvage: %d / %d"),
+           Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
@@ -1325,6 +1332,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // World-wide quest tracker, driven only by existing persistent progression.
  // No per-frame actor scans, no new saved fields, and no forced tutorial screens.
  const bool bSanctuaryObjective = Hero->IsNearStartingSanctuary();
+ const bool bFirstlightLessons = bSanctuaryObjective && Hero->bStartingSanctuaryPlaced
+   && !Hero->FirstlightTutorial.Finished();
  const bool bCanShowQuestTracker = Canvas->SizeX >= 760.f && Canvas->SizeY >= 520.f;
  if (bCanShowQuestTracker) {
   const int32 Discovered = FMath::Clamp(Hero->GetTotalDiscoveredDungeons(), 0, 30);
@@ -1390,6 +1399,33 @@ void AMoonfallCombatHUD::DrawHUD()
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
   }
+  if (!bSanctuaryObjective && GetWorld()) {
+   // Show one nearby event in the normal tracker, without replacing the
+   // primary quest objective or scanning actors every HUD frame.
+   if (const AMoonfallUnrealGameMode* Mode =
+       GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()) {
+    const FString EventHint=Mode->GetNearbyAmbientEventHint(Hero->GetActorLocation());
+    if (!EventHint.IsEmpty()) Context=EventHint;
+   }
+  }
+  if (bFirstlightLessons) {
+   // Optional five-step learning, earned by real player actions in any order.
+   using EAction = MoonfallFirstlightTutorial::EAction;
+   switch (Hero->FirstlightTutorial.Next()) {
+    case EAction::DiscoverShrine:
+     Objective = TEXT("Approach the Firstlight Shrine"); break;
+    case EAction::SpeakToGuide:
+     Objective = TEXT("Speak to the Guide (right-click / D-pad Up, then Talk)"); break;
+    case EAction::SwingSword:
+     Objective = TEXT("Try your sword (left-click / RT)"); break;
+    case EAction::PerformDodge:
+     Objective = TEXT("Dodge near the northern practice sentries"); break;
+    case EAction::OpenSpellbook:
+     Objective = TEXT("Open your Spell Book (P / inventory Book tab)"); break;
+    default: break;
+   }
+   Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");
+  }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
   const float Top = 78.f;
@@ -1401,6 +1437,15 @@ void AMoonfallCombatHUD::DrawHUD()
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
+  // Region climate is a pure policy sample. Do not scan weather actors
+  // or nearby residents from the frequently drawn HUD.
+  const int ClimateRegion=MoonfallLivingSimulation::RegionFromWorldX(Hero->GetActorLocation().X);
+  const auto Climate=MoonfallLivingSimulation::WeatherFor(ClimateRegion,
+      MoonfallLivingSimulation::Phase(GetWorld()->GetTimeSeconds(),360.f));
+  DrawText(FString::Printf(TEXT("%s  |  %s"),
+      bSanctuaryObjective?TEXT("FIRSTLIGHT"):TEXT("WEATHER"),
+      UTF8_TO_TCHAR(MoonfallLivingSimulation::WeatherName(Climate))),
+    FLinearColor(0.7f,0.85f,0.96f),Left+Width-160.f,Top+7.f,nullptr,0.64f);
   DrawText(Objective, FLinearColor::White,
     Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),
@@ -1416,10 +1461,15 @@ void AMoonfallCombatHUD::DrawHUD()
     Left + 14.f, Top + 92.f, TrackWidth, 5.f);
   DrawRect(FLinearColor(0.84f, 0.56f, 0.98f),
     Left + 14.f, Top + 92.f, TrackWidth * (static_cast<float>(Cleared) / 30.f), 5.f);
-  DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
+  if (bFirstlightLessons)
+   DrawText(FString::Printf(TEXT("FIRST STEPS %u/5  |  OPTIONAL"), Hero->FirstlightTutorial.Count()),
+     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+  else
+   DrawText(FString::Printf(TEXT("FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"),
        Discovered, Cleared, RegionsCleared),
-    FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
-    Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+     FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
+     Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);

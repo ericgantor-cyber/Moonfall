@@ -3,6 +3,12 @@
 #include "MoonfallArena.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallCombatHUD.h"
+#include "MoonfallWorldNPC.h"
+#include "MoonfallEnemy.h"
+#include "MoonfallLivingSimulation.h"
+#include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -27,6 +33,23 @@ bool AMoonfallUnrealGameMode::GetDungeonEntranceTransform(
  return true;
 }
 
+FString AMoonfallUnrealGameMode::GetNearbyAmbientEventHint(
+ const FVector& HeroLocation) const {
+ const AActor* Active = ActiveAmbientEncounter.Get();
+ if (!IsValid(Active) || Active->IsActorBeingDestroyed()
+     || HeroLocation.ContainsNaN() || Active->GetActorLocation().ContainsNaN()
+     || FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
+         > FMath::Square(1250.f)) return FString();
+ if (const AMoonfallWorldNPC* Visitor = Cast<AMoonfallWorldNPC>(Active)) {
+  if (!Visitor->bAmbientVisitor) return FString();
+  return FString::Printf(TEXT("ROAD EVENT: %s | APPROACH TO TALK"),
+      *Visitor->DisplayName.ToString());
+ }
+ if (Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter"))))
+  return TEXT("ROAD EVENT: HOSTILE CREATURE | DODGE OR LEAVE");
+ return FString();
+}
+
 void AMoonfallUnrealGameMode::BeginPlay()
 {
  Super::BeginPlay();
@@ -39,6 +62,10 @@ void AMoonfallUnrealGameMode::BeginPlay()
  if (!bHasArena)
   GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
 
+ // A single low-frequency pulse powers nearby resident routines, regional
+ // atmosphere and bounded, optional roadside encounters.
+ GetWorldTimerManager().SetTimer(LivingWorldPulseTimer, this,
+     &AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f);
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
@@ -66,6 +93,178 @@ void AMoonfallUnrealGameMode::BeginPlay()
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
 
+void AMoonfallUnrealGameMode::PulseLivingWorld() {
+ UWorld* World=GetWorld();
+ if (!World) return;
+ const float Now=World->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now<0.f) return;
+ if (!LivingArena.IsValid()) {
+  for (TActorIterator<AMoonfallArena> It(World); It; ++It) {
+   if (IsValid(*It) && !(*It)->IsActorBeingDestroyed()) {
+    LivingArena=*It; break;
+   }
+  }
+ }
+ if (LivingArena.IsValid()) LivingArena->UpdateRegionWeather(Now);
+ if (!bLivingResidentCacheInitialized) {
+  // One small setup scan for the permanent Firstlight/Crossroads residents.
+  bLivingResidentCacheInitialized=true;
+  int32 Scanned=0;
+  for (TActorIterator<AMoonfallWorldNPC> It(World);
+       It && Scanned<MoonfallLivingSimulation::ResidentBudget; ++It,++Scanned) {
+   if (IsValid(*It) && !(*It)->IsActorBeingDestroyed() && !(*It)->bAmbientVisitor)
+    LivingResidents.Add(*It);
+  }
+ }
+ AMoonfallHeroPawn* Hero=Cast<AMoonfallHeroPawn>(
+     UGameplayStatics::GetPlayerPawn(this,0));
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health<=0.f) return;
+ const FVector HeroLocation=Hero->GetActorLocation();
+ if (HeroLocation.ContainsNaN()) return;
+ const bool bCombatNearby=Hero->IsRecentlyInCombatForAmbientAI();
+ for (const TWeakObjectPtr<AMoonfallWorldNPC>& Ref:LivingResidents) {
+  AMoonfallWorldNPC* NPC=Ref.Get();
+  if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) continue;
+  const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
+  if (!FMath::IsFinite(DistSq) || DistSq>FMath::Square(1600.f)) continue;
+  if (bCombatNearby && DistSq<FMath::Square(700.f))
+   NPC->WitnessNearbyDanger(Now);
+  NPC->AdvanceLivingRoutine(Now,HeroLocation);
+ }
+ // Retire old ambient actors on the existing four-second pulse, not via
+ // a fixed SetLifeSpan that could destroy a conversation or active fight.
+ if (AActor* Active=ActiveAmbientEncounter.Get()) {
+  const bool bTalkingToVisitor=Hero->bResidentContextOpen
+      && Hero->FocusedResident.Get()==Active;
+  const bool bNearbyMonsterBattle=bCombatNearby
+      && Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter")))
+      && !Active->GetActorLocation().ContainsNaN()
+      && FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
+          < FMath::Square(1200.f);
+  if (MoonfallLivingSimulation::ShouldRetireAmbient(
+          Now,ActiveAmbientExpiresAt,bTalkingToVisitor,bNearbyMonsterBattle)) {
+   Active->Destroy();
+   ActiveAmbientEncounter.Reset();
+   ActiveAmbientExpiresAt=-1.f;
+  }
+ } else {
+  ActiveAmbientExpiresAt=-1.f;
+ }
+ // Event cooldowns and region eligibility are deterministic. We spawn at
+ // most one short-lived ambient actor, never inside the starting sanctuary.
+ if (Now<NextAmbientEncounterAt) return;
+ const int Region=MoonfallLivingSimulation::RegionFromWorldX(HeroLocation.X);
+ const bool bSafeZone=Hero->IsNearStartingSanctuary() ||
+     HeroLocation.Y > -1800.f;
+ const bool bNearRoad=FMath::Abs(HeroLocation.Y+2500.f)<260.f;
+ // New encounters wait until gameplay is active, including stats/Spell Book,
+ // and never surprise the player while fighting an existing enemy.
+ const bool bModal=Hero->bInventoryOpen || Hero->bOptionsOpen ||
+     Hero->bAtlasOpen || Hero->bCharacterStatsOpen ||
+     Hero->bSpellBookOpen || Hero->bResidentContextOpen ||
+     Hero->FocusedResident.IsValid() || bCombatNearby;
+ if (!MoonfallLivingSimulation::MayEncounter(Region,bSafeZone,bNearRoad,
+     bModal,ActiveAmbientEncounter.IsValid())) return;
+ const int Phase=MoonfallLivingSimulation::Phase(Now,150.f);
+ if (Phase==LastAmbientEventPhase) return;
+ // Sparse road event placement uses one ground ray only when committing an
+ // encounter. No per-frame traces, NPC crowds or persistent world-save data.
+ const FVector Candidate(HeroLocation.X+600.f,-2500.f,HeroLocation.Z+600.f);
+ if (MoonfallLivingSimulation::RegionFromWorldX(Candidate.X)!=Region) return;
+ FCollisionQueryParams FloorQuery(SCENE_QUERY_STAT(MoonfallAmbientRoadGround),false);
+ FloorQuery.AddIgnoredActor(Hero);
+ FHitResult Ground;
+ if (!World->LineTraceSingleByChannel(Ground,Candidate,
+       Candidate-FVector(0.f,0.f,1400.f),ECC_Visibility,FloorQuery)
+     || !Ground.bBlockingHit || Ground.ImpactNormal.Z<0.7f
+     || !LivingArena.IsValid() || !IsValid(LivingArena->DungeonRoad)
+     || Ground.GetComponent()!=LivingArena->DungeonRoad) return;
+ const FVector SpawnPosition=Ground.ImpactPoint+FVector(0.f,0.f,85.f);
+ if (SpawnPosition.ContainsNaN()) return;
+ const FTransform SpawnTransform(FRotator::ZeroRotator,SpawnPosition);
+ const auto CurrentWeather=MoonfallLivingSimulation::WeatherFor(
+     Region,MoonfallLivingSimulation::Phase(Now,360.f));
+ const auto Event=MoonfallLivingSimulation::EncounterForWeather(
+     Region,Phase,CurrentWeather);
+ AActor* Spawned=nullptr;
+ if (Event==MoonfallLivingSimulation::EEvent::Monster) {
+  // A single short-lived, ordinary enemy; no divine IDs or special loot.
+  AMoonfallEnemy* Enemy=World->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(),SpawnTransform,this,nullptr,
+    ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+  if (IsValid(Enemy)) {
+   Enemy->bBoss=false;
+   Enemy->bElite=false;
+   Enemy->Health=35.f;
+   Enemy->AttackDamage=4.f;
+   Enemy->Tags.AddUnique(FName(TEXT("MoonfallAmbientEncounter")));
+   Enemy->FinishSpawning(SpawnTransform);
+   Spawned=Enemy;
+  }
+ } else {
+  FActorSpawnParameters Params;
+  Params.Owner=this;
+  Params.SpawnCollisionHandlingOverride=
+     ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+  AMoonfallWorldNPC* Visitor=World->SpawnActor<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(),SpawnTransform,Params);
+  if (IsValid(Visitor)) {
+   Visitor->bAmbientVisitor=true;
+   Visitor->ResidentId=NAME_None;
+   Visitor->SettlementId=FName(TEXT("Roadside"));
+   Visitor->FactionId=FName(TEXT("Wanderers"));
+   switch (Event) {
+    case MoonfallLivingSimulation::EEvent::Merchant:
+     Visitor->DisplayName=FText::FromString(TEXT("Roadside Trader"));
+     Visitor->SocialRole=FName(TEXT("Merchant"));
+     Visitor->Greeting=FText::FromString(TEXT("I bring supplies and stories from the next province."));
+     break;
+    case MoonfallLivingSimulation::EEvent::Patrol:
+     Visitor->DisplayName=FText::FromString(TEXT("Passing Patrol"));
+     Visitor->SocialRole=FName(TEXT("Guard"));
+     Visitor->Greeting=FText::FromString(TEXT("We patrol these roads. Keep an eye on the shadows."));
+     break;
+    case MoonfallLivingSimulation::EEvent::Rescue:
+     Visitor->DisplayName=FText::FromString(TEXT("Stranded Wayfarer"));
+     Visitor->SocialRole=FName(TEXT("Scout"));
+     Visitor->Greeting=FText::FromString(TEXT("I lost my caravan near the old boundary stones."));
+     break;
+    case MoonfallLivingSimulation::EEvent::Dispute:
+     Visitor->DisplayName=FText::FromString(TEXT("Disputing Traveler"));
+     Visitor->SocialRole=FName(TEXT("Citizen"));
+     Visitor->Greeting=FText::FromString(TEXT("Two caravans claim this road. Who can settle it?"));
+     break;
+    default:break;
+   }
+   // Each of the six lands has a distinct local history. This is
+   // conversation flavour, not a fabricated quest or reputation reward.
+   static const TCHAR* const RegionRumors[6] = {
+    TEXT("Ashen Wilds: red dust hides ruined watchfires."),
+    TEXT("Moonveil Forest: old trees mark paths no map remembers."),
+    TEXT("Hollow Depths: the earth echoes beneath abandoned roads."),
+    TEXT("Iron Foundry: broken furnaces glow beyond the ridge."),
+    TEXT("Frostbound Reach: ice seals the passes at dusk."),
+    TEXT("Eclipse Wastes: even the moonlight seems to falter.")
+   };
+   if (Region>=0 && Region<6) {
+    FString Story=Visitor->Greeting.ToString()+TEXT(" ")+RegionRumors[Region];
+    if (MoonfallLivingSimulation::Severe(CurrentWeather))
+     Story+=TEXT(" The weather has made travel dangerous.");
+    Visitor->Greeting=FText::FromString(Story);
+   }
+   Spawned=Visitor;
+  }
+ }
+ if (!IsValid(Spawned)) return;
+ // The director owns this one event until its expiry. Waiting on a real
+ // conversation or current monster battle never introduces a second event.
+ Spawned->SetLifeSpan(0.f);
+ ActiveAmbientEncounter=Spawned;
+ ActiveAmbientExpiresAt=Now+100.f;
+ LastAmbientEventPhase=Phase;
+ NextAmbientEncounterAt=Now+150.f;
+}
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
  if (!GetWorld()) return;

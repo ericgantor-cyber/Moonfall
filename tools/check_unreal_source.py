@@ -1763,7 +1763,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f", tick)
         self.assertLess(tick.index("!FMath::IsFinite(IncomingAttackDamage)"),
                         tick.index("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();"))
-        self.assertIn("IncomingAttackDamage, GetActorLocation());", tick)
+        self.assertIn("EffectiveAttackDamage, GetActorLocation());", tick)
 
     def test_boss_batch_invalid_nav_cache_resets_before_chasing(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -2956,7 +2956,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
-        self.assertIn("if (!bBoss && (!bElite || bDungeonRole)) {", tick)
+        self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {", tick)
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
@@ -2967,7 +2967,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
         self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
         self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
-        self.assertLess(tick.index("if (!bBoss && (!bElite || bDungeonRole)) {"),
+        self.assertLess(tick.index("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
@@ -2983,7 +2983,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
                         scope.index("++ConsideredAllies;"))
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
-        self.assertIn("if (!bBoss && (!bElite || bDungeonRole))", scope)
+        self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))", scope)
         self.assertIn("(Other->bElite && !bDungeonRole)", scope)
         self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex", scope)
 
@@ -4754,8 +4754,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bDungeonBossAttackDodgeOnly = BossSpecialMove == 2", enemy)
         self.assertIn("BossSpecialMove == 3 || BossSpecialMove == 5;", enemy)
         self.assertIn("bDungeonBossAttackDodgeOnly = false;", enemy)
-        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
-        self.assertIn("Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation())", enemy)
         self.assertIn("const bool bRedDodge = bRegionalBoss && Boss->bDungeonBossAttackDodgeOnly;", hud)
         self.assertIn("const bool bBlueParry =", hud)
         for cue in ("RED - DODGE ONLY", "BLUE - PARRY / DODGE",
