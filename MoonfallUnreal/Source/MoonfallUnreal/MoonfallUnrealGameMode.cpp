@@ -133,7 +133,14 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
   if (!IsValid(Other) || Other->IsActorBeingDestroyed() || Other==Speaker
       || Other->ResidentId==Speaker->ResidentId || Other->SettlementId!=Speaker->SettlementId) continue;
   const double Distance=FVector::DistSquared(Speaker->GetActorLocation(),Other->GetActorLocation());
-  if (FMath::IsFinite(Distance) && Distance<BestDistance) {BestDistance=Distance;Listener=Other;}
+  if (!FMath::IsFinite(Distance) || Distance>=BestDistance) continue;
+  // Reject hostile listeners before nearest-neighbor selection. Otherwise
+  // the same hostile neighbor can permanently block all friendly exchanges.
+  int32 Attitude=0;
+  Society->GetNpcRelationship(Speaker->ResidentId,Other->ResidentId,Attitude);
+  if (Attitude<=-20) continue;
+  BestDistance=Distance;
+  Listener=Other;
  }
  if (!Listener) return;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallResidentSocialLOS),false);
