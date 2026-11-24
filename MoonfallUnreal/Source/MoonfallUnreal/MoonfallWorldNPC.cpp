@@ -253,6 +253,7 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  const int Shift=MoonfallLivingSimulation::Phase(Now,180.f)
       + static_cast<int>(GetTypeHash(ResidentId)%4u);
  const auto Alert=MoonfallLivingSimulation::ReactionFor(Role,Now-LastDangerAt);
+ if(Role==ERole::Scout&&(LivingIntent==TEXT("Following")||LivingIntent==TEXT("Holding Position")||LivingIntent==TEXT("Passive")||LivingIntent==TEXT("Returning Home")||LivingIntent==TEXT("Moving to order")||LivingIntent==TEXT("Downed")))return LivingIntent;
  if(Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost) return TEXT("On Alert");
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
  // Only ordinary residents expose the new activity in the existing HUD.
