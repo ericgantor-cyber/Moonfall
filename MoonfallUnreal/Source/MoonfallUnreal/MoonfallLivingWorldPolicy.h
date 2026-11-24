@@ -32,6 +32,17 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
 // Progression is derived from earned resident bond; no separate XP or save schema.
 inline int CompanionRank(int bond){return bond>=100?3:bond>=80?2:bond>=60?1:0;}
 inline int EffectiveCompanionRole(int rank,int role){return rank>=2&&rank<=3&&role>=1&&role<=2?role:0;}
+// Earned veteran perks are derived, not spendable points or persistent flags.
+enum class CompanionPerk { None, Fieldcraft, ShieldExpert, Precision };
+inline CompanionPerk VeteranPerk(int rank,int role){
+ if(rank!=3)return CompanionPerk::None;
+ const int Effective=EffectiveCompanionRole(rank,role);
+ return Effective==1?CompanionPerk::ShieldExpert:Effective==2?CompanionPerk::Precision:CompanionPerk::Fieldcraft;
+}
+inline double CompanionCoverCooldown(int rank,int role){return VeteranPerk(rank,role)==CompanionPerk::ShieldExpert?8.0:12.0;}
+inline double CompanionCoverRange(int rank,int role){return VeteranPerk(rank,role)==CompanionPerk::Fieldcraft?350.0:300.0;}
+inline double CompanionStrikeRange(int rank,int role){return VeteranPerk(rank,role)==CompanionPerk::Fieldcraft?220.0:180.0;}
+inline float CompanionExtraPosture(int rank,int role){return VeteranPerk(rank,role)==CompanionPerk::Precision?4.f:0.f;}
 inline float CompanionStrikeDamage(int rank,int role=0){
  const float Base=rank==3?10.f:rank==2?8.f:rank==1?6.f:0.f;
  const int Effective=EffectiveCompanionRole(rank,role);
@@ -39,8 +50,9 @@ inline float CompanionStrikeDamage(int rank,int role=0){
 }
 // A local companion can mitigate one ordinary directional hit per cooldown.
 inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1,int role=0){
- if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<12.0
-    ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>300.0*300.0)return 0.f;
+ const double Range=CompanionCoverRange(rank,role);
+ if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<CompanionCoverCooldown(rank,role)
+    ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>Range*Range)return 0.f;
  const float Fraction=rank==3?0.20f:rank==2?0.18f:0.15f;
  const float Cap=rank==3?16.f:rank==2?14.f:12.f;
  const int Effective=EffectiveCompanionRole(rank,role);
@@ -52,8 +64,9 @@ inline float CompanionCover(float damage,double elapsed,double distanceSquared,b
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
                                double heroDistanceSquared,bool eligible,int rank=1,int role=0){
  const double RequiredCooldown=EffectiveCompanionRole(rank,role)==2?6.0:8.0;
+ const double Range=CompanionStrikeRange(rank,role);
  return eligible&&std::isfinite(age)&&age>=0&&age<=5.0&&std::isfinite(cooldown)&&cooldown>=RequiredCooldown
-  &&std::isfinite(scoutDistanceSquared)&&scoutDistanceSquared>=0&&scoutDistanceSquared<=180.0*180.0
+  &&std::isfinite(scoutDistanceSquared)&&scoutDistanceSquared>=0&&scoutDistanceSquared<=Range*Range
   &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
 }
 // Select only existing authored watch points. Reports never authorize pursuit.
