@@ -83,8 +83,10 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
- LocalCompanionRole=EMoonfallCompanionRole::Balanced;
- LocalCompanionTraining=0;
+ const uint32 Profile=Hero->GetCompanionProfile(Resident->ResidentId);
+ LocalCompanionRole=static_cast<EMoonfallCompanionRole>(MoonfallWorldPolicy::EffectiveCompanionRole(
+      MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero)),static_cast<int>(Profile>>18)));
+ LocalCompanionTraining=Profile&MoonfallWorldPolicy::CompanionTrainingMask;
  return true;
 }
 float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source){
@@ -180,6 +182,8 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionRole(AMoonfallHeroPawn* Hero,EMoo
  case EMoonfallCompanionRole::Protector:case EMoonfallCompanionRole::Striker:if(Rank<2)return false;break;
  default:return false;
  }
+ if(!Hero->CommitCompanionProfile(LocalCompanion->ResidentId,
+      MoonfallWorldPolicy::PackCompanionProfile(LocalCompanionTraining,static_cast<int>(Role))))return false;
  LocalCompanionRole=Role;return true;
 }
 bool AMoonfallUnrealGameMode::TrainLocalCompanionTalent(AMoonfallHeroPawn* Hero,int32 Node){
@@ -189,11 +193,15 @@ bool AMoonfallUnrealGameMode::TrainLocalCompanionTalent(AMoonfallHeroPawn* Hero,
  const int Rank=MoonfallWorldPolicy::CompanionRank(LocalCompanion->GetBondWithHero(Hero));
  const uint32 Next=MoonfallWorldPolicy::TrainCompanion(LocalCompanionTraining,Rank,static_cast<int>(LocalCompanionRole),Node);
  if(Next==LocalCompanionTraining)return false;
+ if(!Hero->CommitCompanionProfile(LocalCompanion->ResidentId,
+      MoonfallWorldPolicy::PackCompanionProfile(Next,static_cast<int>(LocalCompanionRole))))return false;
  LocalCompanionTraining=Next;return true;
 }
 bool AMoonfallUnrealGameMode::ResetLocalCompanionTalents(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f
     ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero))return false;
+ if(!Hero->CommitCompanionProfile(LocalCompanion->ResidentId,
+      MoonfallWorldPolicy::PackCompanionProfile(0,static_cast<int>(LocalCompanionRole))))return false;
  LocalCompanionTraining=0;return true;
 }
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
