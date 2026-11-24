@@ -28,6 +28,15 @@ int main(){
  assert(ReactionFor(ERole::Citizen,-1.f)==EAlertReaction::Normal);
  assert(ReactionFor(ERole::Merchant,
      std::numeric_limits<float>::quiet_NaN())==EAlertReaction::Normal);
+ assert(!ShouldRetireAmbient(99.f,100.f,false,false));
+ assert(ShouldRetireAmbient(100.f,100.f,false,false));
+ assert(!ShouldRetireAmbient(108.f,100.f,true,false));
+ assert(!ShouldRetireAmbient(108.f,100.f,false,true));
+ assert(ShouldRetireAmbient(108.f,100.f,false,false));
+ assert(!ShouldRetireAmbient(
+     std::numeric_limits<float>::quiet_NaN(),100.f,false,false));
+ assert(!ShouldRetireAmbient(105.f,
+     std::numeric_limits<float>::infinity(),false,false));
  assert(Phase(-1.f,360.f)==0);
  assert(Phase(std::numeric_limits<float>::infinity(),360.f)==0);
  assert(WeatherFor(4,0)==EWeather::Snow||WeatherFor(4,0)==EWeather::Fog);
@@ -127,13 +136,38 @@ int main(){
         self.assertIn("World->LineTraceSingleByChannel(",mode)
         self.assertIn("ActiveAmbientEncounter=Spawned;",mode)
         self.assertIn("NextAmbientEncounterAt=Now+150.f;",mode)
-        self.assertIn("Spawned->SetLifeSpan(100.f);",mode)
+        self.assertIn("Spawned->SetLifeSpan(0.f);",mode)
+        self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",mode)
         self.assertIn("MoonfallAmbientEncounter",mode)
         self.assertIn("bAmbientVisitor=true;",mode)
         self.assertIn("FTimerHandle LivingWorldPulseTimer",header)
         self.assertIn("TWeakObjectPtr<AMoonfallWorldNPC>",header)
         self.assertIn("if (!bAmbientVisitor && Disposition",npc)
         self.assertNotIn("GetAllActorsOfClass(",mode)
+
+    def test_encounter_lifetime_preserves_live_conversations_and_battles(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        for name in ("ActiveAmbientEncounter.Get()",
+                     "Hero->bResidentContextOpen",
+                     "Hero->FocusedResident.Get()==Active",
+                     'Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter")))',
+                     "bCombatNearby","FMath::Square(1200.f)",
+                     "ShouldRetireAmbient(",
+                     "Active->Destroy();",
+                     "ActiveAmbientEncounter.Reset();",
+                     "ActiveAmbientExpiresAt=-1.f;"):
+            self.assertIn(name,pulse)
+        self.assertLess(pulse.index("ShouldRetireAmbient("),pulse.index("if (Now<NextAmbientEncounterAt) return;"))
+        self.assertLess(pulse.index("Active->Destroy();"),pulse.index("ActiveAmbientEncounter.Reset();"))
+        self.assertIn("float ActiveAmbientExpiresAt = -1.f;",header)
+        self.assertIn("!conversationActive&&!monsterBattleActive",policy)
+        self.assertIn("Spawned->SetLifeSpan(0.f);",pulse)
+        self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
+        self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
     def test_ambient_visitors_do_not_show_false_quest_offers(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
@@ -183,6 +217,7 @@ int main(){
             self.assertIn(guard,pulse)
         self.assertLess(pulse.index("Ground.GetComponent()!=LivingArena->DungeonRoad"),
                         pulse.index("World->SpawnActorDeferred<AMoonfallEnemy>("))
-        self.assertIn("Spawned->SetLifeSpan(100.f);",pulse)
+        self.assertIn("Spawned->SetLifeSpan(0.f);",pulse)
+        self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
 if __name__=="__main__":unittest.main()

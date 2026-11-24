@@ -45,6 +45,9 @@ private:
  TWeakObjectPtr<AMoonfallArena> LivingArena;
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
  TWeakObjectPtr<AActor> ActiveAmbientEncounter;
+ // World-pulse ownership prevents the sole active encounter despawning
+ // during an open NPC conversation or an active nearby monster battle.
+ float ActiveAmbientExpiresAt = -1.f;
  float NextAmbientEncounterAt = 120.f;
  int32 LastAmbientEventPhase = -1;
 };

@@ -115,6 +115,25 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    NPC->WitnessNearbyDanger(Now);
   NPC->AdvanceLivingRoutine(Now,HeroLocation);
  }
+ // Retire old ambient actors on the existing four-second pulse, not via
+ // a fixed SetLifeSpan that could destroy a conversation or active fight.
+ if (AActor* Active=ActiveAmbientEncounter.Get()) {
+  const bool bTalkingToVisitor=Hero->bResidentContextOpen
+      && Hero->FocusedResident.Get()==Active;
+  const bool bNearbyMonsterBattle=bCombatNearby
+      && Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter")))
+      && !Active->GetActorLocation().ContainsNaN()
+      && FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
+          < FMath::Square(1200.f);
+  if (MoonfallLivingSimulation::ShouldRetireAmbient(
+          Now,ActiveAmbientExpiresAt,bTalkingToVisitor,bNearbyMonsterBattle)) {
+   Active->Destroy();
+   ActiveAmbientEncounter.Reset();
+   ActiveAmbientExpiresAt=-1.f;
+  }
+ } else {
+  ActiveAmbientExpiresAt=-1.f;
+ }
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;
@@ -205,8 +224,11 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   }
  }
  if (!IsValid(Spawned)) return;
- Spawned->SetLifeSpan(100.f);
+ // The director owns this one event until its expiry. Waiting on a real
+ // conversation or current monster battle never introduces a second event.
+ Spawned->SetLifeSpan(0.f);
  ActiveAmbientEncounter=Spawned;
+ ActiveAmbientExpiresAt=Now+100.f;
  LastAmbientEventPhase=Phase;
  NextAmbientEncounterAt=Now+150.f;
 }

@@ -71,6 +71,14 @@ constexpr EEvent EncounterForWeather(int region,int phase,EWeather weather) {
   return planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
  return planned;
 }
+// Encounter expiry is deliberately paused while a player is actively
+// speaking with its visitor or fighting its nearby monster. No actor Tick,
+// extra timers, quest state or immortal crowd of world events is required.
+inline bool ShouldRetireAmbient(float now,float expiresAt,bool conversationActive,
+                                bool monsterBattleActive) {
+ return std::isfinite(now)&&std::isfinite(expiresAt)&&now>=expiresAt
+      &&!conversationActive&&!monsterBattleActive;
+}
 constexpr bool MayEncounter(int region,bool sanctuary,bool nearRoad,bool inMenu,bool eventAlive){
  return region>=0&&region<6&&!sanctuary&&nearRoad&&!inMenu&&!eventAlive;
 }
