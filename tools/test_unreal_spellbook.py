@@ -255,7 +255,7 @@ int main() {
             with self.subTest(signature=signature):
                 body = hero.split(signature, 1)[1].split(end, 1)[0]
                 self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
-                self.assertIn("|| bOptionsOpen ||", body)
+                self.assertRegex(body, r"\|\| bOptionsOpen(?:\\s*\\n\\s*|\\s+)")
                 self.assertLess(body.index("bSpellBookOpen"),
                                 body.index("InventoryItemCodes.IsValidIndex"))
 
