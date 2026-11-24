@@ -81,4 +81,11 @@ jobs:
           $duplicateResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh )
           if ($duplicateResult.Count -ne 0) { throw 'Successful upload was duplicated' }
           Remove-Item Env:MOONFALL_FAKE_GH_FAIL -ErrorAction SilentlyContinue
+          # Preview must never demand a GitHub login or install a scheduled task.
+          $installerSource = Get-Content -LiteralPath 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1' -Raw
+          if ($installerSource.IndexOf('if($TestNow)') -gt $installerSource.IndexOf('Get-Command gh')) {
+            throw 'Preview must run before any GitHub login check'
+          }
+          $preview = @( & powershell.exe -NoProfile -File ./MoonfallUnreal/Build/Install-LocalTestUpload.ps1 -TestNow )
+          if ($LASTEXITCODE -ne 0) { throw 'Local preview setup failed' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
