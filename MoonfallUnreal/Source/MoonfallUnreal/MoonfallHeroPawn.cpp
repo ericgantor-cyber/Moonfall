@@ -4020,6 +4020,17 @@ const TCHAR* MoonfallRacePowerNames[] = {
  TEXT("Night Veil"), TEXT("Moon Surge"), TEXT("Drakeheart")
 };
 }
+FString AMoonfallHeroPawn::PreviewGameplayAncestry(int32 CandidateRaceId) {
+ if (CandidateRaceId < 0 || CandidateRaceId >= 12)
+  return TEXT("No compatible gameplay ancestry available.");
+ const auto& R=RaceProfile(CandidateRaceId);
+ return FString::Printf(
+  TEXT("SAVED GAMEPLAY LINEAGE: %s\\nPermanent bonuses: Might +%d, Insight +%d, Resolve +%d\\nStamina regen +%.0f%%; Mana regen +%.0f%%\\nRacial power: %s (45s cooldown)"),
+  R.Name,R.Might,R.Insight,R.Resolve,
+  static_cast<double>(R.StaminaRegen)*100.0,
+  static_cast<double>(R.ManaRegen)*100.0,
+  MoonfallRacePowerNames[CandidateRaceId]);
+}
 FString AMoonfallHeroPawn::GetRacePowerName() const {
  return FString(MoonfallRacePowerNames[FMath::Clamp(RaceId, 0, 11)]);
 }
