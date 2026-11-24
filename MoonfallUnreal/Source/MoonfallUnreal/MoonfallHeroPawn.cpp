@@ -1734,8 +1734,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::ToggleCharacterRacePage()
 {
- // Ignore page commands outside C so Tab, D-pad and direct Blueprint calls
- // cannot alter gameplay, inventory or Atlas navigation.
+ // Ignore page commands outside C so mouse, D-pad and Blueprint callers
+ // cannot change race or gameplay state outside the character sheet.
  if (bCharacterStatsOpen && bInventoryOpen && !bOptionsOpen && Health > 0.f)
   bCharacterRacePageOpen = !bCharacterRacePageOpen;
 }
@@ -1753,15 +1753,18 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   bCharacterRacePageOpen = false;
   return;
  }
- bCharacterStatsOpen = !bCharacterStatsOpen;
- bCharacterRacePageOpen = false; // Always open C on the familiar stats page.
- if (bCharacterStatsOpen) bSpellBookOpen = false;
+ // C stays the character shortcut: first press opens Attributes, subsequent
+ // presses switch Attributes <-> Ancestry & Passives. B/Esc returns to bag.
+ if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }
+ bCharacterStatsOpen = true;
+ bCharacterRacePageOpen = false;
+ bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  if (bTalentWebOpen) { TalentChangeBranch(1); return; }
- if (bInventoryOpen && bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }
+ // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
