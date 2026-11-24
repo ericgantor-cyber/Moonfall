@@ -1949,7 +1949,9 @@ void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ // Reject the wrong inventory page before initiating any batch transaction.
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
+     || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
@@ -2759,7 +2761,11 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ // Direct callers must honor the same inventory-only modal boundary as UI actions.
+ if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
+     || bAtlasOpen || bResidentContextOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // Validate every decoded field before mutating equipped items or health.
