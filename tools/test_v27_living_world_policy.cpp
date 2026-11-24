@@ -27,5 +27,14 @@ int main(){long n=0;
   assert(AmbientTrustDelta(score,confidence,elapsed)==expected);
   ++n;
  }
+ for(int bond=-100;bond<=100;++bond)for(int rep=-100;rep<=100;++rep)
+ for(bool danger:{false,true})for(bool report:{false,true})for(bool guard:{false,true}){
+  const Mood expected=danger?(guard?Mood::Vigilant:Mood::Afraid):
+    (rep<=-50||bond<=-60)?Mood::Resentful:
+    report?(guard?Mood::Vigilant:Mood::Uneasy):
+    (rep<=-15||bond<=-15)?Mood::Wary:
+    bond>=60?Mood::Loyal:(bond>=15||rep>=15)?Mood::Warm:Mood::Calm;
+  assert(ResolveMood(bond,rep,danger,report,guard)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
