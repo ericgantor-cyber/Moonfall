@@ -94,7 +94,12 @@ for method in ("TryCast", "ActivateRacePower"):
 for method in ("ToggleInventory", "ToggleAtlas", "OpenOptions"):
     assert "if (bTalentWebOpen) { ToggleTalentWeb(); return; }" in method_segment(method), method
 assert "if (bTalentWebOpen) { TalentPointerClick(); return; }" in method_segment("ResidentContextMouseClick")
-assert "if (bTalentWebOpen) { TalentChangeBranch(1); return; }" in method_segment("ToggleAtlasChronicleFocus")
+atlas_focus = pawn.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {", 1)[1].split("void AMoonfallHeroPawn::StepAtlasChronicle(", 1)[0]
+assert "if (bTalentWebOpen) return;" in atlas_focus
+assert "TalentChangeBranch(" not in atlas_focus
+assert "if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;" in atlas_focus
+assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
+assert 'ActionName="ChronicleFocus",Key=Gamepad_RightThumbstick' in inputs
 for method, action in (("OptionsUp", "TalentMove(0,-1)"),
                        ("OptionsDown", "TalentMove(0,1)"),
                        ("OptionsLeft", "TalentMove(-1,0)"),
