@@ -4294,6 +4294,11 @@ float AMoonfallHeroPawn::GetResidentContextPanelHeight(float ViewportHeight) con
 float AMoonfallHeroPawn::GetResidentContextRowPitch(float PanelHeight) const {
  return FMath::Min(53.f,(PanelHeight-134.f)/GetResidentContextRowCount());
 }
+bool AMoonfallHeroPawn::HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const {
+ return FMath::IsFinite(ViewportWidth) && FMath::IsFinite(ViewportHeight)
+     && ViewportWidth >= 284.f && ViewportHeight >= 294.f
+     && GetResidentContextRowPitch(GetResidentContextPanelHeight(ViewportHeight)) >= 32.f;
+}
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bTalentWebOpen) { TalentPointerClick(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.
@@ -4452,7 +4457,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
+ if (!HasResidentContextPointerSurface(Width,Height) || !PC->bShowMouseCursor
+     || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
  const float PanelH = GetResidentContextPanelHeight(Height);
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
