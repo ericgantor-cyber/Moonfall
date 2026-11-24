@@ -215,6 +215,12 @@ void AMoonfallCombatHUD::DrawHUD()
       !Resident->GetActorLocation().ContainsNaN() &&
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
+   if (Canvas->SizeX < 284.f || Canvas->SizeY < 294.f) {
+    DrawText(TEXT("NPC | Enlarge window | ESC / RMB: close"),
+      FLinearColor(1.f,0.87f,0.70f),12.f,14.f,nullptr,0.72f);
+    DrawLiveMenuHitCue();
+    return;
+   }
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
    const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
@@ -743,6 +749,12 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  if (Hero->bOptionsOpen) {
+  if (Canvas->SizeX < 264.f || Canvas->SizeY < 304.f) {
+   DrawText(TEXT("OPTIONS | Enlarge window | ESC to close"),
+     FLinearColor(1.f,0.87f,0.70f),12.f,14.f,nullptr,0.75f);
+   DrawLiveMenuHitCue();
+   return;
+  }
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
@@ -854,6 +866,14 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  if (Hero->bInventoryOpen) {
+  if (Canvas->SizeX < 304.f || Canvas->SizeY < 304.f) {
+   DrawText(Hero->bCharacterStatsOpen
+     ? TEXT("CHARACTER | Enlarge window | ESC: back")
+     : TEXT("INVENTORY | Enlarge window | B / ESC: close"),
+     FLinearColor(1.f,0.87f,0.70f),12.f,14.f,nullptr,0.72f);
+   DrawLiveMenuHitCue();
+   return;
+  }
   // Canvas-only continuous inventory: no extra actors, widgets, or hidden controls.
   const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)));
   const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
