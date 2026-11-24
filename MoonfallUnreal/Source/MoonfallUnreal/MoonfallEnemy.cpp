@@ -445,9 +445,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Pause hostile behavior during any gameplay modal, including Atlas, and
- // after defeat. Cancel winding attacks so closing a menu cannot trigger
- // an instant hit against a player who was unable to attack or dodge.
+ // The hostile world stays live while any player menu is open: talents,
+ // inventory, spellbook, atlas, options and NPC dialogue are NOT safe zones.
+ // Only a missing, unpossessed or defeated hero cancels pending enemy attacks.
+ // The hit HUD warns during menus, and lethal damage closes the talent web.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  // An unpossessed old pawn may remain valid after respawn or hero switching.
  // Never allow it to receive another cached-target attack.
@@ -465,10 +466,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextHeroCacheRefreshAt = Now + 1.f
     + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  }
- if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
-     || Hero->FocusedResident.IsValid()) {
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
