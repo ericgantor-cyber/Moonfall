@@ -195,6 +195,18 @@ int main(){
         self.assertNotIn("TActorIterator",helper)
         self.assertNotIn("SetTimer",helper)
         self.assertIn("Society->ShareUsefulRumor",helper)
+        self.assertLess(helper.index("FindUsefulRumor("),helper.index("BestDistance=Distance;"))
+        self.assertLess(helper.index("LineTraceSingleByChannel("),helper.index("Society->ShareUsefulRumor"))
+        self.assertIn("if (!Society->ShareUsefulRumor",helper)
+        self.assertLess(helper.index("Society->ShareUsefulRumor"),helper.index("OnAmbientNewsShared("))
+        self.assertNotIn("OnDialogueStarted(",helper)
+        self.assertNotIn("LastSpokenLine",helper)
+        selector=subsystem.split("FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(",1)[0]
+        self.assertNotIn("StoreRumor(",selector)
+        self.assertNotIn("RelayRumor(",selector)
+        self.assertIn("Known.Confidence>=Confidence",selector)
+        self.assertIn("return BestId;",selector)
         share=subsystem.split("bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(",1)[1].split(
             "bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(",1)[0]
         self.assertIn("Attitude<=-20",share)
