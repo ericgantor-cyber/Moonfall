@@ -352,6 +352,33 @@ int main(){
         self.assertIn("bHoldCompanion&&!bInConversation&&!bSheltering&&!bHoldPost",npc)
         self.assertIn('LivingIntent=TEXT("Holding Position");return;',npc)
 
+    def test_v27_companion_menu_uses_shared_geometry_and_dispatch(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        mouse=hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()",1)[0]
+        panel=hud.split("// Native Canvas resident menu.",1)[1].split("if (Hero->bAtlasOpen)",1)[0]
+        for shared in ("GetResidentContextRowCount()","GetResidentContextPanelHeight(",
+                       "GetResidentContextRowPitch(","122.f + Row * Pitch","Pitch-10.f"):
+            self.assertIn(shared,mouse)
+            self.assertIn(shared,panel)
+        self.assertIn("ChooseResidentContextAction(Row)",mouse)
+        self.assertIn("(ResidentContextSelection + 1) % GetResidentContextRowCount()",hero)
+        self.assertIn("(ResidentContextSelection + GetResidentContextRowCount() - 1) % GetResidentContextRowCount()",hero)
+        choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertLess(choose.index("CanHeroInteract(this)"),choose.index("if(bResidentCompanionMenu)"))
+        self.assertIn("if(Choice==2){bResidentCompanionMenu=false",choose)
+        self.assertIn("if(Choice==3&&GetResidentContextRowCount()==4)",choose)
+        self.assertIn("bResidentTurnInPending=false;bResidentCompanionMenu=true",choose)
+        for command in ("RecruitLocalCompanion","SetLocalCompanionStance","DismissLocalCompanion"):
+            self.assertIn(command,choose)
+        self.assertLess(choose.index("if(bResidentCompanionMenu)"),choose.index("OfferResidentQuest(this)"))
+        self.assertIn('TEXT("Companion")',panel)
+        self.assertIn('TEXT("Back")',panel)
+        self.assertIn('TEXT("Close")',panel)
+        self.assertIn('TEXT("Recruit (60 trust)")',panel)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
