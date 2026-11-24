@@ -113,14 +113,26 @@ void AMoonfallCombatHUD::DrawHUD()
   const int Chosen=FMath::Clamp(Hero->TalentWebSelected,0,MoonfallTalents::NodeCount-1);
   const auto& Selected=MoonfallTalents::Nodes[Chosen];
   const int CurrentRank=FullRanks?Hero->GetTalentRank(Chosen):0;
-  // Melee talents apply to every MeleeAttack, including unarmed combat.
-  // Do not describe the effect as sword-only.
+  // Always describe the selected effect before spending points. The stat
+  // names come from the canonical 141-node catalog, never weapon artwork.
+  const TCHAR* EffectName=TEXT("HEALTH");
+  switch (Selected.AffectedStat) {
+   case MoonfallTalents::Stat::Health: EffectName=TEXT("HEALTH"); break;
+   case MoonfallTalents::Stat::Mana: EffectName=TEXT("MANA"); break;
+   case MoonfallTalents::Stat::Stamina: EffectName=TEXT("STAMINA"); break;
+   case MoonfallTalents::Stat::MeleeDamage: EffectName=TEXT("MELEE DAMAGE"); break;
+   case MoonfallTalents::Stat::RangedDamage: EffectName=TEXT("RANGED DAMAGE"); break;
+   case MoonfallTalents::Stat::MagicDamage: EffectName=TEXT("MAGIC DAMAGE"); break;
+   default: break;
+  }
+  const double DisplayPerRank=Selected.AmountPerRank*(Selected.IsPercent?100.0:1.0);
   const FString Detail=Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage
      ? FString::Printf(TEXT("%s  |  MELEE DAMAGE +%.1f%%/RANK  |  RANK %d/%d"),
-         UTF8_TO_TCHAR(Selected.Title),Selected.AmountPerRank*100.0,
-         CurrentRank,Selected.MaxRank)
-     : FString::Printf(TEXT("%s  |  RANK %d/%d  |  MIN LV %d"),
-         UTF8_TO_TCHAR(Selected.Title),CurrentRank,Selected.MaxRank,Selected.MinLevel);
+         UTF8_TO_TCHAR(Selected.Title),DisplayPerRank,CurrentRank,Selected.MaxRank)
+     : FString::Printf(TEXT("%s  |  %s +%.1f%s/RANK  |  RANK %d/%d  |  LV %d"),
+         UTF8_TO_TCHAR(Selected.Title),EffectName,DisplayPerRank,
+         Selected.IsPercent?TEXT("%"):TEXT(""),CurrentRank,Selected.MaxRank,
+         Selected.MinLevel);
   DrawText(Detail,FLinearColor(0.91f,0.83f,0.63f),
      L+20.f,T+H-117.f,nullptr,0.79f);
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
