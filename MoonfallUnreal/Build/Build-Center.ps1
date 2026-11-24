@@ -178,6 +178,45 @@ $exportLog.Add_Click({
     }
     $dialog.Dispose()
 })
+# Explicit user-controlled opt-in. Auto-upload is never enabled by a build.
+$testUpload = New-Button 'AUTO TEST UPLOAD' 591 230
+$testUpload.SetBounds(591,140,230,27)
+$testUpload.Anchor = 'Top,Right'
+$testUpload.AccessibleName = 'Enable or disable automatic GitHub test summary upload'
+$testUpload.Add_Click({
+    if ($script:process -and -not $script:process.HasExited) {
+        [Windows.Forms.MessageBox]::Show('Finish or cancel the current build first.','Moonfall Build Center')
+        return
+    }
+    $setup = Join-Path $PSScriptRoot 'Install-LocalTestUpload.ps1'
+    if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) {
+        [Windows.Forms.MessageBox]::Show('Test uploader setup is missing from this Moonfall checkout.','Moonfall Build Center')
+        return
+    }
+    $currentStatus = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -Status 2>&1 | Out-String
+    $choice = [Windows.Forms.MessageBox]::Show(
+        ($currentStatus.Trim() + [Environment]::NewLine + [Environment]::NewLine) +
+        'YES: Enable automatic GitHub test summaries every five minutes.' + [Environment]::NewLine +
+        'NO: Disable automatic uploads and remove the scheduled task.' + [Environment]::NewLine +
+        'CANCEL: Make no changes.' + [Environment]::NewLine + [Environment]::NewLine +
+        'Only small status summaries are uploaded. GitHub CLI must already be installed and authorized.',
+        'Moonfall automatic test reports', 'YesNoCancel', 'Question')
+    if ($choice -eq [Windows.Forms.DialogResult]::Cancel) { return }
+    $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$setup)
+    if ($choice -eq [Windows.Forms.DialogResult]::No) { $args += '-Uninstall' }
+    try {
+        # Run setup as the current user, without asking for elevated privileges.
+        $result = & powershell.exe @args 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) {
+            throw ('Setup failed. ' + $result.Trim())
+        }
+        $logs.AppendText(($result.Trim() + [Environment]::NewLine))
+        [Windows.Forms.MessageBox]::Show($result,'Moonfall automatic test reports')
+    } catch {
+        $logs.AppendText(('Automatic test upload setup failed: ' + $_.Exception.Message + [Environment]::NewLine))
+        [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Moonfall upload setup failed')
+    }
+})
 $folder.Add_Click({ New-Item -ItemType Directory -Path $out -Force | Out-Null; Start-Process explorer.exe -ArgumentList ('"' + $out + '"') })
 $timer.Add_Tick({
     # Read only newly appended bytes, not an ever-growing compiler log
@@ -268,9 +307,52 @@ $form.Add_FormClosing({
         [Windows.Forms.MessageBox]::Show('Cancel the running job first.','Moonfall Build Center')
     }
 })
+# First-launch opt-in: never enable uploads without an explicit Yes click.
+# Remember declining or postponing, so the dialog cannot nag on every launch.
+$form.Add_Shown({
+    $setup = Join-Path $PSScriptRoot 'Install-LocalTestUpload.ps1'
+    if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) { return }
+    $preferenceDirectory = Join-Path $env:LOCALAPPDATA 'MoonfallBuildCenter'
+    $preferenceFile = Join-Path $preferenceDirectory 'upload-first-launch-choice.txt'
+    if (Test-Path -LiteralPath $preferenceFile -PathType Leaf) { return }
+    # Already-enabled users should not see the invitation or have task settings altered.
+    $status = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -Status 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        $logs.AppendText('Unable to check automatic test upload status.' + [Environment]::NewLine)
+        return
+    }
+    if ($status -match 'automatic test uploads: ENABLED') { return }
+    $answer = [Windows.Forms.MessageBox]::Show(
+        'Would you like Moonfall to automatically report small Windows test and build summaries to GitHub every five minutes?' +
+        [Environment]::NewLine + [Environment]::NewLine +
+        'Raw logs, screenshots, saves, and personal file paths are not uploaded. GitHub CLI authentication is required.' +
+        [Environment]::NewLine + [Environment]::NewLine +
+        'YES: Set up reports now.' + [Environment]::NewLine +
+        'NO: Not now. You can enable them later with AUTO TEST UPLOAD.',
+        'Moonfall: optional test reporting', 'YesNo', 'Question')
+    # Save this first-run decision; this file contains no credentials or personal data.
+    try {
+        New-Item -ItemType Directory -Force -Path $preferenceDirectory | Out-Null
+        [IO.File]::WriteAllText($preferenceFile, 'prompted')
+    } catch {
+        $logs.AppendText('Could not save first-launch preference.' + [Environment]::NewLine)
+    }
+    if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
+    try {
+        $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { throw ('Upload setup failed. ' + $result.Trim()) }
+        $logs.AppendText(($result.Trim() + [Environment]::NewLine))
+        [Windows.Forms.MessageBox]::Show('Automatic test summaries enabled. You can disable them with AUTO TEST UPLOAD.', 'Moonfall')
+    } catch {
+        $logs.AppendText(('Automatic test upload setup failed: ' + $_.Exception.Message + [Environment]::NewLine))
+        [Windows.Forms.MessageBox]::Show(
+            'Automatic upload was not enabled. Install and authenticate GitHub CLI, then use AUTO TEST UPLOAD to retry.',
+            'Moonfall upload setup')
+    }
+})
 if ($SelfTest) {
     # Exercise real WinForms control construction on a hosted Windows runner.
-    $required = @($check, $install, $exportLog, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    $required = @($check, $install, $exportLog, $testUpload, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
     foreach ($control in $required) {
         if ($null -eq $control -or -not $control.IsHandleCreated) {
             if ($null -eq $control) { throw 'Build Center control was not created.' }

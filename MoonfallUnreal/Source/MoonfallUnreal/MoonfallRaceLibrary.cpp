@@ -22,13 +22,13 @@ namespace
   {TEXT("dark_elf"), TEXT("Twilight Elf"), TEXT("Elven"), true, 0.95f, 1.12f, 1.02f},
   {TEXT("dwarf"), TEXT("Dwarf"), TEXT("Dwarven"), true, 1.18f, 1.06f, 0.88f},
   {TEXT("smallfolk"), TEXT("Smallfolk"), TEXT("FreePeoples"), true, 0.86f, 0.9f, 1.12f},
-  {TEXT("orc"), TEXT("Orc"), TEXT("Shadowkin"), false, 1.02f, 1.09f, 1.f},
+  {TEXT("orc"), TEXT("Orc"), TEXT("Shadowkin"), true, 1.02f, 1.09f, 1.f},
   {TEXT("war_orc"), TEXT("War Orc"), TEXT("Shadowkin"), false, 1.16f, 1.17f, 0.93f},
-  {TEXT("goblin"), TEXT("Goblin"), TEXT("Shadowkin"), false, 0.78f, 0.86f, 1.18f},
-  {TEXT("troll"), TEXT("Troll"), TEXT("Giants"), false, 1.55f, 1.25f, 0.72f},
+  {TEXT("goblin"), TEXT("Goblin"), TEXT("Shadowkin"), true, 0.78f, 0.86f, 1.18f},
+  {TEXT("troll"), TEXT("Troll"), TEXT("Giants"), true, 1.55f, 1.25f, 0.72f},
   {TEXT("ogre"), TEXT("Ogre"), TEXT("Giants"), false, 1.42f, 1.19f, 0.81f},
   {TEXT("giant"), TEXT("Giant"), TEXT("Giants"), false, 1.65f, 1.3f, 0.67f},
-  {TEXT("treekin"), TEXT("Treekin"), TEXT("Nature"), false, 1.38f, 1.15f, 0.64f},
+  {TEXT("treekin"), TEXT("Treekin"), TEXT("Nature"), true, 1.38f, 1.15f, 0.64f},
   {TEXT("eaglekin"), TEXT("Eaglekin"), TEXT("Sky"), false, 0.9f, 1.05f, 1.17f},
   {TEXT("dragon"), TEXT("Dragon"), TEXT("Draconic"), false, 1.8f, 1.45f, 0.94f},
   {TEXT("drake"), TEXT("Drake"), TEXT("Draconic"), false, 1.35f, 1.22f, 1.1f},
@@ -47,6 +47,32 @@ namespace
   {TEXT("swamp_troll"), TEXT("Swamp Troll"), TEXT("Giants"), false, 1.48f, 1.16f, 0.76f},
   {TEXT("forest_guardian"), TEXT("Forest Guardian"), TEXT("Nature"), false, 1.45f, 1.2f, 0.8f},
  };
+}
+
+// Explicit gameplay lineage for all supported creator choices. The
+// remaining world-race entries are NPC/creature species and never save as hero
+// ancestries. Several regional variants share a canonical persisted lineage;
+// the character creator displays that lineage before confirmation.
+bool UMoonfallRaceLibrary::ResolveHeroAncestryId(FName CreatorRaceId, int32& HeroAncestryId)
+{
+ HeroAncestryId = -1;
+ FMoonfallRaceProfile Candidate;
+ if (!FindPlayableRaceProfile(CreatorRaceId, Candidate))
+  return false;
+ struct FAncestryBridge { const TCHAR* Race; int32 SavedId; };
+ static constexpr FAncestryBridge Bridge[] = {
+  FAncestryBridge{TEXT("human"),0}, FAncestryBridge{TEXT("high_elf"),1}, FAncestryBridge{TEXT("wood_elf"),2},
+  FAncestryBridge{TEXT("dwarf"),3}, FAncestryBridge{TEXT("smallfolk"),4}, FAncestryBridge{TEXT("orc"),5},
+  FAncestryBridge{TEXT("goblin"),6}, FAncestryBridge{TEXT("troll"),7}, FAncestryBridge{TEXT("treekin"),8},
+  FAncestryBridge{TEXT("dark_elf"),9}, FAncestryBridge{TEXT("riverfolk"),10}, FAncestryBridge{TEXT("beastkin"),11},
+  FAncestryBridge{TEXT("half_elf"),1}, FAncestryBridge{TEXT("hill_dwarf"),3}, FAncestryBridge{TEXT("mountain_dwarf"),3}
+ };
+ for (const FAncestryBridge& Row : Bridge)
+  if (CreatorRaceId == FName(Row.Race)) {
+   HeroAncestryId = Row.SavedId;
+   return true;
+  }
+ return false;
 }
 
 TArray<FName> UMoonfallRaceLibrary::GetRaceIds()

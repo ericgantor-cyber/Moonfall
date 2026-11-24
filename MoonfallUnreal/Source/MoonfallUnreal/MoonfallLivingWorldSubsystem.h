@@ -1,0 +1,60 @@
+#pragma once
+#include "CoreMinimal.h"
+#include "Subsystems/WorldSubsystem.h"
+#include "MoonfallLivingWorldSubsystem.generated.h"
+
+class UMoonfallNpcSocialSessionSubsystem;
+
+UENUM(BlueprintType)
+enum class EMoonfallEncounterState : uint8 { Unknown, Available, Active, Completed };
+USTRUCT(BlueprintType)
+struct FMoonfallWorldRumor {
+ GENERATED_BODY()
+ UPROPERTY(BlueprintReadOnly, Category="Living World") FName RumorId;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") FName Origin;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") FName LastSpeaker;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") int32 Confidence=0;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") int32 Hops=0;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") bool bDirectWitness=false;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") bool bCrime=false;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") bool bWitnessReport=false;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") FVector Location=FVector::ZeroVector;
+ UPROPERTY(BlueprintReadOnly, Category="Living World") double ExpiresAt=0;
+};
+// World-scoped, authoritative social simulation. Host supplies stable NPC IDs and verified observations.
+UCLASS()
+class MOONFALLUNREAL_API UMoonfallLivingWorldSubsystem : public UWorldSubsystem {
+ GENERATED_BODY()
+public:
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool AdjustNpcRelationship(FName Observer, FName Other, int32 Delta);
+ UFUNCTION(BlueprintPure, Category="Moonfall Living World") bool GetNpcRelationship(FName Observer, FName Other, int32& Score) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool PublishObservation(FName Witness, FName RumorId, FVector Location, bool bCrime, float LifetimeSeconds=120.f);
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RelayRumor(FName Speaker, FName Listener, FName RumorId);
+ // Shares one useful non-crime observation; guard reports require the explicit witness API.
+ bool ShareUsefulRumor(FName Speaker, FName Listener);
+ // Read-only selection lets the director skip neighbors who already know the news.
+ FName FindUsefulRumor(FName Speaker,FName Listener) const;
+ // Only recent, indirect reports from the internal combat event namespace.
+ bool GetNearbyCombatReport(FName Npc, const FVector& Location, FMoonfallWorldRumor& Report) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall Living World") bool GetRumor(FName Npc, FName RumorId, FMoonfallWorldRumor& Rumor) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ReportWitnessToGuard(FName Witness, FName Guard, FName RumorId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RegisterEncounter(FName Encounter, bool bRepeatable=false, float CooldownSeconds=300.f);
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool AdvanceEncounter(FName Encounter, EMoonfallEncounterState Next);
+ UFUNCTION(BlueprintPure, Category="Moonfall Living World") EMoonfallEncounterState GetEncounterState(FName Encounter) const;
+ // Host calls on explicit new campaign/reset; never on ordinary map travel.
+ UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ResetNpcSocialSession();
+ // Existing world pulse flushes dirty snapshots at a bounded cadence.
+ void FlushSocialMemory();
+ virtual void Deinitialize() override;
+private:
+ UMoonfallNpcSocialSessionSubsystem* GetSocialSession() const;
+ struct FEncounter { EMoonfallEncounterState State=EMoonfallEncounterState::Available; bool bRepeatable=false; double Cooldown=300; double CompletedAt=0; };
+ struct FObservation { FVector Location=FVector::ZeroVector; bool bCrime=false; double ExpiresAt=0; };
+ TMap<FName,TArray<FMoonfallWorldRumor>> Knowledge;
+ TMap<FName,FObservation> Observations;
+ TMap<FName,FEncounter> Encounters;
+ bool CanWrite() const;
+ double Now() const;
+ bool StoreRumor(FName Npc,const FMoonfallWorldRumor& Rumor);
+ void CreditUsefulNews(FName Listener,FName Speaker,int32 Confidence);
+};

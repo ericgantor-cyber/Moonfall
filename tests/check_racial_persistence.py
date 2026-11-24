@@ -24,7 +24,8 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn('ActionName="RacePower",Key=T', self.input)
         self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
-        self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)
+        self.assertIn("void TriggerRacePower() { if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower(); }", self.header)
+        self.assertIn("bool ActivateRacePower();", self.header)
 
     def test_race_is_chosen_before_passive_or_active_bonuses(self):
         self.assertIn("if (bRaceChosen || NewRaceId < 0 || NewRaceId > 11", self.cpp)
@@ -35,11 +36,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 12", self.save)
+        self.assertIn("int32 Version = 16", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 12", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 16", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -60,6 +61,39 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertNotIn("for (int32 Code : Save->InventoryItemCodes)", loader)
         self.assertIn("bool IsNamedMoonfallResident(FName Id);", self.cpp)
         self.assertIn("bool IsNamedMoonfallResident(FName Id) {", self.cpp)
+
+    def test_firstlight_resident_contracts_and_bonds_roundtrip_safely(self):
+        # Two permanent sanctuary NPCs previously offered contracts that the
+        # save-system resident allowlist refused to accept. All four lookup
+        # tables must agree or autosaving/reloading may reject or lose bonds.
+        arena=(ROOT/"MoonfallArena.cpp").read_text(encoding="utf-8")
+        for resident in ("FirstlightArchivist", "FirstlightWatchkeeper"):
+            self.assertIn('TEXT("' + resident + '")', arena)
+        quest_validator=self.cpp.split("bool IsNamedMoonfallResident(FName Id) {",1)[1].split(
+            "int32 AMoonfallHeroPawn::GetResidentBond(",1)[0]
+        saver=self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()",1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()",1)[0]
+        loader=self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()",1)[0]
+        save_bonds=saver.split("static const FName SaveResidentIds[] = {",1)[1].split("};",1)[0]
+        load_bonds=loader.split("static const FName AllowedResidentIds[] = {",1)[1].split("};",1)[0]
+        restore_bonds=loader.split("static const FName ValidIds[] = {",1)[1].split("};",1)[0]
+        for resident in ("FirstlightArchivist", "FirstlightWatchkeeper"):
+            token='FName(TEXT("' + resident + '"))'
+            for name,section in (("quest validator",quest_validator),
+                                 ("save bonds",save_bonds),
+                                 ("load validation",load_bonds),
+                                 ("bond restoration",restore_bonds)):
+                self.assertEqual(section.count(token),1,(name,resident))
+        self.assertIn("if (!IsNamedMoonfallResident(ResidentId)",self.cpp)
+        self.assertIn("ResidentQuestStates.Add(ResidentId, 1);",self.cpp)
+        self.assertIn("ResidentQuestStates.Add(Id, 2);",self.cpp)
+        self.assertIn("ResidentBonds.Add(Key,",loader)
+        self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;",saver)
+        self.assertIn("Save->ResidentBonds = ResidentBonds;",saver)
+        # Existing version and limits remain unchanged for legacy saves.
+        self.assertIn("int32 Version = 16",self.save)
+        self.assertIn("ResidentQuestStates.Num() > 64",saver)
 
     def test_shrine_overlap_cannot_save_half_loaded_progress_on_respawn(self):
         self.assertIn("bool bWorldProgressLoadInProgress = false;", self.header)
@@ -251,7 +285,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 12", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -529,7 +563,7 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("if (!SaveWorldProgress()) {"))
 
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
-        self.assertIn("int32 Version = 12;", self.save)
+        self.assertIn("int32 Version = 16;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
         self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
         self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)
