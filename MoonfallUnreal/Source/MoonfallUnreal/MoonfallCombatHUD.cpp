@@ -850,15 +850,26 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   // Mouse-accessible page switch shares the spare header control slot;
-   // the existing X remains a separate, immediately reachable target.
-   DrawRect(FLinearColor(0.17f,0.29f,0.37f,0.96f),
-      CloseSortX,Top+14.f,CloseSortWidth,28.f);
-   DrawText(Hero->bCharacterRacePageOpen ? TEXT("ATTRIBUTES") : TEXT("RACE & PASSIVES"),
-      FLinearColor::White,CloseSortX+7.f,Top+18.f,nullptr,
-      PanelWidth<550.f?0.66f:0.83f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 18.f, 8.f, 26.f);
-   const float StartY = Top + 96.f;
+   // Two independently selectable page tabs, with the active page highlighted.
+   // Keep these bounds identical to the pointer handler in MoonfallHeroPawn.
+   const float PageTabWidth = (PanelWidth - 44.f) * 0.5f;
+   const float PageTabLeft = Left + 18.f;
+   const float PageTabTop = Top + 77.f;
+   DrawRect(Hero->bCharacterRacePageOpen
+      ? FLinearColor(0.13f,0.18f,0.24f,0.96f)
+      : FLinearColor(0.17f,0.42f,0.42f,0.98f),
+      PageTabLeft,PageTabTop,PageTabWidth,32.f);
+   DrawText(TEXT("ATTRIBUTES"),FLinearColor::White,
+      PageTabLeft+7.f,PageTabTop+7.f,nullptr,PanelWidth<420.f?0.64f:0.85f);
+   DrawRect(Hero->bCharacterRacePageOpen
+      ? FLinearColor(0.17f,0.42f,0.42f,0.98f)
+      : FLinearColor(0.13f,0.18f,0.24f,0.96f),
+      PageTabLeft+PageTabWidth+8.f,PageTabTop,PageTabWidth,32.f);
+   DrawText(TEXT("ANCESTRY & PASSIVES"),FLinearColor::White,
+      PageTabLeft+PageTabWidth+15.f,PageTabTop+7.f,nullptr,
+      PanelWidth<420.f?0.47f:(PanelWidth<550.f?0.65f:0.84f));
+   const float RowHeight = FMath::Clamp((PanelHeight - 178.f) / 18.f, 7.f, 26.f);
+   const float StartY = Top + 123.f;
    if (Hero->bCharacterRacePageOpen) {
     // This is the saved 12-race gameplay ancestry, not the 30-entry
     // world-race browsing catalog. Never imply an unchosen race has bonuses.
@@ -895,7 +906,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("Click ATTRIBUTES or press D-pad Left to return")
     };
     const float RaceRowHeight = FMath::Clamp(
-      (PanelHeight - 152.f) / UE_ARRAY_COUNT(RaceLines), 9.f, 32.f);
+      (PanelHeight - 178.f) / UE_ARRAY_COUNT(RaceLines), 9.f, 32.f);
     for (int32 Row=0; Row<UE_ARRAY_COUNT(RaceLines); ++Row)
       DrawText(RaceLines[Row],
         Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12
