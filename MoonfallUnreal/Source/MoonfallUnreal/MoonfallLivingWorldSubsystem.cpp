@@ -1,17 +1,32 @@
 #include "MoonfallLivingWorldSubsystem.h"
 #include "MoonfallLivingWorldPolicy.h"
 #include "Engine/World.h"
+#include "Engine/GameInstance.h"
+#include "HAL/PlatformTime.h"
+#include "MoonfallNpcSocialSessionSubsystem.h"
 
 bool UMoonfallLivingWorldSubsystem::CanWrite() const {return IsInGameThread()&&GetWorld()&&GetWorld()->IsGameWorld()&&GetWorld()->GetNetMode()!=NM_Client;}
 double UMoonfallLivingWorldSubsystem::Now() const {return GetWorld()?GetWorld()->GetTimeSeconds():0.;}
+UMoonfallNpcSocialSessionSubsystem* UMoonfallLivingWorldSubsystem::GetSocialSession() const {
+ if(!CanWrite())return nullptr;
+ auto* Instance=GetWorld()->GetGameInstance();
+ return Instance?Instance->GetSubsystem<UMoonfallNpcSocialSessionSubsystem>():nullptr;
+}
+bool UMoonfallLivingWorldSubsystem::ResetNpcSocialSession(){
+ auto* Session=GetSocialSession();if(!Session)return false;
+ Session->Relationships.Reset();Knowledge.Reset();Observations.Reset();Encounters.Reset();return true;
+}
 bool UMoonfallLivingWorldSubsystem::GetNpcRelationship(FName Observer,FName Other,int32& Score) const {
- Score=0;if(const auto* List=Relationships.Find(Observer))for(const auto& R:*List)if(R.Other==Other){Score=R.Score;return true;}return false;
+ Score=0;const auto* Session=GetSocialSession();if(!Session)return false;
+ if(const auto* List=Session->Relationships.Find(Observer))for(const auto& R:*List)if(R.Other==Other){Score=R.Score;return true;}return false;
 }
 bool UMoonfallLivingWorldSubsystem::AdjustNpcRelationship(FName Observer,FName Other,int32 Delta){
  if(!CanWrite()||Observer.IsNone()||Other.IsNone()||Observer==Other||Delta<-100||Delta>100)return false;
+ auto* Session=GetSocialSession();if(!Session)return false;
+ auto& Relationships=Session->Relationships;
  auto* List=Relationships.Find(Observer);if(!List){if(Relationships.Num()>=512)return false;List=&Relationships.Add(Observer);}
  for(auto& R:*List)if(R.Other==Other){R.Score=MoonfallWorldPolicy::Relationship(R.Score,Delta);return true;}
- if(List->Num()>=64)return false;List->Add(FRelationship{Other,Delta});return true;
+ if(List->Num()>=64)return false;List->Add(UMoonfallNpcSocialSessionSubsystem::FRelationship{Other,Delta});return true;
 }
 bool UMoonfallLivingWorldSubsystem::GetRumor(FName Npc,FName RumorId,FMoonfallWorldRumor& Rumor) const {
  Rumor=FMoonfallWorldRumor{};const double Time=Now();if(const auto* List=Knowledge.Find(Npc))for(const auto& R:*List)if(R.RumorId==RumorId&&R.ExpiresAt>Time){Rumor=R;return true;}return false;
@@ -51,8 +66,10 @@ bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listene
  return true;
 }
 void UMoonfallLivingWorldSubsystem::CreditUsefulNews(FName Listener,FName Speaker,int32 Confidence){
- if(!CanWrite())return;
- const double Time=Now();
+ auto* Session=GetSocialSession();if(!Session)return;
+ auto& Relationships=Session->Relationships;
+ // Monotonic process time keeps the cooldown valid across world clocks.
+ const double Time=FPlatformTime::Seconds();
  if(!FMath::IsFinite(Time)||Time<0)return;
  if(auto* List=Relationships.Find(Listener)){
   for(auto& R:*List)if(R.Other==Speaker){
@@ -110,4 +127,4 @@ bool UMoonfallLivingWorldSubsystem::AdvanceEncounter(FName Encounter,EMoonfallEn
  if(!CanWrite())return false;auto* E=Encounters.Find(Encounter);if(!E||!MoonfallWorldPolicy::CanTransition(int(E->State),int(Next),E->bRepeatable,Now()-E->CompletedAt>=E->Cooldown))return false;
  E->State=Next;if(Next==EMoonfallEncounterState::Completed)E->CompletedAt=Now();return true;
 }
-void UMoonfallLivingWorldSubsystem::Deinitialize(){Relationships.Reset();Knowledge.Reset();Observations.Reset();Encounters.Reset();Super::Deinitialize();}
+void UMoonfallLivingWorldSubsystem::Deinitialize(){Knowledge.Reset();Observations.Reset();Encounters.Reset();Super::Deinitialize();}
