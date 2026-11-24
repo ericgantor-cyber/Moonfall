@@ -105,7 +105,7 @@ assert "RACE TRAITS (PREVIEW)" in creator
 assert "Next.Profile.VitalityMultiplier-1.f" in creator
 assert "Next.Profile.PowerMultiplier-1.f" in creator
 assert "Next.Profile.SpeedMultiplier-1.f" in creator
-assert "In-game ancestry passives: C > Tab" in creator
+assert "C > Tab displays your saved passives." in creator
 keyboard_handler = creator.split(
     "FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(", 1)[1]
 for control in ("EKeys::Left ||", "EKeys::Right ||", "EKeys::Up ||",
