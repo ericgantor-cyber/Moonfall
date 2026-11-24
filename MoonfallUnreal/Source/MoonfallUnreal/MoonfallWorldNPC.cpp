@@ -42,7 +42,7 @@ void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
 }
 void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
-                                               bool bInConversation, int32 HeroBond) {
+                                               bool bInConversation, int32 HeroBond, bool bAllowLocalGuide) {
  if (bAmbientVisitor || !GetWorld() || !FMath::IsFinite(Now)
      || AuthoredHomeLocation.ContainsNaN() || HeroLocation.ContainsNaN()
      || GetActorLocation().ContainsNaN())
@@ -111,8 +111,13 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   // change. Ordinary residents return home when resting or on a meal break.
   if (bMerchant || bScout || bGuard || bInConversation) bRoutineHome=false;
  }
+ const bool bGuide=MoonfallWorldPolicy::CanLocalGuide(HeroBond,0,
+     FVector::DistSquared(HeroLocation,AuthoredHomeLocation),
+     FVector::DistSquared(HeroLocation,GetActorLocation()),
+     !bInConversation&&!bSheltering&&!bHoldPost&&Alert==MoonfallLivingSimulation::EAlertReaction::Normal,
+     bAllowLocalGuide&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
  if (MoonfallLivingSimulation::PauseResidentMotion(
-      bInConversation,bNearHero,bSheltering,bHoldPost)) return;
+      bInConversation,bNearHero,bSheltering,bHoldPost) && !bGuide) return;
  float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  // Credible reports bias a guard toward one of the original four watch
@@ -129,11 +134,31 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
    default: break;
   }
  }
- const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
+ FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
+ if(bGuide){
+  FVector Direction=HeroLocation-AuthoredHomeLocation;Direction.Z=0.f;
+  const double Distance=Direction.Size2D();
+  Target=AuthoredHomeLocation+Direction.GetSafeNormal2D()*FMath::Clamp(Distance-240.0,0.0,180.0);
+  LivingIntent=TEXT("Guiding Nearby");
+ }
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
- if (Step.SizeSquared2D() > FMath::Square(1.f))
+ if (Step.SizeSquared2D() > FMath::Square(1.f)){
+  if(bGuide){
+   // One small guarded step, never a teleport or navigation request.
+   const FVector Start=GetActorLocation();
+   const FVector End=Start+Step.GetClampedToMaxSize2D(32.f);
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLocalGuide),false,this);
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start+FVector(0,0,55),End+FVector(0,0,55),ECC_Visibility,Params))return;
+   if(!GetWorld()->LineTraceSingleByChannel(Hit,End+FVector(0,0,120),End-FVector(0,0,120),ECC_Visibility,Params)
+       ||Hit.ImpactNormal.Z<0.7)return;
+   FHitResult ExistingGround;
+   if(!GetWorld()->LineTraceSingleByChannel(ExistingGround,Start+FVector(0,0,120),Start-FVector(0,0,120),ECC_Visibility,Params)
+       ||FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0)return;
+  }
   AddActorWorldOffset(Step.GetClampedToMaxSize2D(32.f),true);
+ }
 }
 int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
  return IsValid(Hero) ? Hero->GetResidentBond(ResidentId) : 0;
@@ -195,6 +220,8 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
    if (Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report)) return TEXT("Reviewing Reports");
   }
  }
+ if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Scout
+     && !MoonfallLivingSimulation::Severe(Weather) && LivingIntent==TEXT("Guiding Nearby")) return LivingIntent;
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
      && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
   return LivingIntent;
