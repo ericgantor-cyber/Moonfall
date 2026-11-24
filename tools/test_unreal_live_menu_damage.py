@@ -76,7 +76,7 @@ for name, begin_marker, end_marker, expected in sections:
     begin = hud.index(begin_marker, hud.index("const auto DrawLiveMenuHitCue"))
     end = hud.index(end_marker, begin)
     part = hud[begin:end]
-    completed = re.findall(r"(?m)^( {2,3})DrawLiveMenuHitCue\\(\\);\\n\\1return;$", part)
+    completed = re.findall(r"(?m)^( {2,3})DrawLiveMenuHitCue\(\);\n\1return;$", part)
     returns = re.findall(r"(?m)^ {2,3}return;$", part)
     assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
 
