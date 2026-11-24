@@ -1,0 +1,32 @@
+name: Moonfall local Windows test receipt
+on:
+  repository_dispatch:
+    types: [moonfall-local-test]
+permissions:
+  contents: read
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate local report and publish summary
+        shell: bash
+        env:
+          REPORT: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          data = json.loads(os.environ['REPORT'])
+          assert set(data) == {'format_version','source','outcome','errors','warnings','file_sha256'}
+          assert data['format_version'] == 1
+          assert data['source'] in {'unreal-log','automation-report'}
+          assert data['outcome'] in {'passed','failed','unknown'}
+          assert re.fullmatch('[0-9a-f]{64}',data['file_sha256'])
+          for k in ('errors','warnings'):
+              assert type(data[k]) is int and 0 <= data[k] <= 999
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Moonfall local test summary\n\n')
+              for k in ('source','outcome','errors','warnings','file_sha256'):
+                  f.write('* '+k+': '+str(data[k])+'\n')
+              f.write('\nSelf-reported status only, not native UE5 compilation proof.\n')
+          print('Moonfall local summary:',data['source'],data['outcome'])
+          PY
