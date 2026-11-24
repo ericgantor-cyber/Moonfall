@@ -477,7 +477,7 @@ int main(){
             "// Bounded, persistent faction relationship API.",1)[0]
         self.assertIn("bool bResidentCompanionTalents=false",header)
         self.assertIn("if(bResidentCompanionTalents)return 5;",hero)
-        self.assertIn("Mode->GetLocalCompanion()==Resident?7:3;",hero)
+        self.assertIn("Mode->GetLocalCompanion()==Resident?8:3;",hero)
         self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
         self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
         self.assertIn("if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}",choose)
@@ -486,7 +486,7 @@ int main(){
         self.assertIn("TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice))",choose)
         self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;",hero)
         self.assertLess(choose.index("if(bResidentCompanionTalents)"),choose.index("OfferResidentQuest(this)"))
-        self.assertIn("FString Names[7]",hud)
+        self.assertIn("FString Names[8]",hud)
         self.assertIn('TEXT("COMPANION TALENTS | Select a path")',hud)
         self.assertIn("Rank>=(Path==0?1:2)",hud)
         self.assertIn('TEXT("Perk at 100 trust")',hud)
@@ -519,7 +519,7 @@ int main(){
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         save=(SRC/"MoonfallPersistentSave.h").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
-        self.assertIn("Version = 14",save)
+        self.assertIn("Version = 15",save)
         self.assertIn("TMap<FName,int32> CompanionProfiles",save)
         self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
         self.assertIn("CompanionProfiles.Reset();",hero)
@@ -588,6 +588,31 @@ int main(){
         self.assertIn("Mode->ReviveLocalCompanion(this)",hero)
         self.assertIn('TEXT("Move ahead")',hud)
         self.assertIn('TEXT("Revive companion")',hud)
+
+    def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 15",save)
+        self.assertIn("TMap<FName,FMoonfallCompanionGearRecord> CompanionGear",save)
+        self.assertIn("Save->CompanionGear = CompanionGear;",hero)
+        self.assertIn("Save->CompanionGear.Num()>15",hero)
+        self.assertIn("if(Save->Version>=15)CompanionGear=Save->CompanionGear;",hero)
+        trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
+            "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
+        for guard in ("HasAuthority()","CanHeroInteract(this)","IsRecentlyInCombatForAmbientAI()",
+                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","InventoryItemCodes.Num()>=10000"):
+            self.assertIn(guard,trade)
+        self.assertIn("InventoryItemCodes.RemoveAt(Index)",trade)
+        self.assertIn("InventoryItemCodes.Add(Old)",trade)
+        self.assertIn("if(!SaveWorldProgress())",trade)
+        self.assertIn("InventoryItemCodes=PreviousBag",trade)
+        self.assertIn("CompanionGear.Add(Id,Previous)",trade)
+        self.assertIn("TradeCompanionGear(Resident,Choice%3,Choice>=3)",hero)
+        self.assertIn('TEXT("Trade equipment")',hud)
+        self.assertIn("GetCompanionGearTier(Scout->ResidentId,0)",mode)
+        self.assertIn("GetCompanionGearTier(Scout->ResidentId,1)",mode)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
