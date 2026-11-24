@@ -29,11 +29,16 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
   &&std::isfinite(heroDistanceSquared)&&homeDistanceSquared>=0&&homeDistanceSquared<=450.0*450.0
   &&heroDistanceSquared>240.0*240.0&&heroDistanceSquared<=600.0*600.0;
 }
+// Progression is derived from earned resident bond; no separate XP or save schema.
+inline int CompanionRank(int bond){return bond>=100?3:bond>=80?2:bond>=60?1:0;}
+inline float CompanionStrikeDamage(int rank){return rank==3?10.f:rank==2?8.f:rank==1?6.f:0.f;}
 // A local companion can mitigate one ordinary directional hit per cooldown.
-inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible){
- if(!eligible||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<12.0
+inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1){
+ if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<12.0
     ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>300.0*300.0)return 0.f;
- return std::fmin(damage*0.15f,12.f);
+ const float Fraction=rank==3?0.20f:rank==2?0.18f:0.15f;
+ const float Cap=rank==3?16.f:rank==2?14.f:12.f;
+ return std::fmin(damage*Fraction,Cap);
 }
 // Only a recently player-damaged ordinary enemy qualifies for a local assist.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
