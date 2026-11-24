@@ -17,7 +17,7 @@ Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. In the 
 5. Disable:
    powershell.exe -NoProfile -File .\MoonfallUnreal\Build\Install-LocalTestUpload.ps1 -Uninstall
 
-Reads only files with .log or .json extensions in MoonfallUnreal/Saved/Logs and MoonfallUnreal/Saved/Automation/Reports. A file must be unchanged for 60 seconds, nonempty, at most 10 MB and not a reparse point. Local SHA256 tracking in %LOCALAPPDATA%\Moonfall\TestUpload prevents repeated upload of identical content.
+Reads Moonfall-generated .log files in MoonfallUnreal/Saved/Logs, .log/.json in MoonfallUnreal/Saved/Automation/Reports, and .log/.err files from the existing local Build Center diagnostic folder (%LOCALAPPDATA%\\MoonfallBuildCenter\\Logs). A file must be unchanged for 60 seconds, nonempty, at most 10 MB and not a reparse point. Local SHA256 tracking in %LOCALAPPDATA%\Moonfall\TestUpload prevents repeated upload of identical content.
 
 Dispatch payload includes only outcome (passed/failed/unknown), source category, warning/error counts, and file digest. Status is heuristic, not proof of a successful native Windows build. GitHub workflow receipts appear after moonfall-local-test-receipt.yml exists on default branch. The existing GitHub monitoring task can detect receipt runs; it cannot see your actual gameplay or test results that never generate logs.
 
