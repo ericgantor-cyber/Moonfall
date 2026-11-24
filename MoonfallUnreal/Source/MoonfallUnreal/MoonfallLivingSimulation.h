@@ -9,6 +9,15 @@ enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };
 enum class EEvent { Merchant, Patrol, Rescue, Dispute, Monster };
 enum class EActivity { Work, Patrol, Travel, Rest, Shelter };
 enum class ERole { Citizen, Guard, Merchant, Scout, Scholar, Tinker, Elder };
+// Short lived, per-resident danger memory drives behaviour as well as dialogue.
+// It never creates save fields, enemy targets or independent NPC ticking.
+enum class EAlertReaction { Normal, HoldPost, SeekShelter };
+inline EAlertReaction ReactionFor(ERole role,float secondsSinceDanger) {
+ if(!std::isfinite(secondsSinceDanger) ||
+     secondsSinceDanger<0.f || secondsSinceDanger>=85.f)
+  return EAlertReaction::Normal;
+ return role==ERole::Guard?EAlertReaction::HoldPost:EAlertReaction::SeekShelter;
+}
 inline int Phase(float time, float duration) {
  if(!std::isfinite(time)||time<0.f||!std::isfinite(duration)||duration<=0.f)return 0;
  return static_cast<int>(std::fmin(time/duration,10000000.f));
@@ -53,6 +62,14 @@ constexpr EEvent EncounterFor(int region,int phase) {
  const int slot=(region*7+phase*3)%5;
  return slot==0?EEvent::Merchant:slot==1?EEvent::Patrol:
   slot==2?EEvent::Rescue:slot==3?EEvent::Dispute:EEvent::Monster;
+}
+// Weather influences which story can start; avoid unexpected hostile spawns
+// during severe, low-visibility conditions. Ordinary weather is unchanged.
+constexpr EEvent EncounterForWeather(int region,int phase,EWeather weather) {
+ const EEvent planned=EncounterFor(region,phase);
+ if(Severe(weather))
+  return planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
+ return planned;
 }
 constexpr bool MayEncounter(int region,bool sanctuary,bool nearRoad,bool inMenu,bool eventAlive){
  return region>=0&&region<6&&!sanctuary&&nearRoad&&!inMenu&&!eventAlive;

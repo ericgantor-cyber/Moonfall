@@ -147,7 +147,10 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  const FVector SpawnPosition=Ground.ImpactPoint+FVector(0.f,0.f,85.f);
  if (SpawnPosition.ContainsNaN()) return;
  const FTransform SpawnTransform(FRotator::ZeroRotator,SpawnPosition);
- const auto Event=MoonfallLivingSimulation::EncounterFor(Region,Phase);
+ const auto CurrentWeather=MoonfallLivingSimulation::WeatherFor(
+     Region,MoonfallLivingSimulation::Phase(Now,360.f));
+ const auto Event=MoonfallLivingSimulation::EncounterForWeather(
+     Region,Phase,CurrentWeather);
  AActor* Spawned=nullptr;
  if (Event==MoonfallLivingSimulation::EEvent::Monster) {
   // A single short-lived, ordinary enemy; no divine IDs or special loot.

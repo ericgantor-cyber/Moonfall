@@ -21,6 +21,13 @@ int main(){
  assert(RegionFromWorldX(16875.f)==5);
  assert(RegionFromWorldX(20250.f)==-1);
  assert(RegionFromWorldX(std::numeric_limits<float>::quiet_NaN())==-1);
+ assert(ReactionFor(ERole::Guard,10.f)==EAlertReaction::HoldPost);
+ assert(ReactionFor(ERole::Merchant,10.f)==EAlertReaction::SeekShelter);
+ assert(ReactionFor(ERole::Citizen,84.f)==EAlertReaction::SeekShelter);
+ assert(ReactionFor(ERole::Guard,85.f)==EAlertReaction::Normal);
+ assert(ReactionFor(ERole::Citizen,-1.f)==EAlertReaction::Normal);
+ assert(ReactionFor(ERole::Merchant,
+     std::numeric_limits<float>::quiet_NaN())==EAlertReaction::Normal);
  assert(Phase(-1.f,360.f)==0);
  assert(Phase(std::numeric_limits<float>::infinity(),360.f)==0);
  assert(WeatherFor(4,0)==EWeather::Snow||WeatherFor(4,0)==EWeather::Fog);
@@ -34,6 +41,9 @@ int main(){
  for(int i=0;i<6;++i)for(int j=0;j<10;++j){
   const auto event=EncounterFor(i,j);
   assert(static_cast<int>(event)>=0&&static_cast<int>(event)<=4);
+  const auto severe=EncounterForWeather(i,j,EWeather::Storm);
+  assert(severe==EEvent::Patrol||severe==EEvent::Rescue);
+  assert(EncounterForWeather(i,j,EWeather::Clear)==event);
  }
  return 0;
 }
@@ -43,6 +53,28 @@ int main(){
             source.write_text(code)
             subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True,check=True)
             subprocess.run([str(exe)],check=True)
+    def test_danger_changes_npc_activity_and_local_routines(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        activity=npc.split("FString AMoonfallWorldNPC::GetCurrentActivity() const {",1)[1].split(
+            "bool AMoonfallWorldNPC::SharesRaceWith",1)[0]
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("ReactionFor(Role,Now-LastDangerAt)",activity)
+        self.assertIn('return TEXT("On Alert")',activity)
+        self.assertIn('return TEXT("Seeking Shelter")',activity)
+        self.assertIn("ReactionFor(",movement)
+        self.assertIn("EAlertReaction::SeekShelter",movement)
+        self.assertIn("EAlertReaction::HoldPost",movement)
+        self.assertIn("FVector Step=Target-GetActorLocation();",movement)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertIn("EncounterForWeather(",mode)
+        self.assertIn("WeatherFor(",mode)
+        self.assertIn("secondsSinceDanger>=85.f",policy)
+        self.assertNotIn("TActorIterator",movement)
+        self.assertNotIn("SetTimer",movement)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
