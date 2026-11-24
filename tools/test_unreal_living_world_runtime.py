@@ -379,6 +379,26 @@ int main(){
         self.assertIn('TEXT("Close")',panel)
         self.assertIn('TEXT("Recruit (60 trust)")',panel)
 
+    def test_v27_companion_cover_preserves_defensive_authority(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        cover=mode.split("float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","LocalCompanionStance!=EMoonfallCompanionStance::Follow",
+                      "Scout->GetBondWithHero(Hero)<60","GetFactionReputation(Scout->FactionId)<0",
+                      "MoonfallLivingSimulation::Severe","FVector::DotProduct(ToSource,ToScout)<0.5",
+                      "MoonfallWorldPolicy::CompanionCover","Now-LastCompanionCoverAt"):
+            self.assertIn(guard,cover)
+        self.assertEqual(cover.count("LineTraceSingleByChannel("),1)
+        self.assertLess(cover.index("LineTraceSingleByChannel("),cover.index("LastCompanionCoverAt=Now"))
+        self.assertNotIn("TakeMeleeDamage",cover)
+        self.assertNotIn("TakeSpellDamage",cover)
+        damage=hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)",1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()",1)[0]
+        self.assertIn("DamageAfterGuard>0.f&&bHasIncomingDamageSource&&!bIncomingDamageDodgeOnly",damage)
+        self.assertLess(damage.index("OnGuardImpact("),damage.index("ConsumeLocalCompanionCover("))
+        self.assertLess(damage.index("ConsumeLocalCompanionCover("),damage.index("Health = FMath::Max(0.f, Health - DamageAfterGuard)"))
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
