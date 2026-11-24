@@ -58,5 +58,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC", meta=(ClampMin="50.0", ClampMax="400.0")) float InteractRange = 240.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 InteractionCount = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool TryTalk(AMoonfallHeroPawn* Hero);
+ // Optional presentation hook for successful NPC-to-NPC exchanges.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Ambient")
+ void OnAmbientNewsShared(FName ListenerId,FText ListenerName);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnDialogueStarted(AMoonfallHeroPawn* Hero, FText SpokenGreeting);
 };
