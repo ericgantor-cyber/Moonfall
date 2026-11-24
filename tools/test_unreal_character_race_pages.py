@@ -58,24 +58,32 @@ assert "RaceId = OldId;" in race_choose
 assert "bRaceChosen = false;" in race_choose
 assert "MoonfallTalents::Ranks TalentRanks{};" in header
 
-# The first C press opens Attributes; the next C switches character pages.
-# Tab remains reserved for Atlas Chronicle, not the C character sheet.
+# The first C press opens Attributes; repeated C cycles Ancestry and Gear.
+# Tab always belongs to Atlas Chronicle. Only one page can be selected.
 assert 'bool bCharacterRacePageOpen = false;' in header
+assert 'bool bCharacterGearPageOpen = false;' in header
+assert 'void SelectCharacterPage(int32 Page);' in header
 assert 'void ToggleCharacterRacePage();' in header
-toggle = section(hero, "void AMoonfallHeroPawn::ToggleCharacterRacePage()",
-                 "void AMoonfallHeroPawn::ToggleCharacterStats()")
-assert 'bCharacterStatsOpen && bInventoryOpen && !bOptionsOpen' in toggle
-assert 'bCharacterRacePageOpen = !bCharacterRacePageOpen;' in toggle
-assert 'SaveWorldProgress()' not in toggle and 'ChooseRace(' not in toggle
-assert 'bCharacterStatsOpen = true;\n  bCharacterRacePageOpen = false;' in hero
-stats_action = section(hero, "void AMoonfallHeroPawn::ToggleCharacterStats()", "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()")
+select_page = section(hero,"void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)",
+                      "void AMoonfallHeroPawn::ToggleCharacterRacePage()")
+assert 'Page < 0 || Page > 2' in select_page
+assert 'bCharacterStatsOpen' in select_page and 'bInventoryOpen' in select_page
+assert 'bCharacterRacePageOpen = Page == 1;' in select_page
+assert 'bCharacterGearPageOpen = Page == 2;' in select_page
+assert 'ChooseRace(' not in select_page and 'SaveWorldProgress()' not in select_page
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1));' in hero
+stats_action = section(hero,"void AMoonfallHeroPawn::ToggleCharacterStats()",
+                       "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()")
 assert 'if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }' in stats_action
-atlas_action = section(hero, "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", "void AMoonfallHeroPawn::StepAtlasChronicle(")
+assert 'bCharacterStatsOpen = true;' in stats_action
+atlas_action = section(hero,"void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",
+                       "void AMoonfallHeroPawn::StepAtlasChronicle(")
 assert 'ToggleCharacterRacePage();' not in atlas_action
-assert 'if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = false; return; }' in hero
-assert 'if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = true; return; }' in hero
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : 2));' in hero
+assert 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1));' in hero
 assert 'ActionName="CharacterStats",Key=C' in inputs
 assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
+assert 'bCharacterGearPageOpen = false;' in hero
 
 # Separate page displays live power readiness, duration, passive regeneration
 # and 12-ancestry identity; not a static fantasy race profile.
@@ -101,24 +109,40 @@ assert 'Hero->GetCriticalChance() * 100.f' in hud
 assert 'Hero->GetRacePowerCooldownRemaining()' in hud
 
 assert 'TEXT("ATTRIBUTES")' in hud
-assert 'Click ATTRIBUTES or press D-pad Left to return' in hud
+assert 'Select ATTRIBUTES to view your character stats' in hud
 assert 'Tab or D-pad Left: return' not in hud
 assert 'C / D-pad Left/Right: stats / ancestry' in hud
 assert 'Tab / D-pad Left/Right: stats / ancestry' not in hud
 assert 'DrawLiveMenuHitCue();' in hud
+# Equipment tab reads the same owned, validated equipment as combat.
+gear_ui = section(hud,"} else if (Hero->bCharacterGearPageOpen) {",
+                  "const FString CharacterLines[] = {")
+for token in ("Hero->EquippedWeaponCode", "Hero->EquippedArmorCode",
+              "Hero->EquippedAccessoryCode", "Hero->GetValidatedEquippedTier(Slot)",
+              "Hero->GetItemPower(Codes[Slot])", "Hero->GetEquipmentPower()",
+              "Hero->GetSetPieceCount(Affix)", "Hero->HasLegendaryPerk(Slot)",
+              "Hero->Health", "Hero->Mana", "Hero->Stamina",
+              "RarityNames", "RarityColors", "SafeMax>0.f"):
+    assert token in gear_ui, token
+assert "SaveWorldProgress()" not in gear_ui
+assert "EquipInventoryItem(" not in gear_ui
+assert "3 SLOTS" in gear_ui
+assert 'TEXT("EQUIPMENT")' in hud
+assert 'TEXT("GEAR")' in hud
+
 
 # Both visible tabs must have independent hit targets and no gameplay effect.
-assert 'const float PageTabWidth = (PanelWidth - 44.f) * 0.5f;' in hud
+assert 'const float PageTabWidth = (PanelWidth - 60.f) / 3.f;' in hud
 assert 'const float PageTabTop = Top + 77.f;' in hud
-assert 'const float TabW=(PanelW-44.f)*0.5f;' in hero
+assert 'const float TabW=(PanelW-60.f)/3.f;' in hero
 assert 'const float TabY=PanelT+77.f;' in hero
 mouse = section(hero, "void AMoonfallHeroPawn::ResidentContextMouseClick()",
                 "if (!bResidentContextOpen) { RightHandAction(); return; }")
 assert "if (bCharacterStatsOpen) {" in mouse
-assert 'bCharacterRacePageOpen=false;' in mouse
-assert 'bCharacterRacePageOpen=true;' in mouse
+assert 'SelectCharacterPage(Tab);' in mouse
+assert 'for (int32 Tab=0;Tab<3;++Tab)' in mouse
 assert 'if (HitTestInventorySortButton())' in mouse
-assert mouse.index("bCharacterRacePageOpen=true;") < mouse.index("if (HitTestInventorySortButton())")
+assert mouse.index("SelectCharacterPage(Tab);") < mouse.index("if (HitTestInventorySortButton())")
 assert "ToggleCharacterRacePage();" not in mouse
 
 # Creator gives comparative, accurately labelled previews only; game applies
