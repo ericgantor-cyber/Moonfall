@@ -39,9 +39,14 @@ bool UMoonfallLivingWorldSubsystem::RelayRumor(FName Speaker,FName Listener,FNam
  R.LastSpeaker=Speaker;R.bDirectWitness=false;R.bWitnessReport=false;++R.Hops;R.Confidence=MoonfallWorldPolicy::RelayConfidence(R.Confidence);return StoreRumor(Listener,R);
 }
 bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listener){
- if(!CanWrite()||Speaker.IsNone()||Listener.IsNone()||Speaker==Listener)return false;
- int32 Attitude=0;GetNpcRelationship(Speaker,Listener,Attitude);if(Attitude<=-20)return false;
- const auto* Source=Knowledge.Find(Speaker);if(!Source)return false;
+ if(!CanWrite())return false;
+ const FName BestId=FindUsefulRumor(Speaker,Listener);
+ return !BestId.IsNone()&&RelayRumor(Speaker,Listener,BestId);
+}
+FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(FName Speaker,FName Listener) const {
+ if(Speaker.IsNone()||Listener.IsNone()||Speaker==Listener)return NAME_None;
+ int32 Attitude=0;GetNpcRelationship(Speaker,Listener,Attitude);if(Attitude<=-20)return NAME_None;
+ const auto* Source=Knowledge.Find(Speaker);if(!Source)return NAME_None;
  // Select at most one useful rumor from the existing 32-entry memory.
  // Do not mutate Knowledge while holding its source pointer.
  FName BestId=NAME_None;int32 BestConfidence=0;const double Time=Now();
@@ -52,7 +57,7 @@ bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listene
   if(GetRumor(Listener,R.RumorId,Known)&&(Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence))continue;
   if(Confidence>BestConfidence){BestConfidence=Confidence;BestId=R.RumorId;}
  }
- return !BestId.IsNone()&&RelayRumor(Speaker,Listener,BestId);
+ return BestId;
 }
 bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(FName Npc,const FVector& Location,FMoonfallWorldRumor& Report) const {
  Report=FMoonfallWorldRumor{};
