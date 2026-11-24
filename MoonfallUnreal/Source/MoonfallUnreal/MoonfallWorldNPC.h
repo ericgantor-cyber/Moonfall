@@ -33,6 +33,7 @@ public:
  void WitnessNearbyDanger(float Now);
  // Only the currently recruited or returning follower is advanced by the director.
  bool AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance);
+ bool TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero);
  FVector FollowerWaypoint=FVector::ZeroVector;
  float NextFollowerPathAt=-1.f;
  bool bFollowerWaypointValid=false;
