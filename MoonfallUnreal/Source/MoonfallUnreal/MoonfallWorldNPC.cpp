@@ -47,7 +47,9 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
      ||!FMath::IsFinite(Now)||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
  const FVector Start=GetActorLocation();
  const double Distance=FVector::Dist2D(Start,Goal);
- if(Distance<=StopDistance)return true;
+ const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
+ if(!FMath::IsFinite(Distance))return false;
+ if(Distance<=StopDistance&&bSameFloor)return true;
  // At most one synchronous nav query per second for the active follower.
  if(Now>=NextFollowerPathAt){
   NextFollowerPathAt=Now+1.f;bFollowerWaypointValid=false;
@@ -64,7 +66,8 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const FVector Target=bFollowerWaypointValid?FollowerWaypoint:Goal;
  FVector Step=Target-Start;Step.Z=0;
  if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;return false;}
- const FVector End=Start+Step.GetClampedToMaxSize2D(FMath::Min(60.0,Distance-StopDistance));
+ const double StepLimit=bSameFloor?FMath::Min(60.0,FMath::Max(0.0,Distance-StopDistance)):60.0;
+ const FVector End=Start+Step.GetClampedToMaxSize2D(StepLimit);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
  FHitResult Obstacle;
  if(GetWorld()->LineTraceSingleByChannel(Obstacle,Start+FVector(0,0,55),End+FVector(0,0,55),ECC_Visibility,Params)){
@@ -77,7 +80,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  FVector Move=End-Start;Move.Z=Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z;
  AddActorWorldOffset(Move,true);
  if(!Move.IsNearlyZero())SetActorRotation(FRotator(0.f,Move.Rotation().Yaw,0.f));
- return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance;
+ return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance&&FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0;
 }
 bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
  if(!HasAuthority()||!IsValid(Hero)||Hero->GetWorld()!=GetWorld()||!GetWorld()||bCompanionDowned
