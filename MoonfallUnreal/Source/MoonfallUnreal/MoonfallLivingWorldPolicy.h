@@ -10,6 +10,18 @@ inline int AmbientTrustDelta(int score,int confidence,double elapsed){
 }
 inline int RelayConfidence(int confidence){return Clamp(confidence,0,100)*3/4;}
 inline bool CanRelay(int confidence,int hops){return hops>=0&&hops<3&&RelayConfidence(confidence)>=20;}
+// Presentation mood only; never authorizes hostile actions or modifies quest state.
+enum class Mood { Calm, Uneasy, Afraid, Vigilant, Wary, Resentful, Warm, Loyal };
+inline Mood ResolveMood(int bond,int reputation,bool danger,bool credibleReport,bool guard){
+ bond=Clamp(bond,-100,100);reputation=Clamp(reputation,-100,100);
+ if(danger)return guard?Mood::Vigilant:Mood::Afraid;
+ if(reputation<=-50||bond<=-60)return Mood::Resentful;
+ if(credibleReport)return guard?Mood::Vigilant:Mood::Uneasy;
+ if(reputation<=-15||bond<=-15)return Mood::Wary;
+ if(bond>=60)return Mood::Loyal;
+ if(bond>=15||reputation>=15)return Mood::Warm;
+ return Mood::Calm;
+}
 // Select only existing authored watch points. Reports never authorize pursuit.
 enum class WatchPoint { Unchanged, West, East, North, South };
 inline WatchPoint GuardWatchPoint(double dx,double dy,int confidence,bool available){
