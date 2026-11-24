@@ -71,5 +71,8 @@ public:
  // Optional presentation hook for successful NPC-to-NPC exchanges.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Ambient")
  void OnAmbientNewsShared(FName ListenerId,FText ListenerName);
+ // Optional presentation event after a successful nonlethal assist.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Ambient")
+ void OnCompanionSupportStrike();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnDialogueStarted(AMoonfallHeroPawn* Hero, FText SpokenGreeting);
 };
