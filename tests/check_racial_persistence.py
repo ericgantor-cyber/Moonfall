@@ -36,11 +36,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 14", self.save)
+        self.assertIn("int32 Version = 15", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 14", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 15", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -92,7 +92,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;",saver)
         self.assertIn("Save->ResidentBonds = ResidentBonds;",saver)
         # Existing version and limits remain unchanged for legacy saves.
-        self.assertIn("int32 Version = 14",self.save)
+        self.assertIn("int32 Version = 15",self.save)
         self.assertIn("ResidentQuestStates.Num() > 64",saver)
 
     def test_shrine_overlap_cannot_save_half_loaded_progress_on_respawn(self):
@@ -285,7 +285,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 14", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 15", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -563,7 +563,7 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("if (!SaveWorldProgress()) {"))
 
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
-        self.assertIn("int32 Version = 14;", self.save)
+        self.assertIn("int32 Version = 15;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
         self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
         self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)
