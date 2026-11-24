@@ -16,6 +16,16 @@ int main(){
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ClearDungeonFootprint(-675.f));
  assert(!MoonfallRoadLandmarks::ClearDungeonFootprint(-1350.f));
+ assert(RoadEncounterOffset(0.f,-150.f)==-600.f);
+ assert(RoadEncounterOffset(0.f,150.f)==600.f);
+ assert(RoadEncounterOffset(0.f,0.f)==600.f);
+ // Direction reverses at a border instead of discarding the encounter.
+ assert(RoadEncounterOffset(-13520.f,150.f)==-600.f);
+ assert(RoadEncounterOffset(-20240.f,-150.f)==600.f);
+ assert(RoadEncounterOffset(20240.f,150.f)==-600.f);
+ assert(RoadEncounterOffset(20250.f,0.f)==0.f);
+ assert(RoadEncounterOffset(std::numeric_limits<float>::quiet_NaN(),0.f)==0.f);
+ assert(RoadEncounterOffset(0.f,std::numeric_limits<float>::infinity())==0.f);
  assert(RegionFromWorldX(-16875.f)==0);
  assert(RegionFromWorldX(0.f)==3);
  assert(RegionFromWorldX(16875.f)==5);
@@ -199,6 +209,22 @@ int main(){
         self.assertLess(pulse.index("if (!bHeroReady) return;"),
                         pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation);"))
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
+
+    def test_road_encounters_follow_travel_without_crossing_region_edges(self):
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("RoadEncounterOffset(float worldX,float travelVelocityX)",policy)
+        self.assertIn("RegionFromWorldX(worldX+preferred)==region",policy)
+        self.assertIn("RegionFromWorldX(worldX-preferred)==region",policy)
+        self.assertIn("if(region<0)return 0.f;",policy)
+        self.assertIn("HeroLocation.X,Hero->GetVelocity().X",pulse)
+        self.assertIn("if (CandidateOffset==0.f) return;",pulse)
+        self.assertIn("HeroLocation.X+CandidateOffset,-2500.f",pulse)
+        self.assertIn("RegionFromWorldX(Candidate.X)!=Region",pulse)
+        self.assertEqual(pulse.count("World->LineTraceSingleByChannel("),1)
+        self.assertNotIn("HeroLocation.X+600.f,-2500.f",pulse)
 
     def test_encounter_lifetime_preserves_live_conversations_and_battles(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()

@@ -181,7 +181,13 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  if (Phase==LastAmbientEventPhase) return;
  // Sparse road event placement uses one ground ray only when committing an
  // encounter. No per-frame traces, NPC crowds or persistent world-save data.
- const FVector Candidate(HeroLocation.X+600.f,-2500.f,HeroLocation.Z+600.f);
+ // Prefer the direction the hero is traveling on the east/west road.
+ // At region edges, choose the opposite side without crossing regions or
+ // paying for multiple ground traces. No per-player saved travel state.
+ const float CandidateOffset=MoonfallLivingSimulation::RoadEncounterOffset(
+     HeroLocation.X,Hero->GetVelocity().X);
+ if (CandidateOffset==0.f) return;
+ const FVector Candidate(HeroLocation.X+CandidateOffset,-2500.f,HeroLocation.Z+600.f);
  if (MoonfallLivingSimulation::RegionFromWorldX(Candidate.X)!=Region) return;
  FCollisionQueryParams FloorQuery(SCENE_QUERY_STAT(MoonfallAmbientRoadGround),false);
  FloorQuery.AddIgnoredActor(Hero);

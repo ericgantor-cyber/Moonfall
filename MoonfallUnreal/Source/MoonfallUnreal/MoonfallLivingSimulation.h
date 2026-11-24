@@ -26,6 +26,19 @@ constexpr int RegionFromWorldX(float x) {
  if(!(x>=-20250.f&&x<20250.f))return -1;
  return static_cast<int>((x+20250.f)/6750.f);
 }
+// Road encounters should appear ahead of actual east/west travel, not
+// permanently on the east. A candidate may never cross a province boundary:
+// switch sides near the edge rather than silently skipping the event.
+// Returning zero rejects invalid coordinates or movement, with no actor scan.
+inline float RoadEncounterOffset(float worldX,float travelVelocityX) {
+ if(!std::isfinite(worldX)||!std::isfinite(travelVelocityX))return 0.f;
+ const int region=RegionFromWorldX(worldX);
+ if(region<0)return 0.f;
+ const float preferred=travelVelocityX<-25.f?-600.f:600.f;
+ if(RegionFromWorldX(worldX+preferred)==region)return preferred;
+ if(RegionFromWorldX(worldX-preferred)==region)return -preferred;
+ return 0.f;
+}
 constexpr EWeather WeatherFor(int region,int phase) {
  if(region<0||region>=6||phase<0)return EWeather::Clear;
  const int cycle=(phase+region*3)%6;
