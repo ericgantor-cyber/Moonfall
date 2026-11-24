@@ -50,6 +50,27 @@ FString AMoonfallUnrealGameMode::GetNearbyAmbientEventHint(
  return FString();
 }
 
+void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident) {
+ if (!IsValid(Resident) || Resident->IsActorBeingDestroyed()
+     || Resident->bAmbientVisitor) return;
+ // Clean invalid references before checking the bounded cache budget.
+ LivingResidents.RemoveAll([](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+  return !Ref.IsValid() || Ref->IsActorBeingDestroyed();
+ });
+ if (LivingResidents.ContainsByPredicate(
+       [Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+        return Ref.Get()==Resident;
+       })) return;
+ if (LivingResidents.Num() >= MoonfallLivingSimulation::ResidentBudget) return;
+ LivingResidents.Add(Resident);
+}
+
+void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
+ LivingResidents.RemoveAll([Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+  return !Ref.IsValid() || Ref.Get()==Resident;
+ });
+}
+
 void AMoonfallUnrealGameMode::BeginPlay()
 {
  Super::BeginPlay();
@@ -113,7 +134,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   for (TActorIterator<AMoonfallWorldNPC> It(World);
        It && Scanned<MoonfallLivingSimulation::ResidentBudget; ++It,++Scanned) {
    if (IsValid(*It) && !(*It)->IsActorBeingDestroyed() && !(*It)->bAmbientVisitor)
-    LivingResidents.Add(*It);
+    RegisterLivingResident(*It);
   }
  }
  AMoonfallHeroPawn* Hero=Cast<AMoonfallHeroPawn>(
@@ -220,12 +241,11 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    Spawned=Enemy;
   }
  } else {
-  FActorSpawnParameters Params;
-  Params.Owner=this;
-  Params.SpawnCollisionHandlingOverride=
-     ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-  AMoonfallWorldNPC* Visitor=World->SpawnActor<AMoonfallWorldNPC>(
-      AMoonfallWorldNPC::StaticClass(),SpawnTransform,Params);
+  // Deferred spawn sets bAmbientVisitor before BeginPlay, so a temporary
+  // traveler never registers as a permanent world resident.
+  AMoonfallWorldNPC* Visitor=World->SpawnActorDeferred<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(),SpawnTransform,this,nullptr,
+      ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
   if (IsValid(Visitor)) {
    Visitor->bAmbientVisitor=true;
    Visitor->ResidentId=NAME_None;
@@ -270,7 +290,9 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
      Story+=TEXT(" The weather has made travel dangerous.");
     Visitor->Greeting=FText::FromString(Story);
    }
-   Spawned=Visitor;
+   Visitor->FinishSpawning(SpawnTransform);
+   if (IsValid(Visitor) && !Visitor->IsActorBeingDestroyed())
+    Spawned=Visitor;
   }
  }
  if (!IsValid(Spawned)) return;

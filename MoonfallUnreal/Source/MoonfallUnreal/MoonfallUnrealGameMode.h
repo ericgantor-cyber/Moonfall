@@ -35,6 +35,10 @@ public:
  // Read-only HUD hint from the single cached ambient event. Never scans
  // all actors and never changes any player quest or world-save state.
  FString GetNearbyAmbientEventHint(const FVector& HeroLocation) const;
+ // Lifecycle registration keeps late-spawned and designer-placed residents
+ // participating in the living world without rescanning the entire map.
+ void RegisterLivingResident(AMoonfallWorldNPC* Resident);
+ void UnregisterLivingResident(AMoonfallWorldNPC* Resident);
 
 private:
  FTimerHandle DungeonSpawnTimer;

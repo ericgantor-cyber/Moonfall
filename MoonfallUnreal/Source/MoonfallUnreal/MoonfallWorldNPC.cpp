@@ -1,5 +1,6 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -22,6 +23,17 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
 void AMoonfallWorldNPC::BeginPlay() {
  Super::BeginPlay();
  AuthoredHomeLocation = GetActorLocation();
+ if (!bAmbientVisitor) {
+  if (UWorld* World=GetWorld())
+   if (AMoonfallUnrealGameMode* Mode=World->GetAuthGameMode<AMoonfallUnrealGameMode>())
+    Mode->RegisterLivingResident(this);
+ }
+}
+void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ if (UWorld* World=GetWorld())
+  if (AMoonfallUnrealGameMode* Mode=World->GetAuthGameMode<AMoonfallUnrealGameMode>())
+   Mode->UnregisterLivingResident(this);
+ Super::EndPlay(EndPlayReason);
 }
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;

@@ -131,6 +131,35 @@ int main(){
         self.assertNotIn("TActorIterator",quest)
         self.assertNotIn("GetAllActorsOfClass",quest)
 
+    def test_runtime_residents_register_without_permanent_actor_rescans(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        npc_h=(SRC/"MoonfallWorldNPC.h").read_text()
+        self.assertIn("void RegisterLivingResident(AMoonfallWorldNPC* Resident);",header)
+        self.assertIn("void UnregisterLivingResident(AMoonfallWorldNPC* Resident);",header)
+        self.assertIn("void AMoonfallUnrealGameMode::RegisterLivingResident(",mode)
+        self.assertIn("LivingResidents.ContainsByPredicate(",mode)
+        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentBudget",mode)
+        self.assertIn("LivingResidents.RemoveAll(",mode)
+        self.assertIn("RegisterLivingResident(*It);",mode)
+        self.assertIn("Mode->RegisterLivingResident(this);",npc)
+        self.assertIn("Mode->UnregisterLivingResident(this);",npc)
+        self.assertIn("virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;",npc_h)
+        # The event visitor must be flagged before BeginPlay registration
+        # can run, and must never be retained as a permanent resident.
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("SpawnActorDeferred<AMoonfallWorldNPC>",pulse)
+        self.assertIn("Visitor->bAmbientVisitor=true;",pulse)
+        self.assertIn("Visitor->FinishSpawning(SpawnTransform);",pulse)
+        self.assertLess(pulse.index("Visitor->bAmbientVisitor=true;"),
+                        pulse.index("Visitor->FinishSpawning(SpawnTransform);"))
+        self.assertIn("if (!IsValid(Spawned)) return;",pulse)
+        self.assertIn("if (!bAmbientVisitor)",npc)
+        self.assertIn("if (!IsValid(Resident) || Resident->IsActorBeingDestroyed()",mode)
+        self.assertNotIn("GetAllActorsOfClass(",mode)
+
     def test_six_regions_have_distinct_road_encounter_dialogue(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         rumor=mode.split("static const TCHAR* const RegionRumors[6] = {",1)[1].split("};",1)[0]
@@ -174,6 +203,7 @@ int main(){
         self.assertIn("&AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f",mode)
         self.assertIn("if (!bLivingResidentCacheInitialized)",mode)
         self.assertIn("Scanned<MoonfallLivingSimulation::ResidentBudget",mode)
+        self.assertIn("RegisterLivingResident(*It);",mode)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)
         self.assertIn("LivingArena->UpdateRegionWeather(Now);",mode)
