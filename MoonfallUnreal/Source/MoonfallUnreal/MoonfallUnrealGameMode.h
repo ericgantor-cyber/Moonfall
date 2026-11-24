@@ -61,6 +61,10 @@ public:
  EMoonfallCompanionRole LocalCompanionRole=EMoonfallCompanionRole::Balanced;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
  bool DismissLocalCompanion(AMoonfallHeroPawn* Hero);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool OrderCompanionMove(AMoonfallHeroPawn* Hero,FVector Destination);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool ReviveLocalCompanion(AMoonfallHeroPawn* Hero);
  UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
  AMoonfallWorldNPC* GetLocalCompanion() const;
  // Internal hit-time support; does not attack enemies or grant immunity.
@@ -76,6 +80,11 @@ private:
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
  void PulseLivingWorld();
  FTimerHandle LivingWorldPulseTimer;
+ FTimerHandle FollowerPulseTimer;
+ void PulseFollower();
+ TWeakObjectPtr<AMoonfallWorldNPC> ReturningCompanion;
+ FVector OrderedFollowerDestination=FVector::ZeroVector;
+ bool bFollowerMoveOrdered=false;
  bool bLivingResidentCacheInitialized = false;
  TWeakObjectPtr<AMoonfallArena> LivingArena;
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
