@@ -94,6 +94,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  uint32 GetCompanionProfile(FName ResidentId) const;
+ bool ReportScoutDeeds(AMoonfallWorldNPC* Resident);
  // Internal authoritative transaction used by the companion GameMode APIs.
  bool CommitCompanionProfile(FName ResidentId,uint32 Profile);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
