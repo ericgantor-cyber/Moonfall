@@ -4742,12 +4742,13 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
  const FMoonfallCompanionGearRecord Previous=Prior?*Prior:FMoonfallCompanionGearRecord{};
  const int32 Old=Previous.Get(Slot);
  const int32 Worn[]={EquippedWeaponCode,EquippedArmorCode,EquippedAccessoryCode};
- int32 Index=INDEX_NONE,BestScore=-1;
+ // Automatic exchange must never downgrade or repeatedly swap equal-value gear.
+ int32 Index=INDEX_NONE,BestScore=GetItemPower(Old);
  if(!bReturn){
   for(int32 I=0;I<InventoryItemCodes.Num();++I){
    const int32 Code=InventoryItemCodes[I];
    if(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot||Code==Worn[Slot])continue;
-   const int32 Score=(Code%1000)*10+(Code/1000)%10;
+   const int32 Score=GetItemPower(Code);
    if(Score>BestScore){Index=I;BestScore=Score;}
   }
   if(Index==INDEX_NONE)return false;
