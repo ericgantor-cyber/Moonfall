@@ -4270,7 +4270,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
   if(bResidentCompanionGear)return 7;
   if(bResidentCompanionTalents)return 5;
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
-  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?8:3;
+  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?9:3;
  }
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
@@ -4529,11 +4529,19 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    return bSuccess;
   }
   if(Mode&&Mode->GetLocalCompanion()==Resident){
+   if(Choice==8){
+    bSuccess=Mode->ActivateLocalCompanionAbility(this);
+    ResidentFeedbackMessage=bSuccess?TEXT("Companion ability activated."):TEXT("Requires 80 trust, Follow, range and a ready ability.");
+    ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+    if(bSuccess)CloseResidentContext();
+    return bSuccess;
+   }
    if(Choice==7){bResidentCompanionGear=true;ResidentContextSelection=0;return true;}
    if(Choice==6){
-    bSuccess=Resident->bCompanionDowned?Mode->ReviveLocalCompanion(this):
+    const bool bWasDowned=Resident->bCompanionDowned;
+    bSuccess=bWasDowned?Mode->ReviveLocalCompanion(this):
        Mode->OrderCompanionMove(this,GetActorLocation()+GetActorForwardVector().GetSafeNormal2D()*450.f);
-    ResidentFeedbackMessage=bSuccess?(Resident->bCompanionDowned?TEXT("Revived"):TEXT("Order accepted")):TEXT("Command unavailable.");
+    ResidentFeedbackMessage=bSuccess?(bWasDowned?TEXT("Revived"):TEXT("Order accepted")):TEXT("Command unavailable.");
     ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
     if(bSuccess&&!Resident->bCompanionDowned)CloseResidentContext();
     return bSuccess;
