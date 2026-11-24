@@ -725,7 +725,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("// The X and Esc must back out of character details the same way.", mouse)
         self.assertIn("OpenOptions();", mouse)
         self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
-        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
+        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < GetResidentContextRowCount(); ++Row)"))
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
         self.assertIn("if (bCharacterStatsOpen)", options)
