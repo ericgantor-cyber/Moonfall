@@ -4121,7 +4121,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
@@ -4158,7 +4158,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   PC->bShowMouseCursor = true;
  }
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
@@ -4210,7 +4210,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
         PC->bShowMouseCursor = true;
     }
     ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
    } else {
@@ -4230,7 +4230,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
-  if(bResidentCompanionTalents)return 4;
+  if(bResidentCompanionTalents)return 5;
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?5:3;
  }
@@ -4447,7 +4447,20 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if(bResidentCompanionMenu){
   if(bResidentCompanionTalents){
-   if(Choice==3){bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}
+   if(bResidentCompanionTraining){
+    if(Choice==4){bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}
+    if(Choice<0||Choice>3)return false;
+    auto* TrainingMode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    const bool bTrained=TrainingMode&&TrainingMode->GetLocalCompanion()==Resident&&
+       (Choice==3?TrainingMode->ResetLocalCompanionTalents(this):
+        TrainingMode->TrainLocalCompanionTalent(this,3*static_cast<int>(TrainingMode->LocalCompanionRole)+Choice));
+    ResidentFeedbackMessage=bTrained?(Choice==3?TEXT("Training points refunded."):TEXT("Talent rank trained.")):
+       TEXT("Training unavailable: check points, rank and prerequisite.");
+    ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+    return bTrained;
+   }
+   if(Choice==4){bResidentCompanionTraining=true;ResidentContextSelection=0;return true;}
+   if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}
    if(Choice<0||Choice>2)return false;
    auto* TalentMode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
    const bool bSelected=TalentMode&&TalentMode->GetLocalCompanion()==Resident
@@ -4456,7 +4469,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
    return bSelected;
   }
-  if(Choice==2){bResidentCompanionMenu=false;bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}
+  if(Choice==2){bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}
   if(Choice<0||Choice>=GetResidentContextRowCount())return false;
   auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   bool bSuccess=false;
