@@ -3334,6 +3334,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Validate the entire V13 ledger BEFORE any teleport or mutation. Old saves
  // intentionally start with zero unspent ranks and remain compatible.
  MoonfallTalents::Ranks LoadedTalentRanks{};
+ MoonfallTalents::Snapshot LoadedTalentSnapshot;
  if (Save->Version >= 13) {
   if (Save->TalentRanks.Num() != MoonfallTalents::NodeCount) {
    bPersistentSaveWritesBlocked = true;
@@ -3342,8 +3343,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
   for (int32 Index = 0; Index < MoonfallTalents::NodeCount; ++Index)
    LoadedTalentRanks[Index] = Save->TalentRanks[Index];
-  MoonfallTalents::Snapshot ValidatedTalentSnapshot;
-  if (MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, ValidatedTalentSnapshot)
+  if (MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, LoadedTalentSnapshot)
       != MoonfallTalents::Result::Ok) {
    bPersistentSaveWritesBlocked = true;
    UE_LOG(LogTemp, Warning, TEXT("Moonfall talent allocation invalid; original save protected."));
@@ -3512,6 +3512,39 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // Validate projected HP/mana/stamina caps before teleporting. Current live
+ // caps may already contain an older allocation when a save is reloaded;
+ // subtract it first so talents cannot stack with repeated loads.
+ MoonfallTalents::Snapshot PreviousTalentSnapshot;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, PreviousTalentSnapshot)
+     != MoonfallTalents::Result::Ok) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
+ if (Save->Version >= 13 && (!FMath::IsFinite(Save->MaxHealth)
+     || Save->MaxHealth < 1.f || Save->MaxHealth > 100000.f)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
+ const double SavedBaseHealth = FMath::IsFinite(Save->MaxHealth)
+     ? FMath::Clamp(static_cast<double>(Save->MaxHealth),1.0,100000.0) : 100.0;
+ const double LoadedHealthCap = SavedBaseHealth
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Health)];
+ const double LoadedManaCap = static_cast<double>(MaxMana)
+     - PreviousTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Mana)]
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Mana)];
+ const double LoadedStaminaCap = static_cast<double>(MaxStamina)
+     - PreviousTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Stamina)]
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Stamina)];
+ if (!std::isfinite(LoadedHealthCap) || !std::isfinite(LoadedManaCap)
+     || !std::isfinite(LoadedStaminaCap) || LoadedHealthCap < 1.0
+     || LoadedManaCap <= 0.0 || LoadedStaminaCap <= 0.0
+     || LoadedHealthCap > 100000.0 || LoadedManaCap > 100000.0
+     || LoadedStaminaCap > 100000.0) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall talent resource caps are invalid; original save protected."));
+  return false;
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3609,8 +3642,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
- MaxHealth = FMath::IsFinite(Save->MaxHealth)
-     ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
+ MaxHealth = static_cast<float>(LoadedHealthCap);
+ MaxMana = static_cast<float>(LoadedManaCap);
+ MaxStamina = static_cast<float>(LoadedStaminaCap);
  InventoryItemCodes.Reset();
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
