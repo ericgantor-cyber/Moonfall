@@ -21,5 +21,11 @@ int main(){long n=0;
   }
   assert(GuardWatchPoint(x,y,confidence,available)==expected);++n;
  }
+ for(int score=-100;score<=100;++score)for(int confidence=-1;confidence<=101;++confidence)
+ for(double elapsed:{-1.0,0.0,59.9,60.0,120.0,nan,inf}){
+  const int expected=score>=0&&score<30&&confidence>=56&&confidence<=100&&std::isfinite(elapsed)&&elapsed>=60.0?1:0;
+  assert(AmbientTrustDelta(score,confidence,elapsed)==expected);
+  ++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
