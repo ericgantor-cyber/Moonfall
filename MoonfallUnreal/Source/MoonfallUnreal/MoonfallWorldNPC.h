@@ -12,8 +12,10 @@ class MOONFALLUNREAL_API AMoonfallWorldNPC : public AActor {
 public:
  AMoonfallWorldNPC();
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  // One world-level timer (not per-NPC Tick) drives small local routines.
- void AdvanceLivingRoutine(float Now, const FVector& HeroLocation);
+ void AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
+                          bool bInConversation=false);
  void WitnessNearbyDanger(float Now);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bAmbientVisitor = false;

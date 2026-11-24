@@ -153,9 +153,14 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
  def test_nearest_npc_skips_occluded_candidates(self):
-  self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
-  self.assertIn("Checked < 64",self.hero)
-  self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",self.hero)
+  lookup=self.hero.split(
+      "AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {",1)[1].split(
+      "void AMoonfallHeroPawn::CloseResidentContext()",1)[0]
+  self.assertIn("Candidate->CanHeroInteract(this)",lookup)
+  self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",lookup)
+  # Query runs on explicit input and must reach NPCs beyond the old 64 cap.
+  self.assertIn("for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It)",lookup)
+  self.assertNotIn("Checked < 64",lookup)
  def test_npc_menu_uses_actual_interaction_distance(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("FMath::Clamp(Resident->InteractRange, 50.f, 400.f)",self.hero)

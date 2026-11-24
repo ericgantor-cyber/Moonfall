@@ -3,7 +3,38 @@
 #include <cmath>
 namespace MoonfallLivingSimulation {
 constexpr int RegionCount=6;
+// Up to 80 weak resident references; select at most 20 nearby residents
+// per world pulse, with rotating fairness when a settlement is crowded.
+// Distant residents cost only lightweight eligibility checks, not movement.
 constexpr int ResidentBudget=20;
+constexpr int ResidentRegistryBudget=80;
+constexpr int ResidentWindowCount(int registered) {
+ return registered<=0?0:(registered<ResidentBudget?registered:ResidentBudget);
+}
+constexpr int ResidentWindowIndex(int cursor,int step,int registered) {
+ return registered<=0 || cursor<0 || step<0 ? -1 : (cursor+step)%registered;
+}
+// This engine-free selector evaluates at most 80 cheap eligibility predicates
+// and executes at most 20 expensive resident routines. When <=20 are nearby
+// they are all updated on every 4-second pulse, regardless of registry slot.
+// With >20 nearby, continuation begins immediately after the last inspected
+// resident, so a crowded settlement gets fair round-robin service.
+template <typename IsNearby, typename UpdateResident>
+int ProcessNearbyResidents(int cursor,int registered,
+                           IsNearby isNearby,UpdateResident updateResident) {
+ if(registered<=0)return 0;
+ const int start=cursor<0?0:cursor%registered;
+ int inspected=0;
+ int processed=0;
+ while(inspected<registered && processed<ResidentBudget) {
+  const int index=ResidentWindowIndex(start,inspected,registered);
+  ++inspected;
+  if(!isNearby(index))continue;
+  updateResident(index);
+  ++processed;
+ }
+ return (start+inspected)%registered;
+}
 constexpr float PulseSeconds=4.f;
 enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };
 enum class EEvent { Merchant, Patrol, Rescue, Dispute, Monster };
@@ -17,6 +48,13 @@ inline EAlertReaction ReactionFor(ERole role,float secondsSinceDanger) {
      secondsSinceDanger<0.f || secondsSinceDanger>=85.f)
   return EAlertReaction::Normal;
  return role==ERole::Guard?EAlertReaction::HoldPost:EAlertReaction::SeekShelter;
+}
+// Nearby civilians must still retreat during danger or severe weather,
+// and guards should return to their posts. A conversation always pins the
+// focused resident in place so mouse/gamepad dialogue is not interrupted.
+constexpr bool PauseResidentMotion(bool inConversation,bool nearHero,
+                                   bool sheltering,bool holdingPost) {
+ return inConversation || (nearHero && !sheltering && !holdingPost);
 }
 inline int Phase(float time, float duration) {
  if(!std::isfinite(time)||time<0.f||!std::isfinite(duration)||duration<=0.f)return 0;
@@ -95,6 +133,12 @@ inline bool ShouldRetireAmbient(float now,float expiresAt,bool conversationActiv
 constexpr bool MayEncounter(int region,bool sanctuary,bool nearRoad,bool inMenu,bool eventAlive){
  return region>=0&&region<6&&!sanctuary&&nearRoad&&!inMenu&&!eventAlive;
 }
+static_assert(ResidentWindowCount(0)==0,"Empty resident registry");
+static_assert(ResidentWindowCount(8)==8,"Small settlement pulse");
+static_assert(ResidentWindowCount(80)==20,"Large settlement pulse");
+static_assert(ResidentWindowIndex(60,19,80)==79,"Final resident in a pulse");
+static_assert(ResidentWindowIndex(60,20,80)==0,"Registry wrap");
+static_assert(ResidentWindowIndex(0,0,0)==-1,"No empty modulo");
 static_assert(RegionFromWorldX(0.f)==3,"World region mapping");
 static_assert(ActivityFor(ERole::Merchant,0,EWeather::Storm)==EActivity::Shelter,"Weather routines");
 static_assert(!MayEncounter(2,true,true,false,false),"Sanctuary is safe");

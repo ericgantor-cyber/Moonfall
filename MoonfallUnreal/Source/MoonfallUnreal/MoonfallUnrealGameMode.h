@@ -35,6 +35,10 @@ public:
  // Read-only HUD hint from the single cached ambient event. Never scans
  // all actors and never changes any player quest or world-save state.
  FString GetNearbyAmbientEventHint(const FVector& HeroLocation) const;
+ // Lifecycle registration keeps late-spawned and designer-placed residents
+ // participating in the living world without rescanning the entire map.
+ void RegisterLivingResident(AMoonfallWorldNPC* Resident);
+ void UnregisterLivingResident(AMoonfallWorldNPC* Resident);
 
 private:
  FTimerHandle DungeonSpawnTimer;
@@ -47,6 +51,9 @@ private:
  bool bLivingResidentCacheInitialized = false;
  TWeakObjectPtr<AMoonfallArena> LivingArena;
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
+ // Round-robin slices 20 nearby residents every four seconds. Registers
+ // more than one settlement without unbounded per-pulse NPC updates.
+ int32 NextResidentPulseIndex = 0;
  TWeakObjectPtr<AActor> ActiveAmbientEncounter;
  // World-pulse ownership prevents the sole active encounter despawning
  // during an open NPC conversation or an active nearby monster battle.

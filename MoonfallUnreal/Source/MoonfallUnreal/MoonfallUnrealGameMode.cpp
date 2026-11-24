@@ -50,6 +50,27 @@ FString AMoonfallUnrealGameMode::GetNearbyAmbientEventHint(
  return FString();
 }
 
+void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident) {
+ if (!IsValid(Resident) || Resident->IsActorBeingDestroyed()
+     || Resident->bAmbientVisitor) return;
+ // Clean invalid references before checking the bounded cache budget.
+ LivingResidents.RemoveAll([](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+  return !Ref.IsValid() || Ref->IsActorBeingDestroyed();
+ });
+ if (LivingResidents.ContainsByPredicate(
+       [Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+        return Ref.Get()==Resident;
+       })) return;
+ if (LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget) return;
+ LivingResidents.Add(Resident);
+}
+
+void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
+ LivingResidents.RemoveAll([Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
+  return !Ref.IsValid() || Ref.Get()==Resident;
+ });
+}
+
 void AMoonfallUnrealGameMode::BeginPlay()
 {
  Super::BeginPlay();
@@ -111,9 +132,9 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   bLivingResidentCacheInitialized=true;
   int32 Scanned=0;
   for (TActorIterator<AMoonfallWorldNPC> It(World);
-       It && Scanned<MoonfallLivingSimulation::ResidentBudget; ++It,++Scanned) {
+       It && Scanned<MoonfallLivingSimulation::ResidentRegistryBudget; ++It,++Scanned) {
    if (IsValid(*It) && !(*It)->IsActorBeingDestroyed() && !(*It)->bAmbientVisitor)
-    LivingResidents.Add(*It);
+    RegisterLivingResident(*It);
   }
  }
  AMoonfallHeroPawn* Hero=Cast<AMoonfallHeroPawn>(
@@ -153,15 +174,27 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   ActiveAmbientExpiresAt=-1.f;
  }
  if (!bHeroReady) return;
- for (const TWeakObjectPtr<AMoonfallWorldNPC>& Ref:LivingResidents) {
-  AMoonfallWorldNPC* NPC=Ref.Get();
-  if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) continue;
-  const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
-  if (!FMath::IsFinite(DistSq) || DistSq>FMath::Square(1600.f)) continue;
-  if (bCombatNearby && DistSq<FMath::Square(700.f))
-   NPC->WitnessNearbyDanger(Now);
-  NPC->AdvanceLivingRoutine(Now,HeroLocation);
- }
+ // Scan a bounded registry of <=80 weak refs, but run the expensive
+ // weather / movement / danger routines for no more than 20 NPCs.
+ // With <=20 nearby, all respond on every pulse instead of waiting for
+ // their distant settlement's registry slots. Larger local crowds rotate.
+ NextResidentPulseIndex=MoonfallLivingSimulation::ProcessNearbyResidents(
+     NextResidentPulseIndex,LivingResidents.Num(),
+     [&](int Index) {
+      AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
+      if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) return false;
+      const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
+      return FMath::IsFinite(DistSq) && DistSq<=FMath::Square(1600.f);
+     },
+     [&](int Index) {
+      AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
+      if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) return;
+      const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
+      if (bCombatNearby && DistSq<FMath::Square(700.f))
+       NPC->WitnessNearbyDanger(Now);
+      NPC->AdvanceLivingRoutine(Now,HeroLocation,
+          Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC);
+     });
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;
@@ -220,12 +253,11 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    Spawned=Enemy;
   }
  } else {
-  FActorSpawnParameters Params;
-  Params.Owner=this;
-  Params.SpawnCollisionHandlingOverride=
-     ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-  AMoonfallWorldNPC* Visitor=World->SpawnActor<AMoonfallWorldNPC>(
-      AMoonfallWorldNPC::StaticClass(),SpawnTransform,Params);
+  // Deferred spawn sets bAmbientVisitor before BeginPlay, so a temporary
+  // traveler never registers as a permanent world resident.
+  AMoonfallWorldNPC* Visitor=World->SpawnActorDeferred<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(),SpawnTransform,this,nullptr,
+      ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
   if (IsValid(Visitor)) {
    Visitor->bAmbientVisitor=true;
    Visitor->ResidentId=NAME_None;
@@ -270,7 +302,9 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
      Story+=TEXT(" The weather has made travel dangerous.");
     Visitor->Greeting=FText::FromString(Story);
    }
-   Spawned=Visitor;
+   Visitor->FinishSpawning(SpawnTransform);
+   if (IsValid(Visitor) && !Visitor->IsActorBeingDestroyed())
+    Spawned=Visitor;
   }
  }
  if (!IsValid(Spawned)) return;

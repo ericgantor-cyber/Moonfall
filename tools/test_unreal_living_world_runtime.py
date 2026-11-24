@@ -28,6 +28,51 @@ int main(){
  assert(RoadEncounterOffset(20250.f,0.f)==0.f);
  assert(RoadEncounterOffset(std::numeric_limits<float>::quiet_NaN(),0.f)==0.f);
  assert(RoadEncounterOffset(0.f,std::numeric_limits<float>::infinity())==0.f);
+ assert(PauseResidentMotion(true,false,false,false));
+ assert(PauseResidentMotion(true,true,true,false));
+ assert(PauseResidentMotion(true,true,false,true));
+ assert(PauseResidentMotion(false,true,false,false));
+ assert(!PauseResidentMotion(false,true,true,false));
+ assert(!PauseResidentMotion(false,true,false,true));
+ assert(!PauseResidentMotion(false,false,false,false));
+ assert(ResidentWindowCount(0)==0);
+ assert(ResidentWindowCount(1)==1);
+ assert(ResidentWindowCount(19)==19);
+ assert(ResidentWindowCount(20)==20);
+ assert(ResidentWindowCount(21)==20);
+ assert(ResidentWindowCount(80)==20);
+ assert(ResidentWindowIndex(0,0,0)==-1);
+ assert(ResidentWindowIndex(60,19,80)==79);
+ assert(ResidentWindowIndex(60,20,80)==0);
+ // Only 20 of 80 residents are nearby: each must respond every pulse.
+ int nearbyVisits[80]={};
+ int nextCursor=0;
+ for (int pulse=0;pulse<4;++pulse) {
+  int updates=0;
+  nextCursor=ProcessNearbyResidents(nextCursor,80,
+    [](int i){return i%4==0;},
+    [&](int i){++nearbyVisits[i];++updates;});
+  assert(updates==20);
+ }
+ for(int i=0;i<80;++i)assert(nearbyVisits[i]==(i%4==0?4:0));
+ // Crowded settlement: 40 nearby NPCs share the 20-slot budget fairly.
+ int crowdedVisits[80]={};
+ nextCursor=0;
+ for (int pulse=0;pulse<4;++pulse) {
+  int updates=0;
+  nextCursor=ProcessNearbyResidents(nextCursor,80,
+    [](int i){return i<40;},
+    [&](int i){++crowdedVisits[i];++updates;});
+  assert(updates==20);
+ }
+ for(int i=0;i<80;++i)assert(crowdedVisits[i]==(i<40?2:0));
+ // Sparse/empty/invalid registries must not run any routines or divide by 0.
+ int calls=0;
+ assert(ProcessNearbyResidents(17,0,
+    [](int){return true;},[&](int){++calls;})==0);
+ assert(ProcessNearbyResidents(0,80,
+    [](int){return false;},[&](int){++calls;})==0);
+ assert(calls==0);
  assert(RegionFromWorldX(-16875.f)==0);
  assert(RegionFromWorldX(0.f)==3);
  assert(RegionFromWorldX(16875.f)==5);
@@ -96,6 +141,25 @@ int main(){
         self.assertNotIn("TActorIterator",movement)
         self.assertNotIn("SetTimer",movement)
 
+    def test_alerted_residents_can_move_near_hero_without_interrupting_talk(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        npc_h=(SRC/"MoonfallWorldNPC.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bool bInConversation=false",npc_h)
+        self.assertIn("bool bInConversation)",movement)
+        self.assertIn("PauseResidentMotion(",movement)
+        self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
+        self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
+        self.assertIn("inConversation || (nearHero && !sheltering && !holdingPost)",policy)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
+        self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",mode)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertNotIn("TActorIterator",movement)
+        self.assertNotIn("SetTimer",movement)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
@@ -130,6 +194,79 @@ int main(){
         self.assertIn("MoonfallLivingSimulation::WeatherName(Climate)",quest)
         self.assertNotIn("TActorIterator",quest)
         self.assertNotIn("GetAllActorsOfClass",quest)
+
+    def test_bounded_round_robin_residents_do_not_starve(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("constexpr int ResidentBudget=20;",policy)
+        self.assertIn("constexpr int ResidentRegistryBudget=80;",policy)
+        self.assertIn("ResidentWindowIndex(int cursor,int step,int registered)",policy)
+        self.assertIn("int32 NextResidentPulseIndex = 0;",header)
+        self.assertIn("ProcessNearbyResidents(",pulse)
+        self.assertIn("NextResidentPulseIndex,LivingResidents.Num()",pulse)
+        self.assertIn("DistSq<=FMath::Square(1600.f)",pulse)
+        self.assertIn("NPC->WitnessNearbyDanger(Now);",pulse)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",pulse)
+        self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",pulse)
+        self.assertIn("while(inspected<registered && processed<ResidentBudget)",policy)
+        self.assertIn("if(!isNearby(index))continue;",policy)
+        self.assertIn("return (start+inspected)%registered;",policy)
+        self.assertNotIn("for (int32 Step=0;Step<ResidentSlice;++Step)",pulse)
+        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget",mode)
+        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",pulse)
+        self.assertNotIn("GetAllActorsOfClass(",pulse)
+
+    def test_controller_npc_interaction_search_reaches_late_spawned_residents(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        search=hero.split("AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {",1)[1].split(
+            "void AMoonfallHeroPawn::CloseResidentContext()",1)[0]
+        # The old first-64 cap made some of the 80 registered residents,
+        # plus transient roadside visitors, impossible to select by controller.
+        self.assertIn("for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It)",search)
+        self.assertNotIn("Checked < 64",search)
+        self.assertNotIn("Checked <",search)
+        self.assertIn("Candidate->CanHeroInteract(this)",search)
+        self.assertIn("DistSq < BestDistSq",search)
+        self.assertIn("constexpr int ResidentRegistryBudget=80;",policy)
+        self.assertIn("Visitor->bAmbientVisitor=true;",mode)
+        # Nearest-NPC lookups are input-triggered, never performed per frame.
+        self.assertIn("AMoonfallWorldNPC* Resident = GetNearestResidentNPC();",
+                      hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1])
+        self.assertNotIn("GetNearestResidentNPC()",mode)
+
+    def test_runtime_residents_register_without_permanent_actor_rescans(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        npc_h=(SRC/"MoonfallWorldNPC.h").read_text()
+        self.assertIn("void RegisterLivingResident(AMoonfallWorldNPC* Resident);",header)
+        self.assertIn("void UnregisterLivingResident(AMoonfallWorldNPC* Resident);",header)
+        self.assertIn("void AMoonfallUnrealGameMode::RegisterLivingResident(",mode)
+        self.assertIn("LivingResidents.ContainsByPredicate(",mode)
+        self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget",mode)
+        self.assertIn("LivingResidents.RemoveAll(",mode)
+        self.assertIn("RegisterLivingResident(*It);",mode)
+        self.assertIn("Mode->RegisterLivingResident(this);",npc)
+        self.assertIn("Mode->UnregisterLivingResident(this);",npc)
+        self.assertIn("virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;",npc_h)
+        # The event visitor must be flagged before BeginPlay registration
+        # can run, and must never be retained as a permanent resident.
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("SpawnActorDeferred<AMoonfallWorldNPC>",pulse)
+        self.assertIn("Visitor->bAmbientVisitor=true;",pulse)
+        self.assertIn("Visitor->FinishSpawning(SpawnTransform);",pulse)
+        self.assertLess(pulse.index("Visitor->bAmbientVisitor=true;"),
+                        pulse.index("Visitor->FinishSpawning(SpawnTransform);"))
+        self.assertIn("if (!IsValid(Spawned)) return;",pulse)
+        self.assertIn("if (!bAmbientVisitor)",npc)
+        self.assertIn("if (!IsValid(Resident) || Resident->IsActorBeingDestroyed()",mode)
+        self.assertNotIn("GetAllActorsOfClass(",mode)
 
     def test_six_regions_have_distinct_road_encounter_dialogue(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
@@ -173,8 +310,9 @@ int main(){
         self.assertIn("PulseLivingWorld()",mode)
         self.assertIn("&AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f",mode)
         self.assertIn("if (!bLivingResidentCacheInitialized)",mode)
-        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentBudget",mode)
-        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",mode)
+        self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",mode)
+        self.assertIn("RegisterLivingResident(*It);",mode)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)
         self.assertIn("LivingArena->UpdateRegionWeather(Now);",mode)
         self.assertIn("MoonfallLivingSimulation::MayEncounter(",mode)
@@ -209,7 +347,7 @@ int main(){
         self.assertLess(pulse.index("ShouldRetireAmbient("),
                         pulse.index("if (!bHeroReady) return;"))
         self.assertLess(pulse.index("if (!bHeroReady) return;"),
-                        pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation);"))
+                        pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation,"))
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
 
     def test_road_encounters_follow_travel_without_crossing_region_edges(self):

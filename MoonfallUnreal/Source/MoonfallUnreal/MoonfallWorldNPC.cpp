@@ -1,5 +1,6 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -22,14 +23,26 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
 void AMoonfallWorldNPC::BeginPlay() {
  Super::BeginPlay();
  AuthoredHomeLocation = GetActorLocation();
+ if (!bAmbientVisitor) {
+  if (UWorld* World=GetWorld())
+   if (AMoonfallUnrealGameMode* Mode=World->GetAuthGameMode<AMoonfallUnrealGameMode>())
+    Mode->RegisterLivingResident(this);
+ }
+}
+void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ if (UWorld* World=GetWorld())
+  if (AMoonfallUnrealGameMode* Mode=World->GetAuthGameMode<AMoonfallUnrealGameMode>())
+   Mode->UnregisterLivingResident(this);
+ Super::EndPlay(EndPlayReason);
 }
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
 }
-void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation) {
+void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
+                                               bool bInConversation) {
  if (bAmbientVisitor || !GetWorld() || !FMath::IsFinite(Now)
      || AuthoredHomeLocation.ContainsNaN() || HeroLocation.ContainsNaN()
-     || FVector::DistSquared2D(HeroLocation, GetActorLocation()) < FMath::Square(420.f))
+     || GetActorLocation().ContainsNaN())
   return;
  // Compact authored-home offsets: no teleport, path solve or NPC Tick.
  const int Shift=(MoonfallLivingSimulation::Phase(Now,180.f)
@@ -46,6 +59,10 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  const bool bSheltering=(MoonfallLivingSimulation::Severe(Weather) && !bGuard)
       || Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter;
  const bool bHoldPost=Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost;
+ const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
+     < FMath::Square(420.f);
+ if (MoonfallLivingSimulation::PauseResidentMotion(
+      bInConversation,bNearHero,bSheltering,bHoldPost)) return;
  const float Side=(bSheltering || bHoldPost)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  const float Front=(bSheltering || bHoldPost)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
