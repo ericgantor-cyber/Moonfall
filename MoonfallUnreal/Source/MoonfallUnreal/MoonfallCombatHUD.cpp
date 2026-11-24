@@ -184,6 +184,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.035f,0.032f,0.065f,0.97f),L,T,W,H);
   DrawRect(FLinearColor(0.53f,0.34f,0.74f,1.f),L,T,W,5.f);
   DrawModalChrome(L,T,W,H,FLinearColor(0.57f,0.37f,0.73f,0.98f));
+  if (W>=420.f) DrawMoonfallSigil(L+W-65.f,T+25.f,10.f,FLinearColor(0.87f,0.69f,0.98f),3);
   DrawText(TEXT("MOONFALL | CONSTELLATION WEB"),
       FLinearColor(0.95f,0.86f,0.99f),L+20.f,T+14.f,nullptr,
       Canvas->SizeX<850.f ? 0.92f : 1.20f);
@@ -326,6 +327,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
    DrawModalChrome(L,T,W,H,FLinearColor(0.55f,0.38f,0.70f,0.98f));
+   if (W>=420.f) DrawMoonfallSigil(L+W-65.f,T+25.f,10.f,FLinearColor(0.85f,0.73f,0.98f),0);
    // Standard close X in every interactive Moonfall panel.
    const float NpcCloseX = L + W - 42.f;
    DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), NpcCloseX, T + 12.f, 28.f, 28.f);
@@ -432,6 +434,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.045f, 0.043f, 0.049f, 0.98f), Left, Top, Width, Height);
   DrawRect(FLinearColor(0.45f, 0.38f, 0.28f, 0.96f), Left + 8.f, Top + 8.f, Width - 16.f, 1.f);
   DrawModalChrome(Left,Top,Width,Height,FLinearColor(0.55f,0.46f,0.30f,0.98f));
+  if (Width>=480.f) DrawMoonfallSigil(Left+Width-67.f,Top+24.f,11.f,FLinearColor(0.92f,0.75f,0.42f),1);
   const float Scale = FMath::Clamp(Width / 900.f, 0.48f, 1.f);
   DrawText(TEXT("MOONFALL | CARTOGRAPHER'S ATLAS"), FLinearColor(0.91f, 0.84f, 0.68f), Left + 18.f, Top + 13.f, nullptr, Scale * 1.32f);
   // The clickable X is the only Atlas header button (no ME button).
@@ -868,6 +871,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bCompactOptions = MenuWidth < 420.f;
   DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f), MenuLeft, MenuTop, MenuWidth, MenuHeight);
   DrawModalChrome(MenuLeft,MenuTop,MenuWidth,MenuHeight,FLinearColor(0.35f,0.52f,0.70f,0.98f));
+  if (MenuWidth>=480.f) DrawMoonfallSigil(MenuLeft+MenuWidth-66.f,MenuTop+25.f,10.f,FLinearColor(0.52f,0.77f,0.95f),2);
   const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), OptionsCloseX, MenuTop + 12.f, 28.f, 28.f);
   DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);
@@ -989,6 +993,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawModalChrome(Left,Top,PanelWidth,PanelHeight,FLinearColor(0.43f,0.52f,0.66f,0.98f));
+  if (PanelWidth>=360.f) DrawMoonfallSigil(Left+PanelWidth-23.f,Top+PanelHeight-23.f,
+    10.f,FLinearColor(0.84f,0.72f,0.47f),2);
   DrawText(Hero->bSpellBookOpen ? TEXT("MOONFALL  |  SPELL BOOK")
     : (PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY")),
     FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
@@ -1373,6 +1379,8 @@ void AMoonfallCombatHUD::DrawHUD()
        Book.Left,Book.Top,Book.Width,5.f);
    DrawModalChrome(Book.Left,Book.Top,Book.Width,Book.Height,
      FLinearColor(0.58f,0.40f,0.68f,0.98f));
+   if (Book.Width>=450.f) DrawMoonfallSigil(Book.Left+Book.Width-26.f,
+     Book.Top+27.f,11.f,FLinearColor(0.78f,0.60f,0.99f),3);
    DrawText(TEXT("MOONFALL  |  THE GRIMOIRE"),
        FLinearColor(0.96f,0.88f,0.76f),Book.Left+18.f,Book.Top+13.f,
        nullptr,Book.Width<500.f ? 0.88f : 1.36f);
