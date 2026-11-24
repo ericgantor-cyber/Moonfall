@@ -2,6 +2,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "TimerManager.h"
+class AMoonfallArena;
+class AMoonfallWorldNPC;
 #include "MoonfallUnrealGameMode.generated.h"
 
 // Thirty physical dungeons in six world regions. Geometry is spawned in small
@@ -36,4 +38,13 @@ private:
  int32 NextDungeonSlot = 0;
  TArray<uint8> AuthoredDungeonSlots;
  void SpawnDungeonBatch();
+ // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
+ void PulseLivingWorld();
+ FTimerHandle LivingWorldPulseTimer;
+ bool bLivingResidentCacheInitialized = false;
+ TWeakObjectPtr<AMoonfallArena> LivingArena;
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
+ TWeakObjectPtr<AActor> ActiveAmbientEncounter;
+ float NextAmbientEncounterAt = 120.f;
+ int32 LastAmbientEventPhase = -1;
 };

@@ -134,17 +134,17 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition == TEXT("Wary")) Reaction = FText::FromString(TEXT("Speak carefully, stranger."));
  else if (Disposition == TEXT("Trusted")) Reaction = FText::FromString(TEXT("Welcome back, friend of our people."));
  // Citizens provide contextual opening lines without spawning dialogue actors.
- if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant")))
+ if (!bAmbientVisitor && Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant")))
   Reaction = FText::FromString(TEXT("Browse my wares when the market opens."));
- else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Guard")))
+ else if (!bAmbientVisitor && Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Guard")))
   Reaction = FText::FromString(TEXT("Keep the peace inside our walls."));
  // Activity is determined only when interacted with; inhabitants never spam
  // navigation or world perception. Trust/hostility overrides daily routine.
- if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant"))
+ if (!bAmbientVisitor && Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant"))
      && (GetCurrentActivity() == TEXT("Resting")
          || GetCurrentActivity() == TEXT("Sheltering")))
   Reaction = FText::FromString(TEXT("The stall is closed while I restock."));
- else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Scout"))
+ else if (!bAmbientVisitor && Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Scout"))
      && (GetCurrentActivity() == TEXT("Reporting")
          || GetCurrentActivity() == TEXT("Sheltering")))
   Reaction = FText::FromString(TEXT("The roads have changed. I am reporting what I saw."));
