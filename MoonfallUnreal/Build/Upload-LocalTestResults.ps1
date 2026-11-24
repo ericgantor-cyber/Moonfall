@@ -15,6 +15,16 @@ if([string]::IsNullOrWhiteSpace($ProjectRoot)){
 if([string]::IsNullOrWhiteSpace($ProjectRoot)){throw "Unable to locate the Moonfall Unreal project root."}
 $statePath=$CacheRoot
 New-Item -ItemType Directory -Force -Path $statePath | Out-Null
+# Exclusive per-user lock prevents a second scheduler/manual run from re-sending
+# the same digest before the first GitHub dispatch is recorded.
+$lockFile=Join-Path $statePath "uploader.lock"
+try {
+ $lockHandle=[IO.File]::Open($lockFile,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+} catch [IO.IOException] {
+ Write-Output "Another Moonfall upload scan is already running; skipping this scan."
+ return
+}
+try {
 $cacheFile=Join-Path $statePath "sent.json"
 $sent=@{}
 if(Test-Path $cacheFile){try{$obj=Get-Content $cacheFile -Raw|ConvertFrom-Json;foreach($p in $obj.PSObject.Properties){$sent[$p.Name]=$p.Value}}catch{}}
@@ -51,4 +61,8 @@ $roots=@(
   $sent|ConvertTo-Json -Depth 3|Set-Content -LiteralPath $cacheFile -Encoding UTF8
   Write-Output "Sent Moonfall $status test summary."
  }
+}
+
+} finally {
+ $lockHandle.Dispose()
 }
