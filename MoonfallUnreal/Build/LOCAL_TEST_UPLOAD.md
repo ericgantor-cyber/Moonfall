@@ -10,7 +10,7 @@ Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. The dia
 
 1. Install GitHub CLI from https://cli.github.com/ and run gh auth login using an account authorized for ericgantor-cyber/Moonfall.
 2. Update Moonfall after this PR is merged, or explicitly check out its branch.
-3. Preview without uploading from the repository root:
+3. Preview without uploading from the repository root (does not require GitHub login):
    powershell.exe -NoProfile -File .\MoonfallUnreal\Build\Install-LocalTestUpload.ps1 -TestNow
 4. Enable automatic upload every five minutes:
    powershell.exe -NoProfile -File .\MoonfallUnreal\Build\Install-LocalTestUpload.ps1
