@@ -125,6 +125,10 @@ jobs:
         shell: bash
         run: python3 tools/test_unreal_character_race_pages.py
 
+      - name: Verify creator-to-gameplay ancestry save-backed confirmation
+        shell: bash
+        run: python3 tools/test_unreal_creator_gameplay_bridge.py
+
       - name: Verify playable talent web input, modal safety and native HUD contracts
         shell: bash
         run: python3 tools/test_unreal_talent_ui.py
