@@ -100,4 +100,23 @@ jobs:
           } finally { $lock.Dispose() }
           $afterLock = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $lockedCache -DryRun )
           if ($afterLock.Count -ne 1 -or $afterLock[0] -notmatch 'moonfall-local-test') { throw 'Uploader did not recover after lock release' }
+          # When offline, limit outbound GitHub requests to ten per scan.
+          $offlineRoot = Join-Path $env:RUNNER_TEMP 'offline-project'
+          $offlineLogs = Join-Path $offlineRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $offlineLogs | Out-Null
+          foreach ($i in 1..12) {
+            $file = Join-Path $offlineLogs ('error-' + $i + '.log')
+            Set-Content -LiteralPath $file -Value ('BUILD FAILED ' + $i)
+            (Get-Item $file).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          }
+          $countFile = Join-Path $env:RUNNER_TEMP 'gh-attempts.txt'
+          $countingGh = Join-Path $env:RUNNER_TEMP 'counting-gh.cmd'
+          Set-Content -LiteralPath $countingGh -Value @('@echo off','echo attempt>>"%MOONFALL_GH_COUNT_FILE%"','exit /b 1')
+          $env:MOONFALL_GH_COUNT_FILE = $countFile
+          $offlineCache = Join-Path $env:RUNNER_TEMP 'offline-cache'
+          $null = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $offlineRoot -BuildLogRoot (Join-Path $offlineRoot 'no-center') -CacheRoot $offlineCache -GitHubCli $countingGh 3>$null )
+          $attempts = @(Get-Content -LiteralPath $countFile)
+          if ($attempts.Count -ne 10) { throw ('Expected 10 failed requests, got ' + $attempts.Count) }
+          if (Test-Path (Join-Path $offlineCache 'sent.json')) { throw 'Failed requests should never mark receipts as uploaded' }
+          Remove-Item Env:MOONFALL_GH_COUNT_FILE -ErrorAction SilentlyContinue
           Write-Output 'Local uploader syntax and redacted dry run passed.'
