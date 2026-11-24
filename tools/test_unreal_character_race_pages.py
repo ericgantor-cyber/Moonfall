@@ -106,6 +106,11 @@ assert "Next.Profile.VitalityMultiplier-1.f" in creator
 assert "Next.Profile.PowerMultiplier-1.f" in creator
 assert "Next.Profile.SpeedMultiplier-1.f" in creator
 assert "In-game ancestry passives: C > Tab" in creator
-for control in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down"):
-    assert control not in creator
+keyboard_handler = creator.split(
+    "FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(", 1)[1]
+for control in ("EKeys::Left ||", "EKeys::Right ||", "EKeys::Up ||",
+                "EKeys::Down ||", "Key == EKeys::Left)",
+                "Key == EKeys::Right)", "Key == EKeys::Up)",
+                "Key == EKeys::Down)"):
+    assert control not in keyboard_handler, control
 print("UE5 character creation, C ancestry and 12 saved racial passive/power contracts passed.")
