@@ -286,6 +286,15 @@ void AMoonfallHeroPawn::RecordFirstlightAction(
   FirstlightTutorial.Mark(Action);
 }
 
+AMoonfallEnemy* AMoonfallHeroPawn::GetRecentCompanionAssistTarget(float& Age) const {
+ Age=-1.f;
+ if(!GetWorld()||!IsRecentlyInCombatForAmbientAI())return nullptr;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now)||!FMath::IsFinite(RecentCompanionAssistHitAt)
+     ||Now<RecentCompanionAssistHitAt||Now-RecentCompanionAssistHitAt>5.f)return nullptr;
+ Age=Now-RecentCompanionAssistHitAt;
+ return RecentCompanionAssistTarget.Get();
+}
 bool AMoonfallHeroPawn::IsRecentlyInCombatForAmbientAI() const {
  if (!GetWorld() || !FMath::IsFinite(Health) || Health<=0.f
      || !FMath::IsFinite(CombatRecoveryEndsAt)) return false;
@@ -1010,6 +1019,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
+   RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
@@ -1389,6 +1399,7 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
  if (bConnected) {
+  RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;
   // Low sweeps pressure posture; the original enemy posture-break caps apply.
   if (Enemy->Health > 0.f)
    Enemy->ApplyPostureDamage(Dealt * (CurrentSwordAngle == 2 ? 0.45f : 0.15f));
@@ -1688,6 +1699,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  RecentCompanionAssistTarget.Reset();RecentCompanionAssistHitAt=-100.f;
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
