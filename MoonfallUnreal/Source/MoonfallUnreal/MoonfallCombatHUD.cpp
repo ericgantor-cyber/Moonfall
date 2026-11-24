@@ -117,7 +117,7 @@ void AMoonfallCombatHUD::DrawHUD()
      UTF8_TO_TCHAR(Selected.Title),CurrentRank,Selected.MaxRank,Selected.MinLevel);
   DrawText(Detail,FLinearColor(0.91f,0.83f,0.63f),
      L+20.f,T+H-117.f,nullptr,0.79f);
-  DrawText(TEXT("PgUp/PgDn: row  Home/End: tier  D-pad: move  Wheel: pan"),
+  DrawText(TEXT("Page keys: row  Home/End: tier  D-pad: move  Wheel: pan"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
      W<760.f?0.54f:0.69f);
   DrawText(TEXT("K/ESC: close   Enter/A: spend   Backspace/LT twice: reset"),
