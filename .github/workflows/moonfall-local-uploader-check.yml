@@ -33,9 +33,17 @@ jobs:
           $file = Join-Path $logs 'sample.log'
           Set-Content -LiteralPath $file -Value 'BUILD SUCCEEDED'
           (Get-Item $file).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
-          $output = & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -DryRun
-          if ($output.Count -ne 1) { throw 'Expected one dry-run receipt' }
-          $payload = $output | ConvertFrom-Json
-          if ($payload.event_type -ne 'moonfall-local-test' -or $payload.client_payload.outcome -ne 'passed') { throw 'Incorrect dry-run result' }
-          if ($output -match 'sample.log|test-project|BUILD SUCCEEDED') { throw 'Leaked source details' }
+          $buildLogs = Join-Path $env:RUNNER_TEMP 'center-logs'
+          New-Item -ItemType Directory -Force -Path $buildLogs | Out-Null
+          $errorFile = Join-Path $buildLogs 'build-test.log.err'
+          Set-Content -LiteralPath $errorFile -Value 'fatal error C1083: private path should not leak'
+          (Get-Item $errorFile).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $output = & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -BuildLogRoot $buildLogs -DryRun
+          if ($output.Count -ne 2) { throw 'Expected Unreal and Build Center dry-run receipts' }
+          $payloads = @($output | ForEach-Object { $_ | ConvertFrom-Json })
+          $unreal = @($payloads | Where-Object { $_.client_payload.source -eq 'unreal-log' })
+          $center = @($payloads | Where-Object { $_.client_payload.source -eq 'build-center-log' })
+          if ($unreal.Count -ne 1 -or $unreal[0].client_payload.outcome -ne 'passed') { throw 'Missing Unreal pass' }
+          if ($center.Count -ne 1 -or $center[0].client_payload.outcome -ne 'failed') { throw 'Missing compiler failure' }
+          if ($output -match 'sample.log|test-project|BUILD SUCCEEDED|private path|build-test.log') { throw 'Leaked source details' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
