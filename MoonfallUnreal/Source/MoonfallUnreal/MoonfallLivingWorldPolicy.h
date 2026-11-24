@@ -31,14 +31,22 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
 }
 // Progression is derived from earned resident bond; no separate XP or save schema.
 inline int CompanionRank(int bond){return bond>=100?3:bond>=80?2:bond>=60?1:0;}
-inline float CompanionStrikeDamage(int rank){return rank==3?10.f:rank==2?8.f:rank==1?6.f:0.f;}
+inline int EffectiveCompanionRole(int rank,int role){return rank>=2&&rank<=3&&role>=1&&role<=2?role:0;}
+inline float CompanionStrikeDamage(int rank,int role=0){
+ const float Base=rank==3?10.f:rank==2?8.f:rank==1?6.f:0.f;
+ const int Effective=EffectiveCompanionRole(rank,role);
+ return Effective==1?Base-2.f:Effective==2?std::fmin(Base+2.f,10.f):Base;
+}
 // A local companion can mitigate one ordinary directional hit per cooldown.
-inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1){
+inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1,int role=0){
  if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<12.0
     ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>300.0*300.0)return 0.f;
  const float Fraction=rank==3?0.20f:rank==2?0.18f:0.15f;
  const float Cap=rank==3?16.f:rank==2?14.f:12.f;
- return std::fmin(damage*Fraction,Cap);
+ const int Effective=EffectiveCompanionRole(rank,role);
+ const float Shift=Effective==1?0.04f:Effective==2?-0.04f:0.f;
+ const float CapShift=Effective==1?2.f:Effective==2?-2.f:0.f;
+ return std::fmin(damage*(Fraction+Shift),Cap+CapShift);
 }
 // Only a recently player-damaged ordinary enemy qualifies for a local assist.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
