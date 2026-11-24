@@ -9,6 +9,7 @@
 #include "Components/PointLightComponent.h"
 #include "MoonfallSanctuaryArchitecture.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallRoadLandmarks.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -156,15 +157,11 @@ void AMoonfallArena::CreateRegionalLandmarks() {
   // authored silhouettes, not procedural collision terrain.
   const float Height=Zone==1?5.2f:(Zone==3?3.6f:(Zone==4?4.8f:2.7f));
   const float Width=Zone==2?2.7f:(Zone==5?1.1f:1.5f);
-  const FVector Landmarks[]={
-   FVector(-2300.f,-4900.f,Height),FVector(-1450.f,-5100.f,Height*1.2f),
-   FVector(-650.f,-4750.f,Height*.7f),FVector(650.f,-4800.f,Height*.85f),
-   FVector(1450.f,-5200.f,Height*1.1f),FVector(2300.f,-4900.f,Height),
-   FVector(-1900.f,-550.f,Height*.75f),FVector(1900.f,-550.f,Height*.9f)
-  };
-  for (const FVector& Spec:Landmarks) {
-   // Base height is 0, with a center at half of the vertical cube height.
-   const float H=FMath::Clamp(Spec.Z,1.f,7.f);
+  // Every instance sits in an authored side gap between dungeon lanes.
+  // Compile-time guards forbid future offsets from entering any chamber.
+  for (const MoonfallRoadLandmarks::FPlacement& Spec:
+       MoonfallRoadLandmarks::Placements) {
+   const float H=FMath::Clamp(Height*Spec.Height,1.f,7.f);
    Details->AddInstance(FTransform(FRotator::ZeroRotator,
       FVector(CenterX+Spec.X,Spec.Y,H*50.f),
       FVector(Width,Width,H)));

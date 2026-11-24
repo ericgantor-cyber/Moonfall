@@ -8,6 +8,7 @@
 #include "MoonfallLivingSimulation.h"
 #include "Kismet/GameplayStatics.h"
 #include "CollisionQueryParams.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -121,9 +122,12 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  const bool bSafeZone=Hero->IsNearStartingSanctuary() ||
      HeroLocation.Y > -1800.f;
  const bool bNearRoad=FMath::Abs(HeroLocation.Y+2500.f)<260.f;
+ // New encounters wait until gameplay is active, including stats/Spell Book,
+ // and never surprise the player while fighting an existing enemy.
  const bool bModal=Hero->bInventoryOpen || Hero->bOptionsOpen ||
-     Hero->bAtlasOpen || Hero->bResidentContextOpen ||
-     Hero->FocusedResident.IsValid();
+     Hero->bAtlasOpen || Hero->bCharacterStatsOpen ||
+     Hero->bSpellBookOpen || Hero->bResidentContextOpen ||
+     Hero->FocusedResident.IsValid() || bCombatNearby;
  if (!MoonfallLivingSimulation::MayEncounter(Region,bSafeZone,bNearRoad,
      bModal,ActiveAmbientEncounter.IsValid())) return;
  const int Phase=MoonfallLivingSimulation::Phase(Now,150.f);
@@ -137,7 +141,9 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  FHitResult Ground;
  if (!World->LineTraceSingleByChannel(Ground,Candidate,
        Candidate-FVector(0.f,0.f,1400.f),ECC_Visibility,FloorQuery)
-     || !Ground.bBlockingHit || Ground.ImpactNormal.Z<0.7f) return;
+     || !Ground.bBlockingHit || Ground.ImpactNormal.Z<0.7f
+     || !LivingArena.IsValid() || !IsValid(LivingArena->DungeonRoad)
+     || Ground.GetComponent()!=LivingArena->DungeonRoad) return;
  const FVector SpawnPosition=Ground.ImpactPoint+FVector(0.f,0.f,85.f);
  if (SpawnPosition.ContainsNaN()) return;
  const FTransform SpawnTransform(FRotator::ZeroRotator,SpawnPosition);

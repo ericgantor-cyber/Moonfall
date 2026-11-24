@@ -115,4 +115,38 @@ int main(){
         self.assertIn("MoonfallLivingSimulation::Severe(Weather)",npc)
         self.assertIn("const bool bSheltering=",npc)
 
+    def test_dungeon_gap_landmark_footprints_are_safe(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        policy=(SRC/"MoonfallRoadLandmarks.h").read_text()
+        self.assertIn('#include "MoonfallRoadLandmarks.h"',arena)
+        self.assertIn("MoonfallRoadLandmarks::Placements",arena)
+        self.assertIn("static_assert(AllLandmarksSafe()",policy)
+        self.assertIn("ClearDungeonFootprint(p.X)",policy)
+        self.assertIn("for (int i=0; i<5; ++i)",policy)
+        # Every requested region silhouette remains outside 900-unit lanes,
+        # accounting for the largest 270-unit-wide landmark primitive.
+        import re
+        pieces=re.findall(r'\\{(-?\\d+)\\.f,(-?\\d+)\\.f,([.\\d]+)f\\}',policy)
+        self.assertEqual(len(pieces),8)
+        for x,y,scale in pieces:
+            x,y=int(x),int(y)
+            self.assertGreater(float(scale),0)
+            self.assertLess(y,-4000)
+            self.assertGreater(y,-7000)
+            self.assertTrue(all(abs(x-(i-2)*1350)>=600 for i in range(5)),
+                            f"Landmark {x} overlaps a dungeon lane")
+
+    def test_ambient_encounters_require_public_road_and_unlocked_combat(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        for guard in ("Hero->bCharacterStatsOpen", "Hero->bSpellBookOpen",
+                      "Hero->FocusedResident.IsValid() || bCombatNearby",
+                      "Ground.GetComponent()!=LivingArena->DungeonRoad",
+                      "Ground.ImpactNormal.Z<0.7f", "Hero->IsNearStartingSanctuary()"):
+            self.assertIn(guard,pulse)
+        self.assertLess(pulse.index("Ground.GetComponent()!=LivingArena->DungeonRoad"),
+                        pulse.index("World->SpawnActorDeferred<AMoonfallEnemy>("))
+        self.assertIn("Spawned->SetLifeSpan(100.f);",pulse)
+
 if __name__=="__main__":unittest.main()
