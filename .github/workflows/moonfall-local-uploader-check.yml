@@ -1,0 +1,41 @@
+name: Moonfall local uploader Windows verification
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/Upload-LocalTestResults.ps1'
+      - 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1'
+      - '.github/workflows/moonfall-local-test-receipt.yml'
+      - '.github/workflows/moonfall-local-uploader-check.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Build/Upload-LocalTestResults.ps1'
+      - 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1'
+      - '.github/workflows/moonfall-local-test-receipt.yml'
+      - '.github/workflows/moonfall-local-uploader-check.yml'
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PowerShell syntax and safe dry run
+        shell: pwsh
+        run: |
+          $files = @('MoonfallUnreal/Build/Upload-LocalTestResults.ps1','MoonfallUnreal/Build/Install-LocalTestUpload.ps1')
+          foreach ($f in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw ('Invalid PowerShell: '+$f+' '+($errors|Out-String)) }
+          }
+          $project = Join-Path $env:RUNNER_TEMP 'test-project'
+          $logs = Join-Path $project 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $logs | Out-Null
+          $file = Join-Path $logs 'sample.log'
+          Set-Content -LiteralPath $file -Value 'BUILD SUCCEEDED'
+          (Get-Item $file).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $output = & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -DryRun
+          if ($output.Count -ne 1) { throw 'Expected one dry-run receipt' }
+          $payload = $output | ConvertFrom-Json
+          if ($payload.event_type -ne 'moonfall-local-test' -or $payload.client_payload.outcome -ne 'passed') { throw 'Incorrect dry-run result' }
+          if ($output -match 'sample.log|test-project|BUILD SUCCEEDED') { throw 'Leaked source details' }
+          Write-Output 'Local uploader syntax and redacted dry run passed.'
