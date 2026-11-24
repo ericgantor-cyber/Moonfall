@@ -3121,6 +3121,42 @@ void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()
  ExploredZoneFogMasks[Zone] |= (1LL << (Row * 8 + Column));
 }
 
+int32 AMoonfallHeroPawn::GetAvailableTalentPoints() const {
+ MoonfallTalents::Snapshot Snapshot;
+ return MoonfallTalents::Evaluate(Level, TalentRanks, Snapshot) == MoonfallTalents::Result::Ok
+     ? Snapshot.Available : 0;
+}
+
+int32 AMoonfallHeroPawn::GetTalentRank(int32 NodeIndex) const {
+ if (NodeIndex < 0 || NodeIndex >= MoonfallTalents::NodeCount) return 0;
+ return TalentRanks[NodeIndex];
+}
+
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 NodeIndex) {
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
+ MoonfallTalents::Ranks Candidate = TalentRanks;
+ if (MoonfallTalents::Spend(Level, Candidate, NodeIndex) != MoonfallTalents::Result::Ok)
+  return false;
+ const MoonfallTalents::Ranks Previous = TalentRanks;
+ TalentRanks = Candidate;
+ // Spend is an atomic persisted transaction, not a deferred autosave.
+ if (!SaveWorldProgress()) { TalentRanks = Previous; return false; }
+ return true;
+}
+
+bool AMoonfallHeroPawn::RespecTalentPoints() {
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
+ MoonfallTalents::Ranks Candidate = TalentRanks;
+ if (MoonfallTalents::Respec(Level, Candidate) != MoonfallTalents::Result::Ok)
+  return false;
+ const MoonfallTalents::Ranks Previous = TalentRanks;
+ TalentRanks = Candidate;
+ if (!SaveWorldProgress()) { TalentRanks = Previous; return false; }
+ return true;
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
@@ -3131,6 +3167,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Prevent saving a rank ledger that this exact V13 loader would reject.
+ MoonfallTalents::Snapshot ValidTalentSnapshot;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot) != MoonfallTalents::Result::Ok) return false;
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
@@ -3238,6 +3277,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->RacePowerReadyUtc = Cooldown > 0.f
      ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
  Save->Level = FMath::Clamp(Level, 1, 100);
+ Save->TalentRanks.Reserve(MoonfallTalents::NodeCount);
+ for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
@@ -3254,12 +3295,31 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 13) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // Validate the entire V13 ledger BEFORE any teleport or mutation. Old saves
+ // intentionally start with zero unspent ranks and remain compatible.
+ MoonfallTalents::Ranks LoadedTalentRanks{};
+ if (Save->Version >= 13) {
+  if (Save->TalentRanks.Num() != MoonfallTalents::NodeCount) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall V13 talent ranks count invalid; original save protected."));
+   return false;
+  }
+  for (int32 Index = 0; Index < MoonfallTalents::NodeCount; ++Index)
+   LoadedTalentRanks[Index] = Save->TalentRanks[Index];
+  MoonfallTalents::Snapshot ValidatedTalentSnapshot;
+  if (MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, ValidatedTalentSnapshot)
+      != MoonfallTalents::Result::Ok) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall talent allocation invalid; original save protected."));
+   return false;
+  }
  }
  // Fail closed on oversized legacy or V7 collections. Simply scanning the
  // first 10,000 inventory entries (or skipping a large quest-state map)
@@ -3516,6 +3576,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
  bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
+ TalentRanks = LoadedTalentRanks;
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
