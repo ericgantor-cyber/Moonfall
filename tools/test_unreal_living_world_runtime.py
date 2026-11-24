@@ -352,6 +352,18 @@ int main(){
         self.assertIn("bHoldCompanion&&!bInConversation&&!bSheltering&&!bHoldPost",npc)
         self.assertIn('LivingIntent=TEXT("Holding Position");return;',npc)
 
+    def test_npc_interaction_rejects_invalid_state_before_visibility_trace(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        body=npc.split("bool AMoonfallWorldNPC::CanHeroInteract(",1)[1].split("\n}",1)[0]
+        before_trace=body.split("LineTraceSingleByChannel(",1)[0]
+        for guard in ("Hero->GetWorld()!=GetWorld()", "IsActorBeingDestroyed()",
+                      "Hero->IsActorBeingDestroyed()", "!FMath::IsFinite(Hero->Health)",
+                      "Hero->Health <= 0.f", "Hero->bAtlasOpen", "Hero->bTalentWebOpen",
+                      "!FMath::IsFinite(InteractRange)"):
+            self.assertIn(guard,before_trace)
+        self.assertIn("const float Range = FMath::Clamp(InteractRange, 50.f, 400.f);",body)
+        self.assertNotIn(": 240.f",body)
+
     def test_v27_companion_menu_uses_shared_geometry_and_dispatch(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
