@@ -54,6 +54,10 @@ private:
  // Round-robin slices 20 nearby residents every four seconds. Registers
  // more than one settlement without unbounded per-pulse NPC updates.
  int32 NextResidentPulseIndex = 0;
+ // Reuse the existing resident pulse; no additional timer or actor scan.
+ int32 SocialSpeakerCursor = 0;
+ int32 LastSocialCombatPhase = -1;
+ void ShareNearbyResidentRumor(const TArray<TWeakObjectPtr<AMoonfallWorldNPC>>& Candidates);
  TWeakObjectPtr<AActor> ActiveAmbientEncounter;
  // World-pulse ownership prevents the sole active encounter despawning
  // during an open NPC conversation or an active nearby monster battle.
