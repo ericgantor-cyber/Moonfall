@@ -149,7 +149,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bool bInConversation=false",npc_h)
-        self.assertIn("bool bInConversation, int32 HeroBond)",movement)
+        self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide)",movement)
         self.assertIn("PauseResidentMotion(",movement)
         self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
