@@ -4411,11 +4411,18 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(ViewH)-24.f));
      const float PanelL=float(ViewW)-PanelW-12.f;
      const float PanelT=(float(ViewH)-PanelH)*0.5f;
-     const float TabW=PanelW<550.f?105.f:172.f;
-     const float TabX=PanelL+PanelW-TabW-14.f;
-     if (MouseX>=TabX && MouseX<=TabX+TabW
-         && MouseY>=PanelT+14.f && MouseY<=PanelT+42.f)
-      ToggleCharacterRacePage();
+     // Mirror the two visible HUD tabs. Clicking the selected tab is a no-op.
+     const float TabW=(PanelW-44.f)*0.5f;
+     const float TabL=PanelL+18.f;
+     const float TabY=PanelT+77.f;
+     if (MouseY>=TabY && MouseY<=TabY+32.f) {
+      if (MouseX>=TabL && MouseX<=TabL+TabW) {
+       bCharacterRacePageOpen=false;
+      } else if (MouseX>=TabL+TabW+8.f
+          && MouseX<=TabL+2.f*TabW+8.f) {
+       bCharacterRacePageOpen=true;
+      }
+     }
     }
    }
    return;
