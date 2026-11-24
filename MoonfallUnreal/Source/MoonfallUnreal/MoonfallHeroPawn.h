@@ -213,8 +213,8 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
  // Canonical 141-node allocation. Persisted explicitly in V13 world saves.
- // Do not mix talent resource bonuses into base MaxHealth/MaxMana/MaxStamina
- // until the follow-on resource-delta integration is fully validated.
+ // Live talent bonuses are reconciled as validated resource deltas; saves
+ // store base health capacity to avoid stacking rank bonuses on reload.
  MoonfallTalents::Ranks TalentRanks{};
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
  int32 GetAvailableTalentPoints() const;
