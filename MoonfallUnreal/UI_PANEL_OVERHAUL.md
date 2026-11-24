@@ -49,6 +49,35 @@ original Z/Nyra art.
 - The quest tracker receives a clear static top/bottom border for legibility.
   No additional Canvas textures or world scans were introduced.
 
+## Third pass: new original Moonfall interface artwork
+
+- The shared **six-menu chrome** now paints engraved, symmetrical forged-metal
+  corner ornaments, filigree accents and a small diamond knot. These are
+  directly rendered by `MoonfallCombatHUD.cpp`, not a sketch or mock-up.
+- A single, **fixed 12-segment** runtime vector-sigil painter provides four
+  moonlit forms: **eclipse**, **wayfinder compass**, **ward shield**, and
+  **four-point arcane talisman**. The six major menus receive distinct
+  colored identities; talent branch badges, equipment rarity rows,
+  reputation faction rows, the nearby boss panel, quest tracker and resource
+  orb use the same shared artwork. Sigils are decorative only, with no
+  clickable areas or gameplay statistics.
+- `Art/UI/moonfall_eclipse_crest.svg` is the **original editable vector
+  source illustration** for the Moonfall eclipse emblem. It is a design
+  reference for future texture export, not yet an imported UE5 texture
+  or proof of runtime asset packaging. The **runtime equivalents are drawn
+  procedurally** by native Canvas code and require no missing textures.
+- No external artwork, copyrighted franchise icons, original **Z/Nyra**
+  drawings, gameplay meshes, shader assets, fonts, or save schemas were
+  changed. The new decorations are fixed-cost and use only Canvas rectangles
+  and line segments. They do not trigger actor scans, timers, effects or
+  motion, and preserve original clickable geometry.
+- New source regressions parse the SVG as XML, verify its trusted-local
+  artwork structure, ensure the native art painter is finite/bounded, and
+  check the art is actually hooked into the requested UI surfaces.
+- **Native UE5 art acceptance still required:** inspect small windows,
+  high DPI/4K, reduced motion, boss overlap, character panel, controller
+  navigation and pointer targeting before merging.
+
 ## Existing controls preserved
 
 - **C**: Character. Repeated C cycles its three pages; mouse tabs and controller
