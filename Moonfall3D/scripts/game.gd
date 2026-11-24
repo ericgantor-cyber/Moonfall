@@ -303,9 +303,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if spell_menu_open:
-            if event.keycode == KEY_UP:
+            if event.keycode == KEY_PAGEUP:
                 spell_cursor = posmod(spell_cursor - 1, spells.size())
-            elif event.keycode == KEY_DOWN:
+            elif event.keycode == KEY_PAGEDOWN:
                 spell_cursor = (spell_cursor + 1) % spells.size()
             elif event.keycode == KEY_Z:
                 left_spell = spell_cursor
@@ -328,9 +328,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if binds_open:
-            if event.keycode == KEY_UP:
+            if event.keycode == KEY_PAGEUP:
                 binding_index = posmod(binding_index - 1, BIND_ORDER.size())
-            elif event.keycode == KEY_DOWN:
+            elif event.keycode == KEY_PAGEDOWN:
                 binding_index = (binding_index + 1) % BIND_ORDER.size()
             elif event.keycode == KEY_ENTER:
                 binding_capture = true
@@ -452,13 +452,13 @@ func _process(dt: float) -> void:
     dodge_left = maxf(0.0, dodge_left - dt)
     invulnerable = maxf(0.0, invulnerable - dt)
     var motion := Vector3.ZERO
-    if _pressed("left") or Input.is_key_pressed(KEY_LEFT):
+    if _pressed("left") or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
         motion.x -= 1
-    if _pressed("right") or Input.is_key_pressed(KEY_RIGHT):
+    if _pressed("right") or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
         motion.x += 1
-    if _pressed("forward") or Input.is_key_pressed(KEY_UP):
+    if _pressed("forward") or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
         motion.z -= 1
-    if _pressed("back") or Input.is_key_pressed(KEY_DOWN):
+    if _pressed("back") or Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
         motion.z += 1
     var stick := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
@@ -1097,7 +1097,7 @@ func _pressed(action: String) -> bool:
 func _render_binds() -> void:
     if binds_panel == null:
         return
-    var lines := PackedStringArray(["KEYBINDS [F10] Close", "Up/Down: select | Enter: remap | Esc: cancel"])
+    var lines := PackedStringArray(["KEYBINDS [F10] Close", "PgUp/PgDn: select | Enter: remap | Esc: cancel"])
     for i in range(BIND_ORDER.size()):
         var action: String = BIND_ORDER[i]
         var prefix := "> " if i == binding_index else "  "
@@ -1122,15 +1122,37 @@ func _load_bindings() -> void:
     var parsed = JSON.parse_string(file.get_as_text())
     if not parsed is Dictionary:
         return
-    for action in BIND_ORDER:
-        if not parsed.has(action) or int(parsed[action]) <= 0:
-            continue
-        bindings[action] = int(parsed[action])
-    # Migrate saved profiles: Space was dodge; now Space must jump.
-    if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
-        bindings["jump"] = KEY_SPACE
-        bindings["dodge"] = KEY_Q
+    _restore_saved_bindings(parsed)
     _save_bindings()
+
+# Repair legacy and corrupted keybind profiles before they reach _pressed().
+# An old movement remap must never steal another action's key, and stale
+# ability bindings cannot steal WASD or arrow movement. No save-schema change.
+func _restore_saved_bindings(parsed: Dictionary) -> void:
+    var repaired: Dictionary = bindings.duplicate()
+    for action in BIND_ORDER:
+        if not parsed.has(action):
+            continue
+        var raw_key: Variant = parsed[action]
+        if typeof(raw_key) != TYPE_INT and typeof(raw_key) != TYPE_FLOAT:
+            continue
+        var number: float = float(raw_key)
+        if not is_finite(number) or number < 1.0 or number > 16777215.0 or number != floorf(number):
+            continue
+        var key: int = int(number)
+        if action not in ["forward", "back", "left", "right"] and _is_movement_key(key):
+            continue
+        if key == KEY_F10 or key == KEY_ESCAPE:
+            continue
+        var collision: bool = false
+        for other in BIND_ORDER:
+            if other != action and int(repaired[other]) == key:
+                collision = true
+                break
+        if collision:
+            continue
+        repaired[action] = key
+    bindings = repaired
 
 func _next_target() -> Node3D:
     var candidates: Array[Node3D] = []
@@ -1146,7 +1168,12 @@ func _next_target() -> Node3D:
 
 # Twelve visible action slots. Every slot uses the current placeholder attack,
 # with three distinct variants and individual cooldowns. Future abilities can replace these.
+func _is_movement_key(key: int) -> bool:
+    return key in [KEY_W, KEY_A, KEY_S, KEY_D, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]
+
 func _key_in_use(key: int, except_action: String) -> bool:
+    if _is_movement_key(key) and except_action not in ["forward", "back", "left", "right"]:
+        return true
     for action in bindings:
         if action != except_action and int(bindings[action]) == key:
             return true

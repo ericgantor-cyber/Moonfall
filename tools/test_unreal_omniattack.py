@@ -131,6 +131,40 @@ int main() {
         self.assertIn("OnRightHandLoadoutChanged", header)
         self.assertNotIn("TryCast(", action)
 
+    def test_primary_attack_dispatch_blocks_modals_for_controller_and_mouse(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        action = hero.split("void AMoonfallHeroPawn::RightHandAction()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReadyRightHandSpell", 1)[0]
+        for guard in ("!GetWorld()", "Health <= 0.f", "!FMath::IsFinite(Health)",
+                      "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                      "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(guard, action)
+        self.assertLess(action.index("FocusedResident.IsValid()"),
+                        action.index("if (bRightHandSpellReadied) CastRight();"))
+        self.assertIn("else MeleeAttack();", action)
+        self.assertIn('Input->BindAction(TEXT("RightHandAction"), IE_Pressed', hero)
+        self.assertIn("if (!bResidentContextOpen) { RightHandAction(); return; }", hero)
+
+    def test_explicit_spell_hotkeys_cannot_cast_into_focused_npc(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        guard = cast.split("const float Time =", 1)[0]
+        for required in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                         "bResidentContextOpen", "FocusedResident.IsValid()",
+                         "Health <= 0.f", "School < 0", "Hand < 0"):
+            self.assertIn(required, guard)
+        self.assertIn("return false;", guard)
+        self.assertLess(cast.index("FocusedResident.IsValid()"),
+                        cast.index("GetWorld()->LineTraceSingleByChannel("))
+        self.assertIn("TryCast(LeftSpell, 0, 1.f)", hero)
+        self.assertIn("TryCast(RightSpell, 1, 1.f)", hero)
+        both = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "void AMoonfallHeroPawn::RightHandAction()", 1)[0]
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", both)
+        self.assertLess(both.index("TryCast(LeftSpell, 0, 2.f)"),
+                        both.index("LastCastTime[1] = LastCastTime[0];"))
+
     def test_favorites_only_equip_inside_inventory(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         header = (SRC / "MoonfallHeroPawn.h").read_text()
@@ -198,7 +232,7 @@ int main() {
         for method in (spell, weapon):
             self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', method)
         self.assertIn("RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);", hero)
-        self.assertIn("UPROPERTY() int32 Version = 12;", save_header)
+        self.assertIn("UPROPERTY() int32 Version = 16;", save_header)
         self.assertNotIn("RightHandSpellReadied", save_header)
 
     def test_active_hand_hud_disambiguates_heal_and_sword(self):

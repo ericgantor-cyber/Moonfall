@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 658 658" width="658" height="658" role="img" aria-label="Original Moonfall Grimoire and Armory design sheet featuring six magic schools and three equipment icons">
+<title>Moonfall | Grimoire &amp; Armory Heraldry</title>
+<desc>Original editable 3 by 3 concept sheet. Runtime Unreal UI uses corresponding native Canvas line art; this source SVG is not yet imported as a texture.</desc>
+<rect width="658" height="658" fill="#080d18"/>
+<g transform="translate(22 22)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#f09b53" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#f09b53" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M0 47 -30 5 0-42 35 4 0 47M0 47V-4" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">EMBER BOLT</text>
+ </g>
+<g transform="translate(234 22)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#92def5" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#92def5" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M-38 0H38M0-38V38M-28-28 28 28M-28 28 28-28" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">FROST SHARD</text>
+ </g>
+<g transform="translate(446 22)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#b99af4" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#b99af4" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M-30-36 -10 0-30 36M20-42V42M4-22H36" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="12" fill="#ece2ca">ECLIPSE LANCE</text>
+ </g>
+<g transform="translate(22 234)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#8de6aa" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#8de6aa" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M0-42V42M-42 0H42M-28-28 28 28M28-28-28 28" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="12" fill="#ece2ca">MENDING LIGHT</text>
+ </g>
+<g transform="translate(234 234)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#7caeec" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#7caeec" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M18-45 -28 0H12L-19 45" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">STORM SPARK</text>
+ </g>
+<g transform="translate(446 234)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#9ccf73" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#9ccf73" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M-30 45 12-45 32-24 5-12M-16 20-36-10-1 3" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">THORN DART</text>
+ </g>
+<g transform="translate(22 446)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#d6ae70" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#d6ae70" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M-12 45 27-44 36-20M-27 5 8 22M-12 45-25 54" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">WEAPON</text>
+ </g>
+<g transform="translate(234 446)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#a8cce0" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#a8cce0" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M-38-42H38L35 17 0 50-35 17Z M0-30V30" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">ARMOR</text>
+ </g>
+<g transform="translate(446 446)">
+ <rect width="190" height="190" rx="14" fill="#0d1325" stroke="#866a49" stroke-width="2"/>
+ <path d="M11 43V11H43M147 11h32v32M11 147v32h32M147 179h32v-32" fill="none" stroke="#c29a65" stroke-width="2"/>
+ <circle cx="95" cy="86" r="61" fill="#121a34" stroke="#685579" stroke-width="4"/>
+ <circle cx="95" cy="86" r="53" fill="none" stroke="#d2a6e6" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 9"/>
+ <g transform="translate(95 86)" fill="none" stroke="#d2a6e6" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M0-47 40 0 0 47-40 0ZM-21 0H21" fill="none"/></g>
+ <path d="M32 151H158" stroke="#6d604e" stroke-width="1.5"/>
+ <text x="95" y="170" text-anchor="middle" font-family="sans-serif" font-weight="bold" letter-spacing="1.4" font-size="13" fill="#ece2ca">ACCESSORY</text>
+ </g>
+</svg>

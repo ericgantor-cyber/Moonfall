@@ -100,7 +100,19 @@ class PackageContract(unittest.TestCase):
 
     def test_run_isolated_windows_archive(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}", workflow)
+        # This workflow writes a per-run folder into GITHUB_ENV from the
+        # trusted Windows runner's actual temp directory. A static YAML env:
+        # declaration is not required and would fail this valid setup.
+        configure = "- name: Configure runner-local build directory"
+        dynamic_path = (
+            '"MOONFALL_PACKAGE_DIR=$env:RUNNER_TEMP/MoonfallUE56Package/'
+            '${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_ENV'
+        )
+        self.assertIn(configure, workflow)
+        self.assertIn(dynamic_path, workflow)
+        self.assertEqual(workflow.count("MOONFALL_PACKAGE_DIR="), 1)
+        self.assertLess(workflow.index(configure), workflow.index("- name: Check out reviewed revision"))
+        self.assertLess(workflow.index(configure), workflow.index("- name: Cook and package real UE5.6 Win64 game"))
         self.assertIn("-OutputDirectory $env:MOONFALL_PACKAGE_DIR", workflow)
         self.assertEqual(workflow.count("$root = $env:MOONFALL_PACKAGE_DIR"), 2)
         self.assertIn("path: ${{ env.MOONFALL_PACKAGE_DIR }}/", workflow)

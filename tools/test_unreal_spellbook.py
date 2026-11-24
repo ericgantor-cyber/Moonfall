@@ -53,6 +53,9 @@ int main() {
   if (Hit(g,g.EquipRightX+3.f,g.EquipY+3.f,true)!=EquipRight) return 9;
   if (Hit(g,g.Left-100.f,g.Top-100.f,true)!=None) return 10;
   if (g.EquipLeftX+g.EquipWidth>=g.EquipRightX) return 11;
+  if (Hit(g,g.CloseX+14.f,g.CloseY+14.f,true)!=Close) return 21;
+  if (Hit(bag,bag.CloseX+14.f,bag.CloseY+14.f,false)!=None) return 22;
+  if (g.CloseX+g.CloseSize>g.Left+g.Width || g.CloseY+g.CloseSize>=g.TabY) return 23;
  }
  const auto ready = Evaluate(0,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
  if (ready.State!=EReadiness::Ready || ready.CooldownRemaining!=0.f) return 12;
@@ -160,9 +163,13 @@ int main() {
         self.assertIn("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", hero)
         shortcut = hero.split("void AMoonfallHeroPawn::ToggleSpellBookShortcut()", 1)[1].split(
             "void AMoonfallHeroPawn::ToggleSpellBook()", 1)[0]
-        for guard in ("bOptionsOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
-                      "Health <= 0.f", "!FMath::IsFinite(Health)"):
+        for guard in ("bOptionsOpen", "bAtlasOpen", "bResidentContextOpen",
+                      "FocusedResident.IsValid()", "Health <= 0.f",
+                      "!FMath::IsFinite(Health)"):
             self.assertIn(guard, shortcut)
+        # P must never dismiss the atlas via ToggleInventory's atlas-close path.
+        self.assertLess(shortcut.index("bAtlasOpen"),
+                        shortcut.index("ToggleInventory();"))
         self.assertIn("if (!bInventoryOpen) {", shortcut)
         self.assertIn("ToggleInventory();", shortcut)
         self.assertIn("if (bInventoryOpen) ToggleSpellBook();", shortcut)
@@ -185,6 +192,7 @@ int main() {
         self.assertIn("MoonfallSpellBook::Layout(", pointer)
         self.assertIn("MoonfallSpellBook::Hit(", pointer)
         self.assertIn("if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();", pointer)
+        self.assertIn("else if (Hit == MoonfallSpellBook::Close) ToggleSpellBook();", pointer)
         self.assertIn("SpellBookSelection = Hit;", pointer)
         self.assertIn("EquipSpellBookSelection(true)", pointer)
         self.assertIn("EquipSpellBookSelection(false)", pointer)
@@ -231,6 +239,7 @@ int main() {
         self.assertIn("Book.EquipLeftX,Book.EquipY", hud)
         self.assertIn("Book.EquipRightX,Book.EquipY", hud)
         self.assertIn("Book.TabX, Book.TabY", hud)
+        self.assertIn("Book.CloseX,Book.CloseY,Book.CloseSize,Book.CloseSize", hud)
         self.assertIn('TEXT("SPELL BOOK")', hud)
         self.assertIn('TEXT("EQUIP LEFT")', hud)
         self.assertIn('TEXT("EQUIP RIGHT")', hud)
@@ -240,6 +249,61 @@ int main() {
         self.assertIn("bRight ? TEXT(\"[R]\")", hud)
         self.assertIn("inline int Hit(", book)
 
+
+    def test_inventory_mutations_reject_nonfinite_health(self):
+        # A corrupted Blueprint health value (NaN or infinity) must not
+        # bypass the alive-player guard and mutate inventory or salvage.
+        hero = HERO.read_text()
+        signatures = (
+            ("bool", "SalvageInventoryItem"),
+            ("bool", "UpgradeInventoryItem"),
+            ("bool", "ReforgeInventoryItemAffix"),
+            ("bool", "AscendInventoryItemRarity"),
+            ("int32", "ForgeInventoryItemLevels"),
+            ("bool", "EquipInventoryItem"),
+        )
+        for return_type, method in signatures:
+            with self.subTest(method=method):
+                start = f"{return_type} AMoonfallHeroPawn::{method}("
+                body = hero.split(start, 1)[1].split("\n}", 1)[0]
+                before_item_access = body.split("InventoryItemCodes[InventoryIndex]", 1)[0]
+                self.assertIn("Health <= 0.f", before_item_access)
+                self.assertIn("!FMath::IsFinite(Health)", before_item_access)
+
+    def test_direct_equip_and_batch_forge_refuse_non_bag_pages(self):
+        hero = HERO.read_text()
+        for signature, end in (
+            ("bool AMoonfallHeroPawn::EquipInventoryItem(", "namespace {"),
+            ("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(",
+             "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()"),
+        ):
+            with self.subTest(signature=signature):
+                body = hero.split(signature, 1)[1].split(end, 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen", body)
+                self.assertLess(body.index("bSpellBookOpen"),
+                                body.index("InventoryItemCodes.IsValidIndex"))
+
+    def test_direct_salvage_enforces_modal_ownership(self):
+        hero = HERO.read_text()
+        salvage = hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(", 1)[1].split(
+            "bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", salvage)
+        self.assertIn("|| bAtlasOpen || bResidentContextOpen || Health <= 0.f", salvage)
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("InventoryItemCodes.RemoveAt"))
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("Salvage ="))
+
+    def test_crafting_mutations_reject_other_inventory_pages(self):
+        # Direct C++/Blueprint callers must obey the same modal safety rules
+        # as input wrappers, without spending salvage while another page owns UI.
+        hero = HERO.read_text()
+        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity"):
+            with self.subTest(method=method):
+                body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
+                self.assertLess(body.index("bSpellBookOpen"), body.index("InventoryItemCodes[InventoryIndex]"))
 
 if __name__ == "__main__":
     unittest.main()

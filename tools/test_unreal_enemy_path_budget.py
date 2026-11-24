@@ -258,24 +258,32 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("CachedHero = Hero;", tick)
         self.assertIn("const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;", tick)
 
-    def test_character_and_resident_panels_cancel_enemy_windups(self):
+    def test_menus_keep_enemy_windups_live_but_defeat_cancels(self):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu_guard = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+        target_guard = tick.split("// The hostile world stays live while any player menu is open:", 1)[1].split(
             "// A corrupt nonfinite windup", 1
         )[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu_guard)
-        self.assertIn("Hero->bAtlasOpen", menu_guard)
-        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu_guard)
-        self.assertIn("CancelDivineSignature();", menu_guard)
-        self.assertIn("WindupEndsAt = -1.f;", menu_guard)
-        self.assertIn("bComboSecondHitPending = false;", menu_guard)
-        self.assertIn("NextAttackAt = FMath::Max(", menu_guard)
+        self.assertIn("!IsValid(Hero) || !Hero->IsPlayerControlled()", target_guard)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", target_guard)
+        for flag in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bCharacterStatsOpen", "bResidentContextOpen",
+                     "FocusedResident.IsValid()", "bTalentWebOpen"):
+            self.assertNotIn("Hero->" + flag, target_guard)
+        # Expired or defeated targets still cancel the full chain once.
+        for reset in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                      "BossWarningEndTime = -1.f;",
+                      "bComboSecondHitPending = false;",
+                      "bComboSecondHitActive = false;",
+                      "NextAttackAt = FMath::Max("):
+            self.assertIn(reset, target_guard)
+        self.assertLess(tick.index("!Hero->IsPlayerControlled()"),
+                        tick.index("!FMath::IsFinite(Hero->Health)"))
 
     def test_unpossessed_old_pawn_is_not_retained_as_target(self):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if (!IsValid(Hero) || !Hero->IsPlayerControlled())", tick)
         self.assertLess(tick.index("!Hero->IsPlayerControlled()"),
-                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
+                        tick.index("!FMath::IsFinite(Hero->Health)"))
 
     def test_hero_cache_refreshes_after_possession_switch(self):
         header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")
