@@ -93,6 +93,8 @@ for token in ("Hero->bRaceChosen", "Hero->GetRaceName()",
 assert 'TEXT("MOONFALL  |  ANCESTRY")' in hud
 assert 'TEXT("RACE & PASSIVES")' in hud
 assert 'TEXT("ATTRIBUTES")' in hud
+assert 'Click ATTRIBUTES or press D-pad Left to return' in hud
+assert 'Tab or D-pad Left: return' not in hud
 assert 'C / D-pad Left/Right: stats / ancestry' in hud
 assert 'Tab / D-pad Left/Right: stats / ancestry' not in hud
 assert 'DrawLiveMenuHitCue();' in hud
