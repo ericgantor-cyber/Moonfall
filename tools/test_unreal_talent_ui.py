@@ -28,6 +28,14 @@ for key in ("Hero->GetAvailableTalentPoints()", "Hero->GetTalentRank(I)",
             'TEXT("RESET ALL")', 'TEXT("CONFIRM RESET")'):
     assert key in hud, key
 assert "Hero->TalentRanks.Num()" not in hud, "Fixed rank array must not use Unreal TArray API"
+# Might is MELEE DAMAGE, not a sword-only hit stat. UE5 MeleeAttack
+# also handles Tier 0 (unarmed), with the same validated multiplier.
+assert 'Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage' in hud
+assert 'MELEE DAMAGE +%.1f%%/RANK' in hud
+assert 'const float Tier = bWeaponOwned' in pawn
+assert 'const float TalentMeleeMultiplier = static_cast<float>(' in pawn
+assert '* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;' in pawn
+
 
 for name, key in {
     "TalentWeb": "K", "TalentSpend": "Enter", "TalentRespec": "BackSpace",
