@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallUnrealGameMode.h"
+#include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallPracticeAI.h"
@@ -178,6 +179,15 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+void AMoonfallEnemy::RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now){
+ if(!HasAuthority()||!IsValid(Scout)||Scout->GetWorld()!=GetWorld()||bBoss||bElite||Health<=0.f
+    ||ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))||!FMath::IsFinite(Now))return;
+ RecentCompanionAttacker=Scout;RecentCompanionAttackerAt=Now;
+}
+bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const{
+ return IsValid(Scout)&&RecentCompanionAttacker.Get()==Scout&&FMath::IsFinite(Now)
+    &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
+}
 bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
      ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
@@ -463,6 +473,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
   WindupEndsAt = -1.f;
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -529,6 +540,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
@@ -671,6 +683,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
   const float AttackRecoveryAt = Now + RecoveryCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, AttackRecoveryAt);
+  // A committed companion strike either hits that follower or misses.
+  // Never redirect it to the hero if the follower moves, is dismissed or falls.
+  if(bCompanionAttackCommitted){
+   bCompanionAttackCommitted=false;
+   auto* Target=LockedCompanionTarget.Get();LockedCompanionTarget.Reset();
+   if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+    Mode->ResolveCompanionCounterAttack(Hero,this,Target,LockedAttackDirection,
+         AttackDamage*FMath::Min(2.3f,CurrentAttackMultiplier),AttackRange*CurrentAttackRangeMultiplier);
+   bComboSecondHitPending=false;bComboSecondHitActive=false;
+   return;
+  }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
@@ -1389,10 +1412,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.f);
     CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
    }
+   bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
+   if(!bBoss&&!bElite&&!bSanctuaryPractice){
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()){
+     if(auto* Target=Mode->SelectCompanionCounterTarget(Hero,this,Now,AttackRange*CurrentAttackRangeMultiplier)){
+      LockedCompanionTarget=Target;bCompanionAttackCommitted=true;
+      LockedAttackDirection=(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
+      SetActorRotation(FRotator(0.f,LockedAttackDirection.Rotation().Yaw,0.f));
+      bComboSecondHitPending=false;
+     }
+    }
+   }
    WindupEndsAt = Now + CurrentWindup;
    // A real visible attack commitment is a defensive assist opportunity,
    // even before the player lands their first strike. Practice foes excluded.
-   if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero)
+   if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero&&!bCompanionAttackCommitted)
     if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
      Mode->ReportCompanionThreat(Hero,this,Now);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
