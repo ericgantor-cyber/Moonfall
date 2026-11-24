@@ -32,6 +32,9 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|World")
  bool GetDungeonEntranceTransform(int32 ZoneIndex, int32 DungeonIndex,
     FTransform& OutTransform) const;
+ // Read-only HUD hint from the single cached ambient event. Never scans
+ // all actors and never changes any player quest or world-save state.
+ FString GetNearbyAmbientEventHint(const FVector& HeroLocation) const;
 
 private:
  FTimerHandle DungeonSpawnTimer;

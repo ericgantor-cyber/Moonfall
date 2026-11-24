@@ -33,6 +33,23 @@ bool AMoonfallUnrealGameMode::GetDungeonEntranceTransform(
  return true;
 }
 
+FString AMoonfallUnrealGameMode::GetNearbyAmbientEventHint(
+ const FVector& HeroLocation) const {
+ const AActor* Active = ActiveAmbientEncounter.Get();
+ if (!IsValid(Active) || Active->IsActorBeingDestroyed()
+     || HeroLocation.ContainsNaN() || Active->GetActorLocation().ContainsNaN()
+     || FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
+         > FMath::Square(1250.f)) return FString();
+ if (const AMoonfallWorldNPC* Visitor = Cast<AMoonfallWorldNPC>(Active)) {
+  if (!Visitor->bAmbientVisitor) return FString();
+  return FString::Printf(TEXT("ROAD EVENT: %s | APPROACH TO TALK"),
+      *Visitor->DisplayName.ToString());
+ }
+ if (Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter"))))
+  return TEXT("ROAD EVENT: HOSTILE CREATURE | DODGE OR LEAVE");
+ return FString();
+}
+
 void AMoonfallUnrealGameMode::BeginPlay()
 {
  Super::BeginPlay();
@@ -219,6 +236,22 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
      Visitor->Greeting=FText::FromString(TEXT("Two caravans claim this road. Who can settle it?"));
      break;
     default:break;
+   }
+   // Each of the six lands has a distinct local history. This is
+   // conversation flavour, not a fabricated quest or reputation reward.
+   static const TCHAR* const RegionRumors[6] = {
+    TEXT("Ashen Wilds: red dust hides ruined watchfires."),
+    TEXT("Moonveil Forest: old trees mark paths no map remembers."),
+    TEXT("Hollow Depths: the earth echoes beneath abandoned roads."),
+    TEXT("Iron Foundry: broken furnaces glow beyond the ridge."),
+    TEXT("Frostbound Reach: ice seals the passes at dusk."),
+    TEXT("Eclipse Wastes: even the moonlight seems to falter.")
+   };
+   if (Region>=0 && Region<6) {
+    FString Story=Visitor->Greeting.ToString()+TEXT(" ")+RegionRumors[Region];
+    if (MoonfallLivingSimulation::Severe(CurrentWeather))
+     Story+=TEXT(" The weather has made travel dangerous.");
+    Visitor->Greeting=FText::FromString(Story);
    }
    Spawned=Visitor;
   }

@@ -1,5 +1,6 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
@@ -1397,6 +1398,15 @@ void AMoonfallCombatHUD::DrawHUD()
          RegionNames[NextBossZone], NextBossZone * 5 + NextBossDungeon + 1)
      : TEXT("Defeat remaining dungeon bosses");
    Context = TEXT("J: atlas  |  Return to discovered, unbeaten dungeons");
+  }
+  if (!bSanctuaryObjective && GetWorld()) {
+   // Show one nearby event in the normal tracker, without replacing the
+   // primary quest objective or scanning actors every HUD frame.
+   if (const AMoonfallUnrealGameMode* Mode =
+       GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()) {
+    const FString EventHint=Mode->GetNearbyAmbientEventHint(Hero->GetActorLocation());
+    if (!EventHint.IsEmpty()) Context=EventHint;
+   }
   }
   if (bFirstlightLessons) {
    // Optional five-step learning, earned by real player actions in any order.

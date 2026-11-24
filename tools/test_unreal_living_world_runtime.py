@@ -119,6 +119,41 @@ int main(){
         self.assertNotIn("TActorIterator",quest)
         self.assertNotIn("GetAllActorsOfClass",quest)
 
+    def test_six_regions_have_distinct_road_encounter_dialogue(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        rumor=mode.split("static const TCHAR* const RegionRumors[6] = {",1)[1].split("};",1)[0]
+        for region in ("Ashen Wilds","Moonveil Forest","Hollow Depths",
+                       "Iron Foundry","Frostbound Reach","Eclipse Wastes"):
+            self.assertIn(region,rumor)
+        self.assertEqual(rumor.count("TEXT("),6)
+        self.assertIn("Visitor->Greeting=FText::FromString(Story);",mode)
+        self.assertIn("MoonfallLivingSimulation::Severe(CurrentWeather)",mode)
+        self.assertIn("if (Region>=0 && Region<6)",mode)
+        self.assertNotIn("SaveWorldProgress",rumor)
+
+    def test_cached_road_event_is_visible_without_scanning_or_blocking_quests(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        hint=mode.split("FString AMoonfallUnrealGameMode::GetNearbyAmbientEventHint(",1)[1].split(
+            "void AMoonfallUnrealGameMode::BeginPlay()",1)[0]
+        self.assertIn("ActiveAmbientEncounter.Get()",hint)
+        self.assertIn("FMath::Square(1250.f)",hint)
+        self.assertIn("Visitor->bAmbientVisitor",hint)
+        self.assertIn("ROAD EVENT: %s | APPROACH TO TALK",hint)
+        self.assertIn("ROAD EVENT: HOSTILE CREATURE | DODGE OR LEAVE",hint)
+        self.assertNotIn("TActorIterator",hint)
+        self.assertNotIn("GetAllActorsOfClass",hint)
+        self.assertIn("FString GetNearbyAmbientEventHint(",header)
+        tracker=hud.split("// World-wide quest tracker,",1)[1].split(
+            "// Compact circular resource HUD",1)[0]
+        self.assertIn("GetNearbyAmbientEventHint(Hero->GetActorLocation())",tracker)
+        self.assertIn("if (!EventHint.IsEmpty()) Context=EventHint;",tracker)
+        self.assertIn("if (!bSanctuaryObjective && GetWorld())",tracker)
+        self.assertIn('Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");',tracker)
+        self.assertIn("DrawText(Objective,",tracker)
+        self.assertNotIn("TActorIterator",tracker)
+
     def test_one_global_pulse_and_bounded_roadside_encounters(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         header=(SRC/"MoonfallUnrealGameMode.h").read_text()
