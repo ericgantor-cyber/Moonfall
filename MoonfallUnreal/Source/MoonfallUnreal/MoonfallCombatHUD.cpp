@@ -1055,6 +1055,7 @@ void AMoonfallCombatHUD::DrawHUD()
         Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
       DrawRect(bSelected ? FLinearColor(0.96f,0.82f,0.46f) : StandingColor,
         Left+15.f,Y,bSelected?5.f:3.f,ReputationRowHeight-3.f);
+      DrawHoverFrame(Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
       DrawText(FString::Printf(TEXT("%s  |  %s  |  %+d"),
         FactionNames[FactionIndex],Standing,Score),StandingColor,
         Left+25.f,Y+4.f,nullptr,PanelWidth<440.f?0.58f:0.82f);
@@ -1427,6 +1428,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float SortX = Left + PanelWidth - SortWidth - 14.f;
   const float SortY = Top + 14.f;
   DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f), SortX, SortY, SortWidth, 28.f);
+  DrawHoverFrame(SortX,SortY,SortWidth,28.f);
   DrawText(PanelWidth < 550.f
        ? (Hero->InventorySortMode == 0 ? TEXT("SORT: NEW") :
           Hero->InventorySortMode == 1 ? TEXT("SORT: QLTY") : TEXT("SORT: SLOT"))
@@ -1504,6 +1506,7 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    if (Index == Selected)
     DrawSelectionRail(Left+12.f,Y-3.f,FMath::Max(3.f,RowSpacing-3.f));
+   DrawHoverFrame(Left+12.f,Y-3.f,PanelWidth-24.f,RowSpacing-3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
       DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
