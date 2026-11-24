@@ -121,6 +121,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_web.cpp -o /tmp/moonfall_talent_web
           /tmp/moonfall_talent_web
 
+      - name: Verify shared UE5 panel chrome, focus highlights and compact accessibility
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_modal_panels
+
       - name: Verify 12 saved racial passives and C character ancestry pages
         shell: bash
         run: python3 tools/test_unreal_character_race_pages.py
