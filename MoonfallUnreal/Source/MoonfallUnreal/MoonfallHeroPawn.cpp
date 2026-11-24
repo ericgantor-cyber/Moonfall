@@ -958,10 +958,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
+  // Only hostile spells get Arcana damage bonuses; healing (school 3) never
+  // enters this branch. Invalid allocations grant no additional damage.
+  const float TalentMagicMultiplier = static_cast<float>(
+      MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MagicDamage));
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier * TalentMagicMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -1313,6 +1317,10 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Tier = bWeaponOwned
      ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
  const float Might = static_cast<float>(GetMight());
+ // Might melee bonuses change only validated connected-target damage, not
+ // stamina costs, miss handling, attack cadence or sword-angle selection.
+ const float TalentMeleeMultiplier = static_cast<float>(
+     MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage));
  const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
      : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
  // Same bounded, same-target combo rule as spell combat: a miss or a
@@ -1326,7 +1334,7 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Damage = (18.f + Tier * 1.15f
      + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
      * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
-     * (1.f + GetVersatilityBonus());
+     * (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
   ResetMeleeHitCombo();
   OnMeleeSwing(CurrentSwordAngle, false);
