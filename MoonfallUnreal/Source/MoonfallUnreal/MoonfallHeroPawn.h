@@ -238,9 +238,8 @@ public:
  // Transient C-page state. The selection and all racial bonuses remain
  // owned by the canonical hero race, not by a second character UI catalog.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
- // Three read-only character pages. Transient controls never modify save schema.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") bool bCharacterGearPageOpen = false;
- // Saved faction standings are displayed on a fourth, read-only page.
+ // Stats and equipped gear share the first read-only character page.
+ // Saved faction standings are displayed on a third, read-only page.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") bool bCharacterRepPageOpen = false;
  // Transient selected faction row, shared by mouse and controller; no save changes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") int32 CharacterRepSelection = 0;
