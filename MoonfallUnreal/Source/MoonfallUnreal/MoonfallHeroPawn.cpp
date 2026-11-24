@@ -3132,29 +3132,52 @@ int32 AMoonfallHeroPawn::GetTalentRank(int32 NodeIndex) const {
  return TalentRanks[NodeIndex];
 }
 
-bool AMoonfallHeroPawn::SpendTalentPoint(int32 NodeIndex) {
+bool AMoonfallHeroPawn::CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate) {
  if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
- MoonfallTalents::Ranks Candidate = TalentRanks;
- if (MoonfallTalents::Spend(Level, Candidate, NodeIndex) != MoonfallTalents::Result::Ok)
+ MoonfallTalents::Snapshot Before, After;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, Before) != MoonfallTalents::Result::Ok
+     || MoonfallTalents::Evaluate(Level, Candidate, After) != MoonfallTalents::Result::Ok)
   return false;
- const MoonfallTalents::Ranks Previous = TalentRanks;
+ const MoonfallTalents::Resources PreviousResources{
+     MaxHealth, Health, MaxMana, Mana, MaxStamina, Stamina};
+ MoonfallTalents::Resources UpdatedResources = PreviousResources;
+ if (!MoonfallTalents::ApplyResourceDelta(UpdatedResources, Before, After)) return false;
+ const MoonfallTalents::Ranks PreviousRanks = TalentRanks;
  TalentRanks = Candidate;
- // Spend is an atomic persisted transaction, not a deferred autosave.
- if (!SaveWorldProgress()) { TalentRanks = Previous; return false; }
+ MaxHealth = static_cast<float>(UpdatedResources.MaxHealth);
+ Health = static_cast<float>(UpdatedResources.Health);
+ MaxMana = static_cast<float>(UpdatedResources.MaxMana);
+ Mana = static_cast<float>(UpdatedResources.Mana);
+ MaxStamina = static_cast<float>(UpdatedResources.MaxStamina);
+ Stamina = static_cast<float>(UpdatedResources.Stamina);
+ // No points or resource changes survive a failed synchronous save.
+ if (!SaveWorldProgress()) {
+  TalentRanks = PreviousRanks;
+  MaxHealth = static_cast<float>(PreviousResources.MaxHealth);
+  Health = static_cast<float>(PreviousResources.Health);
+  MaxMana = static_cast<float>(PreviousResources.MaxMana);
+  Mana = static_cast<float>(PreviousResources.Mana);
+  MaxStamina = static_cast<float>(PreviousResources.MaxStamina);
+  Stamina = static_cast<float>(PreviousResources.Stamina);
+  return false;
+ }
+ OnHealthChanged(Health, MaxHealth);
  return true;
 }
 
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 NodeIndex) {
+ MoonfallTalents::Ranks Candidate = TalentRanks;
+ if (MoonfallTalents::Spend(Level, Candidate, NodeIndex) != MoonfallTalents::Result::Ok)
+  return false;
+ return CommitTalentAllocation(Candidate);
+}
+
 bool AMoonfallHeroPawn::RespecTalentPoints() {
- if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
  MoonfallTalents::Ranks Candidate = TalentRanks;
  if (MoonfallTalents::Respec(Level, Candidate) != MoonfallTalents::Result::Ok)
   return false;
- const MoonfallTalents::Ranks Previous = TalentRanks;
- TalentRanks = Candidate;
- if (!SaveWorldProgress()) { TalentRanks = Previous; return false; }
- return true;
+ return CommitTalentAllocation(Candidate);
 }
 
 bool AMoonfallHeroPawn::SaveWorldProgress() {
@@ -3170,6 +3193,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Prevent saving a rank ledger that this exact V13 loader would reject.
  MoonfallTalents::Snapshot ValidTalentSnapshot;
  if (MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot) != MoonfallTalents::Result::Ok) return false;
+ // The save stores permanent health capacity only. Talent capacity is
+ // restored from validated ranks and must never stack across reloads.
+ const double BaseHealthCap = static_cast<double>(MaxHealth)
+     - ValidTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Health)];
+ if (!std::isfinite(BaseHealthCap) || BaseHealthCap < 1.0 || BaseHealthCap > 100000.0)
+  return false;
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
@@ -3281,7 +3310,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
- Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
+ Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->EquippedWeaponCode = EquippedWeaponCode;
