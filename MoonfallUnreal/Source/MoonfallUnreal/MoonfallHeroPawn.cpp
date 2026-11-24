@@ -4126,11 +4126,9 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
-  // D-pad Up opens the constellation when no resident can be interacted with.
-  ToggleTalentWeb();
-  return;
- }
+ // D-pad Up is NPC interaction when no menu is active. It must not
+ // unexpectedly open talents during travel or combat with no nearby NPC.
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
  SwordBuffer.Clear();
  FocusedResident = Resident;
