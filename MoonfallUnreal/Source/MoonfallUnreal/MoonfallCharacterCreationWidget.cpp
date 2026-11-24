@@ -347,10 +347,19 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
   FamilyTitle->SetText(FText::FromString(
    FString::Printf(TEXT("%s | Race %d of %d"), *Next.Profile.Family.ToString(),
                     Next.RacePosition, Next.RaceTotal)));
- if (StatDetails)
+ if (StatDetails) {
+  // Relative profile modifiers show the tradeoffs before confirmation.
+  // These are selection previews only; gameplay ancestry and active racial
+  // powers remain authoritative on the saved C character sheet.
+  const float VitalityPercent=(Next.Profile.VitalityMultiplier-1.f)*100.f;
+  const float PowerPercent=(Next.Profile.PowerMultiplier-1.f)*100.f;
+  const float SpeedPercent=(Next.Profile.SpeedMultiplier-1.f)*100.f;
   StatDetails->SetText(FText::FromString(FString::Printf(
-   TEXT("Vitality: %.1f\nPower: %.1f\nSpeed: %.2f\n\nChoose a race, then CONTINUE."),
-   Next.Stats.Vitality, Next.Stats.Power, Next.Stats.Speed)));
+   TEXT("RACE TRAITS (PREVIEW)\nVitality: %.1f  (%+.0f%%)\nPower: %.1f  (%+.0f%%)\nSpeed: %.2f  (%+.0f%%)\n\nSelect race, review bonuses, then CONTINUE.\nIn-game ancestry passives: C > Tab"),
+   Next.Stats.Vitality,VitalityPercent,
+   Next.Stats.Power,PowerPercent,
+   Next.Stats.Speed,SpeedPercent)));
+ }
 }
 
 void UMoonfallCharacterCreationWidget::SelectRace(FName RaceId)
