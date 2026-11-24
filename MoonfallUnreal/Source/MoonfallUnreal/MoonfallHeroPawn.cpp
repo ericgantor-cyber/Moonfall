@@ -1228,6 +1228,7 @@ bool AMoonfallHeroPawn::HandleSpellBookPointer()
  const int Hit = MoonfallSpellBook::Hit(Rect,X,Y,bSpellBookOpen);
  if (Hit == MoonfallSpellBook::None) return false;
  if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();
+ else if (Hit == MoonfallSpellBook::Close) ToggleSpellBook();
  else if (MoonfallSpellBook::IsValid(Hit)) SpellBookSelection = Hit;
  else if (Hit == MoonfallSpellBook::EquipLeft) EquipSpellBookSelection(true);
  else if (Hit == MoonfallSpellBook::EquipRight) EquipSpellBookSelection(false);
