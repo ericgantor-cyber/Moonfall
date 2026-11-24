@@ -907,12 +907,20 @@ void AMoonfallCombatHUD::DrawHUD()
     };
     const float RaceRowHeight = FMath::Clamp(
       (PanelHeight - 178.f) / UE_ARRAY_COUNT(RaceLines), 9.f, 32.f);
-    for (int32 Row=0; Row<UE_ARRAY_COUNT(RaceLines); ++Row)
+    for (int32 Row=0; Row<UE_ARRAY_COUNT(RaceLines); ++Row) {
+      const bool bSection = Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12;
+      const float RowY = StartY+Row*RaceRowHeight;
+      DrawRect(bSection ? FLinearColor(0.19f,0.15f,0.10f,0.96f)
+        : FLinearColor(0.08f,0.11f,0.15f,0.76f),
+        Left+15.f,RowY-2.f,PanelWidth-30.f,FMath::Max(7.f,RaceRowHeight-1.f));
+      if (bSection)
+       DrawRect(FLinearColor(0.70f,0.51f,0.22f,0.95f),
+         Left+15.f,RowY-2.f,3.f,FMath::Max(7.f,RaceRowHeight-1.f));
       DrawText(RaceLines[Row],
-        Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12
-          ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
-        Left+18.f,StartY+Row*RaceRowHeight,nullptr,
+        bSection ? FLinearColor(1.f,0.79f,0.42f) : FLinearColor(0.92f,0.94f,0.97f),
+        Left+23.f,RowY,nullptr,
         PanelHeight<360.f ? 0.52f : (PanelWidth<420.f?0.63f:0.81f));
+    }
    } else {
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
@@ -950,11 +958,27 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetTotalDefeatedDungeonBosses(),
        Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons())
    };
-   for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
+   // WoW Forever-style grouped stat ledger: gold section headers,
+   // shaded stat rows, and clear separation without changing combat math.
+   const float StatPanelLeft = Left + 15.f;
+   const float StatPanelWidth = PanelWidth - 30.f;
+   for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row) {
+    const bool bSection = Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16;
+    const float RowY = StartY + Row * RowHeight;
+    DrawRect(bSection
+       ? FLinearColor(0.19f,0.15f,0.10f,0.96f)
+       : (Row % 2 == 0
+         ? FLinearColor(0.09f,0.11f,0.16f,0.82f)
+         : FLinearColor(0.07f,0.09f,0.13f,0.72f)),
+       StatPanelLeft,RowY-2.f,StatPanelWidth,FMath::Max(7.f,RowHeight-1.f));
+    if (bSection)
+     DrawRect(FLinearColor(0.70f,0.51f,0.22f,0.95f),
+        StatPanelLeft,RowY-2.f,3.f,FMath::Max(7.f,RowHeight-1.f));
     DrawText(CharacterLines[Row],
-      Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
-      Left + 18.f, StartY + Row * RowHeight, nullptr,
+      bSection ? FLinearColor(1.f,0.79f,0.42f) : FLinearColor(0.92f,0.94f,0.97f),
+      Left + 23.f, RowY, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+   }
    }
    DrawText(TEXT("C / D-pad Left/Right: stats / ancestry"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
