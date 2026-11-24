@@ -659,6 +659,16 @@ void AMoonfallCombatHUD::DrawHUD()
     }
    }
   }
+  // A static compass rose belongs to the map paper, not the world data.
+  // Drawing it reveals no unexplored dungeons, roads, shrines or fog cells.
+  if (MapWidth>=260.f && MapHeight>=170.f) {
+   const float CompassX=MapLeft+MapWidth-29.f;
+   const float CompassY=MapTop+35.f;
+   DrawMoonfallSigil(CompassX,CompassY,13.f,
+     FLinearColor(0.86f,0.76f,0.51f),1);
+   DrawText(TEXT("N"),FLinearColor(0.92f,0.83f,0.59f),
+     CompassX-4.f,CompassY-27.f,nullptr,0.63f);
+  }
   // Named region caption is public knowledge; geographic details stay fogged.
   DrawText(FString(AtlasRegions[Selected]), FLinearColor(0.90f, 0.81f, 0.66f),
       MapLeft + 10.f, MapTop + 10.f, nullptr, Scale * 0.82f);
@@ -1417,8 +1427,8 @@ void AMoonfallCombatHUD::DrawHUD()
           Hero->GetItemPower(Codes[Slot]))
         : FString::Printf(TEXT("%s  |  EMPTY"),SlotNames[Slot]);
       if (CardHeight>=25.f && PanelWidth>=390.f)
-       DrawMoonfallSigil(Left+PanelWidth-29.f,Y+CardHeight*0.5f,
-         7.f,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f),Slot);
+       DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f,
+         10.f,Slot,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f));
       DrawText(Label,bValid ? RarityColors[Rarity]
         : FLinearColor(0.75f,0.78f,0.83f),
         Left+24.f,Y+1.f,nullptr,PanelWidth<440.f?0.48f:0.69f);
@@ -1519,10 +1529,15 @@ void AMoonfallCombatHUD::DrawHUD()
         Book.RowX,Y,4.f,Book.RowHeight);
     if (bSelected) DrawSelectionRail(Book.RowX,Y,Book.RowHeight);
     DrawHoverFrame(Book.RowX,Y,Book.RowWidth,Book.RowHeight);
+    // Genuine original art for each of the six canonical schools.
+    // Compact rows keep their original text geometry and readable labels.
+    const bool bDrawSchoolIcon=Book.RowHeight>=25.f && Book.RowWidth>=350.f;
+    if (bDrawSchoolIcon) DrawSpellGlyph(Book.RowX+19.f,
+      Y+FMath::Min(13.f,Book.RowHeight*0.5f),9.f,School);
     const FString Name(ANSI_TO_TCHAR(Entry.Name));
     DrawText(FString::Printf(TEXT("%d  %s"),School+1,*Name),
         bSelected ? FLinearColor::White : FLinearColor(0.86f,0.88f,0.96f),
-        Book.RowX+12.f,Y+2.f,nullptr,
+        Book.RowX+(bDrawSchoolIcon?37.f:12.f),Y+2.f,nullptr,
         Book.Width<500.f ? 0.63f : 0.94f);
     // Use rows as full selectable surfaces, never as cast buttons.
     if (Book.Width >= 700.f) {
@@ -1705,6 +1720,9 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
      FLinearColor(1.f,0.52f,0.12f)};
+   if (bValid && PanelWidth>=440.f && RowSpacing>=23.f)
+    DrawGearGlyph(Left+PanelWidth-29.f,Y+FMath::Min(11.f,RowSpacing*0.40f),
+      9.f,Slot,RarityColors[Rarity]);
    DrawText(Row, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
