@@ -54,6 +54,19 @@ bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(FName Speaker,FName Listene
  }
  return !BestId.IsNone()&&RelayRumor(Speaker,Listener,BestId);
 }
+bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(FName Npc,const FVector& Location,FMoonfallWorldRumor& Report) const {
+ Report=FMoonfallWorldRumor{};
+ if(Npc.IsNone()||Location.ContainsNaN())return false;
+ const auto* List=Knowledge.Find(Npc);if(!List)return false;
+ const double Time=Now();
+ for(const auto& R:*List){
+  if(R.bCrime||R.bDirectWitness||R.bWitnessReport||R.Hops<1||R.Confidence<40||R.ExpiresAt<=Time
+      ||!R.RumorId.ToString().StartsWith(TEXT("NearbyCombat_"))||R.Location.ContainsNaN()
+      ||FVector::DistSquared(Location,R.Location)>FMath::Square(1800.0))continue;
+  if(R.Confidence>Report.Confidence||(R.Confidence==Report.Confidence&&R.ExpiresAt>Report.ExpiresAt))Report=R;
+ }
+ return !Report.RumorId.IsNone();
+}
 bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(FName Witness,FName Guard,FName RumorId){
  FMoonfallWorldRumor R;if(!CanWrite()||Witness==Guard||Guard.IsNone()||!GetRumor(Witness,RumorId,R)||!R.bCrime||!R.bDirectWitness)return false;
  // Host verifies Guard's role and contact. This transfers knowledge, not a conviction or arrest order.
