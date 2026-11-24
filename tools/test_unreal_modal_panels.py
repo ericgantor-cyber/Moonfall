@@ -171,6 +171,61 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertNotIn("<image", text)
         self.assertNotIn("http://", text.replace('xmlns="http://www.w3.org/2000/svg"', ""))
 
+    def test_original_spell_school_and_gear_art_is_used_by_live_ui(self):
+        spell = HUD.split("const auto DrawSpellGlyph = [this]", 1)[1].split(
+            "const auto DrawGearGlyph = [this]", 1
+        )[0]
+        gear = HUD.split("const auto DrawGearGlyph = [this]", 1)[1].split(
+            "const auto DrawSelectionRail = [this]", 1
+        )[0]
+        self.assertEqual(HUD.count("const auto DrawSpellGlyph = [this]"), 1)
+        self.assertEqual(HUD.count("const auto DrawGearGlyph = [this]"), 1)
+        for token in (
+            "School<0 || School>=6", "R<4.f || R>20.f",
+            "FMath::IsFinite(Cx)", "FMath::IsFinite(Cy)",
+            "switch (School)", "case 0:", "case 1:", "case 2:",
+            "case 3:", "case 4:", "default:", "Canvas->K2_DrawLine",
+        ):
+            self.assertIn(token, spell)
+        for token in ("Slot<0 || Slot>2", "R<4.f || R>19.f",
+                      "switch (Slot)", "case 0:", "case 1:", "default:"):
+            self.assertIn(token, gear)
+        for forbidden in ("GetAllActorsOfClass", "TActorIterator",
+                          "SaveWorldProgress", "ChangeFactionReputation",
+                          "EquipInventoryItem(", "BindAction("):
+            self.assertNotIn(forbidden, spell)
+            self.assertNotIn(forbidden, gear)
+        for token in (
+            "DrawSpellGlyph(Book.RowX+19.f,",
+            "School);",
+            "Book.RowX+(bDrawSchoolIcon?37.f:12.f)",
+            "DrawGearGlyph(Left+PanelWidth-29.f,Y+FMath::Min(11.f,RowSpacing*0.40f)",
+            "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",
+            "const bool bDrawSchoolIcon=Book.RowHeight>=25.f && Book.RowWidth>=350.f;",
+            "if (bValid && PanelWidth>=440.f && RowSpacing>=23.f)",
+            "DrawMoonfallSigil(CompassX,CompassY,13.f,",
+            "if (MapWidth>=260.f && MapHeight>=170.f)",
+            "if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;",
+        ):
+            with self.subTest(icon=token):
+                self.assertIn(token, HUD)
+
+    def test_editable_grimoire_armory_design_sheet_has_nine_original_glyphs(self):
+        source = ROOT / "MoonfallUnreal/Art/UI/moonfall_grimoire_armory_atlas.svg"
+        self.assertTrue(source.is_file())
+        svg = ET.parse(source).getroot()
+        self.assertEqual(svg.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(svg.attrib.get("viewBox"), "0 0 658 658")
+        contents = source.read_text(encoding="utf-8")
+        for title in ("EMBER BOLT", "FROST SHARD", "ECLIPSE LANCE",
+                      "MENDING LIGHT", "STORM SPARK", "THORN DART",
+                      "WEAPON", "ARMOR", "ACCESSORY"):
+            with self.subTest(title=title):
+                self.assertIn(title, contents)
+        self.assertEqual(contents.count('<g transform="translate('), 9)
+        self.assertNotIn("<script", contents)
+        self.assertNotIn("<image", contents)
+
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
             "Canvas->SizeX < 284.f || Canvas->SizeY < 294.f",
