@@ -1029,8 +1029,8 @@ void AMoonfallCombatHUD::DrawHUD()
      }
     }
    } else if (Hero->bCharacterRepPageOpen) {
-    // Saved faction standing. Read-only, constant work: five authored factions.
-    // Match the rank thresholds used by MoonfallWorldNPC::GetSocialDisposition.
+    // Five canonical factions, from existing V4+ save data. This view never
+    // modifies reputation or world state, and does no actor/world scanning.
     const FName FactionIds[] = {
       FName(TEXT("Wanderers")),FName(TEXT("VerdantCircle")),
       FName(TEXT("StoneHearth")),FName(TEXT("MoonCoven")),
@@ -1040,12 +1040,20 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("Wanderers"),TEXT("Verdant Circle"),TEXT("Stone Hearth"),
       TEXT("Moon Coven"),TEXT("Ashen Clans")
     };
+    const float DetailsReserve = PanelHeight>=620.f ? 158.f : 0.f;
+    const float RowsBottom = Top+PanelHeight-65.f-DetailsReserve;
     const float ReputationRowHeight = FMath::Clamp(
-      (PanelHeight - 205.f) / 5.f,16.f,90.f);
+      (RowsBottom-StartY)/5.f,18.f,74.f);
+    const int32 SelectedFaction = FMath::Clamp(Hero->CharacterRepSelection,0,4);
+    int32 FriendlyCount=0,HostileCount=0,TrustedCount=0;
     for (int32 FactionIndex=0;FactionIndex<5;++FactionIndex) {
-      const float Y=StartY+FactionIndex*ReputationRowHeight;
-      if (Y+ReputationRowHeight>Top+PanelHeight-66.f) break;
       const int32 Score=Hero->GetFactionReputation(FactionIds[FactionIndex]);
+      if (Score<=-50) ++HostileCount;
+      if (Score>=15) ++FriendlyCount;
+      if (Score>=50) ++TrustedCount;
+      const float Y=StartY+FactionIndex*ReputationRowHeight;
+      if (Y+ReputationRowHeight>RowsBottom) break;
+      // Exact NPC dialogue and resident quest-gating thresholds.
       const TCHAR* Standing=Score<=-50 ? TEXT("HOSTILE")
         : Score<=-15 ? TEXT("WARY")
         : Score>=50 ? TEXT("TRUSTED")
@@ -1056,41 +1064,80 @@ void AMoonfallCombatHUD::DrawHUD()
         : Score>=50 ? FLinearColor(0.99f,0.85f,0.42f)
         : Score>=15 ? FLinearColor(0.45f,0.92f,0.59f)
         : FLinearColor(0.76f,0.82f,0.90f);
-      DrawRect(FactionIndex%2==0
-        ? FLinearColor(0.08f,0.11f,0.16f,0.95f)
-        : FLinearColor(0.11f,0.13f,0.19f,0.95f),
+      const bool bSelected=FactionIndex==SelectedFaction;
+      DrawRect(bSelected ? FLinearColor(0.17f,0.23f,0.34f,0.98f)
+        : (FactionIndex%2==0 ? FLinearColor(0.08f,0.11f,0.16f,0.95f)
+        : FLinearColor(0.11f,0.13f,0.19f,0.95f)),
         Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
-      DrawRect(StandingColor,Left+15.f,Y,4.f,ReputationRowHeight-3.f);
+      DrawRect(bSelected ? FLinearColor(0.96f,0.82f,0.46f) : StandingColor,
+        Left+15.f,Y,bSelected?5.f:3.f,ReputationRowHeight-3.f);
       DrawText(FString::Printf(TEXT("%s  |  %s  |  %+d"),
         FactionNames[FactionIndex],Standing,Score),StandingColor,
-        Left+25.f,Y+5.f,nullptr,PanelWidth<440.f?0.58f:0.84f);
-      if (ReputationRowHeight>=42.f) {
+        Left+25.f,Y+4.f,nullptr,PanelWidth<440.f?0.58f:0.82f);
+      // Next standing thresholds are inclusive and match NPC behavior.
+      if (ReputationRowHeight>=36.f) {
         const int32 Next=Score < -49 ? -49
           : Score < -14 ? -14 : Score < 15 ? 15
           : Score < 50 ? 50 : 100;
         const TCHAR* NextRank=Score < -49 ? TEXT("WARY")
           : Score < -14 ? TEXT("NEUTRAL") : Score < 15 ? TEXT("FRIENDLY")
           : Score < 50 ? TEXT("TRUSTED") : TEXT("MAX");
-        const FString Progress=Score>=100 ? TEXT("MAXIMUM STANDING")
-          : FString::Printf(TEXT("%d TO %s"),Next-Score,NextRank);
-        DrawText(Progress,FLinearColor(0.76f,0.81f,0.88f),
-          Left+25.f,Y+24.f,nullptr,PanelWidth<440.f?0.51f:0.68f);
-        // Zero is a neutral midpoint, not a blank bar; the full scale is -100..100.
+        DrawText(Score>=100 ? TEXT("MAXIMUM STANDING")
+          : FString::Printf(TEXT("%d TO %s"),Next-Score,NextRank),
+          FLinearColor(0.76f,0.81f,0.88f),
+          Left+25.f,Y+22.f,nullptr,PanelWidth<440.f?0.51f:0.68f);
+        // -100..+100 with zero clearly marked; Neutral is not an empty bar.
         const float Fraction=FMath::Clamp((Score+100.f)/200.f,0.f,1.f);
-        const float BarX=Left+25.f;
-        const float BarWidth=PanelWidth-50.f;
-        const float BarY=Y+ReputationRowHeight-13.f;
+        const float BarX=Left+25.f, BarWidth=PanelWidth-50.f;
+        const float BarY=Y+ReputationRowHeight-12.f;
         DrawRect(FLinearColor(0.16f,0.19f,0.25f,1.f),
-          BarX,BarY,BarWidth,7.f);
-        DrawRect(StandingColor,BarX,BarY,BarWidth*Fraction,7.f);
+          BarX,BarY,BarWidth,6.f);
+        DrawRect(StandingColor,BarX,BarY,BarWidth*Fraction,6.f);
         DrawRect(FLinearColor(0.80f,0.82f,0.85f,0.86f),
-          BarX+BarWidth*0.5f,BarY-2.f,2.f,11.f);
+          BarX+BarWidth*0.5f,BarY-2.f,2.f,10.f);
       }
     }
+    // Context panel only when sufficiently tall, never hiding the footer.
     if (PanelHeight>=620.f) {
-      DrawText(TEXT("NPC attitudes use these saved standings. Hostile factions can refuse quests."),
-        FLinearColor(0.82f,0.86f,0.95f),Left+21.f,
-        Top+PanelHeight-86.f,nullptr,PanelWidth<480.f?0.54f:0.75f);
+      const int32 Score=Hero->GetFactionReputation(FactionIds[SelectedFaction]);
+      const int32 RankMin=Score<=-50 ? -100 : Score<=-15 ? -49
+        : Score<15 ? -14 : Score<50 ? 15 : 50;
+      const int32 RankMax=Score<=-50 ? -50 : Score<=-15 ? -15
+        : Score<15 ? 14 : Score<50 ? 49 : 100;
+      const float RankProgress=FMath::Clamp(
+        float(Score-RankMin)/float(FMath::Max(1,RankMax-RankMin)),0.f,1.f);
+      const bool bQuestBlocked=Score<=-50;
+      const bool bNoSavedChange=!Hero->FactionReputation.Contains(FactionIds[SelectedFaction]);
+      const float DetailY=StartY+5.f*ReputationRowHeight+11.f;
+      const float DetailHeight=FMath::Max(0.f,Top+PanelHeight-66.f-DetailY);
+      DrawRect(FLinearColor(0.07f,0.10f,0.15f,0.97f),
+        Left+15.f,DetailY,PanelWidth-30.f,DetailHeight);
+      DrawRect(FLinearColor(0.83f,0.66f,0.32f,0.96f),
+        Left+15.f,DetailY,PanelWidth-30.f,3.f);
+      DrawText(FString::Printf(TEXT("%s  |  FACTION DETAILS"),
+        FactionNames[SelectedFaction]),FLinearColor(1.f,0.85f,0.54f),
+        Left+25.f,DetailY+9.f,nullptr,PanelWidth<440.f?0.61f:0.88f);
+      DrawText(bQuestBlocked ? TEXT("RESIDENT QUESTS: BLOCKED (HOSTILE)")
+        : TEXT("RESIDENT QUESTS: ALLOWED IF AVAILABLE"),
+        bQuestBlocked ? FLinearColor(0.98f,0.52f,0.45f)
+          : FLinearColor(0.51f,0.93f,0.65f),
+        Left+25.f,DetailY+35.f,nullptr,PanelWidth<440.f?0.54f:0.72f);
+      DrawText(FString::Printf(TEXT("CURRENT RANK: %d TO %d  |  SCORE %+d"),
+        RankMin,RankMax,Score),FLinearColor(0.82f,0.86f,0.94f),
+        Left+25.f,DetailY+58.f,nullptr,PanelWidth<440.f?0.51f:0.71f);
+      DrawRect(FLinearColor(0.17f,0.20f,0.26f,0.98f),
+        Left+25.f,DetailY+78.f,PanelWidth-50.f,8.f);
+      DrawRect(FLinearColor(0.79f,0.62f,0.35f,0.98f),
+        Left+25.f,DetailY+78.f,(PanelWidth-50.f)*RankProgress,8.f);
+      if (DetailHeight>=126.f)
+        DrawText(bNoSavedChange ? TEXT("No saved change yet: Neutral baseline.")
+          : TEXT("Standing persists with your world save."),
+          FLinearColor(0.76f,0.82f,0.89f),
+          Left+25.f,DetailY+98.f,nullptr,PanelWidth<440.f?0.52f:0.68f);
+      if (DetailHeight>=155.f)
+        DrawText(FString::Printf(TEXT("RELATIONS: %d FRIENDLY+  |  %d TRUSTED  |  %d HOSTILE"),
+          FriendlyCount,TrustedCount,HostileCount),FLinearColor(0.82f,0.86f,0.94f),
+          Left+25.f,DetailY+122.f,nullptr,PanelWidth<440.f?0.49f:0.70f);
     }
    } else {
    const FString CharacterLines[] = {
