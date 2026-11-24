@@ -217,7 +217,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   FString Names[5] = { TEXT("Talk"),
+   FString Names[6] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
@@ -228,7 +228,8 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[0]=!bRecruited?TEXT("Recruit (60 trust)"):
       Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("Follow | Switch to Hold"):
       Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
-    Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("No companion recruited");
+    Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("Report deeds");
+    Names[5]=TEXT("Report deeds");
     Names[2]=TEXT("Back");
     Names[4]=TEXT("Companion talents");
     Names[3]=!bRecruited?TEXT("Specialization"):
