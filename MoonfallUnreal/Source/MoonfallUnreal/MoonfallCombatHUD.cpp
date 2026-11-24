@@ -71,6 +71,26 @@ void AMoonfallCombatHUD::DrawHUD()
       || H <= 0.f) return;
   DrawRect(FLinearColor(1.f,0.80f,0.37f,0.98f),L,T,4.f,H);
  };
+ // A single cursor query serves every native Canvas menu. The hover
+ // indicator is visual only and uses the EXISTING click geometry.
+ float PanelPointerX=-1.f,PanelPointerY=-1.f;
+ const APlayerController* PanelPC=Cast<APlayerController>(Hero->GetController());
+ const bool bPanelPointerVisible=PanelPC && PanelPC->bShowMouseCursor
+   && PanelPC->GetMousePosition(PanelPointerX,PanelPointerY)
+   && FMath::IsFinite(PanelPointerX) && FMath::IsFinite(PanelPointerY);
+ const auto DrawHoverFrame = [this,bPanelPointerVisible,PanelPointerX,PanelPointerY](
+     float X,float Y,float W,float H) {
+  if (!bPanelPointerVisible || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
+      || !FMath::IsFinite(W) || !FMath::IsFinite(H)
+      || W <= 0.f || H <= 0.f || PanelPointerX < X || PanelPointerX > X+W
+      || PanelPointerY < Y || PanelPointerY > Y+H) return;
+  // Constant four rects, no animation, no pointer capture, no input binding.
+  const FLinearColor Focus(0.97f,0.80f,0.43f,0.98f);
+  DrawRect(Focus,X,Y,W,2.f);
+  DrawRect(Focus,X,Y+H-2.f,W,2.f);
+  DrawRect(Focus,X,Y,2.f,H);
+  DrawRect(Focus,X+W-2.f,Y,2.f,H);
+ };
  if (Hero->bTalentWebOpen) {
   // Original 141-node classless tree. Shared, deterministic layout is used
   // by mouse and keyboard/controller input; nothing pauses the live world.
@@ -98,6 +118,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto Close=MoonfallTalentWeb::CloseRect(P);
   DrawRect(FLinearColor(0.36f,0.17f,0.23f,0.95f),
       float(Close.X),float(Close.Y),float(Close.W),float(Close.H));
+  DrawHoverFrame(float(Close.X),float(Close.Y),float(Close.W),float(Close.H));
   DrawText(TEXT("X"),FLinearColor::White,float(Close.X+9),float(Close.Y+5),nullptr,0.84f);
   static const TCHAR* BranchNames[3]={TEXT("MIGHT"),TEXT("AGILITY"),TEXT("ARCANA")};
   static const FLinearColor BranchColors[3]={
@@ -230,6 +251,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // Standard close X in every interactive Moonfall panel.
    const float NpcCloseX = L + W - 42.f;
    DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), NpcCloseX, T + 12.f, 28.f, 28.f);
+   DrawHoverFrame(NpcCloseX,T+12.f,28.f,28.f);
    DrawText(TEXT("X"), FLinearColor::White, NpcCloseX + 9.f, T + 16.f, nullptr, 0.9f);
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
@@ -336,6 +358,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // The clickable X is the only Atlas header button (no ME button).
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
+  DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
   DrawText(Hero->bAtlasChronicleFocus
       ? TEXT("J/ESC close | Up/Down: region | Left/Right: chapter")
@@ -767,6 +790,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawModalChrome(MenuLeft,MenuTop,MenuWidth,MenuHeight,FLinearColor(0.35f,0.52f,0.70f,0.98f));
   const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), OptionsCloseX, MenuTop + 12.f, 28.f, 28.f);
+  DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
   DrawText(bCompactOptions ? TEXT("MOONFALL | OPTIONS") : TEXT("MOONFALL | GRAPHICS & ACCESSIBILITY"),
       FLinearColor::White, MenuLeft + 18.f, MenuTop + 17.f, nullptr, bCompactOptions ? 0.83f : 1.05f);
@@ -890,6 +914,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float CloseSortX = Left + PanelWidth - CloseSortWidth - 14.f;
   const float CloseButtonX = CloseSortX - 36.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
+  DrawHoverFrame(CloseButtonX,Top+14.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
