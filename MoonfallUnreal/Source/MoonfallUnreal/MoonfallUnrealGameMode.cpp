@@ -116,6 +116,38 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
       HeroLocation+FVector(0,0,55),ECC_Visibility,Params))return 0.f;
  LastCompanionCoverAt=Now;return Cover;
 }
+void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
+     ||LocalCompanionStance!=EMoonfallCompanionStance::Follow||Hero->Health<=0.f
+     ||Hero->bInventoryOpen||Hero->bOptionsOpen||Hero->bAtlasOpen||Hero->bTalentWebOpen
+     ||Hero->bResidentContextOpen||Hero->FocusedResident.IsValid())return;
+ auto* Scout=LocalCompanion.Get();
+ if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
+     ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
+     ||Hero->GetFactionReputation(Scout->FactionId)<0)return;
+ float Age=-1.f;
+ auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
+ if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
+     ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=6.f)return;
+ const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation(),Target=Enemy->GetActorLocation();
+ if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Target.ContainsNaN()
+     ||Scout->AuthoredHomeLocation.ContainsNaN()
+     ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return;
+ if(!MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
+      FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true))return;
+ const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
+ if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
+       MoonfallLivingSimulation::Phase(Now,360.f))))return;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallCompanionStrike),false);
+ Params.AddIgnoredActor(Scout);Params.AddIgnoredActor(Hero);
+ FHitResult Hit;
+ if(GetWorld()->LineTraceSingleByChannel(Hit,ScoutLocation+FVector(0,0,55),
+      Target+FVector(0,0,55),ECC_Visibility,Params)&&Hit.GetActor()!=Enemy)return;
+ // Commit cooldown before damage callbacks to prevent reentrant support.
+ LastCompanionStrikeAt=Now;
+ if(Enemy->TryCompanionSupportStrike()&&IsValid(Scout)&&!Scout->IsActorBeingDestroyed())
+  Scout->OnCompanionSupportStrike();
+}
 bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EMoonfallCompanionStance Stance){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
  switch(Stance){
@@ -345,6 +377,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
           && NPC->LivingIntent!=TEXT("Seeking Shelter") && NPC->LivingIntent!=TEXT("Resting"))
        SocialCandidates.Add(NPC);
      });
+ if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);
  if (bPublishedCombat) LastSocialCombatPhase=CombatPhase;
  if (!bCombatNearby && !Hero->bResidentContextOpen) ShareNearbyResidentRumor(SocialCandidates);
  // Event cooldowns and region eligibility are deterministic. We spawn at
