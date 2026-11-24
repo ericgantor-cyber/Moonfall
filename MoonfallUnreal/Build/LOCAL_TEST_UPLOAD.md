@@ -19,6 +19,8 @@ Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. In the 
 
 Reads Moonfall-generated .log files in MoonfallUnreal/Saved/Logs, .log/.json in MoonfallUnreal/Saved/Automation/Reports, and .log/.err files from the existing local Build Center diagnostic folder (%LOCALAPPDATA%\\MoonfallBuildCenter\\Logs). A file must be unchanged for 60 seconds, nonempty, at most 10 MB and not a reparse point. Local SHA256 tracking in %LOCALAPPDATA%\Moonfall\TestUpload prevents repeated upload of identical content.
 
+To prevent a large burst of GitHub Actions on first installation, only logs modified in the last seven days qualify, and each scan uploads at most ten new summaries. Newer logs are handled first; unsent eligible logs can be processed in subsequent scans.
+
 Dispatch payload includes only outcome (passed/failed/unknown), source category, warning/error counts, and file digest. Status is heuristic, not proof of a successful native Windows build. GitHub workflow receipts appear after moonfall-local-test-receipt.yml exists on default branch. The existing GitHub monitoring task can detect receipt runs; it cannot see your actual gameplay or test results that never generate logs.
 
 GitHub CLI remains responsible for authentication. No token is stored by the script. The Windows scheduled task runs as your signed-in user and may not execute if you are signed out. You must run the setup on your own PC; creating this PR alone cannot install anything there.
