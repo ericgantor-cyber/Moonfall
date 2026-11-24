@@ -63,14 +63,14 @@ assert "Canvas->SizeY-Border" in overlay and "Canvas->SizeX-Border" in overlay
 assert "SetGamePaused(" not in overlay
 assert overlay.index("const bool bLiveMenuOpen") < overlay.index("DrawRect(HitRed")
 # The HUD is painter-ordered. A cue drawn before an opaque modal disappears.
-# All nine modal exit paths MUST draw the cue on top of their menu.
+# Every modal exit, including tiny-window fallbacks, MUST draw the cue on top.
 assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index("if (Hero->bTalentWebOpen) {")
 sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
-    ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 1),
+    ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
     ("atlas", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 2),
-    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 1),
-    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 3),
+    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
+    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )
 for name, begin_marker, end_marker, expected in sections:
     begin = hud.index(begin_marker, hud.index("const auto DrawLiveMenuHitCue"))
