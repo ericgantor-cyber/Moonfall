@@ -72,4 +72,21 @@ assert "int32 GetAvailableTalentPoints() const;" in header
 assert "int32 GetTalentRank(int32 NodeIndex) const;" in header
 
 # No new input mappings or automatic talent spending in this save-only slice.
+# Live combat must use the real hit paths, never the restoration branch.
+spell_start = hero.index("bool AMoonfallHeroPawn::TryCast(")
+spell_end = hero.index("void AMoonfallHeroPawn::CastLeft()", spell_start)
+spell = hero[spell_start:spell_end]
+melee_start = hero.index("void AMoonfallHeroPawn::MeleeAttack()")
+melee_end = hero.index("Enemy->TakeMeleeDamage(", melee_start)
+melee = hero[melee_start:melee_end]
+assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MagicDamage)" in spell
+assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage)" in melee
+assert spell.index("if (School != 3) {") < spell.index("TalentMagicMultiplier") < spell.index("Enemy->TakeSpellDamage(SpellDamage)")
+assert "* MightMultiplier * TalentMagicMultiplier;" in spell
+assert melee.index("if (!bLivingTarget)") < melee.index("TalentMeleeMultiplier")
+assert "* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;" in melee
+assert melee.index("TalentMeleeMultiplier") < melee.index("Enemy->TakeMeleeDamage(")
+assert "DamageMultiplier(int Level,const Ranks& Allocated,Stat Kind)" in rules
+assert "if (Evaluate(Level,Allocated,Summary)!=Result::Ok)return 1.0;" in rules
+
 print("UE5 V13 talent saves: safe migration, three live resource caps and atomic rollback verified.")
