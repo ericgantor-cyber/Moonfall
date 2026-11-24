@@ -1698,6 +1698,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterGearPageOpen = false;
+  bCharacterRepPageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
@@ -1736,16 +1737,17 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
 {
  // Read-only navigation. Reject invalid pages and hidden/defeated modals.
- if (Page < 0 || Page > 2 || !bCharacterStatsOpen || !bInventoryOpen
+ if (Page < 0 || Page > 3 || !bCharacterStatsOpen || !bInventoryOpen
      || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  bCharacterRacePageOpen = Page == 1;
  bCharacterGearPageOpen = Page == 2;
+ bCharacterRepPageOpen = Page == 3;
 }
 
 void AMoonfallHeroPawn::ToggleCharacterRacePage()
 {
- // C cycles Attributes -> Ancestry & Passives -> Equipment -> Attributes.
- SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1));
+ // C cycles Attributes -> Ancestry & Passives -> Equipment -> Reputation -> Attributes.
+ SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 3 : (bCharacterRepPageOpen ? 0 : 1)));
 }
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
@@ -1760,6 +1762,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   bCharacterStatsOpen = true;
   bCharacterRacePageOpen = false;
   bCharacterGearPageOpen = false;
+  bCharacterRepPageOpen = false;
   return;
  }
  // C stays the character shortcut: first press opens Attributes, subsequent
@@ -1768,6 +1771,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bCharacterStatsOpen = true;
  bCharacterRacePageOpen = false;
   bCharacterGearPageOpen = false;
+  bCharacterRepPageOpen = false;
  bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
@@ -1866,6 +1870,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterGearPageOpen = false;
+  bCharacterRepPageOpen = false;
   bSpellBookOpen = false;
  }
 }
@@ -2088,6 +2093,7 @@ void AMoonfallHeroPawn::OpenOptions() {
    bCharacterStatsOpen = false;
    bCharacterRacePageOpen = false;
    bCharacterGearPageOpen = false;
+  bCharacterRepPageOpen = false;
    bInventoryScrollbarDragging = false;
    return;
   }
@@ -2175,7 +2181,7 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : 2)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : (bCharacterRepPageOpen ? 2 : 3))); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -4424,12 +4430,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(ViewH)-24.f));
      const float PanelL=float(ViewW)-PanelW-12.f;
      const float PanelT=(float(ViewH)-PanelH)*0.5f;
-     // Same three-tab geometry as the HUD. No click can equip/salvage gear.
-     const float TabW=(PanelW-60.f)/3.f;
+     // Match all four HUD tabs. Clicks cannot equip, salvage or change standing.
+     const float TabW=(PanelW-68.f)/4.f;
      const float TabL=PanelL+18.f;
      const float TabY=PanelT+77.f;
      if (MouseY>=TabY && MouseY<=TabY+32.f) {
-      for (int32 Tab=0;Tab<3;++Tab) {
+      for (int32 Tab=0;Tab<4;++Tab) {
        const float X=TabL+Tab*(TabW+8.f);
        if (MouseX>=X && MouseX<=X+TabW) {
         SelectCharacterPage(Tab);
