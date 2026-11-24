@@ -193,7 +193,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
-   const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
+   const float H = Hero->GetResidentContextPanelHeight(Canvas->SizeY);
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
@@ -216,26 +216,36 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"),
+   FString Names[4] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close") };
+     TEXT("Close"), TEXT("Companion") };
+   if(Hero->bResidentCompanionMenu){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    const bool bRecruited=Mode&&Mode->GetLocalCompanion()==Resident;
+    Names[0]=!bRecruited?TEXT("Recruit (60 trust)"):
+      Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("Follow | Switch to Hold"):
+      Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
+    Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("No companion recruited");
+    Names[2]=TEXT("Back");
+   }
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
-   for (int32 Row = 0; Row < 3; ++Row) {
-    const float Y = T + 122.f + Row * 53.f;
+   const float Pitch=Hero->GetResidentContextRowPitch(H);
+   for (int32 Row = 0; Row < Hero->GetResidentContextRowCount(); ++Row) {
+    const float Y = T + 122.f + Row * Pitch;
     const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
-      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
+      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + Pitch-10.f;
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
-        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
-    DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
+        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, Pitch-10.f);
+    DrawText(Names[Row], !Hero->bResidentCompanionMenu && Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
-        L + 25.f, Y + 10.f, nullptr, 1.f);
+        L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
    const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
@@ -243,7 +253,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
      *ContractStatus, *Resident->FactionId.ToString()),
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   DrawText(Resident->bAmbientVisitor
+   if(Hero->GetResidentContextRowCount()==3 || H>=390.f) DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -252,7 +262,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   if(Hero->GetResidentContextRowCount()==3 || H>=390.f) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    DrawLiveMenuHitCue();
