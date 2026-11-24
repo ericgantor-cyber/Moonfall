@@ -53,6 +53,9 @@ int main() {
   if (Hit(g,g.EquipRightX+3.f,g.EquipY+3.f,true)!=EquipRight) return 9;
   if (Hit(g,g.Left-100.f,g.Top-100.f,true)!=None) return 10;
   if (g.EquipLeftX+g.EquipWidth>=g.EquipRightX) return 11;
+  if (Hit(g,g.CloseX+14.f,g.CloseY+14.f,true)!=Close) return 21;
+  if (Hit(bag,bag.CloseX+14.f,bag.CloseY+14.f,false)!=None) return 22;
+  if (g.CloseX+g.CloseSize>g.Left+g.Width || g.CloseY+g.CloseSize>=g.TabY) return 23;
  }
  const auto ready = Evaluate(0,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
  if (ready.State!=EReadiness::Ready || ready.CooldownRemaining!=0.f) return 12;
@@ -189,6 +192,7 @@ int main() {
         self.assertIn("MoonfallSpellBook::Layout(", pointer)
         self.assertIn("MoonfallSpellBook::Hit(", pointer)
         self.assertIn("if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();", pointer)
+        self.assertIn("else if (Hit == MoonfallSpellBook::Close) ToggleSpellBook();", pointer)
         self.assertIn("SpellBookSelection = Hit;", pointer)
         self.assertIn("EquipSpellBookSelection(true)", pointer)
         self.assertIn("EquipSpellBookSelection(false)", pointer)
@@ -235,6 +239,7 @@ int main() {
         self.assertIn("Book.EquipLeftX,Book.EquipY", hud)
         self.assertIn("Book.EquipRightX,Book.EquipY", hud)
         self.assertIn("Book.TabX, Book.TabY", hud)
+        self.assertIn("Book.CloseX,Book.CloseY,Book.CloseSize,Book.CloseSize", hud)
         self.assertIn('TEXT("SPELL BOOK")', hud)
         self.assertIn('TEXT("EQUIP LEFT")', hud)
         self.assertIn('TEXT("EQUIP RIGHT")', hud)

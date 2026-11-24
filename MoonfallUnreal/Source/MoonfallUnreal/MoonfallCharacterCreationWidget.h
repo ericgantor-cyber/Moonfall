@@ -40,16 +40,26 @@ private:
 // The game supplies the optional preview texture; this class never replaces
 // existing Z/Nyra images or introduces Warcraft assets or factions.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMoonfallRaceSelectionConfirmed, FName, RaceId);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMoonfallGameplayAncestryConfirmed, int32, SavedRaceId);
+
+class AMoonfallHeroPawn;
 
 UCLASS(Blueprintable)
 class MOONFALLUNREAL_API UMoonfallCharacterCreationWidget : public UUserWidget
 {
  GENERATED_BODY()
 public:
- // The owning Blueprint can connect this to its existing hero creation flow.
- // Confirmation here never writes a save or spawns an actor.
+ // Fired ONLY after the chosen gameplay ancestry was persisted by the
+ // real hero. The legacy FName callback still identifies the creator variant.
  UPROPERTY(BlueprintAssignable, Category="Moonfall|Character Creation")
  FMoonfallRaceSelectionConfirmed OnRaceConfirmed;
+ UPROPERTY(BlueprintAssignable, Category="Moonfall|Character Creation|Gameplay")
+ FMoonfallGameplayAncestryConfirmed OnGameplayAncestryConfirmed;
+
+ // Optional explicit binding for alternative player controllers/creation BPs.
+ // NativeConstruct also finds the current possessed hero automatically.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation|Gameplay")
+ void BindHeroForConfirmation(AMoonfallHeroPawn* Hero);
 
  // Request the existing character image/model for this race. Owning game
  // decides whether to provide an original Moonfall portrait or preview.
@@ -128,6 +138,8 @@ private:
  UPROPERTY(Transient) TObjectPtr<UTextBlock> RaceTitle;
  UPROPERTY(Transient) TObjectPtr<UTextBlock> FamilyTitle;
  UPROPERTY(Transient) TObjectPtr<UTextBlock> StatDetails;
+ UPROPERTY(Transient) TObjectPtr<UTextBlock> ConfirmationStatus;
+ TWeakObjectPtr<AMoonfallHeroPawn> ConfirmationHero;
  UPROPERTY(Transient) TObjectPtr<UTextBlock> PreviewCaption;
  UPROPERTY(Transient) TObjectPtr<UImage> PreviewImage;
  UPROPERTY(Transient) TObjectPtr<UTexture2D> PreviewTexture;

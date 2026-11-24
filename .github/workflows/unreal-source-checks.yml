@@ -6,6 +6,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -16,6 +17,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -89,7 +91,7 @@ jobs:
           assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
-          assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
+          assert 'DisplayHealth = Hero->bReduceMotion ? ActualHealth : FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
@@ -120,6 +122,18 @@ jobs:
           set -euo pipefail
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_web.cpp -o /tmp/moonfall_talent_web
           /tmp/moonfall_talent_web
+
+      - name: Verify shared UE5 panel chrome, focus highlights and compact accessibility
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_modal_panels
+
+      - name: Verify 12 saved racial passives and C character ancestry pages
+        shell: bash
+        run: python3 tools/test_unreal_character_race_pages.py
+
+      - name: Verify creator-to-gameplay ancestry save-backed confirmation
+        shell: bash
+        run: python3 tools/test_unreal_creator_gameplay_bridge.py
 
       - name: Verify playable talent web input, modal safety and native HUD contracts
         shell: bash
@@ -152,6 +166,15 @@ jobs:
       - name: Verify six-region climate and living-world runtime
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_living_world_runtime
+
+      - name: Compile and execute V27 living AI policies (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tools/test_v27_living_world_policy.cpp tools/test_v27_npc_policy.cpp; do
+            g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -I MoonfallUnreal/Source/MoonfallUnreal "$test" -o /tmp/moonfall_v27_policy
+            /tmp/moonfall_v27_policy
+          done
 
       - name: Verify UE5 combat momentum and immediate flinch regressions
         shell: bash
