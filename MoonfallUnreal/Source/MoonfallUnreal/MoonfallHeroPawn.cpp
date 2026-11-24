@@ -4218,7 +4218,7 @@ float AMoonfallHeroPawn::GetResidentContextPanelHeight(float ViewportHeight) con
  return FMath::Min(GetResidentContextRowCount()==4?398.f:345.f,FMath::Max(270.f,ViewportHeight-24.f));
 }
 float AMoonfallHeroPawn::GetResidentContextRowPitch(float PanelHeight) const {
- return GetResidentContextRowCount()==4?FMath::Min(53.f,(PanelHeight-134.f)/4.f):53.f;
+ return FMath::Min(53.f,(PanelHeight-134.f)/GetResidentContextRowCount());
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bTalentWebOpen) { TalentPointerClick(); return; }
