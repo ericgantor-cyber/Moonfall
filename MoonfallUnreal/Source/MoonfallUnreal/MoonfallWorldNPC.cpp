@@ -42,7 +42,7 @@ void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
 }
 void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
-                                               bool bInConversation, int32 HeroBond, bool bAllowLocalGuide) {
+                                               bool bInConversation, int32 HeroBond, bool bAllowLocalGuide, bool bHoldCompanion) {
  if (bAmbientVisitor || !GetWorld() || !FMath::IsFinite(Now)
      || AuthoredHomeLocation.ContainsNaN() || HeroLocation.ContainsNaN()
      || GetActorLocation().ContainsNaN())
@@ -110,6 +110,10 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   // Merchants/scouts retain their authored shifts so quest greetings do not
   // change. Ordinary residents return home when resting or on a meal break.
   if (bMerchant || bScout || bGuard || bInConversation) bRoutineHome=false;
+ }
+ if(bHoldCompanion&&!bInConversation&&!bSheltering&&!bHoldPost
+     &&Alert==MoonfallLivingSimulation::EAlertReaction::Normal){
+  LivingIntent=TEXT("Holding Position");return;
  }
  const bool bGuide=MoonfallWorldPolicy::CanLocalGuide(HeroBond,0,
      FVector::DistSquared(HeroLocation,AuthoredHomeLocation),
@@ -221,7 +225,7 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
   }
  }
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Scout
-     && !MoonfallLivingSimulation::Severe(Weather) && LivingIntent==TEXT("Guiding Nearby")) return LivingIntent;
+     && !MoonfallLivingSimulation::Severe(Weather) && (LivingIntent==TEXT("Guiding Nearby")||LivingIntent==TEXT("Holding Position"))) return LivingIntent;
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
      && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
   return LivingIntent;
