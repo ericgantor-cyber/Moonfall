@@ -149,7 +149,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f",  # reputation
             "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # real gear icons
             "DrawMoonfallSigil(X+Width-13.f,Y+40.f",  # boss
-            "DrawMoonfallSigil(Left+Width-12.f,Top+111.f",  # quest
+            "DrawRegionEmblem(Left+Width-16.f,Top+109.f",  # quest current region
             "DrawMoonfallSigil(CX,CY-Radius*1.28f",  # resource orb
         ):
             with self.subTest(signature=token):
@@ -225,6 +225,56 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertEqual(len(svg.findall("{http://www.w3.org/2000/svg}g")), 9)
         self.assertNotIn("<script", contents)
         self.assertNotIn("<image", contents)
+
+    def test_six_real_biome_seals_in_atlas_and_quest_without_fog_leaks(self):
+        emblem = HUD.split("const auto DrawRegionEmblem = [this]", 1)[1].split(
+            "const auto DrawSelectionRail = [this]", 1
+        )[0]
+        self.assertEqual(HUD.count("const auto DrawRegionEmblem = [this]"), 1)
+        for key in ("Region<0 || Region>=6", "R<5.f || R>24.f",
+                    "FMath::IsFinite(X)", "FMath::IsFinite(Y)",
+                    "constexpr int32 Edges=8", "switch (Region)"):
+            self.assertIn(key, emblem)
+        for n in range(5):
+            self.assertIn(f"case {n}:", emblem)
+        self.assertIn("default: // Eclipse Wastes", emblem)
+        for forbidden in ("TActorIterator", "GetAllActorsOfClass",
+                          "SaveWorldProgress", "BindAction(",
+                          "HasDiscoveredDungeon", "HasExploredAtlasCell"):
+            self.assertNotIn(forbidden, emblem)
+        for token in (
+            "DrawRegionEmblem(Left+AtlasSidebarWidth-25.f,Y+RowHeight*0.5f-3.f,",
+            "if (AtlasSidebarWidth>=210.f && RowHeight>=33.f)",
+            "9.f,Zone,AtlasZoneInk[Zone]);",
+            "if (!bSanctuaryObjective)",
+            "DrawRegionEmblem(Left+Width-16.f,Top+109.f,8.f,ClimateRegion,",
+            "MoonfallLivingSimulation::RegionFromWorldX(Hero->GetActorLocation().X)",
+            "if (!Hero->HasExploredAtlasCell(Zone, Column, Row)) continue;",
+            "if (!bFound && !bCleared) continue;",
+        ):
+            self.assertIn(token, HUD)
+        for token in (
+            "const FLinearColor Etch(0.38f,0.42f,0.52f,0.54f);",
+            "const float MidY=T+H*0.5f;",
+            "Canvas->K2_DrawLine(FVector2D(L+3.f,MidY-13.f)",
+        ):
+            self.assertIn(token, HUD)
+
+    def test_original_editable_six_biome_vector_asset(self):
+        asset = ROOT / "MoonfallUnreal/Art/UI/moonfall_six_region_emblems.svg"
+        self.assertTrue(asset.is_file())
+        svg = ET.parse(asset).getroot()
+        self.assertEqual(svg.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(svg.attrib.get("viewBox"), "0 0 750 506")
+        ns = "{http://www.w3.org/2000/svg}"
+        # Count the six top-level region tiles, not nested glyph drawing groups.
+        self.assertEqual(len([e for e in svg if e.tag == ns+"g"]), 6)
+        body = asset.read_text(encoding="utf-8")
+        for name in ("ASHEN WILDS", "MOONVEIL FOREST", "HOLLOW DEPTHS",
+                     "IRON FOUNDRY", "FROSTBOUND REACH", "ECLIPSE WASTES"):
+            self.assertIn(name, body)
+        self.assertNotIn("<script", body)
+        self.assertNotIn("<image", body)
 
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
