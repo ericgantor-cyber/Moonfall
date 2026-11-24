@@ -18,7 +18,7 @@ public:
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  // One world-level timer (not per-NPC Tick) drives small local routines.
  void AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
-                          bool bInConversation=false, int32 HeroBond=0);
+                          bool bInConversation=false, int32 HeroBond=0, bool bAllowLocalGuide=false);
  // Updated only by the bounded world pulse; an intent is not an animation or combat command.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Ambient")
  FString LivingIntent;
@@ -27,6 +27,9 @@ public:
  bool bReviewingCombatReport=false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bUsePersonalityRoutines=true;
+ // Trusted scouts may offer short-range voluntary assistance; no automatic party recruitment.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
+ bool bAllowLocalScoutGuidance=true;
  void WitnessNearbyDanger(float Now);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bAmbientVisitor = false;
