@@ -50,17 +50,21 @@ for line in inputs.splitlines():
 
 def method_segment(name, kind="void"):
     start = pawn.index(f"{kind} AMoonfallHeroPawn::{name}(")
-    return pawn[start : start + 700]
+    return pawn[start : start + 1700]
 
-for method in ("TryJump", "MoveForward", "MoveRight", "Turn", "LookUp",
+for method in ("TryJump", "MoveForward", "MoveRight",
                "MeleeAttack", "RightHandAction", "CastLeft", "CastRight",
                "CastBoth", "CastRightMouse", "Dodge", "BeginGuard",
                "BeginSprint", "PickupNearestGroundLoot", "ToggleSpellBook",
                "ToggleSpellBookShortcut", "ToggleCharacterStats",
                "AscendSelectedInventoryItem", "ReforgeSelectedInventoryItem",
-               "ForgeFiveSelectedInventoryItem", "UpgradeSelectedInventoryItem",
-               "EquipBestInventoryAction"):
+               "ForgeFiveSelectedInventoryItem", "UpgradeSelectedInventoryItem"):
     assert "if (bTalentWebOpen) return;" in method_segment(method), method
+for camera in ("Turn", "LookUp"):
+    assert "&& !bTalentWebOpen && !bResidentContextOpen" in method_segment(camera), camera
+# Controller LT's Equip Best action can never apply outside the inventory.
+assert "void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }" in pawn
+assert "if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;" in pawn
 for method in ("TryCast", "ActivateRacePower"):
     assert "if (bTalentWebOpen) return false;" in method_segment(method, "bool"), method
 for method in ("ToggleInventory", "ToggleAtlas", "OpenOptions"):
