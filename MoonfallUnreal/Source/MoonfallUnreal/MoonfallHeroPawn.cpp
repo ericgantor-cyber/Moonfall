@@ -4229,6 +4229,10 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  const auto* Resident=FocusedResident.Get();
+ if(bResidentCompanionMenu){
+  const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?4:3;
+ }
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -4442,12 +4446,20 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if(bResidentCompanionMenu){
   if(Choice==2){bResidentCompanionMenu=false;ResidentContextSelection=0;return true;}
-  if(Choice<0||Choice>1)return false;
+  if(Choice<0||Choice>=GetResidentContextRowCount())return false;
   auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   bool bSuccess=false;
   FString Notice=TEXT("Companion unavailable.");
   if(Mode&&Mode->GetLocalCompanion()==Resident){
-   if(Choice==1){bSuccess=Mode->DismissLocalCompanion(this);if(bSuccess)Notice=TEXT("Companion dismissed.");}
+   if(Choice==1){bSuccess=Mode->DismissLocalCompanion(this);if(bSuccess){Notice=TEXT("Companion dismissed.");ResidentContextSelection=0;}}
+   else if(Choice==3){
+    const auto Current=Mode->LocalCompanionRole;
+    const auto Next=Current==EMoonfallCompanionRole::Balanced?EMoonfallCompanionRole::Protector:
+      Current==EMoonfallCompanionRole::Protector?EMoonfallCompanionRole::Striker:EMoonfallCompanionRole::Balanced;
+    bSuccess=Mode->SetLocalCompanionRole(this,Next);
+    Notice=bSuccess?(Next==EMoonfallCompanionRole::Protector?TEXT("Protector"):Next==EMoonfallCompanionRole::Striker?TEXT("Striker"):TEXT("Balanced")):
+      TEXT("Specialization requires 80 trust and no active combat.");
+   }
    else {
     const auto Current=Mode->LocalCompanionStance;
     const auto Next=Current==EMoonfallCompanionStance::Follow?EMoonfallCompanionStance::Hold:
