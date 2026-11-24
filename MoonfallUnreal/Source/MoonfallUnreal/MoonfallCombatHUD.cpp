@@ -217,7 +217,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   FString Names[8] = { TEXT("Talk"),
+   FString Names[9] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
@@ -232,6 +232,13 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[5]=TEXT("Report deeds");
     Names[6]=Resident->bCompanionDowned?TEXT("Revive companion"):TEXT("Move ahead");
     Names[7]=TEXT("Trade equipment");
+    if(bRecruited){
+     const TCHAR* Ability=Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Brace"):
+       Mode->LocalCompanionRole==EMoonfallCompanionRole::Striker?TEXT("Precision Burst"):TEXT("Second Wind");
+     const float Remaining=Mode->GetCompanionAbilityRemaining();
+     Names[8]=Resident->GetBondWithHero(Hero)<80?FString::Printf(TEXT("%s | 80 trust"),Ability):
+       Remaining>0.f?FString::Printf(TEXT("%s | %.0fs"),Ability,Remaining):FString::Printf(TEXT("%s | Activate"),Ability);
+    }
     Names[2]=TEXT("Back");
     Names[4]=TEXT("Companion talents");
     Names[3]=!bRecruited?TEXT("Specialization"):
