@@ -7,6 +7,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallLivingWorldSubsystem.h"
+#include "MoonfallLivingWorldPolicy.h"
 #include "Kismet/GameplayStatics.h"
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -232,6 +233,10 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  const FName CombatRumorId=bNewCombatObservation
      ? FName(*FString::Printf(TEXT("NearbyCombat_%d"),CombatPhase%1024)) : NAME_None;
  bool bPublishedCombat=false;
+ bool bGuideBudgetUsed=false;
+ const bool bGuideSafe=!bCombatNearby&&!Hero->bInventoryOpen&&!Hero->bOptionsOpen
+     &&!Hero->bAtlasOpen&&!Hero->bCharacterStatsOpen&&!Hero->bSpellBookOpen
+     &&!Hero->bResidentContextOpen&&!Hero->FocusedResident.IsValid();
  NextResidentPulseIndex=MoonfallLivingSimulation::ProcessNearbyResidents(
      NextResidentPulseIndex,LivingResidents.Num(),
      [&](int Index) {
@@ -251,9 +256,16 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
             || bPublishedCombat;
       }
       const bool bTalking=Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC;
+      const int32 Bond=NPC->GetBondWithHero(Hero);
+      const bool bGuide=!bGuideBudgetUsed&&NPC->bAllowLocalScoutGuidance&&NPC->bUsePersonalityRoutines
+          &&NPC->SocialRole==FName(TEXT("Scout"))
+          &&MoonfallWorldPolicy::CanLocalGuide(Bond,Hero->GetFactionReputation(NPC->FactionId),
+             FVector::DistSquared(HeroLocation,NPC->AuthoredHomeLocation),
+             FVector::DistSquared(HeroLocation,NPC->GetActorLocation()),bGuideSafe,true);
+      if(bGuide)bGuideBudgetUsed=true;
       NPC->AdvanceLivingRoutine(Now,HeroLocation,
           Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC,
-          NPC->GetBondWithHero(Hero));
+          Bond,bGuide);
       if (!bCombatNearby && !bTalking && NPC->bUsePersonalityRoutines && !NPC->ResidentId.IsNone()
           && !NPC->SettlementId.IsNone()
           && MoonfallLivingSimulation::ReactionFor(MoonfallLivingSimulation::ERole::Citizen,
