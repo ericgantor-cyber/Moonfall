@@ -16,9 +16,11 @@ int main(){
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ClearDungeonFootprint(-675.f));
  assert(!MoonfallRoadLandmarks::ClearDungeonFootprint(-1350.f));
- assert(RoadEncounterOffset(0.f,-150.f)==-600.f);
- assert(RoadEncounterOffset(0.f,150.f)==600.f);
- assert(RoadEncounterOffset(0.f,0.f)==600.f);
+ // Test direction in the middle of a region, not on the X=0 border.
+ assert(RoadEncounterOffset(2500.f,-150.f)==-600.f);
+ assert(RoadEncounterOffset(2500.f,150.f)==600.f);
+ assert(RoadEncounterOffset(2500.f,0.f)==600.f);
+ assert(RoadEncounterOffset(0.f,-150.f)==600.f);
  // Direction reverses at a border instead of discarding the encounter.
  assert(RoadEncounterOffset(-13520.f,150.f)==-600.f);
  assert(RoadEncounterOffset(-20240.f,-150.f)==600.f);
