@@ -52,6 +52,11 @@ public:
  bool SetLocalCompanionStance(AMoonfallHeroPawn* Hero, EMoonfallCompanionStance Stance);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
  bool SetLocalCompanionRole(AMoonfallHeroPawn* Hero, EMoonfallCompanionRole Role);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool TrainLocalCompanionTalent(AMoonfallHeroPawn* Hero,int32 Node);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool ResetLocalCompanionTalents(AMoonfallHeroPawn* Hero);
+ uint32 GetLocalCompanionTraining() const { return LocalCompanionTraining; }
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  EMoonfallCompanionRole LocalCompanionRole=EMoonfallCompanionRole::Balanced;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
@@ -80,6 +85,7 @@ private:
  // Reuse the existing resident pulse; no additional timer or actor scan.
  TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion;
  TWeakObjectPtr<AMoonfallHeroPawn> CompanionOwner;
+ uint32 LocalCompanionTraining=0;
  float LastCompanionCoverAt=-1000.f;
  float LastCompanionStrikeAt=-1000.f;
  void TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now);
