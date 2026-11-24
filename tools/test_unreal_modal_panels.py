@@ -339,6 +339,19 @@ class TestNativeModalPanels(unittest.TestCase):
             self.assertIn(token, HUD)
         self.assertIn("DrawLiveMenuHitCue();", HUD)
 
+    def test_hidden_inventory_pointer_surface_rejects_clicks_and_drag(self):
+        helper = HERO.split("bool HasVisibleInventoryPointerSurface(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("return W>=304 && H>=304;", helper)
+        self.assertIn("!PC->bShowMouseCursor", helper)
+        for method in ("CastRightMouse", "ResidentContextMouseClick"):
+            body = HERO.split("void AMoonfallHeroPawn::" + method + "()", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("if (!HasVisibleInventoryPointerSurface(Controller)) return;"),
+                            body.index("HandleSpellBookPointer()"))
+        drag = HERO.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (!HasVisibleInventoryPointerSurface(Controller))", drag)
+        self.assertIn("bInventoryScrollbarDragging = false;", drag)
+        self.assertIn("Canvas->SizeX < 304.f || Canvas->SizeY < 304.f", HUD)
+
     def test_character_navigation_and_atlas_tab_unchanged(self):
         for token in (
             'ActionName="CharacterStats",Key=C',
