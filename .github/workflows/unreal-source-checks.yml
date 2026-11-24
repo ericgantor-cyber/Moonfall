@@ -125,6 +125,10 @@ jobs:
         shell: bash
         run: python3 tools/test_unreal_talent_ui.py
 
+      - name: Verify red damage feedback and talent-web defeat recovery
+        shell: bash
+        run: python3 tools/test_unreal_live_menu_damage.py
+
       - name: Verify WASD and arrow keys are movement-only across engines
         shell: bash
         run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v

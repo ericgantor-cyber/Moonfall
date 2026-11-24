@@ -25,6 +25,31 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ // Menus do not pause the hostile world. Indicate actual incoming HP damage
+ // behind every modal, without an extra HUD message or a gameplay-time pause.
+ // This drawing is constant-cost and never scans nearby actors.
+ // Draw AFTER the menu contents. Drawing a tint before a nearly opaque
+ // modal lets that panel hide the warning from the player.
+ const auto DrawLiveMenuHitCue = [this, Hero]() {
+ const bool bLiveMenuOpen = Hero->bTalentWebOpen || Hero->bOptionsOpen
+     || Hero->bInventoryOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen;
+ if (bLiveMenuOpen && GetWorld() && FMath::IsFinite(Hero->LastRealDamageAt)) {
+  const float Now=GetWorld()->GetTimeSeconds();
+  const float Age=Now-Hero->LastRealDamageAt;
+  if (FMath::IsFinite(Age) && Age>=0.f && Age<0.8f) {
+   // Reduce Motion opts out of animation; both paths avoid strobing.
+   const float Alpha=Hero->bReduceMotion ? 0.12f
+       : 0.20f*(1.f-Age/0.8f);
+   const FLinearColor HitRed(0.78f,0.035f,0.06f,Alpha);
+   DrawRect(HitRed,0.f,0.f,Canvas->SizeX,Canvas->SizeY);
+   const float Border=FMath::Min(14.f, FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.03f);
+   DrawRect(HitRed,0.f,0.f,Canvas->SizeX,Border);
+   DrawRect(HitRed,0.f,Canvas->SizeY-Border,Canvas->SizeX,Border);
+   DrawRect(HitRed,0.f,0.f,Border,Canvas->SizeY);
+   DrawRect(HitRed,Canvas->SizeX-Border,0.f,Border,Canvas->SizeY);
+  }
+ }
+ };
  if (Hero->bTalentWebOpen) {
   // Original 141-node classless tree. Shared, deterministic layout is used
   // by mouse and keyboard/controller input; nothing pauses the live world.
@@ -33,6 +58,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!P.Valid) {
    DrawText(TEXT("TALENTS | Enlarge window | K / ESC: close"),
        FLinearColor(0.90f,0.83f,0.70f),12.f,14.f,nullptr,0.8f);
+   DrawLiveMenuHitCue();
    return;
   }
   const float L=float(P.Panel.X),T=float(P.Panel.Y),W=float(P.Panel.W),H=float(P.Panel.H);
@@ -154,6 +180,7 @@ void AMoonfallCombatHUD::DrawHUD()
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET ALL"),
       FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
+  DrawLiveMenuHitCue();
   return;
  }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
@@ -228,6 +255,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
+   DrawLiveMenuHitCue();
    return;
   }
  }
@@ -236,6 +264,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Canvas->SizeX < 300.f || Canvas->SizeY < 240.f) {
    DrawText(TEXT("ATLAS | Enlarge window | J / ESC: close"),
        FLinearColor(0.91f, 0.84f, 0.68f), 12.f, 14.f, nullptr, 0.75f);
+   DrawLiveMenuHitCue();
    return;
   }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
@@ -683,6 +712,7 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.70f, 0.70f, 0.66f), MapLeft, MapTop + MapHeight + 20.f,
        nullptr, Scale * 0.66f);
   }
+  DrawLiveMenuHitCue();
   return;
  }
  if (Hero->bOptionsOpen) {
@@ -791,6 +821,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
+  DrawLiveMenuHitCue();
   return;
  }
  if (Hero->bInventoryOpen) {
@@ -864,6 +895,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("C / A: back to inventory    P: spell book    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   DrawLiveMenuHitCue();
    return;
   }
   // The closed book's tab lives in the bag. The open book expands into a
@@ -996,6 +1028,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("P: CLOSE  |  Y: BAG  |  D-PAD UP/DOWN: SELECT  |  LEFT/RIGHT: EQUIP"),
        FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
        Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
+   DrawLiveMenuHitCue();
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -1336,6 +1369,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  DrawLiveMenuHitCue();
   return;
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.

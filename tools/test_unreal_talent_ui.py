@@ -107,7 +107,12 @@ npc = method_segment("OpenFocusedResidentContext", "void") + pawn[
     pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext(") + 700:
     pawn.index("void AMoonfallHeroPawn::CastRightMouse(", pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext("))]
 assert "if (bTalentWebOpen) { TalentMove(0,-1); return; }" in npc
-assert "ToggleTalentWeb();" in npc
+# The D-pad Up interaction shortcut must not silently open talents in combat.
+# The web opens explicitly through K, then D-pad Up navigates only inside it.
+assert 'if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;' in npc
+assert "ToggleTalentWeb();" not in npc
+assert 'ActionName="TalentWeb",Key=K' in inputs
+assert 'ActionName="ResidentContext",Key=Gamepad_DPad_Up' in inputs
 assert "&& !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen" in pawn
 web_start = pawn.index("void AMoonfallHeroPawn::ToggleTalentWeb(")
 web_end = pawn.index("int32 AMoonfallHeroPawn::GetAvailableTalentPoints()", web_start)

@@ -1661,6 +1661,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  LastRealDamageAt = Now; // Real HP damage only; not a parry, miss or blocked blow.
   CombatRecoveryEndsAt = FMath::Max(
        FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
        Now + (FMath::IsFinite(CombatRecoverySeconds)
@@ -1687,6 +1688,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
+  // Defeat also closes the 141-node constellation. Without this, its HUD
+  // can cover defeat and lock movement after the next shrine respawn.
+  bTalentWebOpen = false;
+  bTalentRespecArmed = false;
+  TalentRespecArmUntil = -1.f;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
@@ -3847,6 +3853,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
+ // Defensive recovery for older saves, forced respawns, and transient
+ // controller states: no talent modal or pending respec survives a death.
+ bTalentWebOpen = false;
+ bTalentRespecArmed = false;
+ TalentRespecArmUntil = -1.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
   // A missing, unreadable or blocked save should not erase progress. Try the
@@ -4115,11 +4126,9 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
-  // D-pad Up opens the constellation when no resident can be interacted with.
-  ToggleTalentWeb();
-  return;
- }
+ // D-pad Up is NPC interaction when no menu is active. It must not
+ // unexpectedly open talents during travel or combat with no nearby NPC.
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
  SwordBuffer.Clear();
  FocusedResident = Resident;
