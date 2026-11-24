@@ -253,8 +253,40 @@ int main(){
         self.assertIn("Relationships.Reset()",teardown)
         reset=world.split("bool UMoonfallLivingWorldSubsystem::ResetNpcSocialSession()",1)[1].split(
             "bool UMoonfallLivingWorldSubsystem::GetNpcRelationship",1)[0]
-        self.assertIn("Session->Relationships.Reset()",reset)
+        self.assertIn("if(!Session->ResetLedger())return false;",reset)
         self.assertNotIn("SaveGameToSlot",world)
+
+    def test_v27_durable_social_save_isolated_validated_and_rotated(self):
+        world=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        schema=(SRC/"MoonfallNpcSocialSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("WorldType==EWorldType::Game&&GetWorld()->GetNetMode()==NM_Standalone",world)
+        self.assertIn("SocialMemory->FlushSocialMemory()",mode)
+        self.assertIn("Session->bDirty=true",world)
+        self.assertIn('TEXT("MoonfallNpcSocial_A")',session)
+        self.assertIn('TEXT("MoonfallNpcSocial_B")',session)
+        self.assertIn("UPROPERTY(SaveGame) int32 Version=1",schema)
+        load=session.split("void UMoonfallNpcSocialSessionSubsystem::InitializePersistence",1)[1].split(
+            "bool UMoonfallNpcSocialSessionSubsystem::Flush",1)[0]
+        for check in ("Save->Version!=1","Save->Generation<=0","MaxObservers*MaxPerObserver",
+                      "Entry.Observer==Entry.Other","Entry.Score<-100","Entry.Score>100",
+                      "List->ContainsByPredicate","Save->Generation>Generation",
+                      "bAnyExisting&&!bFoundValid","FPlatformTime::Seconds()"):
+            self.assertIn(check,load)
+        flush=session.split("bool UMoonfallNpcSocialSessionSubsystem::Flush",1)[1].split(
+            "bool UMoonfallNpcSocialSessionSubsystem::ResetLedger",1)[0]
+        self.assertIn("if(bWriteBlocked)return false;",flush)
+        self.assertIn("if(!bDirty)return true;",flush)
+        self.assertIn("Time-LastSaveAttempt<60.0",flush)
+        self.assertIn("ActiveSlot==0?1:0",flush)
+        self.assertLess(flush.index("SaveGameToSlot"),flush.index("ActiveSlot=NextSlot"))
+        reset=session.split("bool UMoonfallNpcSocialSessionSubsystem::ResetLedger",1)[1]
+        self.assertIn("if(Flush(true))return true;",reset)
+        self.assertIn("Relationships=MoveTemp(Previous)",reset)
+        self.assertIn("bDirty=bWasDirty",reset)
+        self.assertNotIn("MoonfallWorldSlot",session)
+        self.assertNotIn("SetTimer",session)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
