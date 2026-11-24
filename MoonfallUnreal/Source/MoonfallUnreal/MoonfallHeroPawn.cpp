@@ -4104,6 +4104,16 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   OnResidentQuestFeedback(Notice,false);
   return false;
  }
+ // Unsupported resident IDs are story-only: the persistent save system
+ // must not silently reject a quest offered by its UI.
+ if (!SupportsResidentContract(Resident->ResidentId)) {
+  const FText Notice=FText::FromString(
+      TEXT("This resident has no contract. Select Talk to hear their story."));
+  ResidentFeedbackMessage=Notice.ToString();
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  OnResidentQuestFeedback(Notice,false);
+  return false;
+ }
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
  FText Message;
@@ -4188,6 +4198,9 @@ bool IsNamedMoonfallResident(FName Id) {
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;
 }
+}
+bool AMoonfallHeroPawn::SupportsResidentContract(FName ResidentId) const {
+ return IsNamedMoonfallResident(ResidentId);
 }
 int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
  if (!IsNamedMoonfallResident(ResidentId)) return 0;

@@ -393,6 +393,39 @@ int main(){
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
         self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
+    def test_story_only_residents_cannot_offer_unsaveable_contracts(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hero_h=(SRC/"MoonfallHeroPawn.h").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("bool SupportsResidentContract(FName ResidentId) const;",hero_h)
+        self.assertIn("return IsNamedMoonfallResident(ResidentId);",hero)
+        # The resident allowlist includes both Firstlight sanctuary NPCs.
+        validator=hero.split("bool IsNamedMoonfallResident(FName Id) {",1)[1].split(
+            "bool AMoonfallHeroPawn::SupportsResidentContract(",1)[0]
+        for name in ("CrossroadsGuide","FirstlightArchivist","FirstlightWatchkeeper"):
+            self.assertIn('FName(TEXT("'+name+'"))',validator)
+        # Do not present quest offers for unknown editor-spawned or dynamic NPCs.
+        talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
+        self.assertIn("Hero->SupportsResidentContract(ResidentId)",talk)
+        self.assertLess(talk.index("Hero->SupportsResidentContract(ResidentId)"),
+                        talk.index("I have a task for you. Select Accept"))
+        choice=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertIn("if (Resident->bAmbientVisitor)",choice)
+        self.assertIn("if (!SupportsResidentContract(Resident->ResidentId))",choice)
+        self.assertIn("This resident has no contract.",choice)
+        self.assertLess(choice.index("if (!SupportsResidentContract("),
+                        choice.index("Resident->OfferResidentQuest(this)"))
+        self.assertIn("const bool bNoContract = Resident->bAmbientVisitor ||",hud)
+        self.assertIn("!Hero->SupportsResidentContract(Resident->ResidentId)",hud)
+        self.assertIn('const FString QuestAction = bNoContract ? TEXT("No contract")',hud)
+        self.assertIn('const FString ContractStatus = bNoContract ? TEXT("None")',hud)
+        self.assertIn('bNoContract ? TEXT("Talk to hear this resident',hud)
+        # The save format and author-defined world geometry are untouched.
+        self.assertIn('bool IsNamedMoonfallResident(FName Id)',hero)
+
     def test_ambient_visitors_do_not_show_false_quest_offers(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
