@@ -8,10 +8,14 @@ class LivingWorldPolicyTests(unittest.TestCase):
         if not compiler:self.skipTest("C++17 compiler unavailable")
         code=r'''
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallRoadLandmarks.h"
 #include <cassert>
 #include <limits>
 using namespace MoonfallLivingSimulation;
 int main(){
+ assert(MoonfallRoadLandmarks::AllLandmarksSafe());
+ assert(MoonfallRoadLandmarks::ClearDungeonFootprint(-675.f));
+ assert(!MoonfallRoadLandmarks::ClearDungeonFootprint(-1350.f));
  assert(RegionFromWorldX(-16875.f)==0);
  assert(RegionFromWorldX(0.f)==3);
  assert(RegionFromWorldX(16875.f)==5);
