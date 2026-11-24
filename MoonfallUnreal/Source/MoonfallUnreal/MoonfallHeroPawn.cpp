@@ -1789,6 +1789,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // Enforce the inventory owner's modal restrictions for direct C++/Blueprint calls.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1827,6 +1828,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  // upgrade that equipped slot too, without auto-equipping other bag items.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1869,6 +1871,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  // reforged; rare and higher retain their tier and quality unchanged.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1912,6 +1915,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1952,6 +1956,7 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
  // Reject the wrong inventory page before initiating any batch transaction.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
+     || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
