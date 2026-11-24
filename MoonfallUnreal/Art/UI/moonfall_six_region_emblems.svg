@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="750" height="506" viewBox="0 0 750 506" role="img" aria-label="Six original Moonfall biome emblems, each labeled and colored">
+<title>Moonfall | Six Biome Heraldry Emblems</title>
+<desc>Editable dark-fantasy atlas seals for Ashen Wilds, Moonveil Forest, Hollow Depths, Iron Foundry, Frostbound Reach, and Eclipse Wastes. Runtime HUD uses independent Canvas line drawings.</desc>
+<defs><linearGradient id="board" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17233d"/><stop offset="1" stop-color="#070b16"/></linearGradient></defs>
+<rect x="0" y="0" width="750" height="506" fill="url(#board)"/>
+<g transform="translate(18 18)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#e49b61" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#e49b61" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M-42 35 -14-18 0 12 19-43 44 35Z" /><path d="M-33 44H35M-14 9 0-4 12 16" /></g>
+<text x="113" y="200" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">ASHEN WILDS</text></g>
+<g transform="translate(262 18)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#91d5a2" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#91d5a2" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M0 45V-43M0-33-34 3M0-33 34 3M-34 3-18-28M34 3 18-28M-22 45H22"/><path d="M-14-8 0-26 14-8"/></g>
+<text x="113" y="200" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">MOONVEIL FOREST</text></g>
+<g transform="translate(506 18)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#b2a0ed" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#b2a0ed" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M-47-26 0-8 47-26M-47-1 0 17 47-1M-25 39H25"/><path d="M-31-32V-13M31-32V-13M0 17V42" /></g>
+<text x="113" y="200" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">HOLLOW DEPTHS</text></g>
+<g transform="translate(18 262)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#e2a674" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#e2a674" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M-44-28H44L31 7H-31Z M0 7V39M-30 39H30"/><path d="M-21-39V-28M0-45V-28M21-39V-28" /></g>
+<text x="113" y="200" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">IRON FOUNDRY</text></g>
+<g transform="translate(262 262)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#9fd9f5" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#9fd9f5" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M-48 0H48M0-48V48M-34-34 34 34M-34 34 34-34"/><path d="M-48 0-32-10M-48 0-32 10M48 0 32-10M48 0 32 10M0-48-10-32M0-48 10-32M0 48-10 32M0 48 10 32" /></g>
+<text x="113" y="200" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">FROSTBOUND REACH</text></g>
+<g transform="translate(506 262)">
+<rect width="226" height="226" rx="15" fill="#0b1220" stroke="#987c58" stroke-width="2"/>
+<path d="M9 37V9H37 M189 9h28v28 M9 189v28h28 M189 217h28v-28" fill="none" stroke="#bea177" stroke-width="2.5"/>
+<path d="M38 175H188" stroke="#504b5b" stroke-width="2"/>
+<circle cx="113" cy="105" r="72" fill="#101b31" stroke="#635270" stroke-width="5"/>
+<circle cx="113" cy="105" r="60" fill="none" stroke="#d4afe0" stroke-opacity=".52" stroke-width="1.8" stroke-dasharray="4 7"/>
+<g transform="translate(113 105)" fill="none" stroke="#d4afe0" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"><path d="M-46 28H46M-35-18 0-43 35-18M-35-18-12 13M35-18 12 13"/><path d="M-5-30 16-12M-22-2H22" /></g>
+<text x="113" y="200" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="1.05" fill="#f3e5cb">ECLIPSE WASTES</text></g>
+</svg>
