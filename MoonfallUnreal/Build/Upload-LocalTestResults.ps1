@@ -3,15 +3,17 @@
 param(
  [string]$ProjectRoot=(Split-Path -Parent $PSScriptRoot),
  [string]$BuildLogRoot=(Join-Path $env:LOCALAPPDATA "MoonfallBuildCenter\Logs"),
+ [string]$CacheRoot=(Join-Path $env:LOCALAPPDATA "Moonfall\TestUpload"),
+ [string]$GitHubCli="gh",
  [switch]$DryRun
 )
 $ErrorActionPreference="Stop"
-$statePath=Join-Path $env:LOCALAPPDATA "Moonfall\TestUpload"
+$statePath=$CacheRoot
 New-Item -ItemType Directory -Force -Path $statePath | Out-Null
 $cacheFile=Join-Path $statePath "sent.json"
 $sent=@{}
 if(Test-Path $cacheFile){try{$obj=Get-Content $cacheFile -Raw|ConvertFrom-Json;foreach($p in $obj.PSObject.Properties){$sent[$p.Name]=$p.Value}}catch{}}
-if(-not $DryRun -and -not (Get-Command gh -ErrorAction SilentlyContinue)){throw "Install gh and run gh auth login."}
+if(-not $DryRun -and -not (Get-Command -Name $GitHubCli -ErrorAction SilentlyContinue)){throw "Install gh and run gh auth login."}
 $maxReportsPerRun=10
 $reportCount=0
 $earliestUtc=[DateTime]::UtcNow.AddDays(-7)
@@ -37,7 +39,7 @@ $roots=@(
   $report=@{format_version=1;source=$category;outcome=$status;errors=[Math]::Min($errors,999);warnings=[Math]::Min($warnings,999);file_sha256=$hash}
   $json=@{event_type="moonfall-local-test";client_payload=$report}|ConvertTo-Json -Depth 5 -Compress
   if($DryRun){Write-Output $json;$reportCount++;continue}
-  $json|& gh api "repos/ericgantor-cyber/Moonfall/dispatches" -X POST --input - 2>$null
+  $json|& $GitHubCli api "repos/ericgantor-cyber/Moonfall/dispatches" -X POST --input - 2>$null
   if($LASTEXITCODE -ne 0){Write-Warning "Upload failed: check GitHub login";continue}
   $sent[$hash]=[DateTime]::UtcNow.ToString("o")
   $reportCount++
