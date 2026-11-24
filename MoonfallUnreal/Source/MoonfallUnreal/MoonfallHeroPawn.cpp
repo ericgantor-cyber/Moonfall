@@ -1796,7 +1796,8 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
- if (bTalentWebOpen) { TalentChangeBranch(1); return; }
+ // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
+ if (bTalentWebOpen) return;
  // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
