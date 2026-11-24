@@ -35,6 +35,22 @@ assert 'MELEE DAMAGE +%.1f%%/RANK' in hud
 assert 'const float Tier = bWeaponOwned' in pawn
 assert 'const float TalentMeleeMultiplier = static_cast<float>(' in pawn
 assert '* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;' in pawn
+# Every category, including flat resource caps and percent damage bonuses,
+# must have a readable selected-node effect preview.
+for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):
+    assert f"case MoonfallTalents::Stat::{stat}:" in hud, stat
+for label in ("HEALTH", "MANA", "STAMINA", "MELEE DAMAGE",
+              "RANGED DAMAGE", "MAGIC DAMAGE"):
+    assert f'TEXT("{label}")' in hud, label
+assert "Selected.AmountPerRank*(Selected.IsPercent?100.0:1.0)" in hud
+assert "Selected.IsPercent?TEXT(\"%\"):TEXT(\"\")" in hud
+# Buffered sword/melee input must never survive into the talent UI or
+# trigger its queued dispatch while the modal is showing.
+buffer_start = pawn.index("const bool bCanDispatchBufferedMelee =")
+buffer_end = pawn.index("SwordBuffer.Consume(CombatNow", buffer_start)
+assert "!bTalentWebOpen" in pawn[buffer_start:buffer_end]
+assert buffer_start < buffer_end
+
 
 
 for name, key in {
