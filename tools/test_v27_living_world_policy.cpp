@@ -90,5 +90,27 @@ int main(){long n=0;
    assert(CanCompanionStrike(1.0,elapsed,100.0,100.0,true,rank,role)==(elapsed>=(effective==2?6.0:8.0)));++n;
   }
  }
+ for(int rank=-1;rank<=4;++rank)for(int role=-1;role<=3;++role){
+  const auto perk=rank!=3?CompanionPerk::None:role==1?CompanionPerk::ShieldExpert:
+    role==2?CompanionPerk::Precision:CompanionPerk::Fieldcraft;
+  assert(VeteranPerk(rank,role)==perk);
+  assert(CompanionExtraPosture(rank,role)==(perk==CompanionPerk::Precision?4.f:0.f));
+  const double coverRange=perk==CompanionPerk::Fieldcraft?350.0:300.0;
+  const double strikeRange=perk==CompanionPerk::Fieldcraft?220.0:180.0;
+  const double coverCooldown=perk==CompanionPerk::ShieldExpert?8.0:12.0;
+  assert(CompanionCoverRange(rank,role)==coverRange);
+  assert(CompanionStrikeRange(rank,role)==strikeRange);
+  assert(CompanionCoverCooldown(rank,role)==coverCooldown);
+  for(double elapsed:{7.99,8.0,11.99,12.0,nan,inf})
+  for(double distance:{90000.0,90001.0,122500.0,122501.0,nan,inf}){
+   const bool expected=rank>=1&&rank<=3&&std::isfinite(elapsed)&&elapsed>=coverCooldown
+     &&std::isfinite(distance)&&distance<=coverRange*coverRange;
+   assert((CompanionCover(100.f,elapsed,distance,true,rank,role)>0.f)==expected);++n;
+  }
+  for(double distance:{32400.0,32401.0,48400.0,48401.0,nan,inf}){
+   assert(CanCompanionStrike(1.0,8.0,distance,100.0,true,rank,role)==
+       (std::isfinite(distance)&&distance<=strikeRange*strikeRange));++n;
+  }
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
