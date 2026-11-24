@@ -73,5 +73,22 @@ int main(){long n=0;
     std::fmin(damage*(rank==3?0.20f:rank==2?0.18f:0.15f),rank==3?16.f:rank==2?14.f:12.f);
   assert(CompanionCover(damage,12.0,90000.0,eligible,rank)==expected);++n;
  }
+ for(int rank=-1;rank<=4;++rank)for(int role=-1;role<=3;++role){
+  const int effective=rank>=2&&rank<=3&&role>=1&&role<=2?role:0;
+  assert(EffectiveCompanionRole(rank,role)==effective);
+  const float base=rank==3?10.f:rank==2?8.f:rank==1?6.f:0.f;
+  assert(CompanionStrikeDamage(rank,role)==(effective==1?base-2.f:effective==2?std::fmin(base+2.f,10.f):base));
+  for(float damage:{0.f,10.f,100.f,1000.f}){
+   const float fraction=rank==3?0.20f:rank==2?0.18f:0.15f;
+   const float cap=rank==3?16.f:rank==2?14.f:12.f;
+   const float shift=effective==1?0.04f:effective==2?-0.04f:0.f;
+   const float capshift=effective==1?2.f:effective==2?-2.f:0.f;
+   assert(CompanionCover(damage,12.0,90000.0,true,rank,role)==
+      (rank<1||rank>3?0.f:std::fmin(damage*(fraction+shift),cap+capshift)));++n;
+  }
+  for(double elapsed:{5.99,6.0,7.99,8.0}){
+   assert(CanCompanionStrike(1.0,elapsed,100.0,100.0,true,rank,role)==(elapsed>=(effective==2?6.0:8.0)));++n;
+  }
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
