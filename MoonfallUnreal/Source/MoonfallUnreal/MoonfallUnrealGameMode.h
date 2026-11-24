@@ -90,6 +90,10 @@ private:
  FTimerHandle LivingWorldPulseTimer;
  FTimerHandle FollowerPulseTimer;
  void PulseFollower();
+ void TryRestoreCompanionParty(AMoonfallHeroPawn* Hero);
+ void AttachCompanionParty(AMoonfallHeroPawn* Hero,AMoonfallWorldNPC* Resident,int32 Stance,float Health);
+ void SyncCompanionVitals(AMoonfallHeroPawn* Hero);
+ int64 CompanionAbilityReadyUtc=0;
  TWeakObjectPtr<AMoonfallWorldNPC> ReturningCompanion;
  FVector OrderedFollowerDestination=FVector::ZeroVector;
  bool bFollowerMoveOrdered=false;
