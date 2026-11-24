@@ -213,5 +213,12 @@ int main(){long n=0;
      &&ready>=0&&ready<=253402300799LL&&(recruited||(stance==2&&hp==100));
   assert(ValidCompanionParty(recruited,stance,hp,ready)==expected);++n;
  }
+ for(double distance:{-1.0,0.0,3239999.0,3240000.0,3240001.0,nan,inf})
+ for(double age:{-1.0,0.0,7.99,8.0,30.0,nan,inf})
+ for(bool eligible:{false,true}){
+  const bool expected=eligible&&std::isfinite(distance)&&distance>=3240000.0
+      &&std::isfinite(age)&&age>=8.0;
+  assert(CanRecoverFollower(distance,age,eligible)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
