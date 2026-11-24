@@ -19,6 +19,9 @@ public:
  // Updated only by the bounded world pulse; an intent is not an animation or combat command.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Ambient")
  FString LivingIntent;
+ // Indirect reports are not firsthand danger and cannot trigger arrest or combat.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Ambient")
+ bool bReviewingCombatReport=false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bUsePersonalityRoutines=true;
  void WitnessNearbyDanger(float Now);
