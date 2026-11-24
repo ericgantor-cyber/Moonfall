@@ -1261,8 +1261,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawModalChrome(Left,Top,PanelWidth,PanelHeight,FLinearColor(0.43f,0.52f,0.66f,0.98f));
   if (PanelWidth>=360.f) DrawMoonfallSigil(Left+PanelWidth-23.f,Top+PanelHeight-23.f,
     10.f,FLinearColor(0.84f,0.72f,0.47f),2);
-  DrawText(Hero->bSpellBookOpen ? TEXT("MOONFALL  |  SPELL BOOK")
-    : (PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY")),
+  // The character and full-screen grimoire each paint their own title.
+  // Do not draw an underlying inventory label over the active page heading.
+  if (!Hero->bCharacterStatsOpen && !Hero->bSpellBookOpen)
+   DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
     FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
   // Shared close button is visible on inventory and character views.
   const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
@@ -1274,10 +1276,13 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
-   DrawText(Hero->bCharacterRepPageOpen ? TEXT("MOONFALL  |  REPUTATION")
-     : Hero->bCharacterRacePageOpen ? TEXT("MOONFALL  |  ANCESTRY")
-     : TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
-     Left + 18.f, Top + 17.f, nullptr, 1.35f);
+   const TCHAR* CharacterTitle = Hero->bCharacterRepPageOpen
+     ? (PanelWidth < 550.f ? TEXT("REPUTATION") : TEXT("MOONFALL  |  REPUTATION"))
+     : Hero->bCharacterRacePageOpen
+       ? (PanelWidth < 550.f ? TEXT("ANCESTRY") : TEXT("MOONFALL  |  ANCESTRY"))
+       : (PanelWidth < 550.f ? TEXT("CHARACTER") : TEXT("MOONFALL  |  CHARACTER"));
+   DrawText(CharacterTitle, FLinearColor::White,
+     Left + 18.f, Top + 17.f, nullptr, PanelWidth < 550.f ? 0.80f : 1.05f);
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
