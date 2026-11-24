@@ -70,6 +70,7 @@ public:
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  bool bResidentContextOpen = false;
  bool bResidentCompanionMenu=false;
+ bool bResidentCompanionTalents=false;
  int32 GetResidentContextRowCount() const;
  float GetResidentContextPanelHeight(float ViewportHeight) const;
  float GetResidentContextRowPitch(float PanelHeight) const;
