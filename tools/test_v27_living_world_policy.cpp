@@ -173,5 +173,38 @@ int main(){long n=0;
        &&std::isfinite(scout)&&scout>=0&&scout<=250000;
   assert(CanReportCompanionThreat(now,target,scout)==expected);++n;
  }
+ for(double d:{-1.0,0.0,10000.0,22500.0,22501.0,nan,inf})
+ for(double range:{-1.0,0.0,100.0,150.0,600.0,601.0,nan,inf})
+ for(double hero:{-1.0,0.0,250000.0,250001.0,nan,inf})
+ for(bool eligible:{false,true}){
+  const bool expected=eligible&&std::isfinite(d)&&d>=0&&std::isfinite(range)&&range>0&&range<=600
+    &&d<=range*range&&std::isfinite(hero)&&hero>=0&&hero<=250000;
+  assert(CanCompanionCounter(d,range,hero,eligible)==expected);++n;
+ }
+ for(float damage:{-1.f,0.f,1.f,10.f,100.f,200.f,static_cast<float>(nan),static_cast<float>(inf)})
+ for(int armor=-1;armor<=26;++armor)for(bool brace:{false,true}){
+  const float expected=std::isfinite(damage)&&damage>0.f?std::fmin(damage,100.f)*(1.f-0.01f*Clamp(armor,0,25))*(brace?0.5f:1.f):0.f;
+  assert(FollowerIncomingDamage(damage,armor,brace)==expected);++n;
+ }
+ for(int rank=-1;rank<=4;++rank)for(int role=-1;role<=3;++role)
+ for(float health:{-1.f,0.f,1.f,25.f,25.01f,99.f,100.f,101.f,static_cast<float>(nan),static_cast<float>(inf)})
+ for(bool threat:{false,true}){
+  auto expected=CompanionTactic::Follow;
+  if(threat&&std::isfinite(health)&&health>0.f&&health<=100.f&&rank>=1){
+   if(health<=25.f)expected=CompanionTactic::Withdraw;
+   else if(rank>=2&&rank<=3&&role==1)expected=CompanionTactic::Intercept;
+   else if(rank>=2&&rank<=3&&role==2)expected=CompanionTactic::Flank;
+  }
+  assert(SelectCompanionTactic(health,rank,role,threat)==expected);++n;
+ }
+ for(int rank=-1;rank<=4;++rank)for(int role=-1;role<=3;++role)
+ for(float health:{-1.f,0.f,1.f,25.f,99.f,100.f,101.f,static_cast<float>(nan),static_cast<float>(inf)})
+ for(double now:{-1.0,0.0,20.0,30.0,31.0,nan,inf})
+ for(double ready:{-1000.0,0.0,30.0,nan,inf})for(bool eligible:{false,true}){
+  const bool expected=eligible&&rank>=2&&rank<=3&&role>=0&&role<=2&&std::isfinite(health)
+    &&health>0&&health<=100&&(role!=0||health<100)&&std::isfinite(now)&&now>=0&&std::isfinite(ready)&&now>=ready;
+  assert(CanActivateCompanionAbility(rank,role,health,now,ready,eligible)==expected);++n;
+ }
+ for(int tier=-1;tier<=26;++tier){assert(CompanionAbilityCooldown(tier)==30.0-0.2*Clamp(tier,0,25));++n;}
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
