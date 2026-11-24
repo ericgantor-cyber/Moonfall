@@ -64,6 +64,81 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(Edge,L,T+H-2.f,W,2.f);
   DrawRect(FLinearColor(0.59f,0.51f,0.36f,0.65f),L+12.f,T+44.f,
       FMath::Max(0.f,W-24.f),1.f);
+  // Original Moonfall engraving: four forged-corner chevrons, inner
+  // filigree rails and an eclipse diamond. All inside the panel border.
+  // Decorations have no click targets or art/mesh dependencies.
+  const float Inset=7.f, Corner=11.f;
+  const FLinearColor Foil(0.66f,0.53f,0.32f,0.72f);
+  DrawRect(Foil,L+Inset,T+Inset,Corner,1.f);
+  DrawRect(Foil,L+Inset,T+Inset,1.f,Corner);
+  DrawRect(Foil,L+W-Inset-Corner,T+Inset,Corner,1.f);
+  DrawRect(Foil,L+W-Inset-1.f,T+Inset,1.f,Corner);
+  DrawRect(Foil,L+Inset,T+H-Inset-1.f,Corner,1.f);
+  DrawRect(Foil,L+Inset,T+H-Inset-Corner,1.f,Corner);
+  DrawRect(Foil,L+W-Inset-Corner,T+H-Inset-1.f,Corner,1.f);
+  DrawRect(Foil,L+W-Inset-1.f,T+H-Inset-Corner,1.f,Corner);
+  if (H>=170.f && W>=300.f) {
+   const float LowerY=T+H-11.f;
+   Canvas->K2_DrawLine(FVector2D(L+W-30.f,LowerY),
+     FVector2D(L+W-25.f,LowerY-5.f),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+W-25.f,LowerY-5.f),
+     FVector2D(L+W-20.f,LowerY),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+W-20.f,LowerY),
+     FVector2D(L+W-25.f,LowerY+5.f),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+W-25.f,LowerY+5.f),
+     FVector2D(L+W-30.f,LowerY),1.f,Foil);
+  }
+ };
+ // Original vector sigil language: etched eclipse, ward, crown and compass.
+ // A fixed 12-segment halo and up to seven lines per glyph. No textures,
+ // actors, transient meshes, frame animation or new save dependencies.
+ const auto DrawMoonfallSigil = [this](
+    float Cx,float Cy,float Radius,const FLinearColor& Ink,int32 Type) {
+  if (!Canvas || !FMath::IsFinite(Cx) || !FMath::IsFinite(Cy)
+      || !FMath::IsFinite(Radius) || Radius<3.f || Radius>35.f) return;
+  constexpr int32 Segments=12;
+  for (int32 I=0;I<Segments;++I) {
+   const float A=float(I)*2.f*PI/float(Segments);
+   const float B=float(I+1)*2.f*PI/float(Segments);
+   Canvas->K2_DrawLine(
+     FVector2D(Cx+FMath::Cos(A)*Radius,Cy+FMath::Sin(A)*Radius),
+     FVector2D(Cx+FMath::Cos(B)*Radius,Cy+FMath::Sin(B)*Radius),
+     1.1f,Ink);
+  }
+  const auto Stroke=[this,&Ink](float X0,float Y0,float X1,float Y1) {
+   Canvas->K2_DrawLine(FVector2D(X0,Y0),FVector2D(X1,Y1),1.4f,Ink);
+  };
+  const float R=Radius*0.72f;
+  switch (Type%4) {
+   case 0: // Eclipse: twin crescents cradling a central star.
+    Stroke(Cx-R,Cy,Cx,Cy-R);
+    Stroke(Cx,Cy-R,Cx+R,Cy);
+    Stroke(Cx+R,Cy,Cx,Cy+R);
+    Stroke(Cx,Cy+R,Cx-R,Cy);
+    Stroke(Cx-R*0.42f,Cy,Cx+R*0.42f,Cy);
+    break;
+   case 1: // Wayfinder compass.
+    Stroke(Cx,Cy-R,Cx,Cy+R);
+    Stroke(Cx-R,Cy,Cx+R,Cy);
+    Stroke(Cx-R*0.45f,Cy-R*0.45f,Cx+R*0.45f,Cy+R*0.45f);
+    Stroke(Cx+R*0.45f,Cy-R*0.45f,Cx-R*0.45f,Cy+R*0.45f);
+    break;
+   case 2: // Protective shield rune.
+    Stroke(Cx-R*0.7f,Cy-R*0.7f,Cx+R*0.7f,Cy-R*0.7f);
+    Stroke(Cx-R*0.7f,Cy-R*0.7f,Cx-R*0.62f,Cy+R*0.35f);
+    Stroke(Cx+R*0.7f,Cy-R*0.7f,Cx+R*0.62f,Cy+R*0.35f);
+    Stroke(Cx-R*0.62f,Cy+R*0.35f,Cx,Cy+R);
+    Stroke(Cx+R*0.62f,Cy+R*0.35f,Cx,Cy+R);
+    Stroke(Cx,Cy-R*0.5f,Cx,Cy+R*0.6f);
+    break;
+   default: // Four-point talisman for the grimoire and rare equipment.
+    Stroke(Cx,Cy-R,Cx+R*0.38f,Cy);
+    Stroke(Cx+R*0.38f,Cy,Cx,Cy+R);
+    Stroke(Cx,Cy+R,Cx-R*0.38f,Cy);
+    Stroke(Cx-R*0.38f,Cy,Cx,Cy-R);
+    Stroke(Cx-R,Cy,Cx+R,Cy);
+    break;
+  }
  };
  // High-contrast rail marks the focused choice independently of text color.
  const auto DrawSelectionRail = [this](float L,float T,float H) {
