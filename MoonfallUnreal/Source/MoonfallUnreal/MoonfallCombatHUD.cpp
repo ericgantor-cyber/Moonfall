@@ -916,6 +916,8 @@ void AMoonfallCombatHUD::DrawHUD()
     for (int32 Row=0; Row<UE_ARRAY_COUNT(RaceLines); ++Row) {
       const bool bSection = Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12;
       const float RowY = StartY+Row*RaceRowHeight;
+      // Small windows must not paint over the footer or escape the panel.
+      if (RowY+RaceRowHeight > Top+PanelHeight-65.f) break;
       DrawRect(bSection ? FLinearColor(0.19f,0.15f,0.10f,0.96f)
         : FLinearColor(0.08f,0.11f,0.15f,0.76f),
         Left+15.f,RowY-2.f,PanelWidth-30.f,FMath::Max(7.f,RaceRowHeight-1.f));
@@ -966,7 +968,7 @@ void AMoonfallCombatHUD::DrawHUD()
         ? FString::Printf(TEXT("Power %d  |  %s  |  %s"),
           Hero->GetItemPower(Codes[Slot]),TraitNames[Trait],
           Hero->HasLegendaryPerk(Slot) ? TEXT("LEGENDARY PERK ACTIVE") : TEXT("PERK LOCKED"))
-        : TEXT("Find equipment in the world and equip it from Inventory."),
+        : FString(TEXT("Find gear in the world; equip it in Inventory.")),
         FLinearColor(0.81f,0.86f,0.94f),Left+28.f,Y+32.f,nullptr,
         PanelWidth<480.f?0.53f:0.75f);
      }
@@ -1068,6 +1070,7 @@ void AMoonfallCombatHUD::DrawHUD()
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row) {
     const bool bSection = Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16;
     const float RowY = StartY + Row * RowHeight;
+    if (RowY+RowHeight > Top+PanelHeight-65.f) break;
     DrawRect(bSection
        ? FLinearColor(0.19f,0.15f,0.10f,0.96f)
        : (Row % 2 == 0
