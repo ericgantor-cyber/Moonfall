@@ -159,5 +159,12 @@ int main(){long n=0;
   }
  }
  assert(!ValidCompanionProfile(0xffffffffu));++n;
+ for(int current=-100;current<=100;++current)for(int victories=-1;victories<=31;++victories)
+ for(bool contract:{false,true})for(int reputation:{-100,-1,0,100}){
+  const int target=victories>=5?100:victories>=3?80:60;
+  const int expected=current<0||!contract||reputation<0||victories<1||victories>30?current:(current<target?target:current);
+  assert(ScoutDeedTrust(current,victories,contract,reputation)==expected);
+  assert(ScoutDeedTrust(expected,victories,contract,reputation)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
