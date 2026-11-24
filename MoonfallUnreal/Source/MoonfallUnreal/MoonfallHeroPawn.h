@@ -238,6 +238,9 @@ public:
  // Transient C-page state. The selection and all racial bonuses remain
  // owned by the canonical hero race, not by a second character UI catalog.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
+ // Three read-only character pages. Transient controls never modify save schema.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") bool bCharacterGearPageOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void SelectCharacterPage(int32 Page);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void ToggleCharacterRacePage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
