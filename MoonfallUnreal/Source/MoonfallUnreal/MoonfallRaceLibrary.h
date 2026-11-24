@@ -77,6 +77,12 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetPlayableRaceIds();
 
+ // Explicit, fail-closed bridge between world-race creator names and the
+ // twelve persistent hero ancestry IDs (0..11). Variants are named aliases,
+ // not independent passives or new saved IDs. NPC-only races always fail.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races|Gameplay")
+ static bool ResolveHeroAncestryId(FName CreatorRaceId, int32& HeroAncestryId);
+
  // Return complete character-selection metadata in one Blueprint call.
  // This is a catalog lookup, not a player race-selection or save mutation.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
