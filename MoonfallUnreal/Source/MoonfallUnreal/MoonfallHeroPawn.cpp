@@ -1734,6 +1734,15 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::SelectCharacterReputation(int32 FactionIndex)
+{
+ // Selection is strictly read-only and only valid while C -> Reputation is open.
+ if (FactionIndex < 0 || FactionIndex >= 5
+     || !bInventoryOpen || !bCharacterStatsOpen || !bCharacterRepPageOpen
+     || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ CharacterRepSelection = FactionIndex;
+}
+
 void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
 {
  // Read-only navigation. Reject invalid pages and hidden/defeated modals.
@@ -2137,6 +2146,10 @@ void AMoonfallHeroPawn::OptionsUp() {
    SpellBookSelection = FMath::Max(0, SpellBookSelection - 1);
    return;
   }
+  if (bCharacterStatsOpen) {
+   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
+   return; // Never move the hidden bag selection while reading character pages.
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -2170,6 +2183,10 @@ void AMoonfallHeroPawn::OptionsDown() {
    SpellBookSelection = FMath::Min(MoonfallSpellBook::SpellCount - 1, SpellBookSelection + 1);
    return;
   }
+  if (bCharacterStatsOpen) {
+   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -2199,7 +2216,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
 }
 void AMoonfallHeroPawn::OptionsRight() {
  if (bTalentWebOpen) { TalentMove(1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 0 : 1)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterGearPageOpen ? 3 : (bCharacterRepPageOpen ? 0 : 1))); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -4440,6 +4457,24 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
        if (MouseX>=X && MouseX<=X+TabW) {
         SelectCharacterPage(Tab);
         break;
+       }
+      }
+     }
+     // Read-only reputation rows share the HUD's responsive panel geometry.
+     // Tab clicks above have priority; row hits never mutate gameplay reputation.
+     if (bCharacterRepPageOpen) {
+      const float RowTop=PanelT+123.f;
+      const float DetailsReserve=PanelH>=620.f?158.f:0.f;
+      const float RowsBottom=PanelT+PanelH-65.f-DetailsReserve;
+      const float RowHeight=FMath::Clamp((RowsBottom-RowTop)/5.f,18.f,74.f);
+      if (MouseX>=PanelL+15.f && MouseX<=PanelL+PanelW-15.f) {
+       for (int32 Row=0;Row<5;++Row) {
+        const float RowY=RowTop+Row*RowHeight;
+        if (RowY+RowHeight>RowsBottom) break;
+        if (MouseY>=RowY && MouseY<RowY+RowHeight-3.f) {
+         SelectCharacterReputation(Row);
+         break;
+        }
        }
       }
      }
