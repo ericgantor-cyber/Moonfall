@@ -83,6 +83,7 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
+ LocalCompanionRole=EMoonfallCompanionRole::Balanced;
  return true;
 }
 float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source){
@@ -104,7 +105,7 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
        MoonfallLivingSimulation::Phase(Now,360.f))))return 0.f;
  const float Cover=MoonfallWorldPolicy::CompanionCover(Damage,Now-LastCompanionCoverAt,
      FVector::DistSquared(HeroLocation,ScoutLocation),true,
-     MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)));
+     MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole));
  if(Cover<=0.f)return 0.f;
  // The scout must be between the hero and the reported attack direction.
  const FVector ToSource=(Source-HeroLocation).GetSafeNormal2D();
@@ -126,7 +127,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return;
- const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)));
+ const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole));
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
@@ -158,12 +159,24 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EM
  default:return false;
  }
 }
+bool AMoonfallUnrealGameMode::SetLocalCompanionRole(AMoonfallHeroPawn* Hero,EMoonfallCompanionRole Role){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f
+     ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero))return false;
+ const int Rank=MoonfallWorldPolicy::CompanionRank(LocalCompanion->GetBondWithHero(Hero));
+ if(Hero->GetFactionReputation(LocalCompanion->FactionId)<0||Rank<1)return false;
+ switch(Role){
+ case EMoonfallCompanionRole::Balanced:break;
+ case EMoonfallCompanionRole::Protector:case EMoonfallCompanionRole::Striker:if(Rank<2)return false;break;
+ default:return false;
+ }
+ LocalCompanionRole=Role;return true;
+}
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero))return false;
- LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;return true;
+ LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;return true;
 }
 void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
- if(LocalCompanion.Get()==Resident){LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;}
+ if(LocalCompanion.Get()==Resident){LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;}
  LivingResidents.RemoveAll([Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
   return !Ref.IsValid() || Ref.Get()==Resident;
  });
@@ -317,7 +330,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  }
  if(!LocalCompanion.IsValid()||!CompanionOwner.IsValid()
      ||(bHeroReady&&CompanionOwner.Get()!=Hero)){
-  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;
+  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;
  }
  if (!bHeroReady) return;
  // Scan a bounded registry of <=80 weak refs, but run the expensive
