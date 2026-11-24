@@ -8,6 +8,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
+#include "CollisionShape.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallNpcDecisionPolicy.h"
 #include "MoonfallLivingWorldSubsystem.h"
@@ -76,6 +78,46 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  AddActorWorldOffset(Move,true);
  if(!Move.IsNearlyZero())SetActorRotation(FRotator(0.f,Move.Rotation().Yaw,0.f));
  return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance;
+}
+bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
+ if(!HasAuthority()||!IsValid(Hero)||Hero->GetWorld()!=GetWorld()||!GetWorld()||bCompanionDowned
+    ||!Hero->GetCharacterMovement()||!Hero->GetCharacterMovement()->IsMovingOnGround()
+    ||Hero->IsRecentlyInCombatForAmbientAI())return false;
+ const FVector Player=Hero->GetActorLocation();
+ const FVector Forward=Hero->GetActorForwardVector().GetSafeNormal2D();
+ if(Player.ContainsNaN()||Forward.ContainsNaN()||Forward.IsNearlyZero())return false;
+ auto* Nav=FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+ if(!Nav)return false;
+ FVector Origin,Extent;GetActorBounds(true,Origin,Extent);
+ if(Origin.ContainsNaN()||Extent.ContainsNaN()||Extent.X<=0||Extent.Y<=0||Extent.Z<=0||Extent.GetMax()>200)return false;
+ const FVector Offset=Origin-GetActorLocation();
+ const FVector Side(-Forward.Y,Forward.X,0);
+ const FVector Candidates[]={Player-Forward*260.0,Player-Forward*220.0+Side*150.0,Player-Forward*220.0-Side*150.0};
+ FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallFollowerCatchup),false,this);
+ GroundParams.AddIgnoredActor(Hero);
+ FCollisionQueryParams OccupancyParams(SCENE_QUERY_STAT(MoonfallFollowerOccupancy),false,this);
+ FCollisionObjectQueryParams Objects;
+ Objects.AddObjectTypesToQuery(ECC_WorldStatic);Objects.AddObjectTypesToQuery(ECC_WorldDynamic);Objects.AddObjectTypesToQuery(ECC_Pawn);
+ for(const FVector& Candidate:Candidates){
+  FNavLocation Projected;
+  if(!Nav->ProjectPointToNavigation(Candidate,Projected,FVector(100,100,150))||Projected.Location.ContainsNaN()
+     ||FVector::DistSquared2D(Projected.Location,Player)>FMath::Square(400.0)
+     ||FVector::DistSquared2D(Projected.Location,Player)<FMath::Square(150.0))continue;
+  FHitResult Ground;
+  if(!GetWorld()->LineTraceSingleByChannel(Ground,Projected.Location+FVector(0,0,100),
+     Projected.Location-FVector(0,0,100),ECC_Visibility,GroundParams)||Ground.ImpactNormal.Z<0.7
+     ||FMath::Abs(Ground.ImpactPoint.Z-Player.Z)>180.0)continue;
+  const FVector Center=Ground.ImpactPoint+FVector(0,0,Extent.Z+8.0);
+  const FVector Destination=Center-Offset;
+  if(GetWorld()->OverlapAnyTestByObjectType(Center,FQuat::Identity,Objects,
+       FCollisionShape::MakeBox(Extent+FVector(5,5,2)),OccupancyParams))continue;
+  FHitResult Sight;
+  if(GetWorld()->LineTraceSingleByChannel(Sight,Center,Player,ECC_Visibility,GroundParams))continue;
+  if(!TeleportTo(Destination,GetActorRotation(),false,false))continue;
+  bFollowerWaypointValid=false;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
+  return true;
+ }
+ return false;
 }
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
