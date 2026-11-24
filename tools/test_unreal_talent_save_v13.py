@@ -77,7 +77,7 @@ spell_start = hero.index("bool AMoonfallHeroPawn::TryCast(")
 spell_end = hero.index("void AMoonfallHeroPawn::CastLeft()", spell_start)
 spell = hero[spell_start:spell_end]
 melee_start = hero.index("void AMoonfallHeroPawn::MeleeAttack()")
-melee_end = hero.index("Enemy->TakeMeleeDamage(", melee_start)
+melee_end = hero.index("Enemy->TakeMeleeDamage(", melee_start) + len("Enemy->TakeMeleeDamage(")
 melee = hero[melee_start:melee_end]
 assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MagicDamage)" in spell
 assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage)" in melee
