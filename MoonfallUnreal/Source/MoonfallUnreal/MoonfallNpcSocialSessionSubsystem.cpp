@@ -2,7 +2,7 @@
 #include "MoonfallNpcSocialSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "HAL/PlatformTime.h"
-#include "Math/NumericLimits.h"
+#include <limits>
 
 namespace {
 const TCHAR* const SocialSlots[2]={TEXT("MoonfallNpcSocial_A"),TEXT("MoonfallNpcSocial_B")};
@@ -52,7 +52,7 @@ bool UMoonfallNpcSocialSessionSubsystem::Flush(bool bForce){
  const double Time=FPlatformTime::Seconds();
  if(!bForce&&LastSaveAttempt>=0&&Time-LastSaveAttempt<60.0)return false;
  LastSaveAttempt=Time;
- if(Generation>=TNumericLimits<int64>::Max())return false;
+ if(Generation>=std::numeric_limits<int64>::max())return false;
  auto* Save=NewObject<UMoonfallNpcSocialSave>();
  Save->Generation=Generation+1;
  for(const auto& Pair:Relationships)for(const auto& R:Pair.Value){
