@@ -427,7 +427,7 @@ int main(){
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         self.assertIn("CompanionRank(Scout->GetBondWithHero(Hero))",mode)
-        self.assertIn("CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank",mode)
+        self.assertIn("CompanionStrikeDamage(Rank,Role)",mode)
         self.assertIn("TryCompanionSupportStrike(StrikeDamage)",mode)
         self.assertIn("CompanionRank(Resident->GetBondWithHero(Hero))",hud)
         self.assertIn("Bond rank %d / 3",hud)
@@ -447,6 +447,27 @@ int main(){
         self.assertIn('TEXT("Balanced | Switch to Protector")',hud)
         self.assertIn('TEXT("Protector | Switch to Striker")',hud)
         self.assertIn('TEXT("Striker | Switch to Balanced")',hud)
+
+    def test_v27_veteran_perks_are_earned_and_preserve_posture_authority(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        self.assertIn("if(rank!=3)return CompanionPerk::None;",policy)
+        for perk in ("Fieldcraft","ShieldExpert","Precision"):
+            self.assertIn("CompanionPerk::"+perk,policy)
+            self.assertIn("CompanionPerk::"+perk,hud)
+        self.assertIn("elapsed<CompanionCoverCooldown(rank,role)",policy)
+        self.assertIn("Range=CompanionCoverRange(rank,role)",policy)
+        self.assertIn("Range=CompanionStrikeRange(rank,role)",policy)
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        self.assertIn("CompanionExtraPosture(Rank,Role)",strike)
+        self.assertLess(strike.index("if(!Enemy->TryCompanionSupportStrike(StrikeDamage))return;"),
+                        strike.index("Enemy->ApplyPostureDamage(ExtraPosture)"))
+        self.assertIn("!Enemy->bPostureFinisherAvailable&&Now>=Enemy->PostureBrokenUntil",strike)
+        self.assertIn("Enemy->Health>0.f",strike)
+        self.assertIn("!Enemy->bBoss&&!Enemy->bElite",strike)
+        self.assertIn("CompanionRank==3",hud)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
