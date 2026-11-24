@@ -245,5 +245,60 @@ int main() {
         self.assertIn("inline int Hit(", book)
 
 
+    def test_inventory_mutations_reject_nonfinite_health(self):
+        # A corrupted Blueprint health value (NaN or infinity) must not
+        # bypass the alive-player guard and mutate inventory or salvage.
+        hero = HERO.read_text()
+        signatures = (
+            ("bool", "SalvageInventoryItem"),
+            ("bool", "UpgradeInventoryItem"),
+            ("bool", "ReforgeInventoryItemAffix"),
+            ("bool", "AscendInventoryItemRarity"),
+            ("int32", "ForgeInventoryItemLevels"),
+            ("bool", "EquipInventoryItem"),
+        )
+        for return_type, method in signatures:
+            with self.subTest(method=method):
+                start = f"{return_type} AMoonfallHeroPawn::{method}("
+                body = hero.split(start, 1)[1].split("\n}", 1)[0]
+                before_item_access = body.split("InventoryItemCodes[InventoryIndex]", 1)[0]
+                self.assertIn("Health <= 0.f", before_item_access)
+                self.assertIn("!FMath::IsFinite(Health)", before_item_access)
+
+    def test_direct_equip_and_batch_forge_refuse_non_bag_pages(self):
+        hero = HERO.read_text()
+        for signature, end in (
+            ("bool AMoonfallHeroPawn::EquipInventoryItem(", "namespace {"),
+            ("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(",
+             "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()"),
+        ):
+            with self.subTest(signature=signature):
+                body = hero.split(signature, 1)[1].split(end, 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen", body)
+                self.assertLess(body.index("bSpellBookOpen"),
+                                body.index("InventoryItemCodes.IsValidIndex"))
+
+    def test_direct_salvage_enforces_modal_ownership(self):
+        hero = HERO.read_text()
+        salvage = hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(", 1)[1].split(
+            "bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", salvage)
+        self.assertIn("|| bAtlasOpen || bResidentContextOpen || Health <= 0.f", salvage)
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("InventoryItemCodes.RemoveAt"))
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("Salvage ="))
+
+    def test_crafting_mutations_reject_other_inventory_pages(self):
+        # Direct C++/Blueprint callers must obey the same modal safety rules
+        # as input wrappers, without spending salvage while another page owns UI.
+        hero = HERO.read_text()
+        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity"):
+            with self.subTest(method=method):
+                body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
+                self.assertLess(body.index("bSpellBookOpen"), body.index("InventoryItemCodes[InventoryIndex]"))
+
 if __name__ == "__main__":
     unittest.main()

@@ -1153,7 +1153,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void OnEquipmentReforged(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(", 1)[1].split(
             "bool AMoonfallHeroPawn::AscendInventoryItemRarity(", 1)[0]
-        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+        self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
         self.assertIn("Rarity < 2 || Rarity > 5", body)
         self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
@@ -1201,7 +1202,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::AscendInventoryItemRarity(", 1)[1].split(
             "int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[0]
-        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+        self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
         self.assertIn("Rarity < 0 || Rarity >= 5", body)
         self.assertIn("Tier < 1 || Tier > 25", body)
@@ -1248,7 +1250,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void ForgeFiveSelectedInventoryItem();', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split(
             "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()", 1)[0]
-        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+        self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
         self.assertIn("FMath::Clamp(MaxLevels, 0, 5)", body)
         self.assertIn("if (!UpgradeInventoryItem(InventoryIndex)) break;", body)
@@ -1269,7 +1272,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void UpgradeSelectedInventoryItem();', self.hero_h)
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()", 1)[0]
-        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+        self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
         self.assertIn("const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode", body)
         self.assertIn("(Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);", body)
