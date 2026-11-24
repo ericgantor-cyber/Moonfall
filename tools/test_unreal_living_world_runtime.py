@@ -176,6 +176,29 @@ int main(){
         self.assertNotIn("TActorIterator",movement)
         self.assertNotIn("SetTimer",movement)
 
+    def test_v27_bounded_social_rumors(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        helper=mode.split("void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(",1)[1].split(
+            "void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[0]
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("SocialCandidates.Reserve(MoonfallLivingSimulation::ResidentBudget)",pulse)
+        self.assertIn("!bCombatNearby && !Hero->bResidentContextOpen",pulse)
+        self.assertIn("HeroLocation,false,180.f",pulse)
+        self.assertIn("CombatPhase%1024",pulse)
+        self.assertIn("Other->SettlementId!=Speaker->SettlementId",helper)
+        self.assertEqual(helper.count("LineTraceSingleByChannel("),1)
+        self.assertNotIn("TActorIterator",helper)
+        self.assertNotIn("SetTimer",helper)
+        self.assertIn("Society->ShareUsefulRumor",helper)
+        share=subsystem.split("bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(",1)[0]
+        self.assertIn("Attitude<=-20",share)
+        self.assertIn("R.bCrime||R.ExpiresAt<=Time",share)
+        self.assertIn("Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence",share)
+        self.assertIn("RelayRumor(Speaker,Listener,BestId)",share)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
