@@ -87,6 +87,20 @@ void AMoonfallCombatHUD::DrawHUD()
      FVector2D(L+W-25.f,LowerY+5.f),1.f,Foil);
    Canvas->K2_DrawLine(FVector2D(L+W-25.f,LowerY+5.f),
      FVector2D(L+W-30.f,LowerY),1.f,Foil);
+   // Forged relief: opposing side motifs and a second inset border, all
+   // confined to the decorative margins so labels stay unobstructed.
+   const FLinearColor Etch(0.38f,0.42f,0.52f,0.54f);
+   DrawRect(Etch,L+5.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
+   DrawRect(Etch,L+W-6.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
+   const float MidY=T+H*0.5f;
+   Canvas->K2_DrawLine(FVector2D(L+3.f,MidY-13.f),
+     FVector2D(L+10.f,MidY),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+10.f,MidY),
+     FVector2D(L+3.f,MidY+13.f),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+W-3.f,MidY-13.f),
+     FVector2D(L+W-10.f,MidY),1.f,Foil);
+   Canvas->K2_DrawLine(FVector2D(L+W-10.f,MidY),
+     FVector2D(L+W-3.f,MidY+13.f),1.f,Foil);
   }
  };
  // Original vector sigil language: etched eclipse, ward, crown and compass.
