@@ -83,6 +83,7 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
  if(ReturningCompanion.Get()==Resident)ReturningCompanion.Reset();
+ Resident->bFollowerWaypointValid=false;Resident->NextFollowerPathAt=-1.f;
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
  bFollowerMoveOrdered=false;
  GetWorldTimerManager().SetTimer(FollowerPulseTimer,this,&AMoonfallUnrealGameMode::PulseFollower,0.2f,true);
@@ -174,7 +175,8 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EM
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
  switch(Stance){
  case EMoonfallCompanionStance::Follow:case EMoonfallCompanionStance::Hold:case EMoonfallCompanionStance::Passive:
-  LocalCompanionStance=Stance;bFollowerMoveOrdered=false;return true;
+  LocalCompanionStance=Stance;bFollowerMoveOrdered=false;
+  LocalCompanion->bFollowerWaypointValid=false;LocalCompanion->NextFollowerPathAt=-1.f;return true;
  default:return false;
  }
 }
@@ -215,6 +217,7 @@ bool AMoonfallUnrealGameMode::OrderCompanionMove(AMoonfallHeroPawn* Hero,FVector
     ||Hero->Health<=0.f||Destination.ContainsNaN()||Hero->GetActorLocation().ContainsNaN()
     ||FVector::DistSquared(Destination,Hero->GetActorLocation())>FMath::Square(1000.0))return false;
  OrderedFollowerDestination=Destination;bFollowerMoveOrdered=true;
+ LocalCompanion->bFollowerWaypointValid=false;LocalCompanion->NextFollowerPathAt=-1.f;
  LocalCompanionStance=EMoonfallCompanionStance::Hold;return true;
 }
 bool AMoonfallUnrealGameMode::ReviveLocalCompanion(AMoonfallHeroPawn* Hero){
@@ -253,9 +256,10 @@ void AMoonfallUnrealGameMode::PulseFollower(){
  }else Scout->LivingIntent=LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Holding Position"):TEXT("Passive");
 }
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
- if(!IsLocalCompanionOwner(Hero))return false;
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||LocalCompanion->bCompanionDowned)return false;
  if(ReturningCompanion.IsValid()&&ReturningCompanion.Get()!=LocalCompanion.Get())return false;
  ReturningCompanion=LocalCompanion;bFollowerMoveOrdered=false;
+ ReturningCompanion->bFollowerWaypointValid=false;ReturningCompanion->NextFollowerPathAt=-1.f;
  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;return true;
 }
 void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
