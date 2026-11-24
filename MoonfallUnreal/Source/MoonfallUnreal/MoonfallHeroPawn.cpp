@@ -3444,6 +3444,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
   if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
  }
+ if(CompanionGear.Num()>15)return false;
+ for(const auto& Entry:CompanionGear){
+  if(!IsNamedMoonfallResident(Entry.Key))return false;
+  for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
+   if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot))return false;
+  }
+ }
  if(CompanionProfiles.Num()>15)return false;
  for(const auto& Entry:CompanionProfiles)
   if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
@@ -3496,6 +3503,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
  Save->CompanionProfiles = CompanionProfiles;
+ Save->CompanionGear = CompanionGear;
  Save->ResidentQuestStates = ResidentQuestStates;
  Save->bRaceChosen = bRaceChosen;
  const float Cooldown = GetRacePowerCooldownRemaining();
@@ -3520,12 +3528,22 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 14) {
+ if (!Save || Save->Version < 1 || Save->Version > 15) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // V15 validates owned companion gear before loading character state.
+ if(Save->Version>=15){
+  if(Save->CompanionGear.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  for(const auto& Entry:Save->CompanionGear){
+   if(!IsNamedMoonfallResident(Entry.Key)){bPersistentSaveWritesBlocked=true;return false;}
+   for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
+    if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot)){bPersistentSaveWritesBlocked=true;return false;}
+   }
+  }
  }
  // V14 companion profiles are validated before any gameplay mutation.
  if(Save->Version>=14){
@@ -3806,6 +3824,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
  }
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
+ CompanionGear.Reset();
+ if(Save->Version>=15)CompanionGear=Save->CompanionGear;
  CompanionProfiles.Reset();
  if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;
  ResidentBonds.Reset();
@@ -4671,6 +4691,53 @@ bool AMoonfallHeroPawn::ReportScoutDeeds(AMoonfallWorldNPC* Resident){
  const int Target=MoonfallWorldPolicy::ScoutDeedTrust(Current,GetTotalDefeatedDungeonBosses(),
       GetResidentQuestState(Resident->ResidentId)==2,GetFactionReputation(Resident->FactionId));
  return Target>Current&&ChangeResidentBond(Resident->ResidentId,Target-Current);
+}
+int32 AMoonfallHeroPawn::GetCompanionGearCode(FName ResidentId,int32 Slot) const{
+ if(!IsNamedMoonfallResident(ResidentId)||Slot<0||Slot>2)return 0;
+ const auto* Gear=CompanionGear.Find(ResidentId);
+ const int32 Code=Gear?Gear->Get(Slot):0;
+ return ValidMoonfallItemCode(Code)&&(Code/10000)%10==Slot?Code:0;
+}
+int32 AMoonfallHeroPawn::GetCompanionGearTier(FName ResidentId,int32 Slot) const{
+ return GetCompanionGearCode(ResidentId,Slot)%1000;
+}
+bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn){
+ if(!HasAuthority()||!IsValid(Resident)||Resident->GetWorld()!=GetWorld()
+    ||!Resident->CanHeroInteract(this)||IsRecentlyInCombatForAmbientAI()
+    ||Slot<0||Slot>2||!IsNamedMoonfallResident(Resident->ResidentId))return false;
+ const auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+ if(!Mode||Mode->GetLocalCompanion()!=Resident)return false;
+ const FName Id=Resident->ResidentId;
+ const auto* Prior=CompanionGear.Find(Id);
+ const FMoonfallCompanionGearRecord Previous=Prior?*Prior:FMoonfallCompanionGearRecord{};
+ const int32 Old=Previous.Get(Slot);
+ const int32 Worn[]={EquippedWeaponCode,EquippedArmorCode,EquippedAccessoryCode};
+ int32 Index=INDEX_NONE,BestScore=-1;
+ if(!bReturn){
+  for(int32 I=0;I<InventoryItemCodes.Num();++I){
+   const int32 Code=InventoryItemCodes[I];
+   if(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot||Code==Worn[Slot])continue;
+   const int32 Score=(Code%1000)*10+(Code/1000)%10;
+   if(Score>BestScore){Index=I;BestScore=Score;}
+  }
+  if(Index==INDEX_NONE)return false;
+ }else if(Old==0||InventoryItemCodes.Num()>=10000)return false;
+ const TArray<int32> PreviousBag=InventoryItemCodes;
+ FMoonfallCompanionGearRecord Next=Previous;
+ const int32 NewCode=bReturn?0:InventoryItemCodes[Index];
+ if(Index!=INDEX_NONE)InventoryItemCodes.RemoveAt(Index);
+ if(Old!=0)InventoryItemCodes.Add(Old);
+ Next.Set(Slot,NewCode);
+ if(Next.Weapon==0&&Next.Armor==0&&Next.Accessory==0)CompanionGear.Remove(Id);
+ else CompanionGear.Add(Id,Next);
+ if(!SaveWorldProgress()){
+  InventoryItemCodes=PreviousBag;
+  if(Previous.Weapon==0&&Previous.Armor==0&&Previous.Accessory==0)CompanionGear.Remove(Id);
+  else CompanionGear.Add(Id,Previous);
+  return false;
+ }
+ InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ return true;
 }
 uint32 AMoonfallHeroPawn::GetCompanionProfile(FName ResidentId) const {
  if(!IsNamedMoonfallResident(ResidentId))return 0;
