@@ -110,6 +110,10 @@ jobs:
         shell: bash
         run: python3 tools/test_unreal_talent_catalog_parity.py
 
+      - name: Validate UE5 V13 talent save, load and rollback contracts
+        shell: bash
+        run: python3 tools/test_unreal_talent_save_v13.py
+
       - name: Verify WASD and arrow keys are movement-only across engines
         shell: bash
         run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
