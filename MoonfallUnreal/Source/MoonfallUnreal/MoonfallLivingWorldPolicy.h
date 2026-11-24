@@ -22,6 +22,13 @@ inline Mood ResolveMood(int bond,int reputation,bool danger,bool credibleReport,
  if(bond>=15||reputation>=15)return Mood::Warm;
  return Mood::Calm;
 }
+// Local scout assistance is not recruitment, combat assistance or long-range following.
+inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,double heroDistanceSquared,
+                          bool safe,bool enabled){
+ return enabled&&safe&&bond>=60&&reputation>=0&&std::isfinite(homeDistanceSquared)
+  &&std::isfinite(heroDistanceSquared)&&homeDistanceSquared>=0&&homeDistanceSquared<=450.0*450.0
+  &&heroDistanceSquared>240.0*240.0&&heroDistanceSquared<=600.0*600.0;
+}
 // Select only existing authored watch points. Reports never authorize pursuit.
 enum class WatchPoint { Unchanged, West, East, North, South };
 inline WatchPoint GuardWatchPoint(double dx,double dy,int confidence,bool available){
