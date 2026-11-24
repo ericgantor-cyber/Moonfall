@@ -193,6 +193,12 @@ void AMoonfallCombatHUD::DrawHUD()
       !Resident->GetActorLocation().ContainsNaN() &&
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
+   if (!Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)) {
+    DrawText(TEXT("NPC | Enlarge window | ESC / RMB: close"),
+      FLinearColor(1.f,0.87f,0.70f),12.f,14.f,nullptr,0.72f);
+    DrawLiveMenuHitCue();
+    return;
+   }
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
    const float H = Hero->GetResidentContextPanelHeight(Canvas->SizeY);
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
