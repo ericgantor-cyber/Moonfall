@@ -30,6 +30,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RelayRumor(FName Speaker, FName Listener, FName RumorId);
  // Shares one useful non-crime observation; guard reports require the explicit witness API.
  bool ShareUsefulRumor(FName Speaker, FName Listener);
+ // Only recent, indirect reports from the internal combat event namespace.
+ bool GetNearbyCombatReport(FName Npc, const FVector& Location, FMoonfallWorldRumor& Report) const;
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") bool GetRumor(FName Npc, FName RumorId, FMoonfallWorldRumor& Rumor) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ReportWitnessToGuard(FName Witness, FName Guard, FName RumorId);
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RegisterEncounter(FName Encounter, bool bRepeatable=false, float CooldownSeconds=300.f);
