@@ -47,6 +47,13 @@ inline bool ValidCompanionTraining(unsigned mask){
  }
  return CompanionPointsSpent(mask)<=6;
 }
+constexpr unsigned CompanionTrainingMask=(1u<<18)-1u;
+inline bool ValidCompanionProfile(unsigned profile){
+ return (profile>>18)<=2u&&ValidCompanionTraining(profile&CompanionTrainingMask);
+}
+inline unsigned PackCompanionProfile(unsigned training,int role){
+ return ValidCompanionTraining(training)&&role>=0&&role<=2?training|(unsigned(role)<<18):0u;
+}
 inline bool CanTrainCompanion(unsigned mask,int rank,int role,int node){
  if(!ValidCompanionTraining(mask)||rank<1||rank>3||role<0||role>2||node<0||node>=CompanionNodeCount
      ||node/3!=role||(role>0&&rank<2)||CompanionPointsSpent(mask)>=CompanionPointBudget(rank)
