@@ -162,23 +162,27 @@ int main() {
         self.assertIn("SwordBuffer.Clear();", close)
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
 
-    def test_enemy_cancels_attack_tells_during_focused_npc_interaction(self):
+    def test_enemy_attacks_continue_during_dialogue_but_stop_on_defeat(self):
         enemy=ENEMY.read_text(encoding="utf-8")
         tick=enemy.split("void AMoonfallEnemy::Tick(float DeltaSeconds)",1)[1]
-        modal=tick.split("// A corrupt nonfinite windup",1)[0]
-        for required in ("Hero->bOptionsOpen", "Hero->bInventoryOpen",
-                         "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen",
-                         "Hero->bResidentContextOpen",
-                         "Hero->FocusedResident.IsValid()"):
-            self.assertIn(required,modal)
+        guard=tick.split("// The hostile world stays live while any player menu is open:",1)[1].split(
+            "// A corrupt nonfinite windup",1)[0]
+        for forbidden in ("Hero->bOptionsOpen", "Hero->bInventoryOpen",
+                          "Hero->bAtlasOpen", "Hero->bCharacterStatsOpen",
+                          "Hero->bResidentContextOpen",
+                          "Hero->FocusedResident.IsValid()",
+                          "Hero->bTalentWebOpen"):
+            self.assertNotIn(forbidden,guard)
+        self.assertIn("!Hero->IsPlayerControlled()",guard)
+        self.assertIn("Hero->Health <= 0.f",guard)
         for reset in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
                       "BossWarningEndTime = -1.f;",
                       "bComboSecondHitPending = false;",
                       "bComboSecondHitActive = false;",
                       "LockedAttackDirection = FVector::ZeroVector;"):
-            self.assertIn(reset,modal)
-        self.assertLess(modal.index("Hero->FocusedResident.IsValid()"),
-                        modal.index("CancelDivineSignature();"))
+            self.assertIn(reset,guard)
+        self.assertLess(guard.index("Hero->Health <= 0.f"),
+                        guard.index("CancelDivineSignature();"))
 
 
 if __name__ == "__main__":
