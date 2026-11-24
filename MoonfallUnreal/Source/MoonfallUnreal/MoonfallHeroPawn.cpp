@@ -2175,8 +2175,7 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = false;
-  bCharacterGearPageOpen = false; return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterGearPageOpen ? 1 : 2)); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
