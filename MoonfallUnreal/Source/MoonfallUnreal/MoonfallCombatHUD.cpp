@@ -1859,7 +1859,7 @@ void AMoonfallCombatHUD::DrawHUD()
  // Keep the companion readout away from the player's resource orb.
  if (!bCompactScreen) {
   const auto* CompanionMode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
-  const auto* Scout=CompanionMode?CompanionMode->GetLocalCompanion():nullptr;
+  const auto* Scout=CompanionMode?CompanionMode->GetLocalCompanionForHero(Hero):nullptr;
   if (IsValid(Scout) && !Scout->IsActorBeingDestroyed()
       && Scout->ResidentId==Hero->GetCompanionParty().ResidentId
       && FMath::IsFinite(Scout->CompanionHealth)) {
