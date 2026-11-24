@@ -97,6 +97,8 @@ private:
  TWeakObjectPtr<AMoonfallWorldNPC> ReturningCompanion;
  FVector OrderedFollowerDestination=FVector::ZeroVector;
  bool bFollowerMoveOrdered=false;
+ float FollowerSeparatedAt=-1.f;
+ float NextFollowerCatchupAt=-1.f;
  bool bLivingResidentCacheInitialized = false;
  TWeakObjectPtr<AMoonfallArena> LivingArena;
  TArray<TWeakObjectPtr<AMoonfallWorldNPC>> LivingResidents;
