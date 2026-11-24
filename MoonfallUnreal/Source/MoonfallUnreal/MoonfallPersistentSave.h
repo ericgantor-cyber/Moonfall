@@ -21,6 +21,15 @@ struct FMoonfallCompanionGearRecord {
  int32 Get(int32 Slot) const {return Slot==0?Weapon:Slot==1?Armor:Slot==2?Accessory:0;}
  void Set(int32 Slot,int32 Code){if(Slot==0)Weapon=Code;else if(Slot==1)Armor=Code;else if(Slot==2)Accessory=Code;}
 };
+USTRUCT()
+struct FMoonfallCompanionPartyRecord {
+ GENERATED_BODY()
+ UPROPERTY() FName ResidentId=NAME_None;
+ UPROPERTY() int32 Stance=2;
+ UPROPERTY() float Health=100.f;
+ // Global cooldown remains even when the follower is dismissed.
+ UPROPERTY() int64 AbilityReadyUtc=0;
+};
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
@@ -28,7 +37,9 @@ public:
  // V13: persistent classless talent ranks. Older V1-V12 saves load with zero ranks.
  // V14: companion profiles keyed by stable resident ID; old saves default to none.
  // V15 adds companion equipment owned separately from the hero's bag.
- UPROPERTY() int32 Version = 15;
+ // V16 restores the recruited follower by stable resident ID, never by actor pointer.
+ UPROPERTY() int32 Version = 16;
+ UPROPERTY() FMoonfallCompanionPartyRecord CompanionParty;
  UPROPERTY() TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  UPROPERTY() TMap<FName,int32> CompanionProfiles;
  // Exactly 141 ranks; validated against level, budgets and prerequisites before load.
