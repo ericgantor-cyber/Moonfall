@@ -217,11 +217,11 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   FString Names[4] = { TEXT("Talk"),
+   FString Names[5] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close"), TEXT("Companion") };
+     TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
    if(Hero->bResidentCompanionMenu){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     const bool bRecruited=Mode&&Mode->GetLocalCompanion()==Resident;
@@ -230,9 +230,22 @@ void AMoonfallCombatHUD::DrawHUD()
       Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
     Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("No companion recruited");
     Names[2]=TEXT("Back");
+    Names[4]=TEXT("Companion talents");
     Names[3]=!bRecruited?TEXT("Specialization"):
       Mode->LocalCompanionRole==EMoonfallCompanionRole::Balanced?TEXT("Balanced | Switch to Protector"):
       Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Protector | Switch to Striker"):TEXT("Striker | Switch to Balanced");
+    if(Hero->bResidentCompanionTalents){
+     const int Rank=MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero));
+     const int Active=bRecruited?MoonfallWorldPolicy::EffectiveCompanionRole(Rank,static_cast<int>(Mode->LocalCompanionRole)):-1;
+     static const TCHAR* Paths[]={TEXT("Balanced"),TEXT("Protector"),TEXT("Striker")};
+     static const TCHAR* Perks[]={TEXT("Fieldcraft"),TEXT("Shield Expert"),TEXT("Precision")};
+     for(int32 Path=0;Path<3;++Path){
+      const bool bUnlocked=bRecruited&&Rank>=(Path==0?1:2);
+      Names[Path]=FString::Printf(TEXT("%s%s | %s"),Active==Path?TEXT("* "):TEXT(""),Paths[Path],
+       !bUnlocked?(Path==0?TEXT("60 trust"):TEXT("80 trust")):Rank==3?Perks[Path]:TEXT("Perk at 100 trust"));
+     }
+     Names[3]=TEXT("Back");
+    }
    }
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
@@ -259,10 +272,10 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FString::Printf(TEXT("Bond rank %d / 3 | %s"),CompanionRank,
          CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
-   FString DisplayContext=ContextStatus;
+   FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
    if(Hero->bResidentCompanionMenu){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
-    if(Mode&&Mode->GetLocalCompanion()==Resident&&CompanionRank==3){
+    if(!Hero->bResidentCompanionTalents&&Mode&&Mode->GetLocalCompanion()==Resident&&CompanionRank==3){
      using MoonfallWorldPolicy::CompanionPerk;
      switch(MoonfallWorldPolicy::VeteranPerk(CompanionRank,static_cast<int>(Mode->LocalCompanionRole))){
       case CompanionPerk::Fieldcraft: DisplayContext+=TEXT(" | Fieldcraft");break;
@@ -274,7 +287,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=(Hero->GetResidentContextRowCount()==4?390.f:337.f)) DrawText(Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -283,7 +296,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   if(H>=(Hero->GetResidentContextRowCount()==4?390.f:337.f)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    DrawLiveMenuHitCue();
