@@ -52,6 +52,8 @@ public:
  bool DismissLocalCompanion(AMoonfallHeroPawn* Hero);
  UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
  AMoonfallWorldNPC* GetLocalCompanion() const;
+ // Internal hit-time support; does not attack enemies or grant immunity.
+ float ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
@@ -72,6 +74,7 @@ private:
  // Reuse the existing resident pulse; no additional timer or actor scan.
  TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion;
  TWeakObjectPtr<AMoonfallHeroPawn> CompanionOwner;
+ float LastCompanionCoverAt=-1000.f;
  bool IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const;
  int32 SocialSpeakerCursor = 0;
  int32 LastSocialCombatPhase = -1;
