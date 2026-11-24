@@ -62,4 +62,23 @@ jobs:
           if ($batch.Count -ne 10) { throw ('Expected at most 10 reports per cycle, got ' + $batch.Count) }
           $remaining = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -BuildLogRoot $buildLogs -DryRun )
           if ($remaining.Count -ne 2) { throw 'Stale logs should not appear in receipts' }
+          # Simulate GitHub refusing a dispatch, then accepting it, then a duplicate scan.
+          $retryRoot = Join-Path $env:RUNNER_TEMP 'retry-project'
+          $retryLogs = Join-Path $retryRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $retryLogs | Out-Null
+          $retryLog = Join-Path $retryLogs 'retry.log'
+          Set-Content -LiteralPath $retryLog -Value 'BUILD SUCCEEDED'
+          (Get-Item $retryLog).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $retryCache = Join-Path $env:RUNNER_TEMP 'retry-cache'
+          $fakeGh = Join-Path $env:RUNNER_TEMP 'fake-gh.cmd'
+          Set-Content -LiteralPath $fakeGh -Value @('@echo off','if "%MOONFALL_FAKE_GH_FAIL%"=="1" exit /b 1','exit /b 0')
+          $env:MOONFALL_FAKE_GH_FAIL = '1'
+          $failResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh 3>$null )
+          if ($failResult.Count -ne 0) { throw 'Failed upload must not claim success' }
+          $env:MOONFALL_FAKE_GH_FAIL = '0'
+          $okResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh )
+          if ($okResult.Count -ne 1 -or $okResult[0] -notmatch 'Sent Moonfall passed') { throw 'Failed upload was not retried' }
+          $duplicateResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh )
+          if ($duplicateResult.Count -ne 0) { throw 'Successful upload was duplicated' }
+          Remove-Item Env:MOONFALL_FAKE_GH_FAIL -ErrorAction SilentlyContinue
           Write-Output 'Local uploader syntax and redacted dry run passed.'
