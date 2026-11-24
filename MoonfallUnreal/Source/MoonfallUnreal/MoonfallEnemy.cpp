@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallPracticeAI.h"
@@ -1389,6 +1390,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
    }
    WindupEndsAt = Now + CurrentWindup;
+   // A real visible attack commitment is a defensive assist opportunity,
+   // even before the player lands their first strike. Practice foes excluded.
+   if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero)
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+     Mode->ReportCompanionThreat(Hero,this,Now);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
    if (bRegionalBoss) {
     // Stable readable move labels published only at warning startup.
