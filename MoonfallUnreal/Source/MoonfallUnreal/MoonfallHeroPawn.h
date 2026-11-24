@@ -95,6 +95,10 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  uint32 GetCompanionProfile(FName ResidentId) const;
+ const FMoonfallCompanionPartyRecord& GetCompanionParty() const {return CompanionParty;}
+ bool IsCompanionPartyRestoreReady() const {return bWorldProgressInitialized&&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked;}
+ bool CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next);
+ void UpdateCompanionVitals(FName ResidentId,float NewHealth,int64 AbilityReadyUtc);
  int32 GetCompanionGearCode(FName ResidentId,int32 Slot) const;
  int32 GetCompanionGearTier(FName ResidentId,int32 Slot) const;
  bool TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn);
@@ -475,6 +479,7 @@ private:
  MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
+ FMoonfallCompanionPartyRecord CompanionParty;
  TMap<FName,int32> CompanionProfiles;
  TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
