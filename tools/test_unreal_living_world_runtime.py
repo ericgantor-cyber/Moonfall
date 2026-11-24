@@ -217,7 +217,10 @@ int main(){
                      "ActiveAmbientExpiresAt=-1.f;"):
             self.assertIn(name,pulse)
         self.assertLess(pulse.index("ShouldRetireAmbient("),pulse.index("if (Now<NextAmbientEncounterAt) return;"))
-        self.assertLess(pulse.index("Active->Destroy();"),pulse.index("ActiveAmbientEncounter.Reset();"))
+        retire_branch=pulse.split("if (MoonfallLivingSimulation::ShouldRetireAmbient(",1)[1].split(
+            "ActiveAmbientExpiresAt=-1.f;",1)[0]
+        self.assertLess(retire_branch.index("Active->Destroy();"),
+                        retire_branch.index("ActiveAmbientEncounter.Reset();"))
         self.assertIn("float ActiveAmbientExpiresAt = -1.f;",header)
         self.assertIn("!conversationActive&&!monsterBattleActive",policy)
         self.assertIn("Spawned->SetLifeSpan(0.f);",pulse)
