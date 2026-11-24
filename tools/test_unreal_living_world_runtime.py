@@ -704,6 +704,28 @@ int main(){
         self.assertIn("SyncCompanionVitals(Hero);",mode)
         self.assertIn("if(!Hero->CommitCompanionParty(Next))return false;",mode)
 
+    def test_v27_follower_catchup_requires_safe_ground_and_sustained_separation(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        social=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        recovery=npc.split("bool AMoonfallWorldNPC::TrySafeFollowerCatchup(",1)[1].split(
+            "void AMoonfallWorldNPC::WitnessNearbyDanger(",1)[0]
+        for guard in ("HasAuthority()","bCompanionDowned","IsMovingOnGround()",
+                      "IsRecentlyInCombatForAmbientAI()","ProjectPointToNavigation",
+                      "Ground.ImpactNormal.Z<0.7","OverlapAnyTestByObjectType",
+                      "LineTraceSingleByChannel(Sight","TeleportTo(Destination",
+                      "bFollowerWaypointValid=false"):
+            self.assertIn(guard,recovery)
+        self.assertLess(recovery.index("OverlapAnyTestByObjectType"),recovery.index("TeleportTo(Destination"))
+        self.assertIn("LocalCompanionStance==EMoonfallCompanionStance::Follow&&!bFollowerMoveOrdered",mode)
+        self.assertIn("if(!bRecoverySafe)FollowerSeparatedAt=-1.f",mode)
+        self.assertIn("CanRecoverFollower(Separation,Now-FollowerSeparatedAt,true)",mode)
+        self.assertIn("NextFollowerCatchupAt=Now+5.f",mode)
+        self.assertIn("distanceSquared>=1800.0*1800.0",policy)
+        self.assertIn("separatedSeconds>=8.0",policy)
+        self.assertIn("std::numeric_limits<int64>::max()",social)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
