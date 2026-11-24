@@ -107,6 +107,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const auto Tab=MoonfallTalentWeb::BranchTab(P,B);
    DrawRect(B==Branch?BranchColors[B]:FLinearColor(0.13f,0.12f,0.19f,0.94f),
       float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
+   if (B==Branch) DrawSelectionRail(float(Tab.X),float(Tab.Y),float(Tab.H));
    DrawText(FString(BranchNames[B]),B==Branch?FLinearColor::Black:FLinearColor::White,
        float(Tab.X+13.f),float(Tab.Y+6.f),nullptr,0.86f);
   }
@@ -256,6 +257,8 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
         : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
+    if (Row == Hero->ResidentContextSelection)
+     DrawSelectionRail(L+14.f,Y,43.f);
     DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
@@ -798,6 +801,7 @@ void AMoonfallCombatHUD::DrawHUD()
                        : bHoveredRow ? FLinearColor(0.15f,0.18f,0.29f,0.96f)
                        : FLinearColor(0.09f,0.08f,0.16f,0.94f),
        MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
+    if (bSelected) DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);
     DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
        MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
@@ -1276,6 +1280,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(bSelected ? FLinearColor(0.78f,0.62f,0.37f,0.97f)
         : FLinearColor(0.27f,0.25f,0.43f,0.92f),
         Book.RowX,Y,4.f,Book.RowHeight);
+    if (bSelected) DrawSelectionRail(Book.RowX,Y,Book.RowHeight);
     const FString Name(ANSI_TO_TCHAR(Entry.Name));
     DrawText(FString::Printf(TEXT("%d  %s"),School+1,*Name),
         bSelected ? FLinearColor::White : FLinearColor(0.86f,0.88f,0.96f),
@@ -1401,6 +1406,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(bEquipped ? FLinearColor(0.28f, 0.55f, 0.46f, 0.96f)
                      : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
        X, StripY, SlotWidth - 3.f, 22.f);
+   if (bEquipped) DrawSelectionRail(X,StripY,22.f);
    // A weapon name, not "W": W is reserved exclusively for walking forward.
    const FString Label = Slot == 0 ? TEXT("SWORD")
        : FString::Printf(TEXT("S%d"), Slot);
@@ -1445,6 +1451,8 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    else if (Index == HoveredIndex) DrawRect(FLinearColor(0.17f,0.32f,0.43f,0.80f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+   if (Index == Selected)
+    DrawSelectionRail(Left+12.f,Y-3.f,FMath::Max(3.f,RowSpacing-3.f));
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
       DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
