@@ -4158,7 +4158,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;bResidentCompanionGear=false;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
@@ -4195,7 +4195,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   PC->bShowMouseCursor = true;
  }
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;bResidentCompanionGear=false;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
@@ -4247,7 +4247,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
         PC->bShowMouseCursor = true;
     }
     ResidentContextSelection = 0;
- bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;bResidentCompanionGear=false;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
    } else {
@@ -4267,9 +4267,10 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
+  if(bResidentCompanionGear)return 7;
   if(bResidentCompanionTalents)return 5;
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
-  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?7:3;
+  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?8:3;
  }
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
@@ -4483,6 +4484,14 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if(bResidentCompanionMenu){
+  if(bResidentCompanionGear){
+   if(Choice==6){bResidentCompanionGear=false;ResidentContextSelection=0;return true;}
+   if(Choice<0||Choice>5)return false;
+   const bool bTraded=TradeCompanionGear(Resident,Choice%3,Choice>=3);
+   ResidentFeedbackMessage=bTraded?TEXT("Equipment saved."):TEXT("No eligible item, no bag space, or save failed.");
+   ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+   return bTraded;
+  }
   if(bResidentCompanionTalents){
    if(bResidentCompanionTraining){
     if(Choice==4){bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}
@@ -4506,7 +4515,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
    return bSelected;
   }
-  if(Choice==2){bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}
+  if(Choice==2){bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;bResidentCompanionGear=false;ResidentContextSelection=0;return true;}
   if(Choice<0||Choice>=GetResidentContextRowCount())return false;
   auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   bool bSuccess=false;
@@ -4520,6 +4529,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    return bSuccess;
   }
   if(Mode&&Mode->GetLocalCompanion()==Resident){
+   if(Choice==7){bResidentCompanionGear=true;ResidentContextSelection=0;return true;}
    if(Choice==6){
     bSuccess=Resident->bCompanionDowned?Mode->ReviveLocalCompanion(this):
        Mode->OrderCompanionMove(this,GetActorLocation()+GetActorForwardVector().GetSafeNormal2D()*450.f);
