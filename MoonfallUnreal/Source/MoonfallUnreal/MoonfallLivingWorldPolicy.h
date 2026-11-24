@@ -130,6 +130,11 @@ inline CompanionTactic SelectCompanionTactic(float health,int rank,int role,bool
  const int Effective=EffectiveCompanionRole(rank,role);
  return Effective==1?CompanionTactic::Intercept:Effective==2?CompanionTactic::Flank:CompanionTactic::Follow;
 }
+// Catch-up is only for healthy followers outside combat after sustained separation.
+inline bool CanRecoverFollower(double distanceSquared,double separatedSeconds,bool eligible){
+ return eligible&&std::isfinite(distanceSquared)&&distanceSquared>=1800.0*1800.0
+    &&std::isfinite(separatedSeconds)&&separatedSeconds>=8.0;
+}
 inline bool ValidCompanionParty(bool recruited,int stance,float health,long long readyUtc){
  return stance>=0&&stance<=2&&std::isfinite(health)&&health>=0.f&&health<=100.f
      &&readyUtc>=0&&readyUtc<=253402300799LL&&(recruited||(stance==2&&health==100.f));
