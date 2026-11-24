@@ -41,7 +41,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") EMoonfallEncounterState GetEncounterState(FName Encounter) const;
  virtual void Deinitialize() override;
 private:
- struct FRelationship { FName Other; int32 Score=0; };
+ struct FRelationship { FName Other; int32 Score=0; double LastAmbientTrustAt=-1.0; };
  struct FEncounter { EMoonfallEncounterState State=EMoonfallEncounterState::Available; bool bRepeatable=false; double Cooldown=300; double CompletedAt=0; };
  struct FObservation { FVector Location=FVector::ZeroVector; bool bCrime=false; double ExpiresAt=0; };
  TMap<FName,TArray<FRelationship>> Relationships;
@@ -51,4 +51,5 @@ private:
  bool CanWrite() const;
  double Now() const;
  bool StoreRumor(FName Npc,const FMoonfallWorldRumor& Rumor);
+ void CreditUsefulNews(FName Listener,FName Speaker,int32 Confidence);
 };
