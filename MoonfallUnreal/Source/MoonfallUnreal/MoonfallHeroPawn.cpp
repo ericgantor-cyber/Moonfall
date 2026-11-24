@@ -4121,7 +4121,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
@@ -4158,7 +4158,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   PC->bShowMouseCursor = true;
  }
  ResidentContextSelection = 0;
- bResidentCompanionMenu=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
@@ -4210,7 +4210,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
         PC->bShowMouseCursor = true;
     }
     ResidentContextSelection = 0;
- bResidentCompanionMenu=false;
+ bResidentCompanionMenu=false;bResidentCompanionTalents=false;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
    } else {
@@ -4230,14 +4230,15 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
+  if(bResidentCompanionTalents)return 4;
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
-  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?4:3;
+  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?5:3;
  }
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
 float AMoonfallHeroPawn::GetResidentContextPanelHeight(float ViewportHeight) const {
- return FMath::Min(GetResidentContextRowCount()==4?398.f:345.f,FMath::Max(270.f,ViewportHeight-24.f));
+ return FMath::Min(345.f+53.f*(GetResidentContextRowCount()-3),FMath::Max(270.f,ViewportHeight-24.f));
 }
 float AMoonfallHeroPawn::GetResidentContextRowPitch(float PanelHeight) const {
  return FMath::Min(53.f,(PanelHeight-134.f)/GetResidentContextRowCount());
@@ -4445,12 +4446,23 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if(bResidentCompanionMenu){
-  if(Choice==2){bResidentCompanionMenu=false;ResidentContextSelection=0;return true;}
+  if(bResidentCompanionTalents){
+   if(Choice==3){bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}
+   if(Choice<0||Choice>2)return false;
+   auto* TalentMode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+   const bool bSelected=TalentMode&&TalentMode->GetLocalCompanion()==Resident
+       &&TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice));
+   ResidentFeedbackMessage=bSelected?TEXT("Companion path selected."):TEXT("Requires trust, proximity and no active combat.");
+   ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+   return bSelected;
+  }
+  if(Choice==2){bResidentCompanionMenu=false;bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}
   if(Choice<0||Choice>=GetResidentContextRowCount())return false;
   auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   bool bSuccess=false;
   FString Notice=TEXT("Companion unavailable.");
   if(Mode&&Mode->GetLocalCompanion()==Resident){
+   if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}
    if(Choice==1){bSuccess=Mode->DismissLocalCompanion(this);if(bSuccess){Notice=TEXT("Companion dismissed.");ResidentContextSelection=0;}}
    else if(Choice==3){
     const auto Current=Mode->LocalCompanionRole;
