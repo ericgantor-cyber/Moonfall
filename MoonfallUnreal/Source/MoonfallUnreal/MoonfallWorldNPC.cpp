@@ -9,6 +9,7 @@
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallNpcDecisionPolicy.h"
 #include "MoonfallLivingWorldSubsystem.h"
+#include "MoonfallLivingWorldPolicy.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -66,10 +67,10 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  bool bRoutineHome=false;
  LivingIntent.Reset();
  bReviewingCombatReport=false;
+ FMoonfallWorldRumor GuardReport;
  if (bUsePersonalityRoutines && bGuard && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
   if (const auto* Society=GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>()) {
-   FMoonfallWorldRumor Report;
-   bReviewingCombatReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report);
+   bReviewingCombatReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),GuardReport);
   }
  }
  if (bUsePersonalityRoutines) {
@@ -112,8 +113,22 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  }
  if (MoonfallLivingSimulation::PauseResidentMotion(
       bInConversation,bNearHero,bSheltering,bHoldPost)) return;
- const float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
- const float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
+ float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
+ float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
+ // Credible reports bias a guard toward one of the original four watch
+ // offsets. This does not pathfind to the reported incident or accuse anyone.
+ if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bHoldPost
+     && !bSheltering && !bInConversation && !bNearHero && !MoonfallLivingSimulation::Severe(Weather)) {
+  const FVector Direction=GuardReport.Location-AuthoredHomeLocation;
+  using MoonfallWorldPolicy::WatchPoint;
+  switch (MoonfallWorldPolicy::GuardWatchPoint(Direction.X,Direction.Y,GuardReport.Confidence,true)) {
+   case WatchPoint::West: Side=-65.f; Front=0.f; break;
+   case WatchPoint::East: Side=65.f; Front=0.f; break;
+   case WatchPoint::North: Side=0.f; Front=45.f; break;
+   case WatchPoint::South: Side=0.f; Front=-45.f; break;
+   default: break;
+  }
+ }
  const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
