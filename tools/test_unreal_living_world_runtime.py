@@ -363,6 +363,12 @@ int main(){
             self.assertIn(shared,mouse)
             self.assertIn(shared,panel)
         self.assertIn("ChooseResidentContextAction(Row)",mouse)
+        self.assertIn("HasResidentContextPointerSurface(Width,Height)",mouse)
+        self.assertIn("Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)",panel)
+        self.assertLess(mouse.index("HasResidentContextPointerSurface(Width,Height)"),mouse.index("ChooseResidentContextAction(Row)"))
+        self.assertIn("GetResidentContextRowPitch(GetResidentContextPanelHeight(ViewportHeight)) >= 32.f",hero)
+        self.assertIn("ViewportWidth >= 284.f && ViewportHeight >= 294.f",hero)
+        self.assertIn("!FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)",mouse)
         self.assertIn("(ResidentContextSelection + 1) % GetResidentContextRowCount()",hero)
         self.assertIn("(ResidentContextSelection + GetResidentContextRowCount() - 1) % GetResidentContextRowCount()",hero)
         choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
