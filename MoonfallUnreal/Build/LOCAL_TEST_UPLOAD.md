@@ -21,7 +21,7 @@ Reads Moonfall-generated .log files in MoonfallUnreal/Saved/Logs, .log/.json in 
 
 Automatic scans use an exclusive per-user lock. If an earlier scan is still in progress, a second invocation skips itself rather than dispatching duplicate reports. The lock is released when the process exits, including when an error occurs.
 
-To prevent a large burst of GitHub Actions on first installation, only logs modified in the last seven days qualify, and each scan uploads at most ten new summaries. Newer logs are handled first; unsent eligible logs can be processed in subsequent scans.
+To prevent a large burst of GitHub Actions on first installation, only logs modified in the last seven days qualify, and each scan uploads at most ten new summaries and makes at most ten GitHub requests, even if uploads repeatedly fail. Newer logs are handled first; unsent eligible logs can be processed in subsequent scans.
 
 Dispatch payload includes only outcome (passed/failed/unknown), source category, warning/error counts, and file digest. Status is heuristic, not proof of a successful native Windows build. GitHub workflow receipts appear after moonfall-local-test-receipt.yml exists on default branch. The existing GitHub monitoring task can detect receipt runs; it cannot see your actual gameplay or test results that never generate logs.
 
