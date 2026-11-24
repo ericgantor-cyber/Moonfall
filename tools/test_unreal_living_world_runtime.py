@@ -383,7 +383,7 @@ int main(){
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         cover=mode.split("float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[1].split(
-            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+            "void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[0]
         for guard in ("IsLocalCompanionOwner(Hero)","LocalCompanionStance!=EMoonfallCompanionStance::Follow",
                       "Scout->GetBondWithHero(Hero)<60","GetFactionReputation(Scout->FactionId)<0",
                       "MoonfallLivingSimulation::Severe","FVector::DotProduct(ToSource,ToScout)<0.5",
@@ -432,6 +432,21 @@ int main(){
         self.assertIn("CompanionRank(Resident->GetBondWithHero(Hero))",hud)
         self.assertIn("Bond rank %d / 3",hud)
         self.assertIn("EndGuard();\n  RecentCompanionAssistTarget.Reset()",hero)
+
+    def test_v27_companion_specialization_is_explicit_and_trust_gated(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        role=mode.split("bool AMoonfallUnrealGameMode::SetLocalCompanionRole(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::DismissLocalCompanion(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","IsRecentlyInCombatForAmbientAI()",
+                      "CanHeroInteract(Hero)","Rank<2","GetFactionReputation"):
+            self.assertIn(guard,role)
+        self.assertIn("LocalCompanionRole=Role",role)
+        self.assertIn("Mode->SetLocalCompanionRole(this,Next)",hero)
+        self.assertIn('TEXT("Balanced | Switch to Protector")',hud)
+        self.assertIn('TEXT("Protector | Switch to Striker")',hud)
+        self.assertIn('TEXT("Striker | Switch to Balanced")',hud)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
