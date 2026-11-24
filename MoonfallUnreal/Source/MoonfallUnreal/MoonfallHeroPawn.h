@@ -42,6 +42,7 @@ public:
  FVector StartingSanctuaryAnchor = FVector::ZeroVector;
  bool IsNearStartingSanctuary() const;
  bool IsRecentlyInCombatForAmbientAI() const;
+ AMoonfallEnemy* GetRecentCompanionAssistTarget(float& Age) const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // Twelve persistent fantasy ancestries. Choice locks on first selection.
@@ -464,6 +465,8 @@ private:
  MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
+ TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
+ float RecentCompanionAssistHitAt=-100.f;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
