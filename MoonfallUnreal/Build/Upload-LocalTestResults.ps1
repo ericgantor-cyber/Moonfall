@@ -31,6 +31,9 @@ if(Test-Path $cacheFile){try{$obj=Get-Content $cacheFile -Raw|ConvertFrom-Json;f
 if(-not $DryRun -and -not (Get-Command -Name $GitHubCli -ErrorAction SilentlyContinue)){throw "Install gh and run gh auth login."}
 $maxReportsPerRun=10
 $reportCount=0
+# Limit network attempts as well as successful receipts when GitHub is offline.
+$attemptCount=0
+$maxAttemptsPerRun=10
 $earliestUtc=[DateTime]::UtcNow.AddDays(-7)
 $roots=@(
  @{ Folder=(Join-Path $ProjectRoot "Saved\Logs"); Kind="unreal-log"; Extensions=@(".log") },
@@ -41,7 +44,7 @@ $roots=@(
  $folder=$root.Folder
  if(-not(Test-Path $folder)){continue}
  foreach($f in (Get-ChildItem -LiteralPath $folder -File -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc -Descending)){
-  if($reportCount -ge $maxReportsPerRun){break sourceLoop}
+  if($reportCount -ge $maxReportsPerRun -or $attemptCount -ge $maxAttemptsPerRun){break sourceLoop}
   if($f.LastWriteTimeUtc -lt $earliestUtc -or $f.Extension -notin $root.Extensions -or $f.Length -lt 1 -or $f.Length -gt 10MB -or ($f.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $f.LastWriteTimeUtc -gt [DateTime]::UtcNow.AddSeconds(-60)){continue}
   $hash=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   if($sent.ContainsKey($hash)){continue}
@@ -54,6 +57,7 @@ $roots=@(
   $report=@{format_version=1;source=$category;outcome=$status;errors=[Math]::Min($errors,999);warnings=[Math]::Min($warnings,999);file_sha256=$hash}
   $json=@{event_type="moonfall-local-test";client_payload=$report}|ConvertTo-Json -Depth 5 -Compress
   if($DryRun){Write-Output $json;$reportCount++;continue}
+  $attemptCount++
   $json|& $GitHubCli api "repos/ericgantor-cyber/Moonfall/dispatches" -X POST --input - 2>$null
   if($LASTEXITCODE -ne 0){Write-Warning "Upload failed: check GitHub login";continue}
   $sent[$hash]=[DateTime]::UtcNow.ToString("o")
