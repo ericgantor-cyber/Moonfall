@@ -245,6 +245,20 @@ int main() {
         self.assertIn("inline int Hit(", book)
 
 
+    def test_direct_equip_and_batch_forge_refuse_non_bag_pages(self):
+        hero = HERO.read_text()
+        for signature, end in (
+            ("bool AMoonfallHeroPawn::EquipInventoryItem(", "namespace {"),
+            ("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(",
+             "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()"),
+        ):
+            with self.subTest(signature=signature):
+                body = hero.split(signature, 1)[1].split(end, 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen ||", body)
+                self.assertLess(body.index("bSpellBookOpen"),
+                                body.index("InventoryItemCodes.IsValidIndex"))
+
     def test_direct_salvage_enforces_modal_ownership(self):
         hero = HERO.read_text()
         salvage = hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(", 1)[1].split(
