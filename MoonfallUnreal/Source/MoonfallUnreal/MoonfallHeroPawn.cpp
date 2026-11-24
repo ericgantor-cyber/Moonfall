@@ -25,6 +25,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallUnrealGameMode.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
@@ -2092,7 +2093,7 @@ void AMoonfallHeroPawn::OptionsUp() {
    return;
   }
   if (!bOptionsOpen && !bInventoryOpen) {
-   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+   ResidentContextSelection = (ResidentContextSelection + GetResidentContextRowCount() - 1) % GetResidentContextRowCount();
    bResidentTurnInPending = false;
   }
   return;
@@ -2125,7 +2126,7 @@ void AMoonfallHeroPawn::OptionsDown() {
    return;
   }
   if (!bOptionsOpen && !bInventoryOpen) {
-   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+   ResidentContextSelection = (ResidentContextSelection + 1) % GetResidentContextRowCount();
    bResidentTurnInPending = false;
   }
   return;
@@ -4102,6 +4103,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;
  ResidentContextSelection = 0;
+ bResidentCompanionMenu=false;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
  ResidentTurnInConfirmAfter = 0.f;
@@ -4121,7 +4123,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
    CloseResidentContext();
    return;
   }
-  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  ResidentContextSelection = (ResidentContextSelection + GetResidentContextRowCount() - 1) % GetResidentContextRowCount();
   bResidentTurnInPending = false;
   return;
  }
@@ -4138,6 +4140,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   PC->bShowMouseCursor = true;
  }
  ResidentContextSelection = 0;
+ bResidentCompanionMenu=false;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
@@ -4189,6 +4192,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
         PC->bShowMouseCursor = true;
     }
     ResidentContextSelection = 0;
+ bResidentCompanionMenu=false;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
    } else {
@@ -4205,6 +4209,17 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
  bInventoryScrollbarDragging = false;
 }
 
+int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
+ const auto* Resident=FocusedResident.Get();
+ return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
+     &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
+}
+float AMoonfallHeroPawn::GetResidentContextPanelHeight(float ViewportHeight) const {
+ return FMath::Min(GetResidentContextRowCount()==4?398.f:345.f,FMath::Max(270.f,ViewportHeight-24.f));
+}
+float AMoonfallHeroPawn::GetResidentContextRowPitch(float PanelHeight) const {
+ return GetResidentContextRowCount()==4?FMath::Min(53.f,(PanelHeight-134.f)/4.f):53.f;
+}
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bTalentWebOpen) { TalentPointerClick(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.
@@ -4365,7 +4380,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  PC->GetViewportSize(Width, Height);
  if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
- const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
+ const float PanelH = GetResidentContextPanelHeight(Height);
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
  const float NpcCloseX = Left + PanelW - 42.f;
  if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
@@ -4378,13 +4393,14 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  // Shared exact row bounds with the Canvas HUD renderer.
- for (int32 Row = 0; Row < 3; ++Row) {
-  const float RowTop = Top + 122.f + Row * 53.f;
-  if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
+ const float Pitch=GetResidentContextRowPitch(PanelH);
+ for (int32 Row = 0; Row < GetResidentContextRowCount(); ++Row) {
+  const float RowTop = Top + 122.f + Row * Pitch;
+  if (MouseX >= Left+14.f && MouseX <= Left+PanelW-14.f
+      && MouseY >= RowTop && MouseY <= RowTop + Pitch-10.f) {
    if (ResidentContextSelection != Row) bResidentTurnInPending = false;
    ResidentContextSelection = Row;
-   if (Row == 2) CloseResidentContext();
-   else ChooseResidentContextAction(Row);
+   ChooseResidentContextAction(Row);
    return;
   }
  }
@@ -4405,6 +4421,33 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)) {
   CloseResidentContext();
   return false;
+ }
+ if(bResidentCompanionMenu){
+  if(Choice==2){bResidentCompanionMenu=false;ResidentContextSelection=0;return true;}
+  if(Choice<0||Choice>1)return false;
+  auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+  bool bSuccess=false;
+  FString Notice=TEXT("Companion unavailable.");
+  if(Mode&&Mode->GetLocalCompanion()==Resident){
+   if(Choice==1){bSuccess=Mode->DismissLocalCompanion(this);if(bSuccess)Notice=TEXT("Companion dismissed.");}
+   else {
+    const auto Current=Mode->LocalCompanionStance;
+    const auto Next=Current==EMoonfallCompanionStance::Follow?EMoonfallCompanionStance::Hold:
+      Current==EMoonfallCompanionStance::Hold?EMoonfallCompanionStance::Passive:EMoonfallCompanionStance::Follow;
+    bSuccess=Mode->SetLocalCompanionStance(this,Next);
+    if(bSuccess)Notice=Next==EMoonfallCompanionStance::Follow?TEXT("Follow"):
+      Next==EMoonfallCompanionStance::Hold?TEXT("Hold position"):TEXT("Passive");
+   }
+  }else if(Mode&&Choice==0){
+   bSuccess=Mode->RecruitLocalCompanion(this,Resident);
+   Notice=bSuccess?TEXT("Companion recruited."):TEXT("Need 60 trust, friendly standing and an open party slot.");
+  }
+  ResidentFeedbackMessage=Notice;
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  return bSuccess;
+ }
+ if(Choice==3&&GetResidentContextRowCount()==4){
+  bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 0) {
