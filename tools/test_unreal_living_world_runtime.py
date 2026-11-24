@@ -149,7 +149,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bool bInConversation=false",npc_h)
-        self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide)",movement)
+        self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide, bool bHoldCompanion)",movement)
         self.assertIn("PauseResidentMotion(",movement)
         self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
@@ -330,6 +330,27 @@ int main(){
         self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
         self.assertNotIn("SetActorLocation(",movement)
         self.assertNotIn("MoveToLocation(",movement)
+
+    def test_v27_local_companion_recruitment_is_explicit_and_owner_checked(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        for condition in ("HasAuthority()","Hero->IsPlayerControlled()","Resident->CanHeroInteract(Hero)",
+                          "Resident->GetBondWithHero(Hero)<60","GetFactionReputation(Resident->FactionId)<0",
+                          "LivingResidents.ContainsByPredicate","LocalCompanion.IsValid()"):
+            self.assertIn(condition,recruit)
+        self.assertIn("CompanionOwner=Hero",recruit)
+        self.assertIn("TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion",header)
+        self.assertIn("Follow, Hold, Passive",header)
+        self.assertIn("!IsLocalCompanionOwner(Hero)",mode)
+        self.assertIn("if(LocalCompanion.Get()==Resident)",mode)
+        self.assertIn("bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Follow",mode)
+        self.assertIn("bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Hold",mode)
+        self.assertIn("Bond,bGuide,bHold",mode)
+        self.assertIn("bHoldCompanion&&!bInConversation&&!bSheltering&&!bHoldPost",npc)
+        self.assertIn('LivingIntent=TEXT("Holding Position");return;',npc)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
