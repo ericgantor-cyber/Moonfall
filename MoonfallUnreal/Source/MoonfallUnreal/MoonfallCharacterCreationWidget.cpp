@@ -377,7 +377,7 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
     ? AMoonfallHeroPawn::PreviewGameplayAncestry(SavedAncestryId)
     : TEXT("NPC / CREATURE PROFILE ONLY. Not a playable saved ancestry.");
   StatDetails->SetText(FText::FromString(FString::Printf(
-   TEXT("RACE TRAITS (PREVIEW)\nVitality: %.1f  (%+.0f%%)\nPower: %.1f  (%+.0f%%)\nSpeed: %.2f  (%+.0f%%)\n\n%s\n\nCONFIRM will save the displayed lineage.\nC > Tab displays your saved passives."),
+   TEXT("RACE TRAITS (PREVIEW)\nVitality: %.1f  (%+.0f%%)\nPower: %.1f  (%+.0f%%)\nSpeed: %.2f  (%+.0f%%)\n\n%s\n\nCONFIRM will save the displayed lineage.\nPress C again to display your saved passives."),
    Next.Stats.Vitality,VitalityPercent,
    Next.Stats.Power,PowerPercent,
    Next.Stats.Speed,SpeedPercent,*LineageText)));
