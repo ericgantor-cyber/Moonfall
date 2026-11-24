@@ -72,7 +72,7 @@ AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanion() const { return L
 
 bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const {
  return HasAuthority()&&IsValid(Hero)&&Hero==CompanionOwner.Get()&&Hero->GetWorld()==GetWorld()
-     &&Hero->IsPlayerControlled();
+     &&!Hero->IsActorBeingDestroyed()&&FMath::IsFinite(Hero->Health)&&Hero->IsPlayerControlled();
 }
 bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoonfallWorldNPC* Resident){
  if(!HasAuthority()||!IsValid(Hero)||!IsValid(Resident)||Resident->IsActorBeingDestroyed()
