@@ -33,7 +33,7 @@ for name in ("war_orc","ogre","giant","dragon","drake","wraith",
 bridge=catalog.split("bool UMoonfallRaceLibrary::ResolveHeroAncestryId(",1)[1].split(
     "\nTArray<FName> UMoonfallRaceLibrary::GetRaceIds()",1)[0]
 mapping=dict((name,int(idx)) for name,idx in re.findall(
-    r'\{TEXT\("([^"]+)"\),(\d+)\}',bridge))
+    r'FAncestryBridge\{TEXT\("([^"]+)"\),(\d+)\}',bridge))
 assert len(mapping)==15, mapping
 assert set(mapping)==playable, (playable-set(mapping),set(mapping)-playable)
 assert set(mapping.values())==set(range(12)), mapping
