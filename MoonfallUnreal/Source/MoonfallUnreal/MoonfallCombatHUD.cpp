@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -250,8 +251,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
-   DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
-     *ContractStatus, *Resident->FactionId.ToString()),
+   const int32 CompanionRank=MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero));
+   const FString ContextStatus=Hero->bResidentCompanionMenu
+     ? FString::Printf(TEXT("Bond rank %d / 3 | %s"),CompanionRank,
+         CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
+     : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
+   DrawText(ContextStatus,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
    if(H>=(Hero->GetResidentContextRowCount()==4?390.f:337.f)) DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
