@@ -4249,7 +4249,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if(bResidentCompanionMenu){
   if(bResidentCompanionTalents)return 5;
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
-  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?5:3;
+  return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?6:3;
  }
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
@@ -4491,6 +4491,14 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   bool bSuccess=false;
   FString Notice=TEXT("Companion unavailable.");
+  const bool bRecruited=Mode&&Mode->GetLocalCompanion()==Resident;
+  if((bRecruited&&Choice==5)||(!bRecruited&&Choice==1)){
+   bSuccess=ReportScoutDeeds(Resident);
+   ResidentFeedbackMessage=bSuccess?FString::Printf(TEXT("Trust earned: %d"),GetResidentBond(Resident->ResidentId)):
+      TEXT("Complete contract + 1/3/5 dungeons; no combat.");
+   ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+   return bSuccess;
+  }
   if(Mode&&Mode->GetLocalCompanion()==Resident){
    if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}
    if(Choice==1){bSuccess=Mode->DismissLocalCompanion(this);if(bSuccess){Notice=TEXT("Companion dismissed.");ResidentContextSelection=0;}}
@@ -4645,6 +4653,16 @@ int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
  if (const int32* Value = ResidentBonds.Find(ResidentId))
   return FMath::Clamp(*Value, -100, 100);
  return 0;
+}
+bool AMoonfallHeroPawn::ReportScoutDeeds(AMoonfallWorldNPC* Resident){
+ if(!HasAuthority()||!IsValid(Resident)||Resident->IsActorBeingDestroyed()
+    ||Resident->GetWorld()!=GetWorld()||Resident->bAmbientVisitor
+    ||Resident->SocialRole!=FName(TEXT("Scout"))||!Resident->CanHeroInteract(this)
+    ||IsRecentlyInCombatForAmbientAI()||!IsNamedMoonfallResident(Resident->ResidentId))return false;
+ const int Current=GetResidentBond(Resident->ResidentId);
+ const int Target=MoonfallWorldPolicy::ScoutDeedTrust(Current,GetTotalDefeatedDungeonBosses(),
+      GetResidentQuestState(Resident->ResidentId)==2,GetFactionReputation(Resident->FactionId));
+ return Target>Current&&ChangeResidentBond(Resident->ResidentId,Target-Current);
 }
 uint32 AMoonfallHeroPawn::GetCompanionProfile(FName ResidentId) const {
  if(!IsNamedMoonfallResident(ResidentId))return 0;
