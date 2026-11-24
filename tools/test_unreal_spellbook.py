@@ -245,6 +245,26 @@ int main() {
         self.assertIn("inline int Hit(", book)
 
 
+    def test_inventory_mutations_reject_nonfinite_health(self):
+        # A corrupted Blueprint health value (NaN or infinity) must not
+        # bypass the alive-player guard and mutate inventory or salvage.
+        hero = HERO.read_text()
+        signatures = (
+            ("bool", "SalvageInventoryItem"),
+            ("bool", "UpgradeInventoryItem"),
+            ("bool", "ReforgeInventoryItemAffix"),
+            ("bool", "AscendInventoryItemRarity"),
+            ("int32", "ForgeInventoryItemLevels"),
+            ("bool", "EquipInventoryItem"),
+        )
+        for return_type, method in signatures:
+            with self.subTest(method=method):
+                start = f"{return_type} AMoonfallHeroPawn::{method}("
+                body = hero.split(start, 1)[1].split("\n}", 1)[0]
+                before_item_access = body.split("InventoryItemCodes[InventoryIndex]", 1)[0]
+                self.assertIn("Health <= 0.f", before_item_access)
+                self.assertIn("!FMath::IsFinite(Health)", before_item_access)
+
     def test_direct_equip_and_batch_forge_refuse_non_bag_pages(self):
         hero = HERO.read_text()
         for signature, end in (
