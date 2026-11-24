@@ -103,7 +103,8 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
        MoonfallLivingSimulation::Phase(Now,360.f))))return 0.f;
  const float Cover=MoonfallWorldPolicy::CompanionCover(Damage,Now-LastCompanionCoverAt,
-     FVector::DistSquared(HeroLocation,ScoutLocation),true);
+     FVector::DistSquared(HeroLocation,ScoutLocation),true,
+     MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)));
  if(Cover<=0.f)return 0.f;
  // The scout must be between the hero and the reported attack direction.
  const FVector ToSource=(Source-HeroLocation).GetSafeNormal2D();
@@ -125,10 +126,11 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return;
+ const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)));
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
-     ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=6.f)return;
+     ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=StrikeDamage)return;
  const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation(),Target=Enemy->GetActorLocation();
  if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Target.ContainsNaN()
      ||Scout->AuthoredHomeLocation.ContainsNaN()
@@ -145,7 +147,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
       Target+FVector(0,0,55),ECC_Visibility,Params)&&Hit.GetActor()!=Enemy)return;
  // Commit cooldown before damage callbacks to prevent reentrant support.
  LastCompanionStrikeAt=Now;
- if(Enemy->TryCompanionSupportStrike()&&IsValid(Scout)&&!Scout->IsActorBeingDestroyed())
+ if(Enemy->TryCompanionSupportStrike(StrikeDamage)&&IsValid(Scout)&&!Scout->IsActorBeingDestroyed())
   Scout->OnCompanionSupportStrike();
 }
 bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EMoonfallCompanionStance Stance){
