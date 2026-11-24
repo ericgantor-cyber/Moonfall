@@ -100,7 +100,7 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
      ||Hero->bResidentContextOpen||Source.ContainsNaN())return 0.f;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
-     ||Scout->bCompanionDowned||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
+     ||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return 0.f;
  const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation();
  if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Scout->AuthoredHomeLocation.ContainsNaN()
@@ -124,7 +124,8 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  if(GetWorld()->LineTraceSingleByChannel(Hit,ScoutLocation+FVector(0,0,55),
       HeroLocation+FVector(0,0,55),ECC_Visibility,Params))return 0.f;
  LastCompanionCoverAt=Now;
- Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover);
+ const float ArmorScale=1.f-FMath::Min(0.25f,Hero->GetCompanionGearTier(Scout->ResidentId,1)*0.01f);
+ Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover*ArmorScale);
  if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;Scout->OnCompanionDowned();}
  return Cover;
 }
@@ -135,11 +136,11 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
      ||Hero->bResidentContextOpen)return;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
-     ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
+     ||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return;
  const int Rank=MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero));
  const int Role=static_cast<int>(LocalCompanionRole);
- const float StrikeDamage=MoonfallWorldPolicy::CompanionStrikeDamage(Rank,Role);
+ const float StrikeDamage=FMath::Min(10.f,MoonfallWorldPolicy::CompanionStrikeDamage(Rank,Role)+Hero->GetCompanionGearTier(Scout->ResidentId,0)*0.08f);
  const float ExtraPosture=MoonfallWorldPolicy::CompanionExtraPosture(Rank,Role)+
      MoonfallWorldPolicy::ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7);
  float Age=-1.f;
