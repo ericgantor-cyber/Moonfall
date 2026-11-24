@@ -31,6 +31,19 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bAllowLocalScoutGuidance=true;
  void WitnessNearbyDanger(float Now);
+ // Only the currently recruited or returning follower is advanced by the director.
+ bool AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance);
+ FVector FollowerWaypoint=FVector::ZeroVector;
+ float NextFollowerPathAt=-1.f;
+ bool bFollowerWaypointValid=false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
+ float CompanionHealth=100.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
+ bool bCompanionDowned=false;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Companion")
+ void OnCompanionDowned();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Companion")
+ void OnCompanionRecovered();
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
  bool bAmbientVisitor = false;
  float LastDangerAt = -1000.f;
