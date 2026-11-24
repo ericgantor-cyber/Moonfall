@@ -5,6 +5,9 @@
 class UStaticMeshComponent;
 class AMoonfallHeroPawn;
 
+UENUM(BlueprintType)
+enum class EMoonfallNpcMood : uint8 { Calm, Uneasy, Afraid, Vigilant, Wary, Resentful, Warm, Loyal };
+
 // Lightweight one-world NPC: idle without Tick; usable from player or UI actions.
 UCLASS(Blueprintable)
 class MOONFALLUNREAL_API AMoonfallWorldNPC : public AActor {
@@ -51,6 +54,10 @@ public:
  // Server-side simple social role; branching dialogue may be authored in Blueprint.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName SocialRole = FName(TEXT("Citizen"));
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FString GetSocialDisposition(const AMoonfallHeroPawn* Hero) const;
+ // On-demand mood for animation/dialogue presentation, not an attack command.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Ambient") EMoonfallNpcMood GetEmotionalState(const AMoonfallHeroPawn* Hero) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Ambient")
+ EMoonfallNpcMood LastConversationMood=EMoonfallNpcMood::Calm;
  // Ancestry changes social dialogue but never overwrites earned reputation.
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Race") bool SharesRaceWith(const AMoonfallHeroPawn* Hero) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FString GetCurrentActivity() const;
