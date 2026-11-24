@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
@@ -3128,6 +3129,100 @@ void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()
  const int32 Row = FMath::Clamp(FMath::FloorToInt((Position.Y + 12000.f) / (24000.f / 7.f)), 0, 6);
  ExploredZoneFogMasks[Zone] |= (1LL << (Row * 8 + Column));
 }
+
+void AMoonfallHeroPawn::ToggleTalentWeb() {
+ if (bTalentWebOpen) {
+  bTalentWebOpen=false;
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
+  if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=false;
+  return;
+ }
+ if (Health<=0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid())return;
+ StopJumping();
+ if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
+ EndSprint();
+ EndGuard();
+ SwordBuffer.Clear();
+ bTalentWebOpen=true;
+ TalentWebBranch=FMath::Clamp(TalentWebBranch,0,2);
+ TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
+ TalentWebFirstTier=1;
+ bTalentRespecArmed=false;
+ if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=true;
+}
+void AMoonfallHeroPawn::TalentMove(int32 TierDirection,int32 RowDirection) {
+ if (!bTalentWebOpen)return;
+ TalentWebSelected=MoonfallTalentWeb::Move(TalentWebSelected,TalentWebBranch,
+     FMath::Clamp(TierDirection,-1,1),FMath::Clamp(RowDirection,-1,1));
+ int ViewW=1280,ViewH=720;
+ if (const APlayerController* PC=Cast<APlayerController>(Controller))
+  PC->GetViewportSize(ViewW,ViewH);
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (Layout.Valid)
+  TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+      TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
+ if (!bTalentWebOpen)return;
+ TalentWebBranch=(TalentWebBranch+(Direction>=0?1:2))%3;
+ TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
+ TalentWebFirstTier=1;
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentSpendSelected() {
+ if (!bTalentWebOpen || Health<=0.f || TalentWebSelected<0
+     || TalentWebSelected>=MoonfallTalents::NodeCount)return;
+ SpendTalentPoint(TalentWebSelected);
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentConfirmRespec() {
+ if (!bTalentWebOpen || !GetWorld() || Health<=0.f)return;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now))return;
+ if (bTalentRespecArmed && Now<=TalentRespecArmUntil) {
+  RespecTalentPoints();
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
+ } else {
+  bTalentRespecArmed=true;
+  TalentRespecArmUntil=Now+3.0f;
+ }
+}
+void AMoonfallHeroPawn::TalentPointerClick() {
+ if (!bTalentWebOpen)return;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor)return;
+ int ViewW=0,ViewH=0;
+ float X=0.f,Y=0.f;
+ PC->GetViewportSize(ViewW,ViewH);
+ if (!PC->GetMousePosition(X,Y) || !FMath::IsFinite(X) || !FMath::IsFinite(Y))return;
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (!Layout.Valid)return;
+ if (MoonfallTalentWeb::CloseRect(Layout).Hit(X,Y)) { ToggleTalentWeb();return; }
+ for(int B=0;B<3;++B)
+  if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y)) {
+   TalentWebBranch=B;
+   TalentWebSelected=MoonfallTalentWeb::Root(B);
+   TalentWebFirstTier=1;
+   bTalentRespecArmed=false;
+   return;
+  }
+ if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
+ if (MoonfallTalentWeb::RespecRect(Layout).Hit(X,Y)) {TalentConfirmRespec();return;}
+ const int Hit=MoonfallTalentWeb::HitNode(Layout,TalentWebBranch,X,Y);
+ if (Hit>=0) {
+  TalentWebSelected=Hit;
+  bTalentRespecArmed=false;
+ }
+}
+
+void AMoonfallHeroPawn::TalentNextBranch() { TalentChangeBranch(1); }
+void AMoonfallHeroPawn::TalentPreviousBranch() { TalentChangeBranch(-1); }
+void AMoonfallHeroPawn::TalentCloseWeb() { if (bTalentWebOpen) ToggleTalentWeb(); }
 
 int32 AMoonfallHeroPawn::GetAvailableTalentPoints() const {
  MoonfallTalents::Snapshot Snapshot;
