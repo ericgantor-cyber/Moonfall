@@ -697,6 +697,10 @@ int main(){
                       "AttachCompanionParty(Hero,Match,Saved.Stance,Saved.Health)"):
             self.assertIn(guard,restore)
         self.assertNotIn("SpawnActor",restore)
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split("void AMoonfallUnrealGameMode::AttachCompanionParty(",1)[0]
+        duplicate_guard="IsValid(Other)&&Other!=Resident&&!Other->IsActorBeingDestroyed()&&Other->ResidentId==Resident->ResidentId"
+        self.assertIn(duplicate_guard,recruit)
+        self.assertLess(recruit.index(duplicate_guard),recruit.index("Hero->CommitCompanionParty(Next)"))
         self.assertIn("TryRestoreCompanionParty(Hero);",mode)
         self.assertIn("Resident->bCompanionDowned=Health<=0.f",mode)
         self.assertIn("CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp()",mode)
