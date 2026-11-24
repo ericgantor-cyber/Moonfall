@@ -674,6 +674,11 @@ int main(){
             self.assertIn(guard,receive)
         self.assertIn("Enemy->RememberCompanionAttacker(Scout,Now)",mode)
         self.assertIn("CanCompanionCounter",policy)
+        eligibility=mode.split("bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(",1)[1].split("\n}",1)[0]
+        for modal in ("bInventoryOpen","bOptionsOpen","bAtlasOpen","bTalentWebOpen","bCharacterStatsOpen","bSpellBookOpen","bResidentContextOpen"):
+            self.assertNotIn(modal,eligibility)
+        for guard in ("IsLocalCompanionOwner(Hero)","!Scout->bCompanionDowned","FMath::IsFinite(Scout->CompanionHealth)","Hero->Health>0.f"):
+            self.assertIn(guard,eligibility)
 
     def test_v27_companion_tactics_and_active_abilities(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
