@@ -43,6 +43,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") EMoonfallEncounterState GetEncounterState(FName Encounter) const;
  // Host calls on explicit new campaign/reset; never on ordinary map travel.
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ResetNpcSocialSession();
+ // Existing world pulse flushes dirty snapshots at a bounded cadence.
+ void FlushSocialMemory();
  virtual void Deinitialize() override;
 private:
  UMoonfallNpcSocialSessionSubsystem* GetSocialSession() const;
