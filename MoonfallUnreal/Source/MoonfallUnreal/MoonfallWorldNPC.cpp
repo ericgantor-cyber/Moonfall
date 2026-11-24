@@ -1,4 +1,6 @@
 #include "MoonfallWorldNPC.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallRaceCatalog.h"
@@ -37,6 +39,43 @@ void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
   if (AMoonfallUnrealGameMode* Mode=World->GetAuthGameMode<AMoonfallUnrealGameMode>())
    Mode->UnregisterLivingResident(this);
  Super::EndPlay(EndPlayReason);
+}
+bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance){
+ if(!HasAuthority()||!GetWorld()||Goal.ContainsNaN()||GetActorLocation().ContainsNaN()
+     ||!FMath::IsFinite(Now)||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
+ const FVector Start=GetActorLocation();
+ const double Distance=FVector::Dist2D(Start,Goal);
+ if(Distance<=StopDistance)return true;
+ // At most one synchronous nav query per second for the active follower.
+ if(Now>=NextFollowerPathAt){
+  NextFollowerPathAt=Now+1.f;bFollowerWaypointValid=false;
+  if(auto* Nav=FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())){
+   FNavLocation Projected;
+   if(Nav->ProjectPointToNavigation(Goal,Projected)){
+    auto* Path=Nav->FindPathToLocationSynchronously(GetWorld(),Start,Projected.Location,this);
+    if(IsValid(Path)&&Path->IsValid()&&Path->PathPoints.Num()>1&&!Path->PathPoints[1].ContainsNaN()){
+     FollowerWaypoint=Path->PathPoints[1];bFollowerWaypointValid=true;
+    }
+   }
+  }
+ }
+ const FVector Target=bFollowerWaypointValid?FollowerWaypoint:Goal;
+ FVector Step=Target-Start;Step.Z=0;
+ if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;return false;}
+ const FVector End=Start+Step.GetClampedToMaxSize2D(FMath::Min(60.0,Distance-StopDistance));
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
+ FHitResult Obstacle;
+ if(GetWorld()->LineTraceSingleByChannel(Obstacle,Start+FVector(0,0,55),End+FVector(0,0,55),ECC_Visibility,Params)){
+  bFollowerWaypointValid=false;return false;
+ }
+ FHitResult Ground,OldGround;
+ if(!GetWorld()->LineTraceSingleByChannel(Ground,End+FVector(0,0,150),End-FVector(0,0,150),ECC_Visibility,Params)
+     ||!GetWorld()->LineTraceSingleByChannel(OldGround,Start+FVector(0,0,150),Start-FVector(0,0,150),ECC_Visibility,Params)
+     ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0)return false;
+ FVector Move=End-Start;Move.Z=Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z;
+ AddActorWorldOffset(Move,true);
+ if(!Move.IsNearlyZero())SetActorRotation(FRotator(0.f,Move.Rotation().Yaw,0.f));
+ return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance;
 }
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
