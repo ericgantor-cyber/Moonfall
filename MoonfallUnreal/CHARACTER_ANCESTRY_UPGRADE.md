@@ -1,9 +1,11 @@
 # UE5 character sheet and racial passives
 
 ## New C-page layout
-- **C** opens the regular Attributes character sheet from gameplay. Press **C again** to switch to **Ancestry & Passives**, and continue pressing C to alternate between those two pages. **Tab is not used in the character sheet** and remains reserved for Atlas Chronicle.
-- Controller **D-pad Left/Right** selects the corresponding page while the character sheet is visible. These inputs continue their existing roles everywhere else.
-- Mouse users can click separate **ATTRIBUTES** and **ANCESTRY & PASSIVES** tabs below the level line. The selected tab is highlighted and clicking it again leaves the page unchanged.
+- **C** opens the regular Attributes character sheet from gameplay. Press **C again** to switch to **Ancestry & Passives**, then **C** again for **Equipment**; repeated C cycles through all three pages. **Tab is not used in the character sheet** and remains reserved for Atlas Chronicle.
+- Controller **D-pad Left/Right** cycles backward/forward through the three pages while the character sheet is visible. These inputs continue their existing roles everywhere else.
+- Mouse users can click separate **ATTRIBUTES**, **ANCESTRY & PASSIVES**, and **EQUIPMENT** tabs below the level line. The selected tab is highlighted and clicking it again leaves the page unchanged.
+- **Equipment** presents the three real combat/save-backed slots (**Weapon**, **Armor**, **Accessory**) as quality-colored cards, with tier, item power, affix, owned-only legendary perks, and Force/Ward/Focus set progress. Large layouts also display live Health/Mana/Stamina bars. Invalid or unowned equipment renders as empty and cannot grant phantom bonuses. No additional slots, equipment powers, item names, or paper-doll assets are invented.
+- All character pages are **read-only**, and page state is transient (not persisted). Gear continues to be equipped only through Inventory; attacking and game movement remain blocked while browsing C. UI geometry is mirrored in Canvas rendering and mouse hit testing, with compact labels for narrow windows.
 - On the ancestry page, the hero's current **saved race**, base Might/Insight/Resolve bonuses, stamina/mana regeneration bonuses, racial power and its readiness/cooldown/active duration are read live. The page is strictly read-only.
 - The character creation widget now compares vitality/power/speed profiles to baseline by percentage. These are **previews**, not newly enabled gameplay passives. Preview art/rigging is unchanged.
 
