@@ -892,7 +892,7 @@ void AMoonfallCombatHUD::DrawHUD()
         : TEXT("No racial power available until a race is chosen."),
       TEXT("CHARACTER CREATION"),
       TEXT("Ancestry choice is saved and cannot be changed here."),
-      TEXT("C displays stats  |  Tab or D-pad Left: return")
+      TEXT("Click ATTRIBUTES or press D-pad Left to return")
     };
     const float RaceRowHeight = FMath::Clamp(
       (PanelHeight - 152.f) / UE_ARRAY_COUNT(RaceLines), 9.f, 32.f);
