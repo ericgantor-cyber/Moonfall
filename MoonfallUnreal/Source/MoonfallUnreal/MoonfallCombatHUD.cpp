@@ -259,7 +259,20 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FString::Printf(TEXT("Bond rank %d / 3 | %s"),CompanionRank,
          CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
-   DrawText(ContextStatus,
+   FString DisplayContext=ContextStatus;
+   if(Hero->bResidentCompanionMenu){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    if(Mode&&Mode->GetLocalCompanion()==Resident&&CompanionRank==3){
+     using MoonfallWorldPolicy::CompanionPerk;
+     switch(MoonfallWorldPolicy::VeteranPerk(CompanionRank,static_cast<int>(Mode->LocalCompanionRole))){
+      case CompanionPerk::Fieldcraft: DisplayContext+=TEXT(" | Fieldcraft");break;
+      case CompanionPerk::ShieldExpert: DisplayContext+=TEXT(" | Shield Expert");break;
+      case CompanionPerk::Precision: DisplayContext+=TEXT(" | Precision");break;
+      default:break;
+     }
+    }
+   }
+   DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
    if(H>=(Hero->GetResidentContextRowCount()==4?390.f:337.f)) DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
