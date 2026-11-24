@@ -199,6 +199,31 @@ int main(){
         self.assertIn("Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence",share)
         self.assertIn("RelayRumor(Speaker,Listener,BestId)",share)
 
+    def test_v27_guard_reports_remain_indirect_and_contextual(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        report=subsystem.split("bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(",1)[0]
+        for condition in ("R.bCrime","R.bDirectWitness","R.bWitnessReport","R.Hops<1",
+                          "R.Confidence<40","R.ExpiresAt<=Time","NearbyCombat_",
+                          "FMath::Square(1800.0)"):
+            self.assertIn(condition,report)
+        self.assertIn("R.Confidence>Report.Confidence",report)
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bReviewingCombatReport=false;",movement)
+        self.assertIn("bGuard && !bInConversation",movement)
+        self.assertIn("bReviewingCombatReport=Society->GetNearbyCombatReport",movement)
+        self.assertIn('TEXT("Reviewing Reports")',movement)
+        self.assertNotIn("WitnessNearbyDanger(",movement)
+        talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
+        self.assertIn("Nothing is confirmed yet.",talk)
+        self.assertIn("I cannot say for certain.",talk)
+        self.assertLess(talk.index("Now-LastDangerAt<85.f"),talk.index("GetNearbyCombatReport"))
+        self.assertNotIn("ChangeResidentBond(",talk)
+        self.assertNotIn("ReportWitnessToGuard(",talk)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
