@@ -55,6 +55,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Live 12-ancestry passives and active-power details for the C character sheet.
+ // Read-only: no new saved IDs, no new ability cooldowns, no character art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePassiveSummary() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerDescription() const;
+ // Pre-confirmation read-only snapshot from the SAME 12 canonical runtime
+ // profiles used by ChooseRace and actual Might/Insight/Resolve/regen.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race")
+ static FString PreviewGameplayAncestry(int32 CandidateRaceId);
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
@@ -247,6 +255,17 @@ public:
  // Shared atomic rank/resource update, with save rollback on failure.
  bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
  // UI-only state. Never serialized: ranks are the single persistent authority.
+ // Transient C-page state. The selection and all racial bonuses remain
+ // owned by the canonical hero race, not by a second character UI catalog.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
+ // Stats and equipped gear share the first read-only character page.
+ // Saved faction standings are displayed on a third, read-only page.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") bool bCharacterRepPageOpen = false;
+ // Transient selected faction row, shared by mouse and controller; no save changes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") int32 CharacterRepSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") void SelectCharacterReputation(int32 FactionIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void SelectCharacterPage(int32 Page);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void ToggleCharacterRacePage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;

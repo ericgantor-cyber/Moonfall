@@ -63,22 +63,25 @@ assert "Canvas->SizeY-Border" in overlay and "Canvas->SizeX-Border" in overlay
 assert "SetGamePaused(" not in overlay
 assert overlay.index("const bool bLiveMenuOpen") < overlay.index("DrawRect(HitRed")
 # The HUD is painter-ordered. A cue drawn before an opaque modal disappears.
-# Every modal exit, including tiny-window fallbacks, must draw the cue on top.
+# Every modal exit, including tiny-window fallbacks, MUST draw the cue on top.
 assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index("if (Hero->bTalentWebOpen) {")
 sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
     ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
     ("atlas", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 2),
-    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 1),
-    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 3),
+    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
+    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )
 for name, begin_marker, end_marker, expected in sections:
     begin = hud.index(begin_marker, hud.index("const auto DrawLiveMenuHitCue"))
     end = hud.index(end_marker, begin)
     part = hud[begin:end]
-    indent = r" {2,4}" if name == "NPC conversation" else r" {2,3}"
-    completed = re.findall(r"(?m)^(" + indent + r")DrawLiveMenuHitCue\(\);\n\1return;$", part)
-    returns = re.findall(r"(?m)^" + indent + r"return;$", part)
+    completed = re.findall(r"(?m)^( {2,4})DrawLiveMenuHitCue\(\);\n\1return;$", part)
+    # Inventory includes an unrelated early return in its local
+    # ReadOwnedGear decoder lambda (four-space indentation). It is not
+    # an exit from DrawHUD; panel-level exits here are two/three spaces.
+    return_indent = r" {2,3}" if name == "inventory, sheet, spellbook" else r" {2,4}"
+    returns = re.findall(r"(?m)^" + return_indent + r"return;$", part)
     assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
 
 # End-to-end source contract: the visible red menu damage cue must be

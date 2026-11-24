@@ -693,10 +693,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bool HitTestInventoryCloseButton() const;", self.hero_h)
-        self.assertIn("const float CloseX = SortX - 36.f;", close)
+        self.assertIn("const float CloseX = bCharacterStatsOpen ? Left + PanelWidth - 42.f : SortX - 36.f;", close)
         self.assertIn("MouseX >= CloseX && MouseX <= CloseX + 28.f", close)
         self.assertIn("MouseY >= Top + 14.f && MouseY <= Top + 42.f", close)
-        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("const float CloseButtonX = Hero->bCharacterStatsOpen ? Left + PanelWidth - 42.f : CloseSortX - 36.f;", hud)
         self.assertIn("DrawText(TEXT(\"X\")", hud)
         self.assertLess(hud.index("DrawText(TEXT(\"X\")"), hud.index("if (Hero->bCharacterStatsOpen)"))
         self.assertIn("if (HitTestInventoryCloseButton()) {", click)
@@ -715,7 +715,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         self.assertIn("const float NpcCloseX = L + W - 42.f;", hud)
         self.assertIn("const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;", hud)
-        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("const float CloseButtonX = Hero->bCharacterStatsOpen ? Left + PanelWidth - 42.f : CloseSortX - 36.f;", hud)
         self.assertIn("if (bOptionsOpen) {", mouse)
         self.assertIn("const float CloseX = MenuLeft + MenuWidth - 42.f;", mouse)
         self.assertIn("OpenOptions();", mouse)
@@ -1053,7 +1053,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!bInventoryOpen) {", stats)
         self.assertIn("ToggleInventory();", stats)
         self.assertIn("bCharacterStatsOpen = true;", stats)
-        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
+        self.assertIn("if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }", stats)
+        self.assertIn("bCharacterRacePageOpen = false;", stats)
+        atlas = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "void AMoonfallHeroPawn::StepAtlasChronicle(", 1)[0]
+        self.assertNotIn("ToggleCharacterRacePage();", atlas)
+        self.assertIn('ActionName="ChronicleFocus",Key=Tab', inputs)
         self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
         self.assertIn("if (!bInventoryOpen) {", self.hero_cpp)
         self.assertIn("bCharacterStatsOpen = false;", self.hero_cpp)
@@ -1064,7 +1069,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / A: back to inventory", hud)
+        self.assertIn("C / D-pad Left/Right: stats & gear / ancestry / rep", hud)
+        self.assertIn('TEXT("EQUIPPED GEAR")', hud)
+        self.assertIn("Esc: back to inventory", hud)
         self.assertIn("P: spell book", hud)
         self.assertIn("C / A: character stats", hud)
 
@@ -2191,7 +2198,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("LOW STAMINA")', self.hud)
         self.assertIn('TEXT("SPRINT RECOVERING")', self.hud)
         self.assertIn("Hero->SprintRestartStamina", self.hud)
-        self.assertIn("DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina", self.hud)
+        self.assertIn("DisplayStamina = Hero->bReduceMotion ? ActualStamina : FMath::FInterpTo(DisplayStamina, ActualStamina", self.hud)
         self.assertIn("DrawArc(Radius * 0.85f, ManaFraction", self.hud)
         self.assertIn("DrawArc(Radius * 0.97f, XpFraction", self.hud)
         self.assertIn("const float HealthFraction = DisplayHealth;", self.hud)
@@ -3870,7 +3877,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("(PanelHeight - 145.f) / 18.f", page)
+        self.assertIn("const float StatsRowHeight = FMath::Clamp(", page)
+        self.assertIn('TEXT("EQUIPPED GEAR")', page)
+        self.assertIn("const float StartY = Top + 123.f;", page)
         self.assertIn("Equipment power: %d", page)
 
 

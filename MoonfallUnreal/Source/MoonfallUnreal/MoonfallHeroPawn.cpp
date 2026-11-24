@@ -45,6 +45,15 @@
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
 namespace {
+// HUD shows only a fallback message below these inventory viewport dimensions.
+bool HasVisibleInventoryPointerSurface(const AController* Controller)
+{
+ const auto* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 W=0,H=0;
+ PC->GetViewportSize(W,H);
+ return W>=304 && H>=304;
+}
 // Decode only the expected slot. Equipped fields can contain stale or
 // externally edited data; they must not grant combat bonuses.
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
@@ -686,6 +695,10 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 
 bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 {
+ if (!HasVisibleInventoryPointerSurface(Controller)) {
+  bInventoryScrollbarDragging = false;
+  return false;
+ }
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
@@ -745,7 +758,7 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
  const float SortX = Left + PanelWidth - SortWidth - 14.f;
- const float CloseX = SortX - 36.f;
+ const float CloseX = bCharacterStatsOpen ? Left + PanelWidth - 42.f : SortX - 36.f;
  return MouseX >= CloseX && MouseX <= CloseX + 28.f &&
         MouseY >= Top + 14.f && MouseY <= Top + 42.f;
 }
@@ -1240,6 +1253,7 @@ bool AMoonfallHeroPawn::HandleSpellBookPointer()
  const int Hit = MoonfallSpellBook::Hit(Rect,X,Y,bSpellBookOpen);
  if (Hit == MoonfallSpellBook::None) return false;
  if (Hit == MoonfallSpellBook::Tab) ToggleSpellBook();
+ else if (Hit == MoonfallSpellBook::Close) ToggleSpellBook();
  else if (MoonfallSpellBook::IsValid(Hit)) SpellBookSelection = Hit;
  else if (Hit == MoonfallSpellBook::EquipLeft) EquipSpellBookSelection(true);
  else if (Hit == MoonfallSpellBook::EquipRight) EquipSpellBookSelection(false);
@@ -1716,6 +1730,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bCharacterRacePageOpen = false;
+  bCharacterRepPageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
@@ -1751,6 +1767,30 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::SelectCharacterReputation(int32 FactionIndex)
+{
+ // Selection is strictly read-only and only valid while C -> Reputation is open.
+ if (FactionIndex < 0 || FactionIndex >= 5
+     || !bInventoryOpen || !bCharacterStatsOpen || !bCharacterRepPageOpen
+     || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ CharacterRepSelection = FactionIndex;
+}
+
+void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
+{
+ // Read-only navigation. Reject invalid pages and hidden/defeated modals.
+ if (Page < 0 || Page > 2 || !bCharacterStatsOpen || !bInventoryOpen
+     || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ bCharacterRacePageOpen = Page == 1;
+ bCharacterRepPageOpen = Page == 2;
+}
+
+void AMoonfallHeroPawn::ToggleCharacterRacePage()
+{
+ // C cycles combined Attributes & Gear -> Ancestry -> Reputation -> Attributes.
+ SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1));
+}
+
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
  if (bTalentWebOpen) return;
@@ -1761,16 +1801,24 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   ToggleInventory();
   if (!bInventoryOpen) return;
   bCharacterStatsOpen = true;
+  bCharacterRacePageOpen = false;
+  bCharacterRepPageOpen = false;
   return;
  }
- bCharacterStatsOpen = !bCharacterStatsOpen;
- if (bCharacterStatsOpen) bSpellBookOpen = false;
+ // C stays the character shortcut: first press opens Attributes, subsequent
+ // presses cycle the three combined Stats & Gear, Ancestry and Reputation pages.
+ if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }
+ bCharacterStatsOpen = true;
+ bCharacterRacePageOpen = false;
+  bCharacterRepPageOpen = false;
+ bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
  if (bTalentWebOpen) return;
+ // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
@@ -1860,6 +1908,8 @@ void AMoonfallHeroPawn::ToggleInventory() {
   PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) {
   bCharacterStatsOpen = false;
+  bCharacterRacePageOpen = false;
+  bCharacterRepPageOpen = false;
   bSpellBookOpen = false;
  }
 }
@@ -2080,6 +2130,8 @@ void AMoonfallHeroPawn::OpenOptions() {
   if (bCharacterStatsOpen) {
    // Esc backs out of character details to the bag without closing the inventory.
    bCharacterStatsOpen = false;
+   bCharacterRacePageOpen = false;
+  bCharacterRepPageOpen = false;
    bInventoryScrollbarDragging = false;
    return;
   }
@@ -2123,6 +2175,10 @@ void AMoonfallHeroPawn::OptionsUp() {
    SpellBookSelection = FMath::Max(0, SpellBookSelection - 1);
    return;
   }
+  if (bCharacterStatsOpen) {
+   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
+   return; // Never move the hidden bag selection while reading character pages.
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -2156,6 +2212,10 @@ void AMoonfallHeroPawn::OptionsDown() {
    SpellBookSelection = FMath::Min(MoonfallSpellBook::SpellCount - 1, SpellBookSelection + 1);
    return;
   }
+  if (bCharacterStatsOpen) {
+   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
+   return;
+  }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
   if (DisplayOrder.Num() > 0)
@@ -2167,6 +2227,7 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -2184,6 +2245,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
 }
 void AMoonfallHeroPawn::OptionsRight() {
  if (bTalentWebOpen) { TalentMove(1,0); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -4033,6 +4095,37 @@ int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return bRaceChosen ? Race
 int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return bRaceChosen ? RaceProfile(RaceId).Resolve : 0; }
 float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).StaminaRegen : 0; }
 float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).ManaRegen : 0; }
+// Racial passives are permanent once ChooseRace saves the selection. Keep the
+// display bound to the same profile used by actual combat and regen formulas.
+FString AMoonfallHeroPawn::GetRacePassiveSummary() const {
+ if (!bRaceChosen) return TEXT("No ancestry selected. Racial bonuses are locked.");
+ const auto& R=RaceProfile(RaceId);
+ return FString::Printf(
+     TEXT("+%d Might  |  +%d Insight  |  +%d Resolve\nStamina regen +%.0f%%  |  Mana regen +%.0f%%"),
+     R.Might,R.Insight,R.Resolve,
+     static_cast<double>(R.StaminaRegen)*100.0,
+     static_cast<double>(R.ManaRegen)*100.0);
+}
+FString AMoonfallHeroPawn::GetRacePowerDescription() const {
+ if (!bRaceChosen) return TEXT("Choose an ancestry to unlock its racial power.");
+ // Exactly the effects in ActivateRacePower; all twelve remain 45s cooldown.
+ static const TCHAR* Descriptions[] = {
+  TEXT("Recover 15% max mana and 15% max stamina."),
+  TEXT("Recover 30% max mana; +15% offensive spell damage for 8s."),
+  TEXT("Recover 35% max stamina; 12s active window."),
+  TEXT("Recover 10% max stamina; 15% damage reduction for 10s."),
+  TEXT("Recover 45% max stamina; 6s active window."),
+  TEXT("Recover 8% max health and 20% max stamina."),
+  TEXT("Recover 22% max mana and 22% max stamina."),
+  TEXT("Recover 12% max health; 15% damage reduction for 8s."),
+  TEXT("Recover 8% max health; 15% damage reduction for 14s."),
+  TEXT("Recover 22% max stamina; +15% offensive spell damage for 8s."),
+  TEXT("Recover 38% max mana; +15% offensive spell damage for 8s."),
+  TEXT("Recover 7% max health and 18% max mana.")
+ };
+ return FString(Descriptions[FMath::Clamp(RaceId,0,11)]);
+}
+
 
 
 namespace {
@@ -4042,6 +4135,17 @@ const TCHAR* MoonfallRacePowerNames[] = {
  TEXT("Quickcraft"), TEXT("Trollhide"), TEXT("Rootward"),
  TEXT("Night Veil"), TEXT("Moon Surge"), TEXT("Drakeheart")
 };
+}
+FString AMoonfallHeroPawn::PreviewGameplayAncestry(int32 CandidateRaceId) {
+ if (CandidateRaceId < 0 || CandidateRaceId >= 12)
+  return TEXT("No compatible gameplay ancestry available.");
+ const auto& R=RaceProfile(CandidateRaceId);
+ return FString::Printf(
+  TEXT("SAVED GAMEPLAY LINEAGE: %s\\nPermanent bonuses: Might +%d, Insight +%d, Resolve +%d\\nStamina regen +%.0f%%; Mana regen +%.0f%%\\nRacial power: %s (45s cooldown)"),
+  R.Name,R.Might,R.Insight,R.Resolve,
+  static_cast<double>(R.StaminaRegen)*100.0,
+  static_cast<double>(R.ManaRegen)*100.0,
+  MoonfallRacePowerNames[CandidateRaceId]);
 }
 FString AMoonfallHeroPawn::GetRacePowerName() const {
  return FString(MoonfallRacePowerNames[FMath::Clamp(RaceId, 0, 11)]);
@@ -4217,6 +4321,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  if (!HasVisibleInventoryPointerSurface(Controller)) return;
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
@@ -4387,8 +4492,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    int32 Width = 0, Height = 0;
    float MouseX = 0.f, MouseY = 0.f;
    PC->GetViewportSize(Width, Height);
-   if (Width > 0 && Height > 0 && PC->bShowMouseCursor
-       && PC->GetMousePosition(MouseX, MouseY)) {
+   // The HUD renders no interactive rows below its minimum window size.
+   if (Width >= 264 && Height >= 304 && PC->bShowMouseCursor
+       && PC->GetMousePosition(MouseX, MouseY)
+       && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
     const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, float(Width) - 24.f));
     const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, float(Height) - 24.f));
     const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
@@ -4422,12 +4529,63 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  if (bInventoryOpen) {
+  if (!HasVisibleInventoryPointerSurface(Controller)) return;
   // Book pointer and backdrop always take priority. The bag's hidden X must
   // not close or mutate the inventory through the full-width grimoire.
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventoryCloseButton()) {
    // The X and Esc must back out of character details the same way.
    OpenOptions();
+   return;
+  }
+  if (bCharacterStatsOpen) {
+   // Hit-test the same right header tab painted in MoonfallCombatHUD.
+   // The rest of the character sheet is read-only and absorbs mouse clicks.
+   if (APlayerController* PC=Cast<APlayerController>(Controller)) {
+    int32 ViewW=0,ViewH=0;
+    float MouseX=0.f,MouseY=0.f;
+    PC->GetViewportSize(ViewW,ViewH);
+    if (ViewW>0 && ViewH>0 && PC->bShowMouseCursor
+        && PC->GetMousePosition(MouseX,MouseY)
+        && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
+     const float PanelW=FMath::Min(720.f,FMath::Max(280.f,
+        FMath::Min(float(ViewW)-24.f,float(ViewW)*0.48f)));
+     const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(ViewH)-24.f));
+     const float PanelL=float(ViewW)-PanelW-12.f;
+     const float PanelT=(float(ViewH)-PanelH)*0.5f;
+     // Match all three HUD tabs. Clicks cannot equip, salvage or change standing.
+     const float TabW=(PanelW-60.f)/3.f;
+     const float TabL=PanelL+18.f;
+     const float TabY=PanelT+77.f;
+     if (MouseY>=TabY && MouseY<=TabY+32.f) {
+      for (int32 Tab=0;Tab<3;++Tab) {
+       const float X=TabL+Tab*(TabW+8.f);
+       if (MouseX>=X && MouseX<=X+TabW) {
+        SelectCharacterPage(Tab);
+        break;
+       }
+      }
+     }
+     // Read-only reputation rows share the HUD's responsive panel geometry.
+     // Tab clicks above have priority; row hits never mutate gameplay reputation.
+     if (bCharacterRepPageOpen) {
+      const float RowTop=PanelT+123.f;
+      const float DetailsReserve=PanelH>=620.f?158.f:0.f;
+      const float RowsBottom=PanelT+PanelH-65.f-DetailsReserve;
+      const float RowHeight=FMath::Clamp((RowsBottom-RowTop)/5.f,18.f,74.f);
+      if (MouseX>=PanelL+15.f && MouseX<=PanelL+PanelW-15.f) {
+       for (int32 Row=0;Row<5;++Row) {
+        const float RowY=RowTop+Row*RowHeight;
+        if (RowY+RowHeight>RowsBottom) break;
+        if (MouseY>=RowY && MouseY<RowY+RowHeight-3.f) {
+         SelectCharacterReputation(Row);
+         break;
+        }
+       }
+      }
+     }
+    }
+   }
    return;
   }
   if (HitTestInventorySortButton()) {
