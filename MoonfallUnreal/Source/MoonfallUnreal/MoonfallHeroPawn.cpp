@@ -4398,8 +4398,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    int32 Width = 0, Height = 0;
    float MouseX = 0.f, MouseY = 0.f;
    PC->GetViewportSize(Width, Height);
-   if (Width > 0 && Height > 0 && PC->bShowMouseCursor
-       && PC->GetMousePosition(MouseX, MouseY)) {
+   // The HUD renders no interactive rows below its minimum window size.
+   if (Width >= 264 && Height >= 304 && PC->bShowMouseCursor
+       && PC->GetMousePosition(MouseX, MouseY)
+       && FMath::IsFinite(MouseX) && FMath::IsFinite(MouseY)) {
     const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, float(Width) - 24.f));
     const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, float(Height) - 24.f));
     const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
@@ -4519,7 +4521,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
+ // Tiny-window fallback has no clickable quest actions; Esc/RMB still close.
+ if (Width < 284 || Height < 294 || !PC->bShowMouseCursor
+     || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return;
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
  const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
