@@ -34,8 +34,13 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  // Compact authored-home offsets: no teleport, path solve or NPC Tick.
  const int Shift=(MoonfallLivingSimulation::Phase(Now,180.f)
      + static_cast<int>(GetTypeHash(ResidentId)%4u))%4;
- const float Side=Shift==0?-65.f:(Shift==1?65.f:0.f);
- const float Front=Shift==2?45.f:(Shift==3?-45.f:0.f);
+ const int Region=MoonfallLivingSimulation::RegionFromWorldX(GetActorLocation().X);
+ const auto Weather=MoonfallLivingSimulation::WeatherFor(Region,
+      MoonfallLivingSimulation::Phase(Now,360.f));
+ const bool bSheltering=MoonfallLivingSimulation::Severe(Weather)
+      && SocialRole!=FName(TEXT("Guard"));
+ const float Side=bSheltering?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
+ const float Front=bSheltering?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;

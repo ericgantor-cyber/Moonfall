@@ -99,4 +99,20 @@ int main(){
         self.assertIn("if (!bAmbientVisitor && Disposition",npc)
         self.assertNotIn("GetAllActorsOfClass(",mode)
 
+    def test_ambient_visitors_do_not_show_false_quest_offers(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        talk=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice)",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertIn("if (Resident->bAmbientVisitor)",talk)
+        self.assertIn("traveler has no contract",talk)
+        self.assertLess(talk.index("if (Resident->bAmbientVisitor)"),
+                        talk.index("const int32 State = GetResidentQuestState("))
+        self.assertIn('TEXT("No contract")',hud)
+        self.assertIn('TEXT("Road encounter  |  Talk to hear their story")',hud)
+        self.assertIn("Resident->bAmbientVisitor ? 2",hud)
+        self.assertIn("MoonfallLivingSimulation::Severe(Weather)",npc)
+        self.assertIn("const bool bSheltering=",npc)
+
 if __name__=="__main__":unittest.main()

@@ -47,8 +47,10 @@ void AMoonfallCombatHUD::DrawHUD()
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
      L + 18.f, T + 53.f, nullptr, 0.90f);
-   const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
-   const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
+   const int32 Quest = Resident->bAmbientVisitor ? 2
+       : Hero->GetResidentQuestState(Resident->ResidentId);
+   const FString QuestAction = Resident->bAmbientVisitor ? TEXT("No contract")
+     : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
    const FString Names[3] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
@@ -67,17 +69,20 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
         : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
-    DrawText(Names[Row], Row == 1 && Quest == 2
+    DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
-   const FString ContractStatus = Quest == 0 ? TEXT("Available")
+   const FString ContractStatus = Resident->bAmbientVisitor ? TEXT("None")
+     : Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
      *ContractStatus, *Resident->FactionId.ToString()),
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
-       Hero->Salvage, Resident->GetContractSalvageCost()),
+   DrawText(Resident->bAmbientVisitor
+       ? TEXT("Road encounter  |  Talk to hear their story")
+       : FString::Printf(TEXT("Salvage: %d / %d"),
+           Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),

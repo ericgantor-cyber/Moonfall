@@ -4089,6 +4089,15 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ if (Resident->bAmbientVisitor) {
+  // Ambient encounters never offer an unfinishable persistent contract.
+  const FText Notice=FText::FromString(
+      TEXT("This traveler has no contract. Select Talk to hear their story."));
+  ResidentFeedbackMessage=Notice.ToString();
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  OnResidentQuestFeedback(Notice,false);
+  return false;
+ }
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
  FText Message;
