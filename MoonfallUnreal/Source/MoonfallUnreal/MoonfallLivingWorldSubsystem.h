@@ -28,6 +28,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") bool GetNpcRelationship(FName Observer, FName Other, int32& Score) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool PublishObservation(FName Witness, FName RumorId, FVector Location, bool bCrime, float LifetimeSeconds=120.f);
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RelayRumor(FName Speaker, FName Listener, FName RumorId);
+ // Shares one useful non-crime observation; guard reports require the explicit witness API.
+ bool ShareUsefulRumor(FName Speaker, FName Listener);
  UFUNCTION(BlueprintPure, Category="Moonfall Living World") bool GetRumor(FName Npc, FName RumorId, FMoonfallWorldRumor& Rumor) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool ReportWitnessToGuard(FName Witness, FName Guard, FName RumorId);
  UFUNCTION(BlueprintCallable, Category="Moonfall Living World") bool RegisterEncounter(FName Encounter, bool bRepeatable=false, float CooldownSeconds=300.f);
