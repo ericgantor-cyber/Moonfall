@@ -29,7 +29,7 @@ assert "Save->Version > 13" in load_body
 assert "MoonfallTalents::Ranks LoadedTalentRanks{};" in load_body
 assert "if (Save->Version >= 13)" in load_body
 assert "Save->TalentRanks.Num() != MoonfallTalents::NodeCount" in load_body
-assert "MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, ValidatedTalentSnapshot)" in load_body
+assert "MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, LoadedTalentSnapshot)" in load_body
 assert load_body.index("Evaluate(Save->Level, LoadedTalentRanks") < load_body.index("TeleportTo(")
 assert load_body.index("TalentRanks = LoadedTalentRanks;") > load_body.index("TeleportTo(")
 assert "bPersistentSaveWritesBlocked = true;" in load_body
@@ -37,16 +37,39 @@ assert "bPersistentSaveWritesBlocked = true;" in load_body
 assert load_body.index("MoonfallTalents::Ranks LoadedTalentRanks{};") < load_body.index("if (Save->Version >= 13)")
 for method in ("SpendTalentPoint", "RespecTalentPoints"):
     begin = hero.index("bool AMoonfallHeroPawn::" + method + "(")
-    end = hero.index("\n}", begin) + 2
+    end = hero.index("\\n}", begin) + 2
     body = hero[begin:end]
     assert "MoonfallTalents::Ranks Candidate = TalentRanks;" in body
-    assert "const MoonfallTalents::Ranks Previous = TalentRanks;" in body
-    assert "TalentRanks = Candidate;" in body
-    assert "if (!SaveWorldProgress()) { TalentRanks = Previous; return false; }" in body
+    assert "return CommitTalentAllocation(Candidate);" in body
+commit_start = hero.index("bool AMoonfallHeroPawn::CommitTalentAllocation(")
+commit_end = hero.index("\\n}", commit_start) + 2
+commit = hero[commit_start:commit_end]
+assert "MoonfallTalents::ApplyResourceDelta(UpdatedResources, Before, After)" in commit
+assert "const MoonfallTalents::Ranks PreviousRanks = TalentRanks;" in commit
+assert "TalentRanks = Candidate;" in commit
+assert "if (!SaveWorldProgress()) {" in commit
+assert "TalentRanks = PreviousRanks;" in commit
+for resource in ("MaxHealth", "Health", "MaxMana", "Mana", "MaxStamina", "Stamina"):
+    assert resource + " = static_cast<float>(UpdatedResources." + resource + ");" in commit
+    assert resource + " = static_cast<float>(PreviousResources." + resource + ");" in commit
+assert commit.index("OnHealthChanged(Health, MaxHealth);") > commit.index("if (!SaveWorldProgress())")
+assert "ApplyResourceDelta" in rules
+# Permanent HP capacity is serialized without talent capacity; reloading adds
+# only the validated bonus once after subtracting previous mana/stamina bonuses.
+assert "const double BaseHealthCap = static_cast<double>(MaxHealth)" in save_body
+assert "Save->MaxHealth = static_cast<float>(BaseHealthCap);" in save_body
+assert "const double LoadedHealthCap = SavedBaseHealth" in load_body
+assert "const double LoadedManaCap = static_cast<double>(MaxMana)" in load_body
+assert "const double LoadedStaminaCap = static_cast<double>(MaxStamina)" in load_body
+for resource in ("Health", "Mana", "Stamina"):
+    assert "Max" + resource + " = static_cast<float>(Loaded" + resource + "Cap);" in load_body
+assert load_body.index("LoadedHealthCap") < load_body.index("TeleportTo(")
+assert load_body.index("LoadedManaCap") < load_body.index("TeleportTo(")
+assert load_body.index("LoadedStaminaCap") < load_body.index("TeleportTo(")
 assert "bool SpendTalentPoint(int32 NodeIndex);" in header
 assert "bool RespecTalentPoints();" in header
 assert "int32 GetAvailableTalentPoints() const;" in header
 assert "int32 GetTalentRank(int32 NodeIndex) const;" in header
 
 # No new input mappings or automatic talent spending in this save-only slice.
-print("UE5 talent save V13: old-save defaults, strict load validation and transaction rollback verified.")
+print("UE5 V13 talent saves: safe migration, three live resource caps and atomic rollback verified.")
