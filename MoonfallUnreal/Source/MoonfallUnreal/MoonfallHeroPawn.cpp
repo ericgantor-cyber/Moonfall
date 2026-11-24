@@ -902,6 +902,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 {
 
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -912,6 +913,7 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 {
 
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -1079,6 +1081,7 @@ void AMoonfallHeroPawn::CastBoth()
 {
 
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bTalentWebOpen) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
@@ -1103,6 +1106,7 @@ void AMoonfallHeroPawn::RightHandAction()
  if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) return;
  // Buffer one additional sword press only within the final 180ms of recovery.
  // Spells retain their existing immediate cast path and never queue a sword.
  if (!bRightHandSpellReadied && !bGuarding) {
@@ -1291,6 +1295,7 @@ void AMoonfallHeroPawn::MeleeAttack()
      || !FMath::IsFinite(MeleeStaminaCost) || MeleeStaminaCost < 0.f
      || !FMath::IsFinite(MeleeAttackCooldown) || MeleeAttackCooldown <= 0.f
      || !FMath::IsFinite(MeleeAttackRange) || MeleeAttackRange <= 0.f) return;
+ if (bTalentWebOpen) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextMeleeAttackAt)
      || Now < NextMeleeAttackAt) return;
@@ -1432,6 +1437,7 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
@@ -1471,6 +1477,7 @@ void AMoonfallHeroPawn::BeginSprint() {
 
  // Menu and defeat inputs must not latch a sprint for later gameplay.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
+ if (bTalentWebOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1491,6 +1498,7 @@ void AMoonfallHeroPawn::Dodge()
 {
 
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ if (bTalentWebOpen) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -2686,6 +2694,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
 
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
+ if (bTalentWebOpen) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
