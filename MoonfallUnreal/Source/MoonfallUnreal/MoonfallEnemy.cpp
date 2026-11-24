@@ -1,4 +1,6 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallUnrealGameMode.h"
+#include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
 #include "MoonfallPracticeAI.h"
@@ -177,6 +179,25 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+void AMoonfallEnemy::RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now){
+ if(!HasAuthority()||!IsValid(Scout)||Scout->GetWorld()!=GetWorld()||bBoss||bElite||Health<=0.f
+    ||ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))||!FMath::IsFinite(Now))return;
+ RecentCompanionAttacker=Scout;RecentCompanionAttackerAt=Now;
+}
+bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const{
+ return IsValid(Scout)&&RecentCompanionAttacker.Get()==Scout&&FMath::IsFinite(Now)
+    &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
+}
+bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
+ if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
+     ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
+     ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now)||!FMath::IsFinite(PostureBrokenUntil)||Now<PostureBrokenUntil)return false;
+ const float Before=Health;
+ TakeMeleeDamage(Amount);
+ return Health<Before;
+}
 void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
  // Keep a single authoritative damage/defeat path while UE5 melee gains its
  // own hit detection, stamina cost and directional animation hook.
@@ -424,9 +445,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Pause hostile behavior during any gameplay modal, including Atlas, and
- // after defeat. Cancel winding attacks so closing a menu cannot trigger
- // an instant hit against a player who was unable to attack or dodge.
+ // The hostile world stays live while any player menu is open: talents,
+ // inventory, spellbook, atlas, options and NPC dialogue are NOT safe zones.
+ // Only a missing, unpossessed or defeated hero cancels pending enemy attacks.
+ // The hit HUD warns during menus, and lethal damage closes the talent web.
  AMoonfallHeroPawn* Hero = CachedHero.Get();
  // An unpossessed old pawn may remain valid after respawn or hero switching.
  // Never allow it to receive another cached-target attack.
@@ -444,14 +466,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextHeroCacheRefreshAt = Now + 1.f
     + 0.05f * static_cast<float>(GetUniqueID() % 7u);
  }
- if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
-     || Hero->FocusedResident.IsValid()) {
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
   CancelDivineSignature();
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
   WindupEndsAt = -1.f;
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -518,6 +539,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
@@ -660,6 +682,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
   const float AttackRecoveryAt = Now + RecoveryCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, AttackRecoveryAt);
+  // A committed companion strike either hits that follower or misses.
+  // Never redirect it to the hero if the follower moves, is dismissed or falls.
+  if(bCompanionAttackCommitted){
+   bCompanionAttackCommitted=false;
+   auto* Target=LockedCompanionTarget.Get();LockedCompanionTarget.Reset();
+   if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+    Mode->ResolveCompanionCounterAttack(Hero,this,Target,LockedAttackDirection,
+         AttackDamage*FMath::Min(2.3f,CurrentAttackMultiplier),AttackRange*CurrentAttackRangeMultiplier);
+   bComboSecondHitPending=false;bComboSecondHitActive=false;
+   return;
+  }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
@@ -1378,7 +1411,23 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.f);
     CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
    }
+   bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
+   if(!bBoss&&!bElite&&!bSanctuaryPractice){
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()){
+     if(auto* Target=Mode->SelectCompanionCounterTarget(Hero,this,Now,AttackRange*CurrentAttackRangeMultiplier)){
+      LockedCompanionTarget=Target;bCompanionAttackCommitted=true;
+      LockedAttackDirection=(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
+      SetActorRotation(FRotator(0.f,LockedAttackDirection.Rotation().Yaw,0.f));
+      bComboSecondHitPending=false;
+     }
+    }
+   }
    WindupEndsAt = Now + CurrentWindup;
+   // A real visible attack commitment is a defensive assist opportunity,
+   // even before the player lands their first strike. Practice foes excluded.
+   if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero&&!bCompanionAttackCommitted)
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+     Mode->ReportCompanionThreat(Hero,this,Now);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
    if (bRegionalBoss) {
     // Stable readable move labels published only at warning startup.

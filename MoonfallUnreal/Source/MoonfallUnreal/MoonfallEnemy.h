@@ -4,6 +4,7 @@
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
 class AMoonfallHeroPawn;
+class AMoonfallWorldNPC;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -140,6 +141,10 @@ private:
  bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> RecentCompanionAttacker;
+ float RecentCompanionAttackerAt=-1000.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> LockedCompanionTarget;
+ bool bCompanionAttackCommitted=false;
  // -1 by default; authored tag selects one deterministic guardian footprint.
  int32 ActiveGuardianFootprint = -1;
  FVector GuardianOrigin = FVector::ZeroVector;
@@ -196,4 +201,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
  // Melee resolves through the same bounded health, boss-phase, posture and loot pipeline.
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeMeleeDamage(float Amount);
+ // Nonlethal companion support uses the existing damage resolution.
+ bool TryCompanionSupportStrike(float Amount);
+ void RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now);
+ bool HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const;
 };

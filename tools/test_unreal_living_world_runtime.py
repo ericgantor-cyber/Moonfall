@@ -149,7 +149,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bool bInConversation=false",npc_h)
-        self.assertIn("bool bInConversation)",movement)
+        self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide, bool bHoldCompanion)",movement)
         self.assertIn("PauseResidentMotion(",movement)
         self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
@@ -159,6 +159,695 @@ int main(){
         self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
         self.assertNotIn("TActorIterator",movement)
         self.assertNotIn("SetTimer",movement)
+
+    def test_v27_intent_uses_existing_pulse_and_saved_bond(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        header=(SRC/"MoonfallWorldNPC.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("const Action Intent=Decide(Context);",movement)
+        self.assertIn("NPC->GetBondWithHero(Hero)",mode)
+        self.assertIn("Context.trust=FMath::Clamp(HeroBond/100.f",movement)
+        self.assertIn("bUsePersonalityRoutines=true",header)
+        self.assertIn("if (bMerchant || bScout || bGuard || bInConversation) bRoutineHome=false;",movement)
+        self.assertIn("bSheltering || bHoldPost || bRoutineHome",movement)
+        self.assertLess(movement.index("PauseResidentMotion("),movement.index("AddActorWorldOffset("))
+        self.assertNotIn("TActorIterator",movement)
+        self.assertNotIn("SetTimer",movement)
+
+    def test_v27_bounded_social_rumors(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        helper=mode.split("void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(",1)[1].split(
+            "void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[0]
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("SocialCandidates.Reserve(MoonfallLivingSimulation::ResidentBudget)",pulse)
+        self.assertIn("!bCombatNearby && !Hero->bResidentContextOpen",pulse)
+        self.assertIn("HeroLocation,false,180.f",pulse)
+        self.assertIn("CombatPhase%1024",pulse)
+        self.assertIn("Other->SettlementId!=Speaker->SettlementId",helper)
+        self.assertIn("Society->GetNpcRelationship(Speaker->ResidentId,Other->ResidentId,Attitude)",helper)
+        self.assertLess(helper.index("if (Attitude<=-20) continue;"),helper.index("BestDistance=Distance;"))
+        self.assertLess(helper.index("if (Attitude<=-20) continue;"),helper.index("Listener=Other;"))
+        self.assertEqual(helper.count("LineTraceSingleByChannel("),1)
+        self.assertNotIn("TActorIterator",helper)
+        self.assertNotIn("SetTimer",helper)
+        self.assertIn("Society->ShareUsefulRumor",helper)
+        self.assertLess(helper.index("FindUsefulRumor("),helper.index("BestDistance=Distance;"))
+        self.assertLess(helper.index("LineTraceSingleByChannel("),helper.index("Society->ShareUsefulRumor"))
+        self.assertIn("if (!Society->ShareUsefulRumor",helper)
+        self.assertLess(helper.index("Society->ShareUsefulRumor"),helper.index("OnAmbientNewsShared("))
+        self.assertNotIn("OnDialogueStarted(",helper)
+        self.assertNotIn("LastSpokenLine",helper)
+        selector=subsystem.split("FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(",1)[0]
+        self.assertNotIn("StoreRumor(",selector)
+        self.assertNotIn("RelayRumor(",selector)
+        self.assertIn("Known.Confidence>=Confidence",selector)
+        self.assertIn("return BestId;",selector)
+        share=subsystem.split("bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(",1)[0]
+        self.assertIn("Attitude<=-20",share)
+        self.assertIn("R.bCrime||R.ExpiresAt<=Time",share)
+        self.assertIn("Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence",share)
+        self.assertIn("RelayRumor(Speaker,Listener,BestId)",share)
+
+    def test_v27_news_trust_requires_new_successful_transfer(self):
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        header=(SRC/"MoonfallLivingWorldSubsystem.h").read_text()
+        share=subsystem.split("bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(",1)[1].split(
+            "void UMoonfallLivingWorldSubsystem::CreditUsefulNews(",1)[0]
+        credit=subsystem.split("void UMoonfallLivingWorldSubsystem::CreditUsefulNews(",1)[1].split(
+            "FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(",1)[0]
+        self.assertIn("const bool bAlreadyKnown=GetRumor(Listener,BestId,Previous)",share)
+        self.assertIn("if(!RelayRumor(Speaker,Listener,BestId))return false;",share)
+        self.assertIn("if(!bAlreadyKnown&&GetRumor(Listener,BestId,Received))",share)
+        self.assertLess(share.index("if(!RelayRumor"),share.index("CreditUsefulNews("))
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.h").read_text()
+        self.assertIn("LastAmbientTrustAt=-1.0",session)
+        self.assertIn("FPlatformTime::Seconds()",credit)
+        self.assertIn("Session->Relationships",credit)
+        self.assertIn("Time-R.LastAmbientTrustAt",credit)
+        self.assertIn("AmbientTrustDelta(R.Score,Confidence,Elapsed)",credit)
+        self.assertIn("AdjustNpcRelationship(Listener,Speaker,Delta)",credit)
+        self.assertNotIn("ChangeResidentBond",credit)
+
+    def test_v27_relationship_session_survives_world_teardown(self):
+        world=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        world_h=(SRC/"MoonfallLivingWorldSubsystem.h").read_text()
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.h").read_text()
+        teardown=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        self.assertIn("public UGameInstanceSubsystem",session)
+        self.assertIn("TMap<FName,TArray<FRelationship>> Relationships",session)
+        self.assertNotIn("TMap<FName,TArray<FRelationship>> Relationships",world_h)
+        self.assertIn("GetWorld()->GetGameInstance()",world)
+        self.assertIn("GetSubsystem<UMoonfallNpcSocialSessionSubsystem>()",world)
+        self.assertIn("if(!CanWrite())return nullptr;",world)
+        self.assertIn("GetNetMode()!=NM_Client",world)
+        world_end=world.split("void UMoonfallLivingWorldSubsystem::Deinitialize()",1)[1]
+        self.assertNotIn("Relationships.Reset()",world_end)
+        for local in ("Knowledge.Reset()","Observations.Reset()","Encounters.Reset()"):
+            self.assertIn(local,world_end)
+        self.assertIn("Relationships.Reset()",teardown)
+        reset=world.split("bool UMoonfallLivingWorldSubsystem::ResetNpcSocialSession()",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::GetNpcRelationship",1)[0]
+        self.assertIn("if(!Session->ResetLedger())return false;",reset)
+        self.assertNotIn("SaveGameToSlot",world)
+
+    def test_v27_durable_social_save_isolated_validated_and_rotated(self):
+        world=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        session=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        schema=(SRC/"MoonfallNpcSocialSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("WorldType==EWorldType::Game&&GetWorld()->GetNetMode()==NM_Standalone",world)
+        self.assertIn("SocialMemory->FlushSocialMemory()",mode)
+        self.assertIn("Session->bDirty=true",world)
+        self.assertIn('TEXT("MoonfallNpcSocial_A")',session)
+        self.assertIn('TEXT("MoonfallNpcSocial_B")',session)
+        self.assertIn("UPROPERTY(SaveGame) int32 Version=1",schema)
+        load=session.split("void UMoonfallNpcSocialSessionSubsystem::InitializePersistence",1)[1].split(
+            "bool UMoonfallNpcSocialSessionSubsystem::Flush",1)[0]
+        for check in ("Save->Version!=1","Save->Generation<=0","MaxObservers*MaxPerObserver",
+                      "Entry.Observer==Entry.Other","Entry.Score<-100","Entry.Score>100",
+                      "List->ContainsByPredicate","Save->Generation>Generation",
+                      "bAnyExisting&&!bFoundValid","FPlatformTime::Seconds()"):
+            self.assertIn(check,load)
+        flush=session.split("bool UMoonfallNpcSocialSessionSubsystem::Flush",1)[1].split(
+            "bool UMoonfallNpcSocialSessionSubsystem::ResetLedger",1)[0]
+        self.assertIn("if(bWriteBlocked)return false;",flush)
+        self.assertIn("if(!bDirty)return true;",flush)
+        self.assertIn("Time-LastSaveAttempt<60.0",flush)
+        self.assertIn("ActiveSlot==0?1:0",flush)
+        self.assertLess(flush.index("SaveGameToSlot"),flush.index("ActiveSlot=NextSlot"))
+        reset=session.split("bool UMoonfallNpcSocialSessionSubsystem::ResetLedger",1)[1]
+        self.assertIn("if(Flush(true))return true;",reset)
+        self.assertIn("Relationships=MoveTemp(Previous)",reset)
+        self.assertIn("bDirty=bWasDirty",reset)
+        self.assertNotIn("MoonfallWorldSlot",session)
+        self.assertNotIn("SetTimer",session)
+
+    def test_v27_emotional_state_preserves_quest_and_dialogue_authority(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        header=(SRC/"MoonfallWorldNPC.h").read_text()
+        mood=npc.split("EMoonfallNpcMood AMoonfallWorldNPC::GetEmotionalState(",1)[1].split(
+            "bool AMoonfallWorldNPC::TryTalk(",1)[0]
+        self.assertIn("MoonfallWorldPolicy::ResolveMood",mood)
+        self.assertIn("GetNearbyCombatReport",mood)
+        self.assertIn("Now-LastDangerAt<85.f",mood)
+        self.assertIn("GetBondWithHero(Hero)",mood)
+        self.assertIn("GetFactionReputation(FactionId)",mood)
+        self.assertIn("EMoonfallNpcMood LastConversationMood",header)
+        talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
+        self.assertLess(talk.index("CanHeroInteract(Hero)"),talk.index("LastConversationMood=GetEmotionalState"))
+        self.assertLess(talk.index("LastConversationMood==EMoonfallNpcMood::Warm"),talk.index("SupportsResidentContract"))
+        self.assertLess(talk.index("LastConversationMood=GetEmotionalState"),talk.index("OnDialogueStarted"))
+        self.assertNotIn("ChangeResidentBond(",mood)
+        self.assertNotIn("WitnessNearbyDanger(",mood)
+
+    def test_v27_local_scout_guidance_is_safe_and_bounded(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("bool bGuideBudgetUsed=false",pulse)
+        self.assertIn("!bGuideBudgetUsed",pulse)
+        self.assertIn("if(bGuide)bGuideBudgetUsed=true",pulse)
+        self.assertIn("Hero->GetFactionReputation(NPC->FactionId)",pulse)
+        self.assertIn("const bool bGuideSafe=!bCombatNearby",pulse)
+        for menu in ("bInventoryOpen","bOptionsOpen","bAtlasOpen","bCharacterStatsOpen",
+                     "bSpellBookOpen","bResidentContextOpen"):
+            self.assertIn("!Hero->"+menu,pulse)
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bAllowLocalScoutGuidance",movement)
+        self.assertIn("Alert==MoonfallLivingSimulation::EAlertReaction::Normal",movement)
+        self.assertIn("FMath::Clamp(Distance-240.0,0.0,180.0)",movement)
+        self.assertIn("Hit.ImpactNormal.Z<0.7",movement)
+        self.assertIn("FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0",movement)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertNotIn("SetActorLocation(",movement)
+        self.assertNotIn("MoveToLocation(",movement)
+
+    def test_v27_local_companion_recruitment_is_explicit_and_owner_checked(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        for condition in ("HasAuthority()","Hero->IsPlayerControlled()","Resident->CanHeroInteract(Hero)",
+                          "Resident->GetBondWithHero(Hero)<60","GetFactionReputation(Resident->FactionId)<0",
+                          "LivingResidents.ContainsByPredicate","LocalCompanion.IsValid()"):
+            self.assertIn(condition,recruit)
+        self.assertIn("CompanionOwner=Hero",recruit)
+        self.assertIn("TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion",header)
+        self.assertIn("Follow, Hold, Passive",header)
+        self.assertIn("!IsLocalCompanionOwner(Hero)",mode)
+        self.assertIn("if(LocalCompanion.Get()==Resident)",mode)
+        self.assertIn("if(bRecruited||ReturningCompanion.Get()==NPC)return;",mode)
+        self.assertIn("LocalCompanionStance==EMoonfallCompanionStance::Hold",mode)
+        self.assertIn("Bond,bGuide,bHold",mode)
+        self.assertIn("bHoldCompanion&&!bInConversation&&!bSheltering&&!bHoldPost",npc)
+        self.assertIn('LivingIntent=TEXT("Holding Position");return;',npc)
+
+    def test_npc_interaction_rejects_invalid_state_before_visibility_trace(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        body=npc.split("bool AMoonfallWorldNPC::CanHeroInteract(",1)[1].split("\n}",1)[0]
+        before_trace=body.split("LineTraceSingleByChannel(",1)[0]
+        for guard in ("Hero->GetWorld()!=GetWorld()", "IsActorBeingDestroyed()",
+                      "Hero->IsActorBeingDestroyed()", "!FMath::IsFinite(Hero->Health)",
+                      "Hero->Health <= 0.f", "Hero->bAtlasOpen", "Hero->bTalentWebOpen",
+                      "!FMath::IsFinite(InteractRange)"):
+            self.assertIn(guard,before_trace)
+        self.assertIn("const float Range = FMath::Clamp(InteractRange, 50.f, 400.f);",body)
+        self.assertNotIn(": 240.f",body)
+
+    def test_companion_hud_reads_live_party_without_actor_scan(self):
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        block=hud.split("// One cached party lookup, no actor search or extra world-space labels.",1)[1].split('DrawText(TEXT("ESC  OPTIONS")',1)[0]
+        for token in ("!bCompactScreen","GetLocalCompanionForHero(Hero)","Hero->GetCompanionParty().ResidentId",
+                      "FMath::IsFinite(Scout->CompanionHealth)","FMath::Clamp(Scout->CompanionHealth,0.f,100.f)",
+                      'TEXT("DOWNED")','TEXT("FOLLOW")','TEXT("HOLD")','TEXT("PASSIVE")',
+                      "HP<=25.f","(W-20.f)*HP/100.f"):
+            self.assertIn(token,block)
+        self.assertNotIn("TActorIterator",block)
+        self.assertNotIn("SaveWorldProgress",block)
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        lookup=mode.split("const AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanionForHero(",1)[1].split("\n}",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Hero->Health<=0.f","IsCompanionPartyRestoreReady()",
+                      "!Scout->IsActorBeingDestroyed()","Scout->GetWorld()==GetWorld()",
+                      "Scout->ResidentId==Hero->GetCompanionParty().ResidentId"):
+            self.assertIn(guard,lookup)
+        self.assertNotIn("TActorIterator",lookup)
+
+    def test_v27_companion_menu_uses_shared_geometry_and_dispatch(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        mouse=hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split(
+            "void AMoonfallHeroPawn::TalkToNearestNPC()",1)[0]
+        panel=hud.split("// Native Canvas resident menu.",1)[1].split("if (Hero->bAtlasOpen)",1)[0]
+        for shared in ("GetResidentContextRowCount()","GetResidentContextPanelHeight(",
+                       "GetResidentContextRowPitch(","122.f + Row * Pitch","Pitch-10.f"):
+            self.assertIn(shared,mouse)
+            self.assertIn(shared,panel)
+        self.assertIn("ChooseResidentContextAction(Row)",mouse)
+        self.assertIn("HasResidentContextPointerSurface(Width,Height)",mouse)
+        self.assertIn("Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)",panel)
+        self.assertLess(mouse.index("HasResidentContextPointerSurface(Width,Height)"),mouse.index("ChooseResidentContextAction(Row)"))
+        self.assertIn("GetResidentContextRowPitch(GetResidentContextPanelHeight(ViewportHeight)) >= 32.f",hero)
+        self.assertIn("ViewportWidth >= 284.f && ViewportHeight >= 294.f",hero)
+        self.assertIn("!FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)",mouse)
+        self.assertIn("(ResidentContextSelection + 1) % GetResidentContextRowCount()",hero)
+        self.assertIn("(ResidentContextSelection + GetResidentContextRowCount() - 1) % GetResidentContextRowCount()",hero)
+        choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertLess(choose.index("CanHeroInteract(this)"),choose.index("if(bResidentCompanionMenu)"))
+        self.assertIn("if(Choice==2){bResidentCompanionMenu=false",choose)
+        self.assertIn("if(Choice==3&&GetResidentContextRowCount()==4)",choose)
+        self.assertIn("bResidentTurnInPending=false;bResidentCompanionMenu=true",choose)
+        for command in ("RecruitLocalCompanion","SetLocalCompanionStance","DismissLocalCompanion"):
+            self.assertIn(command,choose)
+        self.assertLess(choose.index("if(bResidentCompanionMenu)"),choose.index("OfferResidentQuest(this)"))
+        self.assertIn('TEXT("Companion")',panel)
+        self.assertIn('TEXT("Back")',panel)
+        self.assertIn('TEXT("Close")',panel)
+        self.assertIn('TEXT("Recruit (60 trust)")',panel)
+
+    def test_v27_companion_cover_preserves_defensive_authority(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        cover=mode.split("float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","LocalCompanionStance!=EMoonfallCompanionStance::Follow",
+                      "Scout->GetBondWithHero(Hero)<60","GetFactionReputation(Scout->FactionId)<0",
+                      "MoonfallLivingSimulation::Severe","FVector::DotProduct(ToSource,ToScout)<0.5",
+                      "MoonfallWorldPolicy::CompanionCover","Now-LastCompanionCoverAt"):
+            self.assertIn(guard,cover)
+        self.assertEqual(cover.count("LineTraceSingleByChannel("),1)
+        self.assertLess(cover.index("LineTraceSingleByChannel("),cover.index("LastCompanionCoverAt=Now"))
+        self.assertNotIn("TakeMeleeDamage",cover)
+        self.assertNotIn("TakeSpellDamage",cover)
+        damage=hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)",1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()",1)[0]
+        self.assertIn("DamageAfterGuard>0.f&&bHasIncomingDamageSource&&!bIncomingDamageDodgeOnly",damage)
+        self.assertLess(damage.index("OnGuardImpact("),damage.index("ConsumeLocalCompanionCover("))
+        self.assertLess(damage.index("ConsumeLocalCompanionCover("),damage.index("Health = FMath::Max(0.f, Health - DamageAfterGuard)"))
+
+    def test_v27_companion_strike_uses_recent_player_target_and_cannot_kill(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        for condition in ("IsLocalCompanionOwner(Hero)","EMoonfallCompanionStance::Follow",
+                          "GetRecentCompanionAssistTarget(Age)","CanCompanionStrike(Age,Now-LastCompanionStrikeAt",
+                          "Enemy->bBoss||Enemy->bElite","Scout->GetBondWithHero(Hero)<60",
+                          "Hero->bTalentWebOpen","LineTraceSingleByChannel"):
+            self.assertIn(condition,strike)
+        self.assertNotIn("TActorIterator",strike)
+        self.assertNotIn("SetTimer",strike)
+        self.assertLess(strike.index("LastCompanionStrikeAt=Now"),strike.index("TryCompanionSupportStrike(StrikeDamage)"))
+        self.assertIn("if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);",mode)
+        self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;",hero)
+        self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;",hero)
+        native=enemy.split("bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount)",1)[1].split(
+            "void AMoonfallEnemy::TakeMeleeDamage(",1)[0]
+        for condition in ("Health<=Amount","Amount>10.f","bPostureFinisherAvailable","Now<PostureBrokenUntil",
+                          "bBoss||bElite","TakeMeleeDamage(Amount)"):
+            self.assertIn(condition,native)
+
+    def test_v27_companion_rank_uses_earned_bond_without_new_save_state(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        self.assertIn("CompanionRank(Scout->GetBondWithHero(Hero))",mode)
+        self.assertIn("CompanionStrikeDamage(Rank,Role)",mode)
+        self.assertIn("TryCompanionSupportStrike(StrikeDamage)",mode)
+        self.assertIn("CompanionRank(Resident->GetBondWithHero(Hero))",hud)
+        self.assertIn("Bond rank %d / 3",hud)
+        self.assertIn("EndGuard();\n  RecentCompanionAssistTarget.Reset()",hero)
+
+    def test_v27_companion_specialization_is_explicit_and_trust_gated(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        role=mode.split("bool AMoonfallUnrealGameMode::SetLocalCompanionRole(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::DismissLocalCompanion(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","IsRecentlyInCombatForAmbientAI()",
+                      "CanHeroInteract(Hero)","Rank<2","GetFactionReputation"):
+            self.assertIn(guard,role)
+        self.assertIn("LocalCompanionRole=Role",role)
+        self.assertIn("Mode->SetLocalCompanionRole(this,Next)",hero)
+        self.assertIn('TEXT("Balanced | Switch to Protector")',hud)
+        self.assertIn('TEXT("Protector | Switch to Striker")',hud)
+        self.assertIn('TEXT("Striker | Switch to Balanced")',hud)
+
+    def test_v27_veteran_perks_are_earned_and_preserve_posture_authority(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        self.assertIn("if(rank!=3)return CompanionPerk::None;",policy)
+        for perk in ("Fieldcraft","ShieldExpert","Precision"):
+            self.assertIn("CompanionPerk::"+perk,policy)
+            self.assertIn("CompanionPerk::"+perk,hud)
+        self.assertIn("elapsed+TrainingRecovery<CompanionCoverCooldown(rank,role)",policy)
+        self.assertIn("Range=CompanionCoverRange(rank,role)",policy)
+        self.assertIn("Range=CompanionStrikeRange(rank,role)",policy)
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        self.assertIn("CompanionExtraPosture(Rank,Role)",strike)
+        self.assertLess(strike.index("if(!Enemy->TryCompanionSupportStrike(StrikeDamage))return;"),
+                        strike.index("Enemy->ApplyPostureDamage(ExtraPosture)"))
+        self.assertIn("!Enemy->bPostureFinisherAvailable&&Now>=Enemy->PostureBrokenUntil",strike)
+        self.assertIn("Enemy->Health>0.f",strike)
+        self.assertIn("!Enemy->bBoss&&!Enemy->bElite",strike)
+        self.assertIn("CompanionRank==3",hud)
+
+    def test_v27_companion_talent_page_has_direct_selection_and_safe_back(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        header=(SRC/"MoonfallHeroPawn.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertIn("bool bResidentCompanionTalents=false",header)
+        self.assertIn("if(bResidentCompanionTalents)return 5;",hero)
+        self.assertIn("Mode->GetLocalCompanion()==Resident?9:3;",hero)
+        self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
+        self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
+        self.assertIn("if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}",choose)
+        self.assertIn("if(Choice<0||Choice>2)return false;",choose)
+        self.assertIn("TalentMode->GetLocalCompanion()==Resident",choose)
+        self.assertIn("TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice))",choose)
+        self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;",hero)
+        self.assertLess(choose.index("if(bResidentCompanionTalents)"),choose.index("OfferResidentQuest(this)"))
+        self.assertIn("FString Names[9]",hud)
+        self.assertIn('TEXT("COMPANION TALENTS | Select a path")',hud)
+        self.assertIn("Rank>=(Path==0?1:2)",hud)
+        self.assertIn('TEXT("Perk at 100 trust")',hud)
+        self.assertIn("EffectiveCompanionRole(Rank",hud)
+
+    def test_v27_companion_training_budget_prerequisites_and_ui(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        train=mode.split("bool AMoonfallUnrealGameMode::TrainLocalCompanionTalent(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::ResetLocalCompanionTalents(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","IsRecentlyInCombatForAmbientAI()",
+                      "CanHeroInteract(Hero)","GetFactionReputation","TrainCompanion(LocalCompanionTraining"):
+            self.assertIn(guard,train)
+        self.assertIn("if(Next==LocalCompanionTraining)return false;",train)
+        self.assertIn("LocalCompanionTraining=Next",train)
+        self.assertIn("CompanionNodeCount=9",policy)
+        self.assertIn("CompanionPointsSpent(mask)>=CompanionPointBudget(rank)",policy)
+        self.assertIn("CompanionNodeRank(mask,node-1)>0",policy)
+        self.assertIn("CompanionPointsSpent(mask)>CompanionPointBudget(rank)",policy)
+        self.assertIn("TrainingMode->TrainLocalCompanionTalent(this",hero)
+        self.assertIn("TrainingMode->ResetLocalCompanionTalents(this)",hero)
+        self.assertIn('TEXT("Train active path")',hud)
+        self.assertIn('TEXT("Refund all training")',hud)
+        self.assertIn("TRAINING | %d / %d points spent",hud)
+        self.assertIn("ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7)",mode)
+
+    def test_v27_companion_profiles_are_saved_validated_and_transactional(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 16",save)
+        self.assertIn("TMap<FName,int32> CompanionProfiles",save)
+        self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
+        self.assertIn("CompanionProfiles.Reset();",hero)
+        self.assertIn("if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;",hero)
+        self.assertIn("Save->CompanionProfiles.Num()>15",hero)
+        self.assertIn("CompanionProfiles.Num()>15",hero)
+        transaction=hero.split("bool AMoonfallHeroPawn::CommitCompanionProfile(",1)[1].split(
+            "bool AMoonfallHeroPawn::ChangeResidentBond(",1)[0]
+        self.assertIn("HasAuthority()",transaction)
+        self.assertIn("IsNamedMoonfallResident(ResidentId)",transaction)
+        self.assertIn("ValidCompanionProfile(Profile)",transaction)
+        self.assertIn("if(!SaveWorldProgress())",transaction)
+        self.assertIn("CompanionProfiles.Add(ResidentId,static_cast<int32>(Previous))",transaction)
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split(
+            "float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[0]
+        self.assertIn("Hero->GetCompanionProfile(Resident->ResidentId)",recruit)
+        self.assertIn("Profile&MoonfallWorldPolicy::CompanionTrainingMask",recruit)
+        for method,next_method,mutation in (
+            ("SetLocalCompanionRole","TrainLocalCompanionTalent","LocalCompanionRole=Role"),
+            ("TrainLocalCompanionTalent","ResetLocalCompanionTalents","LocalCompanionTraining=Next"),
+            ("ResetLocalCompanionTalents","DismissLocalCompanion","LocalCompanionTraining=0")):
+            section=mode.split("bool AMoonfallUnrealGameMode::"+method+"(",1)[1].split(
+                "bool AMoonfallUnrealGameMode::"+next_method+"(",1)[0]
+            self.assertLess(section.index("CommitCompanionProfile"),section.index(mutation))
+
+    def test_v27_scout_deeds_are_earned_once_and_mood_compiles(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        deeds=hero.split("bool AMoonfallHeroPawn::ReportScoutDeeds(",1)[1].split(
+            "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
+        for guard in ("HasAuthority()","Resident->CanHeroInteract(this)","IsRecentlyInCombatForAmbientAI()",
+                      "GetTotalDefeatedDungeonBosses()","GetResidentQuestState(Resident->ResidentId)==2",
+                      "GetFactionReputation(Resident->FactionId)","IsNamedMoonfallResident(Resident->ResidentId)",
+                      "Target>Current&&ChangeResidentBond(Resident->ResidentId,Target-Current)"):
+            self.assertIn(guard,deeds)
+        self.assertIn("(bRecruited&&Choice==5)||(!bRecruited&&Choice==1)",hero)
+        self.assertIn('Names[5]=TEXT("Report deeds")',hud)
+        self.assertIn("const auto ResolvedMood=MoonfallWorldPolicy::ResolveMood",npc)
+        self.assertIn("switch(ResolvedMood)",npc)
+        self.assertNotIn("const auto Mood=MoonfallWorldPolicy::ResolveMood",npc)
+        guide=mode.split("const bool bGuideSafe=",1)[1].split("NextResidentPulseIndex=",1)[0]
+        self.assertIn("!Hero->bTalentWebOpen",guide)
+        self.assertNotIn("FocusedResident.IsValid()",guide)
+
+    def test_v27_follower_navigation_commands_and_recovery(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("PulseFollower,0.2f,true",mode)
+        self.assertIn("ClearTimer(FollowerPulseTimer)",mode)
+        self.assertIn("if(bRecruited||ReturningCompanion.Get()==NPC)return;",mode)
+        self.assertIn("AdvanceFollowerToward(Hero->GetActorLocation(),Now,180.f)",mode)
+        self.assertIn("AdvanceFollowerToward(Returning->AuthoredHomeLocation,Now,40.f)",mode)
+        self.assertIn("AdvanceFollowerToward(OrderedFollowerDestination,Now,45.f)",mode)
+        self.assertIn("NextFollowerPathAt=Now+1.f",npc)
+        self.assertIn("FindPathToLocationSynchronously",npc)
+        self.assertIn("Ground.ImpactNormal.Z<0.65",npc)
+        self.assertIn("AddActorWorldOffset(Move,true)",npc)
+        self.assertIn("Scout->CompanionHealth-Cover",mode)
+        self.assertIn("Scout->bCompanionDowned=true",mode)
+        self.assertIn("Scout->CompanionHealth=50.f",mode)
+        self.assertIn("Mode->OrderCompanionMove(this",hero)
+        self.assertIn("Mode->ReviveLocalCompanion(this)",hero)
+        self.assertIn('TEXT("Move ahead")',hud)
+        self.assertIn('TEXT("Revive companion")',hud)
+
+    def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 16",save)
+        self.assertIn("TMap<FName,FMoonfallCompanionGearRecord> CompanionGear",save)
+        self.assertIn("Save->CompanionGear = CompanionGear;",hero)
+        self.assertIn("Save->CompanionGear.Num()>15",hero)
+        self.assertIn("if(Save->Version>=15)CompanionGear=Save->CompanionGear;",hero)
+        trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
+            "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
+        for guard in ("HasAuthority()","CanHeroInteract(this)","IsRecentlyInCombatForAmbientAI()",
+                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","InventoryItemCodes.Num()>=10000"):
+            self.assertIn(guard,trade)
+        self.assertIn("InventoryItemCodes.RemoveAt(Index)",trade)
+        self.assertIn("InventoryItemCodes.Add(Old)",trade)
+        self.assertIn("if(!SaveWorldProgress())",trade)
+        self.assertIn("InventoryItemCodes=PreviousBag",trade)
+        self.assertIn("CompanionGear.Add(Id,Previous)",trade)
+        self.assertIn("TradeCompanionGear(Resident,Choice%3,Choice>=3)",hero)
+        self.assertIn('TEXT("Trade equipment")',hud)
+        self.assertIn("GetCompanionGearTier(Scout->ResidentId,0)",mode)
+        self.assertIn("GetCompanionGearTier(Scout->ResidentId,1)",mode)
+
+    def test_v27_companion_threat_is_event_driven_and_bounded(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        self.assertIn("TWeakObjectPtr<AMoonfallEnemy> CompanionThreat",header)
+        self.assertIn("!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero",enemy)
+        self.assertIn("Mode->ReportCompanionThreat(Hero,this,Now)",enemy)
+        report=mode.split("void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[1].split(
+            "void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Enemy->bBoss||Enemy->bElite",
+                      "LocalCompanion->bCompanionDowned","CanReportCompanionThreat",
+                      "Now-CompanionThreatAt<=2.f","CompanionThreat=Enemy;CompanionThreatAt=Now"):
+            self.assertIn(guard,report)
+        self.assertNotIn("TActorIterator",report)
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        self.assertLess(strike.index("GetRecentCompanionAssistTarget(Age)"),strike.index("Enemy=CompanionThreat.Get()"))
+        self.assertIn("Age<0.f||Age>2.f",strike)
+        self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
+        self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
+
+    def test_v27_companion_counterattack_is_committed_and_has_no_hero_fallback(self):
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        self.assertIn("LockedCompanionTarget=Target;bCompanionAttackCommitted=true",enemy)
+        self.assertIn("RecentCompanionAttacker.Get()==Scout",enemy)
+        self.assertIn("Now-RecentCompanionAttackerAt<=8.f",enemy)
+        commit=enemy.split("if(bCompanionAttackCommitted){",1)[1].split("if (bBoss)",1)[0]
+        self.assertIn("LockedCompanionTarget.Get();LockedCompanionTarget.Reset()",commit)
+        self.assertIn("Mode->ResolveCompanionCounterAttack",commit)
+        self.assertIn("return;",commit)
+        self.assertNotIn("Hero->ApplyMoonfallDamage",commit)
+        receive=mode.split("void AMoonfallUnrealGameMode::ResolveCompanionCounterAttack(",1)[1].split(
+            "float AMoonfallUnrealGameMode::GetCompanionAbilityRemaining(",1)[0]
+        for guard in ("CanReceiveCompanionAttack(Hero,Target)","Enemy->bBoss||Enemy->bElite",
+                      "CanCompanionCounter","LineTraceSingleByChannel","FollowerIncomingDamage",
+                      "Target->CompanionHealth-Actual","Target->bCompanionDowned=true"):
+            self.assertIn(guard,receive)
+        self.assertIn("Enemy->RememberCompanionAttacker(Scout,Now)",mode)
+        self.assertIn("CanCompanionCounter",policy)
+        eligibility=mode.split("bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(",1)[1].split("\n}",1)[0]
+        for modal in ("bInventoryOpen","bOptionsOpen","bAtlasOpen","bTalentWebOpen","bCharacterStatsOpen","bSpellBookOpen","bResidentContextOpen"):
+            self.assertNotIn(modal,eligibility)
+        for guard in ("IsLocalCompanionOwner(Hero)","!Scout->bCompanionDowned","FMath::IsFinite(Scout->CompanionHealth)","Hero->Health>0.f"):
+            self.assertIn(guard,eligibility)
+
+    def test_v27_companion_tactics_and_active_abilities(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        ability=mode.split("bool AMoonfallUnrealGameMode::ActivateLocalCompanionAbility(",1)[1].split(
+            "void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Scout->bCompanionDowned","Scout->CanHeroInteract(Hero)",
+                      "CanActivateCompanionAbility","CompanionAbilityCooldown","GetCompanionGearTier(Scout->ResidentId,2)"):
+            self.assertIn(guard,ability)
+        self.assertIn("Scout->CompanionHealth+25.f",ability)
+        self.assertIn("Now+(Role==1?6.f:8.f)",ability)
+        self.assertIn("bPrecisionBurst?8.f:0.f",mode)
+        self.assertIn("if(bPrecisionBurst)CompanionAbilityEndsAt=-1000.f",mode)
+        self.assertIn("SelectCompanionTactic",mode)
+        for label in ("Intercepting","Flanking","Withdrawing"):
+            self.assertIn('TEXT("'+label+'")',mode)
+        for label in ("Second Wind","Brace","Precision Burst"):
+            self.assertIn('TEXT("'+label+'")',hud)
+        self.assertIn("Mode->ActivateLocalCompanionAbility(this)",hero)
+        self.assertIn("GetCompanionAbilityRemaining()",hud)
+        self.assertIn("CompanionAbilityCooldown",policy)
+
+    def test_companion_commands_reject_invalid_hero_before_save(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        for method in ("CommitCompanionParty", "CommitCompanionProfile"):
+            body=hero.split("bool AMoonfallHeroPawn::"+method+"(",1)[1].split("\n}",1)[0]
+            before_save=body.split("SaveWorldProgress()",1)[0]
+            for guard in ("HasAuthority()", "IsActorBeingDestroyed()", "!FMath::IsFinite(Health)", "Health<=0.f"):
+                self.assertIn(guard,before_save)
+        owner=mode.split("bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(",1)[1].split("\n}",1)[0]
+        self.assertIn("!Hero->IsActorBeingDestroyed()",owner)
+        self.assertIn("FMath::IsFinite(Hero->Health)",owner)
+        dismiss=mode.split("bool AMoonfallUnrealGameMode::DismissLocalCompanion(",1)[1].split("\n}",1)[0]
+        self.assertLess(dismiss.index("Hero->CommitCompanionParty(Next)"),dismiss.index("LocalCompanion.Reset()"))
+
+    def test_v27_companion_party_persistence_and_restoration(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 16",save)
+        self.assertIn("FMoonfallCompanionPartyRecord CompanionParty",save)
+        self.assertIn("Save->CompanionParty = CompanionParty;",hero)
+        self.assertIn("CompanionParty=Save->Version>=16?Save->CompanionParty:FMoonfallCompanionPartyRecord{}",hero)
+        commit=hero.split("bool AMoonfallHeroPawn::CommitCompanionParty(",1)[1].split("void AMoonfallHeroPawn::UpdateCompanionVitals(",1)[0]
+        self.assertIn("ValidCompanionParty",commit)
+        self.assertIn("if(!SaveWorldProgress()){CompanionParty=Previous;return false;}",commit)
+        restore=mode.split("void AMoonfallUnrealGameMode::TryRestoreCompanionParty(",1)[1].split("void AMoonfallUnrealGameMode::SyncCompanionVitals(",1)[0]
+        for guard in ("IsCompanionPartyRestoreReady()","LocalCompanion.IsValid()","LivingResidents",
+                      "if(Match)return","Match->GetBondWithHero(Hero)<60",
+                      "AttachCompanionParty(Hero,Match,Saved.Stance,Saved.Health)"):
+            self.assertIn(guard,restore)
+        self.assertNotIn("SpawnActor",restore)
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split("void AMoonfallUnrealGameMode::AttachCompanionParty(",1)[0]
+        duplicate_guard="IsValid(Other)&&Other!=Resident&&!Other->IsActorBeingDestroyed()&&Other->ResidentId==Resident->ResidentId"
+        self.assertIn(duplicate_guard,recruit)
+        self.assertLess(recruit.index(duplicate_guard),recruit.index("Hero->CommitCompanionParty(Next)"))
+        saved_slot_guard="!Hero->IsCompanionPartyRestoreReady()||(!Next.ResidentId.IsNone()&&Next.ResidentId!=Resident->ResidentId)"
+        self.assertIn(saved_slot_guard,recruit)
+        self.assertLess(recruit.index(saved_slot_guard),recruit.index("Next.Health="))
+        self.assertLess(recruit.index(saved_slot_guard),recruit.index("Hero->CommitCompanionParty(Next)"))
+        self.assertIn("TryRestoreCompanionParty(Hero);",mode)
+        self.assertIn("Resident->bCompanionDowned=Health<=0.f",mode)
+        self.assertIn("CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp()",mode)
+        self.assertIn("Next.AbilityReadyUtc=CompanionAbilityReadyUtc",mode)
+        self.assertIn("SyncCompanionVitals(Hero);",mode)
+        self.assertIn("if(!Hero->CommitCompanionParty(Next))return false;",mode)
+
+    def test_v27_follower_catchup_requires_safe_ground_and_sustained_separation(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        social=(SRC/"MoonfallNpcSocialSessionSubsystem.cpp").read_text()
+        recovery=npc.split("bool AMoonfallWorldNPC::TrySafeFollowerCatchup(",1)[1].split(
+            "void AMoonfallWorldNPC::WitnessNearbyDanger(",1)[0]
+        for guard in ("HasAuthority()","bCompanionDowned","IsMovingOnGround()",
+                      "IsRecentlyInCombatForAmbientAI()","ProjectPointToNavigation",
+                      "Ground.ImpactNormal.Z<0.7","OverlapAnyTestByObjectType",
+                      "LineTraceSingleByChannel(Sight","TeleportTo(Destination",
+                      "bFollowerWaypointValid=false"):
+            self.assertIn(guard,recovery)
+        self.assertLess(recovery.index("OverlapAnyTestByObjectType"),recovery.index("TeleportTo(Destination"))
+        self.assertIn("LocalCompanionStance==EMoonfallCompanionStance::Follow&&!bFollowerMoveOrdered",mode)
+        self.assertIn("if(!bRecoverySafe)FollowerSeparatedAt=-1.f",mode)
+        self.assertIn("CanRecoverFollower(Separation,Now-FollowerSeparatedAt,true)",mode)
+        self.assertIn("NextFollowerCatchupAt=Now+5.f",mode)
+        self.assertIn("distanceSquared>=1800.0*1800.0",policy)
+        self.assertIn("separatedSeconds>=8.0",policy)
+        self.assertIn("std::numeric_limits<int64>::max()",social)
+
+    def test_v27_companion_gear_and_recovery_regressions(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
+            "bool AMoonfallHeroPawn::CommitCompanionParty(",1)[0]
+        self.assertIn("BestScore=GetItemPower(Old)",trade)
+        self.assertIn("Score=GetItemPower(Code)",trade)
+        self.assertIn("if(Score>BestScore)",trade)
+        self.assertIn("Code==Worn[Slot]",trade)
+        self.assertIn("if(!bFreshThreat&&!Hero->IsRecentlyInCombatForAmbientAI())",mode)
+        self.assertIn("||Hero->bResidentContextOpen){FollowerSeparatedAt=-1.f;return;}",mode)
+        self.assertIn("!FMath::IsFinite(Scout->CompanionHealth)",mode)
+        self.assertIn("&& !bFreshThreat".replace(" ",""),mode.replace(" ",""))
+        self.assertIn("Distance<=StopDistance&&bSameFloor",npc)
+        self.assertIn("FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0",npc)
+        self.assertIn("FMath::Max(0.0,Distance-StopDistance)",npc)
+
+    def test_v27_guard_reports_remain_indirect_and_contextual(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        report=subsystem.split("bool UMoonfallLivingWorldSubsystem::GetNearbyCombatReport(",1)[1].split(
+            "bool UMoonfallLivingWorldSubsystem::ReportWitnessToGuard(",1)[0]
+        for condition in ("R.bCrime","R.bDirectWitness","R.bWitnessReport","R.Hops<1",
+                          "R.Confidence<40","R.ExpiresAt<=Time","NearbyCombat_",
+                          "FMath::Square(1800.0)"):
+            self.assertIn(condition,report)
+        self.assertIn("R.Confidence>Report.Confidence",report)
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bReviewingCombatReport=false;",movement)
+        self.assertIn("bGuard && !bInConversation",movement)
+        self.assertIn("bReviewingCombatReport=Society->GetNearbyCombatReport",movement)
+        self.assertIn('TEXT("Reviewing Reports")',movement)
+        self.assertNotIn("WitnessNearbyDanger(",movement)
+        talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
+        self.assertIn("Nothing is confirmed yet.",talk)
+        self.assertIn("I cannot say for certain.",talk)
+        self.assertLess(talk.index("Now-LastDangerAt<85.f"),talk.index("GetNearbyCombatReport"))
+        self.assertNotIn("ChangeResidentBond(",talk)
+        self.assertNotIn("ReportWitnessToGuard(",talk)
+
+    def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        move=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertLess(move.index("PauseResidentMotion("),move.index("GuardWatchPoint("))
+        self.assertIn("!bSheltering && !bInConversation && !bNearHero",move)
+        self.assertIn("!MoonfallLivingSimulation::Severe(Weather)",move)
+        self.assertIn("GuardReport.Location-AuthoredHomeLocation",move)
+        self.assertIn("GuardReport.Confidence,true",move)
+        for point in ("Side=-65.f; Front=0.f","Side=65.f; Front=0.f",
+                      "Side=0.f; Front=45.f","Side=0.f; Front=-45.f"):
+            self.assertIn(point,move)
+        self.assertIn("AuthoredHomeLocation+FVector(Side,Front,0.f)",move)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",move)
+        self.assertNotIn("MoveToLocation(",move)
+        self.assertNotIn("SetActorLocation(",move)
 
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()

@@ -42,6 +42,7 @@ public:
  FVector StartingSanctuaryAnchor = FVector::ZeroVector;
  bool IsNearStartingSanctuary() const;
  bool IsRecentlyInCombatForAmbientAI() const;
+ AMoonfallEnemy* GetRecentCompanionAssistTarget(float& Age) const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // Twelve persistent fantasy ancestries. Choice locks on first selection.
@@ -54,6 +55,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Live 12-ancestry passives and active-power details for the C character sheet.
+ // Read-only: no new saved IDs, no new ability cooldowns, no character art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePassiveSummary() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerDescription() const;
+ // Pre-confirmation read-only snapshot from the SAME 12 canonical runtime
+ // profiles used by ChooseRace and actual Might/Insight/Resolve/regen.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race")
+ static FString PreviewGameplayAncestry(int32 CandidateRaceId);
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
@@ -68,6 +77,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") AMoonfallWorldNPC* GetNearestResidentNPC() const;
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  bool bResidentContextOpen = false;
+ bool bResidentCompanionMenu=false;
+ bool bResidentCompanionTalents=false;
+ bool bResidentCompanionTraining=false;
+ bool bResidentCompanionGear=false;
+ int32 GetResidentContextRowCount() const;
+ float GetResidentContextPanelHeight(float ViewportHeight) const;
+ float GetResidentContextRowPitch(float PanelHeight) const;
+ bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
@@ -86,6 +103,17 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+ uint32 GetCompanionProfile(FName ResidentId) const;
+ const FMoonfallCompanionPartyRecord& GetCompanionParty() const {return CompanionParty;}
+ bool IsCompanionPartyRestoreReady() const {return bWorldProgressInitialized&&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked;}
+ bool CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next);
+ void UpdateCompanionVitals(FName ResidentId,float NewHealth,int64 AbilityReadyUtc);
+ int32 GetCompanionGearCode(FName ResidentId,int32 Slot) const;
+ int32 GetCompanionGearTier(FName ResidentId,int32 Slot) const;
+ bool TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn);
+ bool ReportScoutDeeds(AMoonfallWorldNPC* Resident);
+ // Internal authoritative transaction used by the companion GameMode APIs.
+ bool CommitCompanionProfile(FName ResidentId,uint32 Profile);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
  // Read-only quest eligibility shared by dialogue and Canvas/Blueprint UI.
@@ -227,6 +255,17 @@ public:
  // Shared atomic rank/resource update, with save rollback on failure.
  bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
  // UI-only state. Never serialized: ranks are the single persistent authority.
+ // Transient C-page state. The selection and all racial bonuses remain
+ // owned by the canonical hero race, not by a second character UI catalog.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
+ // Stats and equipped gear share the first read-only character page.
+ // Saved faction standings are displayed on a third, read-only page.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") bool bCharacterRepPageOpen = false;
+ // Transient selected faction row, shared by mouse and controller; no save changes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") int32 CharacterRepSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") void SelectCharacterReputation(int32 FactionIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void SelectCharacterPage(int32 Page);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void ToggleCharacterRacePage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
@@ -460,6 +499,11 @@ private:
  MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
  float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
+ FMoonfallCompanionPartyRecord CompanionParty;
+ TMap<FName,int32> CompanionProfiles;
+ TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
+ TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
+ float RecentCompanionAssistHitAt=-100.f;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;

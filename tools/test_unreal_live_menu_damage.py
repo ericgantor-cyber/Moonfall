@@ -63,21 +63,43 @@ assert "Canvas->SizeY-Border" in overlay and "Canvas->SizeX-Border" in overlay
 assert "SetGamePaused(" not in overlay
 assert overlay.index("const bool bLiveMenuOpen") < overlay.index("DrawRect(HitRed")
 # The HUD is painter-ordered. A cue drawn before an opaque modal disappears.
-# All nine modal exit paths MUST draw the cue on top of their menu.
+# Every modal exit, including tiny-window fallbacks, MUST draw the cue on top.
 assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index("if (Hero->bTalentWebOpen) {")
 sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
-    ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 1),
+    ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
     ("atlas", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 2),
-    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 1),
-    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 3),
+    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
+    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )
 for name, begin_marker, end_marker, expected in sections:
     begin = hud.index(begin_marker, hud.index("const auto DrawLiveMenuHitCue"))
     end = hud.index(end_marker, begin)
     part = hud[begin:end]
-    completed = re.findall(r"(?m)^( {2,3})DrawLiveMenuHitCue\(\);\n\1return;$", part)
-    returns = re.findall(r"(?m)^ {2,3}return;$", part)
+    completed = re.findall(r"(?m)^( {2,4})DrawLiveMenuHitCue\(\);\n\1return;$", part)
+    # Inventory includes an unrelated early return in its local
+    # ReadOwnedGear decoder lambda (four-space indentation). It is not
+    # an exit from DrawHUD; panel-level exits here are two/three spaces.
+    return_indent = r" {2,3}" if name == "inventory, sheet, spellbook" else r" {2,4}"
+    returns = re.findall(r"(?m)^" + return_indent + r"return;$", part)
     assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
 
-print("UE5 live menu damage cue, reduced motion and lethal talent cleanup: source checks passed.")
+# End-to-end source contract: the visible red menu damage cue must be
+# reachable from actual hostile AI. Menus are not an attack-cancelling gate.
+enemy = (SRC / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+tick = enemy.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+guard = tick.split("// The hostile world stays live while any player menu is open:", 1)[1].split(
+    "// A corrupt nonfinite windup", 1
+)[0]
+assert "Hero->Health <= 0.f" in guard
+assert "!Hero->IsPlayerControlled()" in guard
+for menu in ("bTalentWebOpen", "bOptionsOpen", "bInventoryOpen",
+             "bAtlasOpen", "bCharacterStatsOpen", "bResidentContextOpen",
+             "FocusedResident.IsValid()"):
+    assert f"Hero->{menu}" not in guard, menu
+# Real attack dispatch remains in the same enemy Tick after the guard.
+assert tick.index("// A corrupt nonfinite windup") < tick.index("Hero->ApplyMoonfallDamageFrom(")
+assert "CancelDivineSignature();" in guard
+assert "WindupEndsAt = -1.f;" in guard
+
+print("UE5 live menus: hostile AI, red hit feedback and lethal talent cleanup source checks passed.")
