@@ -224,6 +224,23 @@ int main(){
         self.assertNotIn("ChangeResidentBond(",talk)
         self.assertNotIn("ReportWitnessToGuard(",talk)
 
+    def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        move=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertLess(move.index("PauseResidentMotion("),move.index("GuardWatchPoint("))
+        self.assertIn("!bSheltering && !bInConversation && !bNearHero",move)
+        self.assertIn("!MoonfallLivingSimulation::Severe(Weather)",move)
+        self.assertIn("GuardReport.Location-AuthoredHomeLocation",move)
+        self.assertIn("GuardReport.Confidence,true",move)
+        for point in ("Side=-65.f; Front=0.f","Side=65.f; Front=0.f",
+                      "Side=0.f; Front=45.f","Side=0.f; Front=-45.f"):
+            self.assertIn(point,move)
+        self.assertIn("AuthoredHomeLocation+FVector(Side,Front,0.f)",move)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",move)
+        self.assertNotIn("MoveToLocation(",move)
+        self.assertNotIn("SetActorLocation(",move)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
