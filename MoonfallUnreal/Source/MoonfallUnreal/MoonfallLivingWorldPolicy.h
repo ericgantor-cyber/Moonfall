@@ -29,6 +29,12 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
   &&std::isfinite(heroDistanceSquared)&&homeDistanceSquared>=0&&homeDistanceSquared<=450.0*450.0
   &&heroDistanceSquared>240.0*240.0&&heroDistanceSquared<=600.0*600.0;
 }
+// A local companion can mitigate one ordinary directional hit per cooldown.
+inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible){
+ if(!eligible||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<12.0
+    ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>300.0*300.0)return 0.f;
+ return std::fmin(damage*0.15f,12.f);
+}
 // Select only existing authored watch points. Reports never authorize pursuit.
 enum class WatchPoint { Unchanged, West, East, North, South };
 inline WatchPoint GuardWatchPoint(double dx,double dy,int confidence,bool available){
