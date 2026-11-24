@@ -230,6 +230,9 @@ void AMoonfallCombatHUD::DrawHUD()
       Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
     Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("No companion recruited");
     Names[2]=TEXT("Back");
+    Names[3]=!bRecruited?TEXT("Specialization"):
+      Mode->LocalCompanionRole==EMoonfallCompanionRole::Balanced?TEXT("Balanced | Switch to Protector"):
+      Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Protector | Switch to Striker"):TEXT("Striker | Switch to Balanced");
    }
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
