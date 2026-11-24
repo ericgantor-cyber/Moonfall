@@ -71,6 +71,12 @@ public:
  // Internal hit-time support; does not attack enemies or grant immunity.
  float ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source);
  void ReportCompanionThreat(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now);
+ AMoonfallWorldNPC* SelectCompanionCounterTarget(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now,float Range) const;
+ void ResolveCompanionCounterAttack(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,
+      AMoonfallWorldNPC* Target,const FVector& Direction,float Damage,float Range);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool ActivateLocalCompanionAbility(AMoonfallHeroPawn* Hero);
+ float GetCompanionAbilityRemaining() const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
@@ -99,6 +105,10 @@ private:
  uint32 LocalCompanionTraining=0;
  float LastCompanionCoverAt=-1000.f;
  float LastCompanionStrikeAt=-1000.f;
+ float CompanionAbilityReadyAt=-1000.f;
+ float CompanionAbilityEndsAt=-1000.f;
+ EMoonfallCompanionRole CompanionAbilityRole=EMoonfallCompanionRole::Balanced;
+ bool CanReceiveCompanionAttack(const AMoonfallHeroPawn* Hero,const AMoonfallWorldNPC* Scout) const;
  TWeakObjectPtr<AMoonfallEnemy> CompanionThreat;
  float CompanionThreatAt=-1000.f;
  void TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now);
