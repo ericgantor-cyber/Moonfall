@@ -349,6 +349,10 @@ void AMoonfallCombatHUD::DrawHUD()
       float(NodeRect.W),float(NodeRect.H));
    DrawRect(Selected?FLinearColor(0.96f,0.79f,0.40f):BranchColors[Branch],
       float(NodeRect.X),float(NodeRect.Y),4.f,float(NodeRect.H));
+   // Rank stamp is drawn only for invested or focused talents.
+   if ((Selected || Rank>0) && NodeRect.W>=110 && NodeRect.H>=32)
+    DrawMoonfallSigil(float(NodeRect.X+NodeRect.W-13),
+      float(NodeRect.Y+13),6.f,BranchColors[Branch],Branch);
    const FString Name=FString(UTF8_TO_TCHAR(Node.Title)).Left(P.TileWidth<148?16:22);
    DrawText(Name,Selected?FLinearColor::White:FLinearColor(0.87f,0.86f,0.89f),
       float(NodeRect.X+9),float(NodeRect.Y+5),nullptr,
@@ -433,6 +437,10 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), NpcCloseX, T + 12.f, 28.f, 28.f);
    DrawHoverFrame(NpcCloseX,T+12.f,28.f,28.f);
    DrawText(TEXT("X"), FLinearColor::White, NpcCloseX + 9.f, T + 16.f, nullptr, 0.9f);
+   // One unique heraldic marker for social interaction, never a replacement
+   // of the NPC portrait or the authored Z/Nyra character art.
+   if (W>=390.f) DrawMoonfallSigil(L+W-67.f,T+75.f,10.f,
+     FLinearColor(0.81f,0.64f,0.94f),2);
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
@@ -1033,8 +1041,11 @@ void AMoonfallCombatHUD::DrawHUD()
        MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
     if (bSelected) DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);
     DrawHoverFrame(MenuLeft+10.f,Y,MenuWidth-20.f,RowHeight);
+    if (!bCompactOptions && MenuWidth>=480.f && RowHeight>=24.f)
+     DrawMoonfallSigil(MenuLeft+25.f,Y+RowHeight*0.5f,7.f,
+       FLinearColor(0.54f,0.73f,0.91f),i);
     DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
-       MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
+       MenuLeft + (bCompactOptions?17.f:38.f), Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.85f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
     const bool bMinusHover = bOptionsCursorVisible && OptionsCursorX >= MinusX
       && OptionsCursorX <= MinusX + 25.f && OptionsCursorY >= Y
@@ -1379,6 +1390,9 @@ void AMoonfallCombatHUD::DrawHUD()
     if (bSection)
      DrawRect(FLinearColor(0.70f,0.51f,0.22f,0.95f),
         StatPanelLeft,RowY-2.f,3.f,FMath::Max(7.f,StatsRowHeight-1.f));
+    if (bSection && PanelWidth>=470.f && StatsRowHeight>=18.f)
+     DrawMoonfallSigil(Left+PanelWidth-28.f,RowY+6.f,6.f,
+       FLinearColor(0.89f,0.71f,0.43f),Row/4);
     DrawText(CharacterLines[Row],
       bSection ? FLinearColor(1.f,0.79f,0.42f) : FLinearColor(0.92f,0.94f,0.97f),
       Left + 23.f, RowY, nullptr,
