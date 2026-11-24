@@ -515,6 +515,36 @@ int main(){
         self.assertIn("TRAINING | %d / %d points spent",hud)
         self.assertIn("ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7)",mode)
 
+    def test_v27_companion_profiles_are_saved_validated_and_transactional(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 14",save)
+        self.assertIn("TMap<FName,int32> CompanionProfiles",save)
+        self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
+        self.assertIn("CompanionProfiles.Reset();",hero)
+        self.assertIn("if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;",hero)
+        self.assertIn("Save->CompanionProfiles.Num()>15",hero)
+        self.assertIn("CompanionProfiles.Num()>15",hero)
+        transaction=hero.split("bool AMoonfallHeroPawn::CommitCompanionProfile(",1)[1].split(
+            "bool AMoonfallHeroPawn::ChangeResidentBond(",1)[0]
+        self.assertIn("HasAuthority()",transaction)
+        self.assertIn("IsNamedMoonfallResident(ResidentId)",transaction)
+        self.assertIn("ValidCompanionProfile(Profile)",transaction)
+        self.assertIn("if(!SaveWorldProgress())",transaction)
+        self.assertIn("CompanionProfiles.Add(ResidentId,static_cast<int32>(Previous))",transaction)
+        recruit=mode.split("bool AMoonfallUnrealGameMode::RecruitLocalCompanion(",1)[1].split(
+            "float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[0]
+        self.assertIn("Hero->GetCompanionProfile(Resident->ResidentId)",recruit)
+        self.assertIn("Profile&MoonfallWorldPolicy::CompanionTrainingMask",recruit)
+        for method,next_method,mutation in (
+            ("SetLocalCompanionRole","TrainLocalCompanionTalent","LocalCompanionRole=Role"),
+            ("TrainLocalCompanionTalent","ResetLocalCompanionTalents","LocalCompanionTraining=Next"),
+            ("ResetLocalCompanionTalents","DismissLocalCompanion","LocalCompanionTraining=0")):
+            section=mode.split("bool AMoonfallUnrealGameMode::"+method+"(",1)[1].split(
+                "bool AMoonfallUnrealGameMode::"+next_method+"(",1)[0]
+            self.assertLess(section.index("CommitCompanionProfile"),section.index(mutation))
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
