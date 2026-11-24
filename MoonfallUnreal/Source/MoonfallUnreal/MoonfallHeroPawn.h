@@ -54,6 +54,10 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Live 12-ancestry passives and active-power details for the C character sheet.
+ // Read-only: no new saved IDs, no new ability cooldowns, no character art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePassiveSummary() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerDescription() const;
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
@@ -227,6 +231,10 @@ public:
  // Shared atomic rank/resource update, with save rollback on failure.
  bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
  // UI-only state. Never serialized: ranks are the single persistent authority.
+ // Transient C-page state. The selection and all racial bonuses remain
+ // owned by the canonical hero race, not by a second character UI catalog.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void ToggleCharacterRacePage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
