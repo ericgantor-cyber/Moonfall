@@ -568,8 +568,19 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("X"), FLinearColor::White, NpcCloseX + 9.f, T + 16.f, nullptr, 0.9f);
    // One unique heraldic marker for social interaction, never a replacement
    // of the NPC portrait or the authored Z/Nyra character art.
-   if (W>=390.f) DrawMoonfallSigil(L+W-67.f,T+75.f,10.f,
-     FLinearColor(0.81f,0.64f,0.94f),2);
+   const int32 ResidentFactionArt =
+     Resident->FactionId == FName(TEXT("Wanderers")) ? 0
+     : Resident->FactionId == FName(TEXT("VerdantCircle")) ? 1
+     : Resident->FactionId == FName(TEXT("StoneHearth")) ? 2
+     : Resident->FactionId == FName(TEXT("MoonCoven")) ? 3
+     : Resident->FactionId == FName(TEXT("AshenClans")) ? 4 : INDEX_NONE;
+   if (W>=390.f) {
+    if (ResidentFactionArt!=INDEX_NONE)
+     DrawFactionCrest(L+W-67.f,T+75.f,10.f,ResidentFactionArt,
+       FLinearColor(0.81f,0.64f,0.94f));
+    else DrawMoonfallSigil(L+W-67.f,T+75.f,10.f,
+       FLinearColor(0.81f,0.64f,0.94f),2);
+   }
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
@@ -1392,7 +1403,7 @@ void AMoonfallCombatHUD::DrawHUD()
       DrawRect(bSelected ? FLinearColor(0.96f,0.82f,0.46f) : StandingColor,
         Left+15.f,Y,bSelected?5.f:3.f,ReputationRowHeight-3.f);
       if (ReputationRowHeight>=29.f && PanelWidth>=410.f)
-       DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f,7.f,StandingColor,FactionIndex);
+       DrawFactionCrest(Left+PanelWidth-30.f,Y+13.f,9.f,FactionIndex,StandingColor);
       DrawHoverFrame(Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
       DrawText(FString::Printf(TEXT("%s  |  %s  |  %+d"),
         FactionNames[FactionIndex],Standing,Score),StandingColor,
