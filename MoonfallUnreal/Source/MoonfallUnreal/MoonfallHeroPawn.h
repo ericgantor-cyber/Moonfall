@@ -72,6 +72,7 @@ public:
  bool bResidentCompanionMenu=false;
  bool bResidentCompanionTalents=false;
  bool bResidentCompanionTraining=false;
+ bool bResidentCompanionGear=false;
  int32 GetResidentContextRowCount() const;
  float GetResidentContextPanelHeight(float ViewportHeight) const;
  float GetResidentContextRowPitch(float PanelHeight) const;
