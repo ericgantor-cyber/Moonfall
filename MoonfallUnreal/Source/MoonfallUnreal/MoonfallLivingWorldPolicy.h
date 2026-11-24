@@ -3,6 +3,11 @@
 namespace MoonfallWorldPolicy {
 inline int Clamp(int x,int lo,int hi){return x<lo?lo:(x>hi?hi:x);}
 inline int Relationship(int current,int delta){return Clamp(Clamp(current,-100,100)+Clamp(delta,-100,100),-100,100);}
+// Ambient news earns modest familiarity, not forgiveness or automatic loyalty.
+inline int AmbientTrustDelta(int score,int confidence,double elapsed){
+ if(score<0||score>=30||confidence<56||confidence>100||!std::isfinite(elapsed)||elapsed<60.0)return 0;
+ return 1;
+}
 inline int RelayConfidence(int confidence){return Clamp(confidence,0,100)*3/4;}
 inline bool CanRelay(int confidence,int hops){return hops>=0&&hops<3&&RelayConfidence(confidence)>=20;}
 // Select only existing authored watch points. Reports never authorize pursuit.
