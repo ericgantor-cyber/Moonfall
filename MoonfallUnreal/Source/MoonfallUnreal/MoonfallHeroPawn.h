@@ -224,6 +224,8 @@ public:
  bool SpendTalentPoint(int32 NodeIndex);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
  bool RespecTalentPoints();
+ // Shared atomic rank/resource update, with save rollback on failure.
+ bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
