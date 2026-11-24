@@ -113,8 +113,14 @@ void AMoonfallCombatHUD::DrawHUD()
   const int Chosen=FMath::Clamp(Hero->TalentWebSelected,0,MoonfallTalents::NodeCount-1);
   const auto& Selected=MoonfallTalents::Nodes[Chosen];
   const int CurrentRank=FullRanks?Hero->GetTalentRank(Chosen):0;
-  const FString Detail=FString::Printf(TEXT("%s  |  RANK %d/%d  |  MIN LV %d"),
-     UTF8_TO_TCHAR(Selected.Title),CurrentRank,Selected.MaxRank,Selected.MinLevel);
+  // Melee talents apply to every MeleeAttack, including unarmed combat.
+  // Do not describe the effect as sword-only.
+  const FString Detail=Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage
+     ? FString::Printf(TEXT("%s  |  MELEE DAMAGE +%.1f%%/RANK  |  RANK %d/%d"),
+         UTF8_TO_TCHAR(Selected.Title),Selected.AmountPerRank*100.0,
+         CurrentRank,Selected.MaxRank)
+     : FString::Printf(TEXT("%s  |  RANK %d/%d  |  MIN LV %d"),
+         UTF8_TO_TCHAR(Selected.Title),CurrentRank,Selected.MaxRank,Selected.MinLevel);
   DrawText(Detail,FLinearColor(0.91f,0.83f,0.63f),
      L+20.f,T+H-117.f,nullptr,0.79f);
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
