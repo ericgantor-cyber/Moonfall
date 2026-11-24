@@ -26,6 +26,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallUnrealGameMode.h"
+#include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
@@ -3443,6 +3444,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
   if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
  }
+ if(CompanionProfiles.Num()>15)return false;
+ for(const auto& Entry:CompanionProfiles)
+  if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
+      !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value)))return false;
  TSet<FGuid> UniqueWorldDrops;
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot) {
   if (!Record.DropId.IsValid() || UniqueWorldDrops.Contains(Record.DropId)
@@ -3490,6 +3495,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
+ Save->CompanionProfiles = CompanionProfiles;
  Save->ResidentQuestStates = ResidentQuestStates;
  Save->bRaceChosen = bRaceChosen;
  const float Cooldown = GetRacePowerCooldownRemaining();
@@ -3514,12 +3520,21 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 13) {
+ if (!Save || Save->Version < 1 || Save->Version > 14) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // V14 companion profiles are validated before any gameplay mutation.
+ if(Save->Version>=14){
+  if(Save->CompanionProfiles.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  for(const auto& Entry:Save->CompanionProfiles)
+   if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
+      !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value))){
+    bPersistentSaveWritesBlocked=true;return false;
+   }
  }
  // Validate the entire V13 ledger BEFORE any teleport or mutation. Old saves
  // intentionally start with zero unspent ranks and remain compatible.
@@ -3791,6 +3806,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
  }
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
+ CompanionProfiles.Reset();
+ if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;
  ResidentBonds.Reset();
  if (Save->Version >= 5) {
   static const FName ValidIds[] = {
@@ -4628,6 +4645,26 @@ int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
  if (const int32* Value = ResidentBonds.Find(ResidentId))
   return FMath::Clamp(*Value, -100, 100);
  return 0;
+}
+uint32 AMoonfallHeroPawn::GetCompanionProfile(FName ResidentId) const {
+ if(!IsNamedMoonfallResident(ResidentId))return 0;
+ const int32* Profile=CompanionProfiles.Find(ResidentId);
+ return Profile&&*Profile>0&&MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(*Profile))
+     ?static_cast<uint32>(*Profile):0u;
+}
+bool AMoonfallHeroPawn::CommitCompanionProfile(FName ResidentId,uint32 Profile){
+ if(!HasAuthority()||Health<=0.f||!IsNamedMoonfallResident(ResidentId)
+     ||!MoonfallWorldPolicy::ValidCompanionProfile(Profile))return false;
+ const uint32 Previous=GetCompanionProfile(ResidentId);
+ if(Previous==Profile)return true;
+ if(Profile==0)CompanionProfiles.Remove(ResidentId);
+ else CompanionProfiles.Add(ResidentId,static_cast<int32>(Profile));
+ if(!SaveWorldProgress()){
+  if(Previous==0)CompanionProfiles.Remove(ResidentId);
+  else CompanionProfiles.Add(ResidentId,static_cast<int32>(Previous));
+  return false;
+ }
+ return true;
 }
 bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
  if (!IsNamedMoonfallResident(ResidentId) || Delta == 0 || Health <= 0.f) return false;
