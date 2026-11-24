@@ -223,9 +223,34 @@ FString AMoonfallWorldNPC::GetSocialDisposition(const AMoonfallHeroPawn* Hero) c
  if (Reputation >= 15) return TEXT("Friendly");
  return TEXT("Neutral");
 }
+EMoonfallNpcMood AMoonfallWorldNPC::GetEmotionalState(const AMoonfallHeroPawn* Hero) const {
+ const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+ const bool bDanger=FMath::IsFinite(Now)&&Now>=LastDangerAt&&Now-LastDangerAt<85.f;
+ bool bReport=false;
+ if(!bAmbientVisitor&&bUsePersonalityRoutines&&GetWorld()){
+  if(const auto* Society=GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>()){
+   FMoonfallWorldRumor Report;
+   bReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report);
+  }
+ }
+ const auto Mood=MoonfallWorldPolicy::ResolveMood(GetBondWithHero(Hero),
+     IsValid(Hero)?Hero->GetFactionReputation(FactionId):0,bDanger,bReport,SocialRole==FName(TEXT("Guard")));
+ using MoonfallWorldPolicy::Mood;
+ switch(Mood){
+  case Mood::Uneasy:return EMoonfallNpcMood::Uneasy;
+  case Mood::Afraid:return EMoonfallNpcMood::Afraid;
+  case Mood::Vigilant:return EMoonfallNpcMood::Vigilant;
+  case Mood::Wary:return EMoonfallNpcMood::Wary;
+  case Mood::Resentful:return EMoonfallNpcMood::Resentful;
+  case Mood::Warm:return EMoonfallNpcMood::Warm;
+  case Mood::Loyal:return EMoonfallNpcMood::Loyal;
+  default:return EMoonfallNpcMood::Calm;
+ }
+}
 bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  if (!CanHeroInteract(Hero)) return false;
  InteractionCount = FMath::Min(InteractionCount + 1, 1000000);
+ LastConversationMood=GetEmotionalState(Hero);
  // The existing custom greeting wins; default dialogue reflects ancestry.
  const FText Spoken = Greeting.EqualTo(FText::FromString(TEXT("The road stretches on. Need directions?")))
     ? FText::FromString(MoonfallRaces::Greeting(RaceId)) : Greeting;
@@ -263,6 +288,16 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     TEXT("My trusted companion, %s stands with you."), *DisplayName.ToString()));
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
+ // Modest social warmth or personal caution changes otherwise neutral
+ // greetings, but never overrides authored contracts, explicit hostility,
+ // ancestry recognition or strong bond dialogue.
+ if(!bAmbientVisitor && bUsePersonalityRoutines && Disposition==TEXT("Neutral")
+     && !SharesRaceWith(Hero) && Bond>-60 && Bond<60 && SocialRole==FName(TEXT("Citizen"))){
+  if(LastConversationMood==EMoonfallNpcMood::Warm)
+   Reaction=FText::FromString(TEXT("Good to see you again. How fares the road?"));
+  else if(LastConversationMood==EMoonfallNpcMood::Wary)
+   Reaction=FText::FromString(TEXT("I would rather keep our distance for now."));
+ }
  // Accepted one-time contracts have useful, contextual status.
  if (!bAmbientVisitor && Disposition != TEXT("Hostile")
      && Hero->SupportsResidentContract(ResidentId)
