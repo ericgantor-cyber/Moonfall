@@ -43,6 +43,15 @@
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
 namespace {
+// HUD shows only a fallback message below these inventory viewport dimensions.
+bool HasVisibleInventoryPointerSurface(const AController* Controller)
+{
+ const auto* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 W=0,H=0;
+ PC->GetViewportSize(W,H);
+ return W>=304 && H>=304;
+}
 // Decode only the expected slot. Equipped fields can contain stale or
 // externally edited data; they must not grant combat bonuses.
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
@@ -675,6 +684,10 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 
 bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 {
+ if (!HasVisibleInventoryPointerSurface(Controller)) {
+  bInventoryScrollbarDragging = false;
+  return false;
+ }
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
@@ -4237,6 +4250,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
+  if (!HasVisibleInventoryPointerSurface(Controller)) return;
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
@@ -4419,6 +4433,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  if (bInventoryOpen) {
+  if (!HasVisibleInventoryPointerSurface(Controller)) return;
   // Book pointer and backdrop always take priority. The bag's hidden X must
   // not close or mutate the inventory through the full-width grimoire.
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
