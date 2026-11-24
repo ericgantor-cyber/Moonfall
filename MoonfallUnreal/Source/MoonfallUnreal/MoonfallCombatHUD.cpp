@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallLivingSimulation.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
@@ -1421,6 +1422,15 @@ void AMoonfallCombatHUD::DrawHUD()
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
     FLinearColor(0.72f, 0.92f, 1.f), Left + 14.f, Top + 7.f, nullptr, 0.86f);
+  // Region climate is a pure policy sample. Do not scan weather actors
+  // or nearby residents from the frequently drawn HUD.
+  const int ClimateRegion=MoonfallLivingSimulation::RegionFromWorldX(Hero->GetActorLocation().X);
+  const auto Climate=MoonfallLivingSimulation::WeatherFor(ClimateRegion,
+      MoonfallLivingSimulation::Phase(GetWorld()->GetTimeSeconds(),360.f));
+  DrawText(FString::Printf(TEXT("%s  |  %s"),
+      bSanctuaryObjective?TEXT("FIRSTLIGHT"):TEXT("WEATHER"),
+      UTF8_TO_TCHAR(MoonfallLivingSimulation::WeatherName(Climate))),
+    FLinearColor(0.7f,0.85f,0.96f),Left+Width-160.f,Top+7.f,nullptr,0.64f);
   DrawText(Objective, FLinearColor::White,
     Left + 14.f, Top + 33.f, nullptr, Canvas->SizeX < 1050.f ? 0.68f : 0.82f);
   DrawText(Context, FLinearColor(0.76f, 0.84f, 0.92f),

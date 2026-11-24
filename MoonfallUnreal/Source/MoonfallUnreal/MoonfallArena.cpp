@@ -8,6 +8,7 @@
 #include "Components/TextRenderComponent.h"
 #include "Components/PointLightComponent.h"
 #include "MoonfallSanctuaryArchitecture.h"
+#include "MoonfallLivingSimulation.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -133,6 +134,90 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
  }
 }
 
+void AMoonfallArena::CreateRegionalLandmarks() {
+ if (!bEnableRegionalLandmarks || !IsValid(DungeonRoad)) return;
+ UStaticMesh* Cube=DungeonRoad->GetStaticMesh();
+ if (!Cube) return;
+ // One mesh batch for six region-specific skylines. Every piece is beyond
+ // the road's walkable Y strip, so combat lines and all 30 entrances remain.
+ UInstancedStaticMeshComponent* Details=
+   NewObject<UInstancedStaticMeshComponent>(this,TEXT("RegionLandmarkDetails"));
+ if (!IsValid(Details)) return;
+ Details->SetupAttachment(GetRootComponent());
+ Details->SetStaticMesh(Cube);
+ Details->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ Details->SetCollisionResponseToAllChannels(ECR_Ignore);
+ Details->SetGenerateOverlapEvents(false);
+ Details->SetCastShadow(false);
+ Details->SetCullDistances(18000,28000);
+ for (int32 Zone=0;Zone<6;++Zone) {
+  const float CenterX=(static_cast<float>(Zone*5+2)-14.5f)*1350.f;
+  // Forest spires, foundry stacks, frost monoliths, fractured ash towers:
+  // authored silhouettes, not procedural collision terrain.
+  const float Height=Zone==1?5.2f:(Zone==3?3.6f:(Zone==4?4.8f:2.7f));
+  const float Width=Zone==2?2.7f:(Zone==5?1.1f:1.5f);
+  const FVector Landmarks[]={
+   FVector(-2300.f,-4900.f,Height),FVector(-1450.f,-5100.f,Height*1.2f),
+   FVector(-650.f,-4750.f,Height*.7f),FVector(650.f,-4800.f,Height*.85f),
+   FVector(1450.f,-5200.f,Height*1.1f),FVector(2300.f,-4900.f,Height),
+   FVector(-1900.f,-550.f,Height*.75f),FVector(1900.f,-550.f,Height*.9f)
+  };
+  for (const FVector& Spec:Landmarks) {
+   // Base height is 0, with a center at half of the vertical cube height.
+   const float H=FMath::Clamp(Spec.Z,1.f,7.f);
+   Details->AddInstance(FTransform(FRotator::ZeroRotator,
+      FVector(CenterX+Spec.X,Spec.Y,H*50.f),
+      FVector(Width,Width,H)));
+  }
+ }
+ AddInstanceComponent(Details);
+ Details->RegisterComponent();
+ RegionLandmarkDetails=Details;
+ // Six bounded, shadow-free weather lights (one per connected region).
+ for (int32 Zone=0;Zone<6;++Zone) {
+  UPointLightComponent* Light=NewObject<UPointLightComponent>(this);
+  if (!IsValid(Light)) continue;
+  Light->SetupAttachment(GetRootComponent());
+  Light->SetRelativeLocation(FVector(
+      (static_cast<float>(Zone*5+2)-14.5f)*1350.f,-2500.f,420.f));
+  Light->SetAttenuationRadius(3000.f);
+  Light->SetCastShadows(false);
+  Light->SetIntensity(300.f);
+  AddInstanceComponent(Light);
+  Light->RegisterComponent();
+  RegionWeatherLights.Add(Light);
+ }
+ UpdateRegionWeather(0.f);
+}
+void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
+ if (!FMath::IsFinite(WorldTime) || WorldTime<0.f) return;
+ const int32 Phase=MoonfallLivingSimulation::Phase(WorldTime,360.f);
+ if (LastRegionWeatherPhase==Phase) return;
+ LastRegionWeatherPhase=Phase;
+ for (int32 Zone=0;Zone<RegionWeatherLights.Num() && Zone<6;++Zone) {
+  UPointLightComponent* Light=RegionWeatherLights[Zone];
+  if (!IsValid(Light)) continue;
+  const auto Weather=MoonfallLivingSimulation::WeatherFor(Zone,Phase);
+  FLinearColor Tint(0.66f,0.78f,0.89f);
+  float Intensity=300.f;
+  switch (Weather) {
+   case MoonfallLivingSimulation::EWeather::Ash:
+    Tint=FLinearColor(0.94f,0.36f,0.18f);Intensity=420.f;break;
+   case MoonfallLivingSimulation::EWeather::Storm:
+    Tint=FLinearColor(0.33f,0.43f,0.78f);Intensity=260.f;break;
+   case MoonfallLivingSimulation::EWeather::Snow:
+    Tint=FLinearColor(0.63f,0.85f,1.f);Intensity=440.f;break;
+   case MoonfallLivingSimulation::EWeather::Fog:
+    Tint=FLinearColor(0.58f,0.72f,0.78f);Intensity=210.f;break;
+   case MoonfallLivingSimulation::EWeather::Rain:
+    Tint=FLinearColor(0.42f,0.65f,0.93f);Intensity=310.f;break;
+   case MoonfallLivingSimulation::EWeather::Clear:
+    Tint=FLinearColor(0.9f,0.78f,0.54f);Intensity=320.f;break;
+  }
+  Light->SetLightColor(Tint);
+  Light->SetIntensity(Intensity);
+ }
+}
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
@@ -179,6 +264,8 @@ void AMoonfallArena::BeginPlay() {
   DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
  }
+ // Bounded silhouette landmarks and nonshadow weather lights, outside the road.
+ CreateRegionalLandmarks();
  // One readable sign for each five-dungeon zone. UI/map code can also obtain
  // exact entrance positions from the game mode without scanning actors.
  // Noncolliding components cost no Tick and do not obstruct the road.

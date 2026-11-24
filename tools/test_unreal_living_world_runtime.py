@@ -52,4 +52,26 @@ int main(){
         self.assertIn("IsRecentlyInCombatForAmbientAI() const",hero)
         self.assertNotIn("GetAllActorsOfClass(",npc)
 
+    def test_regional_landmarks_and_weather_hud_are_budgeted(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        header=(SRC/"MoonfallArena.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        landscape=arena.split("void AMoonfallArena::CreateRegionalLandmarks()",1)[1].split(
+            "void AMoonfallArena::BeginPlay()",1)[0]
+        self.assertIn("Zone<6",landscape)
+        self.assertIn("RegionLandmarkDetails=Details;",landscape)
+        self.assertIn("Details->SetCollisionEnabled(ECollisionEnabled::NoCollision);",landscape)
+        self.assertIn("Details->SetCullDistances(18000,28000);",landscape)
+        self.assertIn("Light->SetCastShadows(false);",landscape)
+        self.assertIn("Light->SetAttenuationRadius(3000.f);",landscape)
+        self.assertIn("LastRegionWeatherPhase==Phase",landscape)
+        self.assertIn("MoonfallLivingSimulation::WeatherFor(Zone,Phase)",landscape)
+        self.assertIn("bEnableRegionalLandmarks = true;",header)
+        self.assertIn("CreateRegionalLandmarks();",arena)
+        quest=hud.split("// World-wide quest tracker,",1)[1].split(
+            "// Compact circular resource HUD",1)[0]
+        self.assertIn("MoonfallLivingSimulation::WeatherName(Climate)",quest)
+        self.assertNotIn("TActorIterator",quest)
+        self.assertNotIn("GetAllActorsOfClass",quest)
+
 if __name__=="__main__":unittest.main()

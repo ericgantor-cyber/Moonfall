@@ -22,6 +22,13 @@ public:
  UPROPERTY(Transient) TObjectPtr<UInstancedStaticMeshComponent> SanctuaryGothicDetails;
  UPROPERTY(Transient) TObjectPtr<UInstancedStaticMeshComponent> SanctuaryMoonstoneDetails;
  UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> SanctuaryMoonLights;
+ // Six distinct roadside landmarks plus localized weather lighting.
+ UPROPERTY(Transient) TObjectPtr<UInstancedStaticMeshComponent> RegionLandmarkDetails;
+ UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> RegionWeatherLights;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|World")
+ bool bEnableRegionalLandmarks = true;
+ void UpdateRegionWeather(float WorldTime);
+ int32 LastRegionWeatherPhase = -1;
  // Artist-facing opt-out. Doesn't affect the physical shrine or world routes.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
  bool bEnableSanctuaryAtmosphere = true;
@@ -36,4 +43,5 @@ public:
 private:
  void CreateBlock(FVector Position, FVector Scale);
  void CreateSanctuaryAtmosphere();
+ void CreateRegionalLandmarks();
 };
