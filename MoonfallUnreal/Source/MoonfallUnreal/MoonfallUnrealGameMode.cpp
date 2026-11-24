@@ -125,8 +125,10 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
       HeroLocation+FVector(0,0,55),ECC_Visibility,Params))return 0.f;
  LastCompanionCoverAt=Now;
  const float ArmorScale=1.f-FMath::Min(0.25f,Hero->GetCompanionGearTier(Scout->ResidentId,1)*0.01f);
- Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover*ArmorScale);
- if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;Scout->OnCompanionDowned();}
+ const float BraceScale=Scout->GetBondWithHero(Hero)>=80&&LocalCompanionRole==EMoonfallCompanionRole::Protector
+    &&CompanionAbilityRole==LocalCompanionRole&&Now<CompanionAbilityEndsAt?0.5f:1.f;
+ Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover*ArmorScale*BraceScale);
+ if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;CompanionAbilityEndsAt=-1000.f;Scout->OnCompanionDowned();}
  return Cover;
 }
 bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(const AMoonfallHeroPawn* Hero,const AMoonfallWorldNPC* Scout) const{
@@ -164,7 +166,7 @@ void AMoonfallUnrealGameMode::ResolveCompanionCounterAttack(AMoonfallHeroPawn* H
  if(GetWorld()->LineTraceSingleByChannel(Hit,From+FVector(0,0,55),To+FVector(0,0,55),ECC_Visibility,Params)
      &&Hit.GetActor()!=Target)return;
  const float Now=GetWorld()->GetTimeSeconds();
- const bool bBraced=CompanionAbilityRole==EMoonfallCompanionRole::Protector
+ const bool bBraced=Target->GetBondWithHero(Hero)>=80&&CompanionAbilityRole==EMoonfallCompanionRole::Protector
     &&LocalCompanionRole==CompanionAbilityRole&&Now<CompanionAbilityEndsAt;
  const float Actual=MoonfallWorldPolicy::FollowerIncomingDamage(Damage,Hero->GetCompanionGearTier(Target->ResidentId,1),bBraced);
  if(Actual<=0.f)return;
