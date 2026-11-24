@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -192,8 +193,14 @@ void AMoonfallCombatHUD::DrawHUD()
       !Resident->GetActorLocation().ContainsNaN() &&
       FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
           FMath::Square(InteractionRange)) {
+   if (!Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)) {
+    DrawText(TEXT("NPC | Enlarge window | ESC / RMB: close"),
+      FLinearColor(1.f,0.87f,0.70f),12.f,14.f,nullptr,0.72f);
+    DrawLiveMenuHitCue();
+    return;
+   }
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
-   const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
+   const float H = Hero->GetResidentContextPanelHeight(Canvas->SizeY);
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
@@ -216,34 +223,125 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"),
+   FString Names[9] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close") };
+     TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
+   if(Hero->bResidentCompanionMenu){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    const bool bRecruited=Mode&&Mode->GetLocalCompanion()==Resident;
+    Names[0]=!bRecruited?TEXT("Recruit (60 trust)"):
+      Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("Follow | Switch to Hold"):
+      Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
+    Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("Report deeds");
+    Names[5]=TEXT("Report deeds");
+    Names[6]=Resident->bCompanionDowned?TEXT("Revive companion"):TEXT("Move ahead");
+    Names[7]=TEXT("Trade equipment");
+    if(bRecruited){
+     const TCHAR* Ability=Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Brace"):
+       Mode->LocalCompanionRole==EMoonfallCompanionRole::Striker?TEXT("Precision Burst"):TEXT("Second Wind");
+     const float Remaining=Mode->GetCompanionAbilityRemaining();
+     Names[8]=Resident->GetBondWithHero(Hero)<80?FString::Printf(TEXT("%s | 80 trust"),Ability):
+       Remaining>0.f?FString::Printf(TEXT("%s | %.0fs"),Ability,Remaining):FString::Printf(TEXT("%s | Activate"),Ability);
+    }
+    Names[2]=TEXT("Back");
+    Names[4]=TEXT("Companion talents");
+    Names[3]=!bRecruited?TEXT("Specialization"):
+      Mode->LocalCompanionRole==EMoonfallCompanionRole::Balanced?TEXT("Balanced | Switch to Protector"):
+      Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Protector | Switch to Striker"):TEXT("Striker | Switch to Balanced");
+    if(Hero->bResidentCompanionGear){
+     static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory")};
+     for(int32 Slot=0;Slot<3;++Slot){
+      const int Tier=Hero->GetCompanionGearTier(Resident->ResidentId,Slot);
+      Names[Slot]=FString::Printf(TEXT("Give best spare %s | Tier %d"),Slots[Slot],Tier);
+      Names[Slot+3]=FString::Printf(TEXT("Return %s"),Slots[Slot]);
+     }
+     Names[6]=TEXT("Back");
+    }
+    if(Hero->bResidentCompanionTalents){
+     const int Rank=MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero));
+     const int Active=bRecruited?MoonfallWorldPolicy::EffectiveCompanionRole(Rank,static_cast<int>(Mode->LocalCompanionRole)):-1;
+     static const TCHAR* Paths[]={TEXT("Balanced"),TEXT("Protector"),TEXT("Striker")};
+     static const TCHAR* Perks[]={TEXT("Fieldcraft"),TEXT("Shield Expert"),TEXT("Precision")};
+     for(int32 Path=0;Path<3;++Path){
+      const bool bUnlocked=bRecruited&&Rank>=(Path==0?1:2);
+      Names[Path]=FString::Printf(TEXT("%s%s | %s"),Active==Path?TEXT("* "):TEXT(""),Paths[Path],
+       !bUnlocked?(Path==0?TEXT("60 trust"):TEXT("80 trust")):Rank==3?Perks[Path]:TEXT("Perk at 100 trust"));
+     }
+     Names[3]=TEXT("Back");
+     Names[4]=TEXT("Train active path");
+     if(Hero->bResidentCompanionTraining){
+      static const TCHAR* Nodes[9]={TEXT("Far Watch +0.1m cover"),TEXT("First Aid +1 HP cap"),TEXT("Trail Master +0.1m ranges"),
+       TEXT("Rapid Cover -1s"),TEXT("Iron Ward +1% cover"),TEXT("Bulwark -1s / +1 cap"),
+       TEXT("Long Reach +0.1m"),TEXT("Weak Point +1 posture"),TEXT("Quick Strike -0.5s")};
+      const int Role=bRecruited?static_cast<int>(Mode->LocalCompanionRole):0;
+      const uint32 Mask=bRecruited?Mode->GetLocalCompanionTraining():0;
+      const int Branch=Role>=0&&Role<=2?Role:0;
+      for(int32 Index=0;Index<3;++Index){
+       const int Node=Branch*3+Index;
+       const int Trained=MoonfallWorldPolicy::CompanionNodeRank(Mask,Node);
+       const bool bCanTrain=bRecruited&&MoonfallWorldPolicy::CanTrainCompanion(Mask,Rank,Branch,Node);
+       Names[Index]=FString::Printf(TEXT("%s | %d/2 %s"),Nodes[Node],Trained,
+         Trained==2?TEXT("MAX"):bCanTrain?TEXT("+"):TEXT("Locked"));
+      }
+      Names[3]=TEXT("Refund all training");Names[4]=TEXT("Back");
+     }
+    }
+   }
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
    if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
-   for (int32 Row = 0; Row < 3; ++Row) {
-    const float Y = T + 122.f + Row * 53.f;
+   const float Pitch=Hero->GetResidentContextRowPitch(H);
+   for (int32 Row = 0; Row < Hero->GetResidentContextRowCount(); ++Row) {
+    const float Y = T + 122.f + Row * Pitch;
     const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
-      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
+      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + Pitch-10.f;
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
-        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
-    DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
+        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, Pitch-10.f);
+    DrawText(Names[Row], !Hero->bResidentCompanionMenu && Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
-        L + 25.f, Y + 10.f, nullptr, 1.f);
+        L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
    const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
-   DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
-     *ContractStatus, *Resident->FactionId.ToString()),
+   const int32 CompanionRank=MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero));
+   const FString ContextStatus=Hero->bResidentCompanionMenu
+     ? FString::Printf(TEXT("Bond rank %d / 3 | %s"),CompanionRank,
+         CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
+     : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
+   FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    if(Mode&&Mode->GetLocalCompanion()==Resident)
+     DisplayContext+=FString::Printf(TEXT(" | HP %.0f/100"),Resident->CompanionHealth);
+   }
+   if(Hero->bResidentCompanionGear)DisplayContext=TEXT("COMPANION EQUIPMENT | Give or return");
+   if(Hero->bResidentCompanionTraining){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    const int Spent=Mode&&Mode->GetLocalCompanion()==Resident?MoonfallWorldPolicy::CompanionPointsSpent(Mode->GetLocalCompanionTraining()):0;
+    const int Budget=MoonfallWorldPolicy::CompanionPointBudget(CompanionRank);
+    DisplayContext=FString::Printf(TEXT("TRAINING | %d / %d points spent"),Spent,Budget);
+   }
+   if(Hero->bResidentCompanionMenu){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    if(!Hero->bResidentCompanionTalents&&Mode&&Mode->GetLocalCompanion()==Resident&&CompanionRank==3){
+     using MoonfallWorldPolicy::CompanionPerk;
+     switch(MoonfallWorldPolicy::VeteranPerk(CompanionRank,static_cast<int>(Mode->LocalCompanionRole))){
+      case CompanionPerk::Fieldcraft: DisplayContext+=TEXT(" | Fieldcraft");break;
+      case CompanionPerk::ShieldExpert: DisplayContext+=TEXT(" | Shield Expert");break;
+      case CompanionPerk::Precision: DisplayContext+=TEXT(" | Precision");break;
+      default:break;
+     }
+    }
+   }
+   DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   DrawText(Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -252,7 +350,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, 0.72f);
-   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    DrawLiveMenuHitCue();
@@ -1755,6 +1853,30 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
     RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
+  }
+ }
+ // One cached party lookup, no actor search or extra world-space labels.
+ // Keep the companion readout away from the player's resource orb.
+ if (!bCompactScreen) {
+  const auto* CompanionMode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+  const auto* Scout=CompanionMode?CompanionMode->GetLocalCompanionForHero(Hero):nullptr;
+  if (IsValid(Scout) && !Scout->IsActorBeingDestroyed()
+      && Scout->ResidentId==Hero->GetCompanionParty().ResidentId
+      && FMath::IsFinite(Scout->CompanionHealth)) {
+   const float HP=FMath::Clamp(Scout->CompanionHealth,0.f,100.f);
+   const bool bDown=Scout->bCompanionDowned||HP<=0.f;
+   const float W=240.f,X=Canvas->SizeX-W-18.f,Y=Canvas->SizeY-117.f;
+   const TCHAR* Stance=bDown?TEXT("DOWNED"):
+     CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("FOLLOW"):
+     CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("HOLD"):TEXT("PASSIVE");
+   DrawRect(FLinearColor(0.035f,0.045f,0.09f,0.92f),X,Y,W,65.f);
+   DrawText(Scout->DisplayName.ToString().Left(24),FLinearColor::White,X+10.f,Y+5.f,nullptr,0.82f);
+   DrawRect(FLinearColor(0.20f,0.12f,0.16f),X+10.f,Y+27.f,W-20.f,7.f);
+   const FLinearColor HPColor=HP<=25.f?FLinearColor(1.f,0.28f,0.25f):FLinearColor(0.32f,0.82f,0.53f);
+   DrawRect(HPColor,X+10.f,Y+27.f,(W-20.f)*HP/100.f,7.f);
+   DrawText(FString::Printf(TEXT("%s | %.0f / 100 HP"),Stance,HP),
+      bDown?FLinearColor(1.f,0.44f,0.39f):FLinearColor(0.82f,0.89f,0.98f),
+      X+10.f,Y+39.f,nullptr,0.72f);
   }
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),

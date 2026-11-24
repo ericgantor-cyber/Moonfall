@@ -725,7 +725,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("// The X and Esc must back out of character details the same way.", mouse)
         self.assertIn("OpenOptions();", mouse)
         self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
-        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
+        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < GetResidentContextRowCount(); ++Row)"))
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
         self.assertIn("if (bCharacterStatsOpen)", options)
@@ -964,11 +964,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         persistent = (ROOT / "MoonfallPersistentSave.h").read_text()
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text()
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
-        self.assertIn("int32 Version = 13;", persistent)
+        self.assertIn("int32 Version = 16;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
         self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
-        self.assertIn("Save->Version > 13", self.hero_cpp)
+        self.assertIn("Save->Version > 16", self.hero_cpp)
         self.assertIn("Save->Version >= 11", self.hero_cpp)
         self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
         self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
@@ -1646,26 +1646,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
-    def test_batch_menus_cancel_enemy_windups_and_followups(self):
+    def test_batch_menus_keep_enemy_windups_and_followups_live(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
-            "// A shatter follow-up expires", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
-        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
-        self.assertIn("CancelDivineSignature();", menu)
-        for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
-                       "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
+        guard = tick.split("// The hostile world stays live while any player menu is open:", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        for menu in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bCharacterStatsOpen", "bResidentContextOpen", "bTalentWebOpen",
+                     "FocusedResident.IsValid()"):
+            self.assertNotIn("Hero->" + menu, guard)
+        self.assertIn("!Hero->IsPlayerControlled()", guard)
+        self.assertIn("Hero->Health <= 0.f", guard)
+        for action in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                       "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
+                       "bComboSecondHitActive = false;",
                        "LockedAttackDirection = FVector::ZeroVector;"):
-            self.assertIn(action, menu)
-        self.assertIn("NextAttackAt = FMath::Max(", menu)
-        self.assertIn("Now + 0.35f", menu)
-        self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
-        self.assertLess(tick.index("// Pause hostile behavior during any gameplay modal, including Atlas, and"),
+            self.assertIn(action, guard)
+        self.assertIn("NextAttackAt = FMath::Max(", guard)
+        self.assertIn("Now + 0.35f", guard)
+        self.assertLess(guard.index("Hero->Health <= 0.f"), guard.index("return;"))
+        self.assertLess(tick.index("// The hostile world stays live while any player menu is open:"),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
         self.assertLess(tick.index("if (!IsValid(Hero) || !Hero->IsPlayerControlled())"),
-                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
+                        tick.index("Hero->Health <= 0.f"))
 
     def test_batch_guard_validates_timers_before_stance(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
@@ -3817,9 +3821,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 13", self.hero_cpp)
+        self.assertIn("Version > 16", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -4463,7 +4467,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
         self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
         self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
         self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
@@ -4473,7 +4477,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 13", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 16", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -5952,7 +5956,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v12_atlas_geographic_fog_is_bounded_persistent_and_legacy_safe(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 13;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
         self.assertIn("UPROPERTY() TArray<int64> ExploredZoneFogMasks;", save_h)
         self.assertIn("TArray<int64> ExploredZoneFogMasks;", self.hero_h)
         self.assertIn("bool HasExploredAtlasCell(int32 Zone, int32 Column, int32 Row) const;", self.hero_h)
@@ -5983,7 +5987,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;", save)
         self.assertLess(save.index("ExploredZoneFogMasks.Num() != 6"),
                         save.index("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;"))
-        self.assertIn("Save->Version < 1 || Save->Version > 13", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
         self.assertIn("if (Save->Version >= 12) {", load)
         self.assertIn("if (Save->ExploredZoneFogMasks.Num() != 6)", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
@@ -6220,19 +6224,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
-    def test_atlas_pause_is_gamewide_and_death_does_not_leave_modal_open(self):
+    def test_atlas_menu_blocks_player_but_not_enemy_attacks_and_death_closes_modal(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        enemy_modal = enemy_tick.split(
-            "// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+        enemy_guard = enemy_tick.split(
+            "// The hostile world stays live while any player menu is open:", 1)[1].split(
             "// A corrupt nonfinite windup", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", enemy_modal)
+        self.assertIn("!Hero->IsPlayerControlled()", enemy_guard)
+        self.assertIn("Hero->Health <= 0.f", enemy_guard)
+        for menu in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bCharacterStatsOpen", "bTalentWebOpen",
+                     "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertNotIn("Hero->" + menu, enemy_guard)
         for cancel in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
                        "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
                        "bComboSecondHitActive = false;", "NextAttackAt = FMath::Max("):
-            self.assertIn(cancel, enemy_modal)
-        self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
+            self.assertIn(cancel, enemy_guard)
+        self.assertLess(enemy_tick.index("Hero->Health <= 0.f"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
@@ -6249,7 +6258,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bAtlasHasActiveRespawnShrineLocation = false;", damage)
         self.assertLess(damage.index("bAtlasOpen = false;"),
                         damage.index("PC->bShowMouseCursor = false;"))
-        self.assertNotIn("SaveWorldProgress();", enemy_modal)
+        self.assertNotIn("SaveWorldProgress();", enemy_guard)
 
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         for entry, stop in (
