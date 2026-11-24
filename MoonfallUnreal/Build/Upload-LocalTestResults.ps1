@@ -27,7 +27,16 @@ try {
 try {
 $cacheFile=Join-Path $statePath "sent.json"
 $sent=@{}
-if(Test-Path $cacheFile){try{$obj=Get-Content $cacheFile -Raw|ConvertFrom-Json;foreach($p in $obj.PSObject.Properties){$sent[$p.Name]=$p.Value}}catch{}}
+if(Test-Path -LiteralPath $cacheFile){
+ try {
+  $obj=Get-Content -LiteralPath $cacheFile -Raw | ConvertFrom-Json -ErrorAction Stop
+  if($null -eq $obj -or $obj -isnot [pscustomobject]){throw "Invalid cache format."}
+  foreach($p in $obj.PSObject.Properties){$sent[$p.Name]=$p.Value}
+ } catch {
+  # Fail closed: silently discarding history would resend already-uploaded logs.
+  throw "Moonfall upload history is unreadable. No reports sent. Back up and repair sent.json before retrying."
+ }
+}
 if(-not $DryRun -and -not (Get-Command -Name $GitHubCli -ErrorAction SilentlyContinue)){throw "Install gh and run gh auth login."}
 $maxReportsPerRun=10
 $reportCount=0
