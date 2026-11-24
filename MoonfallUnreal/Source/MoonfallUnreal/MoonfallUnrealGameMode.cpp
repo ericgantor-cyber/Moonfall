@@ -67,7 +67,36 @@ void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident
  LivingResidents.Add(Resident);
 }
 
+bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const {
+ return HasAuthority()&&IsValid(Hero)&&Hero==CompanionOwner.Get()&&Hero->GetWorld()==GetWorld()
+     &&Hero->IsPlayerControlled();
+}
+bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoonfallWorldNPC* Resident){
+ if(!HasAuthority()||!IsValid(Hero)||!IsValid(Resident)||Resident->IsActorBeingDestroyed()
+     ||Hero->GetWorld()!=GetWorld()||Resident->GetWorld()!=GetWorld()||!Hero->IsPlayerControlled()
+     ||Resident->bAmbientVisitor||Resident->ResidentId.IsNone()||!Resident->bUsePersonalityRoutines
+     ||!Resident->bAllowLocalScoutGuidance||Resident->SocialRole!=FName(TEXT("Scout"))
+     ||Hero->IsRecentlyInCombatForAmbientAI()||!Resident->CanHeroInteract(Hero)
+     ||Resident->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Resident->FactionId)<0
+     ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
+ if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
+ LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
+ return true;
+}
+bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EMoonfallCompanionStance Stance){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
+ switch(Stance){
+ case EMoonfallCompanionStance::Follow:case EMoonfallCompanionStance::Hold:case EMoonfallCompanionStance::Passive:
+  LocalCompanionStance=Stance;return true;
+ default:return false;
+ }
+}
+bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
+ if(!IsLocalCompanionOwner(Hero))return false;
+ LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;return true;
+}
 void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
+ if(LocalCompanion.Get()==Resident){LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;}
  LivingResidents.RemoveAll([Resident](const TWeakObjectPtr<AMoonfallWorldNPC>& Ref) {
   return !Ref.IsValid() || Ref.Get()==Resident;
  });
@@ -219,6 +248,10 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  } else {
   ActiveAmbientExpiresAt=-1.f;
  }
+ if(!LocalCompanion.IsValid()||!CompanionOwner.IsValid()
+     ||(bHeroReady&&CompanionOwner.Get()!=Hero)){
+  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;
+ }
  if (!bHeroReady) return;
  // Scan a bounded registry of <=80 weak refs, but run the expensive
  // weather / movement / danger routines for no more than 20 NPCs.
@@ -257,7 +290,13 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       }
       const bool bTalking=Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC;
       const int32 Bond=NPC->GetBondWithHero(Hero);
-      const bool bGuide=!bGuideBudgetUsed&&NPC->bAllowLocalScoutGuidance&&NPC->bUsePersonalityRoutines
+      const bool bRecruited=LocalCompanion.Get()==NPC&&IsLocalCompanionOwner(Hero);
+      const bool bStanceAllowsGuide=!LocalCompanion.IsValid()
+          ||(bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Follow);
+      const bool bHold=bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Hold
+          &&bGuideSafe&&Bond>=60&&Hero->GetFactionReputation(NPC->FactionId)>=0
+          &&FVector::DistSquared(HeroLocation,NPC->AuthoredHomeLocation)<=FMath::Square(450.0);
+      const bool bGuide=!bGuideBudgetUsed&&bStanceAllowsGuide&&NPC->bAllowLocalScoutGuidance&&NPC->bUsePersonalityRoutines
           &&NPC->SocialRole==FName(TEXT("Scout"))
           &&MoonfallWorldPolicy::CanLocalGuide(Bond,Hero->GetFactionReputation(NPC->FactionId),
              FVector::DistSquared(HeroLocation,NPC->AuthoredHomeLocation),
@@ -265,7 +304,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       if(bGuide)bGuideBudgetUsed=true;
       NPC->AdvanceLivingRoutine(Now,HeroLocation,
           Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC,
-          Bond,bGuide);
+          Bond,bGuide,bHold);
       if (!bCombatNearby && !bTalking && NPC->bUsePersonalityRoutines && !NPC->ResidentId.IsNone()
           && !NPC->SettlementId.IsNone()
           && MoonfallLivingSimulation::ReactionFor(MoonfallLivingSimulation::ERole::Citizen,
