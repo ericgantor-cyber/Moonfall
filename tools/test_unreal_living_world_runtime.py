@@ -456,7 +456,7 @@ int main(){
         for perk in ("Fieldcraft","ShieldExpert","Precision"):
             self.assertIn("CompanionPerk::"+perk,policy)
             self.assertIn("CompanionPerk::"+perk,hud)
-        self.assertIn("elapsed<CompanionCoverCooldown(rank,role)",policy)
+        self.assertIn("elapsed+TrainingRecovery<CompanionCoverCooldown(rank,role)",policy)
         self.assertIn("Range=CompanionCoverRange(rank,role)",policy)
         self.assertIn("Range=CompanionStrikeRange(rank,role)",policy)
         strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
@@ -476,21 +476,44 @@ int main(){
         choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
             "// Bounded, persistent faction relationship API.",1)[0]
         self.assertIn("bool bResidentCompanionTalents=false",header)
-        self.assertIn("if(bResidentCompanionTalents)return 4;",hero)
+        self.assertIn("if(bResidentCompanionTalents)return 5;",hero)
         self.assertIn("Mode->GetLocalCompanion()==Resident?5:3;",hero)
         self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
         self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
-        self.assertIn("if(Choice==3){bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}",choose)
+        self.assertIn("if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}",choose)
         self.assertIn("if(Choice<0||Choice>2)return false;",choose)
         self.assertIn("TalentMode->GetLocalCompanion()==Resident",choose)
         self.assertIn("TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice))",choose)
-        self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;",hero)
+        self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;bResidentCompanionTraining=false;",hero)
         self.assertLess(choose.index("if(bResidentCompanionTalents)"),choose.index("OfferResidentQuest(this)"))
         self.assertIn("FString Names[5]",hud)
         self.assertIn('TEXT("COMPANION TALENTS | Select a path")',hud)
         self.assertIn("Rank>=(Path==0?1:2)",hud)
         self.assertIn('TEXT("Perk at 100 trust")',hud)
         self.assertIn("EffectiveCompanionRole(Rank",hud)
+
+    def test_v27_companion_training_budget_prerequisites_and_ui(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        policy=(SRC/"MoonfallLivingWorldPolicy.h").read_text()
+        train=mode.split("bool AMoonfallUnrealGameMode::TrainLocalCompanionTalent(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::ResetLocalCompanionTalents(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","IsRecentlyInCombatForAmbientAI()",
+                      "CanHeroInteract(Hero)","GetFactionReputation","TrainCompanion(LocalCompanionTraining"):
+            self.assertIn(guard,train)
+        self.assertIn("if(Next==LocalCompanionTraining)return false;",train)
+        self.assertIn("LocalCompanionTraining=Next",train)
+        self.assertIn("CompanionNodeCount=9",policy)
+        self.assertIn("CompanionPointsSpent(mask)>=CompanionPointBudget(rank)",policy)
+        self.assertIn("CompanionNodeRank(mask,node-1)>0",policy)
+        self.assertIn("CompanionPointsSpent(mask)>CompanionPointBudget(rank)",policy)
+        self.assertIn("TrainingMode->TrainLocalCompanionTalent(this",hero)
+        self.assertIn("TrainingMode->ResetLocalCompanionTalents(this)",hero)
+        self.assertIn('TEXT("Train active path")',hud)
+        self.assertIn('TEXT("Refund all training")',hud)
+        self.assertIn("TRAINING | %d / %d points spent",hud)
+        self.assertIn("ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7)",mode)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
