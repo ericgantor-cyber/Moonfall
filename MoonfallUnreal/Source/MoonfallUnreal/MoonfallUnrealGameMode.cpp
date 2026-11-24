@@ -85,6 +85,37 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
  return true;
 }
+float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
+     ||LocalCompanionStance!=EMoonfallCompanionStance::Follow
+     ||Hero->bInventoryOpen||Hero->bOptionsOpen||Hero->bAtlasOpen||Hero->bTalentWebOpen
+     ||Hero->bResidentContextOpen||Source.ContainsNaN())return 0.f;
+ auto* Scout=LocalCompanion.Get();
+ if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
+     ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
+     ||Hero->GetFactionReputation(Scout->FactionId)<0)return 0.f;
+ const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation();
+ if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Scout->AuthoredHomeLocation.ContainsNaN()
+     ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return 0.f;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now)||Now<0.f||Now<LastCompanionCoverAt)return 0.f;
+ const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
+ if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
+       MoonfallLivingSimulation::Phase(Now,360.f))))return 0.f;
+ const float Cover=MoonfallWorldPolicy::CompanionCover(Damage,Now-LastCompanionCoverAt,
+     FVector::DistSquared(HeroLocation,ScoutLocation),true);
+ if(Cover<=0.f)return 0.f;
+ // The scout must be between the hero and the reported attack direction.
+ const FVector ToSource=(Source-HeroLocation).GetSafeNormal2D();
+ const FVector ToScout=(ScoutLocation-HeroLocation).GetSafeNormal2D();
+ if(ToSource.IsNearlyZero()||ToScout.IsNearlyZero()||FVector::DotProduct(ToSource,ToScout)<0.5)return 0.f;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallCompanionCover),false);
+ Params.AddIgnoredActor(Hero);Params.AddIgnoredActor(Scout);
+ FHitResult Hit;
+ if(GetWorld()->LineTraceSingleByChannel(Hit,ScoutLocation+FVector(0,0,55),
+      HeroLocation+FVector(0,0,55),ECC_Visibility,Params))return 0.f;
+ LastCompanionCoverAt=Now;return Cover;
+}
 bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EMoonfallCompanionStance Stance){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
  switch(Stance){
