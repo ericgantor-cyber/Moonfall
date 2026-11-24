@@ -32,6 +32,36 @@ inline bool CanLocalGuide(int bond,int reputation,double homeDistanceSquared,dou
 // Progression is derived from earned resident bond; no separate XP or save schema.
 inline int CompanionRank(int bond){return bond>=100?3:bond>=80?2:bond>=60?1:0;}
 inline int EffectiveCompanionRole(int rank,int role){return rank>=2&&rank<=3&&role>=1&&role<=2?role:0;}
+// Nine two-rank nodes, three branches. Budget is shared across all paths.
+constexpr int CompanionNodeCount=9;
+inline int CompanionPointBudget(int rank){return rank>=1&&rank<=3?rank*2:0;}
+inline int CompanionNodeRank(unsigned mask,int node){return node>=0&&node<CompanionNodeCount?int((mask>>(2*node))&3u):0;}
+inline int CompanionPointsSpent(unsigned mask){
+ int spent=0;for(int node=0;node<CompanionNodeCount;++node)spent+=CompanionNodeRank(mask,node);return spent;
+}
+inline bool ValidCompanionTraining(unsigned mask){
+ if(mask>>18)return false;
+ for(int node=0;node<CompanionNodeCount;++node){
+  const int level=CompanionNodeRank(mask,node);
+  if(level>2||(level>0&&node%3!=0&&CompanionNodeRank(mask,node-1)==0))return false;
+ }
+ return CompanionPointsSpent(mask)<=6;
+}
+inline bool CanTrainCompanion(unsigned mask,int rank,int role,int node){
+ if(!ValidCompanionTraining(mask)||rank<1||rank>3||role<0||role>2||node<0||node>=CompanionNodeCount
+     ||node/3!=role||(role>0&&rank<2)||CompanionPointsSpent(mask)>=CompanionPointBudget(rank)
+     ||CompanionNodeRank(mask,node)>=2||rank<1+node%3)return false;
+ return node%3==0||CompanionNodeRank(mask,node-1)>0;
+}
+inline unsigned TrainCompanion(unsigned mask,int rank,int role,int node){
+ return CanTrainCompanion(mask,rank,role,node)?mask+(1u<<(2*node)):mask;
+}
+inline int ActiveCompanionTraining(unsigned mask,int rank,int role,int node){
+ if(!ValidCompanionTraining(mask)||CompanionPointsSpent(mask)>CompanionPointBudget(rank)
+     ||rank<1||rank>3||role<0||role>2||node<0||node>=CompanionNodeCount
+     ||node/3!=role||(role>0&&rank<2)||rank<1+node%3)return 0;
+ return CompanionNodeRank(mask,node);
+}
 // Earned veteran perks are derived, not spendable points or persistent flags.
 enum class CompanionPerk { None, Fieldcraft, ShieldExpert, Precision };
 inline CompanionPerk VeteranPerk(int rank,int role){
@@ -49,22 +79,25 @@ inline float CompanionStrikeDamage(int rank,int role=0){
  return Effective==1?Base-2.f:Effective==2?std::fmin(Base+2.f,10.f):Base;
 }
 // A local companion can mitigate one ordinary directional hit per cooldown.
-inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1,int role=0){
- const double Range=CompanionCoverRange(rank,role);
- if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed<CompanionCoverCooldown(rank,role)
+inline float CompanionCover(float damage,double elapsed,double distanceSquared,bool eligible,int rank=1,int role=0,unsigned training=0){
+ const auto Active=[&](int node){return ActiveCompanionTraining(training,rank,role,node);};
+ const double Range=CompanionCoverRange(rank,role)+10.0*Active(0)+10.0*Active(2);
+ const double TrainingRecovery=Active(3)+Active(5);
+ if(!eligible||rank<1||rank>3||!std::isfinite(damage)||damage<=0.f||!std::isfinite(elapsed)||elapsed+TrainingRecovery<CompanionCoverCooldown(rank,role)
     ||!std::isfinite(distanceSquared)||distanceSquared<0.0||distanceSquared>Range*Range)return 0.f;
  const float Fraction=rank==3?0.20f:rank==2?0.18f:0.15f;
  const float Cap=rank==3?16.f:rank==2?14.f:12.f;
  const int Effective=EffectiveCompanionRole(rank,role);
  const float Shift=Effective==1?0.04f:Effective==2?-0.04f:0.f;
  const float CapShift=Effective==1?2.f:Effective==2?-2.f:0.f;
- return std::fmin(damage*(Fraction+Shift),Cap+CapShift);
+ return std::fmin(damage*(Fraction+Shift+0.01f*Active(4)),Cap+CapShift+Active(1)+Active(5));
 }
 // Only a recently player-damaged ordinary enemy qualifies for a local assist.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
-                               double heroDistanceSquared,bool eligible,int rank=1,int role=0){
- const double RequiredCooldown=EffectiveCompanionRole(rank,role)==2?6.0:8.0;
- const double Range=CompanionStrikeRange(rank,role);
+                               double heroDistanceSquared,bool eligible,int rank=1,int role=0,unsigned training=0){
+ const auto Active=[&](int node){return ActiveCompanionTraining(training,rank,role,node);};
+ const double RequiredCooldown=(EffectiveCompanionRole(rank,role)==2?6.0:8.0)-0.5*Active(8);
+ const double Range=CompanionStrikeRange(rank,role)+10.0*Active(2)+10.0*Active(6);
  return eligible&&std::isfinite(age)&&age>=0&&age<=5.0&&std::isfinite(cooldown)&&cooldown>=RequiredCooldown
   &&std::isfinite(scoutDistanceSquared)&&scoutDistanceSquared>=0&&scoutDistanceSquared<=Range*Range
   &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
