@@ -174,27 +174,26 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   ActiveAmbientExpiresAt=-1.f;
  }
  if (!bHeroReady) return;
- // The 80-reference registry can contain several settlements, but never
- // simulates more than 20 residents per four-second world pulse. Round-robin
- // prevents a late-spawned or farther resident from being starved forever.
- const int32 ResidentCount=LivingResidents.Num();
- const int32 ResidentSlice=MoonfallLivingSimulation::ResidentWindowCount(ResidentCount);
- if (ResidentCount>0) NextResidentPulseIndex%=ResidentCount;
- else NextResidentPulseIndex=0;
- for (int32 Step=0;Step<ResidentSlice;++Step) {
-  const int32 Index=MoonfallLivingSimulation::ResidentWindowIndex(
-      NextResidentPulseIndex,Step,ResidentCount);
-  if (!LivingResidents.IsValidIndex(Index)) continue;
-  AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
-  if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) continue;
-  const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
-  if (!FMath::IsFinite(DistSq) || DistSq>FMath::Square(1600.f)) continue;
-  if (bCombatNearby && DistSq<FMath::Square(700.f))
-   NPC->WitnessNearbyDanger(Now);
-  NPC->AdvanceLivingRoutine(Now,HeroLocation);
- }
- if (ResidentCount>0)
-  NextResidentPulseIndex=(NextResidentPulseIndex+ResidentSlice)%ResidentCount;
+ // Scan a bounded registry of <=80 weak refs, but run the expensive
+ // weather / movement / danger routines for no more than 20 NPCs.
+ // With <=20 nearby, all respond on every pulse instead of waiting for
+ // their distant settlement's registry slots. Larger local crowds rotate.
+ NextResidentPulseIndex=MoonfallLivingSimulation::ProcessNearbyResidents(
+     NextResidentPulseIndex,LivingResidents.Num(),
+     [&](int Index) {
+      AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
+      if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) return false;
+      const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
+      return FMath::IsFinite(DistSq) && DistSq<=FMath::Square(1600.f);
+     },
+     [&](int Index) {
+      AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
+      if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) return;
+      const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
+      if (bCombatNearby && DistSq<FMath::Square(700.f))
+       NPC->WitnessNearbyDanger(Now);
+      NPC->AdvanceLivingRoutine(Now,HeroLocation);
+     });
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;

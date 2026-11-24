@@ -3,8 +3,9 @@
 #include <cmath>
 namespace MoonfallLivingSimulation {
 constexpr int RegionCount=6;
-// Up to 80 weak resident references, with only 20 simulated per world pulse.
-// Four rotations cover every registered resident without per-NPC Tick.
+// Up to 80 weak resident references; select at most 20 nearby residents
+// per world pulse, with rotating fairness when a settlement is crowded.
+// Distant residents cost only lightweight eligibility checks, not movement.
 constexpr int ResidentBudget=20;
 constexpr int ResidentRegistryBudget=80;
 constexpr int ResidentWindowCount(int registered) {
@@ -12,6 +13,27 @@ constexpr int ResidentWindowCount(int registered) {
 }
 constexpr int ResidentWindowIndex(int cursor,int step,int registered) {
  return registered<=0 || cursor<0 || step<0 ? -1 : (cursor+step)%registered;
+}
+// This engine-free selector evaluates at most 80 cheap eligibility predicates
+// and executes at most 20 expensive resident routines. When <=20 are nearby
+// they are all updated on every 4-second pulse, regardless of registry slot.
+// With >20 nearby, continuation begins immediately after the last inspected
+// resident, so a crowded settlement gets fair round-robin service.
+template <typename IsNearby, typename UpdateResident>
+int ProcessNearbyResidents(int cursor,int registered,
+                           IsNearby isNearby,UpdateResident updateResident) {
+ if(registered<=0)return 0;
+ const int start=cursor<0?0:cursor%registered;
+ int inspected=0;
+ int processed=0;
+ while(inspected<registered && processed<ResidentBudget) {
+  const int index=ResidentWindowIndex(start,inspected,registered);
+  ++inspected;
+  if(!isNearby(index))continue;
+  updateResident(index);
+  ++processed;
+ }
+ return (start+inspected)%registered;
 }
 constexpr float PulseSeconds=4.f;
 enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };

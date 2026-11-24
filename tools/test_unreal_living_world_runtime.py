@@ -37,12 +37,35 @@ int main(){
  assert(ResidentWindowIndex(0,0,0)==-1);
  assert(ResidentWindowIndex(60,19,80)==79);
  assert(ResidentWindowIndex(60,20,80)==0);
- // 80 residents receive exactly one turn in four 20-person pulses.
- int visits[80]={};
- for (int pulse=0;pulse<4;++pulse)
-  for (int step=0;step<ResidentWindowCount(80);++step)
-   ++visits[ResidentWindowIndex(pulse*20,step,80)];
- for (int count:visits)assert(count==1);
+ // Only 20 of 80 residents are nearby: each must respond every pulse.
+ int nearbyVisits[80]={};
+ int nextCursor=0;
+ for (int pulse=0;pulse<4;++pulse) {
+  int updates=0;
+  nextCursor=ProcessNearbyResidents(nextCursor,80,
+    [](int i){return i%4==0;},
+    [&](int i){++nearbyVisits[i];++updates;});
+  assert(updates==20);
+ }
+ for(int i=0;i<80;++i)assert(nearbyVisits[i]==(i%4==0?4:0));
+ // Crowded settlement: 40 nearby NPCs share the 20-slot budget fairly.
+ int crowdedVisits[80]={};
+ nextCursor=0;
+ for (int pulse=0;pulse<4;++pulse) {
+  int updates=0;
+  nextCursor=ProcessNearbyResidents(nextCursor,80,
+    [](int i){return i<40;},
+    [&](int i){++crowdedVisits[i];++updates;});
+  assert(updates==20);
+ }
+ for(int i=0;i<80;++i)assert(crowdedVisits[i]==(i<40?2:0));
+ // Sparse/empty/invalid registries must not run any routines or divide by 0.
+ int calls=0;
+ assert(ProcessNearbyResidents(17,0,
+    [](int){return true;},[&](int){++calls;})==0);
+ assert(ProcessNearbyResidents(0,80,
+    [](int){return false;},[&](int){++calls;})==0);
+ assert(calls==0);
  assert(RegionFromWorldX(-16875.f)==0);
  assert(RegionFromWorldX(0.f)==3);
  assert(RegionFromWorldX(16875.f)==5);
@@ -156,10 +179,15 @@ int main(){
         self.assertIn("constexpr int ResidentRegistryBudget=80;",policy)
         self.assertIn("ResidentWindowIndex(int cursor,int step,int registered)",policy)
         self.assertIn("int32 NextResidentPulseIndex = 0;",header)
-        self.assertIn("ResidentWindowCount(ResidentCount)",pulse)
-        self.assertIn("ResidentWindowIndex(",pulse)
-        self.assertIn("for (int32 Step=0;Step<ResidentSlice;++Step)",pulse)
-        self.assertIn("NextResidentPulseIndex=(NextResidentPulseIndex+ResidentSlice)%ResidentCount;",pulse)
+        self.assertIn("ProcessNearbyResidents(",pulse)
+        self.assertIn("NextResidentPulseIndex,LivingResidents.Num()",pulse)
+        self.assertIn("DistSq<=FMath::Square(1600.f)",pulse)
+        self.assertIn("NPC->WitnessNearbyDanger(Now);",pulse)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",pulse)
+        self.assertIn("while(inspected<registered && processed<ResidentBudget)",policy)
+        self.assertIn("if(!isNearby(index))continue;",policy)
+        self.assertIn("return (start+inspected)%registered;",policy)
+        self.assertNotIn("for (int32 Step=0;Step<ResidentSlice;++Step)",pulse)
         self.assertIn("LivingResidents.Num() >= MoonfallLivingSimulation::ResidentRegistryBudget",mode)
         self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",pulse)
         self.assertNotIn("GetAllActorsOfClass(",pulse)
