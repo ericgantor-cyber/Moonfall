@@ -50,8 +50,9 @@ inline float CompanionCover(float damage,double elapsed,double distanceSquared,b
 }
 // Only a recently player-damaged ordinary enemy qualifies for a local assist.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
-                               double heroDistanceSquared,bool eligible){
- return eligible&&std::isfinite(age)&&age>=0&&age<=5.0&&std::isfinite(cooldown)&&cooldown>=8.0
+                               double heroDistanceSquared,bool eligible,int rank=1,int role=0){
+ const double RequiredCooldown=EffectiveCompanionRole(rank,role)==2?6.0:8.0;
+ return eligible&&std::isfinite(age)&&age>=0&&age<=5.0&&std::isfinite(cooldown)&&cooldown>=RequiredCooldown
   &&std::isfinite(scoutDistanceSquared)&&scoutDistanceSquared>=0&&scoutDistanceSquared<=180.0*180.0
   &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
 }
