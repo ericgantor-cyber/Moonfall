@@ -129,6 +129,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(B==Branch?BranchColors[B]:FLinearColor(0.13f,0.12f,0.19f,0.94f),
       float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
    if (B==Branch) DrawSelectionRail(float(Tab.X),float(Tab.Y),float(Tab.H));
+   DrawHoverFrame(float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
    DrawText(FString(BranchNames[B]),B==Branch?FLinearColor::Black:FLinearColor::White,
        float(Tab.X+13.f),float(Tab.Y+6.f),nullptr,0.86f);
   }
@@ -215,6 +216,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto Respec=MoonfallTalentWeb::RespecRect(P);
   DrawRect(FLinearColor(0.16f,0.36f,0.27f,0.98f),
       float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
+  DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
   DrawText(TEXT("SPEND POINT"),FLinearColor::White,
       float(Spend.X+15),float(Spend.Y+6),nullptr,0.75f);
   const bool Arm=Hero->bTalentRespecArmed && Hero->GetWorld()
@@ -222,6 +224,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
       :FLinearColor(0.28f,0.18f,0.26f,0.96f),
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
+  DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET ALL"),
       FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
   DrawLiveMenuHitCue();
@@ -287,6 +290,7 @@ void AMoonfallCombatHUD::DrawHUD()
         : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
     if (Row == Hero->ResidentContextSelection)
      DrawSelectionRail(L+14.f,Y,43.f);
+    DrawHoverFrame(L+14.f,Y,W-28.f,43.f);
     DrawText(Names[Row], Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
@@ -385,6 +389,7 @@ void AMoonfallCombatHUD::DrawHUD()
         Left + 13.f, Y - 4.f, AtlasSidebarWidth - 22.f, RowHeight);
     DrawRect(AtlasZoneInk[Zone], Left + 13.f, Y - 4.f, 4.f, RowHeight);
    }
+   DrawHoverFrame(Left+13.f,Y-4.f,AtlasSidebarWidth-22.f,RowHeight);
    int32 Discovered = 0, Defeated = 0, Revealed = 0;
    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
     if (Hero->HasDiscoveredDungeon(Zone, Dungeon)) ++Discovered;
@@ -838,6 +843,7 @@ void AMoonfallCombatHUD::DrawHUD()
                        : FLinearColor(0.09f,0.08f,0.16f,0.94f),
        MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
     if (bSelected) DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);
+    DrawHoverFrame(MenuLeft+10.f,Y,MenuWidth-20.f,RowHeight);
     DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
        MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
@@ -851,6 +857,8 @@ void AMoonfallCombatHUD::DrawHUD()
     const FLinearColor HoverButton(0.35f,0.45f,0.60f,0.98f);
     DrawRect(bMinusHover ? HoverButton : IdleButton, MinusX, Y, 25.f, ButtonHeight);
     DrawRect(bPlusHover ? HoverButton : IdleButton, PlusX, Y, 25.f, ButtonHeight);
+    DrawHoverFrame(MinusX,Y,25.f,ButtonHeight);
+    DrawHoverFrame(PlusX,Y,25.f,ButtonHeight);
     DrawText(TEXT("-"), FLinearColor::White, MinusX + 9.f, Y + 2.f, nullptr, 0.95f);
     DrawText(TEXT("+"), FLinearColor::White, PlusX + 7.f, Y + 2.f, nullptr, 0.95f);
     DrawText(Values[i], FLinearColor(0.75f,0.90f,1.f), MinusX + 31.f, Y + 3.f,
@@ -944,6 +952,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(bSelected ? FLinearColor(0.89f,0.70f,0.36f,1.f)
       : FLinearColor(0.27f,0.32f,0.40f,0.9f),
       TabX,PageTabTop+29.f,PageTabWidth,3.f);
+    DrawHoverFrame(TabX,PageTabTop,PageTabWidth,32.f);
     DrawText(PanelWidth < 480.f ? CompactTabLabels[Tab] : TabLabels[Tab],
       bSelected ? FLinearColor(1.f,0.89f,0.64f) : FLinearColor(0.85f,0.89f,0.95f),
       TabX+6.f,PageTabTop+7.f,nullptr,
@@ -1300,6 +1309,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(Hero->bSpellBookOpen ? FLinearColor(0.29f,0.39f,0.33f,0.96f)
       : FLinearColor(0.24f,0.20f,0.37f,0.95f),
       Book.TabX, Book.TabY, Book.TabWidth, Book.TabHeight);
+  DrawHoverFrame(Book.TabX,Book.TabY,Book.TabWidth,Book.TabHeight);
   DrawText(Hero->bSpellBookOpen ? TEXT("BACK TO BAG") : TEXT("SPELL BOOK"),
       FLinearColor::White,Book.TabX+9.f,Book.TabY+5.f,
       nullptr,Book.Width<500.f ? 0.67f : 0.79f);
@@ -1319,6 +1329,7 @@ void AMoonfallCombatHUD::DrawHUD()
         : FLinearColor(0.27f,0.25f,0.43f,0.92f),
         Book.RowX,Y,4.f,Book.RowHeight);
     if (bSelected) DrawSelectionRail(Book.RowX,Y,Book.RowHeight);
+    DrawHoverFrame(Book.RowX,Y,Book.RowWidth,Book.RowHeight);
     const FString Name(ANSI_TO_TCHAR(Entry.Name));
     DrawText(FString::Printf(TEXT("%d  %s"),School+1,*Name),
         bSelected ? FLinearColor::White : FLinearColor(0.86f,0.88f,0.96f),
@@ -1428,6 +1439,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const float EquipX = Left + PanelWidth - 186.f;
    const float EquipY = Top + 87.f;
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
+   DrawHoverFrame(EquipX,EquipY,172.f,30.f);
    DrawText(TEXT("EQUIP SELECTED"), FLinearColor::White,
      EquipX + 9.f, EquipY + 6.f, nullptr, 0.78f);
   }
@@ -1445,6 +1457,7 @@ void AMoonfallCombatHUD::DrawHUD()
                      : FLinearColor(0.18f, 0.20f, 0.30f, 0.93f),
        X, StripY, SlotWidth - 3.f, 22.f);
    if (bEquipped) DrawSelectionRail(X,StripY,22.f);
+   DrawHoverFrame(X,StripY,SlotWidth-3.f,22.f);
    // A weapon name, not "W": W is reserved exclusively for walking forward.
    const FString Label = Slot == 0 ? TEXT("SWORD")
        : FString::Printf(TEXT("S%d"), Slot);
