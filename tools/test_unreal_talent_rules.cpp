@@ -83,5 +83,19 @@ int main() {
  const Resources OverflowBefore=Overflow;
  assert(!ApplyResourceDelta(Overflow,EmptySummary,BoostedSummary));
  assert(Overflow.MaxHealth==OverflowBefore.MaxHealth && Overflow.Mana==OverflowBefore.Mana);
+ // Real sword/spell talent scaling, with strictly validated ranks.
+ Ranks MeleeAlloc{};
+ assert(Spend(5,MeleeAlloc,FindNode("iron_will"))==Result::Ok);
+ assert(std::abs(DamageMultiplier(5,MeleeAlloc,Stat::MeleeDamage)-1.03)<1e-10);
+ assert(DamageMultiplier(5,MeleeAlloc,Stat::MagicDamage)==1.0);
+ Ranks SpellAlloc{};
+ assert(Spend(5,SpellAlloc,FindNode("spirit_well"))==Result::Ok);
+ assert(Spend(5,SpellAlloc,FindNode("spell_focus"))==Result::Ok);
+ assert(std::abs(DamageMultiplier(5,SpellAlloc,Stat::MagicDamage)-1.04)<1e-10);
+ assert(DamageMultiplier(5,SpellAlloc,Stat::MeleeDamage)==1.0);
+ assert(DamageMultiplier(5,SpellAlloc,Stat::Health)==1.0);
+ SpellAlloc[FindNode("spirit_well")]=0; // Orphaned child is an invalid save.
+ assert(DamageMultiplier(5,SpellAlloc,Stat::MagicDamage)==1.0);
+ assert(DamageMultiplier(0,MeleeAlloc,Stat::MeleeDamage)==1.0);
  return 0;
 }
