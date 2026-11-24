@@ -85,7 +85,7 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
  if(ReturningCompanion.Get()==Resident)ReturningCompanion.Reset();
  Resident->bFollowerWaypointValid=false;Resident->NextFollowerPathAt=-1.f;
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
- bFollowerMoveOrdered=false;
+ bFollowerMoveOrdered=false;CompanionThreat.Reset();CompanionThreatAt=-1000.f;
  GetWorldTimerManager().SetTimer(FollowerPulseTimer,this,&AMoonfallUnrealGameMode::PulseFollower,0.2f,true);
  const uint32 Profile=Hero->GetCompanionProfile(Resident->ResidentId);
  LocalCompanionRole=static_cast<EMoonfallCompanionRole>(MoonfallWorldPolicy::EffectiveCompanionRole(
@@ -97,7 +97,7 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
      ||LocalCompanionStance!=EMoonfallCompanionStance::Follow
      ||Hero->bInventoryOpen||Hero->bOptionsOpen||Hero->bAtlasOpen||Hero->bTalentWebOpen
-     ||Hero->bResidentContextOpen||Source.ContainsNaN())return 0.f;
+     ||Hero->bCharacterStatsOpen||Hero->bSpellBookOpen||Hero->bResidentContextOpen||Source.ContainsNaN())return 0.f;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
@@ -129,11 +129,25 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;Scout->OnCompanionDowned();}
  return Cover;
 }
+void AMoonfallUnrealGameMode::ReportCompanionThreat(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!IsValid(Enemy)
+    ||Enemy->GetWorld()!=GetWorld()||Enemy->IsActorBeingDestroyed()
+    ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=0.f||Hero->Health<=0.f
+    ||LocalCompanionStance!=EMoonfallCompanionStance::Follow||LocalCompanion->bCompanionDowned)return;
+ const FVector HeroLocation=Hero->GetActorLocation(),Target=Enemy->GetActorLocation(),Scout=LocalCompanion->GetActorLocation();
+ if(HeroLocation.ContainsNaN()||Target.ContainsNaN()||Scout.ContainsNaN())return;
+ if(!MoonfallWorldPolicy::CanReportCompanionThreat(Now,FVector::DistSquared(HeroLocation,Target),
+      FVector::DistSquared(Scout,HeroLocation)))return;
+ auto* Existing=CompanionThreat.Get();
+ if(IsValid(Existing)&&Existing!=Enemy&&Existing->Health>0.f&&Now>=CompanionThreatAt&&Now-CompanionThreatAt<=2.f
+     &&FVector::DistSquared(Existing->GetActorLocation(),HeroLocation)<FVector::DistSquared(Target,HeroLocation))return;
+ CompanionThreat=Enemy;CompanionThreatAt=Now;
+}
 void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
      ||LocalCompanionStance!=EMoonfallCompanionStance::Follow||Hero->Health<=0.f
      ||Hero->bInventoryOpen||Hero->bOptionsOpen||Hero->bAtlasOpen||Hero->bTalentWebOpen
-     ||Hero->bResidentContextOpen)return;
+     ||Hero->bCharacterStatsOpen||Hero->bSpellBookOpen||Hero->bResidentContextOpen)return;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
      ||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
@@ -145,6 +159,11 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
      MoonfallWorldPolicy::ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7);
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
+ // Player target wins when viable; otherwise defend against a fresh attack commitment.
+ if(!IsValid(Enemy)||Enemy->bBoss||Enemy->bElite||Enemy->Health<=StrikeDamage){
+  Enemy=CompanionThreat.Get();Age=Now-CompanionThreatAt;
+  if(!FMath::IsFinite(Age)||Age<0.f||Age>2.f)return;
+ }
  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
      ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=StrikeDamage)return;
  const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation(),Target=Enemy->GetActorLocation();
@@ -248,6 +267,9 @@ void AMoonfallUnrealGameMode::PulseFollower(){
  if(Scout->bCompanionDowned){Scout->LivingIntent=TEXT("Downed");return;}
  if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0)return;
  if(!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
+ if(LocalCompanionStance==EMoonfallCompanionStance::Follow&&CompanionThreat.IsValid()
+     &&Now>=CompanionThreatAt&&Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now);
+ if(!IsValid(Scout)||Scout->IsActorBeingDestroyed())return;
  if(bFollowerMoveOrdered){
   Scout->LivingIntent=TEXT("Moving to order");
   if(Scout->AdvanceFollowerToward(OrderedFollowerDestination,Now,45.f))bFollowerMoveOrdered=false;
@@ -259,7 +281,7 @@ void AMoonfallUnrealGameMode::PulseFollower(){
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||LocalCompanion->bCompanionDowned)return false;
  if(ReturningCompanion.IsValid()&&ReturningCompanion.Get()!=LocalCompanion.Get())return false;
- ReturningCompanion=LocalCompanion;bFollowerMoveOrdered=false;
+ ReturningCompanion=LocalCompanion;bFollowerMoveOrdered=false;CompanionThreat.Reset();CompanionThreatAt=-1000.f;
  ReturningCompanion->bFollowerWaypointValid=false;ReturningCompanion->NextFollowerPathAt=-1.f;
  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;return true;
 }
