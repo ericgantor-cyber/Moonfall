@@ -164,6 +164,11 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  const auto Alert=MoonfallLivingSimulation::ReactionFor(Role,Now-LastDangerAt);
  if(Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost) return TEXT("On Alert");
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
+ // Only ordinary residents expose the new activity in the existing HUD.
+ // Fresh danger/weather and authored specialist roles take precedence.
+ if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
+     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
+  return LivingIntent;
  switch(MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)) {
  case MoonfallLivingSimulation::EActivity::Patrol:return TEXT("Patrolling");
  case MoonfallLivingSimulation::EActivity::Travel:return TEXT("Traveling");
