@@ -6,6 +6,7 @@
 #include "MoonfallCombatInputBuffer.h"
 #include "MoonfallFirstlightTutorial.h"
 #include "MoonfallSpellBook.h"
+#include "MoonfallTalentRules.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -211,6 +212,18 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Canonical 141-node allocation. Persisted explicitly in V13 world saves.
+ // Do not mix talent resource bonuses into base MaxHealth/MaxMana/MaxStamina
+ // until the follow-on resource-delta integration is fully validated.
+ MoonfallTalents::Ranks TalentRanks{};
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetAvailableTalentPoints() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetTalentRank(int32 NodeIndex) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool SpendTalentPoint(int32 NodeIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool RespecTalentPoints();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
