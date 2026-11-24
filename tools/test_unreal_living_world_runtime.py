@@ -412,15 +412,26 @@ int main(){
             self.assertIn(condition,strike)
         self.assertNotIn("TActorIterator",strike)
         self.assertNotIn("SetTimer",strike)
-        self.assertLess(strike.index("LastCompanionStrikeAt=Now"),strike.index("TryCompanionSupportStrike()"))
+        self.assertLess(strike.index("LastCompanionStrikeAt=Now"),strike.index("TryCompanionSupportStrike(StrikeDamage)"))
         self.assertIn("if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);",mode)
         self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;",hero)
         self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;",hero)
-        native=enemy.split("bool AMoonfallEnemy::TryCompanionSupportStrike()",1)[1].split(
+        native=enemy.split("bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount)",1)[1].split(
             "void AMoonfallEnemy::TakeMeleeDamage(",1)[0]
-        for condition in ("Health<=6.f","bPostureFinisherAvailable","Now<PostureBrokenUntil",
-                          "bBoss||bElite","TakeMeleeDamage(6.f)"):
+        for condition in ("Health<=Amount","Amount>10.f","bPostureFinisherAvailable","Now<PostureBrokenUntil",
+                          "bBoss||bElite","TakeMeleeDamage(Amount)"):
             self.assertIn(condition,native)
+
+    def test_v27_companion_rank_uses_earned_bond_without_new_save_state(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        self.assertIn("CompanionRank(Scout->GetBondWithHero(Hero))",mode)
+        self.assertIn("CompanionStrikeDamage(MoonfallWorldPolicy::CompanionRank",mode)
+        self.assertIn("TryCompanionSupportStrike(StrikeDamage)",mode)
+        self.assertIn("CompanionRank(Resident->GetBondWithHero(Hero))",hud)
+        self.assertIn("Bond rank %d / 3",hud)
+        self.assertIn("EndGuard();\n  RecentCompanionAssistTarget.Reset()",hero)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
