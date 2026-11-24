@@ -217,7 +217,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   FString Names[7] = { TEXT("Talk"),
+   FString Names[8] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
@@ -231,11 +231,21 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("Report deeds");
     Names[5]=TEXT("Report deeds");
     Names[6]=Resident->bCompanionDowned?TEXT("Revive companion"):TEXT("Move ahead");
+    Names[7]=TEXT("Trade equipment");
     Names[2]=TEXT("Back");
     Names[4]=TEXT("Companion talents");
     Names[3]=!bRecruited?TEXT("Specialization"):
       Mode->LocalCompanionRole==EMoonfallCompanionRole::Balanced?TEXT("Balanced | Switch to Protector"):
       Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT("Protector | Switch to Striker"):TEXT("Striker | Switch to Balanced");
+    if(Hero->bResidentCompanionGear){
+     static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory")};
+     for(int32 Slot=0;Slot<3;++Slot){
+      const int Tier=Hero->GetCompanionGearTier(Resident->ResidentId,Slot);
+      Names[Slot]=FString::Printf(TEXT("Give best spare %s | Tier %d"),Slots[Slot],Tier);
+      Names[Slot+3]=FString::Printf(TEXT("Return %s"),Slots[Slot]);
+     }
+     Names[6]=TEXT("Back");
+    }
     if(Hero->bResidentCompanionTalents){
      const int Rank=MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero));
      const int Active=bRecruited?MoonfallWorldPolicy::EffectiveCompanionRole(Rank,static_cast<int>(Mode->LocalCompanionRole)):-1;
@@ -297,6 +307,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if(Mode&&Mode->GetLocalCompanion()==Resident)
      DisplayContext+=FString::Printf(TEXT(" | HP %.0f/100"),Resident->CompanionHealth);
    }
+   if(Hero->bResidentCompanionGear)DisplayContext=TEXT("COMPANION EQUIPMENT | Give or return");
    if(Hero->bResidentCompanionTraining){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     const int Spent=Mode&&Mode->GetLocalCompanion()==Resident?MoonfallWorldPolicy::CompanionPointsSpent(Mode->GetLocalCompanionTraining()):0;
