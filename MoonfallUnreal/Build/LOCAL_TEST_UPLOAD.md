@@ -2,6 +2,10 @@
 
 Reports *small test summaries* to GitHub Actions; does not send raw logs, crash dumps, screenshots, saves, usernames, paths, or credentials.
 
+## Build Center integration
+
+Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. In the confirmation dialog, select **Yes** to enable five-minute reports, **No** to uninstall the uploader, or **Cancel** to leave settings alone. This is opt-in and is not triggered by normal builds. GitHub CLI must be installed and authenticated before enabling it.
+
 ## One-time setup on your Windows PC
 
 1. Install GitHub CLI from https://cli.github.com/ and run gh auth login using an account authorized for ericgantor-cyber/Moonfall.
