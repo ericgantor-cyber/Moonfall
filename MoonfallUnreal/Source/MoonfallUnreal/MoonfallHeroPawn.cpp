@@ -1696,6 +1696,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bCharacterRacePageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
@@ -1731,6 +1732,14 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::ToggleCharacterRacePage()
+{
+ // Ignore page commands outside C so Tab, D-pad and direct Blueprint calls
+ // cannot alter gameplay, inventory or Atlas navigation.
+ if (bCharacterStatsOpen && bInventoryOpen && !bOptionsOpen && Health > 0.f)
+  bCharacterRacePageOpen = !bCharacterRacePageOpen;
+}
+
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
  if (bTalentWebOpen) return;
@@ -1741,15 +1750,18 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   ToggleInventory();
   if (!bInventoryOpen) return;
   bCharacterStatsOpen = true;
+  bCharacterRacePageOpen = false;
   return;
  }
  bCharacterStatsOpen = !bCharacterStatsOpen;
+ bCharacterRacePageOpen = false; // Always open C on the familiar stats page.
  if (bCharacterStatsOpen) bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  if (bTalentWebOpen) { TalentChangeBranch(1); return; }
+ if (bInventoryOpen && bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
@@ -1839,6 +1851,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) {
   bCharacterStatsOpen = false;
+  bCharacterRacePageOpen = false;
   bSpellBookOpen = false;
  }
 }
@@ -2146,6 +2159,7 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = false; return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -2163,6 +2177,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
 }
 void AMoonfallHeroPawn::OptionsRight() {
  if (bTalentWebOpen) { TalentMove(1,0); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { bCharacterRacePageOpen = true; return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -3964,6 +3979,37 @@ int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return bRaceChosen ? Race
 int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return bRaceChosen ? RaceProfile(RaceId).Resolve : 0; }
 float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).StaminaRegen : 0; }
 float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).ManaRegen : 0; }
+// Racial passives are permanent once ChooseRace saves the selection. Keep the
+// display bound to the same profile used by actual combat and regen formulas.
+FString AMoonfallHeroPawn::GetRacePassiveSummary() const {
+ if (!bRaceChosen) return TEXT("No ancestry selected. Racial bonuses are locked.");
+ const auto& R=RaceProfile(RaceId);
+ return FString::Printf(
+     TEXT("+%d Might  |  +%d Insight  |  +%d Resolve\nStamina regen +%.0f%%  |  Mana regen +%.0f%%"),
+     R.Might,R.Insight,R.Resolve,
+     static_cast<double>(R.StaminaRegen)*100.0,
+     static_cast<double>(R.ManaRegen)*100.0);
+}
+FString AMoonfallHeroPawn::GetRacePowerDescription() const {
+ if (!bRaceChosen) return TEXT("Choose an ancestry to unlock its racial power.");
+ // Exactly the effects in ActivateRacePower; all twelve remain 45s cooldown.
+ static const TCHAR* Descriptions[] = {
+  TEXT("Recover 15% max mana and 15% max stamina."),
+  TEXT("Recover 30% max mana; +15% offensive spell damage for 8s."),
+  TEXT("Recover 35% max stamina; 12s active window."),
+  TEXT("Recover 10% max stamina; 15% damage reduction for 10s."),
+  TEXT("Recover 45% max stamina; 6s active window."),
+  TEXT("Recover 8% max health and 20% max stamina."),
+  TEXT("Recover 22% max mana and 22% max stamina."),
+  TEXT("Recover 12% max health; 15% damage reduction for 8s."),
+  TEXT("Recover 8% max health; 15% damage reduction for 14s."),
+  TEXT("Recover 22% max stamina; +15% offensive spell damage for 8s."),
+  TEXT("Recover 38% max mana; +15% offensive spell damage for 8s."),
+  TEXT("Recover 7% max health and 18% max mana.")
+ };
+ return FString(Descriptions[FMath::Clamp(RaceId,0,11)]);
+}
+
 
 
 namespace {
