@@ -1053,7 +1053,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!bInventoryOpen) {", stats)
         self.assertIn("ToggleInventory();", stats)
         self.assertIn("bCharacterStatsOpen = true;", stats)
-        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
+        self.assertIn("if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }", stats)
+        self.assertIn("bCharacterRacePageOpen = false;", stats)
+        atlas = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()", 1)[1].split(
+            "void AMoonfallHeroPawn::StepAtlasChronicle(", 1)[0]
+        self.assertNotIn("ToggleCharacterRacePage();", atlas)
+        self.assertIn('ActionName="ChronicleFocus",Key=Tab', inputs)
         self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
         self.assertIn("if (!bInventoryOpen) {", self.hero_cpp)
         self.assertIn("bCharacterStatsOpen = false;", self.hero_cpp)
@@ -1064,7 +1069,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / A: back to inventory", hud)
+        self.assertIn("C / D-pad Left/Right: stats / ancestry", hud)
+        self.assertIn("Esc: back to inventory", hud)
         self.assertIn("P: spell book", hud)
         self.assertIn("C / A: character stats", hud)
 
