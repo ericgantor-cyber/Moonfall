@@ -245,5 +245,17 @@ int main() {
         self.assertIn("inline int Hit(", book)
 
 
+    def test_crafting_mutations_reject_other_inventory_pages(self):
+        # Direct C++/Blueprint callers must obey the same modal safety rules
+        # as input wrappers, without spending salvage while another page owns UI.
+        hero = HERO.read_text()
+        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity"):
+            with self.subTest(method=method):
+                body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+                self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
+                self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
+                self.assertLess(body.index("bSpellBookOpen"), body.index("InventoryItemCodes[InventoryIndex]"))
+
 if __name__ == "__main__":
     unittest.main()
