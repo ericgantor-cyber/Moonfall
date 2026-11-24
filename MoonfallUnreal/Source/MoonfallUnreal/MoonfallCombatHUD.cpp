@@ -205,6 +205,8 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(B==Branch?BranchColors[B]:FLinearColor(0.13f,0.12f,0.19f,0.94f),
       float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
    if (B==Branch) DrawSelectionRail(float(Tab.X),float(Tab.Y),float(Tab.H));
+   if (Tab.W>=115) DrawMoonfallSigil(float(Tab.X+Tab.W-13),
+     float(Tab.Y+Tab.H/2),7.f,BranchColors[B],B);
    DrawHoverFrame(float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
    DrawText(FString(BranchNames[B]),B==Branch?FLinearColor::Black:FLinearColor::White,
        float(Tab.X+13.f),float(Tab.Y+6.f),nullptr,0.86f);
@@ -1136,6 +1138,8 @@ void AMoonfallCombatHUD::DrawHUD()
         Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
       DrawRect(bSelected ? FLinearColor(0.96f,0.82f,0.46f) : StandingColor,
         Left+15.f,Y,bSelected?5.f:3.f,ReputationRowHeight-3.f);
+      if (ReputationRowHeight>=29.f && PanelWidth>=410.f)
+       DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f,7.f,StandingColor,FactionIndex);
       DrawHoverFrame(Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
       DrawText(FString::Printf(TEXT("%s  |  %s  |  %+d"),
         FactionNames[FactionIndex],Standing,Score),StandingColor,
@@ -1314,6 +1318,9 @@ void AMoonfallCombatHUD::DrawHUD()
           SlotNames[Slot],Tier,RarityNames[Rarity],TraitNames[Trait],
           Hero->GetItemPower(Codes[Slot]))
         : FString::Printf(TEXT("%s  |  EMPTY"),SlotNames[Slot]);
+      if (CardHeight>=25.f && PanelWidth>=390.f)
+       DrawMoonfallSigil(Left+PanelWidth-29.f,Y+CardHeight*0.5f,
+         7.f,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f),Slot);
       DrawText(Label,bValid ? RarityColors[Rarity]
         : FLinearColor(0.75f,0.78f,0.83f),
         Left+24.f,Y+1.f,nullptr,PanelWidth<440.f?0.48f:0.69f);
@@ -1491,8 +1498,10 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.98f),
       Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawHoverFrame(Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
    DrawRect(FLinearColor(0.24f,0.43f,0.34f,0.98f),
       Book.EquipRightX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
+   DrawHoverFrame(Book.EquipRightX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
    DrawText(TEXT("EQUIP LEFT"),FLinearColor::White,
       Book.EquipLeftX+7.f,Book.EquipY+5.f,nullptr,
       Book.Width<500.f ? 0.62f : 0.85f);
@@ -1922,6 +1931,8 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f,Width,7.f);
   DrawRect(bBossPostureBroken ? FLinearColor(1.f,0.77f,0.30f) : FLinearColor(0.84f,0.59f,1.f),
     X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
+  if (Width>=320.f) DrawMoonfallSigil(X+Width-13.f,Y+40.f,
+    9.f,FLinearColor(0.95f,0.44f,0.59f),0);
   DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
     bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
     X,Y+35.f,nullptr,0.78f);
@@ -2096,6 +2107,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Static border aligns the in-world objective with the native menu frame.
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top,Width,2.f);
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top+122.f,Width,2.f);
+  DrawMoonfallSigil(Left+Width-12.f,Top+111.f,7.f,
+    FLinearColor(0.53f,0.77f,0.92f),1);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
@@ -2165,6 +2178,9 @@ void AMoonfallCombatHUD::DrawHUD()
  const bool bCriticalHealth = Hero->Health > 0.f && ActualHealth <= 0.25f;
  const float LowHealthPulse = bCriticalHealth && !Hero->bReduceMotion && GetWorld()
      ? 0.5f + 0.5f * FMath::Sin(GetWorld()->GetTimeSeconds() * 4.f) : 0.f;
+ // Readable static medallion mark sits beyond the original three-resource orb.
+ DrawMoonfallSigil(CX,CY-Radius*1.28f,7.f,
+   FLinearColor(0.88f,0.70f,0.44f),0);
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
  for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
