@@ -693,10 +693,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bool HitTestInventoryCloseButton() const;", self.hero_h)
-        self.assertIn("const float CloseX = SortX - 36.f;", close)
+        self.assertIn("const float CloseX = bCharacterStatsOpen ? Left + PanelWidth - 42.f : SortX - 36.f;", close)
         self.assertIn("MouseX >= CloseX && MouseX <= CloseX + 28.f", close)
         self.assertIn("MouseY >= Top + 14.f && MouseY <= Top + 42.f", close)
-        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("const float CloseButtonX = Hero->bCharacterStatsOpen ? Left + PanelWidth - 42.f : CloseSortX - 36.f;", hud)
         self.assertIn("DrawText(TEXT(\"X\")", hud)
         self.assertLess(hud.index("DrawText(TEXT(\"X\")"), hud.index("if (Hero->bCharacterStatsOpen)"))
         self.assertIn("if (HitTestInventoryCloseButton()) {", click)
@@ -715,7 +715,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         self.assertIn("const float NpcCloseX = L + W - 42.f;", hud)
         self.assertIn("const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;", hud)
-        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("const float CloseButtonX = Hero->bCharacterStatsOpen ? Left + PanelWidth - 42.f : CloseSortX - 36.f;", hud)
         self.assertIn("if (bOptionsOpen) {", mouse)
         self.assertIn("const float CloseX = MenuLeft + MenuWidth - 42.f;", mouse)
         self.assertIn("OpenOptions();", mouse)
