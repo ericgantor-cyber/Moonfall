@@ -5,6 +5,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_talent_rules.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -14,6 +15,7 @@ on:
       - 'MoonfallUnreal/**'
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_talent_rules.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
@@ -96,6 +98,13 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+
+      - name: Compile and run original 141-node UE5 talent rules (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_rules.cpp -o /tmp/moonfall_talent_rules
+          /tmp/moonfall_talent_rules
 
       - name: Verify WASD and arrow keys are movement-only across engines
         shell: bash
