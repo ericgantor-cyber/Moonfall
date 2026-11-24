@@ -219,6 +219,19 @@ inline Result Spend(int Level,Ranks& Allocated,int NodeIndex) {
  if (Next==Result::Ok) Allocated=Candidate;
  return Next;
 }
+// Read combat bonuses from the authoritative, validated allocation.
+// Called only for attacks, never on Tick or by the render loop.
+// An invalid rank ledger must never grant free damage.
+inline double DamageMultiplier(int Level,const Ranks& Allocated,Stat Kind) {
+ if (Kind!=Stat::MeleeDamage && Kind!=Stat::RangedDamage && Kind!=Stat::MagicDamage)
+  return 1.0;
+ Snapshot Summary;
+ if (Evaluate(Level,Allocated,Summary)!=Result::Ok)return 1.0;
+ const double Bonus=Summary.Percent[static_cast<int>(Kind)];
+ if (!std::isfinite(Bonus))return 1.0;
+ return 1.0+std::clamp(Bonus,0.0,1.0);
+}
+
 // Reconcile the *difference* between old and new valid allocations, so
 // spending, respec and repeat loads never stack temporary resource caps.
 struct Resources {
