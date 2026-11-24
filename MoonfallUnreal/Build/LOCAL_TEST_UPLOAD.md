@@ -28,3 +28,5 @@ Dispatch payload includes only outcome (passed/failed/unknown), source category,
 GitHub CLI remains responsible for authentication. No token is stored by the script. The Windows scheduled task runs as your signed-in user and may not execute if you are signed out. You must run the setup on your own PC; creating this PR alone cannot install anything there.
 
 For automated regression testing, Upload-LocalTestResults.ps1 also accepts custom -GitHubCli and -CacheRoot arguments. These are optional; normal installation uses the logged-in gh CLI and a private per-user cache. CI simulates a failed dispatch, a successful retry, and a duplicate scan without accessing a real GitHub account.
+
+If the local upload history (`%LOCALAPPDATA%\Moonfall\TestUpload\sent.json`) is damaged, reporting stops with a clear error rather than resending old results. Back up the file and inspect the damage before resetting the cache. Preview and scheduled scans both refuse unreadable history.
