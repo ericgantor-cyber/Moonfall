@@ -292,7 +292,8 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  // greetings, but never overrides authored contracts, explicit hostility,
  // ancestry recognition or strong bond dialogue.
  if(!bAmbientVisitor && bUsePersonalityRoutines && Disposition==TEXT("Neutral")
-     && !SharesRaceWith(Hero) && Bond>-60 && Bond<60 && SocialRole==FName(TEXT("Citizen"))){
+     && !SharesRaceWith(Hero) && Bond>-60 && Bond<60 && SocialRole==FName(TEXT("Citizen"))
+     && Greeting.EqualTo(FText::FromString(TEXT("The road stretches on. Need directions?")))){
   if(LastConversationMood==EMoonfallNpcMood::Warm)
    Reaction=FText::FromString(TEXT("Good to see you again. How fares the road?"));
   else if(LastConversationMood==EMoonfallNpcMood::Wary)
