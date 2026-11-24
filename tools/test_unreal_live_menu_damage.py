@@ -80,4 +80,22 @@ for name, begin_marker, end_marker, expected in sections:
     returns = re.findall(r"(?m)^ {2,3}return;$", part)
     assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
 
-print("UE5 live menu damage cue, reduced motion and lethal talent cleanup: source checks passed.")
+# End-to-end source contract: the visible red menu damage cue must be
+# reachable from actual hostile AI. Menus are not an attack-cancelling gate.
+enemy = (SRC / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+tick = enemy.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+guard = tick.split("// The hostile world stays live while any player menu is open:", 1)[1].split(
+    "// A corrupt nonfinite windup", 1
+)[0]
+assert "Hero->Health <= 0.f" in guard
+assert "!Hero->IsPlayerControlled()" in guard
+for menu in ("bTalentWebOpen", "bOptionsOpen", "bInventoryOpen",
+             "bAtlasOpen", "bCharacterStatsOpen", "bResidentContextOpen",
+             "FocusedResident.IsValid()"):
+    assert f"Hero->{menu}" not in guard, menu
+# Real attack dispatch remains in the same enemy Tick after the guard.
+assert tick.index("// A corrupt nonfinite windup") < tick.index("Hero->ApplyMoonfallDamageFrom(")
+assert "CancelDivineSignature();" in guard
+assert "WindupEndsAt = -1.f;" in guard
+
+print("UE5 live menus: hostile AI, red hit feedback and lethal talent cleanup source checks passed.")
