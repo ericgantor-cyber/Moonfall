@@ -15,8 +15,8 @@ original Z/Nyra art.
   branches, NPC choices, Options rows, bag items, weapon/spell favorites, and
   Spell Book rows**. It complements existing hover, selected, and equipped
   state colors without creating new input bindings.
-- The character sheet retains its four read-only, mouse-clickable pages:
-  **Attributes, Ancestry & Passives, Equipment, Reputation**. Faction values
+- The character sheet retains its three read-only, mouse-clickable pages:
+  **Stats & Gear, Ancestry & Passives, Reputation**. Equipment and stats share one page. Faction values
   and equipment displays continue to read saved gameplay data, not previews.
 - When a window becomes too small for its authored minimum panel, the NPC,
   Options and Inventory/Character surfaces show a readable enlargement and
@@ -29,7 +29,7 @@ original Z/Nyra art.
 
 ## Existing controls preserved
 
-- **C**: Character. Repeated C cycles its four pages; mouse tabs and controller
+- **C**: Character. Repeated C cycles its three pages; mouse tabs and controller
   D-pad navigation remain supported.
 - **Tab**: Atlas Chronicle focus, not a character sheet page.
 - **B / I / Select**: Inventory. **P**: Spell Book. **J**: Atlas.
