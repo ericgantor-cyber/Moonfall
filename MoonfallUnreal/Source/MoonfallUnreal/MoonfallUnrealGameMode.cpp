@@ -137,7 +137,8 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
      ||Scout->AuthoredHomeLocation.ContainsNaN()
      ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return;
  if(!MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
-      FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true))return;
+      FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true,
+      MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole)))return;
  const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
  if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
        MoonfallLivingSimulation::Phase(Now,360.f))))return;
