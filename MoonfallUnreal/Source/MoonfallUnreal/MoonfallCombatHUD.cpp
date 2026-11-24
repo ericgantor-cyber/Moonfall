@@ -25,6 +25,27 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ // Menus do not pause the hostile world. Indicate actual incoming HP damage
+ // behind every modal, without an extra HUD message or a gameplay-time pause.
+ // This drawing is constant-cost and never scans nearby actors.
+ const bool bLiveMenuOpen = Hero->bTalentWebOpen || Hero->bOptionsOpen
+     || Hero->bInventoryOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen;
+ if (bLiveMenuOpen && GetWorld() && FMath::IsFinite(Hero->LastRealDamageAt)) {
+  const float Now=GetWorld()->GetTimeSeconds();
+  const float Age=Now-Hero->LastRealDamageAt;
+  if (FMath::IsFinite(Age) && Age>=0.f && Age<0.8f) {
+   // Reduce Motion opts out of animation; both paths avoid strobing.
+   const float Alpha=Hero->bReduceMotion ? 0.12f
+       : 0.20f*(1.f-Age/0.8f);
+   const FLinearColor HitRed(0.78f,0.035f,0.06f,Alpha);
+   DrawRect(HitRed,0.f,0.f,Canvas->SizeX,Canvas->SizeY);
+   const float Border=FMath::Min(14.f, FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.03f);
+   DrawRect(HitRed,0.f,0.f,Canvas->SizeX,Border);
+   DrawRect(HitRed,0.f,Canvas->SizeY-Border,Canvas->SizeX,Border);
+   DrawRect(HitRed,0.f,0.f,Border,Canvas->SizeY);
+   DrawRect(HitRed,Canvas->SizeX-Border,0.f,Border,Canvas->SizeY);
+  }
+ }
  if (Hero->bTalentWebOpen) {
   // Original 141-node classless tree. Shared, deterministic layout is used
   // by mouse and keyboard/controller input; nothing pauses the live world.
