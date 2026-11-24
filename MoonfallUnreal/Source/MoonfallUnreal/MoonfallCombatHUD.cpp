@@ -217,7 +217,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   FString Names[6] = { TEXT("Talk"),
+   FString Names[7] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
@@ -230,6 +230,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Hold | Switch to Passive"):TEXT("Passive | Switch to Follow");
     Names[1]=bRecruited?TEXT("Dismiss companion"):TEXT("Report deeds");
     Names[5]=TEXT("Report deeds");
+    Names[6]=Resident->bCompanionDowned?TEXT("Revive companion"):TEXT("Move ahead");
     Names[2]=TEXT("Back");
     Names[4]=TEXT("Companion talents");
     Names[3]=!bRecruited?TEXT("Specialization"):
@@ -291,6 +292,11 @@ void AMoonfallCombatHUD::DrawHUD()
          CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
+    const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+    if(Mode&&Mode->GetLocalCompanion()==Resident)
+     DisplayContext+=FString::Printf(TEXT(" | HP %.0f/100"),Resident->CompanionHealth);
+   }
    if(Hero->bResidentCompanionTraining){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     const int Spent=Mode&&Mode->GetLocalCompanion()==Resident?MoonfallWorldPolicy::CompanionPointsSpent(Mode->GetLocalCompanionTraining()):0;
