@@ -44,5 +44,13 @@ int main(){long n=0;
     &&home>=0&&home<=202500.0&&hero>57600.0&&hero<=360000.0;
   assert(CanLocalGuide(bond,rep,home,hero,safe,enabled)==expected);++n;
  }
+ for(float damage:{-1.f,0.f,1.f,20.f,80.f,1000.f,static_cast<float>(nan),static_cast<float>(inf)})
+ for(double elapsed:{-1.0,0.0,11.99,12.0,60.0,nan,inf})
+ for(double distance:{-1.0,0.0,90000.0,90001.0,nan,inf})
+ for(bool eligible:{false,true}){
+  const float expected=eligible&&std::isfinite(damage)&&damage>0&&std::isfinite(elapsed)&&elapsed>=12
+    &&std::isfinite(distance)&&distance>=0&&distance<=90000?std::fmin(damage*0.15f,12.f):0.f;
+  assert(CompanionCover(damage,elapsed,distance,eligible)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
