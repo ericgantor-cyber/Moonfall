@@ -59,6 +59,7 @@ struct FLayout {
  float RowX, RowY, RowWidth, RowGap, RowHeight;
  float EquipLeftX, EquipRightX, EquipY, EquipWidth, EquipHeight;
  float DetailsY;
+ float CloseX, CloseY, CloseSize;
 };
 inline FLayout Layout(float screenWidth, float screenHeight, bool bBookOpen = false) {
  // Inventory remains right-docked. Opening the grimoire creates a wider
@@ -77,13 +78,14 @@ inline FLayout Layout(float screenWidth, float screenHeight, bool bBookOpen = fa
   l+18.f,t+80.f,140.f,28.f,
   l+18.f,rowY,w-36.f,gap,Max(12.f,gap-3.f),
   l+18.f,l+w-18.f-equipW,t+h-47.f,equipW,30.f,
-  rowY+6.f*gap+9.f};
+  rowY+6.f*gap+9.f,l+w-42.f,t+14.f,28.f};
 }
 // Hit actions: 0..5 choose spell, 6 equip left, 7 equip right, 8 tab,
-// -1 outside. The same geometry drives mouse hit testing and HUD rendering.
+// 9 closes the open book; -1 outside. The same geometry drives mouse hit testing and HUD rendering.
 inline constexpr int EquipLeft = 6;
 inline constexpr int EquipRight = 7;
 inline constexpr int Tab = 8;
+inline constexpr int Close = 9;
 inline constexpr int None = -1;
 inline bool Inside(float x, float y, float left, float top, float width, float height) {
  return x >= left && x < left+width && y >= top && y < top+height;
@@ -91,6 +93,7 @@ inline bool Inside(float x, float y, float left, float top, float width, float h
 inline int Hit(const FLayout& g, float x, float y, bool bBookOpen) {
  if (Inside(x,y,g.TabX,g.TabY,g.TabWidth,g.TabHeight)) return Tab;
  if (!bBookOpen) return None;
+ if (Inside(x,y,g.CloseX,g.CloseY,g.CloseSize,g.CloseSize)) return Close;
  for (int i=0;i<SpellCount;++i)
   if (Inside(x,y,g.RowX,g.RowY+i*g.RowGap,g.RowWidth,g.RowHeight)) return i;
  if (Inside(x,y,g.EquipLeftX,g.EquipY,g.EquipWidth,g.EquipHeight)) return EquipLeft;
