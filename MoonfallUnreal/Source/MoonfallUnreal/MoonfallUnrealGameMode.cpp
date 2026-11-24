@@ -163,6 +163,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  if (!World) return;
  const float Now=World->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now<0.f) return;
+ if(auto* SocialMemory=World->GetSubsystem<UMoonfallLivingWorldSubsystem>())SocialMemory->FlushSocialMemory();
  if (!LivingArena.IsValid()) {
   for (TActorIterator<AMoonfallArena> It(World); It; ++It) {
    if (IsValid(*It) && !(*It)->IsActorBeingDestroyed()) {
