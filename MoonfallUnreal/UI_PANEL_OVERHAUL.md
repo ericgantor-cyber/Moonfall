@@ -27,6 +27,28 @@ original Z/Nyra art.
 - The shared painters use a constant number of Canvas rectangles. They do not
   query actors or iterate game-world entities and do not require a game save.
 
+## Second pass: consistent hover and world HUD visibility
+
+- An input-neutral `DrawHoverFrame` painter uses one finite, visible-pointer
+  query per HUD pass to outline existing mouse hit rectangles. It covers:
+  **five close buttons** (Talent, Resident, Atlas, Options, Inventory/Character);
+  **Talent** branch tabs, point spending and reset confirmation;
+  **Resident** choices; **Atlas** region rows; **Options** rows and +/-;
+  **Character** tabs and Reputation rows; **Spell Book** tab and spells;
+  **Inventory** sort, equipment action, favorite slots and bag rows.
+  This never changes the underlying clickable area, input bindings, save
+  schema, combat behavior or focus state. Hidden cursor means no hover.
+- The **quest tracker** checks the actual on-screen horizontal bounds of the
+  active nearby boss HUD. It shifts beneath the boss HUD only when they
+  intersect, rather than covering the boss's health, posture and warning.
+  It preserves saved quest progression and the current objective system.
+- **Reduced Motion** now disables interpolation of the red HP, blue Mana,
+  purple XP and green Stamina progress readouts. It also suppresses the
+  critical-health pulsation, while still displaying the critical-health cue.
+  No resource calculations or actual game combat values change.
+- The quest tracker receives a clear static top/bottom border for legibility.
+  No additional Canvas textures or world scans were introduced.
+
 ## Existing controls preserved
 
 - **C**: Character. Repeated C cycles its three pages; mouse tabs and controller
