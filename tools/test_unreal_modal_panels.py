@@ -65,9 +65,11 @@ class TestNativeModalPanels(unittest.TestCase):
             "if (Hero->bTalentWebOpen)", 1
         )[0]
         self.assertEqual(HUD.count("const auto DrawHoverFrame = [this"), 1)
+        # Read the cursor only once, before the hover painter is invoked.
+        self.assertIn("GetMousePosition(PanelPointerX,PanelPointerY)", HUD)
+        self.assertIn("FMath::IsFinite(PanelPointerX)", HUD)
         for token in (
-            "bPanelPointerVisible", "GetMousePosition(PanelPointerX,PanelPointerY)",
-            "FMath::IsFinite(PanelPointerX)", "PanelPointerX < X",
+            "bPanelPointerVisible", "PanelPointerX < X",
             "PanelPointerY > Y+H", "DrawRect(Focus,X+W-2.f,Y,2.f,H);",
         ):
             self.assertIn(token, hover)
