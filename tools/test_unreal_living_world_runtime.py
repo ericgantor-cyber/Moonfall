@@ -519,7 +519,7 @@ int main(){
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         save=(SRC/"MoonfallPersistentSave.h").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
-        self.assertIn("Version = 15",save)
+        self.assertIn("Version = 16",save)
         self.assertIn("TMap<FName,int32> CompanionProfiles",save)
         self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
         self.assertIn("CompanionProfiles.Reset();",hero)
@@ -594,7 +594,7 @@ int main(){
         save=(SRC/"MoonfallPersistentSave.h").read_text()
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
-        self.assertIn("Version = 15",save)
+        self.assertIn("Version = 16",save)
         self.assertIn("TMap<FName,FMoonfallCompanionGearRecord> CompanionGear",save)
         self.assertIn("Save->CompanionGear = CompanionGear;",hero)
         self.assertIn("Save->CompanionGear.Num()>15",hero)
@@ -679,6 +679,30 @@ int main(){
         self.assertIn("Mode->ActivateLocalCompanionAbility(this)",hero)
         self.assertIn("GetCompanionAbilityRemaining()",hud)
         self.assertIn("CompanionAbilityCooldown",policy)
+
+    def test_v27_companion_party_persistence_and_restoration(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        self.assertIn("Version = 16",save)
+        self.assertIn("FMoonfallCompanionPartyRecord CompanionParty",save)
+        self.assertIn("Save->CompanionParty = CompanionParty;",hero)
+        self.assertIn("CompanionParty=Save->Version>=16?Save->CompanionParty:FMoonfallCompanionPartyRecord{}",hero)
+        commit=hero.split("bool AMoonfallHeroPawn::CommitCompanionParty(",1)[1].split("void AMoonfallHeroPawn::UpdateCompanionVitals(",1)[0]
+        self.assertIn("ValidCompanionParty",commit)
+        self.assertIn("if(!SaveWorldProgress()){CompanionParty=Previous;return false;}",commit)
+        restore=mode.split("void AMoonfallUnrealGameMode::TryRestoreCompanionParty(",1)[1].split("void AMoonfallUnrealGameMode::SyncCompanionVitals(",1)[0]
+        for guard in ("IsCompanionPartyRestoreReady()","LocalCompanion.IsValid()","LivingResidents",
+                      "if(Match)return","Match->GetBondWithHero(Hero)<60",
+                      "AttachCompanionParty(Hero,Match,Saved.Stance,Saved.Health)"):
+            self.assertIn(guard,restore)
+        self.assertNotIn("SpawnActor",restore)
+        self.assertIn("TryRestoreCompanionParty(Hero);",mode)
+        self.assertIn("Resident->bCompanionDowned=Health<=0.f",mode)
+        self.assertIn("CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp()",mode)
+        self.assertIn("Next.AbilityReadyUtc=CompanionAbilityReadyUtc",mode)
+        self.assertIn("SyncCompanionVitals(Hero);",mode)
+        self.assertIn("if(!Hero->CommitCompanionParty(Next))return false;",mode)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
