@@ -642,6 +642,11 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(AtlasZoneInk[Zone], Left + 13.f, Y - 4.f, 4.f, RowHeight);
    }
    DrawHoverFrame(Left+13.f,Y-4.f,AtlasSidebarWidth-22.f,RowHeight);
+   // Six different illustrated biome seals, one per authored Atlas region.
+   // They identify region names already visible, never hidden geography.
+   if (AtlasSidebarWidth>=210.f && RowHeight>=33.f)
+    DrawRegionEmblem(Left+AtlasSidebarWidth-25.f,Y+RowHeight*0.5f-3.f,
+      9.f,Zone,AtlasZoneInk[Zone]);
    int32 Discovered = 0, Defeated = 0, Revealed = 0;
    for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon) {
     if (Hero->HasDiscoveredDungeon(Zone, Dungeon)) ++Discovered;
@@ -2303,8 +2308,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Static border aligns the in-world objective with the native menu frame.
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top,Width,2.f);
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top+122.f,Width,2.f);
-  DrawMoonfallSigil(Left+Width-12.f,Top+111.f,7.f,
-    FLinearColor(0.53f,0.77f,0.92f),1);
+  // The tracker uses the real current-region seal below, not a generic icon.
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
@@ -2312,6 +2316,9 @@ void AMoonfallCombatHUD::DrawHUD()
   // Region climate is a pure policy sample. Do not scan weather actors
   // or nearby residents from the frequently drawn HUD.
   const int ClimateRegion=MoonfallLivingSimulation::RegionFromWorldX(Hero->GetActorLocation().X);
+  if (!bSanctuaryObjective)
+   DrawRegionEmblem(Left+Width-16.f,Top+109.f,8.f,ClimateRegion,
+     FLinearColor(0.53f,0.77f,0.92f));
   const auto Climate=MoonfallLivingSimulation::WeatherFor(ClimateRegion,
       MoonfallLivingSimulation::Phase(GetWorld()->GetTimeSeconds(),360.f));
   DrawText(FString::Printf(TEXT("%s  |  %s"),
