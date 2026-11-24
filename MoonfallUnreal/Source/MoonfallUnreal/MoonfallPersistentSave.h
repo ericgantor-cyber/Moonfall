@@ -12,13 +12,24 @@ struct FMoonfallWorldLootRecord {
  UPROPERTY() FName LevelId = NAME_None;
 };
 // One persistent character, not a disposable match/run. Version before changing layout.
+USTRUCT()
+struct FMoonfallCompanionGearRecord {
+ GENERATED_BODY()
+ UPROPERTY() int32 Weapon=0;
+ UPROPERTY() int32 Armor=0;
+ UPROPERTY() int32 Accessory=0;
+ int32 Get(int32 Slot) const {return Slot==0?Weapon:Slot==1?Armor:Slot==2?Accessory:0;}
+ void Set(int32 Slot,int32 Code){if(Slot==0)Weapon=Code;else if(Slot==1)Armor=Code;else if(Slot==2)Accessory=Code;}
+};
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
  // V13: persistent classless talent ranks. Older V1-V12 saves load with zero ranks.
  // V14: companion profiles keyed by stable resident ID; old saves default to none.
- UPROPERTY() int32 Version = 14;
+ // V15 adds companion equipment owned separately from the hero's bag.
+ UPROPERTY() int32 Version = 15;
+ UPROPERTY() TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  UPROPERTY() TMap<FName,int32> CompanionProfiles;
  // Exactly 141 ranks; validated against level, budgets and prerequisites before load.
  UPROPERTY() TArray<int32> TalentRanks;
