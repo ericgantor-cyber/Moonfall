@@ -112,6 +112,30 @@ inline bool CanReportCompanionThreat(double now,double heroTargetDistanceSquared
     &&std::isfinite(scoutHeroDistanceSquared)&&scoutHeroDistanceSquared>=0
     &&scoutHeroDistanceSquared<=500.0*500.0;
 }
+// Counter attacks are committed to a nearby follower, never retargeted mid-swing.
+inline bool CanCompanionCounter(double distanceSquared,double range,double heroDistanceSquared,bool eligible){
+ return eligible&&std::isfinite(distanceSquared)&&distanceSquared>=0&&std::isfinite(range)
+    &&range>0&&range<=600.0&&distanceSquared<=range*range
+    &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=500.0*500.0;
+}
+inline float FollowerIncomingDamage(float damage,int armorTier,bool braced){
+ if(!std::isfinite(damage)||damage<=0.f)return 0.f;
+ const float Armor=1.f-0.01f*Clamp(armorTier,0,25);
+ return std::fmin(damage,100.f)*Armor*(braced?0.5f:1.f);
+}
+enum class CompanionTactic { Follow, Intercept, Flank, Withdraw };
+inline CompanionTactic SelectCompanionTactic(float health,int rank,int role,bool threat){
+ if(!threat||!std::isfinite(health)||health<=0.f||health>100.f||rank<1)return CompanionTactic::Follow;
+ if(health<=25.f)return CompanionTactic::Withdraw;
+ const int Effective=EffectiveCompanionRole(rank,role);
+ return Effective==1?CompanionTactic::Intercept:Effective==2?CompanionTactic::Flank:CompanionTactic::Follow;
+}
+inline double CompanionAbilityCooldown(int accessoryTier){return 30.0-0.2*Clamp(accessoryTier,0,25);}
+inline bool CanActivateCompanionAbility(int rank,int role,float health,double now,double ready,bool eligible){
+ return eligible&&rank>=2&&rank<=3&&role>=0&&role<=2&&std::isfinite(health)
+    &&health>0.f&&health<=100.f&&(role!=0||health<100.f)&&std::isfinite(now)
+    &&now>=0&&std::isfinite(ready)&&now>=ready;
+}
 // Only a recent player hit or verified enemy attack commitment qualifies for assistance.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
                                double heroDistanceSquared,bool eligible,int rank=1,int role=0,unsigned training=0){
