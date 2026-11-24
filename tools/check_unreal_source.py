@@ -2194,7 +2194,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("LOW STAMINA")', self.hud)
         self.assertIn('TEXT("SPRINT RECOVERING")', self.hud)
         self.assertIn("Hero->SprintRestartStamina", self.hud)
-        self.assertIn("DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina", self.hud)
+        self.assertIn("DisplayStamina = Hero->bReduceMotion ? ActualStamina : FMath::FInterpTo(DisplayStamina, ActualStamina", self.hud)
         self.assertIn("DrawArc(Radius * 0.85f, ManaFraction", self.hud)
         self.assertIn("DrawArc(Radius * 0.97f, XpFraction", self.hud)
         self.assertIn("const float HealthFraction = DisplayHealth;", self.hud)
