@@ -17,7 +17,9 @@ class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
  // V13: persistent classless talent ranks. Older V1-V12 saves load with zero ranks.
- UPROPERTY() int32 Version = 13;
+ // V14: companion profiles keyed by stable resident ID; old saves default to none.
+ UPROPERTY() int32 Version = 14;
+ UPROPERTY() TMap<FName,int32> CompanionProfiles;
  // Exactly 141 ranks; validated against level, budgets and prerequisites before load.
  UPROPERTY() TArray<int32> TalentRanks;
  // 6 zones x 8 columns x 7 rows, one safe 56-bit mask per zone.
