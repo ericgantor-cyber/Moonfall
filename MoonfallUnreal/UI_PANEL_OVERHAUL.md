@@ -78,6 +78,34 @@ original Z/Nyra art.
   high DPI/4K, reduced motion, boss overlap, character panel, controller
   navigation and pointer targeting before merging.
 
+## Fourth pass: original spell and equipment art across every panel
+
+- The Grimoire now draws **six unique, directly usable Canvas rune icons**
+  matching the real spell metadata order: Ember Bolt, Frost Shard, Eclipse
+  Lance, Mending Light, Storm Spark and Thorn Dart. The icons are drawn only
+  where row geometry safely permits; in compact windows, text stays readable.
+- The Inventory and combined **Stats & Gear** page share **three original
+  sword/armor/talisman glyphs** derived from validated saved equipment slots.
+  Colors come from real item rarity and empty/unowned items cannot invent
+  equipment. The glyphs do not equip or mutate anything.
+- The Atlas has a static **compass rose and north label** within its map
+  viewport. Its fog-of-war cell filtering remains authoritative; no hidden
+  roads, shrines, or undiscovered dungeons are revealed.
+- The Talent Web uses a restrained heraldic stamp for invested or focused
+  talents; readable node titles and prerequisite wires remain intact.
+- NPC dialogue gains a social heraldry emblem; wide Options rows and
+  character stat sections get small category etchings. Existing click
+  rectangles, selection styles, combat-live warning and text scales remain.
+- A second original editable asset,
+  `Art/UI/moonfall_grimoire_armory_atlas.svg`, provides a labeled
+  **3x3 art sheet** of the six spell schools and three gear types. Its
+  vector artwork is **source/reference art**, not yet a shipped UE5 texture
+  or proof of asset import. The corresponding runtime art is procedural.
+- The new painters are bounded, stateless, local to `DrawHUD` and never
+  scan actors, allocate UI widgets, change gameplay actions or save data.
+  Native compile, 4K/hardware and in-game hitbox/legibility testing are
+  required before merge.
+
 ## Existing controls preserved
 
 - **C**: Character. Repeated C cycles its three pages; mouse tabs and controller
