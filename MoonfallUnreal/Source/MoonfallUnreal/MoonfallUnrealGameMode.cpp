@@ -1,4 +1,5 @@
 #include "MoonfallUnrealGameMode.h"
+#include "Misc/DateTime.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallArena.h"
 #include "MoonfallDungeonLayout.h"
@@ -82,16 +83,48 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||Resident->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Resident->FactionId)<0
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
+ FMoonfallCompanionPartyRecord Next=Hero->GetCompanionParty();
+ Next.Health=Next.ResidentId==Resident->ResidentId?Next.Health:Resident->CompanionHealth;
+ Next.ResidentId=Resident->ResidentId;Next.Stance=static_cast<int32>(EMoonfallCompanionStance::Follow);
+ if(!Hero->CommitCompanionParty(Next))return false;
+ AttachCompanionParty(Hero,Resident,Next.Stance,Next.Health);
+ return true;
+}
+void AMoonfallUnrealGameMode::AttachCompanionParty(AMoonfallHeroPawn* Hero,AMoonfallWorldNPC* Resident,int32 Stance,float Health){
  if(ReturningCompanion.Get()==Resident)ReturningCompanion.Reset();
  Resident->bFollowerWaypointValid=false;Resident->NextFollowerPathAt=-1.f;
- LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
+ LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=static_cast<EMoonfallCompanionStance>(Stance);
+ Resident->CompanionHealth=Health;Resident->bCompanionDowned=Health<=0.f;
  bFollowerMoveOrdered=false;CompanionThreat.Reset();CompanionThreatAt=-1000.f;CompanionAbilityEndsAt=-1000.f;
+ CompanionAbilityReadyUtc=Hero->GetCompanionParty().AbilityReadyUtc;
+ const int64 Remaining=FMath::Clamp<int64>(CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp(),0,30);
+ CompanionAbilityReadyAt=GetWorld()->GetTimeSeconds()+static_cast<float>(Remaining);
  GetWorldTimerManager().SetTimer(FollowerPulseTimer,this,&AMoonfallUnrealGameMode::PulseFollower,0.2f,true);
  const uint32 Profile=Hero->GetCompanionProfile(Resident->ResidentId);
  LocalCompanionRole=static_cast<EMoonfallCompanionRole>(MoonfallWorldPolicy::EffectiveCompanionRole(
       MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero)),static_cast<int>(Profile>>18)));
  LocalCompanionTraining=Profile&MoonfallWorldPolicy::CompanionTrainingMask;
- return true;
+}
+void AMoonfallUnrealGameMode::TryRestoreCompanionParty(AMoonfallHeroPawn* Hero){
+ if(!HasAuthority()||!IsValid(Hero)||!Hero->IsPlayerControlled()||!Hero->IsCompanionPartyRestoreReady()
+     ||LocalCompanion.IsValid()||Hero->IsRecentlyInCombatForAmbientAI())return;
+ const auto& Saved=Hero->GetCompanionParty();
+ if(Saved.ResidentId.IsNone())return;
+ AMoonfallWorldNPC* Match=nullptr;
+ for(const auto& Ref:LivingResidents){
+  auto* Resident=Ref.Get();
+  if(!IsValid(Resident)||Resident->IsActorBeingDestroyed()||Resident->ResidentId!=Saved.ResidentId)continue;
+  if(Match)return; // Ambiguous authored identities must never duplicate followers.
+  Match=Resident;
+ }
+ if(!IsValid(Match)||Match->GetWorld()!=GetWorld()||Match->bAmbientVisitor||!Match->bUsePersonalityRoutines
+     ||!Match->bAllowLocalScoutGuidance||Match->SocialRole!=FName(TEXT("Scout"))
+     ||Match->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Match->FactionId)<0)return;
+ AttachCompanionParty(Hero,Match,Saved.Stance,Saved.Health);
+}
+void AMoonfallUnrealGameMode::SyncCompanionVitals(AMoonfallHeroPawn* Hero){
+ if(IsLocalCompanionOwner(Hero)&&LocalCompanion.IsValid())
+  Hero->UpdateCompanionVitals(LocalCompanion->ResidentId,LocalCompanion->CompanionHealth,CompanionAbilityReadyUtc);
 }
 float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
@@ -128,6 +161,7 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  const float BraceScale=Scout->GetBondWithHero(Hero)>=80&&LocalCompanionRole==EMoonfallCompanionRole::Protector
     &&CompanionAbilityRole==LocalCompanionRole&&Now<CompanionAbilityEndsAt?0.5f:1.f;
  Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover*ArmorScale*BraceScale);
+ SyncCompanionVitals(Hero);
  if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;CompanionAbilityEndsAt=-1000.f;Scout->OnCompanionDowned();}
  return Cover;
 }
@@ -171,6 +205,7 @@ void AMoonfallUnrealGameMode::ResolveCompanionCounterAttack(AMoonfallHeroPawn* H
  const float Actual=MoonfallWorldPolicy::FollowerIncomingDamage(Damage,Hero->GetCompanionGearTier(Target->ResidentId,1),bBraced);
  if(Actual<=0.f)return;
  Target->CompanionHealth=FMath::Max(0.f,Target->CompanionHealth-Actual);
+ SyncCompanionVitals(Hero);
  if(Target->CompanionHealth<=0.f){Target->bCompanionDowned=true;CompanionAbilityEndsAt=-1000.f;Target->OnCompanionDowned();}
 }
 float AMoonfallUnrealGameMode::GetCompanionAbilityRemaining() const{
@@ -185,7 +220,13 @@ bool AMoonfallUnrealGameMode::ActivateLocalCompanionAbility(AMoonfallHeroPawn* H
  const int Role=static_cast<int>(LocalCompanionRole);
  const float Now=GetWorld()->GetTimeSeconds();
  if(!MoonfallWorldPolicy::CanActivateCompanionAbility(Rank,Role,Scout->CompanionHealth,Now,CompanionAbilityReadyAt,true))return false;
- CompanionAbilityReadyAt=Now+static_cast<float>(MoonfallWorldPolicy::CompanionAbilityCooldown(Hero->GetCompanionGearTier(Scout->ResidentId,2)));
+ const float Cooldown=static_cast<float>(MoonfallWorldPolicy::CompanionAbilityCooldown(Hero->GetCompanionGearTier(Scout->ResidentId,2)));
+ auto Next=Hero->GetCompanionParty();
+ Next.AbilityReadyUtc=FDateTime::UtcNow().ToUnixTimestamp()+FMath::CeilToInt64(Cooldown);
+ if(Role==0)Next.Health=FMath::Min(100.f,Scout->CompanionHealth+25.f);
+ if(!Hero->CommitCompanionParty(Next))return false;
+ CompanionAbilityReadyUtc=Next.AbilityReadyUtc;
+ CompanionAbilityReadyAt=Now+Cooldown;
  CompanionAbilityRole=LocalCompanionRole;
  if(Role==0){Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+25.f);CompanionAbilityEndsAt=-1000.f;}
  else CompanionAbilityEndsAt=Now+(Role==1?6.f:8.f);
@@ -261,6 +302,11 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EM
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
  switch(Stance){
  case EMoonfallCompanionStance::Follow:case EMoonfallCompanionStance::Hold:case EMoonfallCompanionStance::Passive:
+  {
+   auto Next=Hero->GetCompanionParty();
+   Next.Stance=static_cast<int32>(Stance);
+   if(!Hero->CommitCompanionParty(Next))return false;
+  }
   LocalCompanionStance=Stance;bFollowerMoveOrdered=false;
   LocalCompanion->bFollowerWaypointValid=false;LocalCompanion->NextFollowerPathAt=-1.f;return true;
  default:return false;
@@ -303,6 +349,9 @@ bool AMoonfallUnrealGameMode::OrderCompanionMove(AMoonfallHeroPawn* Hero,FVector
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||LocalCompanion->bCompanionDowned
     ||Hero->Health<=0.f||Destination.ContainsNaN()||Hero->GetActorLocation().ContainsNaN()
     ||FVector::DistSquared(Destination,Hero->GetActorLocation())>FMath::Square(1000.0))return false;
+ auto Next=Hero->GetCompanionParty();
+ Next.Stance=static_cast<int32>(EMoonfallCompanionStance::Hold);
+ if(!Hero->CommitCompanionParty(Next))return false;
  OrderedFollowerDestination=Destination;bFollowerMoveOrdered=true;
  LocalCompanion->bFollowerWaypointValid=false;LocalCompanion->NextFollowerPathAt=-1.f;
  LocalCompanionStance=EMoonfallCompanionStance::Hold;return true;
@@ -311,6 +360,8 @@ bool AMoonfallUnrealGameMode::ReviveLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!LocalCompanion->bCompanionDowned
      ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero))return false;
  auto* Scout=LocalCompanion.Get();
+ auto Next=Hero->GetCompanionParty();Next.Health=50.f;
+ if(!Hero->CommitCompanionParty(Next))return false;
  Scout->CompanionHealth=50.f;Scout->bCompanionDowned=false;Scout->OnCompanionRecovered();return true;
 }
 void AMoonfallUnrealGameMode::PulseFollower(){
@@ -334,6 +385,7 @@ void AMoonfallUnrealGameMode::PulseFollower(){
  if(Scout->bCompanionDowned){Scout->LivingIntent=TEXT("Downed");return;}
  if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0)return;
  if(!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
+ SyncCompanionVitals(Hero);
  if(LocalCompanionStance==EMoonfallCompanionStance::Follow&&CompanionThreat.IsValid()
      &&Now>=CompanionThreatAt&&Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now);
  if(!IsValid(Scout)||Scout->IsActorBeingDestroyed())return;
@@ -367,6 +419,8 @@ void AMoonfallUnrealGameMode::PulseFollower(){
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||LocalCompanion->bCompanionDowned)return false;
  if(ReturningCompanion.IsValid()&&ReturningCompanion.Get()!=LocalCompanion.Get())return false;
+ FMoonfallCompanionPartyRecord Next;Next.AbilityReadyUtc=CompanionAbilityReadyUtc;
+ if(!Hero->CommitCompanionParty(Next))return false;
  ReturningCompanion=LocalCompanion;bFollowerMoveOrdered=false;CompanionThreat.Reset();CompanionThreatAt=-1000.f;CompanionAbilityEndsAt=-1000.f;
  ReturningCompanion->bFollowerWaypointValid=false;ReturningCompanion->NextFollowerPathAt=-1.f;
  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;return true;
@@ -529,6 +583,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;
  }
  if (!bHeroReady) return;
+ TryRestoreCompanionParty(Hero);
  // Scan a bounded registry of <=80 weak refs, but run the expensive
  // weather / movement / danger routines for no more than 20 NPCs.
  // With <=20 nearby, all respond on every pulse instead of waiting for
