@@ -147,7 +147,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawMoonfallSigil(Book.Left+Book.Width-26.f",  # book
             "DrawMoonfallSigil(float(Tab.X+Tab.W-13)",  # talents
             "DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f",  # reputation
-            "DrawMoonfallSigil(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # gear
+            "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # real gear icons
             "DrawMoonfallSigil(X+Width-13.f,Y+40.f",  # boss
             "DrawMoonfallSigil(Left+Width-12.f,Top+111.f",  # quest
             "DrawMoonfallSigil(CX,CY-Radius*1.28f",  # resource orb
@@ -222,7 +222,7 @@ class TestNativeModalPanels(unittest.TestCase):
                       "WEAPON", "ARMOR", "ACCESSORY"):
             with self.subTest(title=title):
                 self.assertIn(title, contents)
-        self.assertEqual(contents.count('<g transform="translate('), 9)
+        self.assertEqual(len(svg.findall("{http://www.w3.org/2000/svg}g")), 9)
         self.assertNotIn("<script", contents)
         self.assertNotIn("<image", contents)
 
