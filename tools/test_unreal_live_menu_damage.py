@@ -3,6 +3,7 @@
 Source tests cannot substitute for native UE5 Windows compilation/playtesting.
 """
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
@@ -61,4 +62,22 @@ assert 'DrawRect(HitRed,0.f,0.f,Canvas->SizeX,Canvas->SizeY);' in overlay
 assert "Canvas->SizeY-Border" in overlay and "Canvas->SizeX-Border" in overlay
 assert "SetGamePaused(" not in overlay
 assert overlay.index("const bool bLiveMenuOpen") < overlay.index("DrawRect(HitRed")
+# The HUD is painter-ordered. A cue drawn before an opaque modal disappears.
+# All nine modal exit paths MUST draw the cue on top of their menu.
+assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index("if (Hero->bTalentWebOpen) {")
+sections = (
+    ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
+    ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 1),
+    ("atlas", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 2),
+    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 1),
+    ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 3),
+)
+for name, begin_marker, end_marker, expected in sections:
+    begin = hud.index(begin_marker, hud.index("const auto DrawLiveMenuHitCue"))
+    end = hud.index(end_marker, begin)
+    part = hud[begin:end]
+    completed = re.findall(r"(?m)^( {2,3})DrawLiveMenuHitCue\\(\\);\\n\\1return;$", part)
+    returns = re.findall(r"(?m)^ {2,3}return;$", part)
+    assert len(returns) == len(completed) == expected, (name, len(returns), len(completed))
+
 print("UE5 live menu damage cue, reduced motion and lethal talent cleanup: source checks passed.")
