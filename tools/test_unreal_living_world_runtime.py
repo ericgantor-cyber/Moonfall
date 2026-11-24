@@ -733,6 +733,10 @@ int main(){
         duplicate_guard="IsValid(Other)&&Other!=Resident&&!Other->IsActorBeingDestroyed()&&Other->ResidentId==Resident->ResidentId"
         self.assertIn(duplicate_guard,recruit)
         self.assertLess(recruit.index(duplicate_guard),recruit.index("Hero->CommitCompanionParty(Next)"))
+        saved_slot_guard="!Hero->IsCompanionPartyRestoreReady()||(!Next.ResidentId.IsNone()&&Next.ResidentId!=Resident->ResidentId)"
+        self.assertIn(saved_slot_guard,recruit)
+        self.assertLess(recruit.index(saved_slot_guard),recruit.index("Next.Health="))
+        self.assertLess(recruit.index(saved_slot_guard),recruit.index("Hero->CommitCompanionParty(Next)"))
         self.assertIn("TryRestoreCompanionParty(Hero);",mode)
         self.assertIn("Resident->bCompanionDowned=Health<=0.f",mode)
         self.assertIn("CompanionAbilityReadyUtc-FDateTime::UtcNow().ToUnixTimestamp()",mode)
