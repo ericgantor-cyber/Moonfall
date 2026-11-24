@@ -924,7 +924,6 @@ void AMoonfallCombatHUD::DrawHUD()
       TabX+6.f,PageTabTop+7.f,nullptr,
       PanelWidth<480.f ? 0.61f : (Tab==1 ? 0.51f : 0.70f));
    }
-   const float RowHeight = FMath::Clamp((PanelHeight - 178.f) / 18.f, 7.f, 26.f);
    const float StartY = Top + 123.f;
    if (Hero->bCharacterRacePageOpen) {
     // This is the saved 12-race gameplay ancestry, not the 30-entry
@@ -1127,28 +1126,121 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetTotalDefeatedDungeonBosses(),
        Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons())
    };
-   // WoW Forever-style grouped stat ledger: gold section headers,
-   // shaded stat rows, and clear separation without changing combat math.
+   // Stats and owned equipped gear share a single WoW-style character page.
+   // Reserve visible room for the three real slots at every supported height.
+   const bool bCompactStats = PanelHeight < 570.f;
+   const float StatsBottom = Top + PanelHeight - (bCompactStats ? 130.f : 144.f);
+   const float StatsRowHeight = FMath::Clamp(
+     (StatsBottom-StartY)/(bCompactStats ? 8.f : 18.f),9.f,24.f);
+   int32 ShownStatsRows = 0;
    const float StatPanelLeft = Left + 15.f;
    const float StatPanelWidth = PanelWidth - 30.f;
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row) {
     const bool bSection = Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16;
-    const float RowY = StartY + Row * RowHeight;
-    if (RowY+RowHeight > Top+PanelHeight-65.f) break;
+    if (bCompactStats && !(Row==0 || Row==2 || Row==3 || Row==4
+      || Row==6 || Row==7 || Row==13 || Row==17)) continue;
+    const float RowY = StartY + ShownStatsRows * StatsRowHeight;
+    if (RowY+StatsRowHeight > StatsBottom) break;
+    ++ShownStatsRows;
     DrawRect(bSection
        ? FLinearColor(0.19f,0.15f,0.10f,0.96f)
        : (Row % 2 == 0
          ? FLinearColor(0.09f,0.11f,0.16f,0.82f)
          : FLinearColor(0.07f,0.09f,0.13f,0.72f)),
-       StatPanelLeft,RowY-2.f,StatPanelWidth,FMath::Max(7.f,RowHeight-1.f));
+       StatPanelLeft,RowY-2.f,StatPanelWidth,FMath::Max(7.f,StatsRowHeight-1.f));
     if (bSection)
      DrawRect(FLinearColor(0.70f,0.51f,0.22f,0.95f),
-        StatPanelLeft,RowY-2.f,3.f,FMath::Max(7.f,RowHeight-1.f));
+        StatPanelLeft,RowY-2.f,3.f,FMath::Max(7.f,StatsRowHeight-1.f));
     DrawText(CharacterLines[Row],
       bSection ? FLinearColor(1.f,0.79f,0.42f) : FLinearColor(0.92f,0.94f,0.97f),
       Left + 23.f, RowY, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    }
+   // Actual Weapon, Armor and Accessory records, validated by combat getters.
+   // Read-only: all equipping and item comparison remains in Inventory.
+   const float GearTop=StartY+ShownStatsRows*StatsRowHeight+6.f;
+   const float GearBottom=Top+PanelHeight-65.f;
+   if (GearBottom-GearTop >= 17.f) {
+    DrawText(TEXT("EQUIPPED GEAR"),FLinearColor(1.f,0.79f,0.42f),
+      Left+23.f,GearTop,nullptr,PanelWidth<440.f?0.57f:0.78f);
+    const float CardsTop=GearTop+16.f;
+    const float CardsAvailable=GearBottom-CardsTop;
+    const int32 Codes[] = {Hero->EquippedWeaponCode,
+      Hero->EquippedArmorCode,Hero->EquippedAccessoryCode};
+    const TCHAR* SlotNames[] = {TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY")};
+    const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
+      TEXT("EPIC"),TEXT("EMERALD"),TEXT("LEGENDARY")};
+    const TCHAR* TraitNames[] = {TEXT("NONE"),TEXT("FORCE"),TEXT("WARD"),TEXT("FOCUS")};
+    const FLinearColor RarityColors[] = {
+      FLinearColor(0.85f,0.85f,0.85f),FLinearColor(0.36f,0.72f,1.f),
+      FLinearColor(1.f,0.83f,0.33f),FLinearColor(0.76f,0.45f,0.98f),
+      FLinearColor(0.31f,0.91f,0.49f),FLinearColor(1.f,0.58f,0.23f)
+    };
+    if (CardsAvailable >= 34.f) {
+     const float ResourceReserve=PanelHeight>=760.f ? 60.f : 0.f;
+     const float CardHeight=FMath::Clamp(
+       (CardsAvailable-ResourceReserve-6.f)/3.f,10.f,46.f);
+     for (int32 Slot=0;Slot<3;++Slot) {
+      const int32 Tier=Hero->GetValidatedEquippedTier(Slot);
+      const bool bEquipped=Tier>0;
+      const int32 Rarity=bEquipped ? (Codes[Slot]/1000)%10 : 0;
+      const int32 Trait=bEquipped ? Codes[Slot]/100000 : 0;
+      const bool bValid=bEquipped && Rarity>=0 && Rarity<6
+        && Trait>=0 && Trait<4;
+      const float Y=CardsTop+Slot*(CardHeight+3.f);
+      if (Y+CardHeight>GearBottom-ResourceReserve+1.f) break;
+      DrawRect(FLinearColor(0.08f,0.11f,0.16f,0.95f),
+        Left+15.f,Y,PanelWidth-30.f,CardHeight);
+      DrawRect(bValid ? RarityColors[Rarity] : FLinearColor(0.36f,0.39f,0.45f),
+        Left+15.f,Y,4.f,CardHeight);
+      const FString Label=bValid
+        ? FString::Printf(TEXT("%s  T%d %s  %s  |  POWER %d"),
+          SlotNames[Slot],Tier,RarityNames[Rarity],TraitNames[Trait],
+          Hero->GetItemPower(Codes[Slot]))
+        : FString::Printf(TEXT("%s  |  EMPTY"),SlotNames[Slot]);
+      DrawText(Label,bValid ? RarityColors[Rarity]
+        : FLinearColor(0.75f,0.78f,0.83f),
+        Left+24.f,Y+1.f,nullptr,PanelWidth<440.f?0.48f:0.69f);
+      if (CardHeight>=32.f)
+       DrawText(bValid && Hero->HasLegendaryPerk(Slot)
+         ? TEXT("LEGENDARY PERK ACTIVE")
+         : TEXT("Equip upgrades in Inventory"),
+         FLinearColor(0.78f,0.86f,0.92f),Left+24.f,Y+22.f,
+         nullptr,PanelWidth<440.f?0.47f:0.60f);
+     }
+     if (PanelHeight>=760.f) {
+      // Retain the live HP/mana/stamina view from the former gear page.
+      const float ResourceTop=CardsTop+3.f*(CardHeight+3.f)+2.f;
+      const float Current[] = {Hero->Health,Hero->Mana,Hero->Stamina};
+      const float Max[] = {Hero->MaxHealth,Hero->MaxMana,Hero->MaxStamina};
+      const TCHAR* Names[] = {TEXT("HP"),TEXT("MP"),TEXT("STAMINA")};
+      const FLinearColor Colors[] = {
+        FLinearColor(0.78f,0.22f,0.26f),FLinearColor(0.27f,0.53f,0.88f),
+        FLinearColor(0.68f,0.52f,0.21f)
+      };
+      for (int32 R=0;R<3;++R) {
+       const float SafeMax=FMath::IsFinite(Max[R])?FMath::Max(0.f,Max[R]):0.f;
+       const float Safe=FMath::IsFinite(Current[R])
+         ? FMath::Clamp(Current[R],0.f,SafeMax):0.f;
+       const float Fraction=SafeMax>0.f?Safe/SafeMax:0.f;
+       const float Y=ResourceTop+R*18.f;
+       if (Y+14.f>GearBottom) break;
+       DrawText(FString::Printf(TEXT("%s %.0f/%.0f"),Names[R],Safe,SafeMax),
+         FLinearColor(0.86f,0.90f,0.95f),Left+24.f,Y,nullptr,0.55f);
+       DrawRect(FLinearColor(0.13f,0.17f,0.22f,0.98f),
+         Left+160.f,Y+3.f,PanelWidth-190.f,7.f);
+       DrawRect(Colors[R],Left+160.f,Y+3.f,
+         (PanelWidth-190.f)*Fraction,7.f);
+      }
+     }
+    } else {
+     DrawText(FString::Printf(TEXT("W %d  |  A %d  |  T %d"),
+       Hero->GetValidatedEquippedTier(0),Hero->GetValidatedEquippedTier(1),
+       Hero->GetValidatedEquippedTier(2)),FLinearColor(0.83f,0.90f,0.97f),
+       Left+23.f,GearTop+12.f,nullptr,0.62f);
+    }
+   }
+
    }
    DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
