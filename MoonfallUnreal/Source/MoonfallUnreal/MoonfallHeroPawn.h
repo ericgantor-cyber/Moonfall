@@ -226,6 +226,22 @@ public:
  bool RespecTalentPoints();
  // Shared atomic rank/resource update, with save rollback on failure.
  bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
+ // UI-only state. Never serialized: ranks are the single persistent authority.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
+ float TalentRespecArmUntil = -1.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
+ void TalentSpendSelected();
+ void TalentConfirmRespec();
+ void TalentCloseWeb();
+ void TalentNextBranch();
+ void TalentPreviousBranch();
+ void TalentMove(int32 TierDirection, int32 RowDirection);
+ void TalentChangeBranch(int32 Direction);
+ void TalentPointerClick();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
