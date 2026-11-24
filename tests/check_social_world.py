@@ -30,7 +30,8 @@ class TestSocialWorld(unittest.TestCase):
  def test_social_reaction(self):
   self.assertIn("GetSocialDisposition",self.npc_h)
   self.assertIn("GetCurrentActivity()",self.npc_h)
-  self.assertIn("FMath::FloorToInt",self.npc)
+  self.assertIn("MoonfallLivingSimulation::ActivityFor(",self.npc)
+  self.assertIn("MoonfallLivingSimulation::WeatherFor(",self.npc)
   self.assertIn("GetCurrentActivity() == TEXT",self.npc)
   for word in ("Hostile","Wary","Neutral","Friendly","Trusted"):
    self.assertIn('TEXT("'+word+'")',self.npc)
@@ -76,8 +77,11 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
   # Ensure quest status never overrides a hostile faction response.
-  self.assertIn('if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
-  self.assertIn('else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
+  self.assertIn('if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
+  self.assertIn('else if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
+  # Short-lived road visitors may talk, but cannot fabricate persistent contracts.
+  self.assertIn("if (bAmbientVisitor || ResidentId.IsNone()",self.npc)
+  self.assertIn("if (bAmbientVisitor) return 0;",self.npc)
  def test_native_canvas_menu_and_input_safety(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("Hero->FocusedResident.Get()",hud)
