@@ -178,9 +178,8 @@ bool AMoonfallUnrealGameMode::CanReceiveCompanionAttack(const AMoonfallHeroPawn*
     &&Scout->GetWorld()==GetWorld()&&!Scout->IsActorBeingDestroyed()&&!Scout->bCompanionDowned
     &&FMath::IsFinite(Scout->CompanionHealth)&&Scout->CompanionHealth>0.f
     &&Hero->Health>0.f&&LocalCompanionStance==EMoonfallCompanionStance::Follow
-    &&Scout->GetBondWithHero(Hero)>=60&&Hero->GetFactionReputation(Scout->FactionId)>=0
-    &&!Hero->bInventoryOpen&&!Hero->bOptionsOpen&&!Hero->bAtlasOpen&&!Hero->bTalentWebOpen
-    &&!Hero->bCharacterStatsOpen&&!Hero->bSpellBookOpen&&!Hero->bResidentContextOpen;
+    &&Scout->GetBondWithHero(Hero)>=60&&Hero->GetFactionReputation(Scout->FactionId)>=0;
+ // Incoming attacks stay live during menus; outgoing player commands retain their locks.
 }
 AMoonfallWorldNPC* AMoonfallUnrealGameMode::SelectCompanionCounterTarget(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now,float Range) const{
  auto* Scout=LocalCompanion.Get();
