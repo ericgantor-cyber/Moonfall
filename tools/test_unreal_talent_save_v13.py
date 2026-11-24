@@ -37,12 +37,12 @@ assert "bPersistentSaveWritesBlocked = true;" in load_body
 assert load_body.index("MoonfallTalents::Ranks LoadedTalentRanks{};") < load_body.index("if (Save->Version >= 13)")
 for method in ("SpendTalentPoint", "RespecTalentPoints"):
     begin = hero.index("bool AMoonfallHeroPawn::" + method + "(")
-    end = hero.index("\\n}", begin) + 2
+    end = hero.index("\n}", begin) + 2
     body = hero[begin:end]
     assert "MoonfallTalents::Ranks Candidate = TalentRanks;" in body
     assert "return CommitTalentAllocation(Candidate);" in body
 commit_start = hero.index("bool AMoonfallHeroPawn::CommitTalentAllocation(")
-commit_end = hero.index("\\n}", commit_start) + 2
+commit_end = hero.index("\n}", commit_start) + 2
 commit = hero[commit_start:commit_end]
 assert "MoonfallTalents::ApplyResourceDelta(UpdatedResources, Before, After)" in commit
 assert "const MoonfallTalents::Ranks PreviousRanks = TalentRanks;" in commit
