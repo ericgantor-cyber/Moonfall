@@ -140,6 +140,104 @@ void AMoonfallCombatHUD::DrawHUD()
     break;
   }
  };
+ // Six hand-drawn school emblems tied to MoonfallSpellBook::Spells order:
+ // Ember, Frost, Eclipse, Mending, Storm and Thorn. Pure fixed-cost artwork.
+ const auto DrawSpellGlyph = [this](float Cx,float Cy,float R,int32 School) {
+  if (!Canvas || School<0 || School>=6 || !FMath::IsFinite(Cx)
+      || !FMath::IsFinite(Cy) || !FMath::IsFinite(R)
+      || R<4.f || R>20.f) return;
+  const FLinearColor Ink[] = {
+   FLinearColor(1.f,0.55f,0.27f),FLinearColor(0.50f,0.87f,0.99f),
+   FLinearColor(0.78f,0.56f,0.98f),FLinearColor(0.65f,0.98f,0.72f),
+   FLinearColor(0.46f,0.74f,1.f),FLinearColor(0.58f,0.89f,0.47f)
+  };
+  const auto Line = [this,&Ink,School](float X1,float Y1,float X2,float Y2) {
+   Canvas->K2_DrawLine(FVector2D(X1,Y1),FVector2D(X2,Y2),1.6f,Ink[School]);
+  };
+  DrawRect(FLinearColor(0.05f,0.07f,0.14f,0.96f),
+    Cx-R-2.f,Cy-R-2.f,2.f*R+4.f,2.f*R+4.f);
+  // Four narrow cardinal marks make schools recognizable in compact layouts.
+  Line(Cx-R,Cy,Cx-R*0.76f,Cy);
+  Line(Cx+R*0.76f,Cy,Cx+R,Cy);
+  Line(Cx,Cy-R,Cx,Cy-R*0.76f);
+  Line(Cx,Cy+R*0.76f,Cx,Cy+R);
+  const float P=R*0.67f;
+  switch (School) {
+   case 0: // Ember: rising flame, three forked tongues.
+    Line(Cx,Cy+P,Cx-P*0.6f,Cy-P*0.2f);
+    Line(Cx-P*0.6f,Cy-P*0.2f,Cx,Cy-P);
+    Line(Cx,Cy-P,Cx+P*0.72f,Cy+P*0.18f);
+    Line(Cx+P*0.72f,Cy+P*0.18f,Cx,Cy+P);
+    Line(Cx,Cy+P,Cx,Cy-P*0.14f);
+    break;
+   case 1: // Frost: six-armed flake.
+    for (int32 I=0;I<6;++I) {
+     const float A=2.f*PI*I/6.f;
+     const float X=Cx+FMath::Cos(A)*P;
+     const float Y=Cy+FMath::Sin(A)*P;
+     Line(Cx,Cy,X,Y);
+    }
+    break;
+   case 2: // Eclipse: crescent and lance.
+    Line(Cx-P*0.73f,Cy-P*0.8f,Cx-P*0.25f,Cy);
+    Line(Cx-P*0.25f,Cy,Cx-P*0.73f,Cy+P*0.8f);
+    Line(Cx+P*0.42f,Cy-P,Cx+P*0.42f,Cy+P);
+    Line(Cx+P*0.1f,Cy-P*0.42f,Cx+P*0.75f,Cy-P*0.42f);
+    break;
+   case 3: // Restoration: rising four-leaf bloom.
+    Line(Cx,Cy-P,Cx,Cy+P);
+    Line(Cx-P,Cy,Cx+P,Cy);
+    Line(Cx-P*0.65f,Cy-P*0.65f,Cx+P*0.65f,Cy+P*0.65f);
+    Line(Cx+P*0.65f,Cy-P*0.65f,Cx-P*0.65f,Cy+P*0.65f);
+    break;
+   case 4: // Storm: cracked bolt.
+    Line(Cx+P*0.3f,Cy-P,Cx-P*0.55f,Cy);
+    Line(Cx-P*0.55f,Cy,Cx+P*0.2f,Cy);
+    Line(Cx+P*0.2f,Cy,Cx-P*0.35f,Cy+P);
+    break;
+   default: // Thorn: stem and twin sharpened leaves.
+    Line(Cx-P*0.55f,Cy+P,Cx+P*0.25f,Cy-P);
+    Line(Cx+P*0.25f,Cy-P,Cx+P*0.65f,Cy-P*0.55f);
+    Line(Cx+P*0.65f,Cy-P*0.55f,Cx+P*0.1f,Cy-P*0.35f);
+    Line(Cx-P*0.32f,Cy+P*0.45f,Cx-P*0.75f,Cy);
+    Line(Cx-P*0.75f,Cy,Cx-P*0.07f,Cy+P*0.1f);
+    break;
+  }
+ };
+ // Real gear-slot iconography, not extra equipped slots or paper-doll art.
+ // Type 0 sword; 1 armor; 2 talisman. Rarity remains the encoded item color.
+ const auto DrawGearGlyph = [this](float Cx,float Cy,float R,
+                                  int32 Slot,const FLinearColor& Ink) {
+  if (!Canvas || Slot<0 || Slot>2 || !FMath::IsFinite(Cx)
+      || !FMath::IsFinite(Cy) || !FMath::IsFinite(R)
+      || R<4.f || R>19.f) return;
+  const auto Line=[this,&Ink](float X0,float Y0,float X1,float Y1) {
+   Canvas->K2_DrawLine(FVector2D(X0,Y0),FVector2D(X1,Y1),1.7f,Ink);
+  };
+  switch (Slot) {
+   case 0:
+    Line(Cx-R*0.18f,Cy+R*0.8f,Cx+R*0.52f,Cy-R*0.88f);
+    Line(Cx+R*0.52f,Cy-R*0.88f,Cx+R*0.68f,Cy-R*0.34f);
+    Line(Cx-R*0.42f,Cy+R*0.22f,Cx+R*0.23f,Cy+R*0.47f);
+    Line(Cx-R*0.22f,Cy+R*0.65f,Cx-R*0.48f,Cy+R);
+    break;
+   case 1:
+    Line(Cx-R*0.80f,Cy-R*0.84f,Cx+R*0.80f,Cy-R*0.84f);
+    Line(Cx-R*0.80f,Cy-R*0.84f,Cx-R*0.72f,Cy+R*0.38f);
+    Line(Cx+R*0.80f,Cy-R*0.84f,Cx+R*0.72f,Cy+R*0.38f);
+    Line(Cx-R*0.72f,Cy+R*0.38f,Cx,Cy+R);
+    Line(Cx+R*0.72f,Cy+R*0.38f,Cx,Cy+R);
+    Line(Cx,Cy-R*0.64f,Cx,Cy+R*0.53f);
+    break;
+   default:
+    Line(Cx,Cy-R,Cx+R*0.74f,Cy);
+    Line(Cx+R*0.74f,Cy,Cx,Cy+R);
+    Line(Cx,Cy+R,Cx-R*0.74f,Cy);
+    Line(Cx-R*0.74f,Cy,Cx,Cy-R);
+    Line(Cx-R*0.40f,Cy,Cx+R*0.40f,Cy);
+    break;
+  }
+ };
  // High-contrast rail marks the focused choice independently of text color.
  const auto DrawSelectionRail = [this](float L,float T,float H) {
   if (!FMath::IsFinite(L)||!FMath::IsFinite(T)||!FMath::IsFinite(H)
