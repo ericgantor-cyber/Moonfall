@@ -149,7 +149,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bool bInConversation=false",npc_h)
-        self.assertIn("bool bInConversation)",movement)
+        self.assertIn("bool bInConversation, int32 HeroBond)",movement)
         self.assertIn("PauseResidentMotion(",movement)
         self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
@@ -157,6 +157,22 @@ int main(){
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",mode)
         self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertNotIn("TActorIterator",movement)
+        self.assertNotIn("SetTimer",movement)
+
+    def test_v27_intent_uses_existing_pulse_and_saved_bond(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        header=(SRC/"MoonfallWorldNPC.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("const Action Intent=Decide(Context);",movement)
+        self.assertIn("NPC->GetBondWithHero(Hero)",mode)
+        self.assertIn("Context.trust=FMath::Clamp(HeroBond/100.f",movement)
+        self.assertIn("bUsePersonalityRoutines=true",header)
+        self.assertIn("if (bMerchant || bScout || bGuard || bInConversation) bRoutineHome=false;",movement)
+        self.assertIn("bSheltering || bHoldPost || bRoutineHome",movement)
+        self.assertLess(movement.index("PauseResidentMotion("),movement.index("AddActorWorldOffset("))
         self.assertNotIn("TActorIterator",movement)
         self.assertNotIn("SetTimer",movement)
 
