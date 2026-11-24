@@ -132,6 +132,17 @@ jobs:
           if ($center.IndexOf('$form.Add_Shown({') -gt $center.IndexOf('if ($SelfTest) {')) {
             throw 'First-launch handler must be registered before SelfTest exit'
           }
+          # A damaged history must never be treated as an empty sent cache.
+          $corruptCache = Join-Path $env:RUNNER_TEMP 'corrupt-history'
+          New-Item -ItemType Directory -Force -Path $corruptCache | Out-Null
+          $corruptFile = Join-Path $corruptCache 'sent.json'
+          Set-Content -LiteralPath $corruptFile -Value '{bad json'
+          $caught = $null
+          try {
+            $null = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $corruptCache -DryRun -ErrorAction Stop )
+          } catch { $caught = $_.Exception.Message }
+          if ($caught -notmatch 'upload history is unreadable') { throw 'Corrupt history did not block sending' }
+          if ((Get-Content -LiteralPath $corruptFile -Raw) -notmatch 'bad json') { throw 'Corrupt history was overwritten' }
           Write-Output 'Local uploader syntax and redacted dry run passed.'
           # The intentionally failing fake GitHub CLI leaves LASTEXITCODE=1.
           # Explicitly reset the test harness exit status after all assertions pass.
