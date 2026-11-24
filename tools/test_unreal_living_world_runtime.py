@@ -367,13 +367,20 @@ int main(){
     def test_companion_hud_reads_live_party_without_actor_scan(self):
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
         block=hud.split("// One cached party lookup, no actor search or extra world-space labels.",1)[1].split('DrawText(TEXT("ESC  OPTIONS")',1)[0]
-        for token in ("!bCompactScreen","GetLocalCompanion()","Hero->GetCompanionParty().ResidentId",
+        for token in ("!bCompactScreen","GetLocalCompanionForHero(Hero)","Hero->GetCompanionParty().ResidentId",
                       "FMath::IsFinite(Scout->CompanionHealth)","FMath::Clamp(Scout->CompanionHealth,0.f,100.f)",
                       'TEXT("DOWNED")','TEXT("FOLLOW")','TEXT("HOLD")','TEXT("PASSIVE")',
                       "HP<=25.f","(W-20.f)*HP/100.f"):
             self.assertIn(token,block)
         self.assertNotIn("TActorIterator",block)
         self.assertNotIn("SaveWorldProgress",block)
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        lookup=mode.split("const AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanionForHero(",1)[1].split("\n}",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Hero->Health<=0.f","IsCompanionPartyRestoreReady()",
+                      "!Scout->IsActorBeingDestroyed()","Scout->GetWorld()==GetWorld()",
+                      "Scout->ResidentId==Hero->GetCompanionParty().ResidentId"):
+            self.assertIn(guard,lookup)
+        self.assertNotIn("TActorIterator",lookup)
 
     def test_v27_companion_menu_uses_shared_geometry_and_dispatch(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
