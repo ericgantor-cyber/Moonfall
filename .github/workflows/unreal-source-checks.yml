@@ -106,6 +106,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_rules.cpp -o /tmp/moonfall_talent_rules
           /tmp/moonfall_talent_rules
 
+      - name: Verify every UE5 talent matches the canonical 141-node catalog
+        shell: bash
+        run: python3 tools/test_unreal_talent_catalog_parity.py
+
       - name: Verify WASD and arrow keys are movement-only across engines
         shell: bash
         run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
