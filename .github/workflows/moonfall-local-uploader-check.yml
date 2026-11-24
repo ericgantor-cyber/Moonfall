@@ -1,0 +1,125 @@
+name: Moonfall local uploader Windows verification
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/Upload-LocalTestResults.ps1'
+      - 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1'
+      - '.github/workflows/moonfall-local-test-receipt.yml'
+      - '.github/workflows/moonfall-local-uploader-check.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Build/Upload-LocalTestResults.ps1'
+      - 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1'
+      - '.github/workflows/moonfall-local-test-receipt.yml'
+      - '.github/workflows/moonfall-local-uploader-check.yml'
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PowerShell syntax and safe dry run
+        shell: pwsh
+        run: |
+          $files = @('MoonfallUnreal/Build/Upload-LocalTestResults.ps1','MoonfallUnreal/Build/Install-LocalTestUpload.ps1')
+          foreach ($f in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw ('Invalid PowerShell: '+$f+' '+($errors|Out-String)) }
+          }
+          $project = Join-Path $env:RUNNER_TEMP 'test-project'
+          $logs = Join-Path $project 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $logs | Out-Null
+          $file = Join-Path $logs 'sample.log'
+          Set-Content -LiteralPath $file -Value 'BUILD SUCCEEDED'
+          (Get-Item $file).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $buildLogs = Join-Path $env:RUNNER_TEMP 'center-logs'
+          New-Item -ItemType Directory -Force -Path $buildLogs | Out-Null
+          $errorFile = Join-Path $buildLogs 'build-test.log.err'
+          Set-Content -LiteralPath $errorFile -Value 'fatal error C1083: private path should not leak'
+          (Get-Item $errorFile).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $output = & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -BuildLogRoot $buildLogs -DryRun
+          if ($output.Count -ne 2) { throw 'Expected Unreal and Build Center dry-run receipts' }
+          $payloads = @($output | ForEach-Object { $_ | ConvertFrom-Json })
+          $unreal = @($payloads | Where-Object { $_.client_payload.source -eq 'unreal-log' })
+          $center = @($payloads | Where-Object { $_.client_payload.source -eq 'build-center-log' })
+          if ($unreal.Count -ne 1 -or $unreal[0].client_payload.outcome -ne 'passed') { throw 'Missing Unreal pass' }
+          if ($center.Count -ne 1 -or $center[0].client_payload.outcome -ne 'failed') { throw 'Missing compiler failure' }
+          if ($output -match 'sample.log|test-project|BUILD SUCCEEDED|private path|build-test.log') { throw 'Leaked source details' }
+          # First-time setup must not flood GitHub with old histories.
+          $old = Join-Path $logs 'old.log'
+          Set-Content -LiteralPath $old -Value 'BUILD FAILED'
+          (Get-Item $old).LastWriteTimeUtc = [DateTime]::UtcNow.AddDays(-9)
+          $boundedRoot = Join-Path $env:RUNNER_TEMP 'batch-project'
+          $boundedLogs = Join-Path $boundedRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $boundedLogs | Out-Null
+          foreach ($i in 1..12) {
+            $logFile = Join-Path $boundedLogs ('run-' + $i + '.log')
+            Set-Content -LiteralPath $logFile -Value ('BUILD SUCCEEDED ' + $i)
+            (Get-Item $logFile).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          }
+          $batch = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $boundedRoot -BuildLogRoot (Join-Path $boundedRoot 'no-center') -DryRun )
+          if ($batch.Count -ne 10) { throw ('Expected at most 10 reports per cycle, got ' + $batch.Count) }
+          $remaining = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $project -BuildLogRoot $buildLogs -DryRun )
+          if ($remaining.Count -ne 2) { throw 'Stale logs should not appear in receipts' }
+          # Simulate GitHub refusing a dispatch, then accepting it, then a duplicate scan.
+          $retryRoot = Join-Path $env:RUNNER_TEMP 'retry-project'
+          $retryLogs = Join-Path $retryRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $retryLogs | Out-Null
+          $retryLog = Join-Path $retryLogs 'retry.log'
+          Set-Content -LiteralPath $retryLog -Value 'BUILD SUCCEEDED'
+          (Get-Item $retryLog).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          $retryCache = Join-Path $env:RUNNER_TEMP 'retry-cache'
+          $fakeGh = Join-Path $env:RUNNER_TEMP 'fake-gh.cmd'
+          Set-Content -LiteralPath $fakeGh -Value @('@echo off','if "%MOONFALL_FAKE_GH_FAIL%"=="1" exit /b 1','exit /b 0')
+          $env:MOONFALL_FAKE_GH_FAIL = '1'
+          $failResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh 3>$null )
+          if ($failResult.Count -ne 0) { throw 'Failed upload must not claim success' }
+          $env:MOONFALL_FAKE_GH_FAIL = '0'
+          $okResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh )
+          if ($okResult.Count -ne 1 -or $okResult[0] -notmatch 'Sent Moonfall passed') { throw 'Failed upload was not retried' }
+          $duplicateResult = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $retryCache -GitHubCli $fakeGh )
+          if ($duplicateResult.Count -ne 0) { throw 'Successful upload was duplicated' }
+          Remove-Item Env:MOONFALL_FAKE_GH_FAIL -ErrorAction SilentlyContinue
+          # Preview must never demand a GitHub login or install a scheduled task.
+          $installerSource = Get-Content -LiteralPath 'MoonfallUnreal/Build/Install-LocalTestUpload.ps1' -Raw
+          if ($installerSource.IndexOf('if($TestNow)') -gt $installerSource.IndexOf('Get-Command gh')) {
+            throw 'Preview must run before any GitHub login check'
+          }
+          $preview = @( & powershell.exe -NoProfile -File ./MoonfallUnreal/Build/Install-LocalTestUpload.ps1 -TestNow )
+          if ($LASTEXITCODE -ne 0) { throw 'Local preview setup failed' }
+          # A concurrent scan must not dispatch or corrupt the shared cache.
+          $lockedCache = Join-Path $env:RUNNER_TEMP 'lock-cache'
+          New-Item -ItemType Directory -Force -Path $lockedCache | Out-Null
+          $lockFile = Join-Path $lockedCache 'uploader.lock'
+          $lock = [IO.File]::Open($lockFile,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+          try {
+            $blocked = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $lockedCache -DryRun )
+            if ($blocked.Count -ne 1 -or $blocked[0] -notmatch 'already running') { throw 'Concurrent scan was not blocked' }
+            if (Test-Path (Join-Path $lockedCache 'sent.json')) { throw 'Blocked scan changed the upload cache' }
+          } finally { $lock.Dispose() }
+          $afterLock = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $retryRoot -BuildLogRoot (Join-Path $retryRoot 'no-center') -CacheRoot $lockedCache -DryRun )
+          if ($afterLock.Count -ne 1 -or $afterLock[0] -notmatch 'moonfall-local-test') { throw 'Uploader did not recover after lock release' }
+          # When offline, limit outbound GitHub requests to ten per scan.
+          $offlineRoot = Join-Path $env:RUNNER_TEMP 'offline-project'
+          $offlineLogs = Join-Path $offlineRoot 'Saved/Logs'
+          New-Item -ItemType Directory -Force -Path $offlineLogs | Out-Null
+          foreach ($i in 1..12) {
+            $file = Join-Path $offlineLogs ('error-' + $i + '.log')
+            Set-Content -LiteralPath $file -Value ('BUILD FAILED ' + $i)
+            (Get-Item $file).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-2)
+          }
+          $countFile = Join-Path $env:RUNNER_TEMP 'gh-attempts.txt'
+          $countingGh = Join-Path $env:RUNNER_TEMP 'counting-gh.cmd'
+          Set-Content -LiteralPath $countingGh -Value @('@echo off','echo attempt>>"%MOONFALL_GH_COUNT_FILE%"','exit /b 1')
+          $env:MOONFALL_GH_COUNT_FILE = $countFile
+          $offlineCache = Join-Path $env:RUNNER_TEMP 'offline-cache'
+          $null = @( & ./MoonfallUnreal/Build/Upload-LocalTestResults.ps1 -ProjectRoot $offlineRoot -BuildLogRoot (Join-Path $offlineRoot 'no-center') -CacheRoot $offlineCache -GitHubCli $countingGh 3>$null )
+          $attempts = @(Get-Content -LiteralPath $countFile)
+          if ($attempts.Count -ne 10) { throw ('Expected 10 failed requests, got ' + $attempts.Count) }
+          if (Test-Path (Join-Path $offlineCache 'sent.json')) { throw 'Failed requests should never mark receipts as uploaded' }
+          Remove-Item Env:MOONFALL_GH_COUNT_FILE -ErrorAction SilentlyContinue
+          Write-Output 'Local uploader syntax and redacted dry run passed.'
+          # The intentionally failing fake GitHub CLI leaves LASTEXITCODE=1.
+          # Explicitly reset the test harness exit status after all assertions pass.
+          exit 0
