@@ -4,7 +4,7 @@ Reports *small test summaries* to GitHub Actions; does not send raw logs, crash 
 
 ## Build Center integration
 
-Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. In the confirmation dialog, select **Yes** to enable five-minute reports, **No** to uninstall the uploader, or **Cancel** to leave settings alone. This is opt-in and is not triggered by normal builds. GitHub CLI must be installed and authenticated before enabling it.
+Open the existing Moonfall Build Center and select **AUTO TEST UPLOAD**. The dialog first shows whether the scheduled uploader is currently installed. In the confirmation dialog, select **Yes** to enable five-minute reports, **No** to uninstall the uploader, or **Cancel** to leave settings alone. This is opt-in and is not triggered by normal builds. GitHub CLI must be installed and authenticated before enabling it.
 
 ## One-time setup on your Windows PC
 
@@ -24,3 +24,5 @@ To prevent a large burst of GitHub Actions on first installation, only logs modi
 Dispatch payload includes only outcome (passed/failed/unknown), source category, warning/error counts, and file digest. Status is heuristic, not proof of a successful native Windows build. GitHub workflow receipts appear after moonfall-local-test-receipt.yml exists on default branch. The existing GitHub monitoring task can detect receipt runs; it cannot see your actual gameplay or test results that never generate logs.
 
 GitHub CLI remains responsible for authentication. No token is stored by the script. The Windows scheduled task runs as your signed-in user and may not execute if you are signed out. You must run the setup on your own PC; creating this PR alone cannot install anything there.
+
+For automated regression testing, Upload-LocalTestResults.ps1 also accepts custom -GitHubCli and -CacheRoot arguments. These are optional; normal installation uses the logged-in gh CLI and a private per-user cache. CI simulates a failed dispatch, a successful retry, and a duplicate scan without accessing a real GitHub account.
