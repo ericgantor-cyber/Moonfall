@@ -51,5 +51,51 @@ int main() {
  R.fill(0);
  assert(Spend(100,R,-1)==Result::InvalidRank);
  assert(Evaluate(100,R,S)==Result::Ok && S.Available==198);
+ // Resource caps must change by the delta, and undo exactly on respec.
+ Ranks Empty{}, BoostedRanks{};
+ Snapshot EmptySummary{}, BoostedSummary{};
+ assert(Evaluate(5,Empty,EmptySummary)==Result::Ok);
+ assert(Spend(5,BoostedRanks,FindNode("iron_will"))==Result::Ok);
+ assert(Spend(5,BoostedRanks,FindNode("guard"))==Result::Ok);
+ assert(Spend(5,BoostedRanks,FindNode("swift_step"))==Result::Ok);
+ assert(Spend(5,BoostedRanks,FindNode("spirit_well"))==Result::Ok);
+ assert(Evaluate(5,BoostedRanks,BoostedSummary)==Result::Ok);
+ Resources Live{100.0,70.0,80.0,35.0,60.0,18.0};
+ assert(ApplyResourceDelta(Live,EmptySummary,BoostedSummary));
+ assert(Live.MaxHealth==108.0 && Live.Health==78.0);
+ assert(Live.MaxMana==88.0 && Live.Mana==43.0);
+ assert(Live.MaxStamina==65.0 && Live.Stamina==23.0);
+ const Resources Once=Live;
+ assert(ApplyResourceDelta(Live,BoostedSummary,BoostedSummary));
+ assert(Live.MaxHealth==Once.MaxHealth && Live.Health==Once.Health);
+ assert(Live.MaxMana==Once.MaxMana && Live.Mana==Once.Mana);
+ assert(Live.MaxStamina==Once.MaxStamina && Live.Stamina==Once.Stamina);
+ assert(ApplyResourceDelta(Live,BoostedSummary,EmptySummary));
+ assert(Live.MaxHealth==100.0 && Live.Health==70.0);
+ assert(Live.MaxMana==80.0 && Live.Mana==35.0);
+ assert(Live.MaxStamina==60.0 && Live.Stamina==18.0);
+ // Never resurrect a defeated actor by adding a health talent.
+ Resources Defeated{100.0,0.0,80.0,35.0,60.0,18.0};
+ assert(ApplyResourceDelta(Defeated,EmptySummary,BoostedSummary));
+ assert(Defeated.Health==0.0);
+ // Invalid overflow must fail atomically without partially changing resources.
+ Resources Overflow{99999.0,100.0,80.0,35.0,60.0,18.0};
+ const Resources OverflowBefore=Overflow;
+ assert(!ApplyResourceDelta(Overflow,EmptySummary,BoostedSummary));
+ assert(Overflow.MaxHealth==OverflowBefore.MaxHealth && Overflow.Mana==OverflowBefore.Mana);
+ // Real sword/spell talent scaling, with strictly validated ranks.
+ Ranks MeleeAlloc{};
+ assert(Spend(5,MeleeAlloc,FindNode("iron_will"))==Result::Ok);
+ assert(std::abs(DamageMultiplier(5,MeleeAlloc,Stat::MeleeDamage)-1.03)<1e-10);
+ assert(DamageMultiplier(5,MeleeAlloc,Stat::MagicDamage)==1.0);
+ Ranks SpellAlloc{};
+ assert(Spend(5,SpellAlloc,FindNode("spirit_well"))==Result::Ok);
+ assert(Spend(5,SpellAlloc,FindNode("spell_focus"))==Result::Ok);
+ assert(std::abs(DamageMultiplier(5,SpellAlloc,Stat::MagicDamage)-1.04)<1e-10);
+ assert(DamageMultiplier(5,SpellAlloc,Stat::MeleeDamage)==1.0);
+ assert(DamageMultiplier(5,SpellAlloc,Stat::Health)==1.0);
+ SpellAlloc[FindNode("spirit_well")]=0; // Orphaned child is an invalid save.
+ assert(DamageMultiplier(5,SpellAlloc,Stat::MagicDamage)==1.0);
+ assert(DamageMultiplier(0,MeleeAlloc,Stat::MeleeDamage)==1.0);
  return 0;
 }

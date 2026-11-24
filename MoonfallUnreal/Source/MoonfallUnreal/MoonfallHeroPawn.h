@@ -6,6 +6,7 @@
 #include "MoonfallCombatInputBuffer.h"
 #include "MoonfallFirstlightTutorial.h"
 #include "MoonfallSpellBook.h"
+#include "MoonfallTalentRules.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -211,6 +212,36 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Canonical 141-node allocation. Persisted explicitly in V13 world saves.
+ // Live talent bonuses are reconciled as validated resource deltas; saves
+ // store base health capacity to avoid stacking rank bonuses on reload.
+ MoonfallTalents::Ranks TalentRanks{};
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetAvailableTalentPoints() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetTalentRank(int32 NodeIndex) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool SpendTalentPoint(int32 NodeIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool RespecTalentPoints();
+ // Shared atomic rank/resource update, with save rollback on failure.
+ bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
+ // UI-only state. Never serialized: ranks are the single persistent authority.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
+ float TalentRespecArmUntil = -1.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
+ void TalentSpendSelected();
+ void TalentConfirmRespec();
+ void TalentCloseWeb();
+ void TalentNextBranch();
+ void TalentPreviousBranch();
+ void TalentMove(int32 TierDirection, int32 RowDirection);
+ void TalentChangeBranch(int32 Direction);
+ void TalentPointerClick();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;

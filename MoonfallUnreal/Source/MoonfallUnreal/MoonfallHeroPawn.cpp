@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
@@ -394,7 +395,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
-     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
+     && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
@@ -433,8 +434,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float CombatNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
   const bool bCanDispatchBufferedMelee = GetWorld() && Health > 0.f
     && FMath::IsFinite(Health) && !bOptionsOpen && !bInventoryOpen
-    && !bAtlasOpen && !bResidentContextOpen && !FocusedResident.IsValid()
-    && !bGuarding && !bRightHandSpellReadied;
+    && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen
+    && !FocusedResident.IsValid() && !bGuarding && !bRightHandSpellReadied;
   if (SwordBuffer.Consume(CombatNow, NextMeleeAttackAt, bCanDispatchBufferedMelee))
    MeleeAttack();
  }
@@ -622,6 +623,12 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
+ Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
+ Input->BindAction(TEXT("TalentSpend"), IE_Pressed, this, &AMoonfallHeroPawn::TalentSpendSelected);
+ Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::TalentConfirmRespec);
+ Input->BindAction(TEXT("TalentClose"), IE_Pressed, this, &AMoonfallHeroPawn::TalentCloseWeb);
+ Input->BindAction(TEXT("TalentBranchPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::TalentPreviousBranch);
+ Input->BindAction(TEXT("TalentBranchNext"), IE_Pressed, this, &AMoonfallHeroPawn::TalentNextBranch);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
@@ -837,6 +844,15 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (bTalentWebOpen) {
+  int ViewW=1280,ViewH=720;
+  if (const APlayerController* PC=Cast<APlayerController>(Controller))
+   PC->GetViewportSize(ViewW,ViewH);
+  const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+  if (Layout.Valid) TalentWebFirstTier=FMath::Clamp(Layout.FirstTier+(-1),1,
+      MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
+  return;
+ }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -847,6 +863,15 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (bTalentWebOpen) {
+  int ViewW=1280,ViewH=720;
+  if (const APlayerController* PC=Cast<APlayerController>(Controller))
+   PC->GetViewportSize(ViewW,ViewH);
+  const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+  if (Layout.Valid) TalentWebFirstTier=FMath::Clamp(Layout.FirstTier+(1),1,
+      MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
+  return;
+ }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -858,6 +883,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
+ if (bTalentWebOpen) return;
  // A or Space cannot leak into Jump while dialogue is still open.
  if (bResidentContextOpen) {
   if (!FocusedResident.IsValid()) {
@@ -874,7 +900,9 @@ void AMoonfallHeroPawn::TryJump()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
+
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -883,17 +911,20 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
+
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (bTalentWebOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
+ if (bTalentWebOpen) return false;
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  // Explicit Z/X and controller spell shortcuts use this same authority.
@@ -958,10 +989,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
+  // Only hostile spells get Arcana damage bonuses; healing (school 3) never
+  // enters this branch. Invalid allocations grant no additional damage.
+  const float TalentMagicMultiplier = static_cast<float>(
+      MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MagicDamage));
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier * TalentMagicMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -1030,19 +1065,23 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 }
 void AMoonfallHeroPawn::CastLeft()
 {
+ if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
  TryCast(LeftSpell, 0, 1.f);
 }
 void AMoonfallHeroPawn::CastRight()
 {
+ if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
  TryCast(RightSpell, 1, 1.f);
 }
 void AMoonfallHeroPawn::CastBoth()
 {
+
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bTalentWebOpen) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
@@ -1060,12 +1099,14 @@ void AMoonfallHeroPawn::CastBoth()
 // shoulder spell shortcuts continue working regardless of this selection.
 void AMoonfallHeroPawn::RightHandAction()
 {
+
  // RT and primary-action input must not dispatch either attack path while
  // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
  // even though TryCast/MeleeAttack also enforce their own safety checks.
  if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) return;
  // Buffer one additional sword press only within the final 180ms of recovery.
  // Spells retain their existing immediate cast path and never queue a sword.
  if (!bRightHandSpellReadied && !bGuarding) {
@@ -1112,6 +1153,7 @@ void AMoonfallHeroPawn::ReadyRightHandWeapon()
 // the entire overlay so the user returns to play. No movement key is reused.
 void AMoonfallHeroPawn::ToggleSpellBookShortcut()
 {
+ if (bTalentWebOpen) return;
  // The Atlas owns map input. A P press must not silently close the map
  // through ToggleInventory() and open an unrelated modal behind it.
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen
@@ -1134,6 +1176,7 @@ void AMoonfallHeroPawn::ToggleSpellBookShortcut()
 // The grimoire is still an inventory page for the B/Select and mouse tabs.
 void AMoonfallHeroPawn::ToggleSpellBook()
 {
+ if (bTalentWebOpen) return;
  if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
      || Health <= 0.f || !FMath::IsFinite(Health)) return;
  bSpellBookOpen = !bSpellBookOpen;
@@ -1244,6 +1287,7 @@ void AMoonfallHeroPawn::ResetMeleeHitCombo()
 // No animation asset is required; the Blueprint event can add authored trails.
 void AMoonfallHeroPawn::MeleeAttack()
 {
+
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
      || bResidentContextOpen || FocusedResident.IsValid() || bGuarding
      || !FMath::IsFinite(Health) || !FMath::IsFinite(Stamina)
@@ -1251,6 +1295,7 @@ void AMoonfallHeroPawn::MeleeAttack()
      || !FMath::IsFinite(MeleeStaminaCost) || MeleeStaminaCost < 0.f
      || !FMath::IsFinite(MeleeAttackCooldown) || MeleeAttackCooldown <= 0.f
      || !FMath::IsFinite(MeleeAttackRange) || MeleeAttackRange <= 0.f) return;
+ if (bTalentWebOpen) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextMeleeAttackAt)
      || Now < NextMeleeAttackAt) return;
@@ -1313,6 +1358,11 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Tier = bWeaponOwned
      ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
  const float Might = static_cast<float>(GetMight());
+ // Might MELEE bonuses apply to every connected melee attack, including
+ // unarmed hits (Tier 0), not just sword-equipped attacks. Existing angle,
+ // stamina, misses and cooldowns retain their established behavior.
+ const float TalentMeleeMultiplier = static_cast<float>(
+     MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage));
  const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
      : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
  // Same bounded, same-target combo rule as spell combat: a miss or a
@@ -1326,7 +1376,7 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Damage = (18.f + Tier * 1.15f
      + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
      * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
-     * (1.f + GetVersatilityBonus());
+     * (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
   ResetMeleeHitCombo();
   OnMeleeSwing(CurrentSwordAngle, false);
@@ -1380,6 +1430,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
@@ -1387,6 +1438,7 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
@@ -1423,8 +1475,10 @@ void AMoonfallHeroPawn::EndGuard()
   StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
+
  // Menu and defeat inputs must not latch a sprint for later gameplay.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
+ if (bTalentWebOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1443,7 +1497,9 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
+
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ if (bTalentWebOpen) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -1671,6 +1727,7 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
+ if (bTalentWebOpen) return;
  if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  // The C character sheet must open directly, without first pressing B.
  // Reuse inventory opening to apply its movement, mouse and modal cleanup.
@@ -1686,6 +1743,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ if (bTalentWebOpen) { TalentChangeBranch(1); return; }
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
@@ -1708,6 +1766,7 @@ void AMoonfallHeroPawn::StepAtlasChronicle(int32 Direction) {
    AtlasChronicleChapter, State.Valid ? State.FeaturedBeat : 0, Direction);
 }
 void AMoonfallHeroPawn::ToggleAtlas() {
+ if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen) return;
  // Blueprint and corrupt transient values must never poison projected map pixels.
  AtlasZoom = FMath::Clamp(FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f, 0.8f, 1.8f);
@@ -1755,6 +1814,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
+ if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
@@ -1907,6 +1967,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
 }
 
@@ -1948,6 +2009,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
 }
 
@@ -1971,15 +2033,18 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
+ if (bTalentWebOpen) return;
  if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -2008,6 +2073,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
@@ -2040,6 +2106,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
@@ -2072,6 +2139,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bTalentWebOpen) { TalentMove(-1,0); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -2088,6 +2156,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bTalentWebOpen) { TalentMove(1,0); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -2623,8 +2692,10 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
+
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
+ if (bTalentWebOpen) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
@@ -3121,6 +3192,159 @@ void AMoonfallHeroPawn::RevealAtlasAtWorldLocation()
  ExploredZoneFogMasks[Zone] |= (1LL << (Row * 8 + Column));
 }
 
+void AMoonfallHeroPawn::ToggleTalentWeb() {
+ if (bTalentWebOpen) {
+  bTalentWebOpen=false;
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
+  if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=false;
+  return;
+ }
+ if (Health<=0.f || !FMath::IsFinite(Health)
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid())return;
+ StopJumping();
+ if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
+ EndSprint();
+ EndGuard();
+ SwordBuffer.Clear();
+ bTalentWebOpen=true;
+ TalentWebBranch=FMath::Clamp(TalentWebBranch,0,2);
+ TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
+ TalentWebFirstTier=1;
+ bTalentRespecArmed=false;
+ if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=true;
+}
+void AMoonfallHeroPawn::TalentMove(int32 TierDirection,int32 RowDirection) {
+ if (!bTalentWebOpen)return;
+ TalentWebSelected=MoonfallTalentWeb::Move(TalentWebSelected,TalentWebBranch,
+     FMath::Clamp(TierDirection,-1,1),FMath::Clamp(RowDirection,-1,1));
+ int ViewW=1280,ViewH=720;
+ if (const APlayerController* PC=Cast<APlayerController>(Controller))
+  PC->GetViewportSize(ViewW,ViewH);
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (Layout.Valid)
+  TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+      TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
+ if (!bTalentWebOpen)return;
+ TalentWebBranch=(TalentWebBranch+(Direction>=0?1:2))%3;
+ TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
+ TalentWebFirstTier=1;
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentSpendSelected() {
+ if (!bTalentWebOpen || Health<=0.f || TalentWebSelected<0
+     || TalentWebSelected>=MoonfallTalents::NodeCount)return;
+ SpendTalentPoint(TalentWebSelected);
+ bTalentRespecArmed=false;
+}
+void AMoonfallHeroPawn::TalentConfirmRespec() {
+ if (!bTalentWebOpen || !GetWorld() || Health<=0.f)return;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now))return;
+ if (bTalentRespecArmed && Now<=TalentRespecArmUntil) {
+  RespecTalentPoints();
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
+ } else {
+  bTalentRespecArmed=true;
+  TalentRespecArmUntil=Now+3.0f;
+ }
+}
+void AMoonfallHeroPawn::TalentPointerClick() {
+ if (!bTalentWebOpen)return;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor)return;
+ int ViewW=0,ViewH=0;
+ float X=0.f,Y=0.f;
+ PC->GetViewportSize(ViewW,ViewH);
+ if (!PC->GetMousePosition(X,Y) || !FMath::IsFinite(X) || !FMath::IsFinite(Y))return;
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (!Layout.Valid)return;
+ if (MoonfallTalentWeb::CloseRect(Layout).Hit(X,Y)) { ToggleTalentWeb();return; }
+ for(int B=0;B<3;++B)
+  if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y)) {
+   TalentWebBranch=B;
+   TalentWebSelected=MoonfallTalentWeb::Root(B);
+   TalentWebFirstTier=1;
+   bTalentRespecArmed=false;
+   return;
+  }
+ if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
+ if (MoonfallTalentWeb::RespecRect(Layout).Hit(X,Y)) {TalentConfirmRespec();return;}
+ const int Hit=MoonfallTalentWeb::HitNode(Layout,TalentWebBranch,X,Y);
+ if (Hit>=0) {
+  TalentWebSelected=Hit;
+  bTalentRespecArmed=false;
+ }
+}
+
+void AMoonfallHeroPawn::TalentNextBranch() { TalentChangeBranch(1); }
+void AMoonfallHeroPawn::TalentPreviousBranch() { TalentChangeBranch(-1); }
+void AMoonfallHeroPawn::TalentCloseWeb() { if (bTalentWebOpen) ToggleTalentWeb(); }
+
+int32 AMoonfallHeroPawn::GetAvailableTalentPoints() const {
+ MoonfallTalents::Snapshot Snapshot;
+ return MoonfallTalents::Evaluate(Level, TalentRanks, Snapshot) == MoonfallTalents::Result::Ok
+     ? Snapshot.Available : 0;
+}
+
+int32 AMoonfallHeroPawn::GetTalentRank(int32 NodeIndex) const {
+ if (NodeIndex < 0 || NodeIndex >= MoonfallTalents::NodeCount) return 0;
+ return TalentRanks[NodeIndex];
+}
+
+bool AMoonfallHeroPawn::CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate) {
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
+ MoonfallTalents::Snapshot Before, After;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, Before) != MoonfallTalents::Result::Ok
+     || MoonfallTalents::Evaluate(Level, Candidate, After) != MoonfallTalents::Result::Ok)
+  return false;
+ const MoonfallTalents::Resources PreviousResources{
+     MaxHealth, Health, MaxMana, Mana, MaxStamina, Stamina};
+ MoonfallTalents::Resources UpdatedResources = PreviousResources;
+ if (!MoonfallTalents::ApplyResourceDelta(UpdatedResources, Before, After)) return false;
+ const MoonfallTalents::Ranks PreviousRanks = TalentRanks;
+ TalentRanks = Candidate;
+ MaxHealth = static_cast<float>(UpdatedResources.MaxHealth);
+ Health = static_cast<float>(UpdatedResources.Health);
+ MaxMana = static_cast<float>(UpdatedResources.MaxMana);
+ Mana = static_cast<float>(UpdatedResources.Mana);
+ MaxStamina = static_cast<float>(UpdatedResources.MaxStamina);
+ Stamina = static_cast<float>(UpdatedResources.Stamina);
+ // No points or resource changes survive a failed synchronous save.
+ if (!SaveWorldProgress()) {
+  TalentRanks = PreviousRanks;
+  MaxHealth = static_cast<float>(PreviousResources.MaxHealth);
+  Health = static_cast<float>(PreviousResources.Health);
+  MaxMana = static_cast<float>(PreviousResources.MaxMana);
+  Mana = static_cast<float>(PreviousResources.Mana);
+  MaxStamina = static_cast<float>(PreviousResources.MaxStamina);
+  Stamina = static_cast<float>(PreviousResources.Stamina);
+  return false;
+ }
+ OnHealthChanged(Health, MaxHealth);
+ return true;
+}
+
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 NodeIndex) {
+ MoonfallTalents::Ranks Candidate = TalentRanks;
+ if (MoonfallTalents::Spend(Level, Candidate, NodeIndex) != MoonfallTalents::Result::Ok)
+  return false;
+ return CommitTalentAllocation(Candidate);
+}
+
+bool AMoonfallHeroPawn::RespecTalentPoints() {
+ MoonfallTalents::Ranks Candidate = TalentRanks;
+ if (MoonfallTalents::Respec(Level, Candidate) != MoonfallTalents::Result::Ok)
+  return false;
+ return CommitTalentAllocation(Candidate);
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
@@ -3131,6 +3355,15 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Prevent saving a rank ledger that this exact V13 loader would reject.
+ MoonfallTalents::Snapshot ValidTalentSnapshot;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot) != MoonfallTalents::Result::Ok) return false;
+ // The save stores permanent health capacity only. Talent capacity is
+ // restored from validated ranks and must never stack across reloads.
+ const double BaseHealthCap = static_cast<double>(MaxHealth)
+     - ValidTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Health)];
+ if (!std::isfinite(BaseHealthCap) || BaseHealthCap < 1.0 || BaseHealthCap > 100000.0)
+  return false;
  // Existing saves have no V12 fog grid; initialize it without erasing other data.
  if (ExploredZoneFogMasks.IsEmpty()) ExploredZoneFogMasks.Init(0, 6);
  if (ExploredZoneFogMasks.Num() != 6) return false;
@@ -3238,9 +3471,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->RacePowerReadyUtc = Cooldown > 0.f
      ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
  Save->Level = FMath::Clamp(Level, 1, 100);
+ Save->TalentRanks.Reserve(MoonfallTalents::NodeCount);
+ for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
- Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
+ Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->EquippedWeaponCode = EquippedWeaponCode;
@@ -3254,12 +3489,31 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 12) {
+ if (!Save || Save->Version < 1 || Save->Version > 13) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // Validate the entire V13 ledger BEFORE any teleport or mutation. Old saves
+ // intentionally start with zero unspent ranks and remain compatible.
+ MoonfallTalents::Ranks LoadedTalentRanks{};
+ MoonfallTalents::Snapshot LoadedTalentSnapshot;
+ if (Save->Version >= 13) {
+  if (Save->TalentRanks.Num() != MoonfallTalents::NodeCount) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall V13 talent ranks count invalid; original save protected."));
+   return false;
+  }
+  for (int32 Index = 0; Index < MoonfallTalents::NodeCount; ++Index)
+   LoadedTalentRanks[Index] = Save->TalentRanks[Index];
+  if (MoonfallTalents::Evaluate(Save->Level, LoadedTalentRanks, LoadedTalentSnapshot)
+      != MoonfallTalents::Result::Ok) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall talent allocation invalid; original save protected."));
+   return false;
+  }
  }
  // Fail closed on oversized legacy or V7 collections. Simply scanning the
  // first 10,000 inventory entries (or skipping a large quest-state map)
@@ -3423,6 +3677,39 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    }
   }
  }
+ // Validate projected HP/mana/stamina caps before teleporting. Current live
+ // caps may already contain an older allocation when a save is reloaded;
+ // subtract it first so talents cannot stack with repeated loads.
+ MoonfallTalents::Snapshot PreviousTalentSnapshot;
+ if (MoonfallTalents::Evaluate(Level, TalentRanks, PreviousTalentSnapshot)
+     != MoonfallTalents::Result::Ok) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
+ if (Save->Version >= 13 && (!FMath::IsFinite(Save->MaxHealth)
+     || Save->MaxHealth < 1.f || Save->MaxHealth > 100000.f)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
+ const double SavedBaseHealth = FMath::IsFinite(Save->MaxHealth)
+     ? FMath::Clamp(static_cast<double>(Save->MaxHealth),1.0,100000.0) : 100.0;
+ const double LoadedHealthCap = SavedBaseHealth
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Health)];
+ const double LoadedManaCap = static_cast<double>(MaxMana)
+     - PreviousTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Mana)]
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Mana)];
+ const double LoadedStaminaCap = static_cast<double>(MaxStamina)
+     - PreviousTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Stamina)]
+     + LoadedTalentSnapshot.Flat[static_cast<int>(MoonfallTalents::Stat::Stamina)];
+ if (!std::isfinite(LoadedHealthCap) || !std::isfinite(LoadedManaCap)
+     || !std::isfinite(LoadedStaminaCap) || LoadedHealthCap < 1.0
+     || LoadedManaCap <= 0.0 || LoadedStaminaCap <= 0.0
+     || LoadedHealthCap > 100000.0 || LoadedManaCap > 100000.0
+     || LoadedStaminaCap > 100000.0) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall talent resource caps are invalid; original save protected."));
+  return false;
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -3516,11 +3803,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
  bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
+ TalentRanks = LoadedTalentRanks;
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
- MaxHealth = FMath::IsFinite(Save->MaxHealth)
-     ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
+ MaxHealth = static_cast<float>(LoadedHealthCap);
+ MaxMana = static_cast<float>(LoadedManaCap);
+ MaxStamina = static_cast<float>(LoadedStaminaCap);
  InventoryItemCodes.Reset();
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
@@ -3686,6 +3975,7 @@ float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
  return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
 }
 bool AMoonfallHeroPawn::ActivateRacePower() {
+ if (bTalentWebOpen) return false;
  if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
@@ -3809,6 +4099,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
+ if (bTalentWebOpen) { TalentMove(0,-1); return; }
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
@@ -3824,7 +4115,11 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  // D-pad Up opens the constellation when no resident can be interacted with.
+  ToggleTalentWeb();
+  return;
+ }
  // A conversation must cancel any queued swing before taking input.
  SwordBuffer.Clear();
  FocusedResident = Resident;
@@ -3838,6 +4133,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bTalentWebOpen) return;
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
  if (bInventoryOpen) {
@@ -3901,6 +4197,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (bTalentWebOpen) { TalentPointerClick(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.
  if (bAtlasOpen) {
   if (APlayerController* PC = Cast<APlayerController>(Controller)) {

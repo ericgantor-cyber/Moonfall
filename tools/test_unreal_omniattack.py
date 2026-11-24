@@ -232,7 +232,7 @@ int main() {
         for method in (spell, weapon):
             self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', method)
         self.assertIn("RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);", hero)
-        self.assertIn("UPROPERTY() int32 Version = 12;", save_header)
+        self.assertIn("UPROPERTY() int32 Version = 13;", save_header)
         self.assertNotIn("RightHandSpellReadied", save_header)
 
     def test_active_hand_hud_disambiguates_heal_and_sword(self):

@@ -1,4 +1,5 @@
 #include "MoonfallCombatHUD.h"
+#include "MoonfallTalentWeb.h"
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallChronicle.h"
@@ -24,6 +25,137 @@ void AMoonfallCombatHUD::DrawHUD()
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
+ if (Hero->bTalentWebOpen) {
+  // Original 141-node classless tree. Shared, deterministic layout is used
+  // by mouse and keyboard/controller input; nothing pauses the live world.
+  const auto P=MoonfallTalentWeb::ForViewport(Canvas->SizeX,Canvas->SizeY,
+      Hero->TalentWebFirstTier);
+  if (!P.Valid) {
+   DrawText(TEXT("TALENTS | Enlarge window | K / ESC: close"),
+       FLinearColor(0.90f,0.83f,0.70f),12.f,14.f,nullptr,0.8f);
+   return;
+  }
+  const float L=float(P.Panel.X),T=float(P.Panel.Y),W=float(P.Panel.W),H=float(P.Panel.H);
+  const int Branch=FMath::Clamp(Hero->TalentWebBranch,0,2);
+  const int Points=Hero->GetAvailableTalentPoints();
+  const bool FullRanks=true; // fixed-size rank ledger validated by save loader
+  DrawRect(FLinearColor(0.035f,0.032f,0.065f,0.97f),L,T,W,H);
+  DrawRect(FLinearColor(0.53f,0.34f,0.74f,1.f),L,T,W,5.f);
+  DrawText(TEXT("MOONFALL | CONSTELLATION WEB"),
+      FLinearColor(0.95f,0.86f,0.99f),L+20.f,T+14.f,nullptr,
+      Canvas->SizeX<850.f ? 0.92f : 1.20f);
+  DrawText(FString::Printf(TEXT("LEVEL %d  |  TALENT POINTS: %d"),
+      Hero->Level,Points),FLinearColor(0.88f,0.85f,0.71f),
+      L+20.f,T+87.f,nullptr,0.82f);
+  const auto Close=MoonfallTalentWeb::CloseRect(P);
+  DrawRect(FLinearColor(0.36f,0.17f,0.23f,0.95f),
+      float(Close.X),float(Close.Y),float(Close.W),float(Close.H));
+  DrawText(TEXT("X"),FLinearColor::White,float(Close.X+9),float(Close.Y+5),nullptr,0.84f);
+  static const TCHAR* BranchNames[3]={TEXT("MIGHT"),TEXT("AGILITY"),TEXT("ARCANA")};
+  static const FLinearColor BranchColors[3]={
+    FLinearColor(0.83f,0.38f,0.38f),FLinearColor(0.38f,0.74f,0.60f),
+    FLinearColor(0.63f,0.44f,0.91f)};
+  for(int B=0;B<3;++B) {
+   const auto Tab=MoonfallTalentWeb::BranchTab(P,B);
+   DrawRect(B==Branch?BranchColors[B]:FLinearColor(0.13f,0.12f,0.19f,0.94f),
+      float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));
+   DrawText(FString(BranchNames[B]),B==Branch?FLinearColor::Black:FLinearColor::White,
+       float(Tab.X+13.f),float(Tab.Y+6.f),nullptr,0.86f);
+  }
+  for(int Col=0;Col<P.VisibleTiers;++Col) {
+   DrawText(FString::Printf(TEXT("TIER %d"),P.FirstTier+Col),
+       FLinearColor(0.65f,0.63f,0.76f),
+       float(L+22.0+Col*(P.TileWidth+12.0)),T+108.f,nullptr,0.67f);
+  }
+  // Draw dependency connections beneath the nodes. Off-screen predecessors
+  // remain locked by the canonical prerequisite rule; no phantom edges.
+  for(int I=0;I<MoonfallTalents::NodeCount;++I) {
+   if(MoonfallTalentWeb::BranchOf(I)!=Branch)continue;
+   const auto Dest=MoonfallTalentWeb::NodeRect(P,I,Branch);
+   if(Dest.W<=0)continue;
+   const auto& N=MoonfallTalents::Nodes[I];
+   const int Parents[2]={N.RequiresA,N.RequiresB};
+   for(const int Parent:Parents) {
+    const auto Source=MoonfallTalentWeb::NodeRect(P,Parent,Branch);
+    if(Source.W<=0)continue;
+    DrawLine(float(Source.X+Source.W),float(Source.Y+Source.H/2),
+        float(Dest.X),float(Dest.Y+Dest.H/2),
+        FLinearColor(0.53f,0.43f,0.68f,0.72f),1.4f);
+   }
+  }
+  for(int I=0;I<MoonfallTalents::NodeCount;++I) {
+   if(MoonfallTalentWeb::BranchOf(I)!=Branch)continue;
+   const auto NodeRect=MoonfallTalentWeb::NodeRect(P,I,Branch);
+   if(NodeRect.W<=0)continue;
+   const auto& Node=MoonfallTalents::Nodes[I];
+   const int Rank=FullRanks?Hero->GetTalentRank(I):0;
+   const bool LevelOK=Hero->Level>=Node.MinLevel;
+   const bool ParentsOK=(Node.RequiresA<0 || (FullRanks && Hero->GetTalentRank(Node.RequiresA)>0))
+     && (Node.RequiresB<0 || (FullRanks && Hero->GetTalentRank(Node.RequiresB)>0));
+   const bool CanBuy=LevelOK && ParentsOK && Rank<Node.MaxRank && Points>0;
+   const bool Selected=Hero->TalentWebSelected==I;
+   const FLinearColor Fill=Selected?FLinearColor(0.42f,0.31f,0.64f,0.97f)
+     : Rank>0?FLinearColor(0.17f,0.32f,0.27f,0.97f)
+     : CanBuy?FLinearColor(0.19f,0.19f,0.31f,0.96f)
+     : FLinearColor(0.095f,0.095f,0.125f,0.95f);
+   DrawRect(Fill,float(NodeRect.X),float(NodeRect.Y),
+      float(NodeRect.W),float(NodeRect.H));
+   DrawRect(Selected?FLinearColor(0.96f,0.79f,0.40f):BranchColors[Branch],
+      float(NodeRect.X),float(NodeRect.Y),4.f,float(NodeRect.H));
+   const FString Name=FString(UTF8_TO_TCHAR(Node.Title)).Left(P.TileWidth<148?16:22);
+   DrawText(Name,Selected?FLinearColor::White:FLinearColor(0.87f,0.86f,0.89f),
+      float(NodeRect.X+9),float(NodeRect.Y+5),nullptr,
+      P.TileWidth<148?0.65f:0.77f);
+   DrawText(FString::Printf(TEXT("%d/%d | LV %d"),Rank,Node.MaxRank,Node.MinLevel),
+      FLinearColor(0.72f,0.71f,0.79f),float(NodeRect.X+9),
+      float(NodeRect.Y+NodeRect.H-20),nullptr,0.65f);
+  }
+  const int Chosen=FMath::Clamp(Hero->TalentWebSelected,0,MoonfallTalents::NodeCount-1);
+  const auto& Selected=MoonfallTalents::Nodes[Chosen];
+  const int CurrentRank=FullRanks?Hero->GetTalentRank(Chosen):0;
+  // Always describe the selected effect before spending points. The stat
+  // names come from the canonical 141-node catalog, never weapon artwork.
+  const TCHAR* EffectName=TEXT("HEALTH");
+  switch (Selected.AffectedStat) {
+   case MoonfallTalents::Stat::Health: EffectName=TEXT("HEALTH"); break;
+   case MoonfallTalents::Stat::Mana: EffectName=TEXT("MANA"); break;
+   case MoonfallTalents::Stat::Stamina: EffectName=TEXT("STAMINA"); break;
+   case MoonfallTalents::Stat::MeleeDamage: EffectName=TEXT("MELEE DAMAGE"); break;
+   case MoonfallTalents::Stat::RangedDamage: EffectName=TEXT("RANGED DAMAGE"); break;
+   case MoonfallTalents::Stat::MagicDamage: EffectName=TEXT("MAGIC DAMAGE"); break;
+   default: break;
+  }
+  const double DisplayPerRank=Selected.AmountPerRank*(Selected.IsPercent?100.0:1.0);
+  const FString Detail=Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage
+     ? FString::Printf(TEXT("%s  |  MELEE DAMAGE +%.1f%%/RANK  |  RANK %d/%d"),
+         UTF8_TO_TCHAR(Selected.Title),DisplayPerRank,CurrentRank,Selected.MaxRank)
+     : FString::Printf(TEXT("%s  |  %s +%.1f%s/RANK  |  RANK %d/%d  |  LV %d"),
+         UTF8_TO_TCHAR(Selected.Title),EffectName,DisplayPerRank,
+         Selected.IsPercent?TEXT("%"):TEXT(""),CurrentRank,Selected.MaxRank,
+         Selected.MinLevel);
+  DrawText(Detail,FLinearColor(0.91f,0.83f,0.63f),
+     L+20.f,T+H-117.f,nullptr,0.79f);
+  DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
+     FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
+     W<760.f?0.54f:0.69f);
+  DrawText(TEXT("K/ESC: close   Enter/A: spend   Backspace/LT twice: reset"),
+     FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-69.f,nullptr,
+     W<760.f?0.54f:0.69f);
+  const auto Spend=MoonfallTalentWeb::SpendRect(P);
+  const auto Respec=MoonfallTalentWeb::RespecRect(P);
+  DrawRect(FLinearColor(0.16f,0.36f,0.27f,0.98f),
+      float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
+  DrawText(TEXT("SPEND POINT"),FLinearColor::White,
+      float(Spend.X+15),float(Spend.Y+6),nullptr,0.75f);
+  const bool Arm=Hero->bTalentRespecArmed && Hero->GetWorld()
+       && Hero->GetWorld()->GetTimeSeconds()<=Hero->TalentRespecArmUntil;
+  DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
+      :FLinearColor(0.28f,0.18f,0.26f,0.96f),
+      float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
+  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET ALL"),
+      FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
+  return;
+ }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
