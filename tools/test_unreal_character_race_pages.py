@@ -24,8 +24,9 @@ names = re.findall(r'\{TEXT\("([^"]+)"\),\s*\d+,\s*\d+,\s*\d+,\s*[0-9.]+f,\s*[0-
 assert names == ["Human", "High Elf", "Wood Elf", "Dwarf", "Halfling",
                  "Orc", "Goblin", "Troll", "Entkin", "Shadowborn",
                  "Moonborn", "Draconid"], names
-power_names = section(hero, "const TCHAR* MoonfallRacePowerNames[] = {",
-                      "FString AMoonfallHeroPawn::GetRacePowerName()")
+power_names = hero.split("const TCHAR* MoonfallRacePowerNames[] = {", 1)[1].split(
+    "};", 1
+)[0]
 assert power_names.count('TEXT("') == 12
 descriptions = section(hero, "static const TCHAR* Descriptions[] = {",
                        "return FString(Descriptions[FMath::Clamp(RaceId,0,11)]);")
