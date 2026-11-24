@@ -68,6 +68,7 @@ public:
  bool ReviveLocalCompanion(AMoonfallHeroPawn* Hero);
  UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
  AMoonfallWorldNPC* GetLocalCompanion() const;
+ const AMoonfallWorldNPC* GetLocalCompanionForHero(const AMoonfallHeroPawn* Hero) const;
  // Internal hit-time support; does not attack enemies or grant immunity.
  float ConsumeLocalCompanionCover(AMoonfallHeroPawn* Hero,float Damage,const FVector& Source);
  void ReportCompanionThreat(AMoonfallHeroPawn* Hero,AMoonfallEnemy* Enemy,float Now);
