@@ -52,5 +52,15 @@ int main(){long n=0;
     &&std::isfinite(distance)&&distance>=0&&distance<=90000?std::fmin(damage*0.15f,12.f):0.f;
   assert(CompanionCover(damage,elapsed,distance,eligible)==expected);++n;
  }
+ for(double age:{-1.0,0.0,5.0,5.01,nan,inf})
+ for(double cooldown:{-1.0,0.0,7.99,8.0,60.0,nan,inf})
+ for(double scout:{-1.0,0.0,32400.0,32401.0,nan,inf})
+ for(double hero:{-1.0,0.0,122500.0,122501.0,nan,inf})
+ for(bool eligible:{false,true}){
+  const bool expected=eligible&&std::isfinite(age)&&age>=0&&age<=5
+    &&std::isfinite(cooldown)&&cooldown>=8&&std::isfinite(scout)&&scout>=0&&scout<=32400
+    &&std::isfinite(hero)&&hero>=0&&hero<=122500;
+  assert(CanCompanionStrike(age,cooldown,scout,hero,eligible)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
