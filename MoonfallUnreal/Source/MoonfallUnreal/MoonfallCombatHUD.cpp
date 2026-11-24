@@ -945,9 +945,9 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    }
-   DrawText(TEXT("Tab / D-pad Left/Right: stats / ancestry"),FLinearColor(0.69f,0.89f,0.75f),
+   DrawText(TEXT("C / D-pad Left/Right: stats / ancestry"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
-   DrawText(TEXT("C / A: back to inventory    P: spell book    B / I / Select / Esc: close"),
+   DrawText(TEXT("B / Esc: back to inventory    P: spell book    I / Select: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    DrawLiveMenuHitCue();
