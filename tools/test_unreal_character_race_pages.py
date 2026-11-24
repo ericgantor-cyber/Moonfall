@@ -103,6 +103,8 @@ assert 'TEXT("ANCESTRY & PASSIVES")' in hud
 # The WoW Forever-inspired UI groups live values; it must not replace them
 # with fake/static paper-doll combat values or alter character bindings.
 assert 'const float StatPanelWidth = PanelWidth - 30.f;' in hud
+assert 'if (RowY+RowHeight > Top+PanelHeight-65.f) break;' in hud
+assert 'if (RowY+RaceRowHeight > Top+PanelHeight-65.f) break;' in hud
 assert 'const bool bSection = Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16;' in hud
 assert 'const bool bSection = Row==0 || Row==2 || Row==5 || Row==7 || Row==10 || Row==12;' in hud
 assert 'Hero->GetCriticalChance() * 100.f' in hud
