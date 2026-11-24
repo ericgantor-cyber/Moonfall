@@ -1699,7 +1699,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
-  RecentCompanionAssistTarget.Reset();RecentCompanionAssistHitAt=-100.f;
   CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
@@ -1707,6 +1706,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
+  RecentCompanionAssistTarget.Reset();RecentCompanionAssistHitAt=-100.f;
   // Defeat also closes the 141-node constellation. Without this, its HUD
   // can cover defeat and lock movement after the next shrine respawn.
   bTalentWebOpen = false;
