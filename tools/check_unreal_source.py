@@ -1646,26 +1646,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
-    def test_batch_menus_cancel_enemy_windups_and_followups(self):
+    def test_batch_menus_keep_enemy_windups_and_followups_live(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu = tick.split("// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
-            "// A shatter follow-up expires", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
-        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
-        self.assertIn("CancelDivineSignature();", menu)
-        for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
-                       "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
+        guard = tick.split("// The hostile world stays live while any player menu is open:", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        for menu in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bCharacterStatsOpen", "bResidentContextOpen", "bTalentWebOpen",
+                     "FocusedResident.IsValid()"):
+            self.assertNotIn("Hero->" + menu, guard)
+        self.assertIn("!Hero->IsPlayerControlled()", guard)
+        self.assertIn("Hero->Health <= 0.f", guard)
+        for action in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
+                       "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
+                       "bComboSecondHitActive = false;",
                        "LockedAttackDirection = FVector::ZeroVector;"):
-            self.assertIn(action, menu)
-        self.assertIn("NextAttackAt = FMath::Max(", menu)
-        self.assertIn("Now + 0.35f", menu)
-        self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
-        self.assertLess(tick.index("// Pause hostile behavior during any gameplay modal, including Atlas, and"),
+            self.assertIn(action, guard)
+        self.assertIn("NextAttackAt = FMath::Max(", guard)
+        self.assertIn("Now + 0.35f", guard)
+        self.assertLess(guard.index("Hero->Health <= 0.f"), guard.index("return;"))
+        self.assertLess(tick.index("// The hostile world stays live while any player menu is open:"),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
         self.assertLess(tick.index("if (!IsValid(Hero) || !Hero->IsPlayerControlled())"),
-                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
+                        tick.index("Hero->Health <= 0.f"))
 
     def test_batch_guard_validates_timers_before_stance(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
@@ -6220,19 +6224,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('DrawText(TEXT("ME")', atlas)
 
 
-    def test_atlas_pause_is_gamewide_and_death_does_not_leave_modal_open(self):
+    def test_atlas_menu_blocks_player_but_not_enemy_attacks_and_death_closes_modal(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        enemy_modal = enemy_tick.split(
-            "// Pause hostile behavior during any gameplay modal, including Atlas, and", 1)[1].split(
+        enemy_guard = enemy_tick.split(
+            "// The hostile world stays live while any player menu is open:", 1)[1].split(
             "// A corrupt nonfinite windup", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", enemy_modal)
+        self.assertIn("!Hero->IsPlayerControlled()", enemy_guard)
+        self.assertIn("Hero->Health <= 0.f", enemy_guard)
+        for menu in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bCharacterStatsOpen", "bTalentWebOpen",
+                     "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertNotIn("Hero->" + menu, enemy_guard)
         for cancel in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
                        "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
                        "bComboSecondHitActive = false;", "NextAttackAt = FMath::Max("):
-            self.assertIn(cancel, enemy_modal)
-        self.assertLess(enemy_tick.index("Hero->bAtlasOpen"),
+            self.assertIn(cancel, enemy_guard)
+        self.assertLess(enemy_tick.index("Hero->Health <= 0.f"),
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
@@ -6249,7 +6258,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bAtlasHasActiveRespawnShrineLocation = false;", damage)
         self.assertLess(damage.index("bAtlasOpen = false;"),
                         damage.index("PC->bShowMouseCursor = false;"))
-        self.assertNotIn("SaveWorldProgress();", enemy_modal)
+        self.assertNotIn("SaveWorldProgress();", enemy_guard)
 
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         for entry, stop in (
