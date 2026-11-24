@@ -126,7 +126,7 @@ int main(){
         # Every requested region silhouette remains outside 900-unit lanes,
         # accounting for the largest 270-unit-wide landmark primitive.
         import re
-        pieces=re.findall(r'\\{(-?\\d+)\\.f,(-?\\d+)\\.f,([.\\d]+)f\\}',policy)
+        pieces=re.findall(r'\{(-?\d+)\.f,(-?\d+)\.f,([.\d]+)f\}',policy)
         self.assertEqual(len(pieces),8)
         for x,y,scale in pieces:
             x,y=int(x),int(y)
