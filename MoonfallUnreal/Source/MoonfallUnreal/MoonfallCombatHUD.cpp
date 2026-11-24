@@ -238,6 +238,72 @@ void AMoonfallCombatHUD::DrawHUD()
     break;
   }
  };
+ // Distinct original heraldry for the six ACTUAL regions in Atlas order:
+ // Ashen Wilds, Moonveil Forest, Hollow Depths, Iron Foundry,
+ // Frostbound Reach and Eclipse Wastes. Region IDs carry no hidden map data.
+ const auto DrawRegionEmblem = [this](float X,float Y,float R,int32 Region,
+                                      const FLinearColor& Color) {
+  if (!Canvas || Region<0 || Region>=6 || !FMath::IsFinite(X)
+      || !FMath::IsFinite(Y) || !FMath::IsFinite(R)
+      || R<5.f || R>24.f) return;
+  // Inner medallion frame has twelve bounded strokes and no animation.
+  constexpr int32 Edges=8;
+  for (int32 I=0;I<Edges;++I) {
+   const float A=2.f*PI*float(I)/float(Edges)-PI*0.5f;
+   const float B=2.f*PI*float(I+1)/float(Edges)-PI*0.5f;
+   Canvas->K2_DrawLine(FVector2D(X+FMath::Cos(A)*R,Y+FMath::Sin(A)*R),
+     FVector2D(X+FMath::Cos(B)*R,Y+FMath::Sin(B)*R),1.2f,Color);
+  }
+  const auto Stroke=[this,&Color](float X0,float Y0,float X1,float Y1) {
+   Canvas->K2_DrawLine(FVector2D(X0,Y0),FVector2D(X1,Y1),1.7f,Color);
+  };
+  const float P=R*0.72f;
+  switch (Region) {
+   case 0: // Ashen Wilds: five-point volcanic spire.
+    Stroke(X-P*0.85f,Y+P,X-P*0.30f,Y-P*0.25f);
+    Stroke(X-P*0.30f,Y-P*0.25f,X,Y+P*0.12f);
+    Stroke(X,Y+P*0.12f,X+P*0.28f,Y-P);
+    Stroke(X+P*0.28f,Y-P,X+P*0.84f,Y+P);
+    Stroke(X-P*0.85f,Y+P,X+P*0.84f,Y+P);
+    break;
+   case 1: // Moonveil Forest: ancient tree and twin boughs.
+    Stroke(X,Y+P,X,Y-P);
+    Stroke(X,Y-P*0.65f,X-P*0.74f,Y);
+    Stroke(X,Y-P*0.65f,X+P*0.74f,Y);
+    Stroke(X-P*0.74f,Y,X-P*0.45f,Y-P*0.57f);
+    Stroke(X+P*0.74f,Y,X+P*0.45f,Y-P*0.57f);
+    Stroke(X-P*0.42f,Y+P,X+P*0.42f,Y+P);
+    break;
+   case 2: // Hollow Depths: descending cavern strata.
+    Stroke(X-P,Y-P*0.47f,X,Y-P*0.08f);
+    Stroke(X,Y-P*0.08f,X+P,Y-P*0.47f);
+    Stroke(X-P,Y+P*0.04f,X,Y+P*0.42f);
+    Stroke(X,Y+P*0.42f,X+P,Y+P*0.04f);
+    Stroke(X-P*0.42f,Y+P*0.74f,X+P*0.42f,Y+P*0.74f);
+    break;
+   case 3: // Iron Foundry: toothed forge anvil.
+    Stroke(X-P,Y-P*0.47f,X+P,Y-P*0.47f);
+    Stroke(X-P,Y-P*0.47f,X-P*0.55f,Y+P*0.13f);
+    Stroke(X+P,Y-P*0.47f,X+P*0.54f,Y+P*0.13f);
+    Stroke(X-P*0.55f,Y+P*0.13f,X+P*0.54f,Y+P*0.13f);
+    Stroke(X,Y+P*0.13f,X,Y+P*0.85f);
+    Stroke(X-P*0.53f,Y+P*0.85f,X+P*0.53f,Y+P*0.85f);
+    break;
+   case 4: // Frostbound Reach: six-rayed glacial star.
+    for (int32 I=0;I<6;++I) {
+     const float A=PI*float(I)/3.f;
+     Stroke(X,Y,X+FMath::Cos(A)*P,Y+FMath::Sin(A)*P);
+    }
+    break;
+   default: // Eclipse Wastes: split moon over a horizon.
+    Stroke(X-P,Y+P*0.44f,X+P,Y+P*0.44f);
+    Stroke(X-P*0.76f,Y-P*0.44f,X,Y-P);
+    Stroke(X,Y-P,X+P*0.76f,Y-P*0.44f);
+    Stroke(X-P*0.76f,Y-P*0.44f,X-P*0.25f,Y+P*0.20f);
+    Stroke(X+P*0.76f,Y-P*0.44f,X+P*0.25f,Y+P*0.20f);
+    break;
+  }
+ };
  // High-contrast rail marks the focused choice independently of text color.
  const auto DrawSelectionRail = [this](float L,float T,float H) {
   if (!FMath::IsFinite(L)||!FMath::IsFinite(T)||!FMath::IsFinite(H)
