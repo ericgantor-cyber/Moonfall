@@ -146,7 +146,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawMoonfallSigil(Left+PanelWidth-23.f,Top+PanelHeight-23.f",  # bag
             "DrawMoonfallSigil(Book.Left+Book.Width-26.f",  # book
             "DrawMoonfallSigil(float(Tab.X+Tab.W-13)",  # talents
-            "DrawMoonfallSigil(Left+PanelWidth-30.f,Y+13.f",  # reputation
+            "DrawFactionCrest(Left+PanelWidth-30.f,Y+13.f",  # actual faction art
             "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # real gear icons
             "DrawMoonfallSigil(X+Width-13.f,Y+40.f",  # boss
             "DrawRegionEmblem(Left+Width-16.f,Top+109.f",  # quest current region
@@ -275,6 +275,49 @@ class TestNativeModalPanels(unittest.TestCase):
             self.assertIn(name, body)
         self.assertNotIn("<script", body)
         self.assertNotIn("<image", body)
+
+    def test_five_distinct_real_faction_crests_and_npc_fallback(self):
+        crest = HUD.split("const auto DrawFactionCrest = [this]", 1)[1].split(
+            "const auto DrawSelectionRail = [this]", 1
+        )[0]
+        for token in ("Faction<0 || Faction>=5", "R<5.f || R>21.f",
+                      "FMath::IsFinite(X)", "FMath::IsFinite(Y)",
+                      "switch(Faction)", "default: // Ashen Clans"):
+            self.assertIn(token, crest)
+        for n in range(4):
+            self.assertIn(f"case {n}:", crest)
+        self.assertEqual(HUD.count("const auto DrawFactionCrest = [this]"), 1)
+        for token in (
+            "DrawFactionCrest(Left+PanelWidth-30.f,Y+13.f,9.f,FactionIndex,StandingColor);",
+            "Resident->FactionId == FName(TEXT(\"Wanderers\"))",
+            "Resident->FactionId == FName(TEXT(\"VerdantCircle\"))",
+            "Resident->FactionId == FName(TEXT(\"StoneHearth\"))",
+            "Resident->FactionId == FName(TEXT(\"MoonCoven\"))",
+            "Resident->FactionId == FName(TEXT(\"AshenClans\"))",
+            "if (ResidentFactionArt!=INDEX_NONE)",
+            "DrawFactionCrest(L+W-67.f,T+75.f,10.f,ResidentFactionArt,",
+            "else DrawMoonfallSigil(L+W-67.f,T+75.f,10.f,",
+        ):
+            self.assertIn(token, HUD)
+        for forbidden in ("ChangeFactionReputation", "SaveWorldProgress",
+                          "GetAllActorsOfClass", "TActorIterator",
+                          "BindAction(", "EquipInventoryItem("):
+            self.assertNotIn(forbidden, crest)
+
+    def test_original_editable_five_faction_vector_sheet(self):
+        asset = ROOT / "MoonfallUnreal/Art/UI/moonfall_five_faction_crests.svg"
+        self.assertTrue(asset.is_file())
+        svg = ET.parse(asset).getroot()
+        self.assertEqual(svg.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(svg.attrib.get("viewBox"), "0 0 1070 230")
+        ns = "{http://www.w3.org/2000/svg}"
+        self.assertEqual(len([e for e in svg if e.tag == ns+"g"]), 5)
+        content = asset.read_text(encoding="utf-8")
+        for name in ("WANDERERS", "VERDANT CIRCLE", "STONE HEARTH",
+                     "MOON COVEN", "ASHEN CLANS"):
+            self.assertIn(name, content)
+        self.assertNotIn("<script", content)
+        self.assertNotIn("<image", content)
 
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
