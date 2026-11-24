@@ -844,22 +844,24 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
-   DrawText(Hero->bCharacterGearPageOpen ? TEXT("MOONFALL  |  EQUIPMENT")
+   DrawText(Hero->bCharacterRepPageOpen ? TEXT("MOONFALL  |  REPUTATION")
+     : Hero->bCharacterGearPageOpen ? TEXT("MOONFALL  |  EQUIPMENT")
      : Hero->bCharacterRacePageOpen ? TEXT("MOONFALL  |  ANCESTRY")
      : TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
      Left + 18.f, Top + 17.f, nullptr, 1.35f);
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   // Three independent tabs. Keep bounds identical to the character pointer handler.
-   const float PageTabWidth = (PanelWidth - 60.f) / 3.f;
+   // Four independent tabs. Keep bounds identical to the character pointer handler.
+   const float PageTabWidth = (PanelWidth - 68.f) / 4.f;
    const float PageTabLeft = Left + 18.f;
    const float PageTabTop = Top + 77.f;
-   const int32 ActivePage = Hero->bCharacterGearPageOpen ? 2
+   const int32 ActivePage = Hero->bCharacterRepPageOpen ? 3
+      : Hero->bCharacterGearPageOpen ? 2
       : (Hero->bCharacterRacePageOpen ? 1 : 0);
-   const TCHAR* TabLabels[] = {TEXT("ATTRIBUTES"), TEXT("ANCESTRY & PASSIVES"), TEXT("EQUIPMENT")};
-   const TCHAR* CompactTabLabels[] = {TEXT("STATS"), TEXT("ANCESTRY"), TEXT("GEAR")};
-   for (int32 Tab = 0; Tab < 3; ++Tab) {
+   const TCHAR* TabLabels[] = {TEXT("ATTRIBUTES"), TEXT("ANCESTRY & PASSIVES"), TEXT("EQUIPMENT"), TEXT("REPUTATION")};
+   const TCHAR* CompactTabLabels[] = {TEXT("STATS"), TEXT("RACE"), TEXT("GEAR"), TEXT("REP")};
+   for (int32 Tab = 0; Tab < 4; ++Tab) {
     const float TabX = PageTabLeft + Tab * (PageTabWidth + 8.f);
     const bool bSelected = Tab == ActivePage;
     DrawRect(bSelected
@@ -872,7 +874,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(PanelWidth < 480.f ? CompactTabLabels[Tab] : TabLabels[Tab],
       bSelected ? FLinearColor(1.f,0.89f,0.64f) : FLinearColor(0.85f,0.89f,0.95f),
       TabX+6.f,PageTabTop+7.f,nullptr,
-      PanelWidth<480.f ? 0.61f : (Tab==1 ? 0.64f : 0.79f));
+      PanelWidth<480.f ? 0.61f : (Tab==1 ? 0.51f : 0.70f));
    }
    const float RowHeight = FMath::Clamp((PanelHeight - 178.f) / 18.f, 7.f, 26.f);
    const float StartY = Top + 123.f;
@@ -1026,6 +1028,70 @@ void AMoonfallCombatHUD::DrawHUD()
         (PanelWidth-42.f)*Fraction,9.f);
      }
     }
+   } else if (Hero->bCharacterRepPageOpen) {
+    // Saved faction standing. Read-only, constant work: five authored factions.
+    // Match the rank thresholds used by MoonfallWorldNPC::GetSocialDisposition.
+    const FName FactionIds[] = {
+      FName(TEXT("Wanderers")),FName(TEXT("VerdantCircle")),
+      FName(TEXT("StoneHearth")),FName(TEXT("MoonCoven")),
+      FName(TEXT("AshenClans"))
+    };
+    const TCHAR* FactionNames[] = {
+      TEXT("Wanderers"),TEXT("Verdant Circle"),TEXT("Stone Hearth"),
+      TEXT("Moon Coven"),TEXT("Ashen Clans")
+    };
+    const float ReputationRowHeight = FMath::Clamp(
+      (PanelHeight - 205.f) / 5.f,16.f,90.f);
+    for (int32 FactionIndex=0;FactionIndex<5;++FactionIndex) {
+      const float Y=StartY+FactionIndex*ReputationRowHeight;
+      if (Y+ReputationRowHeight>Top+PanelHeight-66.f) break;
+      const int32 Score=Hero->GetFactionReputation(FactionIds[FactionIndex]);
+      const TCHAR* Standing=Score<=-50 ? TEXT("HOSTILE")
+        : Score<=-15 ? TEXT("WARY")
+        : Score>=50 ? TEXT("TRUSTED")
+        : Score>=15 ? TEXT("FRIENDLY") : TEXT("NEUTRAL");
+      const FLinearColor StandingColor=Score<=-50
+        ? FLinearColor(0.99f,0.40f,0.39f)
+        : Score<=-15 ? FLinearColor(0.98f,0.70f,0.38f)
+        : Score>=50 ? FLinearColor(0.99f,0.85f,0.42f)
+        : Score>=15 ? FLinearColor(0.45f,0.92f,0.59f)
+        : FLinearColor(0.76f,0.82f,0.90f);
+      DrawRect(FactionIndex%2==0
+        ? FLinearColor(0.08f,0.11f,0.16f,0.95f)
+        : FLinearColor(0.11f,0.13f,0.19f,0.95f),
+        Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);
+      DrawRect(StandingColor,Left+15.f,Y,4.f,ReputationRowHeight-3.f);
+      DrawText(FString::Printf(TEXT("%s  |  %s  |  %+d"),
+        FactionNames[FactionIndex],Standing,Score),StandingColor,
+        Left+25.f,Y+5.f,nullptr,PanelWidth<440.f?0.58f:0.84f);
+      if (ReputationRowHeight>=42.f) {
+        const int32 Next=Score < -49 ? -49
+          : Score < -14 ? -14 : Score < 15 ? 15
+          : Score < 50 ? 50 : 100;
+        const TCHAR* NextRank=Score < -49 ? TEXT("WARY")
+          : Score < -14 ? TEXT("NEUTRAL") : Score < 15 ? TEXT("FRIENDLY")
+          : Score < 50 ? TEXT("TRUSTED") : TEXT("MAX");
+        const FString Progress=Score>=100 ? TEXT("MAXIMUM STANDING")
+          : FString::Printf(TEXT("%d TO %s"),Next-Score,NextRank);
+        DrawText(Progress,FLinearColor(0.76f,0.81f,0.88f),
+          Left+25.f,Y+24.f,nullptr,PanelWidth<440.f?0.51f:0.68f);
+        // Zero is a neutral midpoint, not a blank bar; the full scale is -100..100.
+        const float Fraction=FMath::Clamp((Score+100.f)/200.f,0.f,1.f);
+        const float BarX=Left+25.f;
+        const float BarWidth=PanelWidth-50.f;
+        const float BarY=Y+ReputationRowHeight-13.f;
+        DrawRect(FLinearColor(0.16f,0.19f,0.25f,1.f),
+          BarX,BarY,BarWidth,7.f);
+        DrawRect(StandingColor,BarX,BarY,BarWidth*Fraction,7.f);
+        DrawRect(FLinearColor(0.80f,0.82f,0.85f,0.86f),
+          BarX+BarWidth*0.5f,BarY-2.f,2.f,11.f);
+      }
+    }
+    if (PanelHeight>=620.f) {
+      DrawText(TEXT("NPC attitudes use these saved standings. Hostile factions can refuse quests."),
+        FLinearColor(0.82f,0.86f,0.95f),Left+21.f,
+        Top+PanelHeight-86.f,nullptr,PanelWidth<480.f?0.54f:0.75f);
+    }
    } else {
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
@@ -1086,7 +1152,7 @@ void AMoonfallCombatHUD::DrawHUD()
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    }
    }
-   DrawText(TEXT("C / D-pad Left/Right: stats / ancestry / gear"),FLinearColor(0.69f,0.89f,0.75f),
+   DrawText(TEXT("C / D-pad Left/Right: stats / ancestry / gear / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
    DrawText(TEXT("Esc: back to inventory    B / I / Select: close    P: spell book"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
