@@ -288,6 +288,25 @@ int main(){
         self.assertNotIn("MoonfallWorldSlot",session)
         self.assertNotIn("SetTimer",session)
 
+    def test_v27_emotional_state_preserves_quest_and_dialogue_authority(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        header=(SRC/"MoonfallWorldNPC.h").read_text()
+        mood=npc.split("EMoonfallNpcMood AMoonfallWorldNPC::GetEmotionalState(",1)[1].split(
+            "bool AMoonfallWorldNPC::TryTalk(",1)[0]
+        self.assertIn("MoonfallWorldPolicy::ResolveMood",mood)
+        self.assertIn("GetNearbyCombatReport",mood)
+        self.assertIn("Now-LastDangerAt<85.f",mood)
+        self.assertIn("GetBondWithHero(Hero)",mood)
+        self.assertIn("GetFactionReputation(FactionId)",mood)
+        self.assertIn("EMoonfallNpcMood LastConversationMood",header)
+        talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
+            "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
+        self.assertLess(talk.index("CanHeroInteract(Hero)"),talk.index("LastConversationMood=GetEmotionalState"))
+        self.assertLess(talk.index("LastConversationMood==EMoonfallNpcMood::Warm"),talk.index("SupportsResidentContract"))
+        self.assertLess(talk.index("LastConversationMood=GetEmotionalState"),talk.index("OnDialogueStarted"))
+        self.assertNotIn("ChangeResidentBond(",mood)
+        self.assertNotIn("WitnessNearbyDanger(",mood)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
