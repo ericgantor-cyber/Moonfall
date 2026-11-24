@@ -48,9 +48,13 @@ void AMoonfallCombatHUD::DrawHUD()
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
      L + 18.f, T + 53.f, nullptr, 0.90f);
+   // Story-only, designer-placed residents must not advertise an unfinishable
+   // quest. Firstlight and Crossroads known IDs keep their saveable contracts.
+   const bool bNoContract = Resident->bAmbientVisitor ||
+       !Hero->SupportsResidentContract(Resident->ResidentId);
    const int32 Quest = Resident->bAmbientVisitor ? 2
-       : Hero->GetResidentQuestState(Resident->ResidentId);
-   const FString QuestAction = Resident->bAmbientVisitor ? TEXT("No contract")
+       : bNoContract ? 2 : Hero->GetResidentQuestState(Resident->ResidentId);
+   const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
    const FString Names[3] = { TEXT("Talk"),
@@ -74,7 +78,7 @@ void AMoonfallCombatHUD::DrawHUD()
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
-   const FString ContractStatus = Resident->bAmbientVisitor ? TEXT("None")
+   const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
      : Quest == 1 ? TEXT("Active") : TEXT("Completed");
    DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
@@ -82,6 +86,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
    DrawText(Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
+       : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
            Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);

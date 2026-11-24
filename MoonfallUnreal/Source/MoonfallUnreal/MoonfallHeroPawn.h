@@ -87,6 +87,9 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
+ // Read-only quest eligibility shared by dialogue and Canvas/Blueprint UI.
+ // Unknown designer-spawned residents can talk but cannot create unsaveable quests.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") bool SupportsResidentContract(FName ResidentId) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
