@@ -69,6 +69,13 @@ void AMoonfallUnrealGameMode::RegisterLivingResident(AMoonfallWorldNPC* Resident
 }
 
 AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanion() const { return LocalCompanion.Get(); }
+const AMoonfallWorldNPC* AMoonfallUnrealGameMode::GetLocalCompanionForHero(const AMoonfallHeroPawn* Hero) const {
+ // A matching resident ID alone is not ownership during pawn replacement.
+ if(!IsLocalCompanionOwner(Hero)||Hero->Health<=0.f||!Hero->IsCompanionPartyRestoreReady())return nullptr;
+ const auto* Scout=LocalCompanion.Get();
+ return IsValid(Scout)&&!Scout->IsActorBeingDestroyed()&&Scout->GetWorld()==GetWorld()
+     &&Scout->ResidentId==Hero->GetCompanionParty().ResidentId?Scout:nullptr;
+}
 
 bool AMoonfallUnrealGameMode::IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const {
  return HasAuthority()&&IsValid(Hero)&&Hero==CompanionOwner.Get()&&Hero->GetWorld()==GetWorld()
