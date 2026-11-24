@@ -6,6 +6,7 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallLivingWorldSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -114,6 +115,37 @@ void AMoonfallUnrealGameMode::BeginPlay()
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
 
+void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
+ const TArray<TWeakObjectPtr<AMoonfallWorldNPC>>& Candidates) {
+ UWorld* World=GetWorld();
+ if (!World || Candidates.Num()<2) return;
+ auto* Society=World->GetSubsystem<UMoonfallLivingWorldSubsystem>();
+ if (!Society) return;
+ // At most one speaker and one line trace per four-second world pulse.
+ const int32 SpeakerIndex=SocialSpeakerCursor%Candidates.Num();
+ SocialSpeakerCursor=(SocialSpeakerCursor+1)%MoonfallLivingSimulation::ResidentRegistryBudget;
+ AMoonfallWorldNPC* Speaker=Candidates[SpeakerIndex].Get();
+ if (!IsValid(Speaker) || Speaker->IsActorBeingDestroyed()) return;
+ AMoonfallWorldNPC* Listener=nullptr;
+ double BestDistance=FMath::Square(300.0);
+ for (int32 I=0; I<Candidates.Num(); ++I) {
+  auto* Other=Candidates[I].Get();
+  if (!IsValid(Other) || Other->IsActorBeingDestroyed() || Other==Speaker
+      || Other->ResidentId==Speaker->ResidentId || Other->SettlementId!=Speaker->SettlementId) continue;
+  const double Distance=FVector::DistSquared(Speaker->GetActorLocation(),Other->GetActorLocation());
+  if (FMath::IsFinite(Distance) && Distance<BestDistance) {BestDistance=Distance;Listener=Other;}
+ }
+ if (!Listener) return;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallResidentSocialLOS),false);
+ Params.AddIgnoredActor(Speaker);
+ Params.AddIgnoredActor(Listener);
+ FHitResult Hit;
+ const FVector EyeOffset(0,0,55);
+ if (World->LineTraceSingleByChannel(Hit,Speaker->GetActorLocation()+EyeOffset,
+      Listener->GetActorLocation()+EyeOffset,ECC_Visibility,Params)) return;
+ Society->ShareUsefulRumor(Speaker->ResidentId,Listener->ResidentId);
+}
+
 void AMoonfallUnrealGameMode::PulseLivingWorld() {
  UWorld* World=GetWorld();
  if (!World) return;
@@ -178,6 +210,15 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  // weather / movement / danger routines for no more than 20 NPCs.
  // With <=20 nearby, all respond on every pulse instead of waiting for
  // their distant settlement's registry slots. Larger local crowds rotate.
+ auto* Society=World->GetSubsystem<UMoonfallLivingWorldSubsystem>();
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>> SocialCandidates;
+ SocialCandidates.Reserve(MoonfallLivingSimulation::ResidentBudget);
+ const int32 CombatPhase=MoonfallLivingSimulation::Phase(Now,20.f);
+ const bool bNewCombatObservation=bCombatNearby && CombatPhase!=LastSocialCombatPhase;
+ // Nearby combat is a non-crime danger observation, not proof of a crime.
+ const FName CombatRumorId=bNewCombatObservation
+     ? FName(*FString::Printf(TEXT("NearbyCombat_%d"),CombatPhase%1024)) : NAME_None;
+ bool bPublishedCombat=false;
  NextResidentPulseIndex=MoonfallLivingSimulation::ProcessNearbyResidents(
      NextResidentPulseIndex,LivingResidents.Num(),
      [&](int Index) {
@@ -190,12 +231,25 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       AMoonfallWorldNPC* NPC=LivingResidents[Index].Get();
       if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) return;
       const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
-      if (bCombatNearby && DistSq<FMath::Square(700.f))
+      if (bCombatNearby && DistSq<FMath::Square(700.f)) {
        NPC->WitnessNearbyDanger(Now);
+       if (Society && bNewCombatObservation && !NPC->ResidentId.IsNone())
+        bPublishedCombat=Society->PublishObservation(NPC->ResidentId,CombatRumorId,HeroLocation,false,180.f)
+            || bPublishedCombat;
+      }
+      const bool bTalking=Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC;
       NPC->AdvanceLivingRoutine(Now,HeroLocation,
           Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC,
           NPC->GetBondWithHero(Hero));
+      if (!bCombatNearby && !bTalking && NPC->bUsePersonalityRoutines && !NPC->ResidentId.IsNone()
+          && !NPC->SettlementId.IsNone()
+          && MoonfallLivingSimulation::ReactionFor(MoonfallLivingSimulation::ERole::Citizen,
+               Now-NPC->LastDangerAt)==MoonfallLivingSimulation::EAlertReaction::Normal
+          && NPC->LivingIntent!=TEXT("Seeking Shelter") && NPC->LivingIntent!=TEXT("Resting"))
+       SocialCandidates.Add(NPC);
      });
+ if (bPublishedCombat) LastSocialCombatPhase=CombatPhase;
+ if (!bCombatNearby && !Hero->bResidentContextOpen) ShareNearbyResidentRumor(SocialCandidates);
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;
