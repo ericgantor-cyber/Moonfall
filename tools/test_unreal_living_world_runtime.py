@@ -399,6 +399,29 @@ int main(){
         self.assertLess(damage.index("OnGuardImpact("),damage.index("ConsumeLocalCompanionCover("))
         self.assertLess(damage.index("ConsumeLocalCompanionCover("),damage.index("Health = FMath::Max(0.f, Health - DamageAfterGuard)"))
 
+    def test_v27_companion_strike_uses_recent_player_target_and_cannot_kill(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        for condition in ("IsLocalCompanionOwner(Hero)","EMoonfallCompanionStance::Follow",
+                          "GetRecentCompanionAssistTarget(Age)","CanCompanionStrike(Age,Now-LastCompanionStrikeAt",
+                          "Enemy->bBoss||Enemy->bElite","Scout->GetBondWithHero(Hero)<60",
+                          "Hero->bTalentWebOpen","LineTraceSingleByChannel"):
+            self.assertIn(condition,strike)
+        self.assertNotIn("TActorIterator",strike)
+        self.assertNotIn("SetTimer",strike)
+        self.assertLess(strike.index("LastCompanionStrikeAt=Now"),strike.index("TryCompanionSupportStrike()"))
+        self.assertIn("if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);",mode)
+        self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;",hero)
+        self.assertIn("RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;",hero)
+        native=enemy.split("bool AMoonfallEnemy::TryCompanionSupportStrike()",1)[1].split(
+            "void AMoonfallEnemy::TakeMeleeDamage(",1)[0]
+        for condition in ("Health<=6.f","bPostureFinisherAvailable","Now<PostureBrokenUntil",
+                          "bBoss||bElite","TakeMeleeDamage(6.f)"):
+            self.assertIn(condition,native)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
