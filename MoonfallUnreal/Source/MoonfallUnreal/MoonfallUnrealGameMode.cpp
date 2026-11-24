@@ -89,6 +89,9 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
   return IsValid(Other)&&Other!=Resident&&!Other->IsActorBeingDestroyed()&&Other->ResidentId==Resident->ResidentId;
  }))return false;
  FMoonfallCompanionPartyRecord Next=Hero->GetCompanionParty();
+ // A streamed-out companion still occupies the persisted party slot.
+ // Never replace that save merely because its weak actor reference is absent.
+ if(!Hero->IsCompanionPartyRestoreReady()||(!Next.ResidentId.IsNone()&&Next.ResidentId!=Resident->ResidentId))return false;
  Next.Health=Next.ResidentId==Resident->ResidentId?Next.Health:Resident->CompanionHealth;
  Next.ResidentId=Resident->ResidentId;Next.Stance=static_cast<int32>(EMoonfallCompanionStance::Follow);
  if(!Hero->CommitCompanionParty(Next))return false;
