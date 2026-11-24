@@ -1995,11 +1995,21 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const float Width = FMath::Min(560.f, Canvas->SizeX - 40.f);
   const float Left = 20.f;
-  const float Top = 78.f;
+  // The quest tracker must not cover the centered boss health/attack HUD.
+  // Move it down only when the two actual painted bounds intersect.
+  const float BossHudWidth = FMath::Min(480.f,Canvas->SizeX*0.68f);
+  const float BossHudLeft = (Canvas->SizeX-BossHudWidth)*0.5f;
+  const bool bBossHudVisible = Boss && BossDistanceSq < FMath::Square(3000.f);
+  const bool bQuestOverlapsBoss = bBossHudVisible
+     && BossHudLeft < Left+Width && BossHudLeft+BossHudWidth > Left;
+  const float Top = bQuestOverlapsBoss ? 232.f : 78.f;
   DrawRect(FLinearColor(0.035f, 0.055f, 0.11f, 0.88f),
     Left, Top, Width, 124.f);
   DrawRect(FLinearColor(0.30f, 0.72f, 0.92f, 0.95f),
     Left, Top, 4.f, 124.f);
+  // Static border aligns the in-world objective with the native menu frame.
+  DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top,Width,2.f);
+  DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top+122.f,Width,2.f);
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
       : TEXT("WORLD QUEST TRACKER  |  EXPLORATION"),
@@ -2056,16 +2066,18 @@ void AMoonfallCombatHUD::DrawHUD()
   DisplayXP = 0.f;
   LevelGlowUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 1.25f : 0.f;
  }
- DisplayHealth = FMath::FInterpTo(DisplayHealth, ActualHealth, Delta, 9.f);
- DisplayMana = FMath::FInterpTo(DisplayMana, ActualMana, Delta, 9.f);
- DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina, Delta, 11.f);
- DisplayXP = FMath::FInterpTo(DisplayXP, ActualXP, Delta, 7.f);
+ // Reduced Motion also disables orbital resource tweening and low-HP pulsing.
+ // The numeric gameplay values do not change, only their drawn animation.
+ DisplayHealth = Hero->bReduceMotion ? ActualHealth : FMath::FInterpTo(DisplayHealth, ActualHealth, Delta, 9.f);
+ DisplayMana = Hero->bReduceMotion ? ActualMana : FMath::FInterpTo(DisplayMana, ActualMana, Delta, 9.f);
+ DisplayStamina = Hero->bReduceMotion ? ActualStamina : FMath::FInterpTo(DisplayStamina, ActualStamina, Delta, 11.f);
+ DisplayXP = Hero->bReduceMotion ? ActualXP : FMath::FInterpTo(DisplayXP, ActualXP, Delta, 7.f);
  const float HealthFraction = DisplayHealth;
  const float ManaFraction = DisplayMana;
  const float XpFraction = DisplayXP;
  // Keep critical health unmistakable without flashing the entire screen.
  const bool bCriticalHealth = Hero->Health > 0.f && ActualHealth <= 0.25f;
- const float LowHealthPulse = bCriticalHealth && GetWorld()
+ const float LowHealthPulse = bCriticalHealth && !Hero->bReduceMotion && GetWorld()
      ? 0.5f + 0.5f * FMath::Sin(GetWorld()->GetTimeSeconds() * 4.f) : 0.f;
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
