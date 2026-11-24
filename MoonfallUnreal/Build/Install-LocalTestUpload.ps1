@@ -11,10 +11,11 @@ if($Status){
  exit 0
 }
 if($Uninstall){& schtasks.exe /Delete /TN $task /F;exit $LASTEXITCODE}
+# Preview is strictly local: do not require GitHub CLI or credentials.
+if($TestNow){& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -DryRun;exit $LASTEXITCODE}
 if(-not(Get-Command gh -ErrorAction SilentlyContinue)){throw "Install GitHub CLI and run gh auth login."}
 & gh auth status *> $null
 if($LASTEXITCODE -ne 0){throw "Run gh auth login first."}
-if($TestNow){& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -DryRun;exit $LASTEXITCODE}
 $command='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+$script+'"'
 & schtasks.exe /Create /TN $task /SC MINUTE /MO 5 /TR $command /F
 if($LASTEXITCODE -ne 0){throw "Task setup failed."}
