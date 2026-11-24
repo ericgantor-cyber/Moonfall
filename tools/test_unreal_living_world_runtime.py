@@ -153,7 +153,7 @@ int main(){
         self.assertIn("PauseResidentMotion(",movement)
         self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
-        self.assertIn("bInConversation || (nearHero && !sheltering && !holdingPost)",policy)
+        self.assertIn("inConversation || (nearHero && !sheltering && !holdingPost)",policy)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",mode)
         self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
@@ -327,7 +327,7 @@ int main(){
         self.assertLess(pulse.index("ShouldRetireAmbient("),
                         pulse.index("if (!bHeroReady) return;"))
         self.assertLess(pulse.index("if (!bHeroReady) return;"),
-                        pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation);"))
+                        pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation,"))
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
 
     def test_road_encounters_follow_travel_without_crossing_region_edges(self):
