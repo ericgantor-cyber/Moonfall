@@ -265,7 +265,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
  // Player target wins when viable; otherwise defend against a fresh attack commitment.
- if(!IsValid(Enemy)||Enemy->bBoss||Enemy->bElite||Enemy->Health<=StrikeDamage){
+ if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()||Enemy->bBoss||Enemy->bElite||!FMath::IsFinite(Enemy->Health)||Enemy->Health<=StrikeDamage){
   Enemy=CompanionThreat.Get();Age=Now-CompanionThreatAt;
   if(!FMath::IsFinite(Age)||Age<0.f||Age>2.f)return;
  }
@@ -379,16 +379,20 @@ void AMoonfallUnrealGameMode::PulseFollower(){
   if(!ReturningCompanion.IsValid())GetWorldTimerManager().ClearTimer(FollowerPulseTimer);
   return;
  }
- if(!IsLocalCompanionOwner(Hero)||Hero->Health<=0.f||Hero->bInventoryOpen||Hero->bOptionsOpen
+ if(!IsLocalCompanionOwner(Hero)||!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f||Hero->bInventoryOpen||Hero->bOptionsOpen
     ||Hero->bAtlasOpen||Hero->bTalentWebOpen||Hero->bCharacterStatsOpen||Hero->bSpellBookOpen
-    ||Hero->bResidentContextOpen)return;
+    ||Hero->bResidentContextOpen){FollowerSeparatedAt=-1.f;return;}
  if(Scout->bCompanionDowned){FollowerSeparatedAt=-1.f;Scout->LivingIntent=TEXT("Downed");return;}
- if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0)return;
- if(!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
+ if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0){FollowerSeparatedAt=-1.f;return;}
+ const bool bFreshThreat=CompanionThreat.IsValid()&&Now>=CompanionThreatAt&&Now-CompanionThreatAt<=2.f;
+ if(!FMath::IsFinite(Scout->CompanionHealth)||Scout->CompanionHealth<=0.f){
+  Scout->CompanionHealth=0.f;Scout->bCompanionDowned=true;FollowerSeparatedAt=-1.f;SyncCompanionVitals(Hero);return;
+ }
+ if(!bFreshThreat&&!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
  SyncCompanionVitals(Hero);
  const double Separation=FVector::DistSquared(Hero->GetActorLocation(),Scout->GetActorLocation());
  const bool bRecoverySafe=LocalCompanionStance==EMoonfallCompanionStance::Follow&&!bFollowerMoveOrdered
-     &&!Hero->IsRecentlyInCombatForAmbientAI()&&FMath::IsFinite(Separation)&&Separation>=FMath::Square(1800.0);
+     &&!bFreshThreat&&!Hero->IsRecentlyInCombatForAmbientAI()&&FMath::IsFinite(Separation)&&Separation>=FMath::Square(1800.0);
  if(!bRecoverySafe)FollowerSeparatedAt=-1.f;
  else {
   if(FollowerSeparatedAt<0.f||Now<FollowerSeparatedAt)FollowerSeparatedAt=Now;
