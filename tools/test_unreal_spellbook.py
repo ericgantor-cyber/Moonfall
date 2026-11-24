@@ -245,6 +245,15 @@ int main() {
         self.assertIn("inline int Hit(", book)
 
 
+    def test_direct_salvage_enforces_modal_ownership(self):
+        hero = HERO.read_text()
+        salvage = hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(", 1)[1].split(
+            "bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", salvage)
+        self.assertIn("|| bAtlasOpen || bResidentContextOpen || Health <= 0.f", salvage)
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("InventoryItemCodes.RemoveAt"))
+        self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("Salvage ="))
+
     def test_crafting_mutations_reject_other_inventory_pages(self):
         # Direct C++/Blueprint callers must obey the same modal safety rules
         # as input wrappers, without spending salvage while another page owns UI.
