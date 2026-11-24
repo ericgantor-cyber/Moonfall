@@ -318,6 +318,55 @@ void AMoonfallCombatHUD::DrawHUD()
     break;
   }
  };
+ // Five faction crests in the same order as the real save-backed
+ // Reputation ledger. A purely decorative identity, never a reputation award.
+ const auto DrawFactionCrest = [this](float X,float Y,float R,int32 Faction,
+                                      const FLinearColor& Ink) {
+  if (!Canvas || Faction<0 || Faction>=5 || !FMath::IsFinite(X)
+      || !FMath::IsFinite(Y) || !FMath::IsFinite(R)
+      || R<5.f || R>21.f) return;
+  const auto Stroke=[this,&Ink](float A,float B,float C,float D) {
+   Canvas->K2_DrawLine(FVector2D(A,B),FVector2D(C,D),1.7f,Ink);
+  };
+  const float P=R*0.72f;
+  DrawRect(FLinearColor(0.07f,0.10f,0.15f,0.93f),
+    X-R,Y-R,2.f*R,2.f*R);
+  switch(Faction) {
+   case 0: // Wanderers: converging roads / wayfinder.
+    Stroke(X-P,Y+P,X,Y-P);
+    Stroke(X+P,Y+P,X,Y-P);
+    Stroke(X-P*0.38f,Y+P*0.25f,X+P*0.38f,Y+P*0.25f);
+    Stroke(X,Y-P,X,Y-P*0.45f);
+    break;
+   case 1: // Verdant Circle: three branches and a seed.
+    Stroke(X,Y+P,X,Y-P);
+    Stroke(X,Y-P*0.25f,X-P*0.83f,Y-P*0.76f);
+    Stroke(X,Y+P*0.15f,X+P*0.83f,Y-P*0.46f);
+    Stroke(X-P*0.80f,Y+P*0.66f,X+P*0.80f,Y+P*0.66f);
+    break;
+   case 2: // Stone Hearth: protective mountain and centered flame.
+    Stroke(X-P,Y+P*0.45f,X-P*0.32f,Y-P);
+    Stroke(X-P*0.32f,Y-P,X+P*0.15f,Y+P*0.06f);
+    Stroke(X+P*0.15f,Y+P*0.06f,X+P*0.42f,Y-P*0.51f);
+    Stroke(X+P*0.42f,Y-P*0.51f,X+P,Y+P*0.45f);
+    Stroke(X-P,Y+P*0.45f,X+P,Y+P*0.45f);
+    break;
+   case 3: // Moon Coven: opposing lunar blades.
+    Stroke(X-P*0.72f,Y-P,X-P*0.13f,Y);
+    Stroke(X-P*0.13f,Y,X-P*0.72f,Y+P);
+    Stroke(X+P*0.72f,Y-P,X+P*0.13f,Y);
+    Stroke(X+P*0.13f,Y,X+P*0.72f,Y+P);
+    Stroke(X-P*0.28f,Y,X+P*0.28f,Y);
+    break;
+   default: // Ashen Clans: three pronged forge fire.
+    Stroke(X,Y-P,X-P*0.65f,Y+P);
+    Stroke(X,Y-P,X+P*0.65f,Y+P);
+    Stroke(X-P*0.65f,Y+P,X+P*0.65f,Y+P);
+    Stroke(X-P*0.35f,Y-P*0.35f,X,Y+P*0.35f);
+    Stroke(X+P*0.35f,Y-P*0.35f,X,Y+P*0.35f);
+    break;
+  }
+ };
  // High-contrast rail marks the focused choice independently of text color.
  const auto DrawSelectionRail = [this](float L,float T,float H) {
   if (!FMath::IsFinite(L)||!FMath::IsFinite(T)||!FMath::IsFinite(H)
