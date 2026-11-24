@@ -1,9 +1,15 @@
 #requires -Version 5.1
 [CmdletBinding()]
-param([switch]$Uninstall,[switch]$TestNow)
+param([switch]$Uninstall,[switch]$TestNow,[switch]$Status)
 $ErrorActionPreference="Stop"
 $task="Moonfall Local Test Upload"
 $script=Join-Path $PSScriptRoot "Upload-LocalTestResults.ps1"
+if($Status){
+ & schtasks.exe /Query /TN $task *> $null
+ if($LASTEXITCODE -eq 0){Write-Output "Moonfall automatic test uploads: ENABLED"}
+ else{Write-Output "Moonfall automatic test uploads: NOT INSTALLED"}
+ exit 0
+}
 if($Uninstall){& schtasks.exe /Delete /TN $task /F;exit $LASTEXITCODE}
 if(-not(Get-Command gh -ErrorAction SilentlyContinue)){throw "Install GitHub CLI and run gh auth login."}
 & gh auth status *> $null
