@@ -214,6 +214,23 @@ int main(){
         self.assertIn("Known.bDirectWitness||Known.bWitnessReport||Known.Confidence>=Confidence",share)
         self.assertIn("RelayRumor(Speaker,Listener,BestId)",share)
 
+    def test_v27_news_trust_requires_new_successful_transfer(self):
+        subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
+        header=(SRC/"MoonfallLivingWorldSubsystem.h").read_text()
+        share=subsystem.split("bool UMoonfallLivingWorldSubsystem::ShareUsefulRumor(",1)[1].split(
+            "void UMoonfallLivingWorldSubsystem::CreditUsefulNews(",1)[0]
+        credit=subsystem.split("void UMoonfallLivingWorldSubsystem::CreditUsefulNews(",1)[1].split(
+            "FName UMoonfallLivingWorldSubsystem::FindUsefulRumor(",1)[0]
+        self.assertIn("const bool bAlreadyKnown=GetRumor(Listener,BestId,Previous)",share)
+        self.assertIn("if(!RelayRumor(Speaker,Listener,BestId))return false;",share)
+        self.assertIn("if(!bAlreadyKnown&&GetRumor(Listener,BestId,Received))",share)
+        self.assertLess(share.index("if(!RelayRumor"),share.index("CreditUsefulNews("))
+        self.assertIn("LastAmbientTrustAt=-1.0",header)
+        self.assertIn("Time-R.LastAmbientTrustAt",credit)
+        self.assertIn("AmbientTrustDelta(R.Score,Confidence,Elapsed)",credit)
+        self.assertIn("AdjustNpcRelationship(Listener,Speaker,Delta)",credit)
+        self.assertNotIn("ChangeResidentBond",credit)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
