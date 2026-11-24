@@ -121,6 +121,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_web.cpp -o /tmp/moonfall_talent_web
           /tmp/moonfall_talent_web
 
+      - name: Verify 12 saved racial passives and C character ancestry pages
+        shell: bash
+        run: python3 tools/test_unreal_character_race_pages.py
+
       - name: Verify playable talent web input, modal safety and native HUD contracts
         shell: bash
         run: python3 tools/test_unreal_talent_ui.py
