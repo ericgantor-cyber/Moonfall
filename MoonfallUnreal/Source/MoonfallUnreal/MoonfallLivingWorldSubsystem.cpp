@@ -10,11 +10,17 @@ double UMoonfallLivingWorldSubsystem::Now() const {return GetWorld()?GetWorld()-
 UMoonfallNpcSocialSessionSubsystem* UMoonfallLivingWorldSubsystem::GetSocialSession() const {
  if(!CanWrite())return nullptr;
  auto* Instance=GetWorld()->GetGameInstance();
- return Instance?Instance->GetSubsystem<UMoonfallNpcSocialSessionSubsystem>():nullptr;
+ auto* Session=Instance?Instance->GetSubsystem<UMoonfallNpcSocialSessionSubsystem>():nullptr;
+ if(Session)Session->InitializePersistence(GetWorld()->WorldType==EWorldType::Game&&GetWorld()->GetNetMode()==NM_Standalone);
+ return Session;
+}
+void UMoonfallLivingWorldSubsystem::FlushSocialMemory(){
+ if(auto* Session=GetSocialSession())Session->Flush();
 }
 bool UMoonfallLivingWorldSubsystem::ResetNpcSocialSession(){
  auto* Session=GetSocialSession();if(!Session)return false;
- Session->Relationships.Reset();Knowledge.Reset();Observations.Reset();Encounters.Reset();return true;
+ if(!Session->ResetLedger())return false;
+ Knowledge.Reset();Observations.Reset();Encounters.Reset();return true;
 }
 bool UMoonfallLivingWorldSubsystem::GetNpcRelationship(FName Observer,FName Other,int32& Score) const {
  Score=0;const auto* Session=GetSocialSession();if(!Session)return false;
@@ -25,8 +31,8 @@ bool UMoonfallLivingWorldSubsystem::AdjustNpcRelationship(FName Observer,FName O
  auto* Session=GetSocialSession();if(!Session)return false;
  auto& Relationships=Session->Relationships;
  auto* List=Relationships.Find(Observer);if(!List){if(Relationships.Num()>=512)return false;List=&Relationships.Add(Observer);}
- for(auto& R:*List)if(R.Other==Other){R.Score=MoonfallWorldPolicy::Relationship(R.Score,Delta);return true;}
- if(List->Num()>=64)return false;List->Add(UMoonfallNpcSocialSessionSubsystem::FRelationship{Other,Delta});return true;
+ for(auto& R:*List)if(R.Other==Other){const int32 Updated=MoonfallWorldPolicy::Relationship(R.Score,Delta);if(Updated!=R.Score){R.Score=Updated;Session->bDirty=true;}return true;}
+ if(List->Num()>=64)return false;List->Add(UMoonfallNpcSocialSessionSubsystem::FRelationship{Other,Delta});Session->bDirty=true;return true;
 }
 bool UMoonfallLivingWorldSubsystem::GetRumor(FName Npc,FName RumorId,FMoonfallWorldRumor& Rumor) const {
  Rumor=FMoonfallWorldRumor{};const double Time=Now();if(const auto* List=Knowledge.Find(Npc))for(const auto& R:*List)if(R.RumorId==RumorId&&R.ExpiresAt>Time){Rumor=R;return true;}return false;
@@ -75,7 +81,7 @@ void UMoonfallLivingWorldSubsystem::CreditUsefulNews(FName Listener,FName Speake
   for(auto& R:*List)if(R.Other==Speaker){
    const double Elapsed=R.LastAmbientTrustAt<0?60.0:Time-R.LastAmbientTrustAt;
    const int32 Delta=MoonfallWorldPolicy::AmbientTrustDelta(R.Score,Confidence,Elapsed);
-   if(Delta>0){R.Score=MoonfallWorldPolicy::Relationship(R.Score,Delta);R.LastAmbientTrustAt=Time;}
+   if(Delta>0){R.Score=MoonfallWorldPolicy::Relationship(R.Score,Delta);R.LastAmbientTrustAt=Time;Session->bDirty=true;}
    return;
   }
  }
