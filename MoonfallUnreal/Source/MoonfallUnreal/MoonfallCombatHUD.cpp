@@ -1659,8 +1659,11 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawModalChrome(Book.Left,Book.Top,Book.Width,Book.Height,
      FLinearColor(0.58f,0.40f,0.68f,0.98f));
    if (Book.Width>=450.f) DrawMoonfallSigil(Book.Left+Book.Width-26.f,
-     Book.Top+27.f,11.f,FLinearColor(0.78f,0.60f,0.99f),3);
-   DrawText(TEXT("MOONFALL  |  THE GRIMOIRE"),
+     Book.Top+65.f,11.f,FLinearColor(0.78f,0.60f,0.99f),3);
+   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f),Book.CloseX,Book.CloseY,Book.CloseSize,Book.CloseSize);
+   DrawHoverFrame(Book.CloseX,Book.CloseY,Book.CloseSize,Book.CloseSize);
+   DrawText(TEXT("X"),FLinearColor::White,Book.CloseX+9.f,Book.CloseY+4.f,nullptr,0.9f);
+   DrawText(Book.Width<500.f ? TEXT("THE GRIMOIRE") : TEXT("MOONFALL  |  THE GRIMOIRE"),
        FLinearColor(0.96f,0.88f,0.76f),Book.Left+18.f,Book.Top+13.f,
        nullptr,Book.Width<500.f ? 0.88f : 1.36f);
    DrawText(FString::Printf(TEXT("SIX KNOWN SPELLS   |   MANA %.0f / %.0f"),
