@@ -8,6 +8,7 @@
 #include "CollisionQueryParams.h"
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallNpcDecisionPolicy.h"
+#include "MoonfallLivingWorldSubsystem.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -64,6 +65,13 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      < FMath::Square(420.f);
  bool bRoutineHome=false;
  LivingIntent.Reset();
+ bReviewingCombatReport=false;
+ if (bUsePersonalityRoutines && bGuard && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
+  if (const auto* Society=GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>()) {
+   FMoonfallWorldRumor Report;
+   bReviewingCombatReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report);
+  }
+ }
  if (bUsePersonalityRoutines) {
   using namespace MoonfallNpcPolicy;
   Input Context;
@@ -89,7 +97,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   if (bInConversation) LivingIntent=TEXT("Conversing");
   else if (bHoldPost) LivingIntent=TEXT("On Alert");
   else if (bSheltering) LivingIntent=TEXT("Seeking Shelter");
-  else if (bGuard) LivingIntent=TEXT("On Duty");
+  else if (bGuard) LivingIntent=bReviewingCombatReport?TEXT("Reviewing Reports"):TEXT("On Duty");
   else switch(Intent) {
    case Action::Sleep: LivingIntent=TEXT("Resting"); bRoutineHome=true; break;
    case Action::Eat: LivingIntent=TEXT("Meal Break"); bRoutineHome=true; break;
@@ -166,6 +174,12 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
  // Only ordinary residents expose the new activity in the existing HUD.
  // Fresh danger/weather and authored specialist roles take precedence.
+ if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport) {
+  if (const auto* Society=GetWorld()?GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>():nullptr) {
+   FMoonfallWorldRumor Report;
+   if (Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report)) return TEXT("Reviewing Reports");
+  }
+ }
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
      && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
   return LivingIntent;
@@ -257,6 +271,17 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
      && Disposition!=TEXT("Hostile"))
   Reaction=FText::FromString(Reaction.ToString()
       + TEXT(" I heard fighting nearby. Stay alert."));
+ else if (!bAmbientVisitor && Disposition!=TEXT("Hostile") && bUsePersonalityRoutines) {
+  if (const auto* Society=GetWorld()?GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>():nullptr) {
+   FMoonfallWorldRumor Report;
+   if (Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report)) {
+    const TCHAR* Warning=SocialRole==FName(TEXT("Guard"))
+        ? TEXT(" We have reports of fighting nearby. Nothing is confirmed yet.")
+        : TEXT(" Someone mentioned fighting nearby. I cannot say for certain.");
+    Reaction=FText::FromString(Reaction.ToString()+Warning);
+   }
+  }
+ }
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
