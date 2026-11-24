@@ -58,6 +58,10 @@ public:
  // Read-only: no new saved IDs, no new ability cooldowns, no character art.
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePassiveSummary() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerDescription() const;
+ // Pre-confirmation read-only snapshot from the SAME 12 canonical runtime
+ // profiles used by ChooseRace and actual Might/Insight/Resolve/regen.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race")
+ static FString PreviewGameplayAncestry(int32 CandidateRaceId);
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
