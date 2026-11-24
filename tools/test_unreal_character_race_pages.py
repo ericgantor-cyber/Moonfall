@@ -91,7 +91,7 @@ for token in ("Hero->bRaceChosen", "Hero->GetRaceName()",
               "CHOSEN - PERMANENT", "NOT YET CHOSEN"):
     assert token in race_ui, token
 assert 'TEXT("MOONFALL  |  ANCESTRY")' in hud
-assert 'TEXT("RACE & PASSIVES")' in hud
+assert 'TEXT("ANCESTRY & PASSIVES")' in hud
 assert 'TEXT("ATTRIBUTES")' in hud
 assert 'Click ATTRIBUTES or press D-pad Left to return' in hud
 assert 'Tab or D-pad Left: return' not in hud
@@ -99,14 +99,20 @@ assert 'C / D-pad Left/Right: stats / ancestry' in hud
 assert 'Tab / D-pad Left/Right: stats / ancestry' not in hud
 assert 'DrawLiveMenuHitCue();' in hud
 
-# Mouse tab matches the HUD's right-header button and consumes the click.
+# Both visible tabs must have independent hit targets and no gameplay effect.
+assert 'const float PageTabWidth = (PanelWidth - 44.f) * 0.5f;' in hud
+assert 'const float PageTabTop = Top + 77.f;' in hud
+assert 'const float TabW=(PanelW-44.f)*0.5f;' in hero
+assert 'const float TabY=PanelT+77.f;' in hero
 mouse = section(hero, "void AMoonfallHeroPawn::ResidentContextMouseClick()",
                 "if (!bResidentContextOpen) { RightHandAction(); return; }")
 assert "if (bCharacterStatsOpen) {" in mouse
-assert "ToggleCharacterRacePage();" in mouse
-assert "PanelW<550.f?105.f:172.f" in mouse
+assert 'bCharacterRacePageOpen=false;' in mouse
+assert 'bCharacterRacePageOpen=true;' in mouse
 assert 'if (HitTestInventorySortButton())' in mouse
-assert mouse.index("ToggleCharacterRacePage();") < mouse.index("if (HitTestInventorySortButton())")
+assert mouse.index("bCharacterRacePageOpen=true;") < mouse.index("if (HitTestInventorySortButton())")
+assert "ToggleCharacterRacePage();" not in mouse
+
 # Creator gives comparative, accurately labelled previews only; game applies
 # the 12 persistent gameplay ancestries by their existing stable int32 IDs.
 assert "RACE TRAITS (PREVIEW)" in creator
