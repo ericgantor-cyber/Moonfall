@@ -1,7 +1,7 @@
 # UE5 character sheet and racial passives
 
 ## New C-page layout
-- **C** opens the normal character stats panel from gameplay. Press **Tab** to switch between **Attributes** and **Ancestry & Passives**.
+- **C** opens the regular Attributes character sheet from gameplay. Press **C again** to switch to **Ancestry & Passives**, and continue pressing C to alternate between those two pages. **Tab is not used in the character sheet** and remains reserved for Atlas Chronicle.
 - Controller **D-pad Left/Right** selects the corresponding page while the character sheet is visible. These inputs continue their existing roles everywhere else.
 - Mouse users can click the header **RACE & PASSIVES** / **ATTRIBUTES** tab.
 - On the ancestry page, the hero's current **saved race**, base Might/Insight/Resolve bonuses, stamina/mana regeneration bonuses, racial power and its readiness/cooldown/active duration are read live. The page is strictly read-only.
