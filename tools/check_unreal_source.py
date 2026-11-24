@@ -3872,7 +3872,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("const float RowHeight = FMath::Clamp(", page)
+        self.assertIn("const float StatsRowHeight = FMath::Clamp(", page)
+        self.assertIn('TEXT("EQUIPPED GEAR")', page)
         self.assertIn("const float StartY = Top + 123.f;", page)
         self.assertIn("Equipment power: %d", page)
 
