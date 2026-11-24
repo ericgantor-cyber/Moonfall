@@ -219,6 +219,26 @@ int main(){
         self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",pulse)
         self.assertNotIn("GetAllActorsOfClass(",pulse)
 
+    def test_controller_npc_interaction_search_reaches_late_spawned_residents(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        search=hero.split("AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {",1)[1].split(
+            "void AMoonfallHeroPawn::CloseResidentContext()",1)[0]
+        # The old first-64 cap made some of the 80 registered residents,
+        # plus transient roadside visitors, impossible to select by controller.
+        self.assertIn("for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It)",search)
+        self.assertNotIn("Checked < 64",search)
+        self.assertNotIn("Checked <",search)
+        self.assertIn("Candidate->CanHeroInteract(this)",search)
+        self.assertIn("DistSq < BestDistSq",search)
+        self.assertIn("constexpr int ResidentRegistryBudget=80;",policy)
+        self.assertIn("Visitor->bAmbientVisitor=true;",mode)
+        # Nearest-NPC lookups are input-triggered, never performed per frame.
+        self.assertIn("AMoonfallWorldNPC* Resident = GetNearestResidentNPC();",
+                      hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1])
+        self.assertNotIn("GetNearestResidentNPC()",mode)
+
     def test_runtime_residents_register_without_permanent_actor_rescans(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         header=(SRC/"MoonfallUnrealGameMode.h").read_text()

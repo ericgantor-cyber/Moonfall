@@ -3750,9 +3750,12 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return nullptr;
  AMoonfallWorldNPC* Nearest = nullptr;
  float BestDistSq = FMath::Square(400.f);
- int32 Checked = 0;
- // Query only after explicit input; no per-frame scanning or NPC Tick.
- for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It && Checked < 64; ++It, ++Checked) {
+ // This query runs only on an explicit controller/keyboard interaction.
+ // Do not cap at the first 64 actors: the world can register 80 permanent
+ // residents plus roadside travelers and designer-placed NPCs. The closest
+ // visible, reachable NPC must remain selectable regardless of spawn order.
+ // No per-frame scans, per-resident Tick or additional world timers.
+ for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It) {
   AMoonfallWorldNPC* Candidate = *It;
   if (!IsValid(Candidate)) continue;
   const float DistSq = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation());
