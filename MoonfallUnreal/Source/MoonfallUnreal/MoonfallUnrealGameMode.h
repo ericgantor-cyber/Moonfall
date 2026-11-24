@@ -51,7 +51,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
  bool DismissLocalCompanion(AMoonfallHeroPawn* Hero);
  UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
- AMoonfallWorldNPC* GetLocalCompanion() const { return LocalCompanion.Get(); }
+ AMoonfallWorldNPC* GetLocalCompanion() const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
