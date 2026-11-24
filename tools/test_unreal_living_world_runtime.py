@@ -180,6 +180,26 @@ int main(){
         self.assertIn("if (!bAmbientVisitor && Disposition",npc)
         self.assertNotIn("GetAllActorsOfClass(",mode)
 
+    def test_dead_or_missing_pawn_still_retires_expired_events(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("const bool bHeroActive=IsValid(Hero) && Hero->IsPlayerControlled()",pulse)
+        self.assertIn("Hero->Health>0.f;",pulse)
+        self.assertIn("const bool bHeroReady=bHeroActive && !HeroLocation.ContainsNaN();",pulse)
+        self.assertIn("const bool bTalkingToVisitor=bHeroReady && Hero->bResidentContextOpen",pulse)
+        self.assertIn("const bool bNearbyMonsterBattle=bCombatNearby",pulse)
+        self.assertIn("if (!IsValid(Active) || Active->IsActorBeingDestroyed())",pulse)
+        self.assertIn("ActiveAmbientEncounter.Reset();",pulse)
+        self.assertIn("ActiveAmbientExpiresAt=-1.f;",pulse)
+        # Expiry happens before the invalid player returns. Previous code
+        # returned early and could leak the one active ambient event forever.
+        self.assertLess(pulse.index("ShouldRetireAmbient("),
+                        pulse.index("if (!bHeroReady) return;"))
+        self.assertLess(pulse.index("if (!bHeroReady) return;"),
+                        pulse.index("NPC->AdvanceLivingRoutine(Now,HeroLocation);"))
+        self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
+
     def test_encounter_lifetime_preserves_live_conversations_and_battles(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         header=(SRC/"MoonfallUnrealGameMode.h").read_text()

@@ -118,11 +118,41 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  }
  AMoonfallHeroPawn* Hero=Cast<AMoonfallHeroPawn>(
      UGameplayStatics::GetPlayerPawn(this,0));
- if (!IsValid(Hero) || !Hero->IsPlayerControlled()
-     || !FMath::IsFinite(Hero->Health) || Hero->Health<=0.f) return;
- const FVector HeroLocation=Hero->GetActorLocation();
- if (HeroLocation.ContainsNaN()) return;
- const bool bCombatNearby=Hero->IsRecentlyInCombatForAmbientAI();
+ // Even if the player dies, disconnects, or has no valid pawn this pulse,
+ // the director must retire old actors. Otherwise one invalid hero could
+ // permanently occupy the one-event slot after SetLifeSpan(0.f).
+ const bool bHeroActive=IsValid(Hero) && Hero->IsPlayerControlled()
+     && FMath::IsFinite(Hero->Health) && Hero->Health>0.f;
+ const FVector HeroLocation=bHeroActive ? Hero->GetActorLocation() : FVector::ZeroVector;
+ const bool bHeroReady=bHeroActive && !HeroLocation.ContainsNaN();
+ const bool bCombatNearby=bHeroReady && Hero->IsRecentlyInCombatForAmbientAI();
+ // Retire old ambient actors on the existing four-second pulse, not via
+ // a fixed SetLifeSpan that could destroy a conversation or active fight.
+ if (AActor* Active=ActiveAmbientEncounter.Get()) {
+  if (!IsValid(Active) || Active->IsActorBeingDestroyed()) {
+   ActiveAmbientEncounter.Reset();
+   ActiveAmbientExpiresAt=-1.f;
+  } else {
+   // Conversations and active nearby battles hold their event open.
+   // A missing/dead hero cannot hold an expired event indefinitely.
+   const bool bTalkingToVisitor=bHeroReady && Hero->bResidentContextOpen
+       && Hero->FocusedResident.Get()==Active;
+   const bool bNearbyMonsterBattle=bCombatNearby
+       && Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter")))
+       && !Active->GetActorLocation().ContainsNaN()
+       && FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
+           < FMath::Square(1200.f);
+   if (MoonfallLivingSimulation::ShouldRetireAmbient(
+           Now,ActiveAmbientExpiresAt,bTalkingToVisitor,bNearbyMonsterBattle)) {
+    Active->Destroy();
+    ActiveAmbientEncounter.Reset();
+    ActiveAmbientExpiresAt=-1.f;
+   }
+  }
+ } else {
+  ActiveAmbientExpiresAt=-1.f;
+ }
+ if (!bHeroReady) return;
  for (const TWeakObjectPtr<AMoonfallWorldNPC>& Ref:LivingResidents) {
   AMoonfallWorldNPC* NPC=Ref.Get();
   if (!IsValid(NPC) || NPC->IsActorBeingDestroyed()) continue;
@@ -131,25 +161,6 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
   if (bCombatNearby && DistSq<FMath::Square(700.f))
    NPC->WitnessNearbyDanger(Now);
   NPC->AdvanceLivingRoutine(Now,HeroLocation);
- }
- // Retire old ambient actors on the existing four-second pulse, not via
- // a fixed SetLifeSpan that could destroy a conversation or active fight.
- if (AActor* Active=ActiveAmbientEncounter.Get()) {
-  const bool bTalkingToVisitor=Hero->bResidentContextOpen
-      && Hero->FocusedResident.Get()==Active;
-  const bool bNearbyMonsterBattle=bCombatNearby
-      && Active->ActorHasTag(FName(TEXT("MoonfallAmbientEncounter")))
-      && !Active->GetActorLocation().ContainsNaN()
-      && FVector::DistSquared2D(HeroLocation,Active->GetActorLocation())
-          < FMath::Square(1200.f);
-  if (MoonfallLivingSimulation::ShouldRetireAmbient(
-          Now,ActiveAmbientExpiresAt,bTalkingToVisitor,bNearbyMonsterBattle)) {
-   Active->Destroy();
-   ActiveAmbientEncounter.Reset();
-   ActiveAmbientExpiresAt=-1.f;
-  }
- } else {
-  ActiveAmbientExpiresAt=-1.f;
  }
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
