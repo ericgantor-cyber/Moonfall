@@ -36,5 +36,13 @@ int main(){long n=0;
     bond>=60?Mood::Loyal:(bond>=15||rep>=15)?Mood::Warm:Mood::Calm;
   assert(ResolveMood(bond,rep,danger,report,guard)==expected);++n;
  }
+ for(int bond:{-100,0,59,60,100})for(int rep:{-100,-1,0,15,100})
+ for(double home:{-1.0,0.0,202500.0,202501.0,nan,inf})
+ for(double hero:{-1.0,0.0,57600.0,57601.0,360000.0,360001.0,nan,inf})
+ for(bool safe:{false,true})for(bool enabled:{false,true}){
+  const bool expected=enabled&&safe&&bond>=60&&rep>=0&&std::isfinite(home)&&std::isfinite(hero)
+    &&home>=0&&home<=202500.0&&hero>57600.0&&hero<=360000.0;
+  assert(CanLocalGuide(bond,rep,home,hero,safe,enabled)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
