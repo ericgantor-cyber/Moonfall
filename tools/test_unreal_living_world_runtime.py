@@ -383,7 +383,7 @@ int main(){
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         cover=mode.split("float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(",1)[1].split(
-            "void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[0]
+            "void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[0]
         for guard in ("IsLocalCompanionOwner(Hero)","LocalCompanionStance!=EMoonfallCompanionStance::Follow",
                       "Scout->GetBondWithHero(Hero)<60","GetFactionReputation(Scout->FactionId)<0",
                       "MoonfallLivingSimulation::Severe","FVector::DotProduct(ToSource,ToScout)<0.5",
@@ -613,6 +613,28 @@ int main(){
         self.assertIn('TEXT("Trade equipment")',hud)
         self.assertIn("GetCompanionGearTier(Scout->ResidentId,0)",mode)
         self.assertIn("GetCompanionGearTier(Scout->ResidentId,1)",mode)
+
+    def test_v27_companion_threat_is_event_driven_and_bounded(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        header=(SRC/"MoonfallUnrealGameMode.h").read_text()
+        self.assertIn("TWeakObjectPtr<AMoonfallEnemy> CompanionThreat",header)
+        self.assertIn("!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero",enemy)
+        self.assertIn("Mode->ReportCompanionThreat(Hero,this,Now)",enemy)
+        report=mode.split("void AMoonfallUnrealGameMode::ReportCompanionThreat(",1)[1].split(
+            "void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[0]
+        for guard in ("IsLocalCompanionOwner(Hero)","Enemy->bBoss||Enemy->bElite",
+                      "LocalCompanion->bCompanionDowned","CanReportCompanionThreat",
+                      "Now-CompanionThreatAt<=2.f","CompanionThreat=Enemy;CompanionThreatAt=Now"):
+            self.assertIn(guard,report)
+        self.assertNotIn("TActorIterator",report)
+        strike=mode.split("void AMoonfallUnrealGameMode::TryLocalCompanionStrike(",1)[1].split(
+            "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
+        self.assertLess(strike.index("GetRecentCompanionAssistTarget(Age)"),strike.index("Enemy=CompanionThreat.Get()"))
+        self.assertIn("Age<0.f||Age>2.f",strike)
+        self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
+        self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
 
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
