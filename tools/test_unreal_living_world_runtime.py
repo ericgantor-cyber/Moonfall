@@ -469,6 +469,29 @@ int main(){
         self.assertIn("!Enemy->bBoss&&!Enemy->bElite",strike)
         self.assertIn("CompanionRank==3",hud)
 
+    def test_v27_companion_talent_page_has_direct_selection_and_safe_back(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        header=(SRC/"MoonfallHeroPawn.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        choose=hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertIn("bool bResidentCompanionTalents=false",header)
+        self.assertIn("if(bResidentCompanionTalents)return 4;",hero)
+        self.assertIn("Mode->GetLocalCompanion()==Resident?5:3;",hero)
+        self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
+        self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
+        self.assertIn("if(Choice==3){bResidentCompanionTalents=false;ResidentContextSelection=0;return true;}",choose)
+        self.assertIn("if(Choice<0||Choice>2)return false;",choose)
+        self.assertIn("TalentMode->GetLocalCompanion()==Resident",choose)
+        self.assertIn("TalentMode->SetLocalCompanionRole(this,static_cast<EMoonfallCompanionRole>(Choice))",choose)
+        self.assertIn("bResidentCompanionMenu=false;bResidentCompanionTalents=false;",hero)
+        self.assertLess(choose.index("if(bResidentCompanionTalents)"),choose.index("OfferResidentQuest(this)"))
+        self.assertIn("FString Names[5]",hud)
+        self.assertIn('TEXT("COMPANION TALENTS | Select a path")',hud)
+        self.assertIn("Rank>=(Path==0?1:2)",hud)
+        self.assertIn('TEXT("Perk at 100 trust")',hud)
+        self.assertIn("EffectiveCompanionRole(Rank",hud)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
