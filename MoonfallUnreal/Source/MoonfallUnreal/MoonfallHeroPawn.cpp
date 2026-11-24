@@ -1749,7 +1749,8 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
- if (bTalentWebOpen) { TalentChangeBranch(1); return; }
+ // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
+ if (bTalentWebOpen) return;
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
