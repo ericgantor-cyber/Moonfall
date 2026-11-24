@@ -126,7 +126,7 @@ jobs:
           foreach ($required in @('$form.Add_Shown({', 'upload-first-launch-choice.txt',
                                  'Test-Path -LiteralPath $preferenceFile', 
                                  'if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }',
-                                 "if ($SelfTest) {", 'AUTO TEST UPLOAD')) {
+                                 'if ($SelfTest) {', 'AUTO TEST UPLOAD')) {
             if (-not $center.Contains($required)) { throw ('Missing first-launch safety requirement: ' + $required) }
           }
           if ($center.IndexOf('$form.Add_Shown({') -gt $center.IndexOf('if ($SelfTest) {')) {
