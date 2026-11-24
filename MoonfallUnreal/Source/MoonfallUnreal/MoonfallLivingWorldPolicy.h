@@ -105,7 +105,14 @@ inline float CompanionCover(float damage,double elapsed,double distanceSquared,b
  const float CapShift=Effective==1?2.f:Effective==2?-2.f:0.f;
  return std::fmin(damage*(Fraction+Shift+0.01f*Active(4)),Cap+CapShift+Active(1)+Active(5));
 }
-// Only a recently player-damaged ordinary enemy qualifies for a local assist.
+// Threat notifications are bounded to genuine nearby enemy attack commitments.
+inline bool CanReportCompanionThreat(double now,double heroTargetDistanceSquared,double scoutHeroDistanceSquared){
+ return std::isfinite(now)&&now>=0&&std::isfinite(heroTargetDistanceSquared)
+    &&heroTargetDistanceSquared>=0&&heroTargetDistanceSquared<=350.0*350.0
+    &&std::isfinite(scoutHeroDistanceSquared)&&scoutHeroDistanceSquared>=0
+    &&scoutHeroDistanceSquared<=500.0*500.0;
+}
+// Only a recent player hit or verified enemy attack commitment qualifies for assistance.
 inline bool CanCompanionStrike(double age,double cooldown,double scoutDistanceSquared,
                                double heroDistanceSquared,bool eligible,int rank=1,int role=0,unsigned training=0){
  const auto Active=[&](int node){return ActiveCompanionTraining(training,rank,role,node);};
