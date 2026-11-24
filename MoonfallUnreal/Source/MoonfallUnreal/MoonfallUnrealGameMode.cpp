@@ -139,6 +139,7 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
   int32 Attitude=0;
   Society->GetNpcRelationship(Speaker->ResidentId,Other->ResidentId,Attitude);
   if (Attitude<=-20) continue;
+  if (Society->FindUsefulRumor(Speaker->ResidentId,Other->ResidentId).IsNone()) continue;
   BestDistance=Distance;
   Listener=Other;
  }
@@ -150,7 +151,11 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
  const FVector EyeOffset(0,0,55);
  if (World->LineTraceSingleByChannel(Hit,Speaker->GetActorLocation()+EyeOffset,
       Listener->GetActorLocation()+EyeOffset,ECC_Visibility,Params)) return;
- Society->ShareUsefulRumor(Speaker->ResidentId,Listener->ResidentId);
+ if (!Society->ShareUsefulRumor(Speaker->ResidentId,Listener->ResidentId)) return;
+ // A dedicated ambient event never opens player dialogue, overwrites a
+ // quest greeting or changes player reputation. Audio/animation can bind
+ // to this event later; only one event is emitted after a real transfer.
+ Speaker->OnAmbientNewsShared(Listener->ResidentId,Listener->DisplayName);
 }
 
 void AMoonfallUnrealGameMode::PulseLivingWorld() {
