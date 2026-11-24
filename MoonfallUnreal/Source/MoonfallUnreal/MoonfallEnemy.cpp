@@ -177,6 +177,15 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+bool AMoonfallEnemy::TryCompanionSupportStrike(){
+ if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
+     ||!FMath::IsFinite(Health)||Health<=6.f||bPostureFinisherAvailable)return false;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now)||!FMath::IsFinite(PostureBrokenUntil)||Now<PostureBrokenUntil)return false;
+ const float Before=Health;
+ TakeMeleeDamage(6.f);
+ return Health<Before;
+}
 void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
  // Keep a single authoritative damage/defeat path while UE5 melee gains its
  // own hit detection, stamina cost and directional animation hook.
