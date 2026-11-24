@@ -82,7 +82,10 @@ bool AMoonfallUnrealGameMode::RecruitLocalCompanion(AMoonfallHeroPawn* Hero,AMoo
      ||Resident->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Resident->FactionId)<0
      ||!LivingResidents.ContainsByPredicate([Resident](const auto& Ref){return Ref.Get()==Resident;}))return false;
  if(LocalCompanion.IsValid())return LocalCompanion.Get()==Resident&&IsLocalCompanionOwner(Hero);
+ if(ReturningCompanion.Get()==Resident)ReturningCompanion.Reset();
  LocalCompanion=Resident;CompanionOwner=Hero;LocalCompanionStance=EMoonfallCompanionStance::Follow;
+ bFollowerMoveOrdered=false;
+ GetWorldTimerManager().SetTimer(FollowerPulseTimer,this,&AMoonfallUnrealGameMode::PulseFollower,0.2f,true);
  const uint32 Profile=Hero->GetCompanionProfile(Resident->ResidentId);
  LocalCompanionRole=static_cast<EMoonfallCompanionRole>(MoonfallWorldPolicy::EffectiveCompanionRole(
       MoonfallWorldPolicy::CompanionRank(Resident->GetBondWithHero(Hero)),static_cast<int>(Profile>>18)));
@@ -96,11 +99,11 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
      ||Hero->bResidentContextOpen||Source.ContainsNaN())return 0.f;
  auto* Scout=LocalCompanion.Get();
  if(Scout->IsActorBeingDestroyed()||!Scout->bUsePersonalityRoutines||!Scout->bAllowLocalScoutGuidance
-     ||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
+     ||Scout->bCompanionDowned||Scout->bCompanionDowned||Scout->SocialRole!=FName(TEXT("Scout"))||Scout->GetBondWithHero(Hero)<60
      ||Hero->GetFactionReputation(Scout->FactionId)<0)return 0.f;
  const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation();
  if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Scout->AuthoredHomeLocation.ContainsNaN()
-     ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return 0.f;
+     ||FVector::DistSquared(HeroLocation,ScoutLocation)>FMath::Square(500.0))return 0.f;
  const float Now=GetWorld()->GetTimeSeconds();
  if(!FMath::IsFinite(Now)||Now<0.f||Now<LastCompanionCoverAt)return 0.f;
  const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
@@ -119,7 +122,10 @@ float AMoonfallUnrealGameMode::ConsumeLocalCompanionCover(AMoonfallHeroPawn* Her
  FHitResult Hit;
  if(GetWorld()->LineTraceSingleByChannel(Hit,ScoutLocation+FVector(0,0,55),
       HeroLocation+FVector(0,0,55),ECC_Visibility,Params))return 0.f;
- LastCompanionCoverAt=Now;return Cover;
+ LastCompanionCoverAt=Now;
+ Scout->CompanionHealth=FMath::Max(0.f,Scout->CompanionHealth-Cover);
+ if(Scout->CompanionHealth<=0.f){Scout->bCompanionDowned=true;Scout->OnCompanionDowned();}
+ return Cover;
 }
 void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now){
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!GetWorld()
@@ -142,7 +148,7 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
  const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation(),Target=Enemy->GetActorLocation();
  if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Target.ContainsNaN()
      ||Scout->AuthoredHomeLocation.ContainsNaN()
-     ||FVector::DistSquared(HeroLocation,Scout->AuthoredHomeLocation)>FMath::Square(450.0))return;
+     ||FVector::DistSquared(HeroLocation,ScoutLocation)>FMath::Square(500.0))return;
  if(!MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
       FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true,
       MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole),LocalCompanionTraining))return;
@@ -168,7 +174,7 @@ bool AMoonfallUnrealGameMode::SetLocalCompanionStance(AMoonfallHeroPawn* Hero,EM
  if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||Hero->Health<=0.f)return false;
  switch(Stance){
  case EMoonfallCompanionStance::Follow:case EMoonfallCompanionStance::Hold:case EMoonfallCompanionStance::Passive:
-  LocalCompanionStance=Stance;return true;
+  LocalCompanionStance=Stance;bFollowerMoveOrdered=false;return true;
  default:return false;
  }
 }
@@ -204,8 +210,52 @@ bool AMoonfallUnrealGameMode::ResetLocalCompanionTalents(AMoonfallHeroPawn* Hero
       MoonfallWorldPolicy::PackCompanionProfile(0,static_cast<int>(LocalCompanionRole))))return false;
  LocalCompanionTraining=0;return true;
 }
+bool AMoonfallUnrealGameMode::OrderCompanionMove(AMoonfallHeroPawn* Hero,FVector Destination){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||LocalCompanion->bCompanionDowned
+    ||Hero->Health<=0.f||Destination.ContainsNaN()||Hero->GetActorLocation().ContainsNaN()
+    ||FVector::DistSquared(Destination,Hero->GetActorLocation())>FMath::Square(1000.0))return false;
+ OrderedFollowerDestination=Destination;bFollowerMoveOrdered=true;
+ LocalCompanionStance=EMoonfallCompanionStance::Hold;return true;
+}
+bool AMoonfallUnrealGameMode::ReviveLocalCompanion(AMoonfallHeroPawn* Hero){
+ if(!IsLocalCompanionOwner(Hero)||!LocalCompanion.IsValid()||!LocalCompanion->bCompanionDowned
+     ||Hero->IsRecentlyInCombatForAmbientAI()||!LocalCompanion->CanHeroInteract(Hero))return false;
+ auto* Scout=LocalCompanion.Get();
+ Scout->CompanionHealth=50.f;Scout->bCompanionDowned=false;Scout->OnCompanionRecovered();return true;
+}
+void AMoonfallUnrealGameMode::PulseFollower(){
+ if(!HasAuthority()||!GetWorld())return;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now))return;
+ if(auto* Returning=ReturningCompanion.Get()){
+  Returning->LivingIntent=TEXT("Returning Home");
+  if(Returning->AdvanceFollowerToward(Returning->AuthoredHomeLocation,Now,40.f)){
+   Returning->LivingIntent.Reset();ReturningCompanion.Reset();
+  }
+ }
+ auto* Scout=LocalCompanion.Get();auto* Hero=CompanionOwner.Get();
+ if(!IsValid(Scout)||!IsValid(Hero)){
+  if(!ReturningCompanion.IsValid())GetWorldTimerManager().ClearTimer(FollowerPulseTimer);
+  return;
+ }
+ if(!IsLocalCompanionOwner(Hero)||Hero->Health<=0.f||Hero->bInventoryOpen||Hero->bOptionsOpen
+    ||Hero->bAtlasOpen||Hero->bTalentWebOpen||Hero->bCharacterStatsOpen||Hero->bSpellBookOpen
+    ||Hero->bResidentContextOpen)return;
+ if(Scout->bCompanionDowned){Scout->LivingIntent=TEXT("Downed");return;}
+ if(Scout->GetBondWithHero(Hero)<60||Hero->GetFactionReputation(Scout->FactionId)<0)return;
+ if(!Hero->IsRecentlyInCombatForAmbientAI())Scout->CompanionHealth=FMath::Min(100.f,Scout->CompanionHealth+0.8f);
+ if(bFollowerMoveOrdered){
+  Scout->LivingIntent=TEXT("Moving to order");
+  if(Scout->AdvanceFollowerToward(OrderedFollowerDestination,Now,45.f))bFollowerMoveOrdered=false;
+ }else if(LocalCompanionStance==EMoonfallCompanionStance::Follow){
+  Scout->LivingIntent=TEXT("Following");
+  Scout->AdvanceFollowerToward(Hero->GetActorLocation(),Now,180.f);
+ }else Scout->LivingIntent=LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("Holding Position"):TEXT("Passive");
+}
 bool AMoonfallUnrealGameMode::DismissLocalCompanion(AMoonfallHeroPawn* Hero){
  if(!IsLocalCompanionOwner(Hero))return false;
+ if(ReturningCompanion.IsValid()&&ReturningCompanion.Get()!=LocalCompanion.Get())return false;
+ ReturningCompanion=LocalCompanion;bFollowerMoveOrdered=false;
  LocalCompanion.Reset();CompanionOwner.Reset();LocalCompanionStance=EMoonfallCompanionStance::Passive;LocalCompanionRole=EMoonfallCompanionRole::Balanced;LocalCompanionTraining=0;return true;
 }
 void AMoonfallUnrealGameMode::UnregisterLivingResident(AMoonfallWorldNPC* Resident) {
@@ -404,6 +454,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       const bool bTalking=Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC;
       const int32 Bond=NPC->GetBondWithHero(Hero);
       const bool bRecruited=LocalCompanion.Get()==NPC&&IsLocalCompanionOwner(Hero);
+      if(bRecruited||ReturningCompanion.Get()==NPC)return;
       const bool bStanceAllowsGuide=!LocalCompanion.IsValid()
           ||(bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Follow);
       const bool bHold=bRecruited&&LocalCompanionStance==EMoonfallCompanionStance::Hold
