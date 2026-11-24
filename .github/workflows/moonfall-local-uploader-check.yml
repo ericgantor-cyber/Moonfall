@@ -120,3 +120,6 @@ jobs:
           if (Test-Path (Join-Path $offlineCache 'sent.json')) { throw 'Failed requests should never mark receipts as uploaded' }
           Remove-Item Env:MOONFALL_GH_COUNT_FILE -ErrorAction SilentlyContinue
           Write-Output 'Local uploader syntax and redacted dry run passed.'
+          # The intentionally failing fake GitHub CLI leaves LASTEXITCODE=1.
+          # Explicitly reset the test harness exit status after all assertions pass.
+          exit 0
