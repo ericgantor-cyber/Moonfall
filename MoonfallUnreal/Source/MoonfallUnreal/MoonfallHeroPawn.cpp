@@ -734,7 +734,7 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
  const float SortX = Left + PanelWidth - SortWidth - 14.f;
- const float CloseX = SortX - 36.f;
+ const float CloseX = bCharacterStatsOpen ? Left + PanelWidth - 42.f : SortX - 36.f;
  return MouseX >= CloseX && MouseX <= CloseX + 28.f &&
         MouseY >= Top + 14.f && MouseY <= Top + 42.f;
 }
