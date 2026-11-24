@@ -1204,7 +1204,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
    const bool bDungeonRole = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
-   if (!bBoss && (!bElite || bDungeonRole)) {
+   if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;

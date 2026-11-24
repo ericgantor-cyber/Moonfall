@@ -3807,8 +3807,6 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  ResidentContextSelection = 0;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
- if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
-  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
 }
 void AMoonfallHeroPawn::CastRightMouse() {
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
@@ -3859,8 +3857,6 @@ void AMoonfallHeroPawn::CastRightMouse() {
     ResidentContextSelection = 0;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
-    if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
-     RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
    } else {
     OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to interact.")), false);
    }
@@ -4060,7 +4056,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
 }
 void AMoonfallHeroPawn::TalkToNearestNPC() {
  if (AMoonfallWorldNPC* Resident = GetNearestResidentNPC()) {
-  if (Resident->CanHeroInteract(this)) Resident->TryTalk(this);
+  if (Resident->CanHeroInteract(this) && Resident->TryTalk(this)
+      && Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+   RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
  }
 }
 void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
@@ -4077,6 +4075,9 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if (Choice == 0) {
   bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
+  // Opening or immediately closing a menu is not a completed conversation.
+  if (Resident->ResidentId == FName(TEXT("CrossroadsGuide")))
+   RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
   ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
   return true;

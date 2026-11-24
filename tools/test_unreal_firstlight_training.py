@@ -82,9 +82,22 @@ int main() {
             ("void AMoonfallHeroPawn::CastRightMouse()",
              "void AMoonfallHeroPawn::ReleaseInventoryPointer()")):
             context=self.hero.split(opening,1)[1].split(closing,1)[0]
-            self.assertIn('Resident->ResidentId == FName(TEXT("CrossroadsGuide"))',context)
-            self.assertLess(context.index("OnResidentContextOpened("),
-                            context.index("RecordFirstlightAction("))
+            self.assertIn("OnResidentContextOpened(",context)
+            self.assertNotIn("RecordFirstlightAction(",context)
+        # Only a successful Talk action earns the lesson, including the
+        # existing direct-talk API used by controller or external UI.
+        direct=self.hero.split("void AMoonfallHeroPawn::TalkToNearestNPC()",1)[1].split(
+            "void AMoonfallHeroPawn::InteractWithNearestResidentQuest()",1)[0]
+        self.assertIn("Resident->CanHeroInteract(this) && Resident->TryTalk(this)",direct)
+        self.assertIn('Resident->ResidentId == FName(TEXT("CrossroadsGuide"))',direct)
+        self.assertIn("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);",direct)
+        choice=self.hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice)",1)[1].split(
+            "// Bounded, persistent faction relationship API.",1)[0]
+        self.assertIn("if (Choice == 0) {",choice)
+        self.assertLess(choice.index("if (!Resident->TryTalk(this)) return false;"),
+                        choice.index("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);"))
+        self.assertLess(choice.index("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SpeakToGuide);"),
+                        choice.index("ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();"))
 
     def test_swing_dodge_and_grimoire_are_actual_actions(self):
         melee=self.hero.split("void AMoonfallHeroPawn::MeleeAttack()",1)[1].split(
@@ -105,8 +118,8 @@ int main() {
             "// Compact circular resource HUD",1)[0]
         for phrase in ("Hero->FirstlightTutorial.Next()","Hero->FirstlightTutorial.Count()",
                        "Hero->bStartingSanctuaryPlaced","OPTIONAL:",
-                       "FIRST STEPS %u/5", "right-click / D-pad Up",
-                       "left-click / RT","Open your Spell Book (P)",
+                       "FIRST STEPS %u/5", "right-click / D-pad Up, then Talk",
+                       "left-click / RT","Open your Spell Book (P / inventory Book tab)",
                        "FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"):
             self.assertIn(phrase,tracker)
         for costly in ("TActorIterator","OpenLevel","GetAllActorsOfClass"):
@@ -124,6 +137,7 @@ int main() {
                          "MoonfallPracticeAI::IdleTickSeconds","return;"):
             self.assertIn(required,far)
         self.assertNotIn("TActorIterator",far)
+        self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {",e)
         selected=e.split("const int32 PatternCount =",1)[1].split(
             "WindupEndsAt = Now + CurrentWindup;",1)[0]
         for value in ("MoonfallPracticeAI::PatternFor(AttackSequence)",

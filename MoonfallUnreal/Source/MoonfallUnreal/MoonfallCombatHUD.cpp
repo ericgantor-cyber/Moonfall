@@ -1399,13 +1399,13 @@ void AMoonfallCombatHUD::DrawHUD()
     case EAction::DiscoverShrine:
      Objective = TEXT("Approach the Firstlight Shrine"); break;
     case EAction::SpeakToGuide:
-     Objective = TEXT("Talk to the Guide (right-click / D-pad Up)"); break;
+     Objective = TEXT("Speak to the Guide (right-click / D-pad Up, then Talk)"); break;
     case EAction::SwingSword:
      Objective = TEXT("Try your sword (left-click / RT)"); break;
     case EAction::PerformDodge:
      Objective = TEXT("Dodge near the northern practice sentries"); break;
     case EAction::OpenSpellbook:
-     Objective = TEXT("Open your Spell Book (P)"); break;
+     Objective = TEXT("Open your Spell Book (P / inventory Book tab)"); break;
     default: break;
    }
    Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");
