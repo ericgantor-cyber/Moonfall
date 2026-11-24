@@ -307,6 +307,30 @@ int main(){
         self.assertNotIn("ChangeResidentBond(",mood)
         self.assertNotIn("WitnessNearbyDanger(",mood)
 
+    def test_v27_local_scout_guidance_is_safe_and_bounded(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
+        self.assertIn("bool bGuideBudgetUsed=false",pulse)
+        self.assertIn("!bGuideBudgetUsed",pulse)
+        self.assertIn("if(bGuide)bGuideBudgetUsed=true",pulse)
+        self.assertIn("Hero->GetFactionReputation(NPC->FactionId)",pulse)
+        self.assertIn("const bool bGuideSafe=!bCombatNearby",pulse)
+        for menu in ("bInventoryOpen","bOptionsOpen","bAtlasOpen","bCharacterStatsOpen",
+                     "bSpellBookOpen","bResidentContextOpen"):
+            self.assertIn("!Hero->"+menu,pulse)
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bAllowLocalScoutGuidance",movement)
+        self.assertIn("Alert==MoonfallLivingSimulation::EAlertReaction::Normal",movement)
+        self.assertIn("FMath::Clamp(Distance-240.0,0.0,180.0)",movement)
+        self.assertIn("Hit.ImpactNormal.Z<0.7",movement)
+        self.assertIn("FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0",movement)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertNotIn("SetActorLocation(",movement)
+        self.assertNotIn("MoveToLocation(",movement)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
