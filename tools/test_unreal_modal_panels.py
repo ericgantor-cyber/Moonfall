@@ -60,6 +60,61 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertIn("MoonfallTalentWeb::BranchTab(P,B)", HUD)
         self.assertIn("Hero->ResidentContextSelection", HUD)
 
+    def test_shared_hover_covers_existing_click_targets_without_input_mutation(self):
+        hover = HUD.split("const auto DrawHoverFrame = [this", 1)[1].split(
+            "if (Hero->bTalentWebOpen)", 1
+        )[0]
+        self.assertEqual(HUD.count("const auto DrawHoverFrame = [this"), 1)
+        for token in (
+            "bPanelPointerVisible", "GetMousePosition(PanelPointerX,PanelPointerY)",
+            "FMath::IsFinite(PanelPointerX)", "PanelPointerX < X",
+            "PanelPointerY > Y+H", "DrawRect(Focus,X+W-2.f,Y,2.f,H);",
+        ):
+            self.assertIn(token, hover)
+        for forbidden in (
+            "SaveWorldProgress", "ChangeFactionReputation", "EquipInventoryItem",
+            "SetGamePaused", "BindAction(", "GetAllActorsOfClass",
+        ):
+            self.assertNotIn(forbidden, hover)
+        for token in (
+            "DrawHoverFrame(float(Close.X),float(Close.Y),float(Close.W),float(Close.H));",
+            "DrawHoverFrame(float(Tab.X),float(Tab.Y),float(Tab.W),float(Tab.H));",
+            "DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));",
+            "DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));",
+            "DrawHoverFrame(NpcCloseX,T+12.f,28.f,28.f);",
+            "DrawHoverFrame(L+14.f,Y,W-28.f,43.f);",
+            "DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);",
+            "DrawHoverFrame(Left+13.f,Y-4.f,AtlasSidebarWidth-22.f,RowHeight);",
+            "DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);",
+            "DrawHoverFrame(MenuLeft+10.f,Y,MenuWidth-20.f,RowHeight);",
+            "DrawHoverFrame(MinusX,Y,25.f,ButtonHeight);",
+            "DrawHoverFrame(PlusX,Y,25.f,ButtonHeight);",
+            "DrawHoverFrame(CloseButtonX,Top+14.f,28.f,28.f);",
+            "DrawHoverFrame(TabX,PageTabTop,PageTabWidth,32.f);",
+            "DrawHoverFrame(Left+15.f,Y,PanelWidth-30.f,ReputationRowHeight-3.f);",
+            "DrawHoverFrame(Book.TabX,Book.TabY,Book.TabWidth,Book.TabHeight);",
+            "DrawHoverFrame(Book.RowX,Y,Book.RowWidth,Book.RowHeight);",
+            "DrawHoverFrame(SortX,SortY,SortWidth,28.f);",
+            "DrawHoverFrame(EquipX,EquipY,172.f,30.f);",
+            "DrawHoverFrame(X,StripY,SlotWidth-3.f,22.f);",
+            "DrawHoverFrame(Left+12.f,Y-3.f,PanelWidth-24.f,RowSpacing-3.f);",
+        ):
+            with self.subTest(target=token):
+                self.assertIn(token, HUD)
+
+    def test_world_hud_does_not_overlap_boss_and_honors_reduced_motion(self):
+        for token in (
+            "const bool bQuestOverlapsBoss = bBossHudVisible",
+            "BossHudLeft < Left+Width && BossHudLeft+BossHudWidth > Left",
+            "const float Top = bQuestOverlapsBoss ? 232.f : 78.f;",
+            "const float LowHealthPulse = bCriticalHealth && !Hero->bReduceMotion",
+            "DisplayHealth = Hero->bReduceMotion ? ActualHealth",
+            "DisplayMana = Hero->bReduceMotion ? ActualMana",
+            "DisplayStamina = Hero->bReduceMotion ? ActualStamina",
+            "DisplayXP = Hero->bReduceMotion ? ActualXP",
+        ):
+            self.assertIn(token, HUD)
+
     def test_tiny_viewports_have_safe_noninteractive_fallbacks(self):
         for token in (
             "Canvas->SizeX < 284.f || Canvas->SizeY < 294.f",
