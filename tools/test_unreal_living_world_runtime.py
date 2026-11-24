@@ -28,6 +28,13 @@ int main(){
  assert(RoadEncounterOffset(20250.f,0.f)==0.f);
  assert(RoadEncounterOffset(std::numeric_limits<float>::quiet_NaN(),0.f)==0.f);
  assert(RoadEncounterOffset(0.f,std::numeric_limits<float>::infinity())==0.f);
+ assert(PauseResidentMotion(true,false,false,false));
+ assert(PauseResidentMotion(true,true,true,false));
+ assert(PauseResidentMotion(true,true,false,true));
+ assert(PauseResidentMotion(false,true,false,false));
+ assert(!PauseResidentMotion(false,true,true,false));
+ assert(!PauseResidentMotion(false,true,false,true));
+ assert(!PauseResidentMotion(false,false,false,false));
  assert(ResidentWindowCount(0)==0);
  assert(ResidentWindowCount(1)==1);
  assert(ResidentWindowCount(19)==19);
@@ -134,6 +141,25 @@ int main(){
         self.assertNotIn("TActorIterator",movement)
         self.assertNotIn("SetTimer",movement)
 
+    def test_alerted_residents_can_move_near_hero_without_interrupting_talk(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        npc_h=(SRC/"MoonfallWorldNPC.h").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
+            "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
+        self.assertIn("bool bInConversation=false",npc_h)
+        self.assertIn("bool bInConversation)",movement)
+        self.assertIn("PauseResidentMotion(",movement)
+        self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
+        self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
+        self.assertIn("bInConversation || (nearHero && !sheltering && !holdingPost)",policy)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
+        self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",mode)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",movement)
+        self.assertNotIn("TActorIterator",movement)
+        self.assertNotIn("SetTimer",movement)
+
     def test_resident_behavior_uses_weather_with_no_personal_tick(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
@@ -183,7 +209,8 @@ int main(){
         self.assertIn("NextResidentPulseIndex,LivingResidents.Num()",pulse)
         self.assertIn("DistSq<=FMath::Square(1600.f)",pulse)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",pulse)
-        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",pulse)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",pulse)
+        self.assertIn("Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC",pulse)
         self.assertIn("while(inspected<registered && processed<ResidentBudget)",policy)
         self.assertIn("if(!isNearby(index))continue;",policy)
         self.assertIn("return (start+inspected)%registered;",policy)
@@ -265,7 +292,7 @@ int main(){
         self.assertIn("if (!bLivingResidentCacheInitialized)",mode)
         self.assertIn("Scanned<MoonfallLivingSimulation::ResidentRegistryBudget",mode)
         self.assertIn("RegisterLivingResident(*It);",mode)
-        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation);",mode)
+        self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)
         self.assertIn("LivingArena->UpdateRegionWeather(Now);",mode)
         self.assertIn("MoonfallLivingSimulation::MayEncounter(",mode)

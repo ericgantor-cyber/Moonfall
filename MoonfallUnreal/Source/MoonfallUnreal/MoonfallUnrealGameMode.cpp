@@ -192,7 +192,8 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       const float DistSq=FVector::DistSquared2D(HeroLocation,NPC->GetActorLocation());
       if (bCombatNearby && DistSq<FMath::Square(700.f))
        NPC->WitnessNearbyDanger(Now);
-      NPC->AdvanceLivingRoutine(Now,HeroLocation);
+      NPC->AdvanceLivingRoutine(Now,HeroLocation,
+          Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC);
      });
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.

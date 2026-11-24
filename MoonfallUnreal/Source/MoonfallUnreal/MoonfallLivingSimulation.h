@@ -49,6 +49,13 @@ inline EAlertReaction ReactionFor(ERole role,float secondsSinceDanger) {
   return EAlertReaction::Normal;
  return role==ERole::Guard?EAlertReaction::HoldPost:EAlertReaction::SeekShelter;
 }
+// Nearby civilians must still retreat during danger or severe weather,
+// and guards should return to their posts. A conversation always pins the
+// focused resident in place so mouse/gamepad dialogue is not interrupted.
+constexpr bool PauseResidentMotion(bool inConversation,bool nearHero,
+                                   bool sheltering,bool holdingPost) {
+ return inConversation || (nearHero && !sheltering && !holdingPost);
+}
 inline int Phase(float time, float duration) {
  if(!std::isfinite(time)||time<0.f||!std::isfinite(duration)||duration<=0.f)return 0;
  return static_cast<int>(std::fmin(time/duration,10000000.f));
