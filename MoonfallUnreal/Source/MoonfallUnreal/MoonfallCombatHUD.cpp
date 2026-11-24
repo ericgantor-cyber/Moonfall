@@ -1855,6 +1855,30 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
  }
+ // One cached party lookup, no actor search or extra world-space labels.
+ // Keep the companion readout away from the player's resource orb.
+ if (!bCompactScreen) {
+  const auto* CompanionMode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+  const auto* Scout=CompanionMode?CompanionMode->GetLocalCompanion():nullptr;
+  if (IsValid(Scout) && !Scout->IsActorBeingDestroyed()
+      && Scout->ResidentId==Hero->GetCompanionParty().ResidentId
+      && FMath::IsFinite(Scout->CompanionHealth)) {
+   const float HP=FMath::Clamp(Scout->CompanionHealth,0.f,100.f);
+   const bool bDown=Scout->bCompanionDowned||HP<=0.f;
+   const float W=240.f,X=Canvas->SizeX-W-18.f,Y=Canvas->SizeY-117.f;
+   const TCHAR* Stance=bDown?TEXT("DOWNED"):
+     CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("FOLLOW"):
+     CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("HOLD"):TEXT("PASSIVE");
+   DrawRect(FLinearColor(0.035f,0.045f,0.09f,0.92f),X,Y,W,65.f);
+   DrawText(Scout->DisplayName.ToString().Left(24),FLinearColor::White,X+10.f,Y+5.f,nullptr,0.82f);
+   DrawRect(FLinearColor(0.20f,0.12f,0.16f),X+10.f,Y+27.f,W-20.f,7.f);
+   const FLinearColor HPColor=HP<=25.f?FLinearColor(1.f,0.28f,0.25f):FLinearColor(0.32f,0.82f,0.53f);
+   DrawRect(HPColor,X+10.f,Y+27.f,(W-20.f)*HP/100.f,7.f);
+   DrawText(FString::Printf(TEXT("%s | %.0f / 100 HP"),Stance,HP),
+      bDown?FLinearColor(1.f,0.44f,0.39f):FLinearColor(0.82f,0.89f,0.98f),
+      X+10.f,Y+39.f,nullptr,0.72f);
+  }
+ }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  // Reuse one controller lookup for every projected damage label this frame.
