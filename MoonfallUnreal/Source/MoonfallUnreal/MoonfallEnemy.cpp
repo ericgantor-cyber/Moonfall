@@ -177,13 +177,14 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
-bool AMoonfallEnemy::TryCompanionSupportStrike(){
+bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
-     ||!FMath::IsFinite(Health)||Health<=6.f||bPostureFinisherAvailable)return false;
+     ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
+     ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
  const float Now=GetWorld()->GetTimeSeconds();
  if(!FMath::IsFinite(Now)||!FMath::IsFinite(PostureBrokenUntil)||Now<PostureBrokenUntil)return false;
  const float Before=Health;
- TakeMeleeDamage(6.f);
+ TakeMeleeDamage(Amount);
  return Health<Before;
 }
 void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
