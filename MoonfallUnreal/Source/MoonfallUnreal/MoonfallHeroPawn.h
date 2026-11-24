@@ -40,6 +40,7 @@ public:
  bool bHasStartingSanctuaryAnchor = false;
  FVector StartingSanctuaryAnchor = FVector::ZeroVector;
  bool IsNearStartingSanctuary() const;
+ bool IsRecentlyInCombatForAmbientAI() const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // Twelve persistent fantasy ancestries. Choice locks on first selection.

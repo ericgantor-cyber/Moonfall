@@ -284,6 +284,12 @@ void AMoonfallHeroPawn::RecordFirstlightAction(
   FirstlightTutorial.Mark(Action);
 }
 
+bool AMoonfallHeroPawn::IsRecentlyInCombatForAmbientAI() const {
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health<=0.f
+     || !FMath::IsFinite(CombatRecoveryEndsAt)) return false;
+ const float Now=GetWorld()->GetTimeSeconds();
+ return FMath::IsFinite(Now) && CombatRecoveryEndsAt>Now;
+}
 bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
  if (!bHasStartingSanctuaryAnchor || GetActorLocation().ContainsNaN()) return false;
  return FVector::DistSquared2D(GetActorLocation(), StartingSanctuaryAnchor)

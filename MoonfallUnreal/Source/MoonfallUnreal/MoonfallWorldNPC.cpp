@@ -5,6 +5,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
+#include "MoonfallLivingSimulation.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -18,6 +19,29 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
+void AMoonfallWorldNPC::BeginPlay() {
+ Super::BeginPlay();
+ AuthoredHomeLocation = GetActorLocation();
+}
+void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
+ if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
+}
+void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation) {
+ if (bAmbientVisitor || !GetWorld() || !FMath::IsFinite(Now)
+     || AuthoredHomeLocation.ContainsNaN() || HeroLocation.ContainsNaN()
+     || FVector::DistSquared2D(HeroLocation, GetActorLocation()) < FMath::Square(420.f))
+  return;
+ // Compact authored-home offsets: no teleport, path solve or NPC Tick.
+ const int Shift=(MoonfallLivingSimulation::Phase(Now,180.f)
+     + static_cast<int>(GetTypeHash(ResidentId)%4u))%4;
+ const float Side=Shift==0?-65.f:(Shift==1?65.f:0.f);
+ const float Front=Shift==2?45.f:(Shift==3?-45.f:0.f);
+ const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
+ FVector Step=Target-GetActorLocation();
+ Step.Z=0.f;
+ if (Step.SizeSquared2D() > FMath::Square(1.f))
+  AddActorWorldOffset(Step.GetClampedToMaxSize2D(32.f),true);
+}
 int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
  return IsValid(Hero) ? Hero->GetResidentBond(ResidentId) : 0;
 }
@@ -30,6 +54,7 @@ bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Point
  return Hero->ChangeResidentBond(ResidentId, Points);
 }
 int32 AMoonfallWorldNPC::GetContractSalvageCost() const {
+ if (bAmbientVisitor) return 0;
  return ResidentId == FName(TEXT("CrossroadsGuide")) ? 10
    : 10 + (MoonfallRaces::Validated(RaceId) % 4) * 5;
 }
@@ -51,16 +76,33 @@ bool AMoonfallWorldNPC::CanHeroInteract(const AMoonfallHeroPawn* Hero) const {
 }
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 FString AMoonfallWorldNPC::GetCurrentActivity() const {
- // Cyclical ambient schedule derived on demand, avoiding a per-NPC Tick.
- const float WorldTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
- const int32 Shift = FMath::FloorToInt(FMath::Max(0.f, WorldTime) / 300.f) % 3;
- if (SocialRole == FName(TEXT("Guard"))) return Shift == 2 ? TEXT("Patrolling") : TEXT("Watching");
- if (SocialRole == FName(TEXT("Merchant"))) return Shift == 2 ? TEXT("Restocking") : TEXT("Trading");
- if (SocialRole == FName(TEXT("Scout"))) return Shift == 0 ? TEXT("Exploring") : TEXT("Reporting");
- if (SocialRole == FName(TEXT("Scholar"))) return Shift == 2 ? TEXT("Studying") : TEXT("Teaching");
- if (SocialRole == FName(TEXT("Tinker"))) return Shift == 2 ? TEXT("Repairing") : TEXT("Inventing");
- if (SocialRole == FName(TEXT("Elder"))) return Shift == 2 ? TEXT("Reflecting") : TEXT("Advising");
- return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
+ // Weather-aware daily shifts: queried on demand, never on an NPC Tick.
+ const float Now=GetWorld()?GetWorld()->GetTimeSeconds():0.f;
+ const int Region=MoonfallLivingSimulation::RegionFromWorldX(GetActorLocation().X);
+ const auto Weather=MoonfallLivingSimulation::WeatherFor(
+     Region,MoonfallLivingSimulation::Phase(Now,360.f));
+ using ERole=MoonfallLivingSimulation::ERole;
+ ERole Role=ERole::Citizen;
+ if (SocialRole==FName(TEXT("Guard"))) Role=ERole::Guard;
+ else if (SocialRole==FName(TEXT("Merchant"))) Role=ERole::Merchant;
+ else if (SocialRole==FName(TEXT("Scout"))) Role=ERole::Scout;
+ else if (SocialRole==FName(TEXT("Scholar"))) Role=ERole::Scholar;
+ else if (SocialRole==FName(TEXT("Tinker"))) Role=ERole::Tinker;
+ else if (SocialRole==FName(TEXT("Elder"))) Role=ERole::Elder;
+ const int Shift=MoonfallLivingSimulation::Phase(Now,180.f)
+      + static_cast<int>(GetTypeHash(ResidentId)%4u);
+ switch(MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)) {
+ case MoonfallLivingSimulation::EActivity::Patrol:return TEXT("Patrolling");
+ case MoonfallLivingSimulation::EActivity::Travel:return TEXT("Traveling");
+ case MoonfallLivingSimulation::EActivity::Rest:return TEXT("Resting");
+ case MoonfallLivingSimulation::EActivity::Shelter:return TEXT("Sheltering");
+ case MoonfallLivingSimulation::EActivity::Work:
+  return Role==ERole::Merchant?TEXT("Trading"):
+     (Role==ERole::Guard?TEXT("Watching"):
+     (Role==ERole::Scout?TEXT("Reporting"):
+     (Role==ERole::Scholar?TEXT("Studying"):TEXT("Working"))));
+ }
+ return TEXT("Working");
 }
 bool AMoonfallWorldNPC::SharesRaceWith(const AMoonfallHeroPawn* Hero) const {
  return IsValid(Hero) && Hero->bRaceChosen
@@ -99,10 +141,12 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  // Activity is determined only when interacted with; inhabitants never spam
  // navigation or world perception. Trust/hostility overrides daily routine.
  if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant"))
-     && GetCurrentActivity() == TEXT("Restocking"))
+     && (GetCurrentActivity() == TEXT("Resting")
+         || GetCurrentActivity() == TEXT("Sheltering")))
   Reaction = FText::FromString(TEXT("The stall is closed while I restock."));
  else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Scout"))
-     && GetCurrentActivity() == TEXT("Reporting"))
+     && (GetCurrentActivity() == TEXT("Reporting")
+         || GetCurrentActivity() == TEXT("Sheltering")))
   Reaction = FText::FromString(TEXT("The roads have changed. I am reporting what I saw."));
  // Individual trust changes the greeting without changing faction rank.
  // Negative bonds can come from quest consequences, not conversation farming.
@@ -113,7 +157,7 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  // Accepted one-time contracts have useful, contextual status.
- if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0) {
+ if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0) {
   // Firstlight residents can tell their authored story on first meeting
   // while retaining the existing one-time salvage contract acceptance.
   // All Crossroads and other NPC dialogue remains unchanged.
@@ -122,23 +166,29 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     ? FText::FromString(Spoken.ToString() + TEXT(" ") + Offer)
     : FText::FromString(Offer);
  }
- else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
+ else if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
   Reaction = FText::FromString(FString::Printf(
     TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
- else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
+ else if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
+ // Short-lived witness memory never changes quests or faction reputation.
+ const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+ if (FMath::IsFinite(Now) && Now>=LastDangerAt && Now-LastDangerAt<85.f
+     && Disposition!=TEXT("Hostile"))
+  Reaction=FText::FromString(Reaction.ToString()
+      + TEXT(" I heard fighting nearby. Stay alert."));
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
 
 bool AMoonfallWorldNPC::OfferResidentQuest(AMoonfallHeroPawn* Hero) {
- if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+ if (bAmbientVisitor || ResidentId.IsNone() || !CanHeroInteract(Hero)
      || Hero->GetFactionReputation(FactionId) <= -50) return false;
  return Hero->AcceptResidentQuest(ResidentId);
 }
 bool AMoonfallWorldNPC::TurnInResidentQuest(AMoonfallHeroPawn* Hero) {
- if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+ if (bAmbientVisitor || ResidentId.IsNone() || !CanHeroInteract(Hero)
      || Hero->GetFactionReputation(FactionId) <= -50) return false;
  return Hero->CompleteResidentQuest(this);
 }

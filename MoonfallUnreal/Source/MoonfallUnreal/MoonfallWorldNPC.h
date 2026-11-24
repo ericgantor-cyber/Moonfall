@@ -11,6 +11,14 @@ class MOONFALLUNREAL_API AMoonfallWorldNPC : public AActor {
  GENERATED_BODY()
 public:
  AMoonfallWorldNPC();
+ virtual void BeginPlay() override;
+ // One world-level timer (not per-NPC Tick) drives small local routines.
+ void AdvanceLivingRoutine(float Now, const FVector& HeroLocation);
+ void WitnessNearbyDanger(float Now);
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Ambient")
+ bool bAmbientVisitor = false;
+ float LastDangerAt = -1000.f;
+ FVector AuthoredHomeLocation = FVector::ZeroVector;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") UStaticMeshComponent* Body;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText DisplayName;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FText Greeting;

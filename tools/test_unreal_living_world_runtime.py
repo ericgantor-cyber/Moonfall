@@ -39,4 +39,17 @@ int main(){
             source.write_text(code)
             subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True,check=True)
             subprocess.run([str(exe)],check=True)
+    def test_resident_behavior_uses_weather_with_no_personal_tick(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;",npc)
+        self.assertIn("AdvanceLivingRoutine(float Now,",npc)
+        self.assertIn("Step.GetClampedToMaxSize2D(32.f)",npc)
+        self.assertIn("MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)",npc)
+        self.assertIn("Now-LastDangerAt<85.f",npc)
+        self.assertIn("if (bAmbientVisitor) return 0;",npc)
+        self.assertIn("if (bAmbientVisitor || ResidentId.IsNone()",npc)
+        self.assertIn("IsRecentlyInCombatForAmbientAI() const",hero)
+        self.assertNotIn("GetAllActorsOfClass(",npc)
+
 if __name__=="__main__":unittest.main()
