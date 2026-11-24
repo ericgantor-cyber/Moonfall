@@ -3154,7 +3154,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
  };
  for (const auto& Entry : FactionReputation)
   if (!SaveFactionIds[0].IsNone() &&
@@ -3277,7 +3278,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
   };
   for (const auto& Entry : Save->ResidentBonds) {
    bool bKnown = false;
@@ -3469,7 +3471,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
    FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
    FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale"))
+   FName(TEXT("Ashscale")),
+   FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
   };
   for (FName Key : ValidIds) {
    if (const int32* Value = Save->ResidentBonds.Find(Key))
@@ -4179,7 +4182,8 @@ bool IsNamedMoonfallResident(FName Id) {
   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale"))
+  FName(TEXT("Ashscale")),
+  FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
  };
  for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
  return false;
