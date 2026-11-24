@@ -7,6 +7,7 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallNpcDecisionPolicy.h"
 
 AMoonfallWorldNPC::AMoonfallWorldNPC() {
  PrimaryActorTick.bCanEverTick = false;
@@ -39,7 +40,7 @@ void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
 }
 void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocation,
-                                               bool bInConversation) {
+                                               bool bInConversation, int32 HeroBond) {
  if (bAmbientVisitor || !GetWorld() || !FMath::IsFinite(Now)
      || AuthoredHomeLocation.ContainsNaN() || HeroLocation.ContainsNaN()
      || GetActorLocation().ContainsNaN())
@@ -61,10 +62,50 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  const bool bHoldPost=Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost;
  const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
      < FMath::Square(420.f);
+ bool bRoutineHome=false;
+ LivingIntent.Reset();
+ if (bUsePersonalityRoutines) {
+  using namespace MoonfallNpcPolicy;
+  Input Context;
+  // Four existing 180-second shifts form one simulated day. Start at dawn.
+  Context.hour=FMath::Fmod(FMath::Fmod(FMath::Max(Now,0.f),720.f)/30.f+6.f,24.f);
+  const bool bMerchant=SocialRole==FName(TEXT("Merchant"));
+  const bool bScout=SocialRole==FName(TEXT("Scout"));
+  // Stable per-resident variation, independent of tick/frame or spawn order.
+  const float Temperament=static_cast<float>(GetTypeHash(ResidentId)%101u)/100.f;
+  Context.courage=bGuard?.95f:(bScout?.7f:.2f+Temperament*.4f);
+  Context.aggression=bGuard?.7f:.1f;
+  Context.sociability=bMerchant?.8f:.3f+Temperament*.5f;
+  Context.diligence=bMerchant?.9f:.4f+Temperament*.5f;
+  Context.canDefend=bGuard;
+  Context.danger=Alert==MoonfallLivingSimulation::EAlertReaction::Normal?0.f:.7f;
+  Context.storm=MoonfallLivingSimulation::Severe(Weather)&&!bGuard;
+  Context.sheltered=false;
+  Context.playerNearby=bNearHero;
+  Context.trust=FMath::Clamp(HeroBond/100.f,-1.f,1.f);
+  const Action Intent=Decide(Context);
+  // Keep the existing quest roles and guard shift rotation intact. Intent
+  // names report decisions, not unimplemented activities or combat.
+  if (bInConversation) LivingIntent=TEXT("Conversing");
+  else if (bHoldPost) LivingIntent=TEXT("On Alert");
+  else if (bSheltering) LivingIntent=TEXT("Seeking Shelter");
+  else if (bGuard) LivingIntent=TEXT("On Duty");
+  else switch(Intent) {
+   case Action::Sleep: LivingIntent=TEXT("Resting"); bRoutineHome=true; break;
+   case Action::Eat: LivingIntent=TEXT("Meal Break"); bRoutineHome=true; break;
+   case Action::Talk: LivingIntent=TEXT("Ready to Talk"); break;
+   case Action::Socialize: LivingIntent=TEXT("Socializing"); break;
+   case Action::Work: LivingIntent=TEXT("Working"); break;
+   default: LivingIntent=TEXT("Idle"); break;
+  }
+  // Merchants/scouts retain their authored shifts so quest greetings do not
+  // change. Ordinary residents return home when resting or on a meal break.
+  if (bMerchant || bScout || bGuard || bInConversation) bRoutineHome=false;
+ }
  if (MoonfallLivingSimulation::PauseResidentMotion(
       bInConversation,bNearHero,bSheltering,bHoldPost)) return;
- const float Side=(bSheltering || bHoldPost)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
- const float Front=(bSheltering || bHoldPost)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
+ const float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
+ const float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  const FVector Target=AuthoredHomeLocation+FVector(Side,Front,0.f);
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
