@@ -130,6 +130,10 @@ inline CompanionTactic SelectCompanionTactic(float health,int rank,int role,bool
  const int Effective=EffectiveCompanionRole(rank,role);
  return Effective==1?CompanionTactic::Intercept:Effective==2?CompanionTactic::Flank:CompanionTactic::Follow;
 }
+inline bool ValidCompanionParty(bool recruited,int stance,float health,long long readyUtc){
+ return stance>=0&&stance<=2&&std::isfinite(health)&&health>=0.f&&health<=100.f
+     &&readyUtc>=0&&readyUtc<=253402300799LL&&(recruited||(stance==2&&health==100.f));
+}
 inline double CompanionAbilityCooldown(int accessoryTier){return 30.0-0.2*Clamp(accessoryTier,0,25);}
 inline bool CanActivateCompanionAbility(int rank,int role,float health,double now,double ready,bool eligible){
  return eligible&&rank>=2&&rank<=3&&role>=0&&role<=2&&std::isfinite(health)
