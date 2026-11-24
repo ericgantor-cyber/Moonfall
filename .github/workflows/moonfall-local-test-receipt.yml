@@ -18,7 +18,7 @@ jobs:
           data = json.loads(os.environ['REPORT'])
           assert set(data) == {'format_version','source','outcome','errors','warnings','file_sha256'}
           assert data['format_version'] == 1
-          assert data['source'] in {'unreal-log','automation-report'}
+          assert data['source'] in {'unreal-log','automation-report','build-center-log'}
           assert data['outcome'] in {'passed','failed','unknown'}
           assert re.fullmatch('[0-9a-f]{64}',data['file_sha256'])
           for k in ('errors','warnings'):
