@@ -726,6 +726,24 @@ int main(){
         self.assertIn("separatedSeconds>=8.0",policy)
         self.assertIn("std::numeric_limits<int64>::max()",social)
 
+    def test_v27_companion_gear_and_recovery_regressions(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
+            "bool AMoonfallHeroPawn::CommitCompanionParty(",1)[0]
+        self.assertIn("BestScore=GetItemPower(Old)",trade)
+        self.assertIn("Score=GetItemPower(Code)",trade)
+        self.assertIn("if(Score>BestScore)",trade)
+        self.assertIn("Code==Worn[Slot]",trade)
+        self.assertIn("if(!bFreshThreat&&!Hero->IsRecentlyInCombatForAmbientAI())",mode)
+        self.assertIn("||Hero->bResidentContextOpen){FollowerSeparatedAt=-1.f;return;}",mode)
+        self.assertIn("!FMath::IsFinite(Scout->CompanionHealth)",mode)
+        self.assertIn("&& !bFreshThreat".replace(" ",""),mode.replace(" ",""))
+        self.assertIn("Distance<=StopDistance&&bSameFloor",npc)
+        self.assertIn("FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0",npc)
+        self.assertIn("FMath::Max(0.0,Distance-StopDistance)",npc)
+
     def test_v27_guard_reports_remain_indirect_and_contextual(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         subsystem=(SRC/"MoonfallLivingWorldSubsystem.cpp").read_text()
