@@ -62,5 +62,16 @@ int main(){long n=0;
     &&std::isfinite(hero)&&hero>=0&&hero<=122500;
   assert(CanCompanionStrike(age,cooldown,scout,hero,eligible)==expected);++n;
  }
+ for(int bond=-100;bond<=100;++bond){
+  const int rank=bond>=100?3:bond>=80?2:bond>=60?1:0;
+  assert(CompanionRank(bond)==rank);
+  assert(CompanionStrikeDamage(rank)==(rank==0?0.f:rank==1?6.f:rank==2?8.f:10.f));++n;
+ }
+ for(int rank=-1;rank<=4;++rank)for(float damage:{0.f,10.f,100.f,1000.f})
+ for(bool eligible:{false,true}){
+  const float expected=!eligible||rank<1||rank>3?0.f:
+    std::fmin(damage*(rank==3?0.20f:rank==2?0.18f:0.15f),rank==3?16.f:rank==2?14.f:12.f);
+  assert(CompanionCover(damage,12.0,90000.0,eligible,rank)==expected);++n;
+ }
  std::cout<<"PASS: "<<n<<" living world policy cases\n";
 }
