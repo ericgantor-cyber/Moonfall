@@ -75,6 +75,8 @@ private:
  TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion;
  TWeakObjectPtr<AMoonfallHeroPawn> CompanionOwner;
  float LastCompanionCoverAt=-1000.f;
+ float LastCompanionStrikeAt=-1000.f;
+ void TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,float Now);
  bool IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const;
  int32 SocialSpeakerCursor = 0;
  int32 LastSocialCombatPhase = -1;
