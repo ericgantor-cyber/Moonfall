@@ -4,7 +4,11 @@
 #include "TimerManager.h"
 class AMoonfallArena;
 class AMoonfallWorldNPC;
+class AMoonfallHeroPawn;
 #include "MoonfallUnrealGameMode.generated.h"
+
+UENUM(BlueprintType)
+enum class EMoonfallCompanionStance : uint8 { Follow, Hold, Passive };
 
 // Thirty physical dungeons in six world regions. Geometry is spawned in small
 // time-sliced batches; the GameMode never polls each dungeon every frame.
@@ -39,6 +43,17 @@ public:
  // participating in the living world without rescanning the entire map.
  void RegisterLivingResident(AMoonfallWorldNPC* Resident);
  void UnregisterLivingResident(AMoonfallWorldNPC* Resident);
+ // Explicit local recruitment; only one registered trusted scout per world.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool RecruitLocalCompanion(AMoonfallHeroPawn* Hero, AMoonfallWorldNPC* Resident);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool SetLocalCompanionStance(AMoonfallHeroPawn* Hero, EMoonfallCompanionStance Stance);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Companion")
+ bool DismissLocalCompanion(AMoonfallHeroPawn* Hero);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Companion")
+ AMoonfallWorldNPC* GetLocalCompanion() const { return LocalCompanion.Get(); }
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
+ EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
 private:
  FTimerHandle DungeonSpawnTimer;
@@ -55,6 +70,9 @@ private:
  // more than one settlement without unbounded per-pulse NPC updates.
  int32 NextResidentPulseIndex = 0;
  // Reuse the existing resident pulse; no additional timer or actor scan.
+ TWeakObjectPtr<AMoonfallWorldNPC> LocalCompanion;
+ TWeakObjectPtr<AMoonfallHeroPawn> CompanionOwner;
+ bool IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const;
  int32 SocialSpeakerCursor = 0;
  int32 LastSocialCombatPhase = -1;
  void ShareNearbyResidentRumor(const TArray<TWeakObjectPtr<AMoonfallWorldNPC>>& Candidates);
