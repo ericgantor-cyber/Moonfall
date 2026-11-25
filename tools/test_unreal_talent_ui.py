@@ -186,4 +186,13 @@ assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
 assert "TalentRespecArmUntil=Now+3.0f;" in web
 assert "MoonfallTalentWeb::HitNode(" in web
+pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
+branch_tab = pointer.split("if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y))", 1)[1].split("if (MoonfallTalentWeb::SpendRect", 1)[0]
+assert "MoonfallTalentWeb::SameTierInBranch(TalentWebSelected,B)" in branch_tab
+assert branch_tab.index("if (NextSelection<0)return;") < branch_tab.index("TalentWebBranch=B;")
+assert "MoonfallTalentWeb::FirstTierForSelection(" in branch_tab
+assert "TalentWebFirstTier=1;" not in branch_tab
+assert "bTalentRespecArmed=false;" in branch_tab
+assert "TalentRespecArmUntil=-1.f;" in branch_tab
+assert "TalentRespecArmUntil=-1.f;" in pointer.split("if (Hit>=0)", 1)[1]
 print("UE5 talent web: layout, full node UI, mouse/controller input and modal isolation source checks passed.")
