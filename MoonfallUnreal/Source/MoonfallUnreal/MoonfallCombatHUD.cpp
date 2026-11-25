@@ -522,21 +522,27 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
      W<760.f?0.54f:0.69f);
-  const bool Arm=Hero->bTalentRespecArmed && Hero->GetWorld()
-       && Hero->GetWorld()->GetTimeSeconds()<=Hero->TalentRespecArmUntil;
-  DrawText(Arm?TEXT("Click CONFIRM RESET again or press Backspace / LT")
-      :TEXT("Click RESET TALENTS or press Backspace / LT twice"),
+  MoonfallTalents::Snapshot ResetSnapshot;
+  const bool CanReset=MoonfallTalents::Evaluate(Hero->Level,Hero->TalentRanks,ResetSnapshot)
+       ==MoonfallTalents::Result::Ok && ResetSnapshot.Spent>0;
+  const bool Arm=CanReset && Hero->GetWorld() && MoonfallTalentWeb::RespecPending(
+       Hero->bTalentRespecArmed,Hero->GetWorld()->GetTimeSeconds(),Hero->TalentRespecArmUntil);
+  const FString ResetHint=Arm
+      ? FString::Printf(TEXT("Refund %d points? CONFIRM or CANCEL (A / Enter)"),ResetSnapshot.Spent)
+      : CanReset ? TEXT("Click RESET TALENTS or press Backspace / LT twice")
+      : TEXT("No allocated talent points to reset");
+  DrawText(ResetHint,
      Arm?FLinearColor(1.f,0.82f,0.65f):FLinearColor(0.75f,0.74f,0.84f),
      L+20.f,T+H-69.f,nullptr,W<760.f?0.54f:0.69f);
   const auto Spend=MoonfallTalentWeb::SpendRect(P);
   const auto Respec=MoonfallTalentWeb::RespecRect(P);
-  DrawRect(FLinearColor(0.16f,0.36f,0.27f,0.98f),
+  DrawRect(Arm?FLinearColor(0.22f,0.25f,0.36f,0.98f):FLinearColor(0.16f,0.36f,0.27f,0.98f),
       float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
   DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
-  DrawText(TEXT("SPEND POINT"),FLinearColor::White,
+  DrawText(Arm?TEXT("CANCEL"):TEXT("SPEND POINT"),FLinearColor::White,
       float(Spend.X+15),float(Spend.Y+6),nullptr,0.75f);
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
-      :FLinearColor(0.40f,0.10f,0.14f,0.98f),
+      :CanReset?FLinearColor(0.40f,0.10f,0.14f,0.98f):FLinearColor(0.16f,0.16f,0.19f,0.98f),
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET TALENTS"),
