@@ -1168,6 +1168,7 @@ void AMoonfallHeroPawn::CastLeft()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
  TryCast(LeftSpell, 0, 1.f);
 }
@@ -1176,6 +1177,7 @@ void AMoonfallHeroPawn::CastRight()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
  TryCast(RightSpell, 1, 1.f);
 }
@@ -1185,6 +1187,7 @@ void AMoonfallHeroPawn::CastBoth()
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
@@ -1601,7 +1604,8 @@ void AMoonfallHeroPawn::BeginGuard()
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
      || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
- // Blocking/parrying supersedes a queued sword swing.
+ // Blocking/parrying supersedes queued actions.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
@@ -1706,8 +1710,8 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  // Rewards are earned only during live gameplay, not behind paused overlays.
- if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health)
-     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen
+     || !FMath::IsFinite(Health) || bAtlasOpen || bTalentWebOpen
      || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  // Invalid or expired windows must never grant an unearned dodge reward.
@@ -1863,6 +1867,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   ParryCounterUntil = -1.f;
   // Only real health damage cancels a queued follow-up sword attack.
   // Fully blocked and parried hits leave the queue untouched.
+  DodgeBuffer.Clear();
   SwordBuffer.Clear();
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
@@ -2013,6 +2018,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  DodgeBuffer.Clear();
   SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
@@ -2064,7 +2070,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
- DodgeBuffer.Clear();
+  DodgeBuffer.Clear();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -3447,6 +3453,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
  EndGuard();
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  bTalentWebOpen=true;
  TalentWebBranch=FMath::Clamp(TalentWebBranch,0,2);
@@ -4199,6 +4206,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  MoonfallOmniattack::Reset(SwordFlow);
  CurrentSwordAngle = -1;
@@ -4480,6 +4488,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // unexpectedly open talents during travel or combat with no nearby NPC.
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -4533,6 +4542,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
+    DodgeBuffer.Clear();
     SwordBuffer.Clear();
     FocusedResident = Resident;
     bResidentContextOpen = true;

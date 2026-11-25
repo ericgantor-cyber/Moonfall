@@ -2154,6 +2154,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen", reward)
+        for guard in ("!FMath::IsFinite(Health)", "bAtlasOpen", "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(guard, reward)
         for field in ("Now", "PerfectDodgeWindowUntil", "LastPerfectDodgeRewardAt"):
             self.assertIn(f"!FMath::IsFinite({field})", reward)
         self.assertIn("Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f", reward)
