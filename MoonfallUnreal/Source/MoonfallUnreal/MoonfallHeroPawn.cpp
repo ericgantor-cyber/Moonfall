@@ -4808,7 +4808,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  if (bResidentContextOpen) {
   // Do not select another resident behind a stale conversation.
   if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
@@ -4824,6 +4824,10 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // unexpectedly open talents during travel or combat with no nearby NPC.
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
+ StopJumping();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ EndSprint();
+ EndGuard();
  DodgeBuffer.Clear();
  SwordBuffer.Clear();
  FocusedResident = Resident;
@@ -4855,6 +4859,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
  // AC-like central aim selection when using hidden-cursor mouse look.
  FHitResult Hit;
@@ -4878,6 +4883,10 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
+    StopJumping();
+    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+    EndSprint();
+    EndGuard();
     DodgeBuffer.Clear();
     SwordBuffer.Clear();
     FocusedResident = Resident;
