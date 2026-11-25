@@ -1237,6 +1237,7 @@ void AMoonfallHeroPawn::CastLeft()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
  TryCast(LeftSpell, 0, 1.f);
@@ -1246,6 +1247,7 @@ void AMoonfallHeroPawn::CastRight()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
  TryCast(RightSpell, 1, 1.f);
@@ -1253,6 +1255,7 @@ void AMoonfallHeroPawn::CastRight()
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
