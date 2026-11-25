@@ -19,6 +19,24 @@
       "file": "SM_MF_GothicColumn.obj",
       "triangles": 576,
       "role": "architecture"
+    },
+    {
+      "name": "SM_MF_FirstlightShield",
+      "file": "SM_MF_FirstlightShield.obj",
+      "triangles": 928,
+      "role": "equipment"
+    },
+    {
+      "name": "SM_MF_FirstlightCuirass",
+      "file": "SM_MF_FirstlightCuirass.obj",
+      "triangles": 1208,
+      "role": "equipment"
+    },
+    {
+      "name": "SM_MF_EclipseAmulet",
+      "file": "SM_MF_EclipseAmulet.obj",
+      "triangles": 1344,
+      "role": "equipment"
     }
   ],
   "protected": "No edits to Z or Nyra or existing Content packages",
