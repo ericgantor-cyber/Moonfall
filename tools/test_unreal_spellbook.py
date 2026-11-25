@@ -293,6 +293,23 @@ int main() {
         self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("InventoryItemCodes.RemoveAt"))
         self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("Salvage ="))
 
+    def test_direct_gear_mutations_reject_competing_menu_owners(self):
+        hero = HERO.read_text()
+        for return_type, method, mutation in (
+            ("bool", "SalvageInventoryItem", "InventoryItemCodes.RemoveAt"),
+            ("bool", "EquipInventoryItemWithPreviousTier", "*EquippedCode = Code;"),
+            ("int32", "EquipBestInventoryUpgrades", "OnBestLoadoutEquipped("),
+        ):
+            with self.subTest(method=method):
+                body = hero.split(f"{return_type} AMoonfallHeroPawn::{method}(", 1)[1].split("\n}", 1)[0]
+                before_mutation = body.split(mutation, 1)[0]
+                self.assertIn(mutation, body)
+                for guard in ("bTalentWebOpen", "FocusedResident.IsValid()",
+                              "bAtlasOpen", "bResidentContextOpen",
+                              "bCharacterStatsOpen", "bSpellBookOpen",
+                              "!FMath::IsFinite(Health)"):
+                    self.assertIn(guard, before_mutation)
+
     def test_crafting_mutations_reject_other_inventory_pages(self):
         # Direct C++/Blueprint callers must obey the same modal safety rules
         # as input wrappers, without spending salvage while another page owns UI.
