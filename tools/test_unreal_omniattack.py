@@ -184,7 +184,9 @@ int main() {
         hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
         self.assertIn("MoonfallOmniattack::EnemyAngle(Pattern)", enemy)
         self.assertIn("Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage", enemy)
-        self.assertIn("IncomingSwordAngle = PreviousAngle;", hero)
+        directional = hero.split("bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(", 1)[1].split("bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("TGuardValue<int32> AngleGuard(IncomingSwordAngle, MoonfallOmniattack::ValidAngle(Angle) ? Angle : -1);", directional)
+        self.assertLess(directional.index("TGuardValue<int32> AngleGuard"), directional.index("return ApplyMoonfallDamageFrom("))
         self.assertIn("const int32 ResolvedSwordAngle = CommittedSwordAngle;", enemy)
         self.assertIn("CommittedSwordAngle = -1;", enemy)
         damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
