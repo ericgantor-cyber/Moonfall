@@ -3002,7 +3002,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
- if (bEquipmentCraftInProgress) return 0;
+ if (bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress) return 0;
  // Only a deliberate input while viewing inventory can change worn equipment.
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
      || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
@@ -3015,16 +3015,21 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
   Planner.Add(InventoryItemCodes[Index], Index);
  const auto Plan = Planner.Finish();
+ // Blueprint equipment notifications may synchronously invoke Equip Best again.
+ TGuardValue<bool> BatchGuard(bEquipBestInProgress, true);
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
   // Recheck combat and exact ownership/index after any Blueprint callback.
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
+  // Do not overwrite an explicit gear change made by an earlier callback.
+  if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
+  if (!IsValid(this) || IsActorBeingDestroyed()) break;
   const int32 Index = Plan.Indices[Slot];
   if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
       || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
   if (EquipInventoryItem(Index)) ++UpgradesEquipped;
  }
- OnBestLoadoutEquipped(UpgradesEquipped);
+ if (IsValid(this) && !IsActorBeingDestroyed()) OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;
 }
 

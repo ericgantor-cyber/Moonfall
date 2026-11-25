@@ -324,6 +324,15 @@ int main() {
         self.assertIn("!FMath::IsFinite(Health)", best)
         self.assertNotIn("Health / MaxHealth", best)
 
+    def test_equip_best_reentry_and_callback_changes_are_safe(self):
+        hero = HERO.read_text()
+        best = hero.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress", best)
+        self.assertLess(best.index("TGuardValue<bool> BatchGuard"), best.index("EquipInventoryItem(Index)"))
+        self.assertLess(best.index("GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]"), best.index("EquipInventoryItem(Index)"))
+        self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", best)
+        self.assertIn("if (IsValid(this) && !IsActorBeingDestroyed()) OnBestLoadoutEquipped", best)
+
     def test_defeated_gear_swaps_preserve_zero_hp_and_checkpoint_ownership(self):
         hero = HERO.read_text()
         equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
