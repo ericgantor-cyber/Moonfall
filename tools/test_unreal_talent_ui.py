@@ -57,13 +57,28 @@ for name, key in {
     "TalentWeb": "K", "TalentSpend": "Enter", "TalentRespec": "BackSpace",
     "ControllerConfirm": "Gamepad_FaceButton_Bottom",
     "ControllerBack": "Gamepad_FaceButton_Right",
-    "TalentBranchPrevious": "Gamepad_LeftShoulder",
-    "TalentBranchNext": "Gamepad_RightShoulder",
+    "ControllerLeftShoulder": "Gamepad_LeftShoulder",
+    "ControllerRightShoulder": "Gamepad_RightShoulder",
 }.items():
     assert f'ActionName="{name}",Key={key}' in inputs, (name, key)
 for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "TalentRespec", "ControllerBack",
-             "TalentBranchPrevious", "TalentBranchNext"):
+             "ControllerLeftShoulder", "ControllerRightShoulder"):
     assert f'Input->BindAction(TEXT("{name}")' in pawn
+for side, talent, gear, cast in (
+    ("Left", "TalentPreviousBranch", "ReforgeSelectedInventoryItem", "CastLeft"),
+    ("Right", "TalentNextBranch", "ForgeFiveSelectedInventoryItem", "CastRight"),
+):
+    action = f"Controller{side}Shoulder"
+    mappings = [line for line in inputs.splitlines()
+                if line.startswith("+ActionMappings=") and f"Key=Gamepad_{side}Shoulder" in line]
+    assert mappings == [f'+ActionMappings=(ActionName="{action}",Key=Gamepad_{side}Shoulder)']
+    assert f"void {action}();" in header
+    body = pawn.split(f"void AMoonfallHeroPawn::{action}()", 1)[1].split("\n}", 1)[0]
+    routes = ("Health <= 0.f", "FocusedResident.IsValid()",
+              f"if (bTalentWebOpen) {{ {talent}(); return; }}",
+              f"if (bInventoryOpen) {{ {gear}(); return; }}", f"{cast}();")
+    positions = [body.index(route) for route in routes]
+    assert positions == sorted(positions)
 assert 'ActionName="TalentSpend",Key=Enter' in inputs
 a_mappings = [line for line in inputs.splitlines()
               if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Bottom" in line]
