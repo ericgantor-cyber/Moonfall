@@ -1246,7 +1246,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EQUIPMENT SET BONUSES", hud)
         self.assertIn("C / D-pad Left/Right: stats & gear / ancestry / rep", hud)
         self.assertIn('TEXT("EQUIPPED GEAR")', hud)
-        self.assertIn("Esc: back to inventory", hud)
+        # The HUD now advertises both Escape and controller B.
+        self.assertIn("Esc / Pad B: back", hud)
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        sheet_back = options.split("if (bCharacterStatsOpen) {", 1)[1].split("if (bSpellBookOpen)", 1)[0]
+        self.assertIn("bCharacterStatsOpen = false;", sheet_back)
+        self.assertIn("return;", sheet_back)
+        self.assertNotIn("ToggleInventory();", sheet_back)
         self.assertIn("P: spell book", hud)
         self.assertIn("C / A: character stats", hud)
         self.assertIn("A / K: talents   Esc / Pad B: back   Select: close", hud)
