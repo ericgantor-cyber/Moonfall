@@ -522,7 +522,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
      W<760.f?0.54f:0.69f);
-  DrawText(TEXT("K/ESC: close   Enter/A: spend   Backspace/LT twice: reset"),
+  DrawText(TEXT("K/ESC: close   Enter/A: spend   Click RESET TALENTS"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-69.f,nullptr,
      W<760.f?0.54f:0.69f);
   const auto Spend=MoonfallTalentWeb::SpendRect(P);
@@ -535,11 +535,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool Arm=Hero->bTalentRespecArmed && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds()<=Hero->TalentRespecArmUntil;
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
-      :FLinearColor(0.28f,0.18f,0.26f,0.96f),
+      :FLinearColor(0.40f,0.10f,0.14f,0.98f),
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
-  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET ALL"),
+  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET TALENTS"),
       FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
+  if (Arm) DrawText(TEXT("Click again to confirm"),FLinearColor(1.f,0.82f,0.65f),
+      L+20.f,T+H-40.f,nullptr,0.64f);
   DrawLiveMenuHitCue();
   return;
  }
