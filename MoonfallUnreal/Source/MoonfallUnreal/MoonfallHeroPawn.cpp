@@ -3310,6 +3310,7 @@ int32 AMoonfallHeroPawn::GetDungeonTreasureState(int32 Zone, int32 Dungeon, int3
 int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  int32 Zone, int32 Dungeon, int32 Chamber, int32 LayoutSeed)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || Level < 1 || Level > 100) return 0;
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
      || Chamber <= 0 || Chamber >= 13 || Health <= 0.f
      || !FMath::IsFinite(Health) || !bWorldProgressInitialized
@@ -3318,7 +3319,7 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  const int32 Key = (Zone * 5 + Dungeon) * 14 + Chamber;
  if (DungeonTreasureStates.IsValidIndex(Key)) {
   if (DungeonTreasureStates[Key] != 0)
-   return FMath::Max(0, DungeonTreasureStates[Key]);
+   return ValidMoonfallItemCode(DungeonTreasureStates[Key]) ? DungeonTreasureStates[Key] : 0;
  }
  // Use a deterministic seed, independent of framerate and visit order.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
@@ -3371,6 +3372,8 @@ int32 AMoonfallHeroPawn::GetClearedDungeonZoneCount() const
 
 bool AMoonfallHeroPawn::MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+     || Salvage < 0 || Salvage > 100000000) return false;
  // A raw dungeon ID is not proof of victory. The actual dead, tagged boss
  // must belong to a live dungeon layout in this world.
  if (!IsValid(DefeatedBoss) || DefeatedBoss->GetWorld() != GetWorld()
@@ -3380,7 +3383,8 @@ bool AMoonfallHeroPawn::MarkDungeonBossDefeated(AMoonfallEnemy* DefeatedBoss)
   return false;
  const AMoonfallDungeonLayout* DungeonLayout =
    Cast<AMoonfallDungeonLayout>(DefeatedBoss->GetOwner());
- if (!IsValid(DungeonLayout) || DungeonLayout->GetWorld() != GetWorld())
+ if (!IsValid(DungeonLayout) || DungeonLayout->GetWorld() != GetWorld()
+     || DungeonLayout->IsActorBeingDestroyed() || DefeatedBoss->IsActorBeingDestroyed())
   return false;
  const int32 Zone = DungeonLayout->ZoneIndex;
  const int32 Dungeon = DungeonLayout->DungeonIndex;
@@ -3450,6 +3454,7 @@ int32 AMoonfallHeroPawn::GetTotalDiscoveredDungeons() const
 
 bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
 {
+ if (IsActorBeingDestroyed()) return false;
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
      || Health <= 0.f || !FMath::IsFinite(Health)
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
