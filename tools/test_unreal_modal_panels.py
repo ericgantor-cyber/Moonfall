@@ -125,6 +125,16 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, HUD)
 
+    def test_boss_and_quest_engravings_preserve_existing_progress(self):
+        self.assertIn("const FLinearColor BossFoil", HUD)
+        self.assertIn("Phase<=3;++Phase", HUD)
+        self.assertIn("Phase<=Boss->BossPhase", HUD)
+        self.assertIn("const FLinearColor QuestFoil", HUD)
+        self.assertIn("Width*Percent,16.f", HUD)
+        self.assertIn("Width*WarningProgress,4.f", HUD)
+        self.assertIn("const float Top = bQuestOverlapsBoss ? 232.f : 78.f;", HUD)
+        self.assertIn("TrackWidth*(Progress/5.f)", HUD)
+
     def test_expanded_engraved_art_is_bounded_and_display_only(self):
         for token in (
             "K<=4;++K", "Octagonal enamel seal", "Rarity-colored metal setting",
