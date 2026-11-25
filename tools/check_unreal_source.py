@@ -1253,7 +1253,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bCharacterStatsOpen = false;", sheet_back)
         self.assertIn("return;", sheet_back)
         self.assertNotIn("ToggleInventory();", sheet_back)
-        self.assertIn("P: spell book", hud)
+        self.assertIn("P / Y: spell book", hud)
         self.assertIn("C / A: character stats", hud)
         self.assertIn("A / K: talents   Esc / Pad B: back   Select: close", hud)
 
