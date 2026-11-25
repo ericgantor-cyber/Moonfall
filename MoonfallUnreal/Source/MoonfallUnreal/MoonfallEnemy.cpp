@@ -18,6 +18,7 @@
 #include "DrawDebugHelpers.h"
 #include "CollisionQueryParams.h"
 #include "EngineUtils.h"
+#include "Misc/GuardValue.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -129,6 +130,8 @@ void AMoonfallEnemy::CancelDivineSignature() {
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
+ if (bResolvingPosture || !FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
+ TGuardValue<bool> PostureGuard(bResolvingPosture, true);
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -141,6 +144,8 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)
    ? FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f) : 3.f);
  OnPostureChanged(Posture, MaxPosture);
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (!FMath::IsFinite(Posture) || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  if (Posture < MaxPosture) return;
  // Break interrupts current attacks and exposes the enemy for a finite window.
  Posture = 0.f;
@@ -203,6 +208,8 @@ bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout
     &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
 }
 bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
+ if (bResolvingDamage) return false;
+ TGuardValue<bool> DamageGuard(bResolvingDamage, true);
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
      ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
      ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
@@ -219,6 +226,8 @@ void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
+  if (bResolvingDamage) return;
+  TGuardValue<bool> DamageGuard(bResolvingDamage, true);
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
   if (!FMath::IsFinite(Health) || !GetWorld() || IsActorBeingDestroyed()) return;
@@ -454,6 +463,10 @@ void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) {
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
  if (Health <= 0.f) {
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
