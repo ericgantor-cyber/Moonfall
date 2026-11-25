@@ -480,9 +480,9 @@ void AMoonfallUnrealGameMode::BeginPlay()
      &AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f);
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
- AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
- // Inspect authored layouts only once, rather than scanning world actors for
- // each of the thirty spawn requests. Never duplicate an authored dungeon.
+ ReadyDungeonSlots.SetNumZeroed(TotalDungeons);
+ // Seed the readiness ledger from authored layouts before spawning.
+ // Later slot checks and audits reconcile changes during startup.
  for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It) {
   // Destroying layouts must not reserve a permanent dungeon slot.
   if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;
@@ -492,8 +492,8 @@ void AMoonfallUnrealGameMode::BeginPlay()
       && Dungeon >= 0 && Dungeon < DungeonsPerZone)
    {
     const int32 Slot = Zone * DungeonsPerZone + Dungeon;
-    if (!AuthoredDungeonSlots[Slot]) {
-     AuthoredDungeonSlots[Slot] = 1;
+    if (!ReadyDungeonSlots[Slot]) {
+     ReadyDungeonSlots[Slot] = 1;
      ++ReadyDungeonCount;
     }
    }
@@ -813,6 +813,15 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  LastAmbientEventPhase=Phase;
  NextAmbientEncounterAt=Now+150.f;
 }
+void AMoonfallUnrealGameMode::SetDungeonSlotReady(int32 Slot, bool bReady)
+{
+ if (!ReadyDungeonSlots.IsValidIndex(Slot)) return;
+ const bool bWasReady = ReadyDungeonSlots[Slot] != 0;
+ if (bWasReady == bReady) return;
+ ReadyDungeonSlots[Slot] = bReady ? 1 : 0;
+ ReadyDungeonCount = FMath::Clamp(ReadyDungeonCount + (bReady ? 1 : -1), 0, TotalDungeons);
+}
+
 void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(bool bQueueMissing)
 {
  if (!GetWorld()) return;
@@ -824,9 +833,10 @@ void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(bool bQueueMissing)
       || It->DungeonIndex < 0 || It->DungeonIndex >= DungeonsPerZone) continue;
   LiveSlots[It->ZoneIndex * DungeonsPerZone + It->DungeonIndex] = 1;
  }
+ ReadyDungeonSlots = MoveTemp(LiveSlots);
  ReadyDungeonCount = 0;
  for (int32 Slot = 0; Slot < TotalDungeons; ++Slot) {
-  if (LiveSlots[Slot]) ++ReadyDungeonCount;
+  if (ReadyDungeonSlots[Slot]) ++ReadyDungeonCount;
   else if (bQueueMissing) FailedDungeonSlots.AddUnique(Slot);
  }
 }
@@ -866,13 +876,10 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
    }
   }
   if (bExisting) {
-   if (!AuthoredDungeonSlots[Slot]) ++ReadyDungeonCount;
+   SetDungeonSlotReady(Slot, true);
    continue;
   }
-  if (AuthoredDungeonSlots[Slot]) {
-   AuthoredDungeonSlots[Slot] = 0;
-   ReadyDungeonCount = FMath::Max(0, ReadyDungeonCount - 1);
-  }
+  SetDungeonSlotReady(Slot, false);
   FTransform DungeonTransform;
   if (!GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)) {
    if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
@@ -891,7 +898,7 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   Layout->FinishSpawning(DungeonTransform);
   // Blueprint initialization can synchronously tear down this world.
   if (bDungeonStartupStopped || !GetWorld()) return;
-  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;
+  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) SetDungeonSlotReady(Slot, true);
   else if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
  }
  if (bDungeonStartupStopped || !GetWorld()) return;

@@ -4235,7 +4235,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('only %d/%d layouts ready', mode)
         self.assertIn('GetWorldTimerManager().SetTimer(', mode)
         self.assertIn('GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);', mode)
-        self.assertIn('AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
+        self.assertIn('ReadyDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
         self.assertIn('TActorIterator<AMoonfallDungeonLayout>', mode)
         self.assertLess(mode.index('TActorIterator<AMoonfallDungeonLayout>'),
                         mode.index('SpawnActorDeferred<AMoonfallDungeonLayout>'))
@@ -4435,11 +4435,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "NextDungeonSlot = 0;", 1)[0]
         self.assertIn("if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;", dungeon)
         self.assertLess(dungeon.index("It->IsActorBeingDestroyed()"),
-                        dungeon.index("AuthoredDungeonSlots[Slot] = 1;"))
-        self.assertIn("if (!AuthoredDungeonSlots[Slot])", dungeon)
+                        dungeon.index("ReadyDungeonSlots[Slot] = 1;"))
+        self.assertIn("if (!ReadyDungeonSlots[Slot])", dungeon)
         # The normal deferred spawning path already avoids counting destroyed layouts.
         spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
-        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;", spawning)
+        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) SetDungeonSlotReady(Slot, true);", spawning)
 
     def test_dungeon_startup_retries_failed_slots_once_on_later_pass(self):
         mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
@@ -4467,9 +4467,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(batch.index("OnDungeonWorldReady(ReadyDungeonCount);"),
                         batch.index("SetTimer(DungeonSpawnTimer, this,"))
         self.assertIn("OnDungeonWorldReady(ReadyDungeonCount);\n  return;", batch)
-        self.assertIn("if (!AuthoredDungeonSlots[Slot]) ++ReadyDungeonCount;", batch)
+        self.assertIn("SetDungeonSlotReady(Slot, true);", batch)
         self.assertLess(batch.index("if (bExisting)"), batch.index("SpawnActorDeferred<AMoonfallDungeonLayout>"))
-        self.assertIn("if (AuthoredDungeonSlots[Slot])", batch)
+        self.assertIn("SetDungeonSlotReady(Slot, false);", batch)
         self.assertIn("AuditLiveDungeonSlots(true);", batch)
         self.assertIn("AuditLiveDungeonSlots(false);", batch)
         self.assertLess(batch.index("AuditLiveDungeonSlots(false);"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
@@ -4477,7 +4477,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         audit = mode.split("void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(", 1)[1].split(
             "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
         self.assertIn("LiveSlots[It->ZoneIndex * DungeonsPerZone + It->DungeonIndex] = 1;", audit)
-        self.assertIn("if (LiveSlots[Slot]) ++ReadyDungeonCount;", audit)
+        self.assertIn("ReadyDungeonSlots = MoveTemp(LiveSlots);", audit)
+        self.assertIn("if (ReadyDungeonSlots[Slot]) ++ReadyDungeonCount;", audit)
+        ledger = mode.split("void AMoonfallUnrealGameMode::SetDungeonSlotReady(", 1)[1].split(
+            "void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(", 1)[0]
+        self.assertIn("if (!ReadyDungeonSlots.IsValidIndex(Slot)) return;", ledger)
+        self.assertIn("if (bWasReady == bReady) return;", ledger)
+        self.assertLess(ledger.index("if (bWasReady == bReady) return;"),
+                        ledger.index("ReadyDungeonCount = FMath::Clamp"))
+        self.assertIn("ReadyDungeonSlots[Slot] = bReady ? 1 : 0;", ledger)
+        self.assertIn("ReadyDungeonCount + (bReady ? 1 : -1), 0, TotalDungeons", ledger)
+        self.assertNotIn("++ReadyDungeonCount;", batch)
         self.assertIn("else if (bQueueMissing) FailedDungeonSlots.AddUnique(Slot);", audit)
         self.assertIn("It->IsActorBeingDestroyed()", audit)
         self.assertLess(batch.index("NextFailedDungeonRetry >= FailedDungeonSlots.Num()"),

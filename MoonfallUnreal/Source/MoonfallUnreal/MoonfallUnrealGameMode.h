@@ -97,7 +97,9 @@ private:
  bool bDungeonStartupNotified = false;
  bool bDungeonStartupStopped = false;
  void AuditLiveDungeonSlots(bool bQueueMissing);
- TArray<uint8> AuthoredDungeonSlots;
+ // Tracks each slot once across authored, generated and audited layouts.
+ TArray<uint8> ReadyDungeonSlots;
+ void SetDungeonSlotReady(int32 Slot, bool bReady);
  void SpawnDungeonBatch();
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
  void PulseLivingWorld();
