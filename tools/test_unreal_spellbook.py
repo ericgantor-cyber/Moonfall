@@ -260,7 +260,7 @@ int main() {
             ("bool", "ReforgeInventoryItemAffix"),
             ("bool", "AscendInventoryItemRarity"),
             ("int32", "ForgeInventoryItemLevels"),
-            ("bool", "EquipInventoryItem"),
+            ("bool", "EquipInventoryItemWithPreviousTier"),
         )
         for return_type, method in signatures:
             with self.subTest(method=method):
