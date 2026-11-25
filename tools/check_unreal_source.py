@@ -1918,6 +1918,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
         self.assertLess(begin.index("const float BaseHealth"), begin.index("MaxHealthAtSpawn ="))
 
+    def test_distant_enemy_cancels_entire_attack_commitment(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        distant = tick.split("if (!bInCombatArea) {", 1)[1].split("// Complete the full two-second elite retreat", 1)[0]
+        invalid = tick.split("if (!FMath::IsFinite(WindupEndsAt)) {", 1)[1].split("// Visual-only cue", 1)[0]
+        for block in (distant, invalid):
+            for reset in ("bCompanionAttackCommitted = false;", "LockedCompanionTarget.Reset();", "CommittedSwordAngle = -1;", "WindupEndsAt = -1.f;"):
+                self.assertIn(reset, block)
+        for reset in ("LockedAttackDirection = FVector::ZeroVector;", "AttackTellMarker->SetVisibility(false);", "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;", "bComboSecondHitActive = false;"):
+            self.assertLess(distant.index(reset), distant.index("return;"))
+        self.assertLess(distant.index("if (WindupEndsAt > 0.f || bComboSecondHitPending || bComboSecondHitActive)"), distant.index("NextAttackAt = FMath::Max("))
+        self.assertIn("Now + 0.35f", distant)
+
     def test_enemy_combat_callbacks_cannot_reenter_resolution(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::BeginFinisherDefeat", 1)[0]
         companion = self.enemy_cpp.split("bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount)", 1)[1].split("void AMoonfallEnemy::TakeMeleeDamage", 1)[0]
