@@ -9,10 +9,27 @@ on:
   workflow_dispatch:
 jobs:
   policy:
-    runs-on: ubuntu-latest
+    name: Startup policy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Compile and run deterministic C++17 policy
+      - name: Compile and run deterministic C++17 policy (GCC)
+        if: runner.os == 'Linux'
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_dungeon_startup_policy.cpp -o /tmp/moonfall_dungeon_startup
           /tmp/moonfall_dungeon_startup
+      - name: Initialize Visual C++ toolchain
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run deterministic C++17 policy (MSVC)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_dungeon_startup.exe tools/test_unreal_dungeon_startup_policy.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_dungeon_startup.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

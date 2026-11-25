@@ -890,7 +890,7 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
     AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
     ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-  if (!IsValid(Layout)) {
+  if (!IsValid(Layout) || Layout->IsActorBeingDestroyed()) {
    if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
    continue;
   }
@@ -900,8 +900,17 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   Layout->FinishSpawning(DungeonTransform);
   // Blueprint initialization can synchronously tear down this world.
   if (bDungeonStartupStopped || !GetWorld()) return;
-  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) SetDungeonSlotReady(Slot, true);
-  else if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
+  // Construction scripts can change the requested slot. Reject only our
+  // newly generated actor, never an authored layout owned by the map.
+  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) {
+   if (Layout->ZoneIndex == Zone && Layout->DungeonIndex == DungeonIndex) {
+    SetDungeonSlotReady(Slot, true);
+    continue;
+   }
+   Layout->Destroy();
+   if (bDungeonStartupStopped || !GetWorld()) return;
+  }
+  if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
  }
  if (bDungeonStartupStopped || !GetWorld()) return;
  if (NextDungeonSlot >= TotalDungeons && !bDungeonStartupAuditComplete) {

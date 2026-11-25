@@ -4439,7 +4439,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!ReadyDungeonSlots[Slot])", dungeon)
         # The normal deferred spawning path already avoids counting destroyed layouts.
         spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
-        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) SetDungeonSlotReady(Slot, true);", spawning)
+        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed())", spawning)
+        self.assertIn("if (Layout->ZoneIndex == Zone && Layout->DungeonIndex == DungeonIndex)", spawning)
+        self.assertLess(spawning.index("if (Layout->ZoneIndex == Zone && Layout->DungeonIndex == DungeonIndex)"),
+                        spawning.index("SetDungeonSlotReady(Slot, true);", spawning.index("Layout->FinishSpawning(DungeonTransform);")))
+        self.assertIn("Layout->Destroy();", spawning)
+        self.assertLess(spawning.index("if (!IsValid(Layout) || Layout->IsActorBeingDestroyed())"),
+                        spawning.index("Layout->ZoneIndex = Zone;"))
 
     def test_dungeon_startup_retries_failed_slots_once_on_later_pass(self):
         mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
