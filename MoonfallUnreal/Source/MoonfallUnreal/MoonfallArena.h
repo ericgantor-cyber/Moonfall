@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallArena.generated.h"
 class UInstancedStaticMeshComponent;
+class UStaticMesh;
 class UTextRenderComponent;
 class UPointLightComponent;
 UCLASS()
@@ -41,6 +42,7 @@ public:
  // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
+ UPROPERTY() UStaticMesh* ProductionColumn = nullptr;
  void CreateBlock(FVector Position, FVector Scale);
  void CreateSanctuaryAtmosphere();
  void CreateRegionalLandmarks();
