@@ -1592,7 +1592,6 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
 
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
@@ -1600,7 +1599,7 @@ void AMoonfallHeroPawn::BeginGuard()
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
-     || Stamina < GuardStaminaCost) return;
+     || Stamina < GuardStaminaCost || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
  const float GuardNow = GetWorld()->GetTimeSeconds();
@@ -1641,8 +1640,8 @@ void AMoonfallHeroPawn::EndGuard()
 void AMoonfallHeroPawn::BeginSprint() {
 
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
+ if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (bTalentWebOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
