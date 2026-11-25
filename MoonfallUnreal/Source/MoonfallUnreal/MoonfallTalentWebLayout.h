@@ -112,6 +112,8 @@ inline int32 HitTest(float ViewWidth, float ViewHeight, float Zoom,
  float BestDistSq = FMath::Square(17.f);
  for (int32 Index = 0; Index < Positions().Num(); ++Index) {
   const FVector2D Point = ScreenPosition(Index, P, Zoom, Pan);
+  // Match the HUD's visibility rule: clipped nodes cannot receive clicks.
+  if (!InMap(P, Point)) continue;
   const float Dist = FVector2D::DistSquared(Mouse, Point);
   if (Dist <= BestDistSq) { BestDistSq = Dist; Best = Index; }
  }
