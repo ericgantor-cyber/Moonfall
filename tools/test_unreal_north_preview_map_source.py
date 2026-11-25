@@ -25,9 +25,14 @@ for axis in ('AxisName="MoveForward",Scale=1.000000,Key=Gamepad_LeftY',
              'AxisName="MoveRight",Scale=1.000000,Key=Gamepad_LeftX',
              'AxisName="Turn",Scale=1.000000,Key=Gamepad_RightX'):
     assert axis in config, "Required controller axis mapping missing: "+axis
-for action in ('ActionName="Jump",Key=Gamepad_FaceButton_Bottom',
+for action in ('ActionName="ControllerConfirm",Key=Gamepad_FaceButton_Bottom',
                'ActionName="Options",Key=Gamepad_Special_Right'):
     assert action in config, "Required controller action mapping missing: "+action
+pawn = (game_mode_header.parent / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+confirm = pawn.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("void AMoonfallHeroPawn::TryJump()", 1)[0]
+assert confirm.rstrip().endswith("TryJump();\n}"), "Normal controller A must still dispatch jump"
+assert 'BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);' in pawn
+assert 'BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);' in pawn
 
 
 
