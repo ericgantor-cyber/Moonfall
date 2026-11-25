@@ -80,6 +80,11 @@ public:
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Rooms")
  UInstancedStaticMeshComponent* HazardPlates;
+ // Optional visual-only wall crowns, separate from collision and hazard plates.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Art")
+ UInstancedStaticMeshComponent* WallCrownArt;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Art")
+ bool bEnableWallCrownArt = true;
 
  // Spawn only upon entering combat chambers, never in startup waves.
  // Up to six regular enemies per combat room; elite encounters remain special.
