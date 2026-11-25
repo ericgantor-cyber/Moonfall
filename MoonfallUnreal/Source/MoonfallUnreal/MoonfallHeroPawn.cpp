@@ -2920,7 +2920,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
 
 bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops)
 {
- if (!GetWorld() || !bWorldProgressInitialized || bPersistentSaveWritesBlocked
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
      || Drops.IsEmpty() || Drops.Num() > 3 || PendingWorldLoot.Num() + Drops.Num() > 512) return false;
  const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  if (LevelId.IsNone()) return false;
@@ -2941,6 +2942,7 @@ bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops(const TArray<FMoonfallW
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
+   if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()) continue;
    Loot->SetPersistentDropId(Record.DropId);
    // Reject partially initialized pickups instead of allowing an untracked
    // collect or recording a missing restored drop as present.
@@ -2985,6 +2987,7 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
+   if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()) continue;
    Loot->SetPersistentDropId(Record.DropId);
    // Reject partially initialized pickups instead of allowing an untracked
    // collect or recording a missing restored drop as present.
@@ -3034,8 +3037,10 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   FActorSpawnParameters Params;
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
-      AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params))
+      AMoonfallGroundLoot::StaticClass(), Record.Location, FRotator::ZeroRotator, Params)) {
+   if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()) continue;
    Loot->InitializeLoot(Record.ItemCode);
+  }
  }
 }
 
@@ -3045,6 +3050,9 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
  if (bTalentWebOpen) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || !bWorldProgressInitialized
+     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+     || bCharacterStatsOpen || FocusedResident.IsValid()) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
