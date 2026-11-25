@@ -645,15 +645,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
 
-    def test_resident_dialogue_entry_clears_player_motion_and_guard(self):
+    def test_resident_dialogue_entry_validates_player_without_forcing_motion_stop(self):
         for method in ("OpenFocusedResidentContext", "CastRightMouse"):
             body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method + "()", 1)[1].split("\n}", 1)[0]
             entry = body.index("FocusedResident = Resident;")
             validation = body.index("Resident->CanHeroInteract(this)")
-            for action in ("StopJumping();", "GetCharacterMovement()->StopMovementImmediately();",
-                           "EndSprint();", "EndGuard();", "DodgeBuffer.Clear();", "SwordBuffer.Clear();"):
+            for action in ("DodgeBuffer.Clear();", "SwordBuffer.Clear();"):
                 self.assertLess(validation, body.index(action))
                 self.assertLess(body.index(action), entry)
+            for action in ("StopJumping();", "StopMovementImmediately();", "EndSprint();", "EndGuard();"):
+                self.assertNotIn(action, body)
             self.assertLess(entry, body.index("OnResidentContextOpened("))
             self.assertIn("!FMath::IsFinite(Health)", body[:validation])
             self.assertIn("IsActorBeingDestroyed()", body[:validation])
