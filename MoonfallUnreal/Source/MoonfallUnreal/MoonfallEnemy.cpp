@@ -517,6 +517,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Cancel the full chain without dealing damage, then apply a brief recovery.
  if (!FMath::IsFinite(WindupEndsAt)) {
   CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -685,8 +688,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    bCanSeeHero = false;
    ReturnToDungeonPost();
   }
+  // Clear the entire attack commitment before sleeping the distant AI.
+  // Only an interrupted attack needs recovery; idle enemies remain ready.
+  if (WindupEndsAt > 0.f || bComboSecondHitPending || bComboSecondHitActive)
+   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
   CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
+  LockedAttackDirection = FVector::ZeroVector;
   WindupEndsAt = -1.f;
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;
