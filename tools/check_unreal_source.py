@@ -36,7 +36,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::TryCast(", 1)[0]
         self.assertIn("MoonfallImpactFeedback::ConfirmedHit(", helper)
         for gate in ("bReduceMotion", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
-                     "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()", "Health <= 0.f"):
+                     "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
+                     "bSpellBookOpen", "bCharacterStatsOpen", "bCharacterRacePageOpen",
+                     "bCharacterRepPageOpen", "!FMath::IsFinite(Health)", "Health <= 0.f"):
             self.assertIn(gate, helper)
         self.assertIn("ImpactCameraOffset = Feedback.Offset;", helper)
         self.assertIn("LastOffensiveImpactAt = Feedback.LastAt;", helper)

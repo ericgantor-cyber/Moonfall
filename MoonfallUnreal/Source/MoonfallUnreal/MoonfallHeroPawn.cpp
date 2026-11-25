@@ -953,7 +953,9 @@ void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool 
      ImpactCameraOffset, LastOffensiveImpactAt, Now, Damage, HitComboStage,
      bBoss, bLethal, bReduceMotion,
      bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
-         || bResidentContextOpen || FocusedResident.IsValid() || Health <= 0.f);
+         || bResidentContextOpen || FocusedResident.IsValid() || bSpellBookOpen
+         || bCharacterStatsOpen || bCharacterRacePageOpen || bCharacterRepPageOpen
+         || !FMath::IsFinite(Health) || Health <= 0.f);
  ImpactCameraOffset = Feedback.Offset;
  LastOffensiveImpactAt = Feedback.LastAt;
 }
