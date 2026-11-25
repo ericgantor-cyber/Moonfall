@@ -927,6 +927,8 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -947,6 +949,8 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -3763,6 +3767,7 @@ void AMoonfallHeroPawn::TalentMove(int32 TierDirection,int32 RowDirection) {
   TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
       TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
  bTalentRespecArmed=false;
+ TalentRespecArmUntil=-1.f;
 }
 void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  if (!bTalentWebOpen)return;
