@@ -1620,6 +1620,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("// Protect all saved quest entries"),
                         load.index("bWorldProgressLoadInProgress = true;"))
 
+    def test_autosave_failure_retries_are_bounded(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1]
+        autosave = tick.split("// Keep one save slot forever;", 1)[1].split("// Give players unlimited time", 1)[0]
+        self.assertLess(autosave.index("!FMath::IsFinite(SecondsSinceLastWorldSave)"), autosave.index("SecondsSinceLastWorldSave += SafeTimerDelta;"))
+        self.assertLess(autosave.index("FMath::Clamp(SecondsSinceLastWorldSave, 0.f, 2.f)"), autosave.index("if (SecondsSinceLastWorldSave >= 2.f"))
+        for guard in ("bWorldProgressInitialized", "!bWorldProgressLoadInProgress", "!bPersistentSaveWritesBlocked", "FMath::IsFinite(GetWorld()->GetTimeSeconds())", "SaveNow >= NextSafeCheckpointAt"):
+            self.assertLess(autosave.index(guard), autosave.index("if (SaveWorldProgress())"))
+        self.assertLess(autosave.index("!FMath::IsFinite(NextSafeCheckpointAt)"), autosave.index("SaveNow >= NextSafeCheckpointAt"))
+        self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", autosave)
+        self.assertIn("else NextSafeCheckpointAt = SaveNow + 2.f;", autosave)
+        self.assertEqual(autosave.count("SaveWorldProgress()"), 1)
+
     def test_world_load_refuses_reentry_and_invalid_context(self):
         load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
         for guard in ("bEquipmentCraftInProgress", "bWorldProgressLoadInProgress", "bEquipBestInProgress", "!GetWorld()", "IsActorBeingDestroyed()", "!FMath::IsFinite(GetWorld()->GetTimeSeconds())", "GetActorRotation().ContainsNaN()"):
