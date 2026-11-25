@@ -159,6 +159,23 @@ class TestNativeModalPanels(unittest.TestCase):
         for forbidden in ("BindAction", "SaveWorldProgress", "LoadObject", "TActorIterator"):
             self.assertNotIn(forbidden, options)
 
+    def test_constellation_interface_design_sheet_has_sixteen_editable_symbols(self):
+        source = ROOT / "MoonfallUnreal/Art/UI/moonfall_constellation_interface_engraving.svg"
+        root = ET.parse(source).getroot()
+        ns = "{http://www.w3.org/2000/svg}"
+        self.assertEqual(root.tag, ns + "svg")
+        self.assertEqual(root.attrib["viewBox"], "0 0 760 870")
+        tiles = [g for g in root if g.tag == ns + "g"]
+        self.assertEqual(len(tiles), 16)
+        self.assertEqual(len({g.attrib["id"] for g in tiles}), 16)
+        for name in ("health", "mana", "stamina", "melee", "ranged", "magic",
+                     "resolution", "render-scale", "quality", "frame-gen",
+                     "reduced-motion", "combat-text", "boss-alerts", "display-mode",
+                     "companion-oath", "boss-phase"):
+            self.assertIn("rune-" + name, {g.attrib["id"] for g in tiles})
+        for forbidden in ("script", "image", "foreignObject"):
+            self.assertFalse(list(root.iter(ns + forbidden)))
+
     def test_talent_stat_runes_are_bounded_and_use_real_catalog_stats(self):
         art = HUD.split("const auto DrawTalentRune=", 1)[1].split("for(int I=0;", 1)[0]
         for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):
