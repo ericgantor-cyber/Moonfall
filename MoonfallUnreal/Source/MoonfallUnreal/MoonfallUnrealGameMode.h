@@ -87,6 +87,9 @@ private:
  int32 NextDungeonSlot = 0;
  int32 NextFailedDungeonRetry = 0;
  TArray<int32> FailedDungeonSlots;
+ bool bDungeonStartupAuditComplete = false;
+ bool bDungeonStartupNotified = false;
+ void AuditLiveDungeonSlots(bool bQueueMissing);
  TArray<uint8> AuthoredDungeonSlots;
  void SpawnDungeonBatch();
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.

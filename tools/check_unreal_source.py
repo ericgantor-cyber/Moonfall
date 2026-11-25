@@ -4448,9 +4448,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FailedDungeonSlots.Reset();", mode)
         self.assertIn("const bool bRetryPass = NextDungeonSlot >= TotalDungeons;", batch)
         self.assertIn("bRetryPass ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++", batch)
-        self.assertEqual(batch.count("if (!bRetryPass) FailedDungeonSlots.Add(Slot);"), 3)
+        self.assertEqual(batch.count("if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);"), 3)
         self.assertIn("Processed < MaxLayoutsPerBatch", batch)
-        self.assertIn("if (bExisting) { ++ReadyDungeonCount; continue; }", batch)
+        self.assertIn("if (!AuthoredDungeonSlots[Slot]) ++ReadyDungeonCount;", batch)
+        self.assertLess(batch.index("if (bExisting)"), batch.index("SpawnActorDeferred<AMoonfallDungeonLayout>"))
+        self.assertIn("if (AuthoredDungeonSlots[Slot])", batch)
+        self.assertIn("AuditLiveDungeonSlots(true);", batch)
+        self.assertIn("AuditLiveDungeonSlots(false);", batch)
+        self.assertLess(batch.index("AuditLiveDungeonSlots(false);"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        self.assertLess(batch.index("bDungeonStartupNotified = true;"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        audit = mode.split("void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(", 1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
+        self.assertIn("LiveSlots[It->ZoneIndex * DungeonsPerZone + It->DungeonIndex] = 1;", audit)
+        self.assertIn("if (LiveSlots[Slot]) ++ReadyDungeonCount;", audit)
+        self.assertIn("else if (bQueueMissing) FailedDungeonSlots.AddUnique(Slot);", audit)
+        self.assertIn("It->IsActorBeingDestroyed()", audit)
         self.assertLess(batch.index("NextFailedDungeonRetry >= FailedDungeonSlots.Num()"),
                         batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
         teardown = mode.split("void AMoonfallUnrealGameMode::EndPlay(", 1)[1].split("\\n}", 1)[0]
