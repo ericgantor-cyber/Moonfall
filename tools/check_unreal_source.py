@@ -645,6 +645,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
 
+    def test_resident_dialogue_entry_clears_player_motion_and_guard(self):
+        for method in ("OpenFocusedResidentContext", "CastRightMouse"):
+            body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method + "()", 1)[1].split("\n}", 1)[0]
+            entry = body.index("FocusedResident = Resident;")
+            validation = body.index("Resident->CanHeroInteract(this)")
+            for action in ("StopJumping();", "GetCharacterMovement()->StopMovementImmediately();",
+                           "EndSprint();", "EndGuard();", "DodgeBuffer.Clear();", "SwordBuffer.Clear();"):
+                self.assertLess(validation, body.index(action))
+                self.assertLess(body.index(action), entry)
+            self.assertLess(entry, body.index("OnResidentContextOpened("))
+            self.assertIn("!FMath::IsFinite(Health)", body[:validation])
+            self.assertIn("IsActorBeingDestroyed()", body[:validation])
+
     def test_controller_inventory_dpad_selects_without_confirm_equip(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
