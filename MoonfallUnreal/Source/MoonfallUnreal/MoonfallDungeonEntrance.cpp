@@ -61,7 +61,7 @@ void AMoonfallDungeonEntrance::OnEntranceOverlap(
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen) return;
  // Previously saved discoveries must not grant the reward again.
  const bool bAlreadyDiscovered = Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex);
  if (!bAlreadyDiscovered && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex))

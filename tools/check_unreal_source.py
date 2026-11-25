@@ -6142,6 +6142,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 
+    def test_dungeon_and_loot_modal_gates_include_talent_web(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        for name in ("TrySpawnBonusGroup", "HandleEntrance", "HandleFinalChamber", "HandleChamberOverlap", "HandleHazardOverlap", "StartCombatChamber", "SpawnTreasureChamber", "StartFinalBossChamber"):
+            body = dungeon.split("AMoonfallDungeonLayout::" + name + "(", 1)[1].split("\n}", 1)[0]
+            with self.subTest(method=name):
+                for guard in ("bOptionsOpen", "bInventoryOpen", "bAtlasOpen", "bTalentWebOpen", "bCharacterStatsOpen", "bResidentContextOpen"):
+                    self.assertIn("Hero->" + guard, body)
+                    self.assertLess(body.index("Hero->" + guard), body.index("return", body.index("Hero->" + guard)))
+        for filename, method, commit in (
+            ("MoonfallDungeonEntrance.cpp", "OnEntranceOverlap(", "DiscoverDungeonEntrance("),
+            ("MoonfallGroundLoot.cpp", "TryCollect()", "CollectDungeonTreasureCode("),
+        ):
+            body = (ROOT / filename).read_text(encoding="utf-8").split("::" + method, 1)[1]
+            self.assertLess(body.index("Hero->bTalentWebOpen"), body.index(commit))
+
     def test_dungeon_standard_and_final_room_triggers_wait_for_closed_menus(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         bonus = dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
