@@ -1145,10 +1145,9 @@ void AMoonfallHeroPawn::CastRight()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bResolvingCombatAction) return;
-
  if (bOptionsOpen || bAtlasOpen) return;
  if (bTalentWebOpen) return;
+ if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
