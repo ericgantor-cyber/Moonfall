@@ -525,8 +525,7 @@ void AMoonfallCombatHUD::DrawHUD()
   MoonfallTalents::Snapshot ResetSnapshot;
   const bool CanReset=MoonfallTalents::Evaluate(Hero->Level,Hero->TalentRanks,ResetSnapshot)
        ==MoonfallTalents::Result::Ok && ResetSnapshot.Spent>0;
-  const bool Arm=CanReset && Hero->GetWorld() && MoonfallTalentWeb::RespecPending(
-       Hero->bTalentRespecArmed,Hero->GetWorld()->GetTimeSeconds(),Hero->TalentRespecArmUntil);
+  const bool Arm=CanReset && Hero->bTalentRespecArmed;
   const FString ResetHint=Arm
       ? FString::Printf(TEXT("Refund %d points? CONFIRM or CANCEL (A / Enter)"),ResetSnapshot.Spent)
       : CanReset ? TEXT("Click RESET TALENTS or press Backspace / LT twice")
