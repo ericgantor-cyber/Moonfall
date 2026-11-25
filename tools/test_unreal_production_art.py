@@ -74,6 +74,23 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(art.index("Shields->AddInstance("), art.index("Shields->RegisterComponent()"))
         self.assertNotIn("SpawnActor", art)
 
+    def test_pbr_profiles_and_non_destructive_material_installer(self):
+        catalog = json.loads((ART / "materials.json").read_text())
+        slots = {"bronze", "leather", "steel", "stone", "moonstone"}
+        self.assertEqual(set(catalog["materials"]), slots)
+        for key, profile in catalog["materials"].items():
+            self.assertEqual(len(profile["base_color"]), 3)
+            self.assertTrue(all(math.isfinite(v) and 0 <= v <= 1 for v in
+                                profile["base_color"] + [profile["metallic"], profile["roughness"]]))
+            self.assertEqual(profile["metallic"], float(key in {"bronze", "steel"}))
+        script = (ROOT / "Content/Python/install_production_materials.py").read_text()
+        for token in ("MP_BASE_COLOR", "MP_METALLIC", "MP_ROUGHNESS",
+                      "found != expected", "current is None or current.get_path_name() == DEFAULT",
+                      "mesh.set_material(index, materials[slot])", "does_asset_exist(target)"):
+            self.assertIn(token, script)
+        self.assertLess(script.index("found != expected"), script.index("mesh.set_material(index"))
+        self.assertNotIn("delete_asset(", script)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
