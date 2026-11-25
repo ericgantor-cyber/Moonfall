@@ -172,6 +172,25 @@ class ProductionArtTests(unittest.TestCase):
         self.assertIn("if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier))", pawn)
         self.assertIn("DrawDebugSphere(GetWorld(), Hit.ImpactPoint", pawn)
 
+    def test_cinematic_scalability_and_isolated_lighting(self):
+        import configparser
+        ini = configparser.ConfigParser()
+        ini.read(ROOT / "Config/DefaultScalability.ini")
+        for level, bloom in enumerate((1,2,4,5)):
+            group = ini["PostProcessQuality@" + str(level)]
+            for key in ("r.MotionBlurQuality", "r.DepthOfFieldQuality",
+                        "r.SceneColorFringeQuality", "r.LensFlareQuality"):
+                self.assertEqual(group.getint(key), 0)
+            self.assertEqual(group.getint("r.BloomQuality"), bloom)
+        script = (ROOT / "Tools/install_cinematic_preview_lighting.py").read_text()
+        for token in ("/Game/NorthernExpanse/Maps/NorthernExpansePreview",
+                      "DynamicGlobalIlluminationMethod.LUMEN", "ReflectionMethod.LUMEN",
+                      '"motion_blur_amount": 0.0', '"unbound", True',
+                      "ScopedEditorTransaction", "existing actors preserved"):
+            self.assertIn(token, script)
+        self.assertLess(script.index('world.get_path_name()'), script.index("spawn_actor_from_class("))
+        self.assertNotIn("save_current_level(", script)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
