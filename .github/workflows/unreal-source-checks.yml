@@ -100,6 +100,9 @@ jobs:
       - name: Run complete Unreal integration regression tests
         shell: bash
         run: python3 tools/check_unreal_source.py
+      - name: Verify six-region waystation geometry and NPC/shrine save contracts
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_regional_waystations
 
       - name: Compile and run original 141-node UE5 talent rules (C++17)
         shell: bash
