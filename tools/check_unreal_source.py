@@ -2244,8 +2244,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, damage)
             self.assertLess(damage.index(guard), damage.index("const float PreviousHealth = Health;"))
         self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
-        self.assertLess(damage.index("const float PreviousHealth = Health;"),
-                        damage.index("const float ArmoredDamage = Amount *"))
+        self.assertLess(damage.index("const float ArmoredDamage = Amount *"),
+                        damage.index("const float PreviousHealth = Health;"))
 
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
