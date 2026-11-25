@@ -7,6 +7,7 @@
 class USceneComponent;
 class USphereComponent;
 class UStaticMeshComponent;
+class UInstancedStaticMeshComponent;
 class UTextRenderComponent;
 class UPointLightComponent;
 class UPrimitiveComponent;
@@ -46,6 +47,7 @@ public:
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot = nullptr;
  UPROPERTY(VisibleAnywhere) UTextRenderComponent* ShrineLabel = nullptr;
+ UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* ShrineCrownArt = nullptr;
 
  UFUNCTION()
  void OnDiscoveryOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
