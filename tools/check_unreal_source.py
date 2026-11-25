@@ -703,10 +703,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 
+    def test_gear_display_rejects_unowned_wrong_slot_and_invalid_worn_codes(self):
+        getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[0]
+        self.assertIn("if (Slot < 0 || Slot > 2) return 0;", getter)
+        self.assertIn("return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;", getter)
+        self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
+        for slot in range(3):
+            self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
+        self.assertIn("const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),", self.hud)
+        self.assertIn("bValid && Code == Hero->GetEquipmentSlotCode(Slot)", self.hud)
+        self.assertIn("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
+
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
-        block = self.hud.split("const int32 EquippedCode = SelectedSlot == 0", 1)[1].split("const int32 NextCost", 1)[0]
-        self.assertIn("SelectedSlot == 1 ? Hero->EquippedArmorCode", block)
-        self.assertIn("Hero->EquippedAccessoryCode", block)
+        block = self.hud.split("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", 1)[1].split("const int32 NextCost", 1)[0]
+        self.assertNotIn("Hero->EquippedWeaponCode", block)
+        self.assertNotIn("Hero->EquippedArmorCode", block)
+        self.assertNotIn("Hero->EquippedAccessoryCode", block)
         self.assertIn("const int32 TierDelta = SelectedTier - EquippedTier;", block)
         self.assertIn("const int32 RarityDelta = SelectedRarity - EquippedRarity;", block)
         self.assertIn("TEXT(\"UPGRADE\")", block)
@@ -5020,7 +5033,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
         self.assertIn("Hero->GetEquipmentPower()", self.hud)
-        self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
+        self.assertIn("Hero->GetItemPower(Hero->GetEquipmentSlotCode(0))", self.hud)
         self.assertNotIn("SaveWorldProgress()", item + score)
 
 

@@ -94,6 +94,14 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 }
 }
 
+int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return 0;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;
+}
+
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
  if (Slot < 0 || Slot > 2) return 0;

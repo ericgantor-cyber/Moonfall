@@ -1573,9 +1573,9 @@ void AMoonfallCombatHUD::DrawHUD()
    } else {
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
-       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
-       Hero->GetItemPower(Hero->EquippedArmorCode),
-       Hero->GetItemPower(Hero->EquippedAccessoryCode)),
+       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(1)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(2))),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -1649,8 +1649,8 @@ void AMoonfallCombatHUD::DrawHUD()
       Left+23.f,GearTop,nullptr,PanelWidth<440.f?0.57f:0.78f);
     const float CardsTop=GearTop+16.f;
     const float CardsAvailable=GearBottom-CardsTop;
-    const int32 Codes[] = {Hero->EquippedWeaponCode,
-      Hero->EquippedArmorCode,Hero->EquippedAccessoryCode};
+    const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),
+      Hero->GetEquipmentSlotCode(1),Hero->GetEquipmentSlotCode(2)};
     const TCHAR* SlotNames[] = {TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY")};
     const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
       TEXT("EPIC"),TEXT("EMERALD"),TEXT("LEGENDARY")};
@@ -1961,8 +1961,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Affix == 0)
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
-     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bEquipped = bValid && Code == Hero->GetEquipmentSlotCode(Slot);
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -2153,9 +2152,7 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
    // Compare the highlighted item against the currently equipped item in
    // the same slot. This is informational only and never changes gear.
-   const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
-     : SelectedSlot == 1 ? Hero->EquippedArmorCode
-     : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+   const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
    const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
    const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
