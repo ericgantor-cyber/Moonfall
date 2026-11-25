@@ -70,6 +70,8 @@ public:
  bool bRandomizeChambers = true;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Rooms")
  int32 GetEffectiveLayoutSeed() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Randomizer")
+ int32 GetRandomizedHazardChamber(int32 HazardIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Rooms")
  int32 GetChamberType(int32 ChamberIndex) const;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rooms")

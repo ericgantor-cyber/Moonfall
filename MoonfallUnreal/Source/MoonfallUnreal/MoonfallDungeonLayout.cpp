@@ -127,6 +127,14 @@ int32 AMoonfallDungeonLayout::GetChamberType(int32 ChamberIndex) const
  return RoomRandom.RandRange(1, 4);
 }
 
+int32 AMoonfallDungeonLayout::GetRandomizedHazardChamber(int32 HazardIndex) const
+{
+ if (HazardIndex < 0 || HazardIndex >= 3) return INDEX_NONE;
+ int32 Chambers[3];
+ BuildHazardChambers(Chambers);
+ return Chambers[HazardIndex];
+}
+
 void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
 {
  Super::OnConstruction(Transform);
@@ -157,9 +165,11 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
    Walls->AddInstance(FTransform(FRotator::ZeroRotator,
      FVector(X, Side * ChamberWidth * 0.5f, 150.f),
      FVector(ChamberLength / 100.f, 0.4f, 3.f)));
+   // Seeded variation affects only wall-side pillars, never the center route.
+   const float OffsetJitter = bRandomizeChambers ? LayoutRandom.FRandRange(-55.f, 55.f) : 0.f;
    for (const float Offset : {-420.f, 420.f})
     Walls->AddInstance(FTransform(FRotator::ZeroRotator,
-      FVector(X + Offset, Side * 335.f, 150.f), FVector(0.7f, 0.7f, 3.f)));
+      FVector(X + Offset + OffsetJitter, Side * 335.f, 150.f), FVector(0.7f, 0.7f, 3.f)));
   }
  }
  // Dividers leave a 360-unit center path without teleporting between rooms.

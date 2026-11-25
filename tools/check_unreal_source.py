@@ -4180,6 +4180,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         self.assertIn("int32 GetEffectiveLayoutSeed() const;", layout_h)
+        self.assertIn("int32 GetRandomizedHazardChamber(int32 HazardIndex) const;", layout_h)
+        query = layout.split("int32 AMoonfallDungeonLayout::GetRandomizedHazardChamber(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (HazardIndex < 0 || HazardIndex >= 3) return INDEX_NONE;", query)
+        self.assertIn("BuildHazardChambers(Chambers);", query)
+        self.assertIn("return Chambers[HazardIndex];", query)
+        self.assertIn("bRandomizeChambers ? LayoutRandom.FRandRange(-55.f, 55.f) : 0.f", layout)
+        self.assertIn("FVector(X + Offset + OffsetJitter, Side * 335.f, 150.f)", layout)
         self.assertIn("int32 GetChamberType(int32 ChamberIndex) const;", layout_h)
         self.assertIn("void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
         self.assertIn("TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;", layout_h)
