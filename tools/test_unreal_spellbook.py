@@ -310,6 +310,20 @@ int main() {
                               "!FMath::IsFinite(Health)"):
                     self.assertIn(guard, before_mutation)
 
+    def test_wow_style_combat_equipment_swaps_are_weapon_only(self):
+        hero = HERO.read_text()
+        best = hero.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split("\n}", 1)[0]
+        equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;", best)
+        self.assertLess(best.index("if (Slot != 0 && IsRecentlyInCombatForAmbientAI())"),
+                        best.index("EquipInventoryItem(BestIndices[Slot])"))
+        self.assertIn("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;", equip)
+        self.assertLess(equip.index("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI())"),
+                        equip.index("*EquippedCode = Code;"))
+        self.assertIn("Health <= 0.f", best)
+        self.assertIn("!FMath::IsFinite(Health)", best)
+        self.assertNotIn("Health / MaxHealth", best)
+
     def test_crafting_mutations_reject_other_inventory_pages(self):
         # Direct C++/Blueprint callers must obey the same modal safety rules
         # as input wrappers, without spending salvage while another page owns UI.
