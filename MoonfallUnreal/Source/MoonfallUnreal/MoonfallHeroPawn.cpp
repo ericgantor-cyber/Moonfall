@@ -3007,46 +3007,22 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
      || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
  if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
- const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- int32 BestScores[3] = {-1, -1, -1};
- int32 BestIndices[3] = {-1, -1, -1};
- // Keep existing equipment unless the candidate is strictly better.
- // Tier is primary, rarity secondary, an affix breaks ties.
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = EquippedCodes[Slot];
-  // A stale or externally edited equipped code cannot outrank owned loot.
-  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;
-  const int32 Affix = Code / 100000;
-  const int32 EncodedSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
- }
- for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-  const int32 Code = InventoryItemCodes[Index];
-  if (Code <= 0) continue;
-  const int32 Affix = Code / 100000;
-  const int32 Slot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
-  if (Score > BestScores[Slot]) {
-   BestScores[Slot] = Score;
-   BestIndices[Slot] = Index;
-  }
- }
+ // Use validated owned gear and a single inventory pass. Set-aware plan
+ // considers matching affixes together without lowering any slot's tier/rarity.
+ const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
+ MoonfallGearAdvisor::FPlanner Planner(EquippedCodes, IsRecentlyInCombatForAmbientAI());
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
+  Planner.Add(InventoryItemCodes[Index], Index);
+ const auto Plan = Planner.Finish();
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
-  // WoW-style combat swaps: only weapons, never armor/accessories.
+  // Recheck combat and exact ownership/index after any Blueprint callback.
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
-  if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
-   ++UpgradesEquipped;
+  const int32 Index = Plan.Indices[Slot];
+  if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
+      || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
+  if (EquipInventoryItem(Index)) ++UpgradesEquipped;
  }
  OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;

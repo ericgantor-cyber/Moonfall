@@ -2222,7 +2222,11 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 SelectedUpgradeScore = CachedAdvisorScore;
   const bool bCompactAdvisor = PanelWidth < 550.f;
-  const FString AdvisorLine = Count == 0
+  const FString AdvisorLine = Hero->Health == 0.f
+    ? TEXT("DEFEATED: equip gear, close bag to respawn")
+    : Hero->IsRecentlyInCombatForAmbientAI()
+    ? TEXT("IN COMBAT: weapon swaps only")
+    : Count == 0
     ? (bCompactAdvisor ? TEXT("GEAR: EMPTY BAG") : TEXT("GEAR ADVISOR: find equipment to compare"))
     : SelectedUpgradeScore > 0
       ? (bCompactAdvisor ? FString::Printf(TEXT("GEAR: UPGRADE (+%d)"), SelectedUpgradeScore)
@@ -2233,7 +2237,9 @@ void AMoonfallCombatHUD::DrawHUD()
       : FLinearColor(0.74f,0.82f,0.94f),
     Left + 18.f, Top + PanelHeight - 50.f, nullptr,
     PanelWidth < 550.f ? 0.56f : 0.74f);
-  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  if (Hero->Health == 0.f)
+   DrawText(TEXT("LT: equip best  |  Crafting and salvage unavailable"), FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
+  else DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);

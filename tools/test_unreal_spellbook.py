@@ -316,7 +316,7 @@ int main() {
         equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;", best)
         self.assertLess(best.index("if (Slot != 0 && IsRecentlyInCombatForAmbientAI())"),
-                        best.index("EquipInventoryItem(BestIndices[Slot])"))
+                        best.index("EquipInventoryItem(Index)"))
         self.assertIn("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;", equip)
         self.assertLess(equip.index("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI())"),
                         equip.index("*EquippedCode = Code;"))

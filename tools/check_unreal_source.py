@@ -1465,13 +1465,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;", body)
-        self.assertIn("const int32 EquippedCodes[3]", body)
-        self.assertIn("BestScores[3]", body)
+        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", body)
         self.assertIn("InventoryItemCodes.Num()", body)
-        self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", body)
-        self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
-        self.assertIn("if (Score > BestScores[Slot])", body)
-        self.assertIn("EquipInventoryItem(BestIndices[Slot])", body)
+        self.assertIn("MoonfallGearAdvisor::FPlanner Planner", body)
+        self.assertIn("Planner.Add(InventoryItemCodes[Index], Index)", body)
+        self.assertIn("Planner.Finish()", body)
+        self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", body)
+        self.assertIn("EquipInventoryItem(Index)", body)
         self.assertIn("OnBestLoadoutEquipped(UpgradesEquipped);", body)
         self.assertNotIn("SalvageInventoryItem(", body)
         self.assertNotIn("RemoveAt(", body)
@@ -1664,12 +1664,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
-        baseline = auto.split("for (int32 Slot = 0; Slot < 3; ++Slot)", 1)[1].split(
-            "for (int32 Index = 0;", 1)[0]
-        self.assertIn("if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;", baseline)
-        self.assertIn("int32 BestScores[3] = {-1, -1, -1};", auto)
-        self.assertIn("if (Score > BestScores[Slot])", auto)
-        self.assertIn("EquipInventoryItem(BestIndices[Slot])", auto)
+        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", auto)
+        self.assertIn("Planner.Finish()", auto)
+        self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", auto)
+        self.assertIn("EquipInventoryItem(Index)", auto)
 
     def test_loot_upgrade_preview_uses_validated_equipment_tiers(self):
         hero = self.hero_cpp
