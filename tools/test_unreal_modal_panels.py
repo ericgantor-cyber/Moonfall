@@ -125,6 +125,14 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, HUD)
 
+    def test_companion_and_sword_warning_art_preserve_gameplay(self):
+        self.assertIn("const FLinearColor TellFoil", HUD)
+        self.assertIn("DrawRect(TellFoil,TellX,TellY+39.f,TellWidth,1.f);", HUD)
+        self.assertIn("const FLinearColor OathInk=bDown?", HUD)
+        self.assertIn("DrawMoonfallSigil(X+W-17.f,Y+49.f,8.f,OathInk,2);", HUD)
+        self.assertIn("(W-20.f)*HP/100.f", HUD)
+        self.assertIn('TEXT("%s STRIKE | GUARD")', HUD)
+
     def test_boss_and_quest_engravings_preserve_existing_progress(self):
         self.assertIn("const FLinearColor BossFoil", HUD)
         self.assertIn("Phase<=3;++Phase", HUD)
