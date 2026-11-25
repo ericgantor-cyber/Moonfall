@@ -125,6 +125,16 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, HUD)
 
+    def test_talent_stat_runes_are_bounded_and_use_real_catalog_stats(self):
+        art = HUD.split("const auto DrawTalentRune=", 1)[1].split("for(int I=0;", 1)[0]
+        for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):
+            self.assertIn("case MoonfallTalents::Stat::" + stat, art)
+        self.assertIn("NodeRect.W>=132 && NodeRect.H>=36", HUD)
+        self.assertIn("float(NodeRect.Y+NodeRect.H-12),Node.AffectedStat,RuneInk", HUD)
+        self.assertNotIn("SpendTalentPoint(", art)
+        self.assertNotIn("LoadObject", art)
+        self.assertNotIn("TActorIterator", art)
+
     def test_original_runtime_art_and_six_distinct_panel_signatures(self):
         chrome = HUD.split("const auto DrawModalChrome = [this]", 1)[1].split(
             "const auto DrawMoonfallSigil = [this]", 1
