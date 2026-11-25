@@ -33,6 +33,11 @@ AMoonfallArena::AMoonfallArena() {
      TEXT("/Game/MoonfallProduction/Meshes/SM_MF_GothicColumn.SM_MF_GothicColumn"));
   ProductionColumn=Column.Get();
  }
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightShield"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> Shield(
+     TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightShield.SM_MF_FirstlightShield"));
+  ProductionShield=Shield.Get();
+ }
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  // Reuse the mesh already loaded for the instanced dungeon road rather
@@ -130,6 +135,35 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
      MoonfallSanctuaryArchitecture::MoonstoneRelics,
      static_cast<int32>(MoonfallSanctuaryArchitecture::RelicCount));
 
+ // Imported heraldry is display-only, mounted on the existing outer pillars.
+ // No shield equipment, guard mechanics, collision or navigation changes.
+ if (IsValid(ProductionShield)) {
+  const FBox Bounds=ProductionShield->GetBoundingBox();
+  const FVector Size=Bounds.GetSize();
+  const double Span=Size.GetMax();
+  if (Bounds.IsValid && !Bounds.Min.ContainsNaN() && !Bounds.Max.ContainsNaN()
+      && !Size.ContainsNaN() && Size.GetMin()>0.1f && Span<100000.f) {
+   UInstancedStaticMeshComponent* Shields=NewObject<UInstancedStaticMeshComponent>(this,TEXT("SanctuaryShieldHeraldry"));
+   if (IsValid(Shields)) {
+    Shields->SetupAttachment(GetRootComponent());
+    Shields->SetStaticMesh(ProductionShield);
+    Shields->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Shields->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Shields->SetGenerateOverlapEvents(false);
+    Shields->SetCastShadow(false);
+    Shields->SetCanEverAffectNavigation(false);
+    Shields->SetCullDistances(8000,12000);
+    const float Scale=60.f/static_cast<float>(Span);
+    const FRotator Rotation(90.f,0.f,0.f);
+    const FVector Offset=Rotation.RotateVector(Bounds.GetCenter()*Scale);
+    for (float X : {-760.f,760.f})
+     for (float Y : {2670.f,3170.f,3870.f,4370.f})
+      Shields->AddInstance(FTransform(Rotation,FVector(X+50.f,Y,210.f)-Offset,FVector(Scale)));
+    AddInstanceComponent(Shields);
+    Shields->RegisterComponent();
+   }
+  }
+ }
  // Four soft moon-blue beacons. No shadow casters, extra ticking or FX systems.
  // Lights and all stonework inherit the arena transform if a map is rotated.
  const FVector Lanterns[] = {
