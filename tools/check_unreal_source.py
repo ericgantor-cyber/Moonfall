@@ -1254,7 +1254,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return;", sheet_back)
         self.assertNotIn("ToggleInventory();", sheet_back)
         self.assertIn("P / Y: spell book", hud)
-        self.assertIn("C / A: character stats", hud)
+        self.assertIn("C / A: stats", hud)
         self.assertIn("A / K: talents   Esc / Pad B: back   Select: close", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
