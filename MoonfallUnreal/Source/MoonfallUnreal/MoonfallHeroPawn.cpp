@@ -2726,11 +2726,13 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress) return;
  // Validate the progression ledger and recovery inputs before mutating either.
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f
      || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana) || MaxMana < 0.f
      || Level < 1 || Experience < 0 || Experience > 1000000
      || ExperienceToNextLevel != 100 + (Level - 1) * 55) return;
+ const int32 PreviousLevel = Level;
  Experience = FMath::Min(1000000, Experience + FMath::Clamp(Amount, 0, 100000));
  while (Experience >= ExperienceToNextLevel && Level < 100) {
   Experience -= ExperienceToNextLevel;
@@ -2740,9 +2742,11 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
-  OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ // Publish only the final coherent progression state. A Blueprint listener
+ // must not run between level mutations or before the max-level XP reset.
+ if (Level != PreviousLevel) OnHealthChanged(Health, MaxHealth);
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
