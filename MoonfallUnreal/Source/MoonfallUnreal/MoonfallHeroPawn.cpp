@@ -1748,10 +1748,8 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
 bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation) {
  // Invulnerability from timed dodges still wins; only blocking and parrying
  // are bypassed. Restore the scoped state before returning to the caller.
- bIncomingDamageDodgeOnly = true;
- const bool bParried = ApplyMoonfallDamageFrom(Amount, SourceLocation);
- bIncomingDamageDodgeOnly = false;
- return bParried;
+ TGuardValue<bool> DodgeOnlyGuard(bIncomingDamageDodgeOnly, true);
+ return ApplyMoonfallDamageFrom(Amount, SourceLocation);
 }
 
 bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(float Amount, const FVector& SourceLocation, int32 Angle) {
@@ -1763,11 +1761,11 @@ bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(float Amount, const FVec
 }
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
- bLastIncomingHitParried = false;
- IncomingDamageSource = SourceLocation;
- bHasIncomingDamageSource = true;
+ if (SourceLocation.ContainsNaN()) return false;
+ TGuardValue<bool> ParryResultGuard(bLastIncomingHitParried, false);
+ TGuardValue<FVector> SourceGuard(IncomingDamageSource, SourceLocation);
+ TGuardValue<bool> HasSourceGuard(bHasIncomingDamageSource, true);
  ApplyMoonfallDamage(Amount);
- bHasIncomingDamageSource = false;
  return bLastIncomingHitParried;
 }
 
