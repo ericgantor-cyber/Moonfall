@@ -2613,6 +2613,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), *RightMode),
     FLinearColor(0.79f, 0.88f, 0.98f),
     CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
+  if (!Hero->bRightHandSpellReadied && Hero->CurrentSwordAngle >= 0
+      && Hero->CurrentSwordAngle < 4 && Hero->SwordFlowStep >= 1 && Hero->SwordFlowStep <= 4) {
+   const auto& Swing=MoonfallOmniattack::Profile(Hero->CurrentSwordAngle);
+   DrawText(FString::Printf(TEXT("%s | FLOW %d/4"),UTF8_TO_TCHAR(Swing.Name),Hero->SwordFlowStep),
+      FLinearColor(0.91f,0.78f,0.49f),CX+Radius+14.f,CY+60.f,nullptr,0.70f*LabelScale);
+  }
  }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
