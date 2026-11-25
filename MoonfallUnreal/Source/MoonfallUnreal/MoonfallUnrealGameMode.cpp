@@ -504,10 +504,9 @@ void AMoonfallUnrealGameMode::BeginPlay()
  bDungeonStartupAuditComplete = false;
  bDungeonStartupNotified = false;
  bDungeonStartupStopped = false;
+ // Each batch schedules its own one-shot successor, rather than a looping
+ // timer that can run several catch-up batches in a single long frame.
  SpawnDungeonBatch();
- if (!bDungeonStartupNotified && !bDungeonStartupStopped && GetWorld())
-  GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
-    &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
 
 void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -910,5 +909,11 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
    UE_LOG(LogTemp, Warning, TEXT("Moonfall dungeon world: only %d/%d layouts ready"),
      ReadyDungeonCount, TotalDungeons);
   OnDungeonWorldReady(ReadyDungeonCount);
+  return;
  }
+ // A one-shot timer is rearmed only after work finishes. A frame hitch
+ // cannot replay multiple missed startup intervals in the same frame.
+ if (!bDungeonStartupNotified && !bDungeonStartupStopped && GetWorld())
+  GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
+    &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, false);
 }
