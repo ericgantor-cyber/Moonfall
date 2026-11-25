@@ -1028,6 +1028,7 @@ void AMoonfallHeroPawn::ControllerConfirm()
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bInventoryOpen) { ToggleCharacterStats(); return; }
  TryJump();
 }
@@ -3733,8 +3734,10 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  }
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
      || Health<=0.f || !FMath::IsFinite(Health)
-     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
-     || FocusedResident.IsValid())return;
+     || bOptionsOpen || (bInventoryOpen && (!bCharacterStatsOpen || bSpellBookOpen))
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid())return;
+ // Validate first, then leave the character sheet using its normal cleanup.
+ if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }
  StopJumping();
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
