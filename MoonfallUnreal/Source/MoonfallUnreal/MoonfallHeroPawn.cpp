@@ -2061,6 +2061,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  if (bEquipmentCraftInProgress) return false;
  // Enforce the inventory owner's modal restrictions for direct C++/Blueprint calls.
+ if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
@@ -2998,6 +2999,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  if (bEquipmentCraftInProgress) return 0;
  // Only a deliberate input while viewing inventory can change worn equipment.
+ if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+     || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
@@ -3051,6 +3054,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
 {
  // Direct callers must honor the same inventory-only modal boundary as UI actions.
+ if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
