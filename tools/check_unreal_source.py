@@ -2161,6 +2161,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
                         reward.index("PerfectDodgeWindowUntil = -1.f;"))
 
+    def test_dodge_buffer_preserves_direction_and_dispatch_priority(self):
+        self.assertIn("MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;", self.hero_h)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1]
+        self.assertLess(tick.index("DodgeBuffer.Consume("), tick.index("SwordBuffer.Consume("))
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split("void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("bDispatchingBufferedDodge ? BufferedDodgeDirection : LiveDirection", dodge)
+        self.assertLess(dodge.index("DodgeBuffer.Queue("), dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertLess(dodge.index("Direction.ContainsNaN()"), dodge.index("DamageImmunityUntil = Now + 0.24f;"))
+        self.assertIn("DodgeBuffer.Clear();", dodge)
+        self.assertIn("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge)", dodge)
+
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]

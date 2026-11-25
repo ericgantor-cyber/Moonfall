@@ -522,6 +522,9 @@ private:
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;
+ FVector BufferedDodgeDirection = FVector::ZeroVector;
+ bool bDispatchingBufferedDodge = false;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
