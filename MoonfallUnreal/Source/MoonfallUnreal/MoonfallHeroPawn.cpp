@@ -1334,7 +1334,11 @@ void AMoonfallHeroPawn::MeleeAttack()
  // A click spends its stamina and recovery even when it misses. Do not
  // advance the angle on menu clicks, invalid input or cooldown spam.
  SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
- NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown, 0.1f, 1.5f);
+ CurrentSwordAngle = MoonfallOmniattack::Next(SwordFlow,
+     static_cast<unsigned>(FMath::RandHelper(MoonfallOmniattack::FairRollCount)));
+ SwordFlowStep = SwordFlow.Step;
+ const auto& Attack = MoonfallOmniattack::Profile(CurrentSwordAngle);
+ NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown * Attack.RecoveryScale, 0.1f, 1.5f);
  Stamina = FMath::Clamp(Stamina - Cost, 0.f, MaxStamina);
  // Count a committed melee action, never a menu click or cooldown spam.
  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::SwingSword);
@@ -1344,20 +1348,19 @@ void AMoonfallHeroPawn::MeleeAttack()
  CombatRecoveryEndsAt = FMath::Max(
      FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
      Now + 3.f);
- CurrentSwordAngle = MoonfallOmniattack::Next(SwordFlow,
-     static_cast<unsigned>(FMath::RandHelper(4)));
- SwordFlowStep = SwordFlow.Step;
 
  const FVector Start = Position + FVector(0.f, 0.f, 65.f);
- const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange, 60.f, 350.f);
+ // Each angle has a distinct swept reach and contact width. Single-hit
+ // visibility sweeps retain the first obstruction and never hit through walls.
+ const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange * Attack.RangeScale, 60.f, 350.f);
  FHitResult Hit;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallMelee), false, this);
  Params.AddIgnoredActor(this);
  const bool bBlocked = GetWorld()->SweepSingleByChannel(
      Hit, Start, End, FQuat::Identity, ECC_Visibility,
-     FCollisionShape::MakeSphere(55.f), Params);
+     FCollisionShape::MakeSphere(Attack.Radius), Params);
  AMoonfallEnemy* Enemy = bBlocked ? Cast<AMoonfallEnemy>(Hit.GetActor()) : nullptr;
- const bool bLivingTarget = IsValid(Enemy) && FMath::IsFinite(Enemy->Health)
+ const bool bLivingTarget = IsValid(Enemy) && !Enemy->IsActorBeingDestroyed() && FMath::IsFinite(Enemy->Health)
      && Enemy->Health > 0.f;
  // A committed melee attack should animate even on a miss or killing blow.
  // Predict the next connected combo animation without granting a combo stage:
@@ -1389,8 +1392,7 @@ void AMoonfallHeroPawn::MeleeAttack()
  // stamina, misses and cooldowns retain their established behavior.
  const float TalentMeleeMultiplier = static_cast<float>(
      MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage));
- const float AngleBonus = CurrentSwordAngle == 0 ? 1.08f
-     : (CurrentSwordAngle == 2 ? 0.96f : 1.f);
+ const float AngleBonus = Attack.DamageScale;
  // Same bounded, same-target combo rule as spell combat: a miss or a
  // different target earns no inherited power, and hit 13 starts at stage 1.
  const int32 IncomingStage = bNextSameTarget ? FMath::Clamp(HitComboStage, 0, 12) : 0;
@@ -1417,7 +1419,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;
   // Low sweeps pressure posture; the original enemy posture-break caps apply.
   if (Enemy->Health > 0.f)
-   Enemy->ApplyPostureDamage(Dealt * (CurrentSwordAngle == 2 ? 0.45f : 0.15f));
+   Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);
   const float Window = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const bool bContinues = LastHitComboTarget.Get() == Enemy
