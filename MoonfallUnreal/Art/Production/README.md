@@ -17,13 +17,16 @@ The four existing graphics quality levels now scale bloom while keeping motion b
 ## Nanite comparison
 Run Tools/create_nanite_benchmark_assets.py inside UE5.4 after importing the production meshes. It creates two separate opt-in benchmark copies in /Game/MoonfallProduction/NanitePreview, never overwriting existing assets. Both preserve full source triangle budgets in their fallback meshes. The original column and reliquary runtime references remain unchanged. These simple meshes are pilot test assets, not evidence that Nanite improves performance. Compare identical instance counts, camera paths, quality settings and resolution, recording GPU frame time, VRAM and fallback appearance before adopting Nanite for detailed environments.
 
+## Firstlight Warden skeletal pilot
+The standalone Rigs/SK_MF_FirstlightWarden.gltf contains a 17-joint hierarchy, inverse bind matrices, rigid per-part skin weights, 948 vertices, 1,296 triangles, three material slots and five original keyframed clips (Idle, Walk, Attack, Guard, HitReact). It is an articulated armor prototype, not a high-detail sculpt or a finished deforming character. Open in Blender to review geometry, shoulder and leg pivots, animation pose transitions and orientation; export a reviewed skeletal FBX with mesh/armature and baked actions for UE5.4 import into a separate /Game/MoonfallProduction/Rigs folder. Review the skeleton, clips, materials, collision independence and retargeting before assigning it to any ordinary enemy. No original heroes, divine bosses, runtime enemy collision or combat timing are changed. Blender conversion and Unreal import have not been run.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
 | Environment | Modular ruins, terrain, foliage, rock and settlement kits; LOD/Nanite review | Column source mesh only |
 | Gear | Original weapon, armor and accessory meshes; PBR maps | Sword, shield, cuirass and amulet source meshes; cuirass is a solid display prop, not wearable or rigged armor |
 | Shrines | Authored modular reliquary and emissive material | Reliquary source mesh only |
-| Enemies and bosses | Unique sculpt, retopology, rig, skin weights, animation sets | Not delivered |
+| Enemies and bosses | Unique sculpt, retopology, rig, skin weights, animation sets | Original Warden skeletal pilot with five clips; native import and runtime binding pending |
 | Combat | Retargeted directional strikes, blocking, dodging, reactions | Not delivered |
 | Spells | Authored Niagara systems and scalable budgets | Not delivered |
 | Materials | Base color, normal, roughness, metallic, AO; material instance library | Constant PBR material installer added; texture maps and native validation pending |
