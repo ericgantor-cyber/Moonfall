@@ -1620,6 +1620,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("// Protect all saved quest entries"),
                         load.index("bWorldProgressLoadInProgress = true;"))
 
+    def test_world_load_refuses_reentry_and_invalid_context(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        for guard in ("bEquipmentCraftInProgress", "bWorldProgressLoadInProgress", "bEquipBestInProgress", "!GetWorld()", "IsActorBeingDestroyed()", "!FMath::IsFinite(GetWorld()->GetTimeSeconds())", "GetActorRotation().ContainsNaN()"):
+            self.assertLess(load.index(guard), load.index("UGameplayStatics::DoesSaveGameExist("))
+        self.assertLess(load.index("bWorldProgressLoadInProgress = true;"), load.index("TeleportTo(SavedCheckpoint"))
+        self.assertLess(load.index("OnHealthChanged(Health, MaxHealth);"), load.rindex("bWorldProgressLoadInProgress = false;"))
+
     def test_load_preflights_worn_item_ownership_before_mutating_progress(self):
         load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
