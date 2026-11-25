@@ -1,0 +1,41 @@
+name: UE5 Northern Expanse geometry rules (C++17)
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthContinentLayout.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthLandmarks.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZoneGreybox.h'
+      - 'tools/test_unreal_north_layout_policy.cpp'
+      - '.github/workflows/unreal-north-layout-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-layout:
+    name: Nine-province geometry C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GCC geometry regressions
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror tools/test_unreal_north_layout_policy.cpp -o /tmp/moonfall_north_layout
+          /tmp/moonfall_north_layout
+      - name: Configure Windows MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run MSVC geometry regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_north_layout_policy.cpp /Fe:moonfall_north_layout.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_north_layout.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

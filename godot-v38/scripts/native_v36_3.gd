@@ -154,7 +154,7 @@ func _process(delta:float)->void:
  var elapsed:float=v363_update_elapsed
  v363_update_elapsed=0.0
  v363_visual_time+=elapsed
- if hero_playing and not death_active and not menu_open:
+ if hero_playing and not death_active:
   v363_ward_seconds=maxf(0.0,v363_ward_seconds-elapsed)
  _v363_tick(elapsed)
 

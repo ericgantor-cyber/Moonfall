@@ -30,6 +30,37 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 }
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
+# The release workflow already creates this asset. First-time local packaging
+# reuses the same editor generator without overwriting a valid existing map.
+$editorCompiledForStartupMap = $false
+$startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+$engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {
+    $hasSavedMap = Test-Path -LiteralPath $startupMap -PathType Leaf
+    $configIsReady = $false
+    if (Test-Path -LiteralPath $engineConfig -PathType Leaf) {
+        $configTextBefore = Get-Content -LiteralPath $engineConfig -Raw
+        $configIsReady = ($configTextBefore -match '(?m)^\s*GameDefaultMap=/Game/Maps/MoonfallStart\s*$') -and
+            ($configTextBefore -match '(?m)^\s*EditorStartupMap=/Game/Maps/MoonfallStart\s*$')
+    }
+    if (-not $hasSavedMap -or -not $configIsReady) {
+        Write-Host 'Preparing Moonfall startup map with Unreal Editor...'
+        & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+        if ($LASTEXITCODE -ne 0) { throw "Unreal Editor compilation failed before map generation: $LASTEXITCODE" }
+        $editorCompiledForStartupMap = $true
+        $editor = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+        $generator = Join-Path $PSScriptRoot 'Create-StartupLevel.py'
+        if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "UnrealEditor-Cmd.exe missing: $editor" }
+        if (-not (Test-Path -LiteralPath $generator -PathType Leaf)) { throw "Startup-level generator missing: $generator" }
+        & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) { throw "Startup map generation failed: $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+            throw 'Unreal Editor did not create MoonfallStart.umap; inspect its log.'
+        }
+    }
+}
+
+
 # A playable package needs a real project-owned level, not the engine's
 # generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
 if (-not $CompileOnly -and -not $CompilePreflightOnly) {
@@ -96,12 +127,21 @@ if ($PreflightOnly) {
     exit 0
 }
 
-Write-Host 'Compiling Unreal 5.4 Editor target...'
-& $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
-if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+if (-not $editorCompiledForStartupMap) {
+    Write-Host 'Compiling Unreal 5.4 Editor target...'
+    & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+} else {
+    Write-Host 'Editor compilation already succeeded during startup map generation.'
+}
 
 if ($CompileOnly) {
-    Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
+    # Build the standalone game target as well as the Editor target. An Editor
+    # compile alone does not establish that MoonfallUnreal Win64 will link.
+    Write-Host 'Compiling Unreal 5.4 standalone Game target Win64 Development...'
+    & $build MoonfallUnreal Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal Game target compilation failed: $LASTEXITCODE" }
+    Write-Host 'Unreal Editor and standalone Game Win64 Development targets compiled. Compile-only mode skips cooking, packaging, launcher and NSIS.'
     exit 0
 }
 
@@ -131,12 +171,54 @@ if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
 
 $games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
 if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+# The packaging tool can exit successfully while leaving behind a corrupt or
+# wrong-architecture executable. Validate its PE32+ AMD64 file header before
+# publishing a launcher or installer. This is not a replacement for launching it.
+$gameExe = $games[0].FullName
+$stream = [System.IO.File]::OpenRead($gameExe)
+try {
+    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
+    $reader = [System.IO.BinaryReader]::new($stream)
+    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
+    $stream.Position = 0x3C
+    $peOffset = $reader.ReadInt32()
+    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
+        throw 'Packaged game executable has an invalid PE header offset.'
+    }
+    $stream.Position = $peOffset
+    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
+    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
+    $stream.Position = $peOffset + 24
+    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
+} finally {
+    $stream.Dispose()
+}
 $gameRoot = $games[0].Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
 }
-if (-not (Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File | Select-Object -First 1)) {
-    throw 'Cooked Moonfall game content is empty; refusing incomplete installer.'
+# The project directory may contain executable/config files even when cooking
+# silently produced no game content. Require an actual non-empty cooked archive.
+# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
+$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
+if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
+    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
+}
+$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
+    Where-Object { $_.Length -gt 0 })
+$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
+    Where-Object { $_.Length -gt 0 })
+$hasIoStorePair = $false
+foreach ($indexFile in $ioStoreIndexes) {
+    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
+    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
+        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
+        $hasIoStorePair = $true
+        break
+    }
+}
+if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
 }
 if ($LaunchSmokeTest) {
     & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName

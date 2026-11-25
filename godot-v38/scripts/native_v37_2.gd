@@ -62,7 +62,8 @@ func _v372_dive_held()->bool:
 
 func _physics_process(delta:float)->void:
  super._physics_process(delta)
- var enabled:bool=V372_OXYGEN.can_dive(v37_swimming,hero_playing,menu_open,mounted,death_active)
+ # Opening a menu no longer grants underwater oxygen or damage immunity.
+ var enabled:bool=V372_OXYGEN.can_dive(v37_swimming,hero_playing,false,mounted,death_active)
  var previous:bool=v372_diving
  v372_diving=enabled and _v372_dive_held()
  if previous and not v372_diving and v372_oxygen<=V372_OXYGEN.LOW_OXYGEN and enabled:
@@ -74,7 +75,7 @@ func _physics_process(delta:float)->void:
   v372_oxygen=V372_OXYGEN.MAX_OXYGEN
   v372_drowning_elapsed=0.0
   v372_low_air_warned=false
- elif not menu_open:
+ else:
   v372_oxygen=V372_OXYGEN.advance(v372_oxygen,delta,v372_diving)
   if v372_diving and V372_OXYGEN.is_low(v372_oxygen) and not v372_low_air_warned:
    v372_low_air_warned=true

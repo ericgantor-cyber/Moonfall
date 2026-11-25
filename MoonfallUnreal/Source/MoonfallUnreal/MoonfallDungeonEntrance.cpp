@@ -25,18 +25,30 @@ AMoonfallDungeonEntrance::AMoonfallDungeonEntrance()
  if (Cube.Succeeded()) EntranceMarker->SetStaticMesh(Cube.Object);
 }
 
+int32 AMoonfallDungeonEntrance::GetDungeonEntranceKey() const
+{
+ if (ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5)
+  return INDEX_NONE;
+ return ZoneIndex * 5 + DungeonIndex;
+}
+
+void AMoonfallDungeonEntrance::SetEntranceEnabled(bool bEnabled)
+{
+ bEntranceEnabled = bEnabled;
+ // Visited entrances remain disabled to prevent event/reward duplication.
+ if (IsValid(DiscoveryTrigger))
+  DiscoveryTrigger->SetGenerateOverlapEvents(
+    bEntranceEnabled && !bVisitedThisSession && GetDungeonEntranceKey() != INDEX_NONE);
+}
+
 void AMoonfallDungeonEntrance::BeginPlay()
 {
  Super::BeginPlay();
- // Invalid map-authored IDs are inert rather than mutating save data.
- if (ZoneIndex < 0 || ZoneIndex >= AMoonfallHeroPawn::DungeonZoneCount
-     || DungeonIndex < 0 || DungeonIndex >= AMoonfallHeroPawn::DungeonsPerZone)
- {
-  DiscoveryTrigger->SetGenerateOverlapEvents(false);
-  return;
- }
+ // Do not register invalid or disabled entrances. Runtime re-enabling is
+ // supported through SetEntranceEnabled without re-binding the delegate.
  DiscoveryTrigger->OnComponentBeginOverlap.AddDynamic(
-     this, &AMoonfallDungeonEntrance::OnEntranceOverlap);
+  this, &AMoonfallDungeonEntrance::OnEntranceOverlap);
+ SetEntranceEnabled(bEntranceEnabled);
 }
 
 void AMoonfallDungeonEntrance::OnEntranceOverlap(
@@ -44,7 +56,18 @@ void AMoonfallDungeonEntrance::OnEntranceOverlap(
  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
  const FHitResult& SweepResult)
 {
+ if (bVisitedThisSession || !bEntranceEnabled || GetDungeonEntranceKey() == INDEX_NONE) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
- if (!IsValid(Hero) || !Hero->IsPlayerControlled()) return;
- Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex);
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen) return;
+ // Previously saved discoveries must not grant the reward again.
+ const bool bAlreadyDiscovered = Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex);
+ if (!bAlreadyDiscovered && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex))
+  return; // Failed save: remain active so the player can retry.
+ bVisitedThisSession = true;
+ DiscoveryTrigger->SetGenerateOverlapEvents(false);
+ if (!bAlreadyDiscovered)
+  OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);
 }

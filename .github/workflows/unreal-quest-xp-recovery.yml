@@ -1,0 +1,14 @@
+name: UE5 NPC quest XP policy
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestXP.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'tools/test_unreal_quest_xp.cpp'
+      - '.github/workflows/unreal-quest-xp-recovery.yml'
+jobs:
+  npc-quest-xp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_quest_xp.cpp -o /tmp/moonfall_quest_xp && /tmp/moonfall_quest_xp

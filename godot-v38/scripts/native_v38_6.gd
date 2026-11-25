@@ -2,6 +2,8 @@ extends "res://scripts/native_v38_5.gd"
 ## Loot variety and bounded progression; preserves the original gear generation pipeline.
 const LOOT_RARITIES:Array[String]=["Common","Uncommon","Rare","Epic","Legendary","Mythic"]
 const LOOT_CHANCE_BONUS:float=0.08
+const GEAR_STATS=preload("res://scripts/systems/equipment_inventory.gd")
+const EQUIPMENT_RNG=preload("res://scripts/systems/equipment_rng.gd")
 var loot_roll_count:int=0
 
 func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:Dictionary={})->void:
@@ -17,11 +19,9 @@ func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:D
  if item.is_empty():return
  # RNG is intentionally moderate; higher regions shift odds toward stronger tiers.
  var roll:float=rng.randf()
- var tier:int=0
- if roll<clampf(0.01+float(zone)*0.004,0.01,0.05):tier=4
- elif roll<clampf(0.045+float(zone)*0.008,0.045,0.11):tier=3
- elif roll<clampf(0.16+float(zone)*0.016,0.16,0.34):tier=2
- elif roll<clampf(0.48+float(zone)*0.020,0.48,0.70):tier=1
+ # Equipped Luck shifts independent rarity odds but cannot guarantee a tier.
+ var luck:int=clampi(int(GEAR_STATS.totals(gear_state).get("luck",0)),0,40)
+ var tier:int=EQUIPMENT_RNG.world_rarity_from_roll(roll,zone,luck)
  var original_tier:int=LOOT_RARITIES.find(str(item.get("rarity","Common")))
  tier=maxi(tier,maxi(0,original_tier))
  item["rarity"]=LOOT_RARITIES[tier]

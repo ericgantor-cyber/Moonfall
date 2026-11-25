@@ -1,0 +1,14 @@
+name: UE5 regional quest policy
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldQuest.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - 'tools/test_unreal_world_quests.cpp'
+      - '.github/workflows/unreal-regional-quest-recovery.yml'
+jobs:
+  regional-quests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -pedantic tools/test_unreal_world_quests.cpp -o /tmp/moonfall_quests && /tmp/moonfall_quests

@@ -1,5 +1,6 @@
 extends Control
 signal waypoint_selected(world_position:Vector3)
+signal waypoint_cleared
 signal zoom_requested(factor:float)
 ## Simple real-position navigation chart. North = negative world Z.
 var player_position:Vector3=Vector3.ZERO
@@ -168,6 +169,13 @@ static func dungeon_quest_marker_visible(marker:Vector3,rooms:Array[Vector3],rad
   return false
  return true
 
+# Project a distant quest toward the chart edge without changing its world position.
+static func quest_chart_edge_offset(offset:Vector2,half_bounds:Vector2)->Vector2:
+ if not is_finite(offset.x) or not is_finite(offset.y):return Vector2.ZERO
+ if not is_finite(half_bounds.x) or not is_finite(half_bounds.y) or half_bounds.x<=0.0 or half_bounds.y<=0.0:return Vector2.ZERO
+ var overflow:float=maxf(1.0,maxf(absf(offset.x)/half_bounds.x,absf(offset.y)/half_bounds.y))
+ return offset/overflow
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -282,6 +290,10 @@ func _draw()->void:
   if dungeon_active and not dungeon_quest_marker_visible(quest_position,dungeon_rooms,dungeon_floor_radii,discovered_chambers):continue
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
+   var direction:Vector2=quest_delta.normalized()
+   var side_direction:Vector2=Vector2(-direction.y,direction.x)
+   var edge:Vector2=centre+quest_chart_edge_offset(quest_delta,size*0.40)
+   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+side_direction*4.0,edge-direction*7.0-side_direction*4.0]),Color(0.8,0.45,1.0))
    continue
   var quest_screen:Vector2=centre+quest_delta
   draw_circle(quest_screen,7.0,Color(0.8,0.45,1.0))
@@ -336,6 +348,10 @@ func _gui_input(event:InputEvent)->void:
    zoom_requested.emit(0.75 if event.button_index==MOUSE_BUTTON_WHEEL_UP else 1.333333)
    accept_event()
    return
+  if event.button_index==MOUSE_BUTTON_RIGHT:
+   waypoint_cleared.emit()
+   accept_event()
+   return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT:
   if size.x<20.0 or size.y<20.0:return
   var scale_factor:float=minf(size.x,size.y)*0.45/maxf(20.0,metres_per_half_width)
@@ -343,8 +359,16 @@ func _gui_input(event:InputEvent)->void:
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
   if not _valid_world_point(location):return
   if dungeon_active:
-   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
-   if nearest_room>=0:location=dungeon_rooms[nearest_room]
+   # A hidden floor must not accept a waypoint, even when its polygon is
+   # correctly omitted from the fogged map.
+   if not dungeon_quest_marker_visible(location,dungeon_rooms,dungeon_floor_radii,discovered_chambers):return
+   var click_radius:float=minf(14.0/scale_factor,14.0)
+   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,click_radius)
+   if nearest_room>=0:
+    var candidate:Vector3=dungeon_rooms[nearest_room]
+    # Also reject clicks just outside a hidden floor that would snap into it.
+    if not dungeon_quest_marker_visible(candidate,dungeon_rooms,dungeon_floor_radii,discovered_chambers):return
+    location=candidate
   waypoint_selected.emit(location)
   accept_event()
 
