@@ -199,9 +199,17 @@ print("UE5 talent web: layout, full node UI, mouse/controller input and modal is
 
 # Mouse reset uses the same two-step confirmation as keyboard/controller.
 assert 'Click RESET TALENTS or press Backspace / LT twice' in hud
-assert 'Click CONFIRM RESET again or press Backspace / LT' in hud
+assert 'Refund %d points? CONFIRM or CANCEL (A / Enter)' in hud
+assert 'No allocated talent points to reset' in hud
+assert 'Arm?TEXT("CANCEL"):TEXT("SPEND POINT")' in hud
+assert "MoonfallTalentWeb::RespecPending(" in hud
+assert "ResetSnapshot.Spent>0" in hud
 assert 'MoonfallTalentWeb::RespecRect(Layout).Hit(X,Y)) {TalentConfirmRespec();return;}' in pointer
 confirm = web.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("\n}", 1)[0]
 assert confirm.index("bTalentRespecArmed=false;") < confirm.index("RespecTalentPoints();")
-assert "Now<=TalentRespecArmUntil" in confirm
+assert "MoonfallTalentWeb::RespecPending(bTalentRespecArmed,Now,TalentRespecArmUntil)" in confirm
+assert confirm.index("Snapshot.Spent<=0") < confirm.index("RespecTalentPoints();")
+spend = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
+assert spend.index("if (bCancelReset)return;") < spend.index("SpendTalentPoint(TalentWebSelected);")
+assert "MoonfallTalentWeb::RespecPending(" in spend
 assert "TalentRespecArmUntil=Now+10.0f;" in confirm
