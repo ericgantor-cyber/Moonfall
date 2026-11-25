@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallQuestXP.h"
 #include "MoonfallImpactFeedback.h"
 #include "Misc/GuardValue.h"
 #include "MoonfallTalentWeb.h"
@@ -4948,15 +4949,20 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    bResidentTurnInPending = true;
    ResidentTurnInConfirmUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 6.f : 0.f;
    ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
+   const int32 Cost=Resident->GetContractSalvageCost();
+   const int32 RewardXP=MoonfallQuestXP::Reward(Cost,Level);
    Message = FText::FromString(FString::Printf(
-     TEXT("Confirm spending %d salvage: choose Turn In again."),
-     Resident->GetContractSalvageCost()));
+     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP));
   } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
    Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
    bResidentTurnInPending = false;
+   const auto Reward=MoonfallQuestXP::Preview(Resident->GetContractSalvageCost(),
+      Level,Experience,ExperienceToNextLevel);
    bSucceeded = Resident->TurnInResidentQuest(this);
-   Message = bSucceeded ? FText::FromString(TEXT("Contract complete."))
+   Message = bSucceeded ? FText::FromString(Reward.LevelsGained>0
+      ? FString::Printf(TEXT("Complete! +%d XP | Level %d"),Reward.RewardXP,Reward.FinalLevel)
+      : FString::Printf(TEXT("Contract complete | +%d XP"),Reward.RewardXP))
      : FText::FromString(TEXT("Contract could not be completed."));
   }
  } else {
@@ -5154,7 +5160,13 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  return true;
 }
 bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !FMath::IsFinite(MaxHealth)
+     || MaxHealth < Health || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana)
+     || MaxMana < 0.f || Mana < 0.f || Mana > MaxMana || Level < 1 || Level > 100
+     || Experience < 0 || Experience > 1000000 || ExperienceToNextLevel <= 0
+     || !FMath::IsFinite(SpellPowerMultiplier)) return false;
+ if (!IsValid(Resident) || Resident->bAmbientVisitor || !Resident->CanHeroInteract(this)
+     || GetFactionReputation(Resident->FactionId) <= -50
      || !IsNamedMoonfallResident(Resident->ResidentId)
      || GetResidentQuestState(Resident->ResidentId) != 1) return false;
  const int32 Cost = Resident->GetContractSalvageCost();
@@ -5162,7 +5174,12 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const FName Id = Resident->ResidentId;
  const FName Faction = Resident->FactionId;
  if (!IsMoonfallFaction(Faction)) return false;
- // One atomic save: pay salvage, earn 6 bond and 3 faction reputation.
+ // Commit XP, level progression, contract, bond and reputation in one save.
+ // No Blueprint health notification until persistence succeeds.
+ const auto Reward = MoonfallQuestXP::Preview(Cost, Level, Experience, ExperienceToNextLevel);
+ const int32 PreviousLevel = Level, PreviousXP = Experience, PreviousNextXP = ExperienceToNextLevel;
+ const float PreviousMaxHealth = MaxHealth, PreviousHealth = Health, PreviousMana = Mana;
+ const float PreviousSpellPower = SpellPowerMultiplier;
  const int32 PreviousSalvage = Salvage;
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
@@ -5170,7 +5187,22 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
+ if (Reward.RewardXP > 0) {
+  Experience = Reward.RemainingXP;
+  Level = Reward.FinalLevel;
+  // Match AwardExperience, including its nonzero threshold at max level.
+  ExperienceToNextLevel = Level >= 100 ? 100 + (Level - 1) * 55 : Reward.NextLevelXP;
+  if (Reward.LevelsGained > 0) {
+   MaxHealth += 4.f * Reward.LevelsGained;
+   Health = FMath::Min(MaxHealth, Health + 12.f * Reward.LevelsGained);
+   Mana = FMath::Min(MaxMana, Mana + 10.f * Reward.LevelsGained);
+   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
+  }
+ }
  if (!SaveWorldProgress()) {
+  Level = PreviousLevel; Experience = PreviousXP; ExperienceToNextLevel = PreviousNextXP;
+  MaxHealth = PreviousMaxHealth; Health = PreviousHealth; Mana = PreviousMana;
+  SpellPowerMultiplier = PreviousSpellPower;
   Salvage = PreviousSalvage;
   ResidentQuestStates.Add(Id, 1);
   if (PreviousBond == 0) ResidentBonds.Remove(Id);
@@ -5179,5 +5211,6 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
   else FactionReputation.Add(Faction, PreviousRep);
   return false;
  }
+ if (Reward.LevelsGained > 0) OnHealthChanged(Health, MaxHealth);
  return true;
 }
