@@ -39,7 +39,7 @@ func _physics_process(delta:float)->void:
  super._physics_process(delta)
  if not is_instance_valid(player):return
  var can_swim:bool=hero_playing and not death_active and not mounted and v37_swimming
- if not menu_open:
+ if hero_playing and not death_active:
   # If a frame of lateral motion crosses the lake volume boundary while deep,
   # restore the last valid X/Z. Depth must remain inside connected lake or tunnel.
   if v373_depth>V373_RULES.SUBMERGED_DEPTH and can_swim:

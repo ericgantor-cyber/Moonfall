@@ -1,0 +1,22 @@
+name: UE5 AAA combat attack tell C++ verification
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallAttackTellVisual.h'
+      - 'tools/test_unreal_attack_tell_visual.cpp'
+      - '.github/workflows/unreal-attack-tells.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallAttackTellVisual.h'
+      - 'tools/test_unreal_attack_tell_visual.cpp'
+      - '.github/workflows/unreal-attack-tells.yml'
+jobs:
+  attack-tells:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and exercise deterministic attack tell profiles
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -pedantic tools/test_unreal_attack_tell_visual.cpp -o /tmp/moonfall-attack-tells
+          /tmp/moonfall-attack-tells

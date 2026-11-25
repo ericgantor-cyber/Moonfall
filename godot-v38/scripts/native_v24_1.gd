@@ -31,17 +31,7 @@ func _ready() -> void:
  overlay.add_child(accessible_hit_text)
 
 func _unhandled_input(event: InputEvent) -> void:
- # Keyboard access to camera zoom complements the existing mouse wheel.
- # Only consume real keypresses during live play, never while using a menu.
- if hero_playing and not menu_open and event is InputEventKey and event.pressed and not event.echo:
-  if event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
-   _v24_set_zoom(v24_camera_size - 1.5)
-   get_viewport().set_input_as_handled()
-   return
-  if event.keycode == KEY_MINUS or event.keycode == KEY_KP_SUBTRACT:
-   _v24_set_zoom(v24_camera_size + 1.5)
-   get_viewport().set_input_as_handled()
-   return
+ # Mouse wheel zoom is handled by the parent; +/- are not zoom bindings.
  super._unhandled_input(event)
 
 func _apply_player_hit(target: Dictionary, base_damage: float, stagger_strength: float = 0.0) -> void:

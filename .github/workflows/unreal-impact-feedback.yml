@@ -1,0 +1,35 @@
+name: UE5 confirmed-hit feedback policy
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallImpactFeedback.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'tools/test_unreal_impact_feedback.cpp'
+      - '.github/workflows/unreal-impact-feedback.yml'
+  workflow_dispatch:
+jobs:
+  policy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test confirmed-hit policy (GCC)
+        if: runner.os == 'Linux'
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_impact_feedback.cpp -o /tmp/moonfall_impact
+          /tmp/moonfall_impact
+      - name: Initialize Visual C++ toolchain
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Test confirmed-hit policy (MSVC)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_impact.exe tools/test_unreal_impact_feedback.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_impact.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

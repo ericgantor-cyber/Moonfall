@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "description": "Moonfall-original, WoW Forever-inspired secondary combat stats. Provisional balancing; independent reference model until engine integration.",
+  "ratings": {
+    "critical_strike": {
+      "label": "Critical Strike",
+      "rating_per_percent": 20,
+      "base_percent": 5,
+      "maximum_percent": 60
+    },
+    "haste": {
+      "label": "Haste",
+      "rating_per_percent": 25,
+      "base_percent": 0,
+      "maximum_percent": 50
+    }
+  },
+  "flat_stats": {
+    "armor": {
+      "label": "Armor",
+      "min": 0,
+      "max": 25000
+    },
+    "attack_power": {
+      "label": "Attack Power",
+      "min": 0,
+      "max": 10000
+    },
+    "spell_power": {
+      "label": "Spell Power",
+      "min": 0,
+      "max": 10000
+    },
+    "health_regen": {
+      "label": "Health Regeneration per second",
+      "min": 0,
+      "max": 250
+    },
+    "mana_regen": {
+      "label": "Mana Regeneration per second",
+      "min": 0,
+      "max": 250
+    },
+    "fire_resistance": {
+      "label": "Fire Resistance",
+      "min": 0,
+      "max": 75
+    },
+    "frost_resistance": {
+      "label": "Frost Resistance",
+      "min": 0,
+      "max": 75
+    },
+    "shock_resistance": {
+      "label": "Shock Resistance",
+      "min": 0,
+      "max": 75
+    }
+  },
+  "limits": {
+    "maximum_rating": 10000,
+    "maximum_total_rating": 20000
+  },
+  "rules": [
+    "No classes, specializations, upgrade cards or forced builds",
+    "All ratings are optional and additive from gear and talent effects",
+    "Rating conversion coefficients are Moonfall prototypes, not WoW Forever's combat math",
+    "Armor and resistances use capped values; dodge, block and parry are combat actions, not character ratings",
+    "Primary base stats, equipment bonuses and talent points remain separate",
+    "No changes to original Z or Nyra artwork or saves"
+  ]
+}

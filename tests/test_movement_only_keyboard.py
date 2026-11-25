@@ -1,0 +1,135 @@
+"""Contract tests: WASD and keyboard arrows must only drive movement.
+
+Source-level checks run without Godot or Unreal; engine playtesting is separate.
+"""
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+RESERVED = {"W", "A", "S", "D", "Up", "Down", "Left", "Right"}
+AXES = {
+    "W": ("forward", 1),
+    "S": ("forward", -1),
+    "Up": ("forward", 1),
+    "Down": ("forward", -1),
+    "A": ("right", -1),
+    "D": ("right", 1),
+    "Left": ("right", -1),
+    "Right": ("right", 1),
+}
+
+
+def read(path):
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
+class MovementKeyContracts(unittest.TestCase):
+    def check_unreal(self, path, forward, right):
+        config = read(path)
+        actions = [line for line in config.splitlines()
+                   if line.startswith("+ActionMappings=")]
+        for action in actions:
+            key = re.search(r"Key=([^,)]+)", action)
+            self.assertIsNotNone(key, action)
+            self.assertNotIn(key.group(1), RESERVED, action)
+
+        axes = {line for line in config.splitlines()
+                if line.startswith("+AxisMappings=")}
+        for key, (direction, scale) in AXES.items():
+            axis = forward if direction == "forward" else right
+            self.assertTrue(any(
+                f'AxisName="{axis}"' in line
+                and f"Scale={scale:.6f}" in line
+                and f"Key={key})" in line
+                for line in axes
+            ), f"{path}: missing movement binding for {key}")
+
+    def test_production_unreal_axes_are_movement_only(self):
+        self.check_unreal("MoonfallUnreal/Config/DefaultInput.ini",
+                          "MoveForward", "MoveRight")
+
+    def test_unreal_prototype_axes_are_movement_only(self):
+        self.check_unreal("engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini",
+                          "Forward", "Right")
+        prototype = read("engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini")
+        self.assertIn('AxisName="MapPanHorizontal",Scale=1.000000,Key=Gamepad_RightX', prototype)
+
+    def test_godot_sword_angles_not_triggered_by_movement(self):
+        script = read("godot-v38/scripts/native_v38_0.gd")
+        key_handler = script.split("func _unhandled_key_input(event:InputEvent)->void:", 1)[1].split("func _unhandled_input(", 1)[0]
+        self.assertIn("super._unhandled_key_input(event)", key_handler)
+        self.assertNotIn("KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4", key_handler)
+        self.assertNotIn("event.alt_pressed", key_handler)
+        self.assertNotRegex(script, r"KEY_(UP|DOWN|LEFT|RIGHT)\b")
+        attack = script.split("func _attack()->void:", 1)[1].split("func _spell(", 1)[0]
+        self.assertIn("v394_strike_direction=_v394_next_auto_angle()", attack)
+        self.assertIn("if attack_cooldown<=0.0 and not mounted:", attack)
+        self.assertIn("super._attack()", attack)
+        self.assertIn("v394_omni_deck=[0,1,2,3]", script)
+        self.assertIn("v394_omni_deck.shuffle()", script)
+        self.assertIn("if v394_omni_deck[0]==v394_omni_last:", script)
+        self.assertIn("v394_omni_deck.pop_front()", script)
+        self.assertIn("func _v394_reset_omniattack()->void:", script)
+        self.assertIn('v380_status_text.text+="\\nOMNIATTACK  "', script)
+        self.assertNotIn("KEY_KP_8,KEY_KP_6,KEY_KP_2,KEY_KP_4", script)
+
+    def test_godot_wait_and_talent_controls_not_arrows(self):
+        wait = read("godot-v38/scripts/native_v11.gd")
+        wait_controls = wait.split("func _unhandled_key_input(", 1)[1].split("if wait_transition_active:", 1)[0]
+        for direction in ("LEFT", "RIGHT", "UP", "DOWN"):
+            self.assertNotIn(f"KEY_{direction}:", wait_controls)
+        self.assertIn("KEY_PAGEUP:wait_hours=", wait_controls)
+        self.assertIn("KEY_PAGEDOWN:wait_hours=", wait_controls)
+        web = read("godot-v38/scripts/systems/moonfall_talent_web.gd")
+        for direction in ("LEFT", "RIGHT", "UP", "DOWN"):
+            self.assertNotIn(f"key.keycode == KEY_{direction}", web)
+        self.assertIn("KEY_KP_4", web)
+        self.assertIn("KEY_KP_6", web)
+
+    def test_unreal_creator_does_not_repurpose_movement(self):
+        creator = read("MoonfallUnreal/Source/MoonfallUnreal/MoonfallCharacterCreationWidget.cpp")
+        key_handler = creator.split("NativeOnKeyDown(", 1)[1]
+        self.assertNotRegex(key_handler, r"EKeys::(Up|Down|Left|Right)\b")
+        self.assertIn("EKeys::Gamepad_DPad_Left", key_handler)
+        self.assertIn("EKeys::PageUp", key_handler)
+
+    def test_godot3d_rebinds_cannot_use_movement_for_abilities(self):
+        game = read("Moonfall3D/scripts/game.gd")
+        self.assertIn("func _is_movement_key(key: int)", game)
+        self.assertIn("_is_movement_key(key) and except_action not in", game)
+        self.assertIn("and _is_movement_key(key):", game)
+        self.assertIn('PgUp/PgDn: select | Enter: remap | Esc: cancel', game)
+        self.assertNotIn('Up/Down: select | Enter: remap | Esc: cancel', game)
+        keys = game.split("if binds_open:", 1)[1].split("if not started or dead:", 1)[0]
+        self.assertIn("KEY_PAGEUP", keys)
+        self.assertIn("KEY_PAGEDOWN", keys)
+        self.assertNotIn("KEY_UP", keys)
+        self.assertNotIn("KEY_DOWN", keys)
+        for key in ("W", "A", "S", "D", "UP", "DOWN", "LEFT", "RIGHT"):
+            self.assertIn(f"Input.is_key_pressed(KEY_{key})", game)
+
+    def test_godot3d_loaded_keybinds_reject_duplicates_and_malformed_profiles(self):
+        game = read("Moonfall3D/scripts/game.gd")
+        load = game.split("func _load_bindings() -> void:", 1)[1].split(
+            "func _next_target()", 1)[0]
+        restore = load.split("func _restore_saved_bindings(parsed: Dictionary) -> void:", 1)[1]
+        self.assertIn("_restore_saved_bindings(parsed)", load)
+        self.assertIn("var repaired: Dictionary = bindings.duplicate()", restore)
+        self.assertIn("TYPE_INT", restore)
+        self.assertIn("TYPE_FLOAT", restore)
+        self.assertIn("is_finite(number)", restore)
+        self.assertIn("number != floorf(number)", restore)
+        self.assertIn("key == KEY_F10 or key == KEY_ESCAPE", restore)
+        self.assertIn("if other != action and int(repaired[other]) == key:", restore)
+        self.assertIn("if collision:", restore)
+        self.assertIn("bindings = repaired", restore)
+        smoke = read("Moonfall3D/tests/smoke_test.gd")
+        self.assertIn("game._restore_saved_bindings({", smoke)
+        self.assertIn("game.bindings != original_keys", smoke)
+        self.assertIn('game._restore_saved_bindings({"jump": KEY_K, "dodge": KEY_L})', smoke)
+        self.assertIn("game.bindings = original_keys", smoke)
+
+
+if __name__ == "__main__":
+    unittest.main()

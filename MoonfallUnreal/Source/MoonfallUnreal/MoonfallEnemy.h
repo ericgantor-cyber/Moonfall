@@ -3,6 +3,8 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class AMoonfallHeroPawn;
+class AMoonfallWorldNPC;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -11,12 +13,50 @@ public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
+ // Dungeon encounter level captured on first entry. Zero preserves ordinary world scaling.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Encounter")
+ int32 EncounterLevelOverride = 0;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Presentation")
+ bool bEnableProceduralAttackTell = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Presentation")
+ UStaticMeshComponent* AttackTellMarker = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Short-lived guard memory; only elite non-boss enemies use it.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") int32 SwordGuardAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") float SwordGuardUntil = -1.f;
+ // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
+ // -1 means no known chamber and must not join dungeon coordination.
+ int32 DungeonChamberIndex = -1;
+ // Generic dungeon-boss presentation only. Never replaces divine boss IDs.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FName DungeonBossFamily = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DungeonBossRank = 0;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossIdentityReady(FName FamilyId, FText Title, int32 Rank);
+ // Fires once when a regional special warning actually begins. A Blueprint
+ // can play a clear icon, sound, animation or controller cue for this move.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);
+ // Read-only native HUD warning. Updated only when an attack is committed;
+ // the existing warning deadline determines when this label is visible.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossAttackLabel;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ float DungeonBossAttackWarningDuration = 0.f;
+ // Red: dodge-only (cannot block/parry). Blue: standard parryable boss strike.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ bool bDungeonBossAttackDodgeOnly = false;
+ // Humanoid enemy ancestry, not a divine boss identity or visual asset.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
+ UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
  // Divine world bosses are NPC encounters, never playable hero identities.
  // The exact source artwork is intentionally not recreated or modified here.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
@@ -64,7 +104,17 @@ public:
  void RegisterComboMilestone(int32 Stage);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
+ // Returns only a live, nearby hero-directed elite windup.
+ int32 GetDirectionalWindup(float Now, const FVector& HeroPosition) const;
 private:
+ // Blueprint combat notifications are synchronous; never resolve nested hits or breaks.
+ bool bResolvingDamage = false;
+ bool bResolvingPosture = false;
+ int32 CommittedSwordAngle = -1;
+ void RefreshAttackTellMarker(float Now, bool bReduceMotion);
+ // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
+ TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
+ float NextHeroCacheRefreshAt = 0.f;
  float MaxHealthAtSpawn = 0.f;
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
@@ -74,19 +124,40 @@ private:
  // Ordinary enemies remember the last visible hero location for a short time.
  float NextSightCheckAt = 0.f;
  float LastSawHeroAt = -100.f;
+ // Investigate briefly after reaching the hero's last seen position.
+ float InvestigationEndsAt = -1.f;
+ // Maximum time to reach the last known player location.
+ float SearchTravelEndsAt = -1.f;
  bool bCanSeeHero = false;
  FVector LastKnownHeroPosition = FVector::ZeroVector;
+ // Home position for persistent dungeon patrol behavior.
+ FVector DungeonHomePosition = FVector::ZeroVector;
  // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
  float NextObstacleSidestepAt = 0.f;
  int32 ObstacleSidestepCount = 0;
+ // Reverse an unsuccessful combat wall-slide on the next cooldown.
+ bool bReverseCombatWallSlide = false;
  // Brief tactical withdrawal for wounded elites, with a long re-use cooldown.
  float TacticalRetreatUntil = -1.f;
  float TacticalReengageUntil = -1.f;
  float NextTacticalRetreatAt = 0.f;
  bool bRetreatFlankLeft = false;
  FVector CachedWaypoint = FVector::ZeroVector;
+ // World origin (0,0,0) is a valid NavMesh waypoint, not a cache sentinel.
+ bool bHasCachedNavigationWaypoint = false;
+ // Retain a failed route until the existing cached path refresh retries it.
+ // This prevents direct pursuit into walls when NavMesh cannot find a route.
+ bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> RecentCompanionAttacker;
+ float RecentCompanionAttackerAt=-1000.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> LockedCompanionTarget;
+ bool bCompanionAttackCommitted=false;
+ // -1 by default; authored tag selects one deterministic guardian footprint.
+ int32 ActiveGuardianFootprint = -1;
+ FVector GuardianOrigin = FVector::ZeroVector;
+ FVector GuardianTarget = FVector::ZeroVector;
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
@@ -96,6 +167,9 @@ private:
  int32 DefeatAnimationStyle = 1;
  bool bDefeatAnimationShatter = false;
  void TickDefeatAnimation(float DeltaSeconds);
+ // One bounded counter-sweep opportunity after a successful elite parry.
+ float AdaptiveSweepReadyUntil = -1.f;
+ float NextAdaptiveSweepAllowedAt = 0.f;
  int32 AttackSequence = 0;
  // Random basic boss attacks cannot repeat immediately, even after phase changes.
  int32 LastBossAttackPattern = -1;
@@ -134,4 +208,10 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
+ // Melee resolves through the same bounded health, boss-phase, posture and loot pipeline.
+ UFUNCTION(BlueprintCallable, Category="Combat") void TakeMeleeDamage(float Amount);
+ // Nonlethal companion support uses the existing damage resolution.
+ bool TryCompanionSupportStrike(float Amount);
+ void RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now);
+ bool HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const;
 };

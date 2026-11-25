@@ -195,7 +195,7 @@ void AMoonfallHud::DrawHUD()
             Reticle + FVector2D(10.f, 0.f), 2.f, FLinearColor(.3f, 1.f, .8f));
         Canvas->K2_DrawLine(Reticle + FVector2D(0.f, -10.f),
             Reticle + FVector2D(0.f, 10.f), 2.f, FLinearColor(.3f, 1.f, .8f));
-        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP (combat paused)  |  M / Esc close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
+        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP (combat paused)  |  M / Esc close  |  Wheel zoom %.1fx  |  Right stick pans"), Hero->GetWorldMapZoom()),
             FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
         DrawText(TEXT("Click explored terrain to set pin | Pad: right stick select tile, A explored pin, B close, D-pad zoom"),
             FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);

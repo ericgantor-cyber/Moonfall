@@ -16,6 +16,7 @@ const ENTRIES:Array[Dictionary]=[
  {"category":"Getting Started","title":"Use quick actions","tip":"The on-screen quick actions offer interact, dodge, pet stance and save without memorizing every key."},
  {"category":"Combat","title":"Watch enemy windups","tip":"Boss attack markers show the threatened area. Move or dodge before the warning resolves."},
  {"category":"Combat","title":"Use dodge timing","tip":"A well-timed dodge avoids heavy hits and may build Moon Resonance during certain encounters."},
+ {"category":"Combat","title":"Automatic sword angles","tip":"Omniattack cycles through all four sword directions, shuffled once every four swings; the same angle never repeats back-to-back. Left-click or controller attack swings without angle keys. Enemies can still block you, so time a heavy strike or riposte to break guard. WASD and arrows only move."},
  {"category":"Combat","title":"Attack between hazards","tip":"Focus on safe counterattack windows rather than staying next to a boss through every warning."},
  {"category":"Combat","title":"Choose spells deliberately","tip":"Try Q, E, and R to combine damage, movement and control. Their effects differ between the heroes."},
  {"category":"Combat","title":"Mind cooldowns","tip":"When your attack or spell is recovering, reposition instead of repeatedly pressing it."},

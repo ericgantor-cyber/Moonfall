@@ -181,7 +181,7 @@ func _v342_resolve_strike()->void:
   if not death_active:_show_message("INVASION STRIKE! Escape the glowing circle.",1.6)
 
 func _v342_tick(delta:float)->void:
- if v341_active_site<0 or v341_wave!=3 or not hero_playing or death_active or menu_open or mounted or not is_instance_valid(player):
+ if v341_active_site<0 or v341_wave!=3 or not hero_playing or death_active or mounted or not is_instance_valid(player):
   if v342_phase!=0:_v342_hide_warnings()
   return
  var site:int=v341_active_site
