@@ -2703,6 +2703,11 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
+ // Validate the progression ledger and recovery inputs before mutating either.
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f
+     || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana) || MaxMana < 0.f
+     || Level < 1 || Experience < 0 || Experience > 1000000
+     || ExperienceToNextLevel != 100 + (Level - 1) * 55) return;
  Experience = FMath::Min(1000000, Experience + FMath::Clamp(Amount, 0, 100000));
  while (Experience >= ExperienceToNextLevel && Level < 100) {
   Experience -= ExperienceToNextLevel;
