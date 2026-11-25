@@ -6216,6 +6216,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_scripted_equipment_grants_roll_back_on_failed_save(self):
+        grant = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        for field in ("LootAffix", "LootSlot", "LootRarity", "LootTier", "LootUpgrade"):
+            self.assertLess(grant.index("Old" + field + " = Last" + field), grant.index("RollEquipmentCode("))
+        self.assertLess(grant.index("OldSelection = InventorySelection"), grant.index("InventoryItemCodes.Add(ItemCode)"))
+        self.assertLess(grant.index("InventoryItemCodes.Add(ItemCode)"), grant.index("if (!SaveWorldProgress())"))
+        rollback = grant.split("if (!SaveWorldProgress())", 1)[1].split("return;", 1)[0]
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", rollback)
+        self.assertIn("InventorySelection = OldSelection;", rollback)
+        for field in ("LootAffix", "LootSlot", "LootRarity", "LootTier", "LootUpgrade"):
+            self.assertIn("Last" + field + " = Old" + field + ";", rollback)
+        self.assertLess(grant.index("if (!SaveWorldProgress())"), grant.index("SecondsSinceLastWorldSave = 0.f;"))
+
     def test_scripted_loot_rejects_invalid_reward_state(self):
         grant = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "Health <= 0.f", "!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked"):
