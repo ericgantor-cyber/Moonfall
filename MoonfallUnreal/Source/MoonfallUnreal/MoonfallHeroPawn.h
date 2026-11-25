@@ -609,6 +609,9 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
+ void ControllerRightStickPress();
+ void ControllerRightStickRelease();
+ bool bControllerGuardStarted = false;
  void InventorySalvage();
  void OpenOptions();
  void OptionsUp();
