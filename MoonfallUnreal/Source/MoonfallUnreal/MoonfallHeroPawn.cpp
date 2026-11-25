@@ -1241,6 +1241,9 @@ void AMoonfallHeroPawn::RightHandAction()
 
 bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bEquipmentCraftInProgress || bTalentWebOpen
+     || FocusedResident.IsValid()) return false;
  // Equipping from a future spell/favorites panel is allowed while its
  // inventory UI is open; casting never leaks through the open menu.
  if (School < 0 || School >= 6 || Health <= 0.f || !FMath::IsFinite(Health)
@@ -1258,6 +1261,9 @@ bool AMoonfallHeroPawn::ReadyRightHandSpell(int32 School)
 
 void AMoonfallHeroPawn::ReadyRightHandWeapon()
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bEquipmentCraftInProgress || bTalentWebOpen
+     || FocusedResident.IsValid()) return;
  if (Health <= 0.f || !FMath::IsFinite(Health) || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen) return;
  // Changing the equipped hand must not inherit a queued old sword swing.
@@ -1311,6 +1317,9 @@ void AMoonfallHeroPawn::ToggleSpellBook()
 
 bool AMoonfallHeroPawn::EquipSpellBookSelection(bool bLeftHand)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bEquipmentCraftInProgress || bTalentWebOpen
+     || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || !bSpellBookOpen || bCharacterStatsOpen || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
@@ -1360,6 +1369,9 @@ bool AMoonfallHeroPawn::HandleSpellBookPointer()
 // 0 is the equipped weapon (or unarmed); 1..6 are the existing spell schools.
 bool AMoonfallHeroPawn::EquipRightHandFavorite(int32 FavoriteIndex)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bEquipmentCraftInProgress || bTalentWebOpen
+     || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen || bAtlasOpen
      || bResidentContextOpen || Health <= 0.f || !FMath::IsFinite(Health)
      || FavoriteIndex < 0 || FavoriteIndex > 6) return false;
