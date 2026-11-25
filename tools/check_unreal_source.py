@@ -1209,6 +1209,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                   "if (bTalentWebOpen) { TalentSpendSelected(); return; }",
                   "if (bResidentContextOpen) { TryJump(); return; }",
                   "if (bOptionsOpen || bAtlasOpen) return;",
+                  "if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }",
                   "if (bInventoryOpen) { ToggleCharacterStats(); return; }",
                   " TryJump();\n}")
         indices = [confirm.index(route) for route in routes]
@@ -1248,6 +1249,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Esc: back to inventory", hud)
         self.assertIn("P: spell book", hud)
         self.assertIn("C / A: character stats", hud)
+        self.assertIn("A / K: talents   Esc / Pad B: back   Select: close", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -6419,6 +6421,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
             self.assertLess(toggle.index(guard), toggle.index("bTalentWebOpen=true;"))
+        self.assertIn("(bInventoryOpen && (!bCharacterStatsOpen || bSpellBookOpen))", toggle)
+        self.assertLess(toggle.index("if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }"), toggle.index("bTalentWebOpen=true;"))
         spend = self.hero_cpp.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
                       "bTalentRespecArmed=false;", "TalentRespecArmUntil=-1.f;"):
