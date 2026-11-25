@@ -94,6 +94,7 @@ private:
  int32 NextFailedDungeonRetry = 0;
  TArray<int32> FailedDungeonSlots;
  bool bDungeonStartupAuditComplete = false;
+ bool bDungeonRecoveryAuditComplete = false;
  bool bDungeonStartupNotified = false;
  bool bDungeonStartupStopped = false;
  void AuditLiveDungeonSlots(bool bQueueMissing);

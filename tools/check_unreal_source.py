@@ -4477,6 +4477,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(batch.index("if (bExisting)"), batch.index("SpawnActorDeferred<AMoonfallDungeonLayout>"))
         self.assertIn("SetDungeonSlotReady(Slot, false);", batch)
         self.assertIn("AuditLiveDungeonSlots(true);", batch)
+        self.assertIn("bDungeonRecoveryAuditComplete = false;", mode)
+        self.assertIn("&& !bDungeonRecoveryAuditComplete)", batch)
+        self.assertEqual(batch.count("bDungeonRecoveryAuditComplete = true;"), 1)
+        self.assertEqual(batch.count("AuditLiveDungeonSlots(true);"), 2)
+        recovery = batch.split("&& !bDungeonRecoveryAuditComplete)", 1)[1]
+        self.assertLess(recovery.index("bDungeonRecoveryAuditComplete = true;"),
+                        recovery.index("AuditLiveDungeonSlots(true);"))
+        self.assertNotIn("FailedDungeonSlots.Reset()", batch)
         self.assertIn("AuditLiveDungeonSlots(false);", batch)
         self.assertLess(batch.index("AuditLiveDungeonSlots(false);"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
         self.assertLess(batch.index("bDungeonStartupNotified = true;"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))

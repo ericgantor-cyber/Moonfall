@@ -503,6 +503,7 @@ void AMoonfallUnrealGameMode::BeginPlay()
  NextFailedDungeonRetry = 0;
  FailedDungeonSlots.Reset();
  bDungeonStartupAuditComplete = false;
+ bDungeonRecoveryAuditComplete = false;
  bDungeonStartupNotified = false;
  bDungeonStartupStopped = false;
  // Each batch schedules its own one-shot successor, rather than a looping
@@ -915,6 +916,14 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  if (bDungeonStartupStopped || !GetWorld()) return;
  if (NextDungeonSlot >= TotalDungeons && !bDungeonStartupAuditComplete) {
   bDungeonStartupAuditComplete = true;
+  AuditLiveDungeonSlots(true);
+ }
+ // If a previously successful slot disappears during retries, offer it the
+ // same single recovery opportunity. AddUnique retains consumed slots, so
+ // no slot can be attempted a third time and this audit runs at most once.
+ if (NextDungeonSlot >= TotalDungeons && NextFailedDungeonRetry >= FailedDungeonSlots.Num()
+     && !bDungeonRecoveryAuditComplete) {
+  bDungeonRecoveryAuditComplete = true;
   AuditLiveDungeonSlots(true);
  }
  if (NextDungeonSlot >= TotalDungeons && NextFailedDungeonRetry >= FailedDungeonSlots.Num()) {
