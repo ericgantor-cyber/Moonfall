@@ -432,8 +432,13 @@ bool AMoonfallDungeonLayout::RestoreChamberVitals(AMoonfallHeroPawn* Hero, int32
      || !FMath::IsFinite(Hero->MaxHealth) || Hero->MaxHealth < Hero->Health
      || !FMath::IsFinite(Hero->Mana) || !FMath::IsFinite(Hero->MaxMana)
      || Hero->MaxMana <= 0.f || Hero->Mana < 0.f || Hero->Mana > Hero->MaxMana) return false;
- const double RestoredMana = static_cast<double>(Hero->Mana) + FMath::Clamp(ShrineManaRestore, 0.f, 100.f);
- const double RestoredHealth = static_cast<double>(Hero->Health) + FMath::Clamp(ShrineHealthRestore, 0.f, 100.f);
+ // Use the live caps, including equipped gear, level and allocated talents.
+ const double ManaGain = static_cast<double>(Hero->MaxMana)
+     * (static_cast<double>(FMath::Clamp(ShrineManaRestore, 0.f, 100.f)) / 100.0);
+ const double HealthGain = static_cast<double>(Hero->MaxHealth)
+     * (static_cast<double>(FMath::Clamp(ShrineHealthRestore, 0.f, 100.f)) / 100.0);
+ const double RestoredMana = static_cast<double>(Hero->Mana) + ManaGain;
+ const double RestoredHealth = static_cast<double>(Hero->Health) + HealthGain;
  Hero->Mana = static_cast<float>(FMath::Clamp(RestoredMana, 0.0, static_cast<double>(Hero->MaxMana)));
  Hero->Health = static_cast<float>(FMath::Clamp(RestoredHealth, 0.0, static_cast<double>(Hero->MaxHealth)));
  return true;

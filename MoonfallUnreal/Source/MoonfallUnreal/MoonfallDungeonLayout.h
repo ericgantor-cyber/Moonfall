@@ -89,12 +89,13 @@ public:
    int32 SpawnedCount, bool bEliteEncounter);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Treasure")
  void OnDungeonTreasureSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ItemCode);
- // Shrine rooms restore health and mana once per dungeon actor lifetime.
+ // Shrine rooms restore a percentage of live maximum health and mana once
+ // per dungeon actor lifetime. A value of 35 restores 35% of that resource.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Rewards",
-   meta=(ClampMin="0.0", ClampMax="100.0"))
+   meta=(ClampMin="0.0", ClampMax="100.0", DisplayName="Shrine Mana Restore (%)"))
  float ShrineManaRestore = 35.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Rewards",
-   meta=(ClampMin="0.0", ClampMax="100.0"))
+   meta=(ClampMin="0.0", ClampMax="100.0", DisplayName="Shrine Health Restore (%)"))
  float ShrineHealthRestore = 35.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
  void OnShrineActivated(AMoonfallHeroPawn* Hero, int32 ChamberIndex);

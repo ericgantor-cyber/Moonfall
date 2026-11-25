@@ -4198,9 +4198,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "Hero->MaxHealth < Hero->Health",
                       "Hero->IsActorBeingDestroyed()", "Hero->bTalentWebOpen"):
             self.assertIn(guard, reward)
-        self.assertIn("FMath::Clamp(ShrineManaRestore, 0.f, 100.f)", reward)
+        self.assertIn("const double ManaGain = static_cast<double>(Hero->MaxMana)", reward)
+        self.assertIn("static_cast<double>(FMath::Clamp(ShrineManaRestore, 0.f, 100.f)) / 100.0", reward)
+        self.assertIn("const double RestoredMana = static_cast<double>(Hero->Mana) + ManaGain;", reward)
+        self.assertIn('DisplayName="Shrine Mana Restore (%)"', h)
         self.assertIn("Hero->Mana = static_cast<float>(FMath::Clamp(Restored", reward)
-        self.assertIn("FMath::Clamp(ShrineHealthRestore, 0.f, 100.f)", reward)
+        self.assertIn("const double HealthGain = static_cast<double>(Hero->MaxHealth)", reward)
+        self.assertIn("static_cast<double>(FMath::Clamp(ShrineHealthRestore, 0.f, 100.f)) / 100.0", reward)
+        self.assertIn("const double RestoredHealth = static_cast<double>(Hero->Health) + HealthGain;", reward)
+        self.assertIn('DisplayName="Shrine Health Restore (%)"', h)
         self.assertIn("Hero->Health = static_cast<float>(FMath::Clamp(RestoredHealth", reward)
         self.assertNotIn("Hero->Stamina =", reward)
         chamber = cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split("\n}", 1)[0]
