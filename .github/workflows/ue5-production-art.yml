@@ -5,6 +5,7 @@ on:
       - 'MoonfallUnreal/Art/Production/**'
       - 'MoonfallUnreal/Content/Python/import_production_art.py'
       - 'MoonfallUnreal/Content/Python/install_production_materials.py'
+      - 'MoonfallUnreal/Content/Python/import_production_textures.py'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
   push:
@@ -13,6 +14,7 @@ on:
       - 'MoonfallUnreal/Art/Production/**'
       - 'MoonfallUnreal/Content/Python/import_production_art.py'
       - 'MoonfallUnreal/Content/Python/install_production_materials.py'
+      - 'MoonfallUnreal/Content/Python/import_production_textures.py'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
 permissions:
@@ -26,4 +28,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tools/test_unreal_production_art.py
-      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py
+      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py MoonfallUnreal/Content/Python/import_production_textures.py MoonfallUnreal/Art/Production/generate_texture_maps.py
