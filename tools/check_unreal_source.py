@@ -6317,6 +6317,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(award.index("if (Level >= 100) Experience = 0;"),
                         award.index("if (Level != PreviousLevel) OnHealthChanged(Health, MaxHealth);"))
 
+    def test_loot_initialization_checks_spawn_liveness_and_pickup_state(self):
+        for name in ("RegisterPersistentEquipmentDrops", "RestorePendingWorldEquipmentDrops", "SpawnGroundEquipmentDrop"):
+            method = self.hero_cpp.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            spawned = method.split("SpawnActor<AMoonfallGroundLoot>", 1)[1]
+            self.assertLess(spawned.index("if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()) continue;"),
+                            spawned.index("Loot->InitializeLoot("))
+            if name != "SpawnGroundEquipmentDrop":
+                self.assertLess(spawned.index("if (!IsValid(Loot) || Loot->IsActorBeingDestroyed()) continue;"),
+                                spawned.index("Loot->SetPersistentDropId("))
+        register = self.hero_cpp.split("AMoonfallHeroPawn::RegisterPersistentEquipmentDrops(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(register.index("bWorldProgressLoadInProgress"), register.index("PendingWorldLoot.Append("))
+        pickup = self.hero_cpp.split("AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split("\n}", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
+                      "bPersistentSaveWritesBlocked", "bCharacterStatsOpen", "FocusedResident.IsValid()"):
+            self.assertLess(pickup.index(guard), pickup.index("TActorIterator<AMoonfallGroundLoot>"))
+
     def test_ground_loot_spawn_validates_state_and_coordinates(self):
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress", "Origin.ContainsNaN()", "Origin.SizeSquared() >= 1.0e14f", "LevelId.IsNone()"):
