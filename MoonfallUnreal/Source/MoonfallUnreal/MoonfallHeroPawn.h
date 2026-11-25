@@ -590,6 +590,8 @@ private:
  void ControllerConfirm();
  void ControllerBack();
  void ControllerLootOrSalvage();
+ void ControllerLeftShoulder();
+ void ControllerRightShoulder();
  void ControllerRightTrigger();
  void ControllerLeftTrigger();
  void MoveForward(float Amount);
