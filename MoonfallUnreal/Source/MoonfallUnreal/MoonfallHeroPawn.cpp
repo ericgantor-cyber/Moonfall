@@ -3563,13 +3563,15 @@ void AMoonfallHeroPawn::TalentSpendSelected() {
  bTalentRespecArmed=false;
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
- if (!bTalentWebOpen || !GetWorld() || Health<=0.f)return;
+ if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
+     || IsActorBeingDestroyed() || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)return;
  const float Now=GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now))return;
- if (bTalentRespecArmed && Now<=TalentRespecArmUntil) {
-  RespecTalentPoints();
+ if (bTalentRespecArmed && FMath::IsFinite(TalentRespecArmUntil) && Now<=TalentRespecArmUntil) {
+  // Consume confirmation before the transaction emits synchronous callbacks.
   bTalentRespecArmed=false;
   TalentRespecArmUntil=-1.f;
+  RespecTalentPoints();
  } else {
   bTalentRespecArmed=true;
   TalentRespecArmUntil=Now+3.0f;
@@ -3619,6 +3621,8 @@ int32 AMoonfallHeroPawn::GetTalentRank(int32 NodeIndex) const {
 }
 
 bool AMoonfallHeroPawn::CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate) {
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
+     || bEquipmentCraftInProgress || bEquipBestInProgress) return false;
  if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked || Health <= 0.f) return false;
  MoonfallTalents::Snapshot Before, After;
