@@ -1334,8 +1334,33 @@ void AMoonfallHeroPawn::MeleeAttack()
  // A click spends its stamina and recovery even when it misses. Do not
  // advance the angle on menu clicks, invalid input or cooldown spam.
  SwordBuffer.Clear(); // Direct Blueprint melee calls cannot double-fire a queued click.
+ const bool bCounterReady = FMath::IsFinite(ParryCounterUntil) && Now <= ParryCounterUntil
+     && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
+ const auto ReadSwordGuard = [&](AMoonfallEnemy* Target) -> int32 {
+  if (!IsValid(Target) || Target->IsActorBeingDestroyed() || !Target->bElite || Target->bBoss
+      || !FMath::IsFinite(Target->Health) || Target->Health <= 0.f
+      || !FMath::IsFinite(Target->SwordGuardUntil) || Now >= Target->SwordGuardUntil
+      || !FMath::IsFinite(Target->PostureBrokenUntil) || Now < Target->PostureBrokenUntil)
+   return -1;
+  const FVector ToHero = (Position - Target->GetActorLocation()).GetSafeNormal2D();
+  if (ToHero.ContainsNaN() || ToHero.IsNearlyZero()
+      || FVector::DotProduct(Target->GetActorForwardVector().GetSafeNormal2D(), ToHero) < 0.5f)
+   return -1;
+  return MoonfallOmniattack::ValidAngle(Target->SwordGuardAngle) ? Target->SwordGuardAngle : -1;
+ };
+ // Recent actual target only; no homing or additional collision queries.
+ AMoonfallEnemy* Prior = LastHitComboTarget.Get();
+ int32 AvoidAngle = -1;
+ if (!bCounterReady && IsValid(Prior) && !Prior->IsActorBeingDestroyed()
+     && FMath::IsFinite(LastSuccessfulHitAt) && Now >= LastSuccessfulHitAt
+     && Now - LastSuccessfulHitAt <= 2.f) {
+  const FVector Delta = Prior->GetActorLocation() - Position;
+  if (!Delta.ContainsNaN() && Delta.SizeSquared() <= FMath::Square(430.f)
+      && FVector::DotProduct(Facing, Delta.GetSafeNormal2D()) >= 0.5f)
+   AvoidAngle = ReadSwordGuard(Prior);
+ }
  CurrentSwordAngle = MoonfallOmniattack::Next(SwordFlow,
-     static_cast<unsigned>(FMath::RandHelper(MoonfallOmniattack::FairRollCount)));
+     static_cast<unsigned>(FMath::RandHelper(MoonfallOmniattack::FairRollCount)), AvoidAngle);
  SwordFlowStep = SwordFlow.Step;
  const auto& Attack = MoonfallOmniattack::Profile(CurrentSwordAngle);
  NextMeleeAttackAt = Now + FMath::Clamp(MeleeAttackCooldown * Attack.RecoveryScale, 0.1f, 1.5f);
@@ -1397,6 +1422,8 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float TalentMeleeMultiplier = static_cast<float>(
      MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage));
  const float AngleBonus = Attack.DamageScale;
+ const float GuardScale = MoonfallOmniattack::GuardDamageScale(CurrentSwordAngle, ReadSwordGuard(Enemy), bCounterReady);
+ const float CounterMultiplier = bCounterReady ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
  // Same bounded, same-target combo rule as spell combat: a miss or a
  // different target earns no inherited power, and hit 13 starts at stage 1.
  const int32 IncomingStage = bNextSameTarget ? FMath::Clamp(HitComboStage, 0, 12) : 0;
@@ -1407,7 +1434,7 @@ void AMoonfallHeroPawn::MeleeAttack()
      * FMath::Clamp(EffectiveIncomingStage, 0, 3);
  const float Damage = (18.f + Tier * 1.15f
      + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
-     * AngleBonus * HitComboMultiplier * (1.f + GetMasteryBonus())
+     * AngleBonus * HitComboMultiplier * GuardScale * CounterMultiplier * (1.f + GetMasteryBonus())
      * (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
   ResetMeleeHitCombo();
@@ -1421,6 +1448,18 @@ void AMoonfallHeroPawn::MeleeAttack()
  const bool bConnected = Dealt > 0.f;
  if (bConnected) {
   RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;
+  // Shared spell/sword riposte is consumed only by actual damage.
+  if (bCounterReady) {
+   ParryCounterUntil = -1.f;
+   if (Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
+       && ParryCounterPostureDamage > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
+  }
+  if (Enemy->Health > 0.f && Enemy->bElite && !Enemy->bBoss
+      && FMath::IsFinite(Enemy->PostureBrokenUntil) && Now >= Enemy->PostureBrokenUntil) {
+   Enemy->SwordGuardAngle = MoonfallOmniattack::AnticipatedGuard(CurrentSwordAngle);
+   Enemy->SwordGuardUntil = Now + 1.6f;
+  }
   // Low sweeps pressure posture; the original enemy posture-break caps apply.
   if (Enemy->Health > 0.f)
    Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);

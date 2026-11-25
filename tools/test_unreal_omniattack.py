@@ -73,6 +73,29 @@ int main() {
  if (&Profile(-1)!=&Profile(1) || &Profile(4)!=&Profile(1)) return 10;
  MoonfallOmniattack::FFlow bad;bad.Remaining=0xf0;bad.Step=99;bad.Last=99;
  if(MoonfallOmniattack::Next(bad,0)!=0 || bad.Step!=1 || bad.Remaining!=14) return 11;
+ // Guard avoidance retains every angle and does not repeat across cycles.
+ for (int guard=0; guard<4; ++guard) {
+  for (unsigned seed=0; seed<12; ++seed) {
+   MoonfallOmniattack::FFlow flow;
+   unsigned seen=0;
+   int previous=-1;
+   for (int i=0;i<32;++i) {
+    if (i%4==0) seen=0;
+    const int angle=MoonfallOmniattack::Next(flow,seed+i,guard);
+    if (angle==previous || (seen & (1u<<angle))) return 12;
+    if (i%4<3 && angle==guard) return 13;
+    seen |= 1u<<angle; previous=angle;
+    if (i%4==3 && seen!=15) return 14;
+   }
+  }
+  if (MoonfallOmniattack::AnticipatedGuard(guard)!=(guard+2)%4) return 15;
+  for (int angle=0;angle<4;++angle) {
+   if (MoonfallOmniattack::GuardDamageScale(angle,guard,false)!=(angle==guard?0.65f:1.f)) return 16;
+   if (MoonfallOmniattack::GuardDamageScale(angle,guard,true)!=1.f) return 17;
+  }
+ }
+ if(MoonfallOmniattack::AnticipatedGuard(-1)!=-1 ||
+    MoonfallOmniattack::GuardDamageScale(-1,-1,false)!=1.f) return 18;
  return 0;
 }
 """
@@ -129,6 +152,22 @@ int main() {
         self.assertIn("!Enemy->IsActorBeingDestroyed()", melee)
         self.assertIn("MoonfallOmniattack::Profile(Hero->CurrentSwordAngle)", hud)
         self.assertIn('TEXT("%s | FLOW %d/4")', hud)
+
+    def test_directional_guard_and_shared_riposte(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        for token in ("ReadSwordGuard(Prior)", "ReadSwordGuard(Enemy)",
+                      "GuardDamageScale(CurrentSwordAngle", "CounterMultiplier",
+                      "Target->bBoss", "Now < Target->PostureBrokenUntil",
+                      "Enemy->SwordGuardUntil = Now + 1.6f;",
+                      "AnticipatedGuard(CurrentSwordAngle)"):
+            self.assertIn(token, melee)
+        self.assertLess(melee.index("if (bConnected) {"),
+                        melee.index("ParryCounterUntil = -1.f;"))
+        self.assertLess(melee.index("if (!bLivingTarget) {"),
+                        melee.index("Enemy->TakeMeleeDamage("))
+        self.assertEqual(melee.count("SweepSingleByChannel("), 1)
 
     def test_melee_montage_plays_once_before_hit_resolution_even_on_miss(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()

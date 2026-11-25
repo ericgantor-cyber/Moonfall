@@ -26,6 +26,9 @@ public:
  UStaticMeshComponent* AttackTellMarker = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Short-lived guard memory; only elite non-boss enemies use it.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") int32 SwordGuardAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") float SwordGuardUntil = -1.f;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
  // -1 means no known chamber and must not join dungeon coordination.
  int32 DungeonChamberIndex = -1;
