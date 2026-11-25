@@ -676,6 +676,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
  Input->BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);
+ Input->BindAction(TEXT("ControllerLeftShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftShoulder);
+ Input->BindAction(TEXT("ControllerRightShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightShoulder);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightTrigger);
@@ -962,6 +964,22 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ControllerLeftShoulder()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentPreviousBranch(); return; }
+ if (bInventoryOpen) { ReforgeSelectedInventoryItem(); return; }
+ CastLeft();
+}
+void AMoonfallHeroPawn::ControllerRightShoulder()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentNextBranch(); return; }
+ if (bInventoryOpen) { ForgeFiveSelectedInventoryItem(); return; }
+ CastRight();
 }
 void AMoonfallHeroPawn::ControllerLootOrSalvage()
 {
