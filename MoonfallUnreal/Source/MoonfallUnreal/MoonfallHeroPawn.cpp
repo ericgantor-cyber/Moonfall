@@ -963,9 +963,11 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (bTalentWebOpen) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
+  if (Yaw.ContainsNaN()) return;
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X), Value);
  }
 }
@@ -974,9 +976,11 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (bTalentWebOpen) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
+  if (Yaw.ContainsNaN()) return;
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
