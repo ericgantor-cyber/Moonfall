@@ -1453,7 +1453,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="UpgradeGear",Key=U', inputs)
-        self.assertIn('ActionName="UpgradeGear",Key=Gamepad_RightTrigger', inputs)
+        rt_mappings = [line for line in inputs.splitlines()
+                       if line.startswith("+ActionMappings=") and "Key=Gamepad_RightTrigger" in line]
+        self.assertEqual(rt_mappings, ['+ActionMappings=(ActionName="RightHandAction",Key=Gamepad_RightTrigger)'])
+        self.assertIn('BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightTrigger);', self.hero_cpp)
+        self.assertIn("void ControllerRightTrigger();", self.hero_h)
+        trigger = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerRightTrigger()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerBack()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bInventoryOpen) { UpgradeSelectedInventoryItem(); return; }",
+                  " RightHandAction();\n}")
+        indices = [trigger.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem)', self.hero_cpp)
         self.assertIn('bool UpgradeInventoryItem(int32 InventoryIndex);', self.hero_h)
         self.assertIn('void UpgradeSelectedInventoryItem();', self.hero_h)
