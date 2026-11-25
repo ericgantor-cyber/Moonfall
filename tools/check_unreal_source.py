@@ -96,6 +96,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(melee.count("OnMeleeImpact("), 1)
         self.assertNotIn("Enemy->", melee[cue:])
 
+    def test_impact_feedback_clears_on_defeat_respawn_and_direct_reduced_motion(self):
+        hero = self.hero_cpp
+        tick = hero.split("void AMoonfallHeroPawn::Tick(", 1)[1].split("const float SafeCameraDelta", 1)[0]
+        reset = "ImpactCameraOffset = 0.f;\n  LastOffensiveImpactAt = -100.f;"
+        self.assertIn("if (bReduceMotion || !FMath::IsFinite(Health) || Health <= 0.f)", tick)
+        self.assertIn(reset, tick)
+        damage = hero.split("const float DamageTaken = PreviousHealth - Health;", 1)[1].split(
+            "OnDamageImpact(DamageTaken);", 1)[0]
+        self.assertIn("if (Health <= 0.f || !FMath::IsFinite(Health) || bReduceMotion)", damage)
+        self.assertIn(reset, damage)
+        self.assertIn("else if (FMath::IsFinite(DamageTaken) && DamageTaken > 0.f)", damage)
+        self.assertIn("const float SafeImpulse = FMath::IsFinite(ImpactCameraOffset)", damage)
+        self.assertIn("FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f)", damage)
+        respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "if (!LoadWorldProgress())", 1)[0]
+        self.assertIn("ImpactCameraOffset = 0.f;", respawn)
+        self.assertIn("LastOffensiveImpactAt = -100.f;", respawn)
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")

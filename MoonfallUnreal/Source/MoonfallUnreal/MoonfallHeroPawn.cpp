@@ -493,6 +493,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  // Never allow invalid frame time or camera impulse to contaminate the boom.
  if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;
+ // Reduced Motion can also be set directly by a Blueprint. Never retain
+ // a hidden impulse that could reappear if the setting is switched off.
+ if (bReduceMotion || !FMath::IsFinite(Health) || Health <= 0.f) {
+  ImpactCameraOffset = 0.f;
+  LastOffensiveImpactAt = -100.f;
+ }
  const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  ImpactCameraOffset = FMath::Clamp(FMath::FInterpTo(FMath::Clamp(ImpactCameraOffset, 0.f, 24.f), 0.f, SafeCameraDelta, 12.f), 0.f, 24.f);
  if (CameraBoom) {
@@ -1843,7 +1849,14 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
  }
- if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bReduceMotion) {
+  ImpactCameraOffset = 0.f;
+  LastOffensiveImpactAt = -100.f;
+ } else if (FMath::IsFinite(DamageTaken) && DamageTaken > 0.f) {
+  const float SafeImpulse = FMath::IsFinite(ImpactCameraOffset)
+      ? FMath::Clamp(ImpactCameraOffset, 0.f, 24.f) : 0.f;
+  ImpactCameraOffset = FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
+ }
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
 }
@@ -4085,6 +4098,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
+ // Presentation state is transient, including forced or failed respawns.
+ ImpactCameraOffset = 0.f;
+ LastOffensiveImpactAt = -100.f;
  // Defensive recovery for older saves, forced respawns, and transient
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
