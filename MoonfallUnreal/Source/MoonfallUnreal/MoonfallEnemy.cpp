@@ -208,8 +208,9 @@ bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout
     &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
 }
 bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
+ // The shared TakeSpellDamage path owns the guard. Acquiring it here
+ // would suppress the companion's own legitimate melee damage.
  if (bResolvingDamage) return false;
- TGuardValue<bool> DamageGuard(bResolvingDamage, true);
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
      ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
      ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
