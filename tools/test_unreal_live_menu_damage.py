@@ -28,7 +28,6 @@ assert injury.index('LastRealDamageAt = Now;') < injury.index('SwordBuffer.Clear
 for state in (
     "bTalentWebOpen = false;",
     "bTalentRespecArmed = false;",
-    "TalentRespecArmUntil = -1.f;",
 ):
     assert state in defeat, ("defeat", state)
 assert defeat.index("bTalentWebOpen = false;") < defeat.index("bInventoryOpen = false;")
@@ -40,10 +39,11 @@ respawn = cpp[respawn_start:respawn_end]
 for state in (
     "bTalentWebOpen = false;",
     "bTalentRespecArmed = false;",
-    "TalentRespecArmUntil = -1.f;",
 ):
     assert state in respawn, ("respawn", state)
 assert respawn.index("bTalentWebOpen = false;") < respawn.index("LoadWorldProgress()")
+assert respawn.index("bTalentRespecArmed = false;") < respawn.index("LoadWorldProgress()")
+assert "TalentRespecArmUntil" not in header and "TalentRespecArmUntil" not in cpp
 
 # The hostile world is NEVER paused by browsing a menu. All menu variants
 # receive the cue, but only for a brief finite-time window.
