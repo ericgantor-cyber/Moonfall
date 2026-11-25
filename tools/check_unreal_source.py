@@ -243,6 +243,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bTalentWebOpen = false;", self.hero_cpp)
         self.assertIn("bTalentWebOpen = true;", self.hero_cpp)
 
+    def test_talent_pointer_ignores_clipped_node_centers(self):
+        layout = (ROOT / "MoonfallTalentWebLayout.h").read_text(encoding="utf-8")
+        hit = layout.split("inline int32 HitTest(", 1)[1].split("inline int32 StepWithinBranch(", 1)[0]
+        guard = "if (!InMap(P, Point)) continue;"
+        self.assertLess(hit.index("ScreenPosition(Index, P, Zoom, Pan)"), hit.index(guard))
+        self.assertLess(hit.index(guard), hit.index("FVector2D::DistSquared(Mouse, Point)"))
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("if (!MoonfallTalentWeb::InMap(P,Pos)) continue;", hud)
+
     def test_talent_web_reports_only_committed_purchases_and_respecs(self):
         purchase = self.hero_cpp.split(
             "void AMoonfallHeroPawn::TalentWebPurchase()", 1)[1].split(
