@@ -2989,9 +2989,12 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bWorldProgressLoadInProgress) return;
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ if (Origin.ContainsNaN() || Origin.SizeSquared() >= 1.0e14f) return;
  const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ if (LevelId.IsNone()) return;
  TArray<FMoonfallWorldLootRecord> Drops;
  for (int32 Drop = 0; Drop < DropCount; ++Drop) {
   const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
@@ -3004,6 +3007,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   Record.LevelId = LevelId;
   Record.Location = Origin + FVector(Spread * FMath::Cos(Angle),
    Spread * FMath::Sin(Angle), 45.f);
+  if (Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) continue;
   Drops.Add(Record);
  }
  if (Drops.IsEmpty() || RegisterPersistentEquipmentDrops(Drops)) return;
