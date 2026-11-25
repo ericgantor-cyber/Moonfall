@@ -2341,7 +2341,13 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
  // No special currency discount, overflow, or forced equipment changes.
  const int32 Limit = FMath::Clamp(MaxLevels, 0, 5);
  int32 Upgraded = 0;
+ const int32 InitialCode = InventoryItemCodes[InventoryIndex];
+ if (!ValidMoonfallItemCode(InitialCode)) return 0;
  for (int32 Step = 0; Step < Limit; ++Step) {
+  // Craft callbacks can change inventory selection or contents. Never
+  // apply the next upgrade to an unrelated item that moved into this slot.
+  if (!InventoryItemCodes.IsValidIndex(InventoryIndex)
+      || InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded) break;
   if (!UpgradeInventoryItem(InventoryIndex)) break;
   ++Upgraded;
  }
