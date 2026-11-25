@@ -586,6 +586,7 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ virtual void StopJumping() override;
  void TryJump();
  void ControllerConfirm();
  void ControllerConfirmRelease();
