@@ -489,10 +489,20 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f) {
   RevealAtlasAtWorldLocation();
   DefeatElapsedSeconds = 0.f;
+  if (!FMath::IsFinite(SecondsSinceLastWorldSave)) SecondsSinceLastWorldSave = 0.f;
   SecondsSinceLastWorldSave += SafeTimerDelta;
+  SecondsSinceLastWorldSave = FMath::Clamp(SecondsSinceLastWorldSave, 0.f, 2.f);
+  // A failed synchronous save must not retry on every rendered frame.
+  // Keep the normal two-second cadence and leave manual transactions unaffected.
   if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
-      && GetWorld()->GetTimeSeconds() >= NextSafeCheckpointAt) {
-   if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
+      && FMath::IsFinite(GetWorld()->GetTimeSeconds())
+      && bWorldProgressInitialized && !bWorldProgressLoadInProgress && !bPersistentSaveWritesBlocked) {
+   const float SaveNow = GetWorld()->GetTimeSeconds();
+   if (!FMath::IsFinite(NextSafeCheckpointAt)) NextSafeCheckpointAt = SaveNow;
+   if (SaveNow >= NextSafeCheckpointAt) {
+    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
+    else NextSafeCheckpointAt = SaveNow + 2.f;
+   }
   }
  } else {
   // Give players unlimited time to select equipment while defeated.
