@@ -119,7 +119,8 @@ int main() {
         for phrase in ("Hero->FirstlightTutorial.Next()","Hero->FirstlightTutorial.Count()",
                        "Hero->bStartingSanctuaryPlaced","OPTIONAL:",
                        "FIRST STEPS %u/5", "right-click / D-pad Up, then Talk",
-                       "left-click / RT","Open your Spell Book (P / inventory Book tab)",
+                       "left-click / RT","Open Spell Book (P / Select then Y)",
+                       "Dodge (Q / Pad B) near northern practice sentries",
                        "FOUND %d/30  |  BOSSES %d/30  |  REGIONS %d/6"):
             self.assertIn(phrase,tracker)
         for costly in ("TActorIterator","OpenLevel","GetAllActorsOfClass"):
