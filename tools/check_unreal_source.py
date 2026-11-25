@@ -1194,7 +1194,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertIn('ActionName="SpellBook",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        # Controller A dispatches once instead of triggering three actions.
+        a_mappings = [line for line in inputs.splitlines()
+                      if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Bottom" in line]
+        self.assertEqual(a_mappings, ['+ActionMappings=(ActionName="ControllerConfirm",Key=Gamepad_FaceButton_Bottom)'])
+        self.assertIn('ActionName="Jump",Key=SpaceBar', inputs)
+        self.assertIn('ActionName="TalentSpend",Key=Enter', inputs)
+        self.assertIn('BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);', self.hero_cpp)
+        self.assertIn("void ControllerConfirm();", self.hero_h)
+        confirm = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split(
+            "void AMoonfallHeroPawn::TryJump()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen) { TalentSpendSelected(); return; }",
+                  "if (bResidentContextOpen) { TryJump(); return; }",
+                  "if (bOptionsOpen || bAtlasOpen) return;",
+                  "if (bInventoryOpen) { ToggleCharacterStats(); return; }",
+                  " TryJump();\n}")
+        indices = [confirm.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
