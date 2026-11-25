@@ -43,6 +43,7 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
  UPROPERTY() UStaticMesh* ProductionColumn = nullptr;
+ UPROPERTY() UStaticMesh* ProductionShield = nullptr;
  void CreateBlock(FVector Position, FVector Scale);
  void CreateSanctuaryAtmosphere();
  void CreateRegionalLandmarks();
