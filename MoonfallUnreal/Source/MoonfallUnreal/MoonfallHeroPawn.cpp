@@ -954,6 +954,7 @@ void AMoonfallHeroPawn::TryJump()
   return;
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
+ if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  Jump();
 }
@@ -1591,6 +1592,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+ if (FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
 
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
@@ -1639,6 +1641,7 @@ void AMoonfallHeroPawn::EndGuard()
 void AMoonfallHeroPawn::BeginSprint() {
 
  // Menu and defeat inputs must not latch a sprint for later gameplay.
+ if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  if (bTalentWebOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
