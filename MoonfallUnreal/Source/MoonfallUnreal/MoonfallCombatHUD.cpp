@@ -402,6 +402,39 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  };
  // High-contrast rail marks the focused choice independently of text color.
+ // Eight original accessibility/graphics symbols in the actual option order.
+ const auto DrawOptionGlyph=[this](float X,float Y,int32 Option,const FLinearColor& Ink) {
+  if (!Canvas || Option<0 || Option>=8 || !FMath::IsFinite(X) || !FMath::IsFinite(Y))return;
+  const auto S=[this,X,Y,&Ink](float A,float B,float C,float D) {
+   DrawLine(X+A*7.f,Y+B*7.f,X+C*7.f,Y+D*7.f,Ink,1.3f);
+  };
+  switch(Option) {
+   case 0: // Resolution: screen
+    S(-.85f,-.6f,.85f,-.6f); S(.85f,-.6f,.85f,.5f); S(.85f,.5f,-.85f,.5f);
+    S(-.85f,.5f,-.85f,-.6f); S(0,.5f,0,.85f); S(-.4f,.85f,.4f,.85f); break;
+   case 1: // Render scale: expanding corners
+    S(-.8f,0,-.8f,-.8f); S(-.8f,-.8f,0,-.8f);
+    S(.8f,0,.8f,.8f); S(.8f,.8f,0,.8f); S(-.8f,-.8f,.8f,.8f); break;
+   case 2: // Quality: faceted jewel
+    S(0,-.9f,.85f,-.25f); S(.85f,-.25f,0,.9f); S(0,.9f,-.85f,-.25f);
+    S(-.85f,-.25f,0,-.9f); S(-.85f,-.25f,.85f,-.25f); break;
+   case 3: // Frame generation: paired chevrons
+    S(-.85f,-.65f,-.1f,0); S(-.1f,0,-.85f,.65f);
+    S(.05f,-.65f,.8f,0); S(.8f,0,.05f,.65f); break;
+   case 4: // Reduced motion: still waves
+    S(-.9f,-.45f,.9f,-.45f); S(-.9f,0,.9f,0); S(-.9f,.45f,.9f,.45f); break;
+   case 5: // Combat text: letter T
+    S(-.85f,-.65f,.85f,-.65f); S(0,-.65f,0,.8f);
+    S(-.35f,.8f,.35f,.8f); break;
+   case 6: // Boss alerts: warning triangle
+    S(0,-.85f,.9f,.7f); S(.9f,.7f,-.9f,.7f); S(-.9f,.7f,0,-.85f);
+    S(0,-.35f,0,.15f); S(0,.4f,0,.45f); break;
+   default: // Display mode: window
+    S(-.85f,-.8f,.85f,-.8f); S(.85f,-.8f,.85f,.8f);
+    S(.85f,.8f,-.85f,.8f); S(-.85f,.8f,-.85f,-.8f);
+    S(-.85f,-.35f,.85f,-.35f); break;
+  }
+ };
  const auto DrawSelectionRail = [this](float L,float T,float H) {
   if (!FMath::IsFinite(L)||!FMath::IsFinite(T)||!FMath::IsFinite(H)
       || H <= 0.f) return;
@@ -1366,8 +1399,8 @@ void AMoonfallCombatHUD::DrawHUD()
     if (bSelected) DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);
     DrawHoverFrame(MenuLeft+10.f,Y,MenuWidth-20.f,RowHeight);
     if (!bCompactOptions && MenuWidth>=480.f && RowHeight>=24.f)
-     DrawMoonfallSigil(MenuLeft+25.f,Y+RowHeight*0.5f,7.f,
-       FLinearColor(0.54f,0.73f,0.91f),i);
+     DrawOptionGlyph(MenuLeft+25.f,Y+RowHeight*0.5f,i,
+       bSelected?FLinearColor(0.98f,0.83f,0.47f):FLinearColor(0.54f,0.73f,0.91f));
     DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
        MenuLeft + (bCompactOptions?17.f:38.f), Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.85f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
