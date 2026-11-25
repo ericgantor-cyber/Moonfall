@@ -1,0 +1,18 @@
+name: UE5 dungeon startup portable policy
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallDungeonStartupPolicy.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnrealGameMode.cpp'
+      - 'tools/test_unreal_dungeon_startup_policy.cpp'
+      - '.github/workflows/unreal-dungeon-startup-policy.yml'
+  workflow_dispatch:
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run deterministic C++17 policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_dungeon_startup_policy.cpp -o /tmp/moonfall_dungeon_startup
+          /tmp/moonfall_dungeon_startup

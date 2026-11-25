@@ -4,6 +4,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallArena.h"
 #include "MoonfallDungeonLayout.h"
+#include "MoonfallDungeonStartupPolicy.h"
 #include "MoonfallCombatHUD.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallEnemy.h"
@@ -819,7 +820,7 @@ void AMoonfallUnrealGameMode::SetDungeonSlotReady(int32 Slot, bool bReady)
  const bool bWasReady = ReadyDungeonSlots[Slot] != 0;
  if (bWasReady == bReady) return;
  ReadyDungeonSlots[Slot] = bReady ? 1 : 0;
- ReadyDungeonCount = FMath::Clamp(ReadyDungeonCount + (bReady ? 1 : -1), 0, TotalDungeons);
+ ReadyDungeonCount = MoonfallDungeonStartup::ReadyCount(ReadyDungeonCount, bWasReady, bReady);
 }
 
 void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(bool bQueueMissing)
@@ -846,10 +847,11 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  if (!GetWorld() || bDungeonStartupNotified || bDungeonStartupStopped) return;
  // Always allow one slot per pulse to guarantee progress on slower PCs.
  // This is a cooperative time budget, not a hard limit on one actor's cost.
+ static_assert(TotalDungeons == MoonfallDungeonStartup::MaxSlots, "Startup policy slot count mismatch");
  constexpr int32 MaxLayoutsPerBatch = 8;
- const int32 BatchLimit = FMath::Clamp(DungeonLayoutsPerBatch, 1, MaxLayoutsPerBatch);
- const double BudgetMs = FMath::IsFinite(DungeonBatchBudgetMs)
-     ? FMath::Clamp(DungeonBatchBudgetMs, 0.5f, 12.f) : 4.f;
+ static_assert(MaxLayoutsPerBatch == MoonfallDungeonStartup::MaxBatch, "Startup batch limit mismatch");
+ const int32 BatchLimit = MoonfallDungeonStartup::ClampBatch(DungeonLayoutsPerBatch);
+ const double BudgetMs = MoonfallDungeonStartup::ClampBudget(DungeonBatchBudgetMs);
  const double StartedAt = FPlatformTime::Seconds();
  int32 Processed = 0;
  // Retry each failed primary slot once, on a later timer pass.
@@ -858,7 +860,7 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
      (bRetryPass ? NextFailedDungeonRetry < FailedDungeonSlots.Num() : NextDungeonSlot < TotalDungeons)) {
   if (Processed > 0) {
    const double ElapsedMs = (FPlatformTime::Seconds() - StartedAt) * 1000.0;
-   if (!FMath::IsFinite(ElapsedMs) || ElapsedMs < 0.0 || ElapsedMs >= BudgetMs) break;
+   if (!MoonfallDungeonStartup::CanProcess(Processed, BatchLimit, ElapsedMs, BudgetMs)) break;
   }
   const int32 Slot = bRetryPass ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;
   if (Slot < 0 || Slot >= TotalDungeons) break;
@@ -882,14 +884,14 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   SetDungeonSlotReady(Slot, false);
   FTransform DungeonTransform;
   if (!GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)) {
-   if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
+   if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
    continue;
   }
   AMoonfallDungeonLayout* Layout = GetWorld()->SpawnActorDeferred<AMoonfallDungeonLayout>(
     AMoonfallDungeonLayout::StaticClass(), DungeonTransform, nullptr, nullptr,
     ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
   if (!IsValid(Layout)) {
-   if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
+   if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
    continue;
   }
   Layout->ZoneIndex = Zone;
@@ -899,7 +901,7 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   // Blueprint initialization can synchronously tear down this world.
   if (bDungeonStartupStopped || !GetWorld()) return;
   if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) SetDungeonSlotReady(Slot, true);
-  else if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
+  else if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
  }
  if (bDungeonStartupStopped || !GetWorld()) return;
  if (NextDungeonSlot >= TotalDungeons && !bDungeonStartupAuditComplete) {
