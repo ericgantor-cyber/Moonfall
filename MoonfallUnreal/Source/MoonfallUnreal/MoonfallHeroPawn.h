@@ -589,6 +589,7 @@ private:
  void TryJump();
  void ControllerConfirm();
  void ControllerBack();
+ void ControllerRightTrigger();
  void MoveForward(float Amount);
  void MoveRight(float Amount);
  void Turn(float Amount);
