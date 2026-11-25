@@ -1013,7 +1013,9 @@ void AMoonfallHeroPawn::ControllerRightTrigger()
 void AMoonfallHeroPawn::ControllerBack()
 {
  // Choose one route before a modal transition can expose gameplay input.
- if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
+ // Match Escape: a defeated player may close an open bag, never craft or dodge.
+ if (Health == 0.f) { if (bInventoryOpen) OpenOptions(); return; }
  if (bTalentWebOpen) { TalentCloseWeb(); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }
  if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }
