@@ -25,7 +25,7 @@ assert "if (Hero->bTalentWebOpen) {" in hud
 assert hud.index("if (Hero->bTalentWebOpen) {") < hud.index("if (const AMoonfallWorldNPC* Resident")
 for key in ("Hero->GetAvailableTalentPoints()", "Hero->GetTalentRank(I)",
             "Hero->TalentWebSelected", 'TEXT("SPEND POINT")',
-            'TEXT("RESET ALL")', 'TEXT("CONFIRM RESET")'):
+            'TEXT("RESET TALENTS")', 'TEXT("CONFIRM RESET")'):
     assert key in hud, key
 assert "Hero->TalentRanks.Num()" not in hud, "Fixed rank array must not use Unreal TArray API"
 # Might is MELEE DAMAGE, not a sword-only hit stat. UE5 MeleeAttack
@@ -184,7 +184,7 @@ assert "SwordBuffer.Clear();" in web
 assert "GetCharacterMovement()->StopMovementImmediately()" in web
 assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
-assert "TalentRespecArmUntil=Now+3.0f;" in web
+assert "TalentRespecArmUntil=Now+10.0f;" in web
 assert "MoonfallTalentWeb::HitNode(" in web
 pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
 branch_tab = pointer.split("if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y))", 1)[1].split("if (MoonfallTalentWeb::SpendRect", 1)[0]
@@ -196,3 +196,12 @@ assert "bTalentRespecArmed=false;" in branch_tab
 assert "TalentRespecArmUntil=-1.f;" in branch_tab
 assert "TalentRespecArmUntil=-1.f;" in pointer.split("if (Hit>=0)", 1)[1]
 print("UE5 talent web: layout, full node UI, mouse/controller input and modal isolation source checks passed.")
+
+# Mouse reset uses the same two-step confirmation as keyboard/controller.
+assert 'Click RESET TALENTS or press Backspace / LT twice' in hud
+assert 'Click CONFIRM RESET again or press Backspace / LT' in hud
+assert 'MoonfallTalentWeb::RespecRect(Layout).Hit(X,Y)) {TalentConfirmRespec();return;}' in pointer
+confirm = web.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("\n}", 1)[0]
+assert confirm.index("bTalentRespecArmed=false;") < confirm.index("RespecTalentPoints();")
+assert "Now<=TalentRespecArmUntil" in confirm
+assert "TalentRespecArmUntil=Now+10.0f;" in confirm
