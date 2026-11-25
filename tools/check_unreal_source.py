@@ -530,7 +530,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
-        for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
+        for action in ('ActionName="PickupLoot",Key=F', 'ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
@@ -1534,7 +1534,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_inventory_salvage_is_validated_and_protects_equipped_gear(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="InventorySalvage",Key=Delete', inputs)
-        self.assertIn('ActionName="InventorySalvage",Key=Gamepad_FaceButton_Left', inputs)
+        self.assertIn('ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left', inputs)
+        x_mappings = [line for line in inputs.splitlines()
+                      if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Left" in line]
+        self.assertEqual(x_mappings, ['+ActionMappings=(ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left)'])
+        self.assertIn("void ControllerLootOrSalvage();", self.hero_h)
+        self.assertIn('BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);', self.hero_cpp)
+        route = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerLootOrSalvage()", 1)[1].split("\n}", 1)[0]
+        guards = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bInventoryOpen) { InventorySalvage(); return; }",
+                  "PickupNearestGroundLoot();")
+        indices = [route.index(guard) for guard in guards]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn("bool SalvageInventoryItem(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void SalvageSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("InventorySalvage"), IE_Pressed', self.hero_cpp)
