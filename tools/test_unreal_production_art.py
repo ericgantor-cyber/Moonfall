@@ -152,6 +152,26 @@ class ProductionArtTests(unittest.TestCase):
                       "TC_NORMALMAP", "TC_MASKS", "isinstance(texture, unreal.Texture2D)"):
             self.assertIn(token, script)
 
+    def test_optional_niagara_spell_effect_budget_and_fallback(self):
+        src = ROOT / "Source" / "MoonfallUnreal"
+        pawn = (src / "MoonfallHeroPawn.cpp").read_text()
+        header = (src / "MoonfallHeroPawn.h").read_text()
+        config = json.loads((ROOT / "MoonfallUnreal.uproject").read_text())
+        self.assertIn({"Name":"Niagara","Enabled":True}, config["Plugins"])
+        self.assertIn('PrivateDependencyModuleNames.Add("Niagara")', (src / "MoonfallUnreal.Build.cs").read_text())
+        self.assertIn("SpellImpactSystems", header)
+        fx = pawn.split("bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact",1)[1].split("void AMoonfallHeroPawn::CastLeft()",1)[0]
+        for token in ("bReduceMotion", "NM_DedicatedServer", "Point.ContainsNaN()",
+                      "School==3", "SpellImpactSystems.IsValidIndex(School)",
+                      "ActiveSpellImpactFX.Num()>=4", "SpawnSystemAtLocation(",
+                      "ENCPoolMethod::None", "WeakFX", "DestroyComponent()", "2.f,false"):
+            self.assertIn(token, fx)
+        self.assertLess(fx.index("ActiveSpellImpactFX.Num()>=4"), fx.index("SpawnSystemAtLocation("))
+        self.assertNotIn("TakeSpellDamage", fx)
+        self.assertNotIn("Mana -=", fx)
+        self.assertIn("if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier))", pawn)
+        self.assertIn("DrawDebugSphere(GetWorld(), Hit.ImpactPoint", pawn)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
