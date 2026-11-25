@@ -3786,17 +3786,28 @@ void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
      || TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
+ // A / Enter and the former Spend button cancel an active reset instead.
+ const bool bCancelReset=MoonfallTalentWeb::RespecPending(
+     bTalentRespecArmed,GetWorld()->GetTimeSeconds(),TalentRespecArmUntil);
  // Clear confirmation before the allocation can notify Blueprint listeners.
  bTalentRespecArmed=false;
  TalentRespecArmUntil=-1.f;
+ if (bCancelReset)return;
  SpendTalentPoint(TalentWebSelected);
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
  if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)return;
  const float Now=GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now))return;
- if (bTalentRespecArmed && FMath::IsFinite(TalentRespecArmUntil) && Now<=TalentRespecArmUntil) {
+ if (!FMath::IsFinite(Now) || Now<0.f)return;
+ MoonfallTalents::Snapshot Snapshot;
+ if (MoonfallTalents::Evaluate(Level,TalentRanks,Snapshot)!=MoonfallTalents::Result::Ok
+     || Snapshot.Spent<=0) {
+  bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
+  return;
+ }
+ if (MoonfallTalentWeb::RespecPending(bTalentRespecArmed,Now,TalentRespecArmUntil)) {
   // Consume confirmation before the transaction emits synchronous callbacks.
   bTalentRespecArmed=false;
   TalentRespecArmUntil=-1.f;
