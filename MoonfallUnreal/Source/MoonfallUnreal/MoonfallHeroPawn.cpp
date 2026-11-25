@@ -682,7 +682,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
- Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
+ Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftTrigger);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
@@ -961,6 +961,17 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ControllerLeftTrigger()
+{
+ // Preserve Equip Best's existing zero-health inventory policy; its own
+ // validated transaction remains authoritative. Never cast at zero health.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentConfirmRespec(); return; }
+ if (bInventoryOpen) { EquipBestInventoryAction(); return; }
+ if (Health <= 0.f) return;
+ CastBoth();
 }
 void AMoonfallHeroPawn::ControllerRightTrigger()
 {
