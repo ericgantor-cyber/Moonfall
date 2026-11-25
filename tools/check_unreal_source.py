@@ -4440,6 +4440,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
         self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;", spawning)
 
+    def test_dungeon_startup_retries_failed_slots_once_on_later_pass(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
+        batch = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        self.assertIn("TArray<int32> FailedDungeonSlots;", header)
+        self.assertIn("FailedDungeonSlots.Reset();", mode)
+        self.assertIn("const bool bRetryPass = NextDungeonSlot >= TotalDungeons;", batch)
+        self.assertIn("bRetryPass ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++", batch)
+        self.assertEqual(batch.count("if (!bRetryPass) FailedDungeonSlots.Add(Slot);"), 3)
+        self.assertIn("Processed < MaxLayoutsPerBatch", batch)
+        self.assertIn("if (bExisting) { ++ReadyDungeonCount; continue; }", batch)
+        self.assertLess(batch.index("NextFailedDungeonRetry >= FailedDungeonSlots.Num()"),
+                        batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        teardown = mode.split("void AMoonfallUnrealGameMode::EndPlay(", 1)[1].split("\\n}", 1)[0]
+        for timer in ("DungeonSpawnTimer", "LivingWorldPulseTimer", "FollowerPulseTimer"):
+            self.assertLess(teardown.index("ClearTimer(" + timer + ")"),
+                            teardown.index("Super::EndPlay(EndPlayReason);"))
+
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")

@@ -22,6 +22,7 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
 public:
  AMoonfallUnrealGameMode();
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
  static constexpr int32 DungeonZoneCount = 6;
  static constexpr int32 DungeonsPerZone = 5;
@@ -84,6 +85,8 @@ public:
 private:
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
+ int32 NextFailedDungeonRetry = 0;
+ TArray<int32> FailedDungeonSlots;
  TArray<uint8> AuthoredDungeonSlots;
  void SpawnDungeonBatch();
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
