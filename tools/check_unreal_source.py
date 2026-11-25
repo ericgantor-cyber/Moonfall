@@ -4341,7 +4341,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Slot / DungeonsPerZone', mode)
         self.assertIn('Slot % DungeonsPerZone', mode)
         self.assertIn('NextDungeonSlot < TotalDungeons', mode)
-        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 2;', mode)
+        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 8;', mode)
+        self.assertIn('int32 DungeonLayoutsPerBatch = 2;', mode_h)
         self.assertIn('int32 ReadyDungeonCount = 0;', mode_h)
         self.assertIn('OnDungeonWorldReady(int32 ReadyCount);', mode_h)
         self.assertIn('++ReadyDungeonCount;', mode)
@@ -4349,7 +4350,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('only %d/%d layouts ready', mode)
         self.assertIn('GetWorldTimerManager().SetTimer(', mode)
         self.assertIn('GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);', mode)
-        self.assertIn('AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
+        self.assertIn('ReadyDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
         self.assertIn('TActorIterator<AMoonfallDungeonLayout>', mode)
         self.assertLess(mode.index('TActorIterator<AMoonfallDungeonLayout>'),
                         mode.index('SpawnActorDeferred<AMoonfallDungeonLayout>'))
@@ -4549,11 +4550,91 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "NextDungeonSlot = 0;", 1)[0]
         self.assertIn("if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;", dungeon)
         self.assertLess(dungeon.index("It->IsActorBeingDestroyed()"),
-                        dungeon.index("AuthoredDungeonSlots[Slot] = 1;"))
-        self.assertIn("if (!AuthoredDungeonSlots[Slot])", dungeon)
+                        dungeon.index("ReadyDungeonSlots[Slot] = 1;"))
+        self.assertIn("if (!ReadyDungeonSlots[Slot])", dungeon)
         # The normal deferred spawning path already avoids counting destroyed layouts.
         spawning = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
-        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;", spawning)
+        self.assertIn("if (IsValid(Layout) && !Layout->IsActorBeingDestroyed())", spawning)
+        self.assertIn("if (Layout->ZoneIndex == Zone && Layout->DungeonIndex == DungeonIndex)", spawning)
+        self.assertLess(spawning.index("if (Layout->ZoneIndex == Zone && Layout->DungeonIndex == DungeonIndex)"),
+                        spawning.index("SetDungeonSlotReady(Slot, true);", spawning.index("Layout->FinishSpawning(DungeonTransform);")))
+        self.assertIn("Layout->Destroy();", spawning)
+        self.assertLess(spawning.index("if (!IsValid(Layout) || Layout->IsActorBeingDestroyed())"),
+                        spawning.index("Layout->ZoneIndex = Zone;"))
+
+    def test_dungeon_startup_retries_failed_slots_once_on_later_pass(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
+        batch = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        self.assertIn("TArray<int32> FailedDungeonSlots;", header)
+        self.assertIn("FailedDungeonSlots.Reset();", mode)
+        self.assertIn("const bool bRetryPass = NextDungeonSlot >= TotalDungeons;", batch)
+        self.assertIn("bRetryPass ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++", batch)
+        self.assertEqual(batch.count("if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);"), 3)
+        self.assertIn("Processed < BatchLimit", batch)
+        self.assertIn("MoonfallDungeonStartup::ClampBatch(DungeonLayoutsPerBatch)", batch)
+        self.assertIn("MoonfallDungeonStartup::ClampBudget(DungeonBatchBudgetMs)", batch)
+        self.assertIn("if (Processed > 0)", batch)
+        self.assertIn("MoonfallDungeonStartup::CanProcess(Processed, BatchLimit, ElapsedMs, BudgetMs)) break;", batch)
+        self.assertLess(batch.index("MoonfallDungeonStartup::CanProcess("), batch.index("const int32 Slot ="))
+        self.assertLess(batch.index("Layout->FinishSpawning(DungeonTransform);"),
+                        batch.index("if (bDungeonStartupStopped || !GetWorld()) return;"))
+        self.assertIn("while (!bDungeonStartupStopped && GetWorld()", batch)
+        self.assertIn("bDungeonStartupStopped = true;", mode)
+        self.assertIn("if (!bDungeonStartupNotified && !bDungeonStartupStopped && GetWorld())", batch)
+        self.assertEqual(mode.count("SetTimer(DungeonSpawnTimer, this,"), 1)
+        self.assertIn("&AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, false);", batch)
+        self.assertNotIn("&AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);", mode)
+        self.assertLess(batch.index("OnDungeonWorldReady(ReadyDungeonCount);"),
+                        batch.index("SetTimer(DungeonSpawnTimer, this,"))
+        self.assertIn("OnDungeonWorldReady(ReadyDungeonCount);\n  return;", batch)
+        self.assertIn("SetDungeonSlotReady(Slot, true);", batch)
+        self.assertLess(batch.index("if (bExisting)"), batch.index("SpawnActorDeferred<AMoonfallDungeonLayout>"))
+        self.assertIn("SetDungeonSlotReady(Slot, false);", batch)
+        self.assertIn("AuditLiveDungeonSlots(true);", batch)
+        self.assertIn("bDungeonRecoveryAuditComplete = false;", mode)
+        self.assertIn("&& !bDungeonRecoveryAuditComplete)", batch)
+        self.assertEqual(batch.count("bDungeonRecoveryAuditComplete = true;"), 1)
+        self.assertEqual(batch.count("AuditLiveDungeonSlots(true);"), 2)
+        recovery = batch.split("&& !bDungeonRecoveryAuditComplete)", 1)[1]
+        self.assertLess(recovery.index("bDungeonRecoveryAuditComplete = true;"),
+                        recovery.index("AuditLiveDungeonSlots(true);"))
+        self.assertNotIn("FailedDungeonSlots.Reset()", batch)
+        self.assertIn("bool bAuditedThisBatch = false;", batch)
+        self.assertEqual(batch.count("bAuditedThisBatch = true;"), 2)
+        self.assertIn("if (!bAuditedThisBatch) {", recovery)
+        self.assertIn("if (!bAuditedThisBatch) AuditLiveDungeonSlots(false);", batch)
+        # No world mutation may invalidate a snapshot before it is reused.
+        audit_tail = batch.split("bool bAuditedThisBatch = false;", 1)[1].split(
+            "OnDungeonWorldReady(ReadyDungeonCount);", 1)[0]
+        self.assertNotIn("SpawnActor", audit_tail)
+        self.assertNotIn("FinishSpawning", audit_tail)
+        self.assertNotIn("->Destroy()", audit_tail)
+        self.assertIn("AuditLiveDungeonSlots(false);", batch)
+        self.assertLess(batch.index("AuditLiveDungeonSlots(false);"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        self.assertLess(batch.index("bDungeonStartupNotified = true;"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        audit = mode.split("void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(", 1)[1].split(
+            "void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[0]
+        self.assertIn("LiveSlots[It->ZoneIndex * DungeonsPerZone + It->DungeonIndex] = 1;", audit)
+        self.assertIn("ReadyDungeonSlots = MoveTemp(LiveSlots);", audit)
+        self.assertIn("if (ReadyDungeonSlots[Slot]) ++ReadyDungeonCount;", audit)
+        ledger = mode.split("void AMoonfallUnrealGameMode::SetDungeonSlotReady(", 1)[1].split(
+            "void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(", 1)[0]
+        self.assertIn("if (!ReadyDungeonSlots.IsValidIndex(Slot)) return;", ledger)
+        self.assertIn("if (bWasReady == bReady) return;", ledger)
+        self.assertLess(ledger.index("if (bWasReady == bReady) return;"),
+                        ledger.index("ReadyDungeonCount = MoonfallDungeonStartup::ReadyCount"))
+        self.assertIn("ReadyDungeonSlots[Slot] = bReady ? 1 : 0;", ledger)
+        self.assertIn("ReadyDungeonCount, bWasReady, bReady", ledger)
+        self.assertNotIn("++ReadyDungeonCount;", batch)
+        self.assertIn("else if (bQueueMissing) FailedDungeonSlots.AddUnique(Slot);", audit)
+        self.assertIn("It->IsActorBeingDestroyed()", audit)
+        self.assertLess(batch.index("NextFailedDungeonRetry >= FailedDungeonSlots.Num()"),
+                        batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
+        teardown = mode.split("void AMoonfallUnrealGameMode::EndPlay(", 1)[1].split("\\n}", 1)[0]
+        for timer in ("DungeonSpawnTimer", "LivingWorldPulseTimer", "FollowerPulseTimer"):
+            self.assertLess(teardown.index("ClearTimer(" + timer + ")"),
+                            teardown.index("Super::EndPlay(EndPlayReason);"))
 
     def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")

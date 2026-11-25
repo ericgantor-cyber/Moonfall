@@ -22,6 +22,7 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
 public:
  AMoonfallUnrealGameMode();
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
  static constexpr int32 DungeonZoneCount = 6;
  static constexpr int32 DungeonsPerZone = 5;
@@ -30,6 +31,12 @@ public:
 
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
+ // Default remains two layouts per timer pulse. Designers may tune startup
+ // throughput without removing the elapsed-time or hard slot ceiling.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="1", ClampMax="8"))
+ int32 DungeonLayoutsPerBatch = 2;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="0.5", ClampMax="12.0"))
+ float DungeonBatchBudgetMs = 4.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  int32 ReadyDungeonCount = 0;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|World")
@@ -84,7 +91,16 @@ public:
 private:
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
- TArray<uint8> AuthoredDungeonSlots;
+ int32 NextFailedDungeonRetry = 0;
+ TArray<int32> FailedDungeonSlots;
+ bool bDungeonStartupAuditComplete = false;
+ bool bDungeonRecoveryAuditComplete = false;
+ bool bDungeonStartupNotified = false;
+ bool bDungeonStartupStopped = false;
+ void AuditLiveDungeonSlots(bool bQueueMissing);
+ // Tracks each slot once across authored, generated and audited layouts.
+ TArray<uint8> ReadyDungeonSlots;
+ void SetDungeonSlotReady(int32 Slot, bool bReady);
  void SpawnDungeonBatch();
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
  void PulseLivingWorld();
