@@ -56,12 +56,12 @@ assert buffer_start < buffer_end
 for name, key in {
     "TalentWeb": "K", "TalentSpend": "Enter", "TalentRespec": "BackSpace",
     "ControllerConfirm": "Gamepad_FaceButton_Bottom",
-    "TalentClose": "Gamepad_FaceButton_Right",
+    "ControllerBack": "Gamepad_FaceButton_Right",
     "TalentBranchPrevious": "Gamepad_LeftShoulder",
     "TalentBranchNext": "Gamepad_RightShoulder",
 }.items():
     assert f'ActionName="{name}",Key={key}' in inputs, (name, key)
-for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "TalentRespec", "TalentClose",
+for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "TalentRespec", "ControllerBack",
              "TalentBranchPrevious", "TalentBranchNext"):
     assert f'Input->BindAction(TEXT("{name}")' in pawn
 assert 'ActionName="TalentSpend",Key=Enter' in inputs
@@ -71,6 +71,21 @@ assert a_mappings == ['+ActionMappings=(ActionName="ControllerConfirm",Key=Gamep
 confirm = pawn.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("void AMoonfallHeroPawn::TryJump()", 1)[0]
 assert "if (bTalentWebOpen) { TalentSpendSelected(); return; }" in confirm
 assert confirm.index("if (bTalentWebOpen)") < confirm.index("TryJump();")
+b_mappings = [line for line in inputs.splitlines()
+              if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Right" in line]
+assert b_mappings == ['+ActionMappings=(ActionName="ControllerBack",Key=Gamepad_FaceButton_Right)']
+assert 'ActionName="Dodge",Key=Q' in inputs
+assert 'ActionName="AscendGear",Key=R' in inputs
+assert "void ControllerBack();" in header
+assert 'BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);' in pawn
+back = pawn.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
+routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+          "if (bTalentWebOpen) { TalentCloseWeb(); return; }",
+          "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+          "if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }",
+          " Dodge();\n}")
+indices = [back.index(route) for route in routes]
+assert indices == sorted(indices)
 assert 'ActionName="TalentRespec",Key=Gamepad_LeftTrigger' in inputs
 # The keyboard arrows and WASD still move the character ONLY.
 for line in inputs.splitlines():
