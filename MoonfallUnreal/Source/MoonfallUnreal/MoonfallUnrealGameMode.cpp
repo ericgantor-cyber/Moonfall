@@ -1,5 +1,6 @@
 #include "MoonfallUnrealGameMode.h"
 #include "Misc/DateTime.h"
+#include "HAL/PlatformTime.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallArena.h"
 #include "MoonfallDungeonLayout.h"
@@ -502,14 +503,16 @@ void AMoonfallUnrealGameMode::BeginPlay()
  FailedDungeonSlots.Reset();
  bDungeonStartupAuditComplete = false;
  bDungeonStartupNotified = false;
+ bDungeonStartupStopped = false;
  SpawnDungeonBatch();
- if (!bDungeonStartupNotified)
+ if (!bDungeonStartupNotified && !bDungeonStartupStopped && GetWorld())
   GetWorldTimerManager().SetTimer(DungeonSpawnTimer, this,
     &AMoonfallUnrealGameMode::SpawnDungeonBatch, 0.1f, true);
 }
 
 void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+ bDungeonStartupStopped = true;
  if (GetWorld()) {
   GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
   GetWorldTimerManager().ClearTimer(LivingWorldPulseTimer);
@@ -831,15 +834,23 @@ void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(bool bQueueMissing)
 
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
- if (!GetWorld() || bDungeonStartupNotified) return;
- // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
- // the short timer stops entirely when all slots have been considered.
- constexpr int32 MaxLayoutsPerBatch = 2;
+ if (!GetWorld() || bDungeonStartupNotified || bDungeonStartupStopped) return;
+ // Always allow one slot per pulse to guarantee progress on slower PCs.
+ // This is a cooperative time budget, not a hard limit on one actor's cost.
+ constexpr int32 MaxLayoutsPerBatch = 8;
+ const int32 BatchLimit = FMath::Clamp(DungeonLayoutsPerBatch, 1, MaxLayoutsPerBatch);
+ const double BudgetMs = FMath::IsFinite(DungeonBatchBudgetMs)
+     ? FMath::Clamp(DungeonBatchBudgetMs, 0.5f, 12.f) : 4.f;
+ const double StartedAt = FPlatformTime::Seconds();
  int32 Processed = 0;
  // Retry each failed primary slot once, on a later timer pass.
  const bool bRetryPass = NextDungeonSlot >= TotalDungeons;
- while (Processed < MaxLayoutsPerBatch &&
+ while (!bDungeonStartupStopped && GetWorld() && Processed < BatchLimit &&
      (bRetryPass ? NextFailedDungeonRetry < FailedDungeonSlots.Num() : NextDungeonSlot < TotalDungeons)) {
+  if (Processed > 0) {
+   const double ElapsedMs = (FPlatformTime::Seconds() - StartedAt) * 1000.0;
+   if (!FMath::IsFinite(ElapsedMs) || ElapsedMs < 0.0 || ElapsedMs >= BudgetMs) break;
+  }
   const int32 Slot = bRetryPass ? FailedDungeonSlots[NextFailedDungeonRetry++] : NextDungeonSlot++;
   if (Slot < 0 || Slot >= TotalDungeons) break;
   ++Processed;
@@ -879,9 +890,12 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   Layout->DungeonIndex = DungeonIndex;
   Layout->bRandomizeChambers = true;
   Layout->FinishSpawning(DungeonTransform);
+  // Blueprint initialization can synchronously tear down this world.
+  if (bDungeonStartupStopped || !GetWorld()) return;
   if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;
   else if (!bRetryPass) FailedDungeonSlots.AddUnique(Slot);
  }
+ if (bDungeonStartupStopped || !GetWorld()) return;
  if (NextDungeonSlot >= TotalDungeons && !bDungeonStartupAuditComplete) {
   bDungeonStartupAuditComplete = true;
   AuditLiveDungeonSlots(true);

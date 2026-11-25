@@ -31,6 +31,12 @@ public:
 
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
+ // Default remains two layouts per timer pulse. Designers may tune startup
+ // throughput without removing the elapsed-time or hard slot ceiling.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="1", ClampMax="8"))
+ int32 DungeonLayoutsPerBatch = 2;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="0.5", ClampMax="12.0"))
+ float DungeonBatchBudgetMs = 4.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  int32 ReadyDungeonCount = 0;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|World")
@@ -89,6 +95,7 @@ private:
  TArray<int32> FailedDungeonSlots;
  bool bDungeonStartupAuditComplete = false;
  bool bDungeonStartupNotified = false;
+ bool bDungeonStartupStopped = false;
  void AuditLiveDungeonSlots(bool bQueueMissing);
  TArray<uint8> AuthoredDungeonSlots;
  void SpawnDungeonBatch();
