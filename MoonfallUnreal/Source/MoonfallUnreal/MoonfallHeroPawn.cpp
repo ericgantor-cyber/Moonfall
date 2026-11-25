@@ -691,6 +691,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
  Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
+ Input->BindAction(TEXT("ControllerRightStick"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightStickPress);
+ Input->BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHeroPawn::ControllerRightStickRelease);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
@@ -1702,6 +1704,20 @@ void AMoonfallHeroPawn::BreakGuard()
  OnGuardBroken();
 }
 
+void AMoonfallHeroPawn::ControllerRightStickPress()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
+ if (bGuarding) return;
+ BeginGuard();
+ bControllerGuardStarted = bGuarding;
+}
+void AMoonfallHeroPawn::ControllerRightStickRelease()
+{
+ if (!bControllerGuardStarted) return;
+ EndGuard();
+}
 void AMoonfallHeroPawn::BeginGuard()
 {
 
@@ -1743,6 +1759,7 @@ void AMoonfallHeroPawn::BeginGuard()
 }
 void AMoonfallHeroPawn::EndGuard()
 {
+ bControllerGuardStarted = false;
  const bool bWasGuarding = bGuarding;
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
