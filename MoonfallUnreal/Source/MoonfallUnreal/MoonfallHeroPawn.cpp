@@ -21,6 +21,9 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
@@ -1244,8 +1247,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-  DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)) {
+   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  }
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
@@ -1261,6 +1266,31 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f)
   OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,
     bResolvedCritical, bResolvedKill);
+ return true;
+}
+bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(int32 School, const FVector& Point, float Multiplier)
+{
+ // Visual-only: this function never changes mana, damage, or targeting.
+ if (!bEnableAuthoredSpellVFX || bReduceMotion || IsActorBeingDestroyed()
+     || !GetWorld() || GetNetMode()==NM_DedicatedServer || Point.ContainsNaN()
+     || !FMath::IsFinite(Multiplier) || Multiplier<=0.f
+     || School<0 || School>=6 || School==3 || !SpellImpactSystems.IsValidIndex(School)) return false;
+ UNiagaraSystem* System=SpellImpactSystems[School].Get();
+ if (!IsValid(System)) return false;
+ ActiveSpellImpactFX.RemoveAll([](const TWeakObjectPtr<UNiagaraComponent>& FX){return !FX.IsValid();});
+ // At most four active components per caster; preserve the existing cue at capacity.
+ if (ActiveSpellImpactFX.Num()>=4) return false;
+ UNiagaraComponent* FX=UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+     this,System,Point,FRotator::ZeroRotator,FVector(FMath::Clamp(Multiplier,0.5f,2.f)),
+     true,true,ENCPoolMethod::None,true);
+ if (!IsValid(FX)) return false;
+ ActiveSpellImpactFX.Add(FX);
+ // Even an incorrectly authored looping system is removed after two seconds.
+ TWeakObjectPtr<UNiagaraComponent> WeakFX(FX);
+ FTimerHandle Cleanup;
+ GetWorld()->GetTimerManager().SetTimer(Cleanup,FTimerDelegate::CreateLambda([WeakFX](){
+  if (UNiagaraComponent* Component=WeakFX.Get()) Component->DestroyComponent();
+ }),2.f,false);
  return true;
 }
 void AMoonfallHeroPawn::CastLeft()
