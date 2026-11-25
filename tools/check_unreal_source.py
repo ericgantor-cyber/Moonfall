@@ -4200,6 +4200,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return 6;", layout)
         self.assertIn("return 0;", layout)
 
+    def test_dungeon_shrine_restores_health_and_mana_once_per_entry(self):
+        h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("float ShrineManaRestore = 35.f;", h)
+        self.assertIn("float ShrineHealthRestore = 35.f;", h)
+        reward = cpp.split("bool AMoonfallDungeonLayout::RestoreChamberVitals(", 1)[1].split("\n}", 1)[0]
+        for guard in ("GetChamberType(ChamberIndex) != 3", "!FMath::IsFinite(ShrineManaRestore)",
+                      "!FMath::IsFinite(Hero->Mana)", "!FMath::IsFinite(Hero->MaxMana)",
+                      "!FMath::IsFinite(ShrineHealthRestore)", "!FMath::IsFinite(Hero->MaxHealth)",
+                      "Hero->MaxHealth < Hero->Health",
+                      "Hero->IsActorBeingDestroyed()", "Hero->bTalentWebOpen"):
+            self.assertIn(guard, reward)
+        self.assertIn("const double ManaGain = static_cast<double>(Hero->MaxMana)", reward)
+        self.assertIn("static_cast<double>(FMath::Clamp(ShrineManaRestore, 0.f, 100.f)) / 100.0", reward)
+        self.assertIn("const double RestoredMana = static_cast<double>(Hero->Mana) + ManaGain;", reward)
+        self.assertIn('DisplayName="Shrine Mana Restore (%)"', h)
+        self.assertIn("Hero->Mana = static_cast<float>(FMath::Clamp(Restored", reward)
+        self.assertIn("const double HealthGain = static_cast<double>(Hero->MaxHealth)", reward)
+        self.assertIn("static_cast<double>(FMath::Clamp(ShrineHealthRestore, 0.f, 100.f)) / 100.0", reward)
+        self.assertIn("const double RestoredHealth = static_cast<double>(Hero->Health) + HealthGain;", reward)
+        self.assertIn('DisplayName="Shrine Health Restore (%)"', h)
+        self.assertIn("Hero->Health = static_cast<float>(FMath::Clamp(RestoredHealth", reward)
+        self.assertNotIn("Hero->Stamina =", reward)
+        chamber = cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(chamber.index("if ((EnteredChambersMask & Bit) != 0u)"), chamber.index("RestoreChamberVitals("))
+        self.assertLess(chamber.index("RestoreChamberVitals("), chamber.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(chamber.index("EnteredChambersMask |= Bit;"), chamber.index("OnShrineActivated("))
+        self.assertLess(chamber.index("EnteredChambersMask |= Bit;"), chamber.index("Hero->OnHealthChanged("))
+        self.assertLess(chamber.index("Hero->DiscoverDungeonEntrance("), chamber.index("RestoreChamberVitals("))
+
     def test_dungeon_room_event_requires_safe_save_and_fires_once(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         overlap = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
