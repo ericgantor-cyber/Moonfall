@@ -672,6 +672,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
@@ -958,6 +960,17 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ControllerConfirm()
+{
+ // One A press takes exactly one route, even when a synchronous UI callback
+ // closes or opens another panel. Keyboard C, Enter and Space stay separate.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen) { TalentSpendSelected(); return; }
+ if (bResidentContextOpen) { TryJump(); return; }
+ if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen) { ToggleCharacterStats(); return; }
+ TryJump();
 }
 void AMoonfallHeroPawn::TryJump()
 {
