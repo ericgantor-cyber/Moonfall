@@ -25,7 +25,7 @@ assert "if (Hero->bTalentWebOpen) {" in hud
 assert hud.index("if (Hero->bTalentWebOpen) {") < hud.index("if (const AMoonfallWorldNPC* Resident")
 for key in ("Hero->GetAvailableTalentPoints()", "Hero->GetTalentRank(I)",
             "Hero->TalentWebSelected", 'TEXT("SPEND POINT")',
-            'TEXT("RESET ALL")', 'TEXT("CONFIRM RESET")'):
+            'TEXT("RESET TALENTS")', 'TEXT("CONFIRM RESET")'):
     assert key in hud, key
 assert "Hero->TalentRanks.Num()" not in hud, "Fixed rank array must not use Unreal TArray API"
 # Might is MELEE DAMAGE, not a sword-only hit stat. UE5 MeleeAttack
