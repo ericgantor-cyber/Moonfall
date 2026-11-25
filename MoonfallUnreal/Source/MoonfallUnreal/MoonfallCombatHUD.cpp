@@ -2242,6 +2242,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // This avoids iterating the entire enemy population twice every rendered frame.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
+ int32 NearbySwordTell = -1;
+ float SwordTellDistanceSq = FMath::Square(650.f);
  float BossDistanceSq = TNumericLimits<float>::Max();
  float PostureDistanceSq = FMath::Square(1200.f);
  TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;
@@ -2271,6 +2273,13 @@ void AMoonfallCombatHUD::DrawHUD()
    if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   }
   if (E->Health <= 0.f) continue;
+  if (DistSq < SwordTellDistanceSq) {
+   const int32 Tell = E->GetDirectionalWindup(WorldTime, HeroLocation);
+   if (MoonfallOmniattack::ValidAngle(Tell)) {
+    NearbySwordTell = Tell;
+    SwordTellDistanceSq = DistSq;
+   }
+  }
   if (E->bBoss) {
    if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
   } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
@@ -2278,6 +2287,16 @@ void AMoonfallCombatHUD::DrawHUD()
    PostureTarget = E;
    PostureDistanceSq = DistSq;
   }
+ }
+ // Fixed high-contrast text, no flashing or extra world scan. Boss alerts take priority.
+ if (MoonfallOmniattack::ValidAngle(NearbySwordTell)
+     && !(Boss && BossDistanceSq < FMath::Square(3000.f))) {
+  const float TellWidth = FMath::Min(240.f, Canvas->SizeX * 0.5f);
+  const float TellX = (Canvas->SizeX - TellWidth) * 0.5f;
+  const float TellY = Canvas->SizeY * 0.23f;
+  DrawRect(FLinearColor(0.055f,0.035f,0.065f,0.92f), TellX,TellY,TellWidth,40.f);
+  DrawText(FString::Printf(TEXT("%s STRIKE | GUARD"), UTF8_TO_TCHAR(MoonfallOmniattack::GuardName(NearbySwordTell))),
+     FLinearColor(0.95f,0.86f,0.68f),TellX+9.f,TellY+10.f,nullptr,0.84f);
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
   const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
@@ -2613,6 +2632,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("RIGHT HAND: %s  |  B: choose"), *RightMode),
     FLinearColor(0.79f, 0.88f, 0.98f),
     CX + Radius + 14.f, CY + 42.f, nullptr, 0.73f * LabelScale);
+  if (!Hero->bRightHandSpellReadied && Hero->CurrentSwordAngle >= 0
+      && Hero->CurrentSwordAngle < 4 && Hero->SwordFlowStep >= 1 && Hero->SwordFlowStep <= 4) {
+   const auto& Swing=MoonfallOmniattack::Profile(Hero->CurrentSwordAngle);
+   DrawText(FString::Printf(TEXT("%s | FLOW %d/4"),UTF8_TO_TCHAR(Swing.Name),Hero->SwordFlowStep),
+      FLinearColor(0.91f,0.78f,0.49f),CX+Radius+14.f,CY+60.f,nullptr,0.70f*LabelScale);
+  }
  }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {

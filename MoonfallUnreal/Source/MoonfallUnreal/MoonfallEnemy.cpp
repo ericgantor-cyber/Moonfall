@@ -3,6 +3,7 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
+#include "MoonfallOmniattack.h"
 #include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
@@ -36,6 +37,19 @@ AMoonfallEnemy::AMoonfallEnemy() {
   AttackTellMarker->SetVisibility(false);
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
+}
+int32 AMoonfallEnemy::GetDirectionalWindup(float Now, const FVector& HeroPosition) const {
+ if (!bElite || bBoss || bCompanionAttackCommitted || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(Now) || !FMath::IsFinite(WindupEndsAt) || WindupEndsAt <= Now
+     || !FMath::IsFinite(AttackRange) || AttackRange <= 0.f
+     || !FMath::IsFinite(CurrentAttackRangeMultiplier) || CurrentAttackRangeMultiplier <= 0.f
+     || LockedAttackDirection.ContainsNaN() || HeroPosition.ContainsNaN() || !MoonfallOmniattack::ValidAngle(CommittedSwordAngle)) return -1;
+ const FVector Delta = HeroPosition - GetActorLocation();
+ const float Range = FMath::Clamp(AttackRange * CurrentAttackRangeMultiplier + 60.f, 0.f, 650.f);
+ if (Delta.ContainsNaN() || Delta.SizeSquared() > FMath::Square(Range)) return -1;
+ if (!Delta.IsNearlyZero() && FVector::DotProduct(LockedAttackDirection, Delta.GetSafeNormal2D())
+      < (CurrentAttackRangeMultiplier > 1.2f ? -0.35f : 0.f)) return -1;
+ return CommittedSwordAngle;
 }
 void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
  if (!IsValid(AttackTellMarker)) return;
@@ -675,6 +689,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  const int32 ResolvedSwordAngle = CommittedSwordAngle;
+  CommittedSwordAngle = -1;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
@@ -775,7 +791,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && bDungeonBossAttackDodgeOnly;
     const bool bParried = bDodgeOnlyStrike
       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())
-      : Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation());
+      : (bElite && !bBoss && !bSanctuaryPractice && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle)
+          ? Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage, GetActorLocation(), ResolvedSwordAngle)
+          : Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation()));
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -1422,6 +1440,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      }
     }
    }
+   CommittedSwordAngle = bElite && !bBoss && !bSanctuaryPractice && !bCompanionAttackCommitted
+     ? MoonfallOmniattack::EnemyAngle(Pattern) : -1;
    WindupEndsAt = Now + CurrentWindup;
    // A real visible attack commitment is a defensive assist opportunity,
    // even before the player lands their first strike. Practice foes excluded.

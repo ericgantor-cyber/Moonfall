@@ -210,6 +210,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
+ bool ApplyDirectionalSwordDamageFrom(float Amount, const FVector& SourceLocation, int32 Angle);
  // Explicit dodge-only boss hit, preserving the normal attack API.
  bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
@@ -219,6 +220,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") float GuardBrokenUntil = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardBroken();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
+ // Optional directional guard animation; the existing guard input auto-matches.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDirectionalGuardImpact(int32 Angle, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
@@ -306,6 +309,8 @@ public:
  // Optional authored animations, one slot per hit. Null slots keep gameplay working.
  // These do not replace or alter the original character art.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> ComboMontages;
+ // Optional four angle-specific montages. Existing combo art remains the fallback.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> SwordAngleMontages;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
  // A committed melee swing uses an automatic angle: high/right/low/left.
  // Optional Blueprint hook can play a montage or weapon trail for that angle.
@@ -510,6 +515,7 @@ private:
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
+ int32 IncomingSwordAngle = -1;
  bool bLastIncomingHitParried = false;
  float ParryWindowEndsAt = -1.f;
  float NextParryAt = 0.f;

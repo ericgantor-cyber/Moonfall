@@ -26,6 +26,9 @@ public:
  UStaticMeshComponent* AttackTellMarker = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Short-lived guard memory; only elite non-boss enemies use it.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") int32 SwordGuardAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") float SwordGuardUntil = -1.f;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
  // -1 means no known chamber and must not join dungeon coordination.
  int32 DungeonChamberIndex = -1;
@@ -101,7 +104,10 @@ public:
  void RegisterComboMilestone(int32 Stage);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
+ // Returns only a live, nearby hero-directed elite windup.
+ int32 GetDirectionalWindup(float Now, const FVector& HeroPosition) const;
 private:
+ int32 CommittedSwordAngle = -1;
  void RefreshAttackTellMarker(float Now, bool bReduceMotion);
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
  TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
