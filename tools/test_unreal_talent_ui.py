@@ -166,6 +166,11 @@ for method, action in (("OptionsUp", "TalentMove(0,-1)"),
 for method in ("ZoomCameraIn", "ZoomCameraOut"):
     assert "if (bTalentWebOpen)" in method_segment(method)
     assert "MoonfallTalentWeb::ForViewport(" in method_segment(method)
+    zoom = method_segment(method).split("if (bAtlasOpen)", 1)[0]
+    assert zoom.index("bTalentRespecArmed=false;") < zoom.index("TalentRespecArmUntil=-1.f;") < zoom.index("return;")
+move = pawn.split("void AMoonfallHeroPawn::TalentMove(", 1)[1].split("void AMoonfallHeroPawn::TalentChangeBranch(", 1)[0]
+assert "bTalentRespecArmed=false;" in move
+assert "TalentRespecArmUntil=-1.f;" in move
 npc = method_segment("OpenFocusedResidentContext", "void") + pawn[
     pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext(") + 700:
     pawn.index("void AMoonfallHeroPawn::CastRightMouse(", pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext("))]
