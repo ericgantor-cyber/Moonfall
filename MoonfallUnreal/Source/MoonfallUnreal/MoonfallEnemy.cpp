@@ -7,6 +7,8 @@
 #include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallDungeonLayout.h"
@@ -84,6 +86,45 @@ FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
+ // Native regional bosses and elites receive one static engraved armor batch.
+ // Never overlay authored Blueprint meshes, divine bosses, or practice sentries.
+ const bool bRegionalArt = bBoss && DungeonBossRank>=1 && DungeonBossRank<=5
+     && !DungeonBossFamily.IsNone() && ActorHasTag(FName(TEXT("MoonfallDungeonBoss")));
+ const bool bEliteArt = bElite && !bBoss && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ if (GetClass()==AMoonfallEnemy::StaticClass() && (bRegionalArt || bEliteArt)
+     && IsValid(Body) && Body->GetStaticMesh()
+     && Body->GetStaticMesh()->GetPathName()==TEXT("/Engine/BasicShapes/Sphere.Sphere")
+     && IsValid(AttackTellMarker) && AttackTellMarker->GetStaticMesh()) {
+  UInstancedStaticMeshComponent* Crest=NewObject<UInstancedStaticMeshComponent>(this,TEXT("EnemyHeraldryArt"));
+  if (IsValid(Crest)) {
+   Crest->SetupAttachment(Body);
+   Crest->SetStaticMesh(AttackTellMarker->GetStaticMesh());
+   Crest->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+   Crest->SetCollisionResponseToAllChannels(ECR_Ignore);
+   Crest->SetGenerateOverlapEvents(false);
+   Crest->SetCastShadow(false);
+   Crest->SetCanEverAffectNavigation(false);
+   Crest->SetCullDistances(4500,6500);
+   // Armor follows the scaled body without changing the collision root.
+   for (const float Side : {-1.f,1.f}) {
+    Crest->AddInstance(FTransform(FRotator(0,0,Side*24.f),
+      FVector(0,Side*39.f,16.f),FVector(.34f,.23f,.14f)));
+    Crest->AddInstance(FTransform(FRotator(0,0,Side*18.f),
+      FVector(-9.f,Side*27.f,30.f),FVector(.23f,.12f,.24f)));
+   }
+   if (bRegionalArt) {
+    // Rank-dependent crown silhouette, never a new attack tell or hitbox.
+    const int32 Rank=FMath::Clamp(DungeonBossRank,1,5);
+    for (int32 I=0;I<Rank;++I) {
+     const float Y=(float(I)-float(Rank-1)*.5f)*10.f;
+     Crest->AddInstance(FTransform(FRotator(0,45,0),
+       FVector(-4.f,Y,45.f),FVector(.09f,.09f,.17f)));
+    }
+   }
+   AddInstanceComponent(Crest);
+   Crest->RegisterComponent();
+  }
+ }
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  CachedHero = Player;
