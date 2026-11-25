@@ -3038,6 +3038,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  }
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
+  // WoW-style combat swaps: only weapons, never armor/accessories.
+  if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
   if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
    ++UpgradesEquipped;
  }
@@ -3071,6 +3073,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ // All worn-slot mutations share the combat restriction, including crafted gear.
+ if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
