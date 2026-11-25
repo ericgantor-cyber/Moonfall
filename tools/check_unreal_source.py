@@ -6174,6 +6174,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(hit.index(guard), hit.index("ApplyMoonfallDamage(Amount)"))
         self.assertIn("return bLastIncomingHitParried;", hit)
 
+    def test_movement_and_guard_reject_stale_npc_focus_and_invalid_actor(self):
+        for method, next_method, mutation in (
+            ("TryJump()", "MoveForward(", "Jump();"),
+            ("BeginSprint()", "EndSprint()", "bSprintHeld = true;"),
+            ("BeginGuard()", "EndGuard()", "bGuarding = true;"),
+        ):
+            with self.subTest(method=method):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method, 1)[1].split("void AMoonfallHeroPawn::" + next_method, 1)[0]
+                for guard in ("FocusedResident.IsValid()", "IsActorBeingDestroyed()", "!FMath::IsFinite(Health)"):
+                    self.assertLess(body.index(guard), body.index(mutation))
+
     def test_xp_award_validates_ledger_and_resources(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
