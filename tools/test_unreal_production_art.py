@@ -42,6 +42,25 @@ class ProductionArtTests(unittest.TestCase):
                 for v,t in face:
                     self.assertTrue(1<=v<=len(vertices))
                     self.assertTrue(1<=t<=len(uv))
+    def test_world_mesh_bindings_preserve_fallbacks_and_collision(self):
+        src = ROOT / "Source" / "MoonfallUnreal"
+        shrine = (src / "MoonfallCheckpointShrine.cpp").read_text()
+        arena = (src / "MoonfallArena.cpp").read_text()
+        for token in ("SM_MF_LunarReliquary", "Bounds.IsValid", "FMath::IsFinite(Span)",
+                      "ShrineBase->SetStaticMesh(Imported)", "ShrineBeacon->SetVisibility(false)",
+                      "DiscoveryRange->InitSphereRadius(220.f)"):
+            self.assertIn(token, shrine)
+        self.assertLess(shrine.index("ShrineBase->SetStaticMesh(Imported)"), shrine.index("ShrineBeacon->SetVisibility(false)"))
+        for token in ("SM_MF_GothicColumn", "ColumnBounds.IsValid", "Size.GetMin()>0.1f",
+                      "ImportedColumns->SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                      "ImportedColumns->SetCanEverAffectNavigation(false)",
+                      "Pieces==MoonfallSanctuaryArchitecture::GothicStone",
+                      "Piece.ScaleZ>=4.9f", "ImportedColumns->AddInstance(",
+                      "Details->AddInstance(FTransform(", "DungeonRoad->SetStaticMesh(Cube.Object)"):
+            self.assertIn(token, arena)
+        self.assertLess(arena.index("ImportedColumns->AddInstance("), arena.index("ImportedColumns->RegisterComponent()"))
+        self.assertIn("!=INDEX_NONE)\n     continue;", arena)
+        
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
