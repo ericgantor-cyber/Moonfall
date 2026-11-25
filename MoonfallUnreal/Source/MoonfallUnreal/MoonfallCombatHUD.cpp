@@ -146,7 +146,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FMath::IsFinite(Hero->TalentWebNoticeUntil) && !Hero->TalentWebNotice.IsEmpty() &&
       Hero->TalentWebNoticeUntil > NoticeNow;
   DrawText(bShowNotice ? Hero->TalentWebNotice
-       : TEXT("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan"),
+       : TEXT("D-pad: select / branch | R stick: pan | LB/RB: zoom"),
       bShowNotice ? (Hero->bTalentWebNoticeSuccess ? Teal : Gold)
        : FLinearColor(0.74f,0.81f,0.92f),
       P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
