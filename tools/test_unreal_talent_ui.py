@@ -184,7 +184,7 @@ assert "SwordBuffer.Clear();" in web
 assert "GetCharacterMovement()->StopMovementImmediately()" in web
 assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
-assert "TalentRespecArmUntil=Now+10.0f;" in web
+assert "TalentRespecArmUntil=Now+3.0f;" in web
 assert "MoonfallTalentWeb::HitNode(" in web
 pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
 branch_tab = pointer.split("if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y))", 1)[1].split("if (MoonfallTalentWeb::SpendRect", 1)[0]
@@ -212,4 +212,4 @@ assert confirm.index("Snapshot.Spent<=0") < confirm.index("RespecTalentPoints();
 spend = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
 assert spend.index("if (bCancelReset)return;") < spend.index("SpendTalentPoint(TalentWebSelected);")
 assert "MoonfallTalentWeb::RespecPending(" in spend
-assert "TalentRespecArmUntil=Now+10.0f;" in confirm
+assert "TalentRespecArmUntil=Now+3.0f;" in confirm
