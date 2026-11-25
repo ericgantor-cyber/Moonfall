@@ -29,8 +29,13 @@ public:
  static constexpr int32 TotalDungeons = DungeonZoneCount * DungeonsPerZone;
  static constexpr float DungeonLaneSpacing = 1350.f;
 
+ // Independent opt-outs for authored maps; legacy startup remains default-on.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
+ bool bSpawnLegacyArena = true;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|World")
+ bool bEnableLivingWorldPulse = true;
  // Default remains two layouts per timer pulse. Designers may tune startup
  // throughput without removing the elapsed-time or hard slot ceiling.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="1", ClampMax="8"))

@@ -4576,6 +4576,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("name: Preserve native dungeon test evidence"))
         self.assertIn("if: always()", workflow)
 
+    def test_world_startup_map_isolation_preserves_default_behaviour(self):
+        header = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        start = mode.split("void AMoonfallUnrealGameMode::BeginPlay()", 1)[1].split("void AMoonfallUnrealGameMode::EndPlay(", 1)[0]
+        for flag in ("bSpawnLegacyArena", "bGenerateDungeonWorld", "bEnableLivingWorldPulse"):
+            self.assertIn(f"bool {flag} = true;", header)
+        arena = start.split("if (bSpawnLegacyArena) {", 1)[1].split("\n }", 1)[0]
+        self.assertIn("GetWorld()->SpawnActor<AMoonfallArena>", arena)
+        self.assertEqual(start.count("GetWorld()->SpawnActor<AMoonfallArena>"), 1)
+        self.assertIn("if (bEnableLivingWorldPulse)\n  GetWorldTimerManager().SetTimer(LivingWorldPulseTimer", start)
+        self.assertIn("if (bDungeonStartupStopped || !GetWorld() || IsActorBeingDestroyed()) return;", start)
+        self.assertLess(start.index("if (!bGenerateDungeonWorld) return;"), start.index("SpawnDungeonBatch();"))
+
     def test_resident_quest_xp_is_committed_with_contract_and_rolls_back(self):
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         self.assertEqual(body.count("SaveWorldProgress()"), 1)
