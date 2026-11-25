@@ -1170,7 +1170,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.Num() >= 30", award)
         self.assertNotIn("DiscardIndex", award)
         self.assertNotIn("DiscardedCode", award)
-        self.assertNotIn("InventoryItemCodes.RemoveAt(", award)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", award.split("if (!SaveWorldProgress())", 1)[0])
+        self.assertEqual(award.count("InventoryItemCodes.RemoveAt("), 1)
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", award.split("if (!SaveWorldProgress())", 1)[1].split("return;", 1)[0])
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", award)
         # A failed disk write must not consume ground loot. The rollback is
         # explicitly inside the failed-save branch, never on successful pickup.
