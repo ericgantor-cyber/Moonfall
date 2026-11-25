@@ -1015,6 +1015,8 @@ void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool 
 
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
+ if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return false;
  if (bResolvingCombatAction) return false;
  TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
  if (bTalentWebOpen) return false;
@@ -1046,6 +1048,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   FHitResult Hit;
   const FVector Origin = FollowCamera->GetComponentLocation();
   const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  if (Origin.ContainsNaN() || End.ContainsNaN()) return false;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
@@ -1421,6 +1424,8 @@ void AMoonfallHeroPawn::ResetMeleeHitCombo()
 // No animation asset is required; the Blueprint event can add authored trails.
 void AMoonfallHeroPawn::MeleeAttack()
 {
+ if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return;
  if (bResolvingCombatAction) return;
  TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
 
@@ -1439,7 +1444,7 @@ void AMoonfallHeroPawn::MeleeAttack()
  if (Stamina < Cost) return;
  const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
  const FVector Position = GetActorLocation();
- if (Facing.IsNearlyZero() || Position.ContainsNaN()) return;
+ if (Facing.ContainsNaN() || Facing.IsNearlyZero() || Position.ContainsNaN()) return;
 
  // A click spends its stamina and recovery even when it misses. Do not
  // advance the angle on menu clicks, invalid input or cooldown spam.
@@ -1622,6 +1627,8 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+ if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return;
 
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
@@ -1692,6 +1699,8 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
+ if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return;
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
