@@ -827,7 +827,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer", setup)
         self.assertIn("if (bInventoryScrollbarDragging)", tick)
         self.assertIn("ScrollInventoryToMouseTrack();", tick)
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f", tick)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f", tick)
         self.assertIn("bInventoryScrollbarDragging = false;", release)
         self.assertIn("!bInventoryScrollbarDragging &&", scroll)
         self.assertIn("bInventoryScrollbarDragging = true;", scroll)
@@ -1464,7 +1464,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;", body)
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;", body)
         self.assertIn("const int32 EquippedCodes[3]", body)
         self.assertIn("BestScores[3]", body)
         self.assertIn("InventoryItemCodes.Num()", body)

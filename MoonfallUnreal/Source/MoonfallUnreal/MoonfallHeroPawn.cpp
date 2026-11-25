@@ -435,7 +435,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  } else AutoLootElapsed = 0.f;
  // Only track pointer motion while dragging the inventory scrollbar.
  if (bInventoryScrollbarDragging) {
-  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
+  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f)
    bInventoryScrollbarDragging = false;
   else
    ScrollInventoryToMouseTrack();
@@ -480,8 +480,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
   }
  } else {
-  DefeatElapsedSeconds += SafeTimerDelta;
-  if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+  // Give players unlimited time to select equipment while defeated.
+  if (!bInventoryOpen) {
+   DefeatElapsedSeconds += SafeTimerDelta;
+   if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+  }
  }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
@@ -716,7 +719,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   bInventoryScrollbarDragging = false;
   return false;
  }
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -759,7 +762,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 
 bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -782,7 +785,7 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -804,7 +807,7 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -853,7 +856,7 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 
 int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return INDEX_NONE;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
@@ -895,7 +898,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
   return;
  }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
- if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+ if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
@@ -914,7 +917,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
   return;
  }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
- if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+ if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
@@ -2028,7 +2031,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
- if (bOptionsOpen || Health <= 0.f) return;
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f) return;
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2269,7 +2272,9 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 void AMoonfallHeroPawn::OpenOptions() {
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
- // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ // The bag is the sole exception: Esc/X closes it without opening Options.
+ if (Health == 0.f && bInventoryOpen) { ToggleInventory(); return; }
+ // The defeat screen owns other input until respawn; do not reopen other gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bAtlasOpen) { ToggleAtlas(); return; }
  if (bInventoryOpen) {
@@ -3001,7 +3006,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // Only a deliberate input while viewing inventory can change worn equipment.
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
      || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
+ if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
  int32 BestIndices[3] = {-1, -1, -1};
@@ -3058,8 +3063,9 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  // Direct callers must honor the same inventory-only modal boundary as UI actions.
  if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
-     || bAtlasOpen || bResidentContextOpen || Health <= 0.f
-     || !FMath::IsFinite(Health)
+     || bAtlasOpen || bResidentContextOpen || Health < 0.f
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth < 1.f
+     || bWorldProgressLoadInProgress
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -3084,6 +3090,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  // equipment may influence the max-health delta when changing armor.
  const int32 PreviousTier = PreviousTierOverride >= 0
      ? FMath::Clamp(PreviousTierOverride, 0, 25) : GetValidatedEquippedTier(SlotIndex);
+ // Record only the chosen owned code; never add an item to a checkpoint.
+ if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
@@ -3095,7 +3103,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
   const float HealthDelta = 2.f * (Tier - PreviousTier);
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
-  Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
+  if (Health > 0.f) Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
+  else Health = 0.f;
   if (!bEquipmentCraftInProgress) OnHealthChanged(Health, MaxHealth);
  }
  return true;
@@ -4104,6 +4113,20 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ // A defeated loadout may select only gear still owned after checkpoint restore.
+ // Reconcile armor capacity against the saved armor tier exactly once.
+ if (DefeatedEquipmentSelection[0] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
+  RestoreGear(DefeatedEquipmentSelection[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
+ if (DefeatedEquipmentSelection[1] && MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[1], 1)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[1])) {
+  const float NewCap = FMath::Max(1.f, MaxHealth + 2.f * ((DefeatedEquipmentSelection[1] % 1000) - ArmorTier));
+  if (FMath::IsFinite(NewCap) && NewCap <= 100000.f) {
+   RestoreGear(DefeatedEquipmentSelection[1], 1, EquippedArmorCode, ArmorTier, ArmorAffix);
+   MaxHealth = NewCap;
+  }
+ }
+ if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
+  RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  // Six native spell schools; a stale or externally edited save must never
@@ -4158,6 +4181,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   Stamina = FMath::Max(0.f, MaxStamina);
   OnHealthChanged(Health, MaxHealth);
  }
+ // Close a defeated bag on forced respawn, but only after recovery succeeded.
+ if (bInventoryOpen) ToggleInventory();
+ const bool bReadyDefeatedWeapon = DefeatedEquipmentSelection[0] != 0
+     && DefeatedEquipmentSelection[0] == EquippedWeaponCode;
+ for (int32& Code : DefeatedEquipmentSelection) Code = 0;
+ if (bReadyDefeatedWeapon) ReadyRightHandWeapon();
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.

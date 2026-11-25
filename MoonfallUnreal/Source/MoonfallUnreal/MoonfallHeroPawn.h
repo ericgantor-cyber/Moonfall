@@ -611,5 +611,7 @@ private:
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
  bool bEquipmentCraftInProgress = false;
+ // Session-only owned gear choices made at zero HP; never serialized as loot.
+ int32 DefeatedEquipmentSelection[3] = {0, 0, 0};
  bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };
