@@ -37,9 +37,13 @@ static func decode(path: String) -> Dictionary:
  return data
 
 static func commit_checkpoint(data:Dictionary,staging:String,primary:String,backup:String,expected_kills:int,expected_hero:String) -> String:
+ # Refuse oversized payloads before truncating the staging file.
+ # A rejected checkpoint must never replace the last valid primary.
+ var payload:String=JSON.stringify(data)
+ if payload.to_utf8_buffer().size()>MAX_SAVE_BYTES:return "INVALID STAGING"
  var file:=FileAccess.open(staging,FileAccess.WRITE)
  if file==null:return "WRITE FAILED"
- file.store_string(JSON.stringify(data))
+ file.store_string(payload)
  file.flush()
  file.close()
  var staged:Dictionary=decode(staging)
@@ -58,5 +62,11 @@ static func commit_checkpoint(data:Dictionary,staging:String,primary:String,back
    if DirAccess.remove_absolute(primary_abs)==OK:
     result=DirAccess.rename_absolute(staging_abs,primary_abs)
     if result!=OK:DirAccess.copy_absolute(backup_abs,primary_abs)
- if result!=OK or decode(primary).is_empty():return "COMMIT FAILED"
+ if result!=OK:return "COMMIT FAILED"
+ # Verify the promoted checkpoint. If storage corruption occurs after the
+ # staging check, restore the verified backup instead of leaving a bad save.
+ if decode(primary).is_empty():
+  if not decode(backup).is_empty():
+   DirAccess.copy_absolute(backup_abs,primary_abs)
+  return "COMMIT FAILED"
  return "OK"

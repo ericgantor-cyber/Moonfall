@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Original Moonfall eclipse crest, a gold-edged lunar relic with blue violet radiance">
+  <title>Moonfall · Eclipse Crest</title>
+  <desc>Original dark fantasy interface crest. Decorative moon and ward motif; no game character artwork.</desc>
+  <defs>
+    <linearGradient id="iron" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#30435a"/>
+      <stop offset=".45" stop-color="#0b1225"/>
+      <stop offset="1" stop-color="#1d132c"/>
+    </linearGradient>
+    <linearGradient id="gold" x1=".1" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#fff0bc"/>
+      <stop offset=".28" stop-color="#b08a44"/>
+      <stop offset=".63" stop-color="#6d492d"/>
+      <stop offset="1" stop-color="#e7c883"/>
+    </linearGradient>
+    <linearGradient id="aether" x1=".18" y1=".9" x2=".88" y2=".08">
+      <stop offset="0" stop-color="#4a327d"/>
+      <stop offset=".5" stop-color="#658ed6"/>
+      <stop offset="1" stop-color="#b5e6fd"/>
+    </linearGradient>
+    <radialGradient id="bloom">
+      <stop offset="0" stop-color="#8ec9ff" stop-opacity=".55"/>
+      <stop offset=".55" stop-color="#8055d2" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#060913" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="crescent">
+      <rect width="512" height="512" fill="black"/>
+      <circle cx="262" cy="246" r="106" fill="white"/>
+      <circle cx="299" cy="222" r="94" fill="black"/>
+    </mask>
+  </defs>
+  <circle cx="256" cy="256" r="230" fill="url(#bloom)"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 16 284 95 256 113 228 95Z M496 256 417 284 399 256 417 228Z M256 496 228 417 256 399 284 417Z M16 256 95 228 113 256 95 284Z" fill="url(#iron)" stroke="url(#gold)" stroke-width="6"/>
+    <path d="m102 102 58 31-27 27ZM410 102l-58 31 27 27ZM410 410l-58-31 27-27ZM102 410l58-31-27-27Z" fill="#0e1830" stroke="#ad8654" stroke-width="4"/>
+    <circle cx="256" cy="256" r="165" fill="url(#iron)" stroke="url(#gold)" stroke-width="15"/>
+    <circle cx="256" cy="256" r="151" stroke="#d6b983" stroke-width="2" opacity=".75"/>
+    <circle cx="256" cy="256" r="136" stroke="#4f719a" stroke-width="3" opacity=".65"/>
+    <path d="M256 122v42m0 184v42M122 256h42m184 0h42" stroke="#c7a265" stroke-width="4"/>
+    <path d="M162 162l29 29m130 130 29 29M350 162l-29 29M191 321l-29 29" stroke="#b1a0ce" stroke-width="3"/>
+    <path d="M256 147 277 201 334 220 277 239 256 297 235 239 178 220 235 201Z" fill="#111c35" stroke="#6589ba" stroke-width="4" opacity=".82"/>
+    <path d="M256 334v55m-14-18 14 22 14-22M194 350l18 15m106-15-18 15" stroke="#bc9f73" stroke-width="3"/>
+  </g>
+  <circle cx="256" cy="247" r="111" fill="#090f20" opacity=".88"/>
+  <circle cx="256" cy="247" r="113" fill="url(#aether)" mask="url(#crescent)" opacity=".94"/>
+  <path d="M265 164 281 216 327 246 281 264 265 326 244 264 203 246 244 216Z" fill="url(#aether)" stroke="#e4d4f7" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M264 194v109m-39-57h78" fill="none" stroke="#ecf5ff" stroke-width="2.5" opacity=".75"/>
+  <circle cx="265" cy="246" r="17" fill="#12213c" stroke="#cfeaff" stroke-width="4"/>
+  <path d="m256 88 9-16 9 16-9 18Z m-1 328 9-16 9 16-9 18Z" fill="#dab879" stroke="#392e35" stroke-width="2"/>
+  <g fill="#f1c98a" opacity=".95">
+    <circle cx="119" cy="256" r="4"/><circle cx="393" cy="256" r="4"/>
+    <circle cx="256" cy="119" r="4"/><circle cx="256" cy="393" r="4"/>
+  </g>
+</svg>

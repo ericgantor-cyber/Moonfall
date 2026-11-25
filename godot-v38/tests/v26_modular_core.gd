@@ -59,6 +59,12 @@ func _run() -> void:
  check(int(STORE.decode(primary)["gold"])==99 and int(STORE.decode(backup)["gold"])==5,"previous checkpoint backed up")
  check(STORE.commit_checkpoint(save2,pending,primary,backup,999,"z")=="INVALID STAGING","staging identity mismatch rejected")
  check(int(STORE.decode(primary)["gold"])==99,"failed staging preserves primary checkpoint")
+ # Reject a checkpoint that the decoder could never read, without damaging
+ # either existing recovery copy or replacing the primary.
+ var oversized:Dictionary=save2.duplicate(true)
+ oversized["optional_resources"]={"padding":"x".repeat(STORE.MAX_SAVE_BYTES+1)}
+ check(STORE.commit_checkpoint(oversized,pending,primary,backup,7,"z")=="INVALID STAGING","oversized checkpoint rejected before promotion")
+ check(int(STORE.decode(primary).get("gold",-1))==99 and int(STORE.decode(backup).get("gold",-1))==5,"oversized write preserves both recovery copies")
  var f:=FileAccess.open("user://v26_corrupt.json",FileAccess.WRITE)
  if f!=null:
   f.store_string('{"schema":2,"hero":"z","at":[0,0],"hp":"invalid"}')

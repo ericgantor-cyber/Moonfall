@@ -3,11 +3,25 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
+      - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
+      - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
+      - '.github/workflows/unreal-hosted-windows.yml'
+      - '.github/workflows/unreal-windows-build.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
+      - 'tools/test_unreal_*.py'
+      - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_v27_*.cpp'
+      - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
+      - '.github/workflows/unreal-hosted-windows.yml'
+      - '.github/workflows/unreal-windows-build.yml'
 jobs:
   source-check:
     runs-on: ubuntu-latest
@@ -47,8 +61,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
@@ -67,13 +81,130 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          # Context-aware mouse handlers preserve combat when not on an NPC.
+          assert 'ActionName="ResidentMouseClick",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=Z' in inputs
+          assert 'ActionName="CastRight",Key=X' in inputs
+          assert 'RightHandAction(); return;' in hero and 'CastRight();' in hero
+          assert 'ActionName="TalkNPC"' not in inputs
+          assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
-          assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
+          assert 'DisplayHealth = Hero->bReduceMotion ? ActualHealth : FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
+
+      # Check the actual game integration contracts on every Unreal source change.
+      # This is not a native UE5 build; use the dedicated Windows engine runner for that.
+      - name: Run complete Unreal integration regression tests
+        shell: bash
+        run: python3 tools/check_unreal_source.py
+
+      - name: Compile and run original 141-node UE5 talent rules (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_rules.cpp -o /tmp/moonfall_talent_rules
+          /tmp/moonfall_talent_rules
+
+      - name: Verify every UE5 talent matches the canonical 141-node catalog
+        shell: bash
+        run: python3 tools/test_unreal_talent_catalog_parity.py
+
+      - name: Validate UE5 V13 talent save, load and rollback contracts
+        shell: bash
+        run: python3 tools/test_unreal_talent_save_v13.py
+
+      - name: Compile and test full 141-node talent-web layout and hit-testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_web.cpp -o /tmp/moonfall_talent_web
+          /tmp/moonfall_talent_web
+
+      - name: Verify shared UE5 panel chrome, focus highlights and compact accessibility
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_modal_panels
+
+      - name: Verify 12 saved racial passives and C character ancestry pages
+        shell: bash
+        run: python3 tools/test_unreal_character_race_pages.py
+
+      - name: Verify creator-to-gameplay ancestry save-backed confirmation
+        shell: bash
+        run: python3 tools/test_unreal_creator_gameplay_bridge.py
+
+      - name: Verify playable talent web input, modal safety and native HUD contracts
+        shell: bash
+        run: python3 tools/test_unreal_talent_ui.py
+
+      - name: Verify red damage feedback and talent-web defeat recovery
+        shell: bash
+        run: python3 tools/test_unreal_live_menu_damage.py
+
+      - name: Verify WASD and arrow keys are movement-only across engines
+        shell: bash
+        run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
+
+      - name: Verify native Omniattack and movement-only keyboard controls
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_omniattack
+
+      - name: Verify buffered sword combos and enemy NPC pause behavior
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_buffer
+
+      - name: Verify Shattered Sanctuary gothic architecture and safe paths
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_sanctuary_architecture
+
+      - name: Verify Firstlight tutorial and safe practice sentry AI
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_firstlight_training
+
+      - name: Verify six-region climate and living-world runtime
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_living_world_runtime
+
+      - name: Compile and execute V27 living AI policies (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tools/test_v27_living_world_policy.cpp tools/test_v27_npc_policy.cpp; do
+            g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 -I MoonfallUnreal/Source/MoonfallUnreal "$test" -o /tmp/moonfall_v27_policy
+            /tmp/moonfall_v27_policy
+          done
+
+      - name: Verify UE5 combat momentum and immediate flinch regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_integrity
+
+      - name: Verify native Spell Book catalog, layout, and modal controls
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_spellbook
+
+      # Guard the safety invariants that protect equipment ownership and pickups.
+      # These are source contracts, not a native Unreal Engine compile or runtime test.
+      - name: Run Unreal equipment and loot safety regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            tools.test_unreal_equipment_stat_validation \
+            tools.test_unreal_loot_collection_safety
+
+      - name: Verify combat HUD scan regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_combat_hud_scan
+
+      - name: Verify enemy navigation budget regressions
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_enemy_path_budget
+
+      - name: Verify cooked content gates for Windows installer
+        shell: bash
+        run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
 
       - name: Parse Windows build scripts
         shell: pwsh
@@ -88,6 +219,39 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error in $($script.FullName): $($errors -join '; ')" }
             Write-Host "Parsed $($script.Name)"
           }
+
+      - name: Parse GitHub-hosted Unreal inline PowerShell
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(Get-Content -LiteralPath '.github/workflows/unreal-hosted-windows.yml')
+          $parsed = 0
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -notmatch '^\s{8}run:\s*\|\s*$') { continue }
+            $body = [System.Collections.Generic.List[string]]::new()
+            for ($j = $i + 1; $j -lt $lines.Count; $j++) {
+              $line = $lines[$j]
+              if ($line.Trim().Length -gt 0 -and $line -notmatch '^\s{10,}') { break }
+              if ($line -match '^\s{10}') {
+                $body.Add($line.Substring(10))
+              } else {
+                $body.Add('')
+              }
+            }
+            if ($body.Count -eq 0) { throw "Empty inline script at workflow line $($i + 1)" }
+            # Github replaces expression tokens before executing run blocks.
+            # Parse a neutral stand-in to catch genuine PowerShell syntax mistakes.
+            $source = [regex]::Replace(($body -join [Environment]::NewLine), '\$\{\{.*?\}\}', '0')
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              throw "Hosted Unreal inline PowerShell parse error at workflow line $($i + 1): $($errors -join '; ')"
+            }
+            $parsed++
+          }
+          if ($parsed -lt 6) { throw "Expected at least six hosted PowerShell run blocks, parsed $parsed" }
+          Write-Host "Parsed $parsed hosted Unreal PowerShell blocks. Native UE5 compilation NOT performed."
 
       - name: Test Unreal 5.4 engine guard with synthetic installations
         shell: pwsh

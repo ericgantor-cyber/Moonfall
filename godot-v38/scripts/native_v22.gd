@@ -173,21 +173,32 @@ func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:D
  icon.shaded=false
  (drop["node"] as Node3D).add_child(icon)
 
+func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
+ super._inventory_tile(grid,gear,index)
+ # The compact inventory now uses clickable tiles, not one Equip button per item.
+ if grid.get_child_count()==0:return
+ var tile:Button=grid.get_child(grid.get_child_count()-1) as Button
+ if tile==null:return
+ tile.icon=_gear_icon(str(gear.get("name","")))
+ tile.icon_alignment=HORIZONTAL_ALIGNMENT_LEFT
+ tile.expand_icon=false
+
 func _menu_tab(which:String) -> void:
  super._menu_tab(which)
  if which=="Inventory":
-  var selected_name := str(equipped.get("name","Relic"))
-  if equipped.is_empty() and not gear_items.is_empty():selected_name=str(gear_items[0].get("name","Relic"))
+  var selected_name:String=str(equipped.get("name","Relic"))
+  var source:Array=vault_items if inventory_show_vault else gear_items
+  if inventory_selected_index>=0 and inventory_selected_index<source.size():
+   selected_name=str(source[inventory_selected_index].get("name","Relic"))
+  elif equipped.is_empty() and not source.is_empty():
+   selected_name=str(source[0].get("name","Relic"))
   beast_guide.texture=_gear_icon(selected_name)
-  var index := 0
   for child in menu_buttons.get_children():
-   if child is Button and not child.is_queued_for_deletion() and child.text.begins_with("EQUIP:"):
-    if index < gear_items.size():
-     child.icon=_gear_icon(str(gear_items[index].get("name","")))
-     child.icon_alignment=HORIZONTAL_ALIGNMENT_LEFT
-     child.expand_icon=false
-     index+=1
-  menu_body.text += "\n[b]V22 EQUIPMENT ART:[/b] Item icons appear beside the equip buttons and on gear drops."
+   if child is Button and not child.is_queued_for_deletion() and (child.text.begins_with("EQUIP SELECTED:") or child.text.begins_with("EQUIPPED:")):
+    child.icon=_gear_icon(selected_name)
+    child.icon_alignment=HORIZONTAL_ALIGNMENT_LEFT
+    child.expand_icon=false
+  menu_body.text += "\n[b]EQUIPMENT ART:[/b] Icons appear on inventory tiles and the selected equip action."
  elif which=="Bestiary":
   menu_body.text=menu_body.text.replace("simple native 3D placeholders in-world","distinct 3D anatomy and species detailing in-world")
 

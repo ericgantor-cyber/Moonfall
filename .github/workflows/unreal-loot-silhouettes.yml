@@ -1,0 +1,20 @@
+name: UE5 ground loot art regression
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.h'
+      - 'tools/test_unreal_ground_loot_silhouettes.py'
+      - '.github/workflows/unreal-loot-silhouettes.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.h'
+      - 'tools/test_unreal_ground_loot_silhouettes.py'
+      - '.github/workflows/unreal-loot-silhouettes.yml'
+jobs:
+  pickup-art-source-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest -v tools.test_unreal_ground_loot_silhouettes

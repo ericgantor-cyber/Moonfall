@@ -1,0 +1,38 @@
+name: UE5 Northern Expanse data-only catalog checks
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'tools/test_unreal_north_catalog_only.cpp'
+      - '.github/workflows/unreal-north-catalog-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-catalog:
+    name: C++17 catalog (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test with GCC
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_catalog_only.cpp -o /tmp/moonfall_north_catalog
+          /tmp/moonfall_north_catalog
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and test with MSVC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_north_catalog_only.cpp /Fe:moonfall_north_catalog.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_north_catalog.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

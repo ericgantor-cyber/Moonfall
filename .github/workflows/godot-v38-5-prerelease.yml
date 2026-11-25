@@ -11,9 +11,9 @@ on:
         required: true
         type: string
       release_tag:
-        description: "New prerelease tag, e.g. v38.5-rc1"
+        description: "New prerelease tag, e.g. v38.5-rc2"
         required: true
-        default: "v38.5-rc1"
+        default: "v38.5-rc2"
         type: string
 permissions:
   actions: read
@@ -24,10 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate successful merged-main Windows build
+        id: validate
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
-          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -37,9 +38,20 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = success
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = main
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = "Moonfall v38.3 Godot Windows build and installer"
+          # Auto-publish rc2 only once; never overwrite any existing prerelease.
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+              echo "Existing prerelease $RELEASE_TAG preserved; no new publication."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Release tag already exists: $RELEASE_TAG. Choose an unused RC tag."
+            exit 1
+          fi
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then echo "Release tag already exists"; exit 1; fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
       - name: Download artifacts from verified Windows run
+        if: steps.validate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}
@@ -66,20 +78,24 @@ jobs:
           PY
           find windows -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
       - name: Bundle versioned download archives
+        if: steps.validate.outputs.publish == 'true'
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          (cd windows/installer && zip -r ../../Moonfall-v38.5-rc1-Windows-Installer.zip .)
-          (cd windows/portable && zip -r ../../Moonfall-v38.5-rc1-Windows-Portable.zip .)
-          sha256sum Moonfall-v38.5-rc1-Windows-*.zip > RELEASE_SHA256SUMS.txt
+          (cd windows/installer && zip -r "../../Moonfall-${RELEASE_TAG}-Windows-Installer.zip" .)
+          (cd windows/portable && zip -r "../../Moonfall-${RELEASE_TAG}-Windows-Portable.zip" .)
+          sha256sum "Moonfall-${RELEASE_TAG}-Windows-Installer.zip" "Moonfall-${RELEASE_TAG}-Windows-Portable.zip" > RELEASE_SHA256SUMS.txt
       - name: Publish as PRERELEASE only
+        if: steps.validate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v38.5-rc1' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc2' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" Moonfall-v38.5-rc1-Windows-Installer.zip Moonfall-v38.5-rc1-Windows-Portable.zip RELEASE_SHA256SUMS.txt \
+          gh release create "$RELEASE_TAG" "Moonfall-${RELEASE_TAG}-Windows-Installer.zip" "Moonfall-${RELEASE_TAG}-Windows-Portable.zip" RELEASE_SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --target main --prerelease \
             --title "Moonfall v38.5 Windows Release Candidate" \
             --notes "Godot six-region Moonfall prerelease. Windows workflow build and installer checks passed; human playtesting on Windows 10/11 is outstanding. Z and Nyra's original art preserved. Back up saves before testing."

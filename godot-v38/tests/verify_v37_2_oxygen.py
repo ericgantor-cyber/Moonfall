@@ -15,7 +15,7 @@ for line in manifest.read_text().splitlines():
 checks={
  'Main scene inherits optional dive logic':active_scene_inherits(root,'native_v37_2.gd') and active_scene_inherits(root,'native_v37_0.gd'),
  'Oxygen is bounded at 100 and drains only underwater':all(k in rules for k in ('MAX_OXYGEN:float=100.0','DRAIN_PER_SECOND:float=4.0','REFILL_PER_SECOND:float=25.0','if underwater else','clampf(current+change,0.0,MAX_OXYGEN)')),
- 'Diving requires lake, gameplay, no menu, no mount or death':'can_dive(v37_swimming,hero_playing,menu_open,mounted,death_active)' in logic and 'and playing and not paused and not mounted and not dead' in rules,
+ 'Menu overlays cannot pause underwater oxygen':'can_dive(v37_swimming,hero_playing,false,mounted,death_active)' in logic and 'and playing and not paused and not mounted and not dead' in rules,
  'Surface air recovery and land reset':'V372_OXYGEN.advance(v372_oxygen,delta,v372_diving)' in logic and 'v372_oxygen=V372_OXYGEN.MAX_OXYGEN' in logic,
  'HUD has clear low oxygen warning and bar':'v372_oxygen_panel' in logic and 'v372_oxygen_bar.value=v372_oxygen' in logic and 'LOW OXYGEN' in logic,
  'Oxygen depletion is handled via existing damage path':'_apply_incoming_damage(V372_OXYGEN.damage_tick(max_hp))' in logic,

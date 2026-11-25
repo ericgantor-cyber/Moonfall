@@ -64,7 +64,7 @@ func _aim_candidate(radius:float)->Dictionary:
   to_enemy.y=0.0
   var distance:float=to_enemy.length_squared()
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
-  if aim_locked_id>=0 and beasts.find(beast)==aim_locked_id:locked=beast
+  if aim_locked_id>=0 and body.get_instance_id()==aim_locked_id:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
   var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
@@ -85,7 +85,9 @@ func _toggle_aim_lock()->void:
  if target.is_empty():
   _show_message("No target in aim",0.8)
   return
- aim_locked_id=beasts.find(target)
+ var target_body:CharacterBody3D=target.get("body") as CharacterBody3D
+ if not is_instance_valid(target_body):return
+ aim_locked_id=target_body.get_instance_id()
  _show_message("Target locked",0.8)
 
 func _start_game(selected_hero:String)->void:
@@ -93,6 +95,7 @@ func _start_game(selected_hero:String)->void:
  aim_locked_id=-1
 
 func _spell(which:String)->void:
+ # Aimed fire obeys the same live-world behavior as inherited spells.
  if which!="fire":
   super._spell(which)
   return
@@ -102,7 +105,15 @@ func _spell(which:String)->void:
  if target.is_empty():
   _show_message("Aim at a visible enemy for Eclipse Flame.",1.0)
   return
+ var cost:float=_v385_spell_mana_cost("fire")
+ if v385_mana<cost:
+  _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
+  return
+ # Commit the cast only after a live target and sufficient mana are verified.
+ v385_mana-=cost
  ability_cooldown=3.5*maxf(0.65,1.0-0.08*float(_perk_rank("celerity")))
+ v406_damage_context="magic"
  var power:float=35.0*_hero_damage_multiplier()*(1.0+0.08*float(_perk_rank("focus")))
  _apply_player_hit(target,power,0.18)
+ v406_damage_context=""
  _show_message("Eclipse Flame: aimed hit!",0.9)

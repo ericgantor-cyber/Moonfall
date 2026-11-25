@@ -1,7 +1,16 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallUnrealGameMode.h"
+#include "MoonfallWorldNPC.h"
+#include "MoonfallAttackTellVisual.h"
+#include "MoonfallEliteTactics.h"
+#include "MoonfallOmniattack.h"
+#include "MoonfallPracticeAI.h"
+#include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallDungeonLayout.h"
+#include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
@@ -9,6 +18,7 @@
 #include "DrawDebugHelpers.h"
 #include "CollisionQueryParams.h"
 #include "EngineUtils.h"
+#include "Misc/GuardValue.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -16,22 +26,89 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  // One non-colliding, render-only attack cue per enemy; preserve the collision root.
+  AttackTellMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AttackTellMarker"));
+  AttackTellMarker->SetupAttachment(Body);
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> TellCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  if (TellCube.Succeeded()) AttackTellMarker->SetStaticMesh(TellCube.Object);
+  AttackTellMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  AttackTellMarker->SetCollisionResponseToAllChannels(ECR_Ignore);
+  AttackTellMarker->SetGenerateOverlapEvents(false);
+  AttackTellMarker->SetCastShadow(false);
+  AttackTellMarker->SetVisibility(false);
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
+int32 AMoonfallEnemy::GetDirectionalWindup(float Now, const FVector& HeroPosition) const {
+ if (!bElite || bBoss || bCompanionAttackCommitted || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(Now) || !FMath::IsFinite(WindupEndsAt) || WindupEndsAt <= Now
+     || !FMath::IsFinite(AttackRange) || AttackRange <= 0.f
+     || !FMath::IsFinite(CurrentAttackRangeMultiplier) || CurrentAttackRangeMultiplier <= 0.f
+     || LockedAttackDirection.ContainsNaN() || HeroPosition.ContainsNaN() || !MoonfallOmniattack::ValidAngle(CommittedSwordAngle)) return -1;
+ const FVector Delta = HeroPosition - GetActorLocation();
+ const float Range = FMath::Clamp(AttackRange * CurrentAttackRangeMultiplier + 60.f, 0.f, 650.f);
+ if (Delta.ContainsNaN() || Delta.SizeSquared() > FMath::Square(Range)) return -1;
+ if (!Delta.IsNearlyZero() && FVector::DotProduct(LockedAttackDirection, Delta.GetSafeNormal2D())
+      < (CurrentAttackRangeMultiplier > 1.2f ? -0.35f : 0.f)) return -1;
+ return CommittedSwordAngle;
+}
+void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
+ if (!IsValid(AttackTellMarker)) return;
+ const bool bWindup = bEnableProceduralAttackTell && !bBoss
+  && FMath::IsFinite(Now) && FMath::IsFinite(Health) && Health > 0.f
+  && FMath::IsFinite(WindupEndsAt) && WindupEndsAt > Now
+  && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f
+  && FMath::IsFinite(CurrentAttackMultiplier) && FMath::IsFinite(CurrentAttackRangeMultiplier);
+ if (!bWindup) {
+  if (AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
+ const auto Type = MoonfallAttackTellVisual::Select(
+  false, CurrentAttackMultiplier, CurrentAttackRangeMultiplier);
+ const auto Profile = MoonfallAttackTellVisual::Profile(Type);
+ const float Progress = MoonfallAttackTellVisual::Progress(
+  WindupEndsAt - Now, CurrentWindup, bReduceMotion);
+ const float Growth = MoonfallAttackTellVisual::Growth(Progress);
+ const FVector Scale(Profile.Width * Growth, Profile.Depth * Growth, Profile.Height * Growth);
+ const FVector Location(0.f, 0.f, 107.f + (bReduceMotion ? 0.f : 14.f * Progress));
+ const FRotator Rotation(0.f, bReduceMotion ? 0.f : Profile.YawDegrees * Progress, 0.f);
+ if (!AttackTellMarker->GetRelativeScale3D().Equals(Scale, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeScale3D(Scale);
+ if (!AttackTellMarker->GetRelativeLocation().Equals(Location, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeLocation(Location);
+ if (!AttackTellMarker->GetRelativeRotation().Equals(Rotation, KINDA_SMALL_NUMBER))
+  AttackTellMarker->SetRelativeRotation(Rotation);
+ if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
+}
+FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
+ DungeonHomePosition = GetActorLocation();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
- const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
+ AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ CachedHero = Player;
+ // Spread one-second possession refreshes across a crowd instead of making
+ // every freshly spawned enemy query the player controller on the same frame.
+ NextHeroCacheRefreshAt = GetWorld()->GetTimeSeconds() + 1.f
+   + 0.05f * static_cast<float>(GetUniqueID() % 7u);
+ // Practice sentries stay predictable for every character level, while
+ // all ordinary dungeon mobs and bosses retain the existing level scaling.
+ const bool bSanctuaryPracticeAtSpawn = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ SpawnBalanceLevel = bSanctuaryPracticeAtSpawn ? 1
+   : (EncounterLevelOverride > 0 ? FMath::Clamp(EncounterLevelOverride, 1, 100)
+   : (IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1));
  const float Levels = static_cast<float>(SpawnBalanceLevel - 1);
  const float HPScale = 1.f + 0.035f * FMath::Min(Levels, 30.f) + 0.018f * FMath::Max(0.f, Levels - 30.f);
  const float DamageScale = 1.f + 0.012f * FMath::Min(Levels, 30.f) + 0.006f * FMath::Max(0.f, Levels - 30.f);
  // Blueprint tuning must not overflow enemy vitality or damage at spawn.
  const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
- Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
- AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
+ // Apply modest race identity to ordinary and elite foes only.
+ // Preserve unique Z/Nyra and other authored boss tuning exactly.
+ const float RaceHealth = (bBoss || bSanctuaryPracticeAtSpawn) ? 1.f : MoonfallRaces::HealthScale(RaceId);
+ const float RaceDamage = (bBoss || bSanctuaryPracticeAtSpawn) ? 1.f : MoonfallRaces::DamageScale(RaceId);
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale * RaceHealth;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale * RaceDamage;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
@@ -53,6 +130,8 @@ void AMoonfallEnemy::CancelDivineSignature() {
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
+ if (bResolvingPosture || !FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
+ TGuardValue<bool> PostureGuard(bResolvingPosture, true);
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -65,6 +144,8 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)
    ? FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f) : 3.f);
  OnPostureChanged(Posture, MaxPosture);
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (!FMath::IsFinite(Posture) || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  if (Posture < MaxPosture) return;
  // Break interrupts current attacks and exposes the enemy for a finite window.
  Posture = 0.f;
@@ -85,12 +166,22 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
   NextPostureBreakAllowedAt = PostureBrokenUntil
     + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
+ if (!FMath::IsFinite(HitReactionEndsAt)) HitReactionEndsAt = Now;
+ if (!FMath::IsFinite(NextAttackAt)) NextAttackAt = Now;
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
+ bCompanionAttackCommitted = false;
+ LockedCompanionTarget.Reset();
+ CommittedSwordAngle = -1;
+ LockedAttackDirection = FVector::ZeroVector;
  WindupEndsAt = -1.f;
  BossWarningEndTime = -1.f;
+ // A posture break cancels the warning instantly, without waiting for Tick.
+ if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+  AttackTellMarker->SetVisibility(false);
  bComboSecondHitPending = false;
  bComboSecondHitActive = false;
  NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
+ bHasCachedNavigationWaypoint = false;
  CachedWaypoint = FVector::ZeroVector;
  OnPostureChanged(Posture, MaxPosture);
  OnPostureBroken(VulnerabilitySeconds);
@@ -113,9 +204,42 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+void AMoonfallEnemy::RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now){
+ if(!HasAuthority()||!IsValid(Scout)||Scout->GetWorld()!=GetWorld()||bBoss||bElite||Health<=0.f
+    ||ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))||!FMath::IsFinite(Now))return;
+ RecentCompanionAttacker=Scout;RecentCompanionAttackerAt=Now;
+}
+bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const{
+ return IsValid(Scout)&&RecentCompanionAttacker.Get()==Scout&&FMath::IsFinite(Now)
+    &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
+}
+bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
+ // The shared TakeSpellDamage path owns the guard. Acquiring it here
+ // would suppress the companion's own legitimate melee damage.
+ if (bResolvingDamage) return false;
+ if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
+     ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
+     ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now)||!FMath::IsFinite(PostureBrokenUntil)||Now<PostureBrokenUntil)return false;
+ const float Before=Health;
+ TakeMeleeDamage(Amount);
+ return Health<Before;
+}
+void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
+ // Keep a single authoritative damage/defeat path while UE5 melee gains its
+ // own hit detection, stamina cost and directional animation hook.
+ TakeSpellDamage(Amount);
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
+  if (bResolvingDamage) return;
+  TGuardValue<bool> DamageGuard(bResolvingDamage, true);
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
+  if (!FMath::IsFinite(Health) || !GetWorld() || IsActorBeingDestroyed()) return;
+  if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
+  if (!FMath::IsFinite(MaxHealthAtSpawn)) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
   if (Health <= 0.f) return;
@@ -137,10 +261,30 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Extreme finite Blueprint values can overflow once affixes and shatter multiply.
   // Do not consume the once-only shatter opening for invalid damage.
   if (!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f) return;
-  if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // Sub-precision hits must not consume a finisher or trigger hit reactions.
+  if (ActualDamage <= 0.f) return;
+  if (bShatterFinisher) bPostureFinisherAvailable = false;
+  // A struck ordinary enemy investigates its attacker briefly. This does not
+  // reveal the hero forever or share omniscient positions with other enemies.
+  if (!bBoss && ActualDamage > 0.f && GetWorld()) {
+   const AMoonfallHeroPawn* Attacker = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+   if (IsValid(Attacker) && Attacker->Health > 0.f
+       && !Attacker->GetActorLocation().ContainsNaN()
+       && FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation()) < FMath::Square(1800.f)) {
+    LastSawHeroAt = Now;
+    LastKnownHeroPosition = Attacker->GetActorLocation();
+    bHasCachedNavigationWaypoint = false;
+    CachedWaypoint = FVector::ZeroVector;
+    NextPathRefreshAt = 0.f;
+    // A distant mob may be ticking only once a second. A nearby hit should
+    // wake its AI for responsive combat without an extra pathfinding scan.
+    if (PrimaryActorTick.TickInterval > 0.1f)
+     SetActorTickInterval(0.1f);
+   }
+  }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
   // Bosses, dead enemies and enemies with broken posture never enter retreat.
   if (bElite && !bBoss && ActualDamage > 0.f && Health > 0.f
@@ -153,8 +297,12 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
    WindupEndsAt = -1.f;
+   // Wounded elite retreats cancel the pending warning immediately.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
   }
   if (bShatterFinisher && ActualDamage > 0.f)
@@ -189,6 +337,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     DivineSignatureCastCount = 0;
     bComboSecondHitPending = false;
     bComboSecondHitActive = false;
+    bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
@@ -210,6 +359,20 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
+  // Immediate ordinary-enemy flinch: cancel live windups before the next
+  // throttled AI tick. Bosses retain their normal phase/posture safeguards.
+  if (!bBoss && ActualDamage > 0.f && Health > 0.f
+      && FMath::IsFinite(Now) && WindupEndsAt > Now) {
+   WindupEndsAt = -1.f;
+   BossWarningEndTime = -1.f;
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = false;
+   LockedAttackDirection = FVector::ZeroVector;
+   NextAttackAt = FMath::Max(
+       FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
+  }
   if (Health <= 0.0f) {
    // Defeat cancels pending divine warnings before notifying VFX and death
    // animations. Never leave a danger marker active on a defeated god.
@@ -218,6 +381,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    BossWarningEndTime = -1.f;
    bComboSecondHitPending = false;
    bComboSecondHitActive = false;
+   // Tick is disabled for queued corpses: hide the canceled warning NOW.
+   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+    AttackTellMarker->SetVisibility(false);
    // Disable combat immediately but retain the mesh for real native defeat
    // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);
@@ -227,17 +393,34 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    DefeatAnimationOrigin = GetActorLocation();
    bDefeatAnimationShatter = bLastHitWasShatter;
    DefeatAnimationStyle = 1;
-   SetActorTickEnabled(true);
-   SetActorTickInterval(0.f);
+   // Queued corpses have no animation to update yet. A zero-interval tick
+   // would otherwise run every frame for up to 9.5 seconds per corpse.
+   // Lifespan timers and finisher callbacks work without actor Tick.
+   SetActorTickEnabled(false);
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
+   // This is the actual killing blow, not room entry or a corpse expiration.
+   // Only enemies tagged by our own dungeon layout may affect its boss ledger.
+   if (bBoss && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
+        UGameplayStatics::GetPlayerPawn(this, 0))) {
+     LivingHero->MarkDungeonBossDefeated(this);
+    }
+   }
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
-    const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
-    Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
-    Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+    const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+    if (bSanctuaryPracticeReward) {
+     // Practice grants a small one-time-kill reward per actor, not a full
+     // regular-monster equipment drop on every level reload.
+     Hero->AwardExperience(5);
+    } else {
+     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
+     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+     Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+    }
    }
    // Visible until the queued finisher plays or the finite fallback expires.
   }
@@ -247,16 +430,25 @@ void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
 {
  if (Health > 0.f || !GetWorld() || DefeatAnimationStartedAt >= 0.f) return;
  DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
  DefeatAnimationOrigin = GetActorLocation();
- DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();
+ DefeatAnimationStartedAt = Now;
+ // Only active defeat choreography needs every-frame mesh updates.
+ SetActorTickInterval(0.f);
+ SetActorTickEnabled(true);
  // Keep the defeated actor only as long as its choreography needs.
  SetLifeSpan(1.25f);
 }
 
 void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 {
- if (!Body || !GetWorld() || DefeatAnimationStartedAt < 0.f) return;
- const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
+ if (!Body || !GetWorld() || !FMath::IsFinite(DefeatAnimationStartedAt)
+     || DefeatAnimationStartedAt < 0.f) return;
+ const float WorldTime = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(WorldTime)) return;
+ const float Age = WorldTime - DefeatAnimationStartedAt;
+ if (!FMath::IsFinite(Age)) return;
  const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
  const float Ease = T * T * (3.f - 2.f * T);
  const float Direction = DefeatAnimationStyle % 2 == 0 ? -1.f : 1.f;
@@ -278,7 +470,13 @@ void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) {
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
  if (Health <= 0.f) {
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
@@ -286,13 +484,34 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
  const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
- // Pause hostile behavior during both gameplay menus and after hero defeat.
- // Cancel winding attacks so closing a menu never delivers an instant hit.
- AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+ // The hostile world stays live while any player menu is open: talents,
+ // inventory, spellbook, atlas, options and NPC dialogue are NOT safe zones.
+ // Only a missing, unpossessed or defeated hero cancels pending enemy attacks.
+ // The hit HUD warns during menus, and lethal damage closes the talent web.
+ AMoonfallHeroPawn* Hero = CachedHero.Get();
+ // An unpossessed old pawn may remain valid after respawn or hero switching.
+ // Never allow it to receive another cached-target attack.
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()) {
+  // Reacquire immediately when the previous hero is destroyed or unpossessed.
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
+ } else if (Now >= NextHeroCacheRefreshAt) {
+  // The previous pawn may still exist after possession changes. Refresh at
+  // most once per second instead of targeting a stale but valid hero forever.
+  Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  CachedHero = Hero;
+  NextHeroCacheRefreshAt = Now + 1.f
+    + 0.05f * static_cast<float>(GetUniqueID() % 7u);
+ }
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
   CancelDivineSignature();
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   WindupEndsAt = -1.f;
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -300,6 +519,25 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
   return;
  }
+ // A corrupt nonfinite windup must never trap an enemy in a permanent tell.
+ // Cancel the full chain without dealing damage, then apply a brief recovery.
+ if (!FMath::IsFinite(WindupEndsAt)) {
+  CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  LockedAttackDirection = FVector::ZeroVector;
+  bHasCachedNavigationWaypoint = false;
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+ }
+ // Visual-only cue: existing 0.1s AI tick, no new path query or damage.
+ RefreshAttackTellMarker(Now, Hero->bReduceMotion);
  // A shatter follow-up expires with its break window. Never carry it into
  // another posture cycle or let an expired flag affect later spells.
  if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
@@ -308,9 +546,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      && FMath::IsFinite(PostureRecoveryStartsAt) && Now >= PostureRecoveryStartsAt
      && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
      && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
+  const float PreviousPosture = Posture;
   Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
       * (FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.4f) : 0.f), 0.f, MaxPosture);
-  OnPostureChanged(Posture, MaxPosture);
+  if (Posture != PreviousPosture) OnPostureChanged(Posture, MaxPosture);
+  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+  if (!IsValid(Hero) || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
  }
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
@@ -326,7 +567,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
-  Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
+  const FVector DesiredScale(0.85f * Scale / FMath::Max(0.75f,Squash),
+    0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
+  // In large worlds, idle enemies otherwise send the same mesh transform
+  // every AI tick. Preserve all attack tells and hit reactions.
+  if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
+   Body->SetRelativeScale3D(DesiredScale);
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
@@ -338,6 +584,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
+  bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
   CancelDivineSignature();
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
@@ -354,21 +601,118 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
  if (!FMath::IsFinite(Distance)) return;
+ // Sanctuary practice sentries never pursue players through the safe village.
+ // Only deliberate close-range approaches activate their forgiving attacks.
+ const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ if (bSanctuaryPractice && Distance > 450.f) {
+  // A trainee may freely retreat: no lingering aim, tells or instant strike.
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  LockedAttackDirection = FVector::ZeroVector;
+  bCanSeeHero = false;
+  LastSawHeroAt = -100.f;
+  InvestigationEndsAt = -1.f;
+  SearchTravelEndsAt = -1.f;
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
+  NextAttackAt = FMath::Max(
+      FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now,
+      Now + MoonfallPracticeAI::ReapproachDelay);
+  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, MoonfallPracticeAI::IdleTickSeconds))
+   SetActorTickInterval(MoonfallPracticeAI::IdleTickSeconds);
+  bHasCachedNavigationWaypoint = false;
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
  // Far-away enemies use a slower think rate. Return to responsive combat
  // polling when the hero approaches, without per-frame work on idle mobs.
  const bool bInCombatArea = Distance < 2200.f;
  const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
    && WindupEndsAt - Now <= 0.25f;
- const float DesiredTickInterval = bDashing ? 0.03f : (bInCombatArea ? 0.1f : 0.4f);
+ // Dawnwalker/Assassin's Creed/Skyrim-style simulation LOD: retain authored enemies,
+ // but wake nearby combat immediately and check distant dungeon mobs less often.
+ // No enemy is removed, respawned, or granted free attacks by this optimization.
+ // Bosses and elite encounters keep their existing responsiveness.
+ const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea
+   && Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")));
+ const float DesiredTickInterval = bDashing ? 0.03f
+   : (bInCombatArea ? 0.1f
+      : (bDistantDungeonMob ? (Distance >= 10000.f ? 2.0f : 1.0f) : 0.4f));
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
+ // Returning guards retain their world presence instead of disappearing.
+ // Use swept, bounded movement and no extra perception traces or path queries.
+ // The longer out-of-combat tick interval must not slow return travel to a crawl.
+ const auto ReturnToDungeonPost = [&]() {
+  if (bBoss || bElite
+      || !ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
+      || DungeonHomePosition.ContainsNaN()) return;
+  FVector ToHome = DungeonHomePosition - GetActorLocation();
+  ToHome.Z = 0.f;
+  const float HomeDistance = ToHome.Size();
+  if (!FMath::IsFinite(HomeDistance) || HomeDistance <= 85.f) return;
+  const float SafeReturnSpeed = FMath::Clamp(
+    FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
+  const float ReturnDelta = FMath::IsFinite(DeltaSeconds)
+    ? FMath::Clamp(DeltaSeconds, 0.f, 2.f) : 0.f;
+  const float Step = FMath::Min(HomeDistance,
+    SafeReturnSpeed * 0.6f * ReturnDelta);
+  if (Step > 0.f) {
+   const FVector ReturnDirection = ToHome.GetSafeNormal();
+   FHitResult ReturnHit;
+   AddActorWorldOffset(ReturnDirection * Step, true, &ReturnHit);
+   // Try one swept sidestep when a doorframe blocks the direct journey home.
+   // Throttle attempts across AI ticks; never teleport through world geometry.
+   if (ReturnHit.bBlockingHit && Now >= NextObstacleSidestepAt) {
+    NextObstacleSidestepAt = Now + 0.6f;
+    // Slide along the actual obstacle surface first. Perpendicular-only
+    // avoidance can keep pushing guards into angled dungeon doorframes.
+    FVector Side = FVector::VectorPlaneProject(ReturnDirection, ReturnHit.Normal);
+    Side.Z = 0.f;
+    if (!Side.Normalize()) {
+     Side = FVector(-ReturnDirection.Y, ReturnDirection.X, 0.f);
+     const float Sign = (ObstacleSidestepCount % 2 == 0) ? 1.f : -1.f;
+     Side *= Sign;
+    }
+    ++ObstacleSidestepCount;
+    // A single 0.1-second AI step is too short to clear many doorframes.
+    // Reserve a modest swept clearance step at most once per 0.6 seconds.
+    const float SidestepDistance = FMath::Min(80.f,
+      FMath::Max(Step, SafeReturnSpeed * 0.6f * 0.35f));
+    FHitResult SidestepHit;
+    AddActorWorldOffset(Side * SidestepDistance, true, &SidestepHit);
+   }
+  }
+ };
  if (!bInCombatArea) {
+  // Drop stale aggro once out of range; otherwise guards can stay stranded.
+  if (!bBoss && (Now - LastSawHeroAt > 4.f)) {
+   LastSawHeroAt = -100.f;
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
+   bCanSeeHero = false;
+   ReturnToDungeonPost();
+  }
+  // Clear the entire attack commitment before sleeping the distant AI.
+  // Only an interrupted attack needs recovery; idle enemies remain ready.
+  if (WindupEndsAt > 0.f || bComboSecondHitPending || bComboSecondHitActive)
+   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
   CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
+  LockedAttackDirection = FVector::ZeroVector;
   WindupEndsAt = -1.f;
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   return;
@@ -386,6 +730,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  const int32 ResolvedSwordAngle = CommittedSwordAngle;
+  CommittedSwordAngle = -1;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
@@ -393,6 +739,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
   const float AttackRecoveryAt = Now + RecoveryCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, AttackRecoveryAt);
+  // A committed companion strike either hits that follower or misses.
+  // Never redirect it to the hero if the follower moves, is dismissed or falls.
+  if(bCompanionAttackCommitted){
+   bCompanionAttackCommitted=false;
+   auto* Target=LockedCompanionTarget.Get();LockedCompanionTarget.Reset();
+   if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+    Mode->ResolveCompanionCounterAttack(Hero,this,Target,LockedAttackDirection,
+         AttackDamage*FMath::Min(2.3f,CurrentAttackMultiplier),AttackRange*CurrentAttackRangeMultiplier);
+   bComboSecondHitPending=false;bComboSecondHitActive=false;
+   return;
+  }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
@@ -410,8 +767,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Both signatures are avoidable by leaving the marked area before impact.
   const bool bWithinDivineMarker = bDivineSignatureActive
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
-  const bool bWithinBasicAttack = !bDivineSignatureActive
-    && bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;
+  const bool bWithinGuardianFootprint = ActiveGuardianFootprint >= 0 &&
+    MoonfallGuardianFootprint::Hit(
+      static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint),
+      GuardianOrigin.X, GuardianOrigin.Y, GuardianTarget.X, GuardianTarget.Y,
+      LockedAttackDirection.X, LockedAttackDirection.Y,
+      HeroPosition.X, HeroPosition.Y, AttackRange * CurrentAttackRangeMultiplier);
+  // Preserve the existing directional melee contract for untagged enemies.
+  const bool bOrdinaryDirectionalMelee =
+    bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
+  const bool bWithinBasicAttack = !bDivineSignatureActive &&
+    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint : bOrdinaryDirectionalMelee);
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
@@ -436,6 +802,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Damage must be finite and positive before dodge or parry callbacks fire.
     const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);
     if (!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f) return;
+    // Practice uses the same damage/parry pipeline, but stops at one HP.
+    const float EffectiveAttackDamage = bSanctuaryPractice
+      ? MoonfallPracticeAI::NonLethalDamage(IncomingAttackDamage, Hero->Health)
+      : IncomingAttackDamage;
+    if (!FMath::IsFinite(EffectiveAttackDamage) || EffectiveAttackDamage <= 0.f) return;
     // One actual timed dodge rewards the hero and pressures only the
     // attacking enemy. Repeated overlapping hits cannot farm posture.
     const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
@@ -452,11 +823,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      bComboSecondHitPending = false;
      bComboSecondHitActive = false;
      BossWarningEndTime = -1.f;
+     bHasCachedNavigationWaypoint = false;
      CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
-    const bool bParried = Hero->ApplyMoonfallDamageFrom(
-      IncomingAttackDamage, GetActorLocation());
+    const bool bDodgeOnlyStrike = bBoss
+      && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))
+      && bDungeonBossAttackDodgeOnly;
+    const bool bParried = bDodgeOnlyStrike
+      ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())
+      : (bElite && !bBoss && !bSanctuaryPractice && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle)
+          ? Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage, GetActorLocation(), ResolvedSwordAngle)
+          : Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation()));
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -464,6 +842,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
      ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
+     // A parried non-boss elite can schedule one ordinary sweep, not a bonus hit.
+     // The four-second memory and five-second re-arm cooldown bound the response.
+     if (MoonfallEliteTactics::CanArm(bElite, bBoss, bSanctuaryPractice,
+           Health > 0.f, Now < PostureBrokenUntil,
+           Now >= NextAdaptiveSweepAllowedAt)) {
+      AdaptiveSweepReadyUntil = Now + MoonfallEliteTactics::ParryMemorySeconds;
+      NextAdaptiveSweepAllowedAt =
+        Now + MoonfallEliteTactics::ParryResponseCooldownSeconds;
+     }
      // Temporary visualization for editor/development builds until a Blueprint
      // implementation provides the finished impact animation and VFX.
 #if ENABLE_DRAW_DEBUG
@@ -474,6 +861,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      bComboSecondHitPending = false;
      bComboSecondHitActive = false;
      BossWarningEndTime = -1.f;
+     bHasCachedNavigationWaypoint = false;
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
      OnEnemyAttack();
@@ -490,6 +878,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    BossWarningEndTime = WindupEndsAt;
+   if (bBoss && !DungeonBossFamily.IsNone()
+       && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    bDungeonBossAttackDodgeOnly = false;
+   }
   } else {
    bComboSecondHitActive = false;
   }
@@ -510,12 +904,41 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
-  const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
+  const AMoonfallHeroPawn* Viewer = bBoss ? Hero : nullptr;
   const float WarningScale = IsValid(Viewer) ? Viewer->BossWarningScale : 1.f;
   const bool bBossCrush = bBoss && CurrentAttackMultiplier > 2.f;
   const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
     : (CurrentAttackMultiplier > 2.f ? FColor::Purple
     : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red));
+  if (ActiveGuardianFootprint >= 0) {
+   const auto Shape = static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint);
+   const float Reach = AttackRange * CurrentAttackRangeMultiplier;
+   const FVector Origin = GuardianOrigin - FVector(0.f,0.f,55.f);
+   const FVector Target = GuardianTarget - FVector(0.f,0.f,55.f);
+   const FColor ShapeColor = Shape == MoonfallGuardianFootprint::Shape::VenomPool ? FColor::Green
+     : (Shape == MoonfallGuardianFootprint::Shape::EclipseCross ? FColor::Purple : FColor::Orange);
+   auto Circle = [&](const FVector& Center,float Radius) {
+    DrawDebugCircle(GetWorld(), Center, Radius, 32, ShapeColor, false, 0.12f, 0, 3.f,
+      FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+   };
+   if (Shape == MoonfallGuardianFootprint::Shape::MoonboundRing) {
+    Circle(Origin, Reach); Circle(Origin, Reach * 0.34f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::VenomPool) {
+    Circle(Target, Reach * 0.46f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::EmberCharge) {
+    const FVector Dir = LockedAttackDirection.GetSafeNormal2D();
+    const FVector Side(-Dir.Y,Dir.X,0.f);
+    const FVector End = Origin + Dir * (Reach*1.25f);
+    DrawDebugLine(GetWorld(), Origin + Side*Reach*0.22f, End + Side*Reach*0.22f, ShapeColor, false, 0.12f, 0, 3.f);
+    DrawDebugLine(GetWorld(), Origin - Side*Reach*0.22f, End - Side*Reach*0.22f, ShapeColor, false, 0.12f, 0, 3.f);
+   } else if (Shape == MoonfallGuardianFootprint::Shape::EclipseCross) {
+    DrawDebugLine(GetWorld(), Target + FVector(Reach,0,0), Target - FVector(Reach,0,0), ShapeColor, false, 0.12f, 0, 5.f);
+    DrawDebugLine(GetWorld(), Target + FVector(0,Reach,0), Target - FVector(0,Reach,0), ShapeColor, false, 0.12f, 0, 5.f);
+   }
+   DrawDebugString(GetWorld(), GetActorLocation()+FVector(0.f,0.f,160.f),
+      UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(Shape)), nullptr, FColor::White, 0.12f, false);
+   return;
+  }
   DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
     bBoss ? 24 : 16, TellColor, false, 0.12f, 0, bBoss ? 1.f + WarningScale : 1.f);
   // Horizontal radius marker on the ground helps distinguish the dodge zone.
@@ -538,42 +961,84 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  // Ordinary enemies investigate a recently seen hero rather than tracking
  // the player through solid walls. Boss encounters retain full arena awareness.
- // Visibility traces run at most once per 0.45 seconds per ordinary enemy.
+ // Keep close-range awareness responsive, while reducing costly
+ // visibility traces from distant ordinary enemies in crowded encounters.
+ // Elites and dungeon scouts retain their existing faster perception rate.
  if (!bBoss && Now >= NextSightCheckAt) {
   const bool bWasVisible = bCanSeeHero;
-  NextSightCheckAt = Now + 0.45f + 0.05f * static_cast<float>(GetUniqueID() % 3u);
+  const bool bFastPerception = bElite ||
+    (ActorHasTag(FName(TEXT("DungeonScout")))
+     && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter"))));
+  const float SightInterval = !bFastPerception && Distance > 1200.f ? 0.7f : 0.45f;
+  NextSightCheckAt = Now + SightInterval
+    + 0.05f * static_cast<float>(GetUniqueID() % 3u);
   FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
   PerceptionParams.AddIgnoredActor(this);
   FHitResult PerceptionHit;
+  // Trace between upper-body points rather than floor-level actor origins.
+  // This prevents small steps and raised dungeon floors from falsely
+  // hiding a visible hero without adding another perception trace.
+  const FVector EnemySightPoint = EnemyPosition + FVector(0.f, 0.f, 60.f);
+  const FVector HeroSightPoint = HeroPosition + FVector(0.f, 0.f, 60.f);
   const bool bSightBlocked = GetWorld()->LineTraceSingleByChannel(
-    PerceptionHit, EnemyPosition, HeroPosition, ECC_Visibility, PerceptionParams)
+    PerceptionHit, EnemySightPoint, HeroSightPoint, ECC_Visibility, PerceptionParams)
     && PerceptionHit.GetActor() != Hero;
   bCanSeeHero = !bSightBlocked;
   // The old waypoint may lead toward the hero's now-hidden live position.
   // Invalidate it once when visibility changes, not on every sight tick.
   if (bCanSeeHero != bWasVisible) {
+   bHasCachedNavigationWaypoint = false;
    CachedWaypoint = FVector::ZeroVector;
    NextPathRefreshAt = 0.f;
+   // Give lost-target searches enough travel time to reach the last sighting.
+   if (bWasVisible && !bCanSeeHero) {
+    const bool bScout = ActorHasTag(FName(TEXT("DungeonScout")))
+      && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+    SearchTravelEndsAt = Now + (bScout ? 11.f : 8.f);
+   }
   }
   if (bCanSeeHero) {
    LastSawHeroAt = Now;
    LastKnownHeroPosition = HeroPosition;
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
   }
  }
+ // Scouts remember only the last visible position, never the hero behind walls.
+ // Their extra search window adds no additional line traces or path requests.
+ const bool bDungeonScout = ActorHasTag(FName(TEXT("DungeonScout")))
+   && ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+ const float LastSeenGrace = bDungeonScout ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= 2.5f);
+   && Now - LastSawHeroAt <= LastSeenGrace)
+   || (!bCanSeeHero && SearchTravelEndsAt > Now)
+   || (!bCanSeeHero && InvestigationEndsAt > Now);
  if (!bHasRecentSight) {
+  SearchTravelEndsAt = -1.f;
+  InvestigationEndsAt = -1.f;
+  bHasCachedNavigationWaypoint = false;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
+  ReturnToDungeonPost();
   return;
  }
- // Search terminates when an ordinary enemy actually reaches the last
- // observed location. Do not orbit a vacant position for 2.5 seconds.
+ // Investigate at the last seen position, then disengage and return.
+ // No extra sight traces or path requests during the investigation.
  if (!bBoss && !bCanSeeHero
      && FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)) {
-  LastSawHeroAt = -100.f;
-  CachedWaypoint = FVector::ZeroVector;
-  NextPathRefreshAt = 0.f;
+  if (InvestigationEndsAt < 0.f) {
+   SearchTravelEndsAt = -1.f;
+   InvestigationEndsAt = Now + (bDungeonScout ? 2.f : 1.2f);
+  }
+  if (Now >= InvestigationEndsAt) {
+   InvestigationEndsAt = -1.f;
+   SearchTravelEndsAt = -1.f;
+   LastSawHeroAt = -100.f;
+   bHasCachedNavigationWaypoint = false;
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
+   ReturnToDungeonPost();
+  }
   return;
  }
  // Each divine phase compresses the signature cycle without shortening
@@ -625,6 +1090,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Switch flank side after a low-health withdrawal.
     FlankSign = bRetreatFlankLeft ? -1.f : 1.f;
     FlankDistance = 125.f;
+   } else if (bDungeonScout) {
+    // Visible-target-only scout flank. Keep cached path budget and collision
+    // sweeping identical to other enemies; never flank an unseen hero.
+    FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;
+    FlankDistance = 185.f;
    } else {
     // Deterministic actor-local lanes: left/right, near/wide. Collision
     // sweeps still protect against walls and occupied corridors.
@@ -638,32 +1108,100 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt) {
-    NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+    // Spread pack path queries predictably without reducing close combat
+    // responsiveness. Ordinary distant pursuers refresh less frequently;
+    // bosses and elites keep their existing half-second navigation budget.
+    const float PathRefreshBase = (!bBoss && !bElite && Distance > 1100.f) ? 0.85f : 0.5f;
+    NextPathRefreshAt = Now + PathRefreshBase
+      + 0.05f * static_cast<float>(GetUniqueID() % 5u);
     FNavLocation Point;
-    if (Nav->ProjectPointToNavigation(Target, Point)) {
+    // Never submit corrupt targets or projected goals to Unreal's path solver.
+    // Short-circuit invalid vectors without adding any navigation queries.
+    if (!Target.ContainsNaN()
+        && Nav->ProjectPointToNavigation(Target, Point)
+        && !Point.Location.ContainsNaN()) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
-     CachedWaypoint = (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1)
-       ? Path->PathPoints[1] : Point.Location;
+     // Both complete and partial paths may yield a reachable first corner.
+     // If a route has no usable segment, do not move directly through walls.
+     // Retry only at the existing cached navigation cadence.
+     // Reject corrupt path corners before storing or steering toward them.
+     // FVector::ContainsNaN also detects infinite components.
+     // A live UObject can still contain an invalid navigation path.
+     // Valid partial paths remain usable; only invalid routes fail closed.
+     const bool bHasPathSegment = IsValid(Path) && Path->IsValid()
+       && Path->PathPoints.Num() > 1;
+     const FVector FirstCorner = bHasPathSegment
+       ? Path->PathPoints[1] : FVector::ZeroVector;
+     bNavigationRouteUnavailable = !bHasPathSegment || FirstCorner.ContainsNaN();
+     bHasCachedNavigationWaypoint = !bNavigationRouteUnavailable;
+     CachedWaypoint = bHasCachedNavigationWaypoint ? FirstCorner : FVector::ZeroVector;
+     if (bHasCachedNavigationWaypoint) {
+      // Tight doorways can produce several near-identical starting corners.
+      // Skip up to eight already-reached corners from this single cached path,
+      // rather than re-solving the same route every AI tick.
+      // Use full 3D distance so stacked floors do not look reached.
+      const int32 MaxCornersToCheck = FMath::Min(Path->PathPoints.Num(), 9);
+      for (int32 CornerIndex = 2; CornerIndex < MaxCornersToCheck
+           && FVector::DistSquared(GetActorLocation(), CachedWaypoint) < FMath::Square(65.f);
+           ++CornerIndex) {
+       const FVector NextCorner = Path->PathPoints[CornerIndex];
+       if (NextCorner.ContainsNaN()) {
+        // Fail closed if a later corner is corrupt, including infinities.
+        bNavigationRouteUnavailable = true;
+        bHasCachedNavigationWaypoint = false;
+        CachedWaypoint = FVector::ZeroVector;
+        break;
+       }
+       CachedWaypoint = NextCorner;
+      }
+     }
     } else {
-     CachedWaypoint = Target;
+     // The target cannot be projected onto the current navigation mesh.
+     bNavigationRouteUnavailable = true;
+     bHasCachedNavigationWaypoint = false;
+     CachedWaypoint = FVector::ZeroVector;
     }
    }
    if (CachedWaypoint.ContainsNaN()) {
+    // A corrupted cached corner must not become a direct wall chase or
+    // trigger a synchronous path solve on every subsequent AI tick.
+    bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
-    NextPathRefreshAt = 0.f;
+    bNavigationRouteUnavailable = true;
+    if (!FMath::IsFinite(NextPathRefreshAt) || NextPathRefreshAt <= Now)
+     NextPathRefreshAt = Now + 0.25f;
    }
-   if (!CachedWaypoint.IsNearlyZero()) {
-    FVector ToWaypoint = CachedWaypoint - GetActorLocation();
-    ToWaypoint.Z = 0.f;
+   if (bHasCachedNavigationWaypoint) {
+    // A valid waypoint at world origin must remain navigable.
+    // Steering remains in the horizontal plane below, but waypoint arrival
+    // must include height so an upper-floor corner is never mistaken for
+    // a reached lower-floor corner.
+    const FVector ToWaypoint = CachedWaypoint - GetActorLocation();
+    // Keep following the reachable corner even on the tick that requests
+    // a refresh. Falling back to the distant goal here sends partial-path
+    // pursuers straight into walls before the next NavMesh result arrives.
+    Target = CachedWaypoint;
     if (ToWaypoint.SizeSquared() < FMath::Square(65.f)) {
-     // Reaching an intermediate waypoint must advance the path, not idle
-     // until a stale waypoint is recomputed on the normal timer.
-     NextPathRefreshAt = 0.f;
-    } else {
-     Target = CachedWaypoint;
+     // A partial path can end at this corner with no reachable next point.
+     // Do not solve the same path every AI tick while standing here: schedule
+     // one prompt retry, but never postpone an already-earlier refresh.
+     // This bounds repeated synchronous solves in large enemy crowds.
+     if (!FMath::IsFinite(NextPathRefreshAt)
+         || NextPathRefreshAt > Now + 0.25f)
+      NextPathRefreshAt = Now + 0.25f;
     }
    }
+  } else {
+   // Preserve direct chase without NavSystem, and discard the old NavMesh
+   // cache so its first restored tick requests a fresh path.
+   bNavigationRouteUnavailable = false;
+   bHasCachedNavigationWaypoint = false;
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
   }
+  // A failed NavMesh solve must not turn into repeated wall collision sweeps.
+  // The next regular cached refresh can recover when the mesh/goal changes.
+  if (bNavigationRouteUnavailable) return;
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
   // A brief re-entry chase bonus rewards the two-second withdrawal
@@ -672,7 +1210,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     && Now >= TacticalRetreatUntil && Now < TacticalReengageUntil;
   const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
   const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
+  // Never walk past a nearby cached corner in one AI tick. Overshooting
+  // short segments makes doorway pursuers jitter between two waypoints.
+  // Keep the existing capped movement speed and single swept move.
+  const float ChaseStep = FMath::Min(Direction.Size(),
+    SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);
+  AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit);
+  // Track whether this tick's optional swept escape made it past the wall.
+  // A successful escape can keep its cached NavMesh route until the next
+  // normal refresh instead of forcing a new synchronous solve.
+  bool bSidestepClearedObstacle = false;
   // Collision can trap packs at tight doorways. First try one short
   // sideways swept step, alternating sides on successive collisions.
   // Rate-limit attempts so wall contact never triggers an extra movement
@@ -680,18 +1227,45 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (Hit.bBlockingHit && Now >= NextObstacleSidestepAt
       && SafeAIDelta > 0.f && !Direction.IsNearlyZero()) {
    NextObstacleSidestepAt = Now + 0.6f;
-   const FVector Side(-Direction.Y, Direction.X, 0.f);
-   const float SideSign = ((GetUniqueID() + static_cast<uint32>(ObstacleSidestepCount++)) % 2u == 0u) ? -1.f : 1.f;
-   const FVector EscapeStep = Side.GetSafeNormal() * SideSign * (120.f * SafeAIDelta);
+   // Slide along the obstacle face, rather than making tiny perpendicular
+   // nudges that can repeatedly fail at angled doorways.
+   FVector Side = FVector::VectorPlaneProject(Direction.GetSafeNormal2D(), Hit.Normal);
+   Side.Z = 0.f;
+   if (!Side.Normalize()) {
+    Side = FVector(-Direction.Y, Direction.X, 0.f).GetSafeNormal();
+    const float SideSign = ((GetUniqueID() + static_cast<uint32>(ObstacleSidestepCount)) % 2u == 0u) ? -1.f : 1.f;
+    Side *= SideSign;
+   }
+   ++ObstacleSidestepCount;
+   // A second blocked slide means the surface route failed. Try its
+   // opposite direction on the next cooldown, not on this AI tick.
+   if (bReverseCombatWallSlide) Side *= -1.f;
+   const float EscapeDistance = FMath::Min(80.f,
+     FMath::Max(SafeChaseSpeed * SafeAIDelta, SafeChaseSpeed * 0.2f));
+   const FVector EscapeStart = GetActorLocation();
    FHitResult EscapeHit;
-   AddActorWorldOffset(EscapeStep, true, &EscapeHit);
+   AddActorWorldOffset(Side * EscapeDistance, true, &EscapeHit);
+   // A non-blocking sweep is not proof that the actor moved. If world
+   // movement was suppressed, keep the cached route eligible for recovery.
+   // Ignore sub-centimeter displacement that cannot clear a doorway.
+   const bool bEscapeMadeProgress = FVector::DistSquared2D(EscapeStart, GetActorLocation())
+     > FMath::Square(1.f);
+   bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;
+   // A failed or motionless escape reverses on the next cooldown.
+   bReverseCombatWallSlide = bSidestepClearedObstacle ? false : !bReverseCombatWallSlide;
+  } else if (!Hit.bBlockingHit) {
+   bReverseCombatWallSlide = false;
   }
-  // A blocked route is invalidated only on its original repath cooldown.
-  // The existing single navigation solve then selects a fresh waypoint.
+  // A blocked movement only invalidates the route when the swept escape
+  // did not clear the obstacle. Keep the original 0.5-second cooldown even
+  // after a successful slide so dense packs do not spam synchronous solves.
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
-   NextPathRefreshAt = 0.f;
    NextBlockedRepathAt = Now + 0.5f;
-   CachedWaypoint = FVector::ZeroVector;
+   if (!bSidestepClearedObstacle) {
+    NextPathRefreshAt = 0.f;
+    bHasCachedNavigationWaypoint = false;
+    CachedWaypoint = FVector::ZeroVector;
+   }
   }
  } else if (Distance <= AttackRange || bDivineRangedCastReady) {
   // Elites and advanced bosses reposition between strikes, not during
@@ -704,10 +1278,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && Distance > AttackRange * 0.45f && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
-   const float StrafeSpeed = bBoss ? 95.f : 70.f;
+   // Bonus-pack leaders can pressure a flank faster without changing
+   // boss movement, ordinary elites, attack timing, or the sweep collision.
+   const bool bDungeonPackLeader = bElite
+     && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
+     && ActorHasTag(FName(TEXT("DungeonPackLeader")));
+   const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
-   if (!StrafeStep.IsNearlyZero()) {
+   if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero()) {
     FHitResult StrafeHit;
     AddActorWorldOffset(StrafeStep, true, &StrafeHit);
    }
@@ -716,7 +1295,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
-   if (!bBoss && !bElite) {
+   const bool bDungeonRole = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+   if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
@@ -726,11 +1306,30 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
          It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
      ++ScannedActors;
      const AMoonfallEnemy* Other = *It;
-     if (!IsValid(Other) || Other == this || Other->Health <= 0.f
-         || Other->bBoss || Other->bElite) continue;
+     // Ignore teardown and invalid-health actors before consuming the limited
+     // candidate budget or delaying another enemy's attack.
+     if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
+         || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
+         || Other->bBoss || (Other->bElite && !bDungeonRole)) continue;
+     // A dungeon mob only coordinates with enemies from its own dungeon.
+     // Never let an adjacent room/dungeon or open-world actor consume a slot.
+     const bool bDungeonMember = bDungeonRole;
+     const bool bOtherDungeonMember = Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+     if (bDungeonMember || bOtherDungeonMember) {
+      if (!bDungeonMember || !bOtherDungeonMember
+          || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()
+          || DungeonChamberIndex < 0 || Other->DungeonChamberIndex != DungeonChamberIndex) continue;
+     }
+     // Distant allies must not exhaust our small decision-time candidate
+     // budget before nearby windups can be considered. Reject corrupt
+     // positions too, while preserving the outer 64-actor scan limit.
+     const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation());
+     if (!FMath::IsFinite(AllyDistanceSquared)
+         || AllyDistanceSquared >= FMath::Square(550.f)) continue;
      ++ConsideredAllies;
-     if (Other->WindupEndsAt > Now
-         && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
+     // A corrupt infinite windup must not reserve an attack slot forever.
+     // Failed/NaN timers also cannot represent a real active warning.
+     if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now) {
       if (++NearbyWindingAllies >= 2) break;
      }
     }
@@ -745,6 +1344,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;
    int32 Pattern = AttackSequence++ % PatternCount;
+   // Consume a valid counter opportunity in the normal attack slot.
+   // Existing guardian/dungeon boss patterns remain unchanged.
+   const bool bEliteAdaptiveSweep = bElite && !bBoss &&
+     FMath::IsFinite(AdaptiveSweepReadyUntil) && AdaptiveSweepReadyUntil > Now;
+   AdaptiveSweepReadyUntil = -1.f;
+   Pattern = MoonfallEliteTactics::SelectPattern(
+     Pattern, bElite, bBoss, bEliteAdaptiveSweep);
+   // Training sentries alternate strike/sweep; normal foes and gods don't.
+   if (bSanctuaryPractice)
+    Pattern = MoonfallPracticeAI::PatternFor(AttackSequence);
    if (bBoss) {
     // Select uniformly from all other basic patterns. No extra actor,
     // ticker, path solve or unbounded retry loop is needed.
@@ -760,11 +1369,26 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
    if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
    if (bBoss && BossPhase >= 3 && AttackSequence % 11 == 0) BossSpecialMove = 5;
+   // Region-specific priorities reuse the five existing dodgeable special
+   // moves. Avoid changing native gods or adding extra per-frame AI work.
+   const bool bRegionalBoss = bBoss && !DungeonBossFamily.IsNone()
+     && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")));
+   if (bRegionalBoss && BossPhase >= 2
+       && AttackSequence % (BossPhase >= 3 ? 3 : 4) == 0) {
+    if (DungeonBossFamily == FName(TEXT("Ashen"))
+        || DungeonBossFamily == FName(TEXT("Foundry"))) BossSpecialMove = 2;
+    else if (DungeonBossFamily == FName(TEXT("Verdant"))) BossSpecialMove = 4;
+    else if (DungeonBossFamily == FName(TEXT("Glacial"))) BossSpecialMove = 5;
+    else if (DungeonBossFamily == FName(TEXT("Storm"))) BossSpecialMove = 3;
+    else if (DungeonBossFamily == FName(TEXT("Eclipse"))) BossSpecialMove = 1;
+   }
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
+   if (bEliteAdaptiveSweep)
+    CurrentWindup = FMath::Max(CurrentWindup, MoonfallEliteTactics::CounterSweepWindup);
    if (bBoss && BossPhase >= 2) {
     // Phase three alternates swift strikes with pronounced heavy tells.
     if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;
@@ -820,12 +1444,91 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     bComboSecondHitPending = true;
    }
    LockedAttackDirection = Difference.GetSafeNormal2D();
+   // Opt-in authored guardian tags. Divine Z/Nyra signatures are never replaced.
+   ActiveGuardianFootprint = -1;
+   if (bBoss && !bDivineSignatureActive && DivineBossId.IsNone()) {
+    static const FName TraitTags[4] = {
+     FName(TEXT("MoonfallGuardianMoonbound")), FName(TEXT("MoonfallGuardianEmber")),
+     FName(TEXT("MoonfallGuardianVenom")), FName(TEXT("MoonfallGuardianEclipse"))
+    };
+    for (int32 Trait = 0; Trait < 4; ++Trait) {
+     if (ActorHasTag(TraitTags[Trait])) { ActiveGuardianFootprint = Trait; break; }
+    }
+   }
+   if (ActiveGuardianFootprint >= 0) {
+    GuardianOrigin = GetActorLocation();
+    GuardianTarget = HeroPosition;
+    CurrentWindup = FMath::Max(CurrentWindup, 1.35f);
+    CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.6f);
+    CurrentAttackRangeMultiplier = FMath::Max(CurrentAttackRangeMultiplier, 2.0f);
+    bComboSecondHitPending = false;
+    BossSpecialMove = 0;
+   }
+   if (bSanctuaryPractice) {
+    // Allow new players to read and react to the existing visual tell.
+    CurrentWindup = MoonfallPracticeAI::ReadableWindup(CurrentWindup, AttackSequence);
+    CurrentAttackMultiplier = FMath::Min(CurrentAttackMultiplier, 1.f);
+    CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
+   }
+   bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
+   if(!bBoss&&!bElite&&!bSanctuaryPractice){
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()){
+     if(auto* Target=Mode->SelectCompanionCounterTarget(Hero,this,Now,AttackRange*CurrentAttackRangeMultiplier)){
+      LockedCompanionTarget=Target;bCompanionAttackCommitted=true;
+      LockedAttackDirection=(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
+      SetActorRotation(FRotator(0.f,LockedAttackDirection.Rotation().Yaw,0.f));
+      bComboSecondHitPending=false;
+     }
+    }
+   }
+   CommittedSwordAngle = bElite && !bBoss && !bSanctuaryPractice && !bCompanionAttackCommitted
+     ? MoonfallOmniattack::EnemyAngle(Pattern) : -1;
    WindupEndsAt = Now + CurrentWindup;
+   // A real visible attack commitment is a defensive assist opportunity,
+   // even before the player lands their first strike. Practice foes excluded.
+   if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero&&!bCompanionAttackCommitted)
+    if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
+     Mode->ReportCompanionThreat(Hero,this,Now);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
+   if (bRegionalBoss) {
+    // Stable readable move labels published only at warning startup.
+    const TCHAR* AttackLabel = BossSpecialMove == 1 ? TEXT("MOON CLEAVE")
+      : BossSpecialMove == 2 ? TEXT("HEAVY SLAM")
+      : BossSpecialMove == 3 ? TEXT("DASH STRIKE")
+      : BossSpecialMove == 4 ? TEXT("SPINNING SWEEP")
+      : BossSpecialMove == 5 ? TEXT("SKYFALL SLAM")
+      : Pattern == 0 ? TEXT("QUICK STRIKE")
+      : Pattern == 1 ? TEXT("POWER STRIKE")
+      : Pattern == 2 ? TEXT("WIDE SWEEP")
+      : TEXT("CRUSH ATTACK");
+    DungeonBossAttackLabel = FText::FromString(AttackLabel);
+    if (ActiveGuardianFootprint >= 0) {
+     DungeonBossAttackLabel = FText::FromString(UTF8_TO_TCHAR(
+       MoonfallGuardianFootprint::Name(
+        static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint))));
+    }
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    // Red is dodge-only. Blue sweeps are parryable; ordinary strikes
+    // preserve the existing neutral guard and parry mechanics.
+    bDungeonBossAttackDodgeOnly = BossSpecialMove == 2
+      || BossSpecialMove == 3 || BossSpecialMove == 5;
+   }
+   if (ActiveGuardianFootprint >= 0) {
+    OnDungeonBossAttackTelegraphed(FName(TEXT("Guardian")),
+      FName(UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(
+        static_cast<MoonfallGuardianFootprint::Shape>(ActiveGuardianFootprint)))), CurrentWindup);
+   }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
+   } else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5) {
+    const FName SpecialId = BossSpecialMove == 1 ? FName(TEXT("MoonCleave"))
+      : BossSpecialMove == 2 ? FName(TEXT("EclipseSlam"))
+      : BossSpecialMove == 3 ? FName(TEXT("DashStrike"))
+      : BossSpecialMove == 4 ? FName(TEXT("SpinningSweep"))
+      : FName(TEXT("SkyfallSlam"));
+    OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);
    }
   }
  }
