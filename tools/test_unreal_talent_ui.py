@@ -184,7 +184,8 @@ assert "SwordBuffer.Clear();" in web
 assert "GetCharacterMovement()->StopMovementImmediately()" in web
 assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
-assert "TalentRespecArmUntil=Now+3.0f;" in web
+assert "TalentRespecArmUntil" not in pawn
+assert "TalentRespecArmUntil" not in header
 assert "MoonfallTalentWeb::HitNode(" in web
 pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
 branch_tab = pointer.split("if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y))", 1)[1].split("if (MoonfallTalentWeb::SpendRect", 1)[0]
@@ -193,8 +194,7 @@ assert branch_tab.index("if (NextSelection<0)return;") < branch_tab.index("Talen
 assert "MoonfallTalentWeb::FirstTierForSelection(" in branch_tab
 assert "TalentWebFirstTier=1;" not in branch_tab
 assert "bTalentRespecArmed=false;" in branch_tab
-assert "TalentRespecArmUntil=-1.f;" in branch_tab
-assert "TalentRespecArmUntil=-1.f;" in pointer.split("if (Hit>=0)", 1)[1]
+assert "bTalentRespecArmed=false;" in pointer.split("if (Hit>=0)", 1)[1]
 print("UE5 talent web: layout, full node UI, mouse/controller input and modal isolation source checks passed.")
 
 # Mouse reset uses the same two-step confirmation as keyboard/controller.
@@ -202,14 +202,15 @@ assert 'Click RESET TALENTS or press Backspace / LT twice' in hud
 assert 'Refund %d points? CONFIRM or CANCEL (A / Enter)' in hud
 assert 'No allocated talent points to reset' in hud
 assert 'Arm?TEXT("CANCEL"):TEXT("SPEND POINT")' in hud
-assert "MoonfallTalentWeb::RespecPending(" in hud
+assert "const bool Arm=CanReset && Hero->bTalentRespecArmed;" in hud
 assert "ResetSnapshot.Spent>0" in hud
 assert 'MoonfallTalentWeb::RespecRect(Layout).Hit(X,Y)) {TalentConfirmRespec();return;}' in pointer
 confirm = web.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("\n}", 1)[0]
 assert confirm.index("bTalentRespecArmed=false;") < confirm.index("RespecTalentPoints();")
-assert "MoonfallTalentWeb::RespecPending(bTalentRespecArmed,Now,TalentRespecArmUntil)" in confirm
+assert "if (bTalentRespecArmed)" in confirm
+assert "GetTimeSeconds" not in confirm
 assert confirm.index("Snapshot.Spent<=0") < confirm.index("RespecTalentPoints();")
 spend = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
 assert spend.index("if (bCancelReset)return;") < spend.index("SpendTalentPoint(TalentWebSelected);")
-assert "MoonfallTalentWeb::RespecPending(" in spend
-assert "TalentRespecArmUntil=Now+3.0f;" in confirm
+assert "const bool bCancelReset=bTalentRespecArmed;" in spend
+assert "bTalentRespecArmed=true;" in confirm
