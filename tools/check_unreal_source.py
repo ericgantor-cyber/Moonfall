@@ -1381,6 +1381,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
 
+    def test_controller_back_closes_defeated_inventory_without_mutation(self):
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;",
+                  "if (Health == 0.f) { if (bInventoryOpen) OpenOptions(); return; }",
+                  "TalentCloseWeb(); return;", "AscendSelectedInventoryItem(); return;", "Dodge();")
+        indices = [back.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1]
+        self.assertIn("if (Health == 0.f && bInventoryOpen) { ToggleInventory(); return; }", options)
+
     def test_item_rarity_ascension_is_paid_bounded_and_updates_equipped_stats(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
