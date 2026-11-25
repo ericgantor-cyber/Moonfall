@@ -1377,7 +1377,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="AscendGear",Key=R', inputs)
-        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="ControllerBack",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertNotIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
+        self.assertIn("if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }", back)
+        self.assertLess(back.index("TalentCloseWeb(); return;"), back.index("AscendSelectedInventoryItem(); return;"))
+        self.assertLess(back.index("AscendSelectedInventoryItem(); return;"), back.index("Dodge();"))
         self.assertIn('BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool AscendInventoryItemRarity(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
