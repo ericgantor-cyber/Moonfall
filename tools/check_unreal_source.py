@@ -1778,7 +1778,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f", tick)
         self.assertLess(tick.index("!FMath::IsFinite(IncomingAttackDamage)"),
                         tick.index("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();"))
-        self.assertIn("EffectiveAttackDamage, GetActorLocation());", tick)
+        for dispatch in ("Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())",
+                         "Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation())",
+                         "Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage, GetActorLocation(), ResolvedSwordAngle)"):
+            self.assertIn(dispatch, tick)
+            self.assertLess(tick.index("!FMath::IsFinite(EffectiveAttackDamage)"), tick.index(dispatch))
 
     def test_boss_batch_invalid_nav_cache_resets_before_chasing(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -2795,7 +2799,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("const bool bFrontAttack = !bHasIncomingDamageSource", damage)
         self.assertLess(damage.index("const bool bFrontAttack ="), damage.index("const bool bPerfectParry ="))
-        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
+        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f :", damage)
+        self.assertIn("HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle);", damage)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_guard_and_parry_share_stamina_without_spending_spell_mana(self):
@@ -2808,7 +2813,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("Stamina >= RequiredGuardCost", damage)
-        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
+        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f :", damage)
+        self.assertIn("HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle);", damage)
         self.assertIn("const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
@@ -2852,7 +2858,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_perfect_parry_avoids_impact_stamina_cost(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
+        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f :", damage)
+        self.assertIn("HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle);", damage)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);", damage)
         self.assertIn("if (bPerfectParry) {", damage)
         self.assertIn("Stamina + PerfectParryStaminaReward", damage)

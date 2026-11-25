@@ -185,6 +185,12 @@ int main() {
         self.assertIn("MoonfallOmniattack::EnemyAngle(Pattern)", enemy)
         self.assertIn("Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage", enemy)
         self.assertIn("IncomingSwordAngle = PreviousAngle;", hero)
+        self.assertIn("const int32 ResolvedSwordAngle = CommittedSwordAngle;", enemy)
+        self.assertIn("CommittedSwordAngle = -1;", enemy)
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
+        self.assertLess(damage.index("IncomingSwordAngle = -1;"), damage.index("if (Health <= 0.f"))
+        self.assertLess(damage.index("IncomingSwordAngle = -1;"), damage.index("OnGuardImpact("))
+        self.assertIn("!bIncomingDamageDodgeOnly ? IncomingSwordAngle : -1", damage)
         self.assertIn("HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle)", hero)
         self.assertIn("OnDirectionalGuardImpact(GuardAngle, bPerfectParry)", hero)
         self.assertIn("E->GetDirectionalWindup(WorldTime, HeroLocation)", hud)

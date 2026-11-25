@@ -1658,6 +1658,9 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
+ // Consume per-impact metadata before callbacks can cause another damage event.
+ const int32 GuardAngle = bHasIncomingDamageSource && !bIncomingDamageDodgeOnly ? IncomingSwordAngle : -1;
+ IncomingSwordAngle = -1;
  // Reject invalid hero vitals and damage before guard math or HUD updates.
  if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
      || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
@@ -1699,7 +1702,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack
      && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
- const int32 GuardAngle = IncomingSwordAngle;
  // Assisted guard matches the incoming direction without another key.
  // Heavy high/low strikes exert distinct stamina pressure; perfect timing is unchanged.
  const float RequiredGuardCost = bPerfectParry ? 0.f :

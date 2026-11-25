@@ -39,10 +39,11 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.TickInterval = 0.1f;
 }
 int32 AMoonfallEnemy::GetDirectionalWindup(float Now, const FVector& HeroPosition) const {
- if (!bElite || bBoss || bCompanionAttackCommitted || !FMath::IsFinite(Health) || Health <= 0.f
+ if (!bElite || bBoss || bCompanionAttackCommitted || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
      || !FMath::IsFinite(Now) || !FMath::IsFinite(WindupEndsAt) || WindupEndsAt <= Now
-     || !FMath::IsFinite(AttackRange) || !FMath::IsFinite(CurrentAttackRangeMultiplier)
-     || HeroPosition.ContainsNaN() || !MoonfallOmniattack::ValidAngle(CommittedSwordAngle)) return -1;
+     || !FMath::IsFinite(AttackRange) || AttackRange <= 0.f
+     || !FMath::IsFinite(CurrentAttackRangeMultiplier) || CurrentAttackRangeMultiplier <= 0.f
+     || LockedAttackDirection.ContainsNaN() || HeroPosition.ContainsNaN() || !MoonfallOmniattack::ValidAngle(CommittedSwordAngle)) return -1;
  const FVector Delta = HeroPosition - GetActorLocation();
  const float Range = FMath::Clamp(AttackRange * CurrentAttackRangeMultiplier + 60.f, 0.f, 650.f);
  if (Delta.ContainsNaN() || Delta.SizeSquared() > FMath::Square(Range)) return -1;
@@ -688,6 +689,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  const int32 ResolvedSwordAngle = CommittedSwordAngle;
+  CommittedSwordAngle = -1;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
@@ -788,8 +791,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && bDungeonBossAttackDodgeOnly;
     const bool bParried = bDodgeOnlyStrike
       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(EffectiveAttackDamage, GetActorLocation())
-      : (bElite && !bBoss && MoonfallOmniattack::ValidAngle(CommittedSwordAngle)
-          ? Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage, GetActorLocation(), CommittedSwordAngle)
+      : (bElite && !bBoss && !bSanctuaryPractice && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle)
+          ? Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage, GetActorLocation(), ResolvedSwordAngle)
           : Hero->ApplyMoonfallDamageFrom(EffectiveAttackDamage, GetActorLocation()));
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
