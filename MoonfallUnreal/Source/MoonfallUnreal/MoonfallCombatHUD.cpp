@@ -7,6 +7,7 @@
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallForgeForecast.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -2158,23 +2159,27 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
    const int32 TierDelta = SelectedTier - EquippedTier;
    const int32 RarityDelta = SelectedRarity - EquippedRarity;
-   const bool bIsUpgrade = EquippedCode <= 0 || TierDelta > 0
-     || (TierDelta == 0 && RarityDelta > 0);
-   const bool bIsLower = EquippedCode > 0 && (TierDelta < 0
+   const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
+   const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
+   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && (EquippedCode <= 0 || TierDelta > 0
+     || (TierDelta == 0 && RarityDelta > 0));
+   const bool bIsLower = bValidSelection && EquippedCode > 0 && (TierDelta < 0
      || (TierDelta == 0 && RarityDelta < 0));
-   const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+   const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
+     : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const FString CompareLine = EquippedCode <= 0
+   const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
+     : EquippedCode <= 0
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   const FString PowerCompareLine = CompareLine +
+   const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
      FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
    DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
