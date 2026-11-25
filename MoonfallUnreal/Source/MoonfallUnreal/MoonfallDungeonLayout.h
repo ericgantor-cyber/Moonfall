@@ -89,10 +89,13 @@ public:
    int32 SpawnedCount, bool bEliteEncounter);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Treasure")
  void OnDungeonTreasureSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ItemCode);
- // Shrine rooms restore mana once per dungeon actor lifetime, never health.
+ // Shrine rooms restore health and mana once per dungeon actor lifetime.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Rewards",
    meta=(ClampMin="0.0", ClampMax="100.0"))
  float ShrineManaRestore = 35.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Rewards",
+   meta=(ClampMin="0.0", ClampMax="100.0"))
+ float ShrineHealthRestore = 35.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
  void OnShrineActivated(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  // Three pawn-only side-alcove traps. The 360-unit center route stays safe.
@@ -139,7 +142,7 @@ private:
  int32 SpawnedEncounterCount = 0;
  TWeakObjectPtr<AMoonfallGroundLoot> SpawnedTreasure[ChamberCount];
  bool SpawnTreasureChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
- bool RestoreChamberMana(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
+ bool RestoreChamberVitals(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartFinalBossChamber(AMoonfallHeroPawn* Hero);
  bool bFinalChamberNotified = false;

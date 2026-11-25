@@ -418,7 +418,7 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  OnFinalChamberEntered(Hero);
 }
 
-bool AMoonfallDungeonLayout::RestoreChamberMana(AMoonfallHeroPawn* Hero, int32 ChamberIndex)
+bool AMoonfallDungeonLayout::RestoreChamberVitals(AMoonfallHeroPawn* Hero, int32 ChamberIndex)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || !IsValid(Hero)
      || Hero->IsActorBeingDestroyed() || Hero->GetWorld() != GetWorld()
@@ -428,10 +428,14 @@ bool AMoonfallDungeonLayout::RestoreChamberMana(AMoonfallHeroPawn* Hero, int32 C
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 3
      || !FMath::IsFinite(ShrineManaRestore) || ShrineManaRestore < 0.f
+     || !FMath::IsFinite(ShrineHealthRestore) || ShrineHealthRestore < 0.f
+     || !FMath::IsFinite(Hero->MaxHealth) || Hero->MaxHealth < Hero->Health
      || !FMath::IsFinite(Hero->Mana) || !FMath::IsFinite(Hero->MaxMana)
      || Hero->MaxMana <= 0.f || Hero->Mana < 0.f || Hero->Mana > Hero->MaxMana) return false;
- const double Restored = static_cast<double>(Hero->Mana) + FMath::Clamp(ShrineManaRestore, 0.f, 100.f);
- Hero->Mana = static_cast<float>(FMath::Clamp(Restored, 0.0, static_cast<double>(Hero->MaxMana)));
+ const double RestoredMana = static_cast<double>(Hero->Mana) + FMath::Clamp(ShrineManaRestore, 0.f, 100.f);
+ const double RestoredHealth = static_cast<double>(Hero->Health) + FMath::Clamp(ShrineHealthRestore, 0.f, 100.f);
+ Hero->Mana = static_cast<float>(FMath::Clamp(RestoredMana, 0.0, static_cast<double>(Hero->MaxMana)));
+ Hero->Health = static_cast<float>(FMath::Clamp(RestoredHealth, 0.0, static_cast<double>(Hero->MaxHealth)));
  return true;
 }
 
@@ -467,9 +471,14 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
   if (!IsValid(this) || IsActorBeingDestroyed() || !IsValid(Hero)
       || Hero->IsActorBeingDestroyed() || Hero->GetWorld() != GetWorld()) return;
-  if (ChamberType == 3 && !RestoreChamberMana(Hero, ChamberIndex)) return;
+  if (ChamberType == 3 && !RestoreChamberVitals(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
-  if (ChamberType == 3) OnShrineActivated(Hero, ChamberIndex);
+  if (ChamberType == 3) {
+   Hero->OnHealthChanged(Hero->Health, Hero->MaxHealth);
+   if (!IsValid(this) || IsActorBeingDestroyed() || !IsValid(Hero)
+       || Hero->IsActorBeingDestroyed() || Hero->GetWorld() != GetWorld()) return;
+   OnShrineActivated(Hero, ChamberIndex);
+  }
   if (!IsValid(this) || IsActorBeingDestroyed() || !IsValid(Hero)
       || Hero->IsActorBeingDestroyed() || Hero->GetWorld() != GetWorld()) return;
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
