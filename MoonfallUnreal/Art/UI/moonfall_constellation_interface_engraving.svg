@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 870" role="img" aria-labelledby="title description">
+<title id="title">Moonfall · Constellation and interface engravings</title>
+<desc id="description">Six talent runes, eight settings symbols, companion oath and boss phase art. Original editable vector reference; native Canvas draws corresponding simplified glyphs.</desc>
+<rect width="760" height="870" fill="#100e19"/>
+<rect x="12" y="12" width="736" height="846" rx="12" fill="none" stroke="#917044"/>
+<text x="380" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="24" letter-spacing="3" fill="#e4c991">MOONFALL · ENGRAVINGS</text>
+<text x="380" y="72" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing="2" fill="#9a8cae">CONSTELLATION / ACCESSIBILITY / COMBAT</text>
+<g id="rune-health" transform="translate(28 92)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#e56c78" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M0 -5 L-14 -19 L-26 -6 L0 24 L26 -6 L14 -19 Z" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">HEALTH</text>
+</g>
+<g id="rune-mana" transform="translate(206 92)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#69a7f4" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M0 -26 L19 6 L0 26 L-19 6 Z M0 -10 L8 8 L0 15" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">MANA</text>
+</g>
+<g id="rune-stamina" transform="translate(384 92)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#78d29e" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M8 -28 L-21 3 L7 3 L-8 29 L24 -7 L-3 -7 Z" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">STAMINA</text>
+</g>
+<g id="rune-melee" transform="translate(562 92)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#d9a16c" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-18 23 L23 -27 L26 -8 L-8 17 M-17 -3 L7 16 M-18 23 L-26 30" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">MELEE</text>
+</g>
+<g id="rune-ranged" transform="translate(28 282)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#b7d58a" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-24 25 L24 -25 M3 -25 L24 -25 L24 -4 M-17 6 L-17 18 L-5 18" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">RANGED</text>
+</g>
+<g id="rune-magic" transform="translate(206 282)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#ba8bed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M0 -29 L0 29 M-29 0 L29 0 M-19 -19 L19 19 M19 -19 L-19 19" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">MAGIC</text>
+</g>
+<g id="rune-resolution" transform="translate(384 282)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-28 -21 H28 V15 H-28 Z M0 15 V26 M-15 26 H15" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">RESOLUTION</text>
+</g>
+<g id="rune-render-scale" transform="translate(562 282)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-27 -5 V-27 H-5 M27 5 V27 H5 M-27 -27 L27 27" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">RENDER SCALE</text>
+</g>
+<g id="rune-quality" transform="translate(28 472)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#d7b573" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M0 -28 L27 -8 L0 28 L-27 -8 Z M-27 -8 H27 M0 -28 L-8 -8 L0 28 L8 -8 Z" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">QUALITY</text>
+</g>
+<g id="rune-frame-gen" transform="translate(206 472)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-29 -22 L-7 0 L-29 22 M3 -22 L25 0 L3 22" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">FRAME GEN</text>
+</g>
+<g id="rune-reduced-motion" transform="translate(384 472)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-29 -15 H29 M-29 0 H29 M-29 15 H29" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">REDUCED MOTION</text>
+</g>
+<g id="rune-combat-text" transform="translate(562 472)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-26 -22 H26 M0 -22 V26 M-15 26 H15" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">COMBAT TEXT</text>
+</g>
+<g id="rune-boss-alerts" transform="translate(28 662)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#ed8b67" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M0 -28 L28 24 H-28 Z M0 -10 V7 M0 15 V17" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">BOSS ALERTS</text>
+</g>
+<g id="rune-display-mode" transform="translate(206 662)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8cc5ed" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-28 -26 H28 V26 H-28 Z M-28 -10 H28" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">DISPLAY MODE</text>
+</g>
+<g id="rune-companion-oath" transform="translate(384 662)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#8bcaac" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-25 -24 H25 L22 8 L0 29 L-22 8 Z M0 -17 V17 M-12 -4 H12" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">COMPANION OATH</text>
+</g>
+<g id="rune-boss-phase" transform="translate(562 662)">
+<rect width="168" height="176" rx="8" fill="#1b1728" stroke="#493b56"/>
+<path d="M8 28 V8 H28 M140 8 H160 V28 M8 148 V168 H28 M140 168 H160 V148" fill="none" stroke="#9d7948"/>
+<g transform="translate(84 75)" fill="none" stroke="#d9a16c" stroke-linecap="round" stroke-linejoin="round">
+<circle r="47" stroke-opacity=".38"/><path d="M0 -43 L43 0 L0 43 L-43 0 Z" stroke-opacity=".65"/><path d="M-28 0 L-18 -13 L-8 0 L-18 13 Z M-10 0 L0 -13 L10 0 L0 13 Z M8 0 L18 -13 L28 0 L18 13 Z" stroke-width="2.5"/>
+<path d="M0 -51 V-46 M51 0 H46 M0 51 V46 M-51 0 H-46" stroke="#d9b678"/>
+</g>
+<text x="84" y="151" text-anchor="middle" font-family="sans-serif" font-size="11" letter-spacing=".7" fill="#e2d9ec">BOSS PHASE</text>
+</g>
+</svg>
