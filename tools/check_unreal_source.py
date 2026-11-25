@@ -4576,6 +4576,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("name: Preserve native dungeon test evidence"))
         self.assertIn("if: always()", workflow)
 
+    def test_resident_quest_xp_is_committed_with_contract_and_rolls_back(self):
+        body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
+        self.assertEqual(body.count("SaveWorldProgress()"), 1)
+        self.assertIn("MoonfallQuestXP::Preview(Cost, Level, Experience, ExperienceToNextLevel)", body)
+        self.assertLess(body.index("Experience = Reward.RemainingXP"), body.index("SaveWorldProgress()"))
+        self.assertLess(body.index("ResidentQuestStates.Add(Id, 2)"), body.index("SaveWorldProgress()"))
+        rollback = body.split("if (!SaveWorldProgress()) {", 1)[1].split("return false;", 1)[0]
+        for restore in ("Level = PreviousLevel", "Experience = PreviousXP", "ExperienceToNextLevel = PreviousNextXP", "MaxHealth = PreviousMaxHealth", "Health = PreviousHealth", "Mana = PreviousMana", "SpellPowerMultiplier = PreviousSpellPower", "Salvage = PreviousSalvage", "ResidentQuestStates.Add(Id, 1)"):
+            self.assertIn(restore, rollback)
+        self.assertLess(body.index("SaveWorldProgress()"), body.index("OnHealthChanged(Health, MaxHealth)"))
+        self.assertNotIn("AwardExperience(", body)
+
     def test_dungeon_world_ignores_tearing_down_authored_actors(self):
         mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
         startup = mode.split("void AMoonfallUnrealGameMode::BeginPlay()", 1)[1].split(
