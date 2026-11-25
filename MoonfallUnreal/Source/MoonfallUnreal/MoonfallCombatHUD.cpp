@@ -2438,6 +2438,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float AlertScale = FMath::Clamp(Hero->BossWarningScale, 1.f, 2.f);
   DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),
     X-6.f,Y-40.f,Width+12.f,120.f);
+  // Gothic boss-bar frame stays outside the actual health fill and labels.
+  const FLinearColor BossFoil(0.75f,0.45f,0.35f,0.90f);
+  DrawRect(BossFoil,X-2.f,Y-2.f,Width+4.f,1.f);
+  DrawRect(BossFoil,X-2.f,Y+17.f,Width+4.f,1.f);
+  DrawRect(BossFoil,X-2.f,Y-2.f,1.f,20.f);
+  DrawRect(BossFoil,X+Width+1.f,Y-2.f,1.f,20.f);
   DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
   DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
   DrawText(FString::Printf(TEXT("%s  |  PHASE %d / 3  |  %.0f / %.0f HP"),
@@ -2454,6 +2460,18 @@ void AMoonfallCombatHUD::DrawHUD()
     X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
   if (Width>=320.f) DrawMoonfallSigil(X+Width-13.f,Y+40.f,
     9.f,FLinearColor(0.95f,0.44f,0.59f),0);
+  // Phase medallions are non-animated and redundant with the numeric phase.
+  if (Width>=360.f) {
+   for (int32 Phase=1;Phase<=3;++Phase) {
+    const float PX=X+Width-45.f-float(3-Phase)*15.f;
+    const FLinearColor Ink=Phase<=Boss->BossPhase
+      ? FLinearColor(0.96f,0.66f,0.34f):FLinearColor(0.35f,0.29f,0.35f);
+    DrawLine(PX,Y+35.f,PX+4.f,Y+40.f,Ink,1.2f);
+    DrawLine(PX+4.f,Y+40.f,PX,Y+45.f,Ink,1.2f);
+    DrawLine(PX,Y+45.f,PX-4.f,Y+40.f,Ink,1.2f);
+    DrawLine(PX-4.f,Y+40.f,PX,Y+35.f,Ink,1.2f);
+   }
+  }
   DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
     bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
     X,Y+35.f,nullptr,0.78f);
@@ -2628,6 +2646,14 @@ void AMoonfallCombatHUD::DrawHUD()
   // Static border aligns the in-world objective with the native menu frame.
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top,Width,2.f);
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top+122.f,Width,2.f);
+  // Quest parchment corner inlays remain in the existing margin.
+  const FLinearColor QuestFoil(0.63f,0.48f,0.28f,0.88f);
+  DrawRect(QuestFoil,Left+6.f,Top+4.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+6.f,Top+4.f,1.f,7.f);
+  DrawRect(QuestFoil,Left+Width-10.f,Top+4.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+Width-5.f,Top+4.f,1.f,7.f);
+  DrawRect(QuestFoil,Left+6.f,Top+119.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+Width-10.f,Top+119.f,6.f,1.f);
   // The tracker uses the real current-region seal below, not a generic icon.
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
@@ -2686,6 +2712,9 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Goals.Valid && Rows>0) {
     const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
     DrawRect(FLinearColor(0.035f,0.055f,0.11f,0.88f),Left,ExtraTop,Width,Height);
+    // A matching etched top rail ties the quest ledger to the main tracker.
+    DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
+    DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
     DrawText(FString::Printf(TEXT("REGIONAL QUESTS  |  %d/%d SHOWN"),Rows,Goals.Count),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
