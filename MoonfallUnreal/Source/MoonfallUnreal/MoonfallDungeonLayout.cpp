@@ -347,6 +347,15 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    break;
   }
  }
+ // A later member's Blueprint initialization may invalidate an earlier
+ // member. Revalidate the entire group before consuming its one-shot token.
+ for (const AMoonfallEnemy* Member : GroupActors) {
+  if (!IsValid(Member) || Member->IsActorBeingDestroyed() || Member->GetOwner() != this
+      || !FMath::IsFinite(Member->Health) || Member->Health <= 0.f) {
+   bAllSpawned = false;
+   break;
+  }
+ }
  if (!bAllSpawned || GroupActors.Num() != GroupSize) {
   // A rejected member must never leave a partial 5..11 pack or consume
   // the one-shot token; re-entering this room can retry once space clears.
