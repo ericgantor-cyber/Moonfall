@@ -30,11 +30,10 @@ struct FProjection {
 };
 // Mirror the current AwardExperience rollover, including the level-100 cap.
 // Read-only: HUD can forecast a level-up before a player confirms salvage.
-constexpr FProjection Preview(int SalvageCost, int PlayerLevel,
-                              int CurrentXP, int CurrentNextLevelXP) {
- const int Gain = Reward(SalvageCost, PlayerLevel);
+constexpr FProjection PreviewGain(int Gain, int PlayerLevel,
+                                  int CurrentXP, int CurrentNextLevelXP) {
  if (PlayerLevel < 1 || PlayerLevel >= 100 || CurrentXP < 0
-     || CurrentNextLevelXP <= 0 || Gain == 0)
+     || CurrentNextLevelXP <= 0 || Gain <= 0 || Gain > 100000)
   return {0, PlayerLevel, 0, CurrentXP, CurrentNextLevelXP};
  int LevelAfter = PlayerLevel;
  int XPAfter = CurrentXP >= 1000000 - Gain ? 1000000 : CurrentXP + Gain;
@@ -47,5 +46,12 @@ constexpr FProjection Preview(int SalvageCost, int PlayerLevel,
  if (LevelAfter >= 100) XPAfter = 0;
  return {Gain, LevelAfter, LevelAfter - PlayerLevel,
    XPAfter, LevelAfter >= 100 ? 0 : Threshold};
+}
+constexpr FProjection Preview(int SalvageCost, int PlayerLevel,
+                              int CurrentXP, int CurrentNextLevelXP) {
+ return PreviewGain(Reward(SalvageCost, PlayerLevel), PlayerLevel, CurrentXP, CurrentNextLevelXP);
+}
+constexpr FProjection PreviewDungeonDiscovery(int PlayerLevel, int CurrentXP, int CurrentNextLevelXP) {
+ return PreviewGain(100, PlayerLevel, CurrentXP, CurrentNextLevelXP);
 }
 } // namespace MoonfallQuestXP

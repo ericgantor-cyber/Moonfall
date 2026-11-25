@@ -4096,6 +4096,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(discovery.index("if (!SaveWorldProgress())"),
                         discovery.index("OnDungeonDiscovered(Zone, Dungeon);"))
         self.assertNotIn("Experience +=", discovery)
+        self.assertIn("MoonfallQuestXP::PreviewDungeonDiscovery(Level, Experience, ExperienceToNextLevel)", discovery)
+        self.assertLess(discovery.index("Experience = Reward.RemainingXP;"), discovery.index("if (!SaveWorldProgress())"))
+        for rollback in ("Level = PreviousLevel", "Experience = PreviousXP", "ExperienceToNextLevel = PreviousNextXP",
+                         "MaxHealth = PreviousMaxHealth", "Health = PreviousHealth", "Mana = PreviousMana",
+                         "SpellPowerMultiplier = PreviousSpellPower"):
+            self.assertIn(rollback, discovery.split("if (!SaveWorldProgress())", 1)[1])
+        self.assertLess(discovery.index("if (!SaveWorldProgress())"), discovery.index("OnHealthChanged(Health, MaxHealth);"))
         self.assertIn("return true;", discovery)
         self.assertIn("GetDiscoveredDungeonCount(int32 Zone) const", self.hero_cpp)
 

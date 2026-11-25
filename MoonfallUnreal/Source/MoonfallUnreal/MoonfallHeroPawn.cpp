@@ -3529,16 +3529,43 @@ bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked || !GetWorld()
      || HasDiscoveredDungeon(Zone, Dungeon)) return false;
+ // The first saved entrance discovery and its 100 XP are one transaction.
+ if (bTalentAllocationInProgress || bEquipmentCraftInProgress || bEquipBestInProgress
+     || !FMath::IsFinite(MaxHealth) || MaxHealth < Health
+     || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana) || Mana < 0.f || Mana > MaxMana
+     || Level < 1 || Level > 100 || Experience < 0 || Experience > 1000000
+     || ExperienceToNextLevel != 100 + (Level - 1) * 55
+     || !FMath::IsFinite(SpellPowerMultiplier)) return false;
+ const auto Reward = MoonfallQuestXP::PreviewDungeonDiscovery(Level, Experience, ExperienceToNextLevel);
  const int32 PreviousMask = DiscoveredDungeonMask;
+ const int32 PreviousLevel = Level, PreviousXP = Experience, PreviousNextXP = ExperienceToNextLevel;
+ const float PreviousMaxHealth = MaxHealth, PreviousHealth = Health, PreviousMana = Mana;
+ const float PreviousSpellPower = SpellPowerMultiplier;
  const bool bCompletesZone = GetDiscoveredDungeonCount(Zone) == 4;
  DiscoveredDungeonMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
- // Persist atomically before notifying UI. Failed writes roll back the bit,
- // while the original slot remains intact.
+ if (Reward.RewardXP > 0) {
+  Level = Reward.FinalLevel;
+  Experience = Reward.RemainingXP;
+  ExperienceToNextLevel = 100 + (Level - 1) * 55;
+  if (Reward.LevelsGained > 0) {
+   MaxHealth += 4.f * Reward.LevelsGained;
+   Health = FMath::Min(MaxHealth, Health + 12.f * Reward.LevelsGained);
+   Mana = FMath::Min(MaxMana, Mana + 10.f * Reward.LevelsGained);
+   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
+  }
+ }
+ // No callbacks until the durable discovery and XP have both committed.
  if (!SaveWorldProgress()) {
   DiscoveredDungeonMask = PreviousMask;
+  Level = PreviousLevel; Experience = PreviousXP; ExperienceToNextLevel = PreviousNextXP;
+  MaxHealth = PreviousMaxHealth; Health = PreviousHealth; Mana = PreviousMana;
+  SpellPowerMultiplier = PreviousSpellPower;
   return false;
  }
+ if (Reward.LevelsGained > 0) OnHealthChanged(Health, MaxHealth);
+ if (IsActorBeingDestroyed() || !GetWorld()) return true;
  OnDungeonDiscovered(Zone, Dungeon);
+ if (IsActorBeingDestroyed() || !GetWorld()) return true;
  // The fifth distinct entrance charts the zone once, after durable saving.
  if (bCompletesZone) OnDungeonZoneCharted(Zone);
  return true;

@@ -39,6 +39,12 @@ static_assert(MoonfallQuestXP::Preview(25,99,5480,5490).FinalLevel == 100);
 static_assert(MoonfallQuestXP::Preview(25,99,5480,5490).RemainingXP == 0);
 static_assert(MoonfallQuestXP::Preview(25,100,0,0).RewardXP == 0);
 static_assert(MoonfallQuestXP::Preview(25,0,0,100).RewardXP == 0);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(1,0,100).FinalLevel == 2);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(1,0,100).RemainingXP == 0);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(2,0,155).RemainingXP == 100);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(99,5480,5490).FinalLevel == 100);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(99,5480,5490).RemainingXP == 0);
+static_assert(MoonfallQuestXP::PreviewDungeonDiscovery(100,0,5545).RewardXP == 0);
 int main() {
  assert(MoonfallQuestXP::Preview(10,1,std::numeric_limits<int>::max(),100).FinalLevel==100);
  for (int level=1;level<100;++level) {
