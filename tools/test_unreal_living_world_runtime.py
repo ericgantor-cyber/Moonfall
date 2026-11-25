@@ -14,6 +14,8 @@ class LivingWorldPolicyTests(unittest.TestCase):
 using namespace MoonfallLivingSimulation;
 int main(){
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
+ assert(MoonfallRoadLandmarks::ArtProfilesSafe());
+ static_assert(sizeof(MoonfallRoadLandmarks::ArtProfiles)/sizeof(MoonfallRoadLandmarks::ArtProfiles[0])==6);
  assert(MoonfallRoadLandmarks::ClearDungeonFootprint(-675.f));
  assert(!MoonfallRoadLandmarks::ClearDungeonFootprint(-1350.f));
  // Test direction in the middle of a region, not on the X=0 border.
@@ -119,6 +121,25 @@ int main(){
             source.write_text(code)
             subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True,check=True)
             subprocess.run([str(exe)],check=True)
+    def test_regional_crowns_and_dungeon_wall_art_are_visual_only(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        dungeon=(SRC/"MoonfallDungeonLayout.cpp").read_text()
+        header=(SRC/"MoonfallDungeonLayout.h").read_text()
+        self.assertIn("MoonfallRoadLandmarks::ArtProfiles[Zone]",arena)
+        self.assertIn("Art.CrownHeight*100.f+Art.TipHeight*50.f",arena)
+        self.assertIn("bool bEnableWallCrownArt = true;",header)
+        for token in ("WallCrownArt->SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                      "WallCrownArt->SetCollisionResponseToAllChannels(ECR_Ignore)",
+                      "WallCrownArt->SetGenerateOverlapEvents(false)",
+                      "WallCrownArt->SetCastShadow(false)",
+                      "WallCrownArt->SetCanEverAffectNavigation(false)",
+                      "WallCrownArt->SetCullDistances(8000, 12000)",
+                      "WallCrownArt->ClearInstances()",
+                      "MoonfallRoadLandmarks::ArtProfiles[ZoneIndex]",
+                      "FVector(X,Side*ChamberWidth*0.5f,300.f+Art.CrownHeight*50.f)"):
+            self.assertIn(token,dungeon)
+        self.assertEqual(dungeon.count("WallCrownArt->AddInstance("),1)
+
     def test_danger_changes_npc_activity_and_local_routines(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
         policy=(SRC/"MoonfallLivingSimulation.h").read_text()
