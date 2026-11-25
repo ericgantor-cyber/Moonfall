@@ -1899,6 +1899,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
         self.assertLess(begin.index("const float BaseHealth"), begin.index("MaxHealthAtSpawn ="))
 
+    def test_enemy_combat_callbacks_cannot_reenter_resolution(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::BeginFinisherDefeat", 1)[0]
+        companion = self.enemy_cpp.split("bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount)", 1)[1].split("void AMoonfallEnemy::TakeMeleeDamage", 1)[0]
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::RegisterComboMilestone", 1)[0]
+        for body in (damage, companion):
+            self.assertLess(body.index("if (bResolvingDamage)"), body.index("TGuardValue<bool> DamageGuard(bResolvingDamage, true);"))
+        self.assertLess(damage.index("TGuardValue<bool> DamageGuard"), damage.index("Health = FMath::Max(0.0f, Health -"))
+        self.assertLess(posture.index("if (bResolvingPosture"), posture.index("TGuardValue<bool> PostureGuard"))
+        self.assertLess(posture.index("TGuardValue<bool> PostureGuard"), posture.index("OnPostureChanged(Posture, MaxPosture);"))
+        self.assertIn("bool bResolvingDamage = false;", self.enemy_h)
+        self.assertIn("bool bResolvingPosture = false;", self.enemy_h)
+        after_callback = posture.split("OnPostureChanged(Posture, MaxPosture);", 1)[1]
+        self.assertLess(after_callback.index("IsActorBeingDestroyed()"), after_callback.index("PostureBrokenUntil = Now + VulnerabilitySeconds;"))
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertLess(tick.index("if (!FMath::IsFinite(Health) || IsActorBeingDestroyed())"), tick.index("AMoonfallHeroPawn* Hero = CachedHero.Get();"))
+
     def test_enemy_posture_break_rejects_invalid_cooldown_timers(self):
         posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
             "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
