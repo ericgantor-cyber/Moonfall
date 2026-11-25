@@ -459,6 +459,20 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ // Replay one deliberately buffered dodge before a pending sword swing.
+ if (DodgeBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(DodgeBuffer.ExpiresAt)) {
+  const float DodgeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
+  const bool bCanDodge = GetWorld() && FMath::IsFinite(Health) && Health > 0.f
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bResidentContextOpen && !FocusedResident.IsValid()
+     && FMath::IsFinite(NextDodgeAt) && FMath::IsFinite(DamageImmunityUntil)
+     && !BufferedDodgeDirection.ContainsNaN() && !BufferedDodgeDirection.IsNearlyZero();
+  if (DodgeBuffer.Consume(DodgeNow, FMath::Max(NextDodgeAt, DamageImmunityUntil), bCanDodge)) {
+   TGuardValue<bool> DispatchGuard(bDispatchingBufferedDodge, true);
+   Dodge();
+   BufferedDodgeDirection = FVector::ZeroVector;
+  }
+ }
  // A second click shortly before recovery may queue exactly one next swing.
  // No extra timer, animation, actor scan, trace, or stamina charge per frame.
  // All modal/defense transitions discard it before an attack can resolve.
@@ -1022,7 +1036,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       || Enemy->MaxHealth <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
-  const bool bCounterReady = Time <= ParryCounterUntil
+  const bool bCounterReady = FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil
       && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
   const float CounterMultiplier = bCounterReady
       ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
@@ -1154,6 +1168,7 @@ void AMoonfallHeroPawn::CastLeft()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
  TryCast(LeftSpell, 0, 1.f);
 }
@@ -1162,6 +1177,7 @@ void AMoonfallHeroPawn::CastRight()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
  TryCast(RightSpell, 1, 1.f);
 }
@@ -1171,6 +1187,7 @@ void AMoonfallHeroPawn::CastBoth()
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
@@ -1587,7 +1604,8 @@ void AMoonfallHeroPawn::BeginGuard()
  const float GuardNow = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
      || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
- // Blocking/parrying supersedes a queued sword swing.
+ // Blocking/parrying supersedes queued actions.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
@@ -1641,19 +1659,37 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
-
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  if (bTalentWebOpen) return;
+ if (bResolvingCombatAction) return;
+ if (!FMath::IsFinite(Health)) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
      || !FMath::IsFinite(DamageImmunityUntil)
-     || Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ // Prefer live input for responsive controller/keyboard dodges. On frames
+ // without new input, use the most recently consumed movement direction.
+ const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
+ const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
+ const FVector LiveDirection = !PendingDirection.IsNearlyZero() ? PendingDirection
+     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ const FVector Direction = bDispatchingBufferedDodge ? BufferedDodgeDirection : LiveDirection;
+ if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;
+ if (Now < NextDodgeAt || Now < DamageImmunityUntil) {
+  if (!bDispatchingBufferedDodge && DodgeBuffer.Queue(Now,FMath::Max(NextDodgeAt,DamageImmunityUntil))) {
+   BufferedDodgeDirection = Direction;
+   SwordBuffer.Clear();
+  }
+  return;
+ }
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
+ DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Dodge always wins over a pending attack.
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
@@ -1666,15 +1702,19 @@ void AMoonfallHeroPawn::Dodge()
  NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
- // Prefer live input for responsive controller/keyboard dodges. On frames
- // without new input, use the most recently consumed movement direction.
- const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
- const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
- const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
- const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
-     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge);
+}
+
+float AMoonfallHeroPawn::GetParryCounterRemaining() const
+{
+ const UWorld* World = GetWorld();
+ if (!World || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(ParryCounterUntil) || !FMath::IsFinite(ParryCounterDamageMultiplier)
+     || ParryCounterDamageMultiplier < 1.f) return 0.f;
+ const float Now = World->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now >= ParryCounterUntil) return 0.f;
+ return FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -1683,7 +1723,9 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  // Rewards are earned only during live gameplay, not behind paused overlays.
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen
+     || !FMath::IsFinite(Health) || bAtlasOpen || bTalentWebOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  // Invalid or expired windows must never grant an unearned dodge reward.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
@@ -1838,6 +1880,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   ParryCounterUntil = -1.f;
   // Only real health damage cancels a queued follow-up sword attack.
   // Fully blocked and parried hits leave the queue untouched.
+  DodgeBuffer.Clear();
   SwordBuffer.Clear();
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
@@ -1988,6 +2031,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  DodgeBuffer.Clear();
   SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
@@ -2039,6 +2083,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
+  DodgeBuffer.Clear();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -2297,6 +2342,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndSprint();
   EndGuard();
   SwordBuffer.Clear(); // Menu entry cancels a queued attack.
+  DodgeBuffer.Clear();
  }
  bOptionsOpen = !bOptionsOpen;
  // Match the inventory close workflow and allow the Options X to be clicked.
@@ -3420,6 +3466,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
  EndGuard();
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  bTalentWebOpen=true;
  TalentWebBranch=FMath::Clamp(TalentWebBranch,0,2);
@@ -4172,6 +4219,10 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
+ DodgeBuffer.Clear();
+ ParryCounterUntil = -1.f;
+ PerfectDodgeWindowUntil = -1.f;
+ ParryWindowEndsAt = -1.f;
  SwordBuffer.Clear();
  MoonfallOmniattack::Reset(SwordFlow);
  CurrentSwordAngle = -1;
@@ -4453,6 +4504,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // unexpectedly open talents during travel or combat with no nearby NPC.
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
+ DodgeBuffer.Clear();
  SwordBuffer.Clear();
  FocusedResident = Resident;
  bResidentContextOpen = true;
@@ -4506,6 +4558,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
+    DodgeBuffer.Clear();
     SwordBuffer.Clear();
     FocusedResident = Resident;
     bResidentContextOpen = true;

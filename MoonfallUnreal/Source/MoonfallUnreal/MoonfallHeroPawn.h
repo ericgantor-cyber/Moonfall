@@ -218,6 +218,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  // Returns true only when this specific attack consumed the perfect-dodge window.
  bool TryRewardPerfectDodge();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Combat") float GetParryCounterRemaining() const;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Combat") bool bGuarding = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") float GuardBrokenUntil = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardBroken();
@@ -522,6 +523,9 @@ private:
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;
+ FVector BufferedDodgeDirection = FVector::ZeroVector;
+ bool bDispatchingBufferedDodge = false;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;

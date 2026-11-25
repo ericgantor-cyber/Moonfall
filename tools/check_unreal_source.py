@@ -2154,12 +2154,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
         self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen", reward)
+        for guard in ("!FMath::IsFinite(Health)", "bAtlasOpen", "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()"):
+            self.assertIn(guard, reward)
         for field in ("Now", "PerfectDodgeWindowUntil", "LastPerfectDodgeRewardAt"):
             self.assertIn(f"!FMath::IsFinite({field})", reward)
         self.assertIn("Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertLess(reward.index("bOptionsOpen || bInventoryOpen"), reward.index("LastPerfectDodgeRewardAt = Now;"))
         self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
                         reward.index("PerfectDodgeWindowUntil = -1.f;"))
+
+    def test_defense_counter_preview_and_reentrancy_guards(self):
+        getter = self.hero_cpp.split("float AMoonfallHeroPawn::GetParryCounterRemaining() const", 1)[1].split("void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(ParryCounterUntil)", "!FMath::IsFinite(Now)", "Now >= ParryCounterUntil", "FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f)"):
+            self.assertIn(guard, getter)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split("float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
+        self.assertLess(dodge.index("if (bResolvingCombatAction) return;"), dodge.index("DodgeBuffer.Queue("))
+        self.assertLess(dodge.index("TGuardValue<bool> CombatActionGuard"), dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertIn("FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil", self.hero_cpp)
+
+    def test_dodge_buffer_preserves_direction_and_dispatch_priority(self):
+        self.assertIn("MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;", self.hero_h)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1]
+        self.assertLess(tick.index("DodgeBuffer.Consume("), tick.index("SwordBuffer.Consume("))
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split("void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("bDispatchingBufferedDodge ? BufferedDodgeDirection : LiveDirection", dodge)
+        self.assertLess(dodge.index("DodgeBuffer.Queue("), dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertLess(dodge.index("Direction.ContainsNaN()"), dodge.index("DamageImmunityUntil = Now + 0.24f;"))
+        self.assertIn("DodgeBuffer.Clear();", dodge)
+        self.assertIn("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge)", dodge)
 
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
