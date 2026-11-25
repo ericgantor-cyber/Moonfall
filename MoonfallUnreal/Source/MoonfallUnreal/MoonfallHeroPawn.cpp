@@ -1627,16 +1627,16 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return;
 
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
+ if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || !FMath::IsFinite(Health) || bResidentContextOpen || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
-     || FocusedResident.IsValid() || IsActorBeingDestroyed()
+     || FocusedResident.IsValid()
      || Stamina < GuardStaminaCost) return;
  if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
@@ -1700,8 +1700,8 @@ void AMoonfallHeroPawn::EndSprint() {
 void AMoonfallHeroPawn::Dodge()
 {
  if (IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bEquipmentCraftInProgress || bTalentAllocationInProgress) return;
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+     || bEquipmentCraftInProgress || bTalentAllocationInProgress
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  if (!FMath::IsFinite(Health)) return;
