@@ -2967,8 +2967,9 @@ void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen &&
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
- // A candidate is only suggested while the player is safely browsing the bag.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ // Arsenal-style preview: equipment comparison is independent of current HP.
+ // Only an explicit equip request needs a valid living pawn.
+ if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  const MoonfallGearAdvisor::FEquipped EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
@@ -2979,8 +2980,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 {
  // Validate worn ownership once, then scan the inventory once. The candidate
  // is already owned by construction, so no nested bag searches are needed.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
-  return INDEX_NONE;
+ if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
  const MoonfallGearAdvisor::FEquipped EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
  int32 BestIndex = INDEX_NONE;
