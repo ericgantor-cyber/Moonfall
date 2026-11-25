@@ -260,14 +260,14 @@ int main() {
             ("bool", "ReforgeInventoryItemAffix"),
             ("bool", "AscendInventoryItemRarity"),
             ("int32", "ForgeInventoryItemLevels"),
-            ("bool", "EquipInventoryItem"),
+            ("bool", "EquipInventoryItemWithPreviousTier"),
         )
         for return_type, method in signatures:
             with self.subTest(method=method):
                 start = f"{return_type} AMoonfallHeroPawn::{method}("
                 body = hero.split(start, 1)[1].split("\n}", 1)[0]
                 before_item_access = body.split("InventoryItemCodes[InventoryIndex]", 1)[0]
-                self.assertIn("Health <= 0.f", before_item_access)
+                self.assertIn("Health < 0.f" if method == "EquipInventoryItemWithPreviousTier" else "Health <= 0.f", before_item_access)
                 self.assertIn("!FMath::IsFinite(Health)", before_item_access)
 
     def test_direct_equip_and_batch_forge_refuse_non_bag_pages(self):
@@ -292,6 +292,60 @@ int main() {
         self.assertIn("|| bAtlasOpen || bResidentContextOpen || Health <= 0.f", salvage)
         self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("InventoryItemCodes.RemoveAt"))
         self.assertLess(salvage.index("bSpellBookOpen"), salvage.index("Salvage ="))
+
+    def test_direct_gear_mutations_reject_competing_menu_owners(self):
+        hero = HERO.read_text()
+        for return_type, method, mutation in (
+            ("bool", "SalvageInventoryItem", "InventoryItemCodes.RemoveAt"),
+            ("bool", "EquipInventoryItemWithPreviousTier", "*EquippedCode = Code;"),
+            ("int32", "EquipBestInventoryUpgrades", "OnBestLoadoutEquipped("),
+        ):
+            with self.subTest(method=method):
+                body = hero.split(f"{return_type} AMoonfallHeroPawn::{method}(", 1)[1].split("\n}", 1)[0]
+                before_mutation = body.split(mutation, 1)[0]
+                self.assertIn(mutation, body)
+                for guard in ("bTalentWebOpen", "FocusedResident.IsValid()",
+                              "bAtlasOpen", "bResidentContextOpen",
+                              "bCharacterStatsOpen", "bSpellBookOpen",
+                              "!FMath::IsFinite(Health)"):
+                    self.assertIn(guard, before_mutation)
+
+    def test_wow_style_combat_equipment_swaps_are_weapon_only(self):
+        hero = HERO.read_text()
+        best = hero.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split("\n}", 1)[0]
+        equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;", best)
+        self.assertLess(best.index("if (Slot != 0 && IsRecentlyInCombatForAmbientAI())"),
+                        best.index("EquipInventoryItem(Index)"))
+        self.assertIn("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;", equip)
+        self.assertLess(equip.index("if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI())"),
+                        equip.index("*EquippedCode = Code;"))
+        self.assertIn("Health < 0.f", best)
+        self.assertIn("!FMath::IsFinite(Health)", best)
+        self.assertNotIn("Health / MaxHealth", best)
+
+    def test_equip_best_reentry_and_callback_changes_are_safe(self):
+        hero = HERO.read_text()
+        best = hero.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress", best)
+        self.assertLess(best.index("TGuardValue<bool> BatchGuard"), best.index("EquipInventoryItem(Index)"))
+        self.assertLess(best.index("GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]"), best.index("EquipInventoryItem(Index)"))
+        self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", best)
+        self.assertIn("if (IsValid(this) && !IsActorBeingDestroyed()) OnBestLoadoutEquipped", best)
+
+    def test_defeated_gear_swaps_preserve_zero_hp_and_checkpoint_ownership(self):
+        hero = HERO.read_text()
+        equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;", equip)
+        self.assertIn("if (Health > 0.f) Health = FMath::Clamp", equip)
+        self.assertIn("else Health = 0.f;", equip)
+        self.assertIn("if (!bInventoryOpen) {\n   DefeatElapsedSeconds += SafeTimerDelta;", hero)
+        self.assertIn("if (Health == 0.f && bInventoryOpen) { ToggleInventory(); return; }", hero)
+        for slot in range(3):
+            self.assertIn(f"InventoryItemCodes.Contains(DefeatedEquipmentSelection[{slot}])", hero)
+        self.assertIn("for (int32& Code : DefeatedEquipmentSelection) Code = 0;", hero)
+        save = hero.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Health <= 0.f || !GetWorld()", save)
 
     def test_crafting_mutations_reject_other_inventory_pages(self):
         # Direct C++/Blueprint callers must obey the same modal safety rules

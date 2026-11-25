@@ -254,7 +254,11 @@ int main() {
         self.assertIn("bRightHandSpellReadied = true;", ready_spell)
         equip_weapon = hero.split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[1].split(
             "bool AMoonfallHeroPawn::", 1)[0]
-        self.assertIn("if (SlotIndex == 0) ReadyRightHandWeapon();", equip_weapon)
+        self.assertIn("if (bEquipmentCraftInProgress) return false;", equip_weapon)
+        self.assertIn("return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);", equip_weapon)
+        equip_impl = hero.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\nnamespace {", 1)[0]
+        self.assertIn("if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();", equip_impl)
+        self.assertLess(equip_impl.index("*EquippedCode = Code;"), equip_impl.index("ReadyRightHandWeapon();"))
         self.assertIn("bool bRightHandSpellReadied = false;", header)
         self.assertIn("OnRightHandLoadoutChanged", header)
         self.assertNotIn("TryCast(", action)

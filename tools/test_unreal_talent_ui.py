@@ -88,7 +88,10 @@ for camera in ("Turn", "LookUp"):
     assert "&& !bTalentWebOpen && !bResidentContextOpen" in method_segment(camera), camera
 # Controller LT's Equip Best action can never apply outside the inventory.
 assert "void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }" in pawn
-assert "if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;" in pawn
+best = pawn.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split("\n}", 1)[0]
+assert "if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;" in best
+assert "!FMath::IsFinite(Health)" in best
+assert "bTalentWebOpen" in best
 for method in ("TryCast", "ActivateRacePower"):
     assert "if (bTalentWebOpen) return false;" in method_segment(method, "bool"), method
 for method in ("ToggleInventory", "ToggleAtlas", "OpenOptions"):

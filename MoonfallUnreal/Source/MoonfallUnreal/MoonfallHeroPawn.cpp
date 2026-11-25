@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallImpactFeedback.h"
 #include "Misc/GuardValue.h"
 #include "MoonfallTalentWeb.h"
@@ -92,6 +93,14 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
  return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Trait == ExpectedTrait
    ? static_cast<float>(Rarity) : 0.f;
 }
+}
+
+int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return 0;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;
 }
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
@@ -426,7 +435,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  } else AutoLootElapsed = 0.f;
  // Only track pointer motion while dragging the inventory scrollbar.
  if (bInventoryScrollbarDragging) {
-  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
+  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f)
    bInventoryScrollbarDragging = false;
   else
    ScrollInventoryToMouseTrack();
@@ -471,8 +480,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
   }
  } else {
-  DefeatElapsedSeconds += SafeTimerDelta;
-  if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+  // Give players unlimited time to select equipment while defeated.
+  if (!bInventoryOpen) {
+   DefeatElapsedSeconds += SafeTimerDelta;
+   if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+  }
  }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
@@ -707,7 +719,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   bInventoryScrollbarDragging = false;
   return false;
  }
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -750,7 +762,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 
 bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -773,7 +785,7 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -795,7 +807,7 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -844,7 +856,7 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 
 int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return INDEX_NONE;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
@@ -886,7 +898,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
   return;
  }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
- if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+ if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
@@ -905,7 +917,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
   return;
  }
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
- if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+ if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
@@ -2019,7 +2031,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
- if (bOptionsOpen || Health <= 0.f) return;
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f) return;
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2050,7 +2062,9 @@ void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
+ if (bEquipmentCraftInProgress) return false;
  // Enforce the inventory owner's modal restrictions for direct C++/Blueprint calls.
+ if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
      || bAtlasOpen || bResidentContextOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
@@ -2090,7 +2104,8 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
+ if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || !bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
@@ -2106,8 +2121,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bUpgradingEquipped = Code == EquippedCode;
  // Preserve the actual worn tier BEFORE equipping the crafted item.
  // Reading after EquipInventoryItem reports zero gain for worn upgrades.
@@ -2116,16 +2130,19 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
- if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
- OnEquipmentCrafted(NewCode, Cost);
+ if (bUpgradingEquipped && Slot == 1 && PreviousEquippedTier != Tier + 1)
+  OnHealthChanged(Health, MaxHealth);
+ if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
 
@@ -2133,7 +2150,8 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
+ if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || !bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
@@ -2153,19 +2171,20 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
+ TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
- if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
  LastLootAffix = NewAffix;
- OnEquipmentReforged(NewCode, Cost);
+ if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentReforged(NewCode, Cost);
  return true;
 }
 
@@ -2178,7 +2197,8 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
+ if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || FocusedResident.IsValid() || !bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
      || !FMath::IsFinite(Health)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
@@ -2196,18 +2216,19 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  // bounded. Validate the entire transaction before editing inventory.
  const int32 Cost = 20 + Tier * 3 + Rarity * 15;
  if (Salvage < Cost) return false;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bAscendingEquipped = Code == EquippedCode;
+ const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
- if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
+ if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
- OnEquipmentAscended(NewCode, Cost);
+ if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentAscended(NewCode, Cost);
  return true;
 }
 
@@ -2219,6 +2240,7 @@ void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
+ if (bEquipmentCraftInProgress) return 0;
  // Reject the wrong inventory page before initiating any batch transaction.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
      || bOptionsOpen || Health <= 0.f
@@ -2250,7 +2272,9 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 void AMoonfallHeroPawn::OpenOptions() {
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
- // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ // The bag is the sole exception: Esc/X closes it without opening Options.
+ if (Health == 0.f && bInventoryOpen) { ToggleInventory(); return; }
+ // The defeat screen owns other input until respawn; do not reopen other gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bAtlasOpen) { ToggleAtlas(); return; }
  if (bInventoryOpen) {
@@ -2948,54 +2972,26 @@ void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen &&
 
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
- // A candidate is only suggested while the player is safely browsing the bag.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ // Arsenal-style preview: equipment comparison is independent of current HP.
+ // Only an explicit equip request needs a valid living pawn.
+ if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
- const int32 EquippedCodes[] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- const int32 Candidate = InventoryItemCodes[InventoryIndex];
- const int32 Slot = (Candidate / 10000) % 10;
- if (Slot < 0 || Slot > 2 || Candidate <= 0 || Candidate == EquippedCodes[Slot]) return 0;
- const auto ValidCode = [this](int32 Code, int32 ExpectedSlot) {
-  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) return false;
-  const int32 Affix = Code / 100000;
-  const int32 EncodedSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  return EncodedSlot == ExpectedSlot && Affix >= 0 && Affix <= 3
-    && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
-    && (Rarity != 0 || Affix == 0)
-    && Code == Affix * 100000 + ExpectedSlot * 10000 + Rarity * 1000 + Tier;
- };
- if (!ValidCode(Candidate, Slot)) return 0;
- const auto GearScore = [&](int32 Code) {
-  if (!ValidCode(Code, Slot)) return 0;
-  const int32 Affix = Code / 100000;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  int32 MatchingPieces = 0;
-  if (Affix > 0) {
-   for (int32 OtherSlot = 0; OtherSlot < 3; ++OtherSlot) {
-    if (OtherSlot == Slot) continue;
-    const int32 OtherCode = EquippedCodes[OtherSlot];
-    if (ValidCode(OtherCode, OtherSlot) && OtherCode / 100000 == Affix)
-     ++MatchingPieces;
-   }
-  }
-  const int32 Synergy = MatchingPieces == 2 ? 80 : MatchingPieces == 1 ? 40 : 0;
-  return Tier * 1000 + Rarity * 100 + (Affix > 0 ? 10 : 0) + Synergy;
- };
- return GearScore(Candidate) - GearScore(EquippedCodes[Slot]);
+ const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
+ return MoonfallGearAdvisor::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes);
 }
 
 int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 {
- // An explicit on-demand query, not a per-frame scan of large bags.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
-  return INDEX_NONE;
+ // Validate worn ownership once, then scan the inventory once. The candidate
+ // is already owned by construction, so no nested bag searches are needed.
+ if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
+ const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
  int32 BestIndex = INDEX_NONE;
  int32 BestImprovement = 0;
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-  const int32 Improvement = GetEquipmentUpgradeScore(Index);
+  const int32 Improvement = MoonfallGearAdvisor::Improvement(InventoryItemCodes[Index], EquippedCodes);
   if (Improvement > BestImprovement) {
    BestImprovement = Improvement;
    BestIndex = Index;
@@ -3006,57 +3002,51 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
+ if (bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress) return 0;
  // Only a deliberate input while viewing inventory can change worn equipment.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
- const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- int32 BestScores[3] = {-1, -1, -1};
- int32 BestIndices[3] = {-1, -1, -1};
- // Keep existing equipment unless the candidate is strictly better.
- // Tier is primary, rarity secondary, an affix breaks ties.
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = EquippedCodes[Slot];
-  // A stale or externally edited equipped code cannot outrank owned loot.
-  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;
-  const int32 Affix = Code / 100000;
-  const int32 EncodedSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
- }
- for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-  const int32 Code = InventoryItemCodes[Index];
-  if (Code <= 0) continue;
-  const int32 Affix = Code / 100000;
-  const int32 Slot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
-      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
-      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
-  const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
-  if (Score > BestScores[Slot]) {
-   BestScores[Slot] = Score;
-   BestIndices[Slot] = Index;
-  }
- }
+ if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+     || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
+ if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
+ // Use validated owned gear and a single inventory pass. Set-aware plan
+ // considers matching affixes together without lowering any slot's tier/rarity.
+ const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
+ MoonfallGearAdvisor::FPlanner Planner(EquippedCodes, IsRecentlyInCombatForAmbientAI());
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
+  Planner.Add(InventoryItemCodes[Index], Index);
+ const auto Plan = Planner.Finish();
+ // Blueprint equipment notifications may synchronously invoke Equip Best again.
+ TGuardValue<bool> BatchGuard(bEquipBestInProgress, true);
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
-  if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
-   ++UpgradesEquipped;
+  // Recheck combat and exact ownership/index after any Blueprint callback.
+  if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
+  // Do not overwrite an explicit gear change made by an earlier callback.
+  if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
+  if (!IsValid(this) || IsActorBeingDestroyed()) break;
+  const int32 Index = Plan.Indices[Slot];
+  if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
+      || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
+  if (EquipInventoryItem(Index)) ++UpgradesEquipped;
  }
- OnBestLoadoutEquipped(UpgradesEquipped);
+ if (IsValid(this) && !IsActorBeingDestroyed()) OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
+ if (bEquipmentCraftInProgress) return false;
+ return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
+{
  // Direct callers must honor the same inventory-only modal boundary as UI actions.
+ if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
-     || bAtlasOpen || bResidentContextOpen || Health <= 0.f
-     || !FMath::IsFinite(Health)
+     || bAtlasOpen || bResidentContextOpen || Health < 0.f
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth < 1.f
+     || bWorldProgressLoadInProgress
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -3070,6 +3060,8 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ // All worn-slot mutations share the combat restriction, including crafted gear.
+ if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
@@ -3077,20 +3069,24 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  // The cached Blueprint tier may be stale; only owned, correctly decoded
  // equipment may influence the max-health delta when changing armor.
- const int32 PreviousTier = GetValidatedEquippedTier(SlotIndex);
+ const int32 PreviousTier = PreviousTierOverride >= 0
+     ? FMath::Clamp(PreviousTierOverride, 0, 25) : GetValidatedEquippedTier(SlotIndex);
+ // Record only the chosen owned code; never add an item to a checkpoint.
+ if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
  // An explicitly equipped weapon becomes the active right-hand action,
  // just as explicitly equipping a spell readies the spell.
- if (SlotIndex == 0) ReadyRightHandWeapon();
+ if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
   const float HealthDelta = 2.f * (Tier - PreviousTier);
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
-  Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
-  OnHealthChanged(Health, MaxHealth);
+  if (Health > 0.f) Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
+  else Health = 0.f;
+  if (!bEquipmentCraftInProgress) OnHealthChanged(Health, MaxHealth);
  }
  return true;
 }
@@ -3562,6 +3558,7 @@ bool AMoonfallHeroPawn::RespecTalentPoints() {
 }
 
 bool AMoonfallHeroPawn::SaveWorldProgress() {
+ if (bEquipmentCraftInProgress) return false;
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
  // not save half-restored inventory, quests, equipment or shrine progress.
@@ -3719,6 +3716,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ if (bEquipmentCraftInProgress) return false;
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
@@ -4096,6 +4094,20 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ // A defeated loadout may select only gear still owned after checkpoint restore.
+ // Reconcile armor capacity against the saved armor tier exactly once.
+ if (DefeatedEquipmentSelection[0] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
+  RestoreGear(DefeatedEquipmentSelection[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
+ if (DefeatedEquipmentSelection[1] && MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[1], 1)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[1])) {
+  const float NewCap = FMath::Max(1.f, MaxHealth + 2.f * ((DefeatedEquipmentSelection[1] % 1000) - ArmorTier));
+  if (FMath::IsFinite(NewCap) && NewCap <= 100000.f) {
+   RestoreGear(DefeatedEquipmentSelection[1], 1, EquippedArmorCode, ArmorTier, ArmorAffix);
+   MaxHealth = NewCap;
+  }
+ }
+ if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
+  RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  // Six native spell schools; a stale or externally edited save must never
@@ -4150,6 +4162,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   Stamina = FMath::Max(0.f, MaxStamina);
   OnHealthChanged(Health, MaxHealth);
  }
+ // Close a defeated bag on forced respawn, but only after recovery succeeded.
+ if (bInventoryOpen) ToggleInventory();
+ const bool bReadyDefeatedWeapon = DefeatedEquipmentSelection[0] != 0
+     && DefeatedEquipmentSelection[0] == EquippedWeaponCode;
+ for (int32& Code : DefeatedEquipmentSelection) Code = 0;
+ if (bReadyDefeatedWeapon) ReadyRightHandWeapon();
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.

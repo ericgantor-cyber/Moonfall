@@ -7,6 +7,7 @@
 #include "MoonfallChronicleUI.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallForgeForecast.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -1573,9 +1574,9 @@ void AMoonfallCombatHUD::DrawHUD()
    } else {
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
-       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
-       Hero->GetItemPower(Hero->EquippedArmorCode),
-       Hero->GetItemPower(Hero->EquippedAccessoryCode)),
+       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(1)),
+       Hero->GetItemPower(Hero->GetEquipmentSlotCode(2))),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -1649,8 +1650,8 @@ void AMoonfallCombatHUD::DrawHUD()
       Left+23.f,GearTop,nullptr,PanelWidth<440.f?0.57f:0.78f);
     const float CardsTop=GearTop+16.f;
     const float CardsAvailable=GearBottom-CardsTop;
-    const int32 Codes[] = {Hero->EquippedWeaponCode,
-      Hero->EquippedArmorCode,Hero->EquippedAccessoryCode};
+    const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),
+      Hero->GetEquipmentSlotCode(1),Hero->GetEquipmentSlotCode(2)};
     const TCHAR* SlotNames[] = {TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY")};
     const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
       TEXT("EPIC"),TEXT("EMERALD"),TEXT("LEGENDARY")};
@@ -1961,8 +1962,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Affix == 0)
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
-     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bEquipped = bValid && Code == Hero->GetEquipmentSlotCode(Slot);
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -2153,31 +2153,33 @@ void AMoonfallCombatHUD::DrawHUD()
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
    // Compare the highlighted item against the currently equipped item in
    // the same slot. This is informational only and never changes gear.
-   const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
-     : SelectedSlot == 1 ? Hero->EquippedArmorCode
-     : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+   const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
    const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
    const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
    const int32 TierDelta = SelectedTier - EquippedTier;
    const int32 RarityDelta = SelectedRarity - EquippedRarity;
-   const bool bIsUpgrade = EquippedCode <= 0 || TierDelta > 0
-     || (TierDelta == 0 && RarityDelta > 0);
-   const bool bIsLower = EquippedCode > 0 && (TierDelta < 0
+   const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
+   const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
+   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && (EquippedCode <= 0 || TierDelta > 0
+     || (TierDelta == 0 && RarityDelta > 0));
+   const bool bIsLower = bValidSelection && EquippedCode > 0 && (TierDelta < 0
      || (TierDelta == 0 && RarityDelta < 0));
-   const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+   const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
+     : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const FString CompareLine = EquippedCode <= 0
+   const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
+     : EquippedCode <= 0
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   const FString PowerCompareLine = CompareLine +
+   const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
      FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
    DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
@@ -2220,7 +2222,11 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 SelectedUpgradeScore = CachedAdvisorScore;
   const bool bCompactAdvisor = PanelWidth < 550.f;
-  const FString AdvisorLine = Count == 0
+  const FString AdvisorLine = Hero->Health == 0.f
+    ? TEXT("DEFEATED: equip gear, close bag to respawn")
+    : Hero->IsRecentlyInCombatForAmbientAI()
+    ? TEXT("IN COMBAT: weapon swaps only")
+    : Count == 0
     ? (bCompactAdvisor ? TEXT("GEAR: EMPTY BAG") : TEXT("GEAR ADVISOR: find equipment to compare"))
     : SelectedUpgradeScore > 0
       ? (bCompactAdvisor ? FString::Printf(TEXT("GEAR: UPGRADE (+%d)"), SelectedUpgradeScore)
@@ -2231,7 +2237,9 @@ void AMoonfallCombatHUD::DrawHUD()
       : FLinearColor(0.74f,0.82f,0.94f),
     Left + 18.f, Top + PanelHeight - 50.f, nullptr,
     PanelWidth < 550.f ? 0.56f : 0.74f);
-  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  if (Hero->Health == 0.f)
+   DrawText(TEXT("LT: equip best  |  Crafting and salvage unavailable"), FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
+  else DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
