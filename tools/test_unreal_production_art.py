@@ -61,6 +61,19 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(arena.index("ImportedColumns->AddInstance("), arena.index("ImportedColumns->RegisterComponent()"))
         self.assertIn("!=INDEX_NONE)\n     continue;", arena)
         
+    def test_shield_heraldry_is_display_only(self):
+        arena = (ROOT / "Source" / "MoonfallUnreal" / "MoonfallArena.cpp").read_text()
+        art = arena.split("// Imported heraldry is display-only",1)[1].split("// Four soft moon-blue beacons",1)[0]
+        for token in ("SanctuaryShieldHeraldry", "IsValid(ProductionShield)",
+                      "Bounds.IsValid", "Shields->SetStaticMesh(ProductionShield)",
+                      "Shields->SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                      "Shields->SetCanEverAffectNavigation(false)",
+                      "Shields->SetCastShadow(false)", "Shields->SetGenerateOverlapEvents(false)",
+                      "{-760.f,760.f}", "{2670.f,3170.f,3870.f,4370.f}"):
+            self.assertIn(token, art)
+        self.assertLess(art.index("Shields->AddInstance("), art.index("Shields->RegisterComponent()"))
+        self.assertNotIn("SpawnActor", art)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
