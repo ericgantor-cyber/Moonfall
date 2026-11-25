@@ -6164,6 +6164,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 
+    def test_scripted_loot_rejects_invalid_reward_state(self):
+        grant = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "Health <= 0.f", "!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked"):
+            self.assertLess(grant.index(guard), grant.index("RollEquipmentCode("))
+        roll = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "Level < 1", "Level > 100"):
+            self.assertLess(roll.index(guard), roll.index("FMath::RandRange("))
+
     def test_authoritative_loot_and_save_reject_invalid_hero_state(self):
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(", 1)[1].split("bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "bTalentWebOpen", "bAtlasOpen", "bInventoryOpen", "bOptionsOpen", "bResidentContextOpen"):
