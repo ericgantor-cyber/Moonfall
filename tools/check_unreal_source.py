@@ -6352,6 +6352,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "bTalentWebOpen", "FocusedResident.IsValid()"):
                 self.assertIn(guard, entry, name)
 
+    def test_batch_forging_revalidates_the_original_item_code(self):
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(body.index("const int32 InitialCode = InventoryItemCodes[InventoryIndex];"),
+                        body.index("for (int32 Step = 0; Step < Limit; ++Step)"))
+        self.assertLess(body.index("!ValidMoonfallItemCode(InitialCode)"),
+                        body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
+        self.assertLess(body.index("InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded"),
+                        body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
