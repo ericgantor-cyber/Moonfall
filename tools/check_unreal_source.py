@@ -4648,6 +4648,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetFactionReputation(Resident->FactionId) <= -50", body)
         self.assertIn("Reward.NextLevelXP", body)
 
+    def test_resident_quest_transactions_validate_world_and_progression(self):
+        accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
+        complete = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
+        for body, mutation in ((accept, "ResidentQuestStates.Add(ResidentId, 1)"), (complete, "Salvage -= Cost;")):
+            for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "!FMath::IsFinite(Health)"):
+                self.assertLess(body.index(guard), body.index(mutation))
+        self.assertLess(accept.index("ExistingState && *ExistingState != 0"), accept.index("ResidentQuestStates.Add(ResidentId, 1)"))
+        rollback = accept.split("if (!SaveWorldProgress())", 1)[1]
+        self.assertIn("if (bHadZeroState) ResidentQuestStates.Add(ResidentId, 0);", rollback)
+        self.assertIn("else ResidentQuestStates.Remove(ResidentId);", rollback)
+        for guard in ("ExperienceToNextLevel != 100 + (Level - 1) * 55", "Salvage < 0", "Salvage > 100000000", "Resident->GetWorld() != GetWorld()", "Resident->IsActorBeingDestroyed()"):
+            self.assertLess(complete.index(guard), complete.index("Salvage -= Cost;"))
+
     def test_resident_quest_xp_is_committed_with_contract_and_rolls_back(self):
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         self.assertEqual(body.count("SaveWorldProgress()"), 1)
