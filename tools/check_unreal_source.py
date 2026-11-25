@@ -3906,11 +3906,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         recommendation = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
-        for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)", "InventoryItemCodes.Contains(Code)",
-                         "EncodedSlot == ExpectedSlot", "Code == Affix * 100000",
-                         "Candidate == EquippedCodes[Slot]", "FMath::IsFinite(Health)"):
+        for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)",
+                         "GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)",
+                         "MoonfallGearAdvisor::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes)",
+                         "FMath::IsFinite(Health)"):
             self.assertIn(contract, score)
-        self.assertIn("GetEquipmentUpgradeScore(Index)", recommendation)
+        self.assertIn("MoonfallGearAdvisor::Improvement(InventoryItemCodes[Index], EquippedCodes)", recommendation)
+        self.assertLess(recommendation.index("GetEquipmentSlotCode(0)"), recommendation.index("for (int32 Index"))
+        self.assertNotIn("GetEquipmentUpgradeScore(Index)", recommendation)
+        self.assertNotIn("InventoryItemCodes.Contains(", recommendation)
         self.assertIn("Improvement > BestImprovement", recommendation)
         self.assertIn("return INDEX_NONE;", recommendation)
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.Add(",
