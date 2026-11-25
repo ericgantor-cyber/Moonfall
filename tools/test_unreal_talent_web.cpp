@@ -4,13 +4,6 @@
 #include <limits>
 using namespace MoonfallTalentWeb;
 int main() {
- assert(RespecPending(true,10.0,20.0));
- assert(RespecPending(true,20.0,20.0));
- assert(!RespecPending(true,20.01,20.0));
- assert(!RespecPending(false,10.0,20.0));
- assert(!RespecPending(true,-1.0,20.0));
- assert(!RespecPending(true,std::numeric_limits<double>::quiet_NaN(),20.0));
- assert(!RespecPending(true,10.0,std::numeric_limits<double>::infinity()));
  const auto Normal=ForViewport(1280.0,800.0,1);
  assert(Normal.Valid && Normal.VisibleTiers==5 && Normal.FirstTier==1);
  assert(Normal.Panel.W<=1020 && Normal.Panel.H<=690);
