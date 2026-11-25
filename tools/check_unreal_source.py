@@ -6423,6 +6423,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_enemy_heraldry_is_native_visual_only_and_preserves_authored_heroes(self):
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        art = enemy.split("// Native regional bosses and elites receive", 1)[1].split("// Scale only at spawn", 1)[0]
+        for token in ("GetClass()==AMoonfallEnemy::StaticClass()", "MoonfallDungeonBoss",
+                      "MoonfallSanctuaryPractice", "/Engine/BasicShapes/Sphere.Sphere",
+                      "Crest->SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                      "Crest->SetCollisionResponseToAllChannels(ECR_Ignore)",
+                      "Crest->SetGenerateOverlapEvents(false)", "Crest->SetCastShadow(false)",
+                      "Crest->SetCanEverAffectNavigation(false)", "FMath::Clamp(DungeonBossRank,1,5)",
+                      "Crest->SetCullDistances(4500,6500)"):
+            self.assertIn(token, art)
+        self.assertNotIn("Body->SetStaticMesh", art)
+        self.assertNotIn("Health =", art)
+        self.assertNotIn("SetTimer", art)
+
     def test_talent_menu_guards_load_and_clears_confirmation_before_callbacks(self):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
