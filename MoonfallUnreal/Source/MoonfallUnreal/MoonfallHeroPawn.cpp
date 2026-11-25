@@ -1764,11 +1764,8 @@ bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVe
 }
 
 bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(float Amount, const FVector& SourceLocation, int32 Angle) {
- const int32 PreviousAngle = IncomingSwordAngle;
- IncomingSwordAngle = MoonfallOmniattack::ValidAngle(Angle) ? Angle : -1;
- const bool bParried = ApplyMoonfallDamageFrom(Amount, SourceLocation);
- IncomingSwordAngle = PreviousAngle;
- return bParried;
+ TGuardValue<int32> AngleGuard(IncomingSwordAngle, MoonfallOmniattack::ValidAngle(Angle) ? Angle : -1);
+ return ApplyMoonfallDamageFrom(Amount, SourceLocation);
 }
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
@@ -3205,9 +3202,12 @@ bool ValidMoonfallItemCode(int32 Code) {
 // A collision-aware recovery location is safer than reviving at the death site.
 // The level generator supplies a PlayerStart; authored worlds can supply more.
 bool RestoreMoonfallPlayerStart(AMoonfallHeroPawn* Hero) {
- if (!IsValid(Hero) || !Hero->GetWorld()) return false;
+ if (!IsValid(Hero) || !Hero->GetWorld() || Hero->IsActorBeingDestroyed()) return false;
  for (TActorIterator<APlayerStart> It(Hero->GetWorld()); It; ++It) {
   const APlayerStart* Start = *It;
+  if (!IsValid(Start) || Start->IsActorBeingDestroyed()
+      || Start->GetActorLocation().ContainsNaN() || Start->GetActorLocation().SizeSquared() >= 1.0e14f
+      || Start->GetActorRotation().ContainsNaN()) continue;
   if (IsValid(Start) && Hero->TeleportTo(Start->GetActorLocation(),
       Start->GetActorRotation(), false, false)) return true;
  }
@@ -3218,7 +3218,7 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
  // Favor authored PlayerStart actors; use the original placed pawn transform
  // only when a map has no usable PlayerStart. Collision checks stay enabled.
  if (RestoreMoonfallPlayerStart(this)) return true;
- if (!bHasInitialSpawnTransform) return false;
+ if (!bHasInitialSpawnTransform || InitialSpawnTransform.ContainsNaN()) return false;
  const FVector Location = InitialSpawnTransform.GetLocation();
  if (Location.ContainsNaN() || Location.SizeSquared() >= 1.0e14f) return false;
  return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
@@ -4222,6 +4222,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress) return;
+ if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
  DefeatElapsedSeconds = 0.f;
  // Presentation state is transient, including forced or failed respawns.
  ImpactCameraOffset = 0.f;
@@ -4233,6 +4235,8 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  TalentRespecArmUntil = -1.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
+  if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(MaxMana)
+      || MaxMana < 0.f || !FMath::IsFinite(MaxStamina) || MaxStamina < 0.f) return;
   // A missing, unreadable or blocked save should not erase progress. Try the
   // last known in-memory shrine (if valid) before the authored level spawn.
   // All teleports use collision checks, never a forced placement.
@@ -4286,6 +4290,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
  if (GetWorld()) {
   const float Now = GetWorld()->GetTimeSeconds();
+  if (!FMath::IsFinite(DamageImmunityUntil)) DamageImmunityUntil = Now;
   DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f);
   NextSafeCheckpointAt = Now + 5.f;
   SecondsSinceLastWorldSave = 0.f;
