@@ -6318,6 +6318,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "bTalentRespecArmed=false;", "TalentRespecArmUntil=-1.f;"):
             self.assertLess(spend.index(guard), spend.index("SpendTalentPoint(TalentWebSelected);"))
 
+    def test_dungeon_deferred_creation_guards_teardown_and_invalid_transform(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        batch = mode.split("void AMoonfallUnrealGameMode::SpawnDungeonBatch()", 1)[1]
+        self.assertLess(batch.index("IsActorBeingDestroyed()"), batch.index("SpawnActorDeferred"))
+        self.assertLess(batch.index("DungeonTransform.ContainsNaN()"), batch.index("SpawnActorDeferred"))
+        deferred = batch.split("SpawnActorDeferred<AMoonfallDungeonLayout>", 1)[1]
+        guard = deferred.index("if (bDungeonStartupStopped || !GetWorld() || IsActorBeingDestroyed())")
+        self.assertLess(guard, deferred.index("Layout->ZoneIndex = Zone;"))
+        self.assertLess(deferred.index("Layout->Destroy();", guard), deferred.index("Layout->FinishSpawning("))
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
