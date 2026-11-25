@@ -4648,6 +4648,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetFactionReputation(Resident->FactionId) <= -50", body)
         self.assertIn("Reward.NextLevelXP", body)
 
+    def test_dungeon_transactions_and_respawn_reject_invalid_state(self):
+        hero = self.hero_cpp
+        treasure = hero.split("int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(", 1)[1].split("bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(", 1)[0]
+        victory = hero.split("bool AMoonfallHeroPawn::MarkDungeonBossDefeated(", 1)[1].split("bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
+        discovery = hero.split("bool AMoonfallHeroPawn::DiscoverDungeonEntrance(", 1)[1].split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "Level < 1", "Level > 100", "ValidMoonfallItemCode(DungeonTreasureStates[Key])"):
+            self.assertLess(treasure.index(guard), treasure.index("DungeonTreasureStates.SetNumZeroed(420)"))
+        for guard in ("!FMath::IsFinite(Health)", "Salvage < 0", "Salvage > 100000000", "DungeonLayout->IsActorBeingDestroyed()", "DefeatedBoss->IsActorBeingDestroyed()"):
+            self.assertLess(victory.index(guard), victory.index("DefeatedDungeonBossMask |="))
+        self.assertLess(discovery.index("IsActorBeingDestroyed()"), discovery.index("DiscoveredDungeonMask |="))
+        start = hero.split("bool RestoreMoonfallPlayerStart(", 1)[1].split("bool AMoonfallHeroPawn::HasDiscoveredShrine", 1)[0]
+        for guard in ("Start->IsActorBeingDestroyed()", "Start->GetActorLocation().ContainsNaN()", "Start->GetActorRotation().ContainsNaN()"):
+            self.assertLess(start.index(guard), start.index("Hero->TeleportTo("))
+        self.assertIn("InitialSpawnTransform.ContainsNaN()", start)
+        respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split("// One unified roster.", 1)[0]
+        self.assertLess(respawn.index("bWorldProgressLoadInProgress"), respawn.index("LoadWorldProgress()"))
+        for guard in ("!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(MaxMana)", "!FMath::IsFinite(MaxStamina)"):
+            self.assertLess(respawn.index(guard), respawn.index("TeleportTo("))
+        self.assertLess(respawn.index("!FMath::IsFinite(DamageImmunityUntil)"), respawn.index("DamageImmunityUntil = FMath::Max("))
+        direction = hero.split("bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(", 1)[1].split("bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertLess(direction.index("TGuardValue<int32> AngleGuard"), direction.index("return ApplyMoonfallDamageFrom("))
+
     def test_resident_quest_transactions_validate_world_and_progression(self):
         accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
         complete = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
