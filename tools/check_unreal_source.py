@@ -6374,6 +6374,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split("\n}", 1)[0]
         self.assertLess(melee.index("Facing.ContainsNaN()"), melee.index("SweepSingleByChannel("))
 
+    def test_saved_level_restores_spell_power_without_replaying_xp(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("\n}", 1)[0]
+        formula = "SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);"
+        self.assertLess(load.index("Level = FMath::Clamp(Save->Level, 1, 100);"), load.index(formula))
+        self.assertLess(load.index(formula), load.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertNotIn("AwardExperience(", load)
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("\n}", 1)[0]
+        self.assertIn(formula, award)
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
