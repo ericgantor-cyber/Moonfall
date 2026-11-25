@@ -2163,6 +2163,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
                         reward.index("PerfectDodgeWindowUntil = -1.f;"))
 
+    def test_defense_counter_preview_and_reentrancy_guards(self):
+        getter = self.hero_cpp.split("float AMoonfallHeroPawn::GetParryCounterRemaining() const", 1)[1].split("void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(ParryCounterUntil)", "!FMath::IsFinite(Now)", "Now >= ParryCounterUntil", "FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f)"):
+            self.assertIn(guard, getter)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split("float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
+        self.assertLess(dodge.index("if (bResolvingCombatAction) return;"), dodge.index("DodgeBuffer.Queue("))
+        self.assertLess(dodge.index("TGuardValue<bool> CombatActionGuard"), dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertIn("FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil", self.hero_cpp)
+
     def test_dodge_buffer_preserves_direction_and_dispatch_priority(self):
         self.assertIn("MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;", self.hero_h)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1]

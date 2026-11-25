@@ -218,6 +218,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  // Returns true only when this specific attack consumed the perfect-dodge window.
  bool TryRewardPerfectDodge();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Combat") float GetParryCounterRemaining() const;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Combat") bool bGuarding = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") float GuardBrokenUntil = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardBroken();

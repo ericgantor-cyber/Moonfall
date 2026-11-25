@@ -1036,7 +1036,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       || Enemy->MaxHealth <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
-  const bool bCounterReady = Time <= ParryCounterUntil
+  const bool bCounterReady = FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil
       && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
   const float CounterMultiplier = bCounterReady
       ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
@@ -1659,7 +1659,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
-
+ if (bResolvingCombatAction) return;
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  if (bTalentWebOpen) return;
  if (!FMath::IsFinite(Health)) return;
@@ -1688,6 +1688,7 @@ void AMoonfallHeroPawn::Dodge()
   }
   return;
  }
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
  DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Dodge always wins over a pending attack.
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
@@ -1703,6 +1704,17 @@ void AMoonfallHeroPawn::Dodge()
  PerfectDodgeWindowUntil = Now + 0.14f;
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge);
+}
+
+float AMoonfallHeroPawn::GetParryCounterRemaining() const
+{
+ const UWorld* World = GetWorld();
+ if (!World || !FMath::IsFinite(Health) || Health <= 0.f
+     || !FMath::IsFinite(ParryCounterUntil) || !FMath::IsFinite(ParryCounterDamageMultiplier)
+     || ParryCounterDamageMultiplier < 1.f) return 0.f;
+ const float Now = World->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now >= ParryCounterUntil) return 0.f;
+ return FMath::Clamp(ParryCounterUntil - Now, 0.f, 5.f);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
@@ -4209,6 +4221,9 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();
  SwordBuffer.Clear();
+ ParryCounterUntil = -1.f;
+ PerfectDodgeWindowUntil = -1.f;
+ ParryWindowEndsAt = -1.f;
  MoonfallOmniattack::Reset(SwordFlow);
  CurrentSwordAngle = -1;
  SwordFlowStep = 0;
