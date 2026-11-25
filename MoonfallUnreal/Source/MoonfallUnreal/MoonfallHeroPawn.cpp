@@ -3819,10 +3819,14 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (MoonfallTalentWeb::CloseRect(Layout).Hit(X,Y)) { ToggleTalentWeb();return; }
  for(int B=0;B<3;++B)
   if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y)) {
+   const int NextSelection=MoonfallTalentWeb::SameTierInBranch(TalentWebSelected,B);
+   if (NextSelection<0)return;
    TalentWebBranch=B;
-   TalentWebSelected=MoonfallTalentWeb::Root(B);
-   TalentWebFirstTier=1;
+   TalentWebSelected=NextSelection;
+   TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+       TalentWebSelected,Layout.FirstTier,Layout.VisibleTiers);
    bTalentRespecArmed=false;
+   TalentRespecArmUntil=-1.f;
    return;
   }
  if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
@@ -3831,6 +3835,7 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (Hit>=0) {
   TalentWebSelected=Hit;
   bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
  }
 }
 
