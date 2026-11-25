@@ -96,6 +96,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const FLinearColor Etch(0.38f,0.42f,0.52f,0.54f);
    DrawRect(Etch,L+5.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
    DrawRect(Etch,L+W-6.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
+   // Hand-engraved double side rails, with four tiny rivets per frame.
+   for (int32 K=1;K<=4;++K) {
+    const float RivetY=T+H*float(K)/5.f;
+    DrawRect(Accent,L+4.f,RivetY,2.f,2.f);
+    DrawRect(Accent,L+W-6.f,RivetY,2.f,2.f);
+   }
    const float MidY=T+H*0.5f;
    Canvas->K2_DrawLine(FVector2D(L+3.f,MidY-13.f),
      FVector2D(L+10.f,MidY),1.f,Foil);
@@ -174,6 +180,12 @@ void AMoonfallCombatHUD::DrawHUD()
   };
   DrawRect(FLinearColor(0.05f,0.07f,0.14f,0.96f),
     Cx-R-2.f,Cy-R-2.f,2.f*R+4.f,2.f*R+4.f);
+  // Octagonal enamel seal surrounding the six school glyphs.
+  for (int32 I=0;I<8;++I) {
+   const float A=PI*float(I)/4.f, B=PI*float(I+1)/4.f;
+   Line(Cx+R*FMath::Cos(A),Cy+R*FMath::Sin(A),
+        Cx+R*FMath::Cos(B),Cy+R*FMath::Sin(B));
+  }
   // Four narrow cardinal marks make schools recognizable in compact layouts.
   Line(Cx-R,Cy,Cx-R*0.76f,Cy);
   Line(Cx+R*0.76f,Cy,Cx+R,Cy);
@@ -232,6 +244,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto Line=[this,&Ink](float X0,float Y0,float X1,float Y1) {
    Canvas->K2_DrawLine(FVector2D(X0,Y0),FVector2D(X1,Y1),1.7f,Ink);
   };
+  // Rarity-colored metal setting behind each real equipment slot glyph.
+  DrawRect(FLinearColor(0.06f,0.055f,0.095f,0.94f),Cx-R,Cy-R,2.f*R,2.f*R);
+  const float K=R*0.94f;
+  Line(Cx-K,Cy-K*0.5f,Cx-K*0.5f,Cy-K);
+  Line(Cx+K*0.5f,Cy-K,Cx+K,Cy-K*0.5f);
+  Line(Cx+K,Cy+K*0.5f,Cx+K*0.5f,Cy+K);
+  Line(Cx-K*0.5f,Cy+K,Cx-K,Cy+K*0.5f);
   switch (Slot) {
    case 0:
     Line(Cx-R*0.18f,Cy+R*0.8f,Cx+R*0.52f,Cy-R*0.88f);
@@ -264,7 +283,12 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!Canvas || Region<0 || Region>=6 || !FMath::IsFinite(X)
       || !FMath::IsFinite(Y) || !FMath::IsFinite(R)
       || R<5.f || R>24.f) return;
-  // Inner medallion frame has twelve bounded strokes and no animation.
+  // Inner medallion frame: octagon and cardinal gilded studs, no animation.
+  for (int32 I=0;I<4;++I) {
+   const float A=PI*float(I)*0.5f;
+   const float DX=FMath::Cos(A)*R*0.88f, DY=FMath::Sin(A)*R*0.88f;
+   DrawRect(Color,X+DX-1.f,Y+DY-1.f,2.f,2.f);
+  }
   constexpr int32 Edges=8;
   for (int32 I=0;I<Edges;++I) {
    const float A=2.f*PI*float(I)/float(Edges)-PI*0.5f;
@@ -335,6 +359,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float P=R*0.72f;
   DrawRect(FLinearColor(0.07f,0.10f,0.15f,0.93f),
     X-R,Y-R,2.f*R,2.f*R);
+  // Heraldic escutcheon behind the existing faction-specific engraving.
+  Stroke(X-R,Y-R,X+R,Y-R);
+  Stroke(X-R,Y-R,X-R,Y+R*0.38f);
+  Stroke(X+R,Y-R,X+R,Y+R*0.38f);
+  Stroke(X-R,Y+R*0.38f,X,Y+R);
+  Stroke(X+R,Y+R*0.38f,X,Y+R);
   switch(Faction) {
    case 0: // Wanderers: converging roads / wayfinder.
     Stroke(X-P,Y+P,X,Y-P);
@@ -960,6 +990,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const float CompassY=MapTop+35.f;
    DrawMoonfallSigil(CompassX,CompassY,13.f,
      FLinearColor(0.86f,0.76f,0.51f),1);
+   // Four engraved compass points, purely decorative and fog independent.
+   for (int32 I=0;I<4;++I) {
+    const float A=PI*float(I)*0.5f;
+    const float DX=FMath::Cos(A), DY=FMath::Sin(A);
+    DrawLine(CompassX+DX*14.f,CompassY+DY*14.f,
+             CompassX+DX*19.f,CompassY+DY*19.f,
+             FLinearColor(0.86f,0.76f,0.51f),1.1f);
+   }
    DrawText(TEXT("N"),FLinearColor(0.92f,0.83f,0.59f),
      CompassX-4.f,CompassY-27.f,nullptr,0.63f);
   }
@@ -2664,6 +2702,16 @@ void AMoonfallCombatHUD::DrawHUD()
  // Readable static medallion mark sits beyond the original three-resource orb.
  DrawMoonfallSigil(CX,CY-Radius*1.28f,7.f,
    FLinearColor(0.88f,0.70f,0.44f),0);
+ // Static gold bezel ticks outside the resource arcs. No new resource layers.
+ if (Radius>=24.f) {
+  for (int32 I=0;I<12;++I) {
+   const float A=2.f*PI*float(I)/12.f;
+   const float DX=FMath::Cos(A), DY=FMath::Sin(A);
+   DrawLine(CX+DX*Radius*1.02f,CY+DY*Radius*1.02f,
+            CX+DX*Radius*1.08f,CY+DY*Radius*1.08f,
+            FLinearColor(0.74f,0.54f,0.30f,0.85f),1.2f);
+  }
+ }
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
  for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
