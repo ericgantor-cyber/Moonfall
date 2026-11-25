@@ -1,0 +1,27 @@
+name: UE5 production art source validation
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Art/Production/**'
+      - 'MoonfallUnreal/Content/Python/import_production_art.py'
+      - 'tools/test_unreal_production_art.py'
+      - '.github/workflows/ue5-production-art.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'MoonfallUnreal/Art/Production/**'
+      - 'MoonfallUnreal/Content/Python/import_production_art.py'
+      - 'tools/test_unreal_production_art.py'
+      - '.github/workflows/ue5-production-art.yml'
+permissions:
+  contents: read
+jobs:
+  validate-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/test_unreal_production_art.py
+      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py
