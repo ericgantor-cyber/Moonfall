@@ -975,6 +975,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
+ // Capture presentation data before combo/posture callbacks can mutate the
+ // target. Emit after committing mana and cooldown, without retaining it.
+ FVector ResolvedImpactPoint = FVector::ZeroVector;
+ float ResolvedImpactDamage = 0.f;
+ bool bResolvedCritical = false;
+ bool bResolvedKill = false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
@@ -1047,6 +1053,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
+   if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
+    ResolvedImpactPoint = Hit.ImpactPoint;
+    ResolvedImpactDamage = ActualSpellDamage;
+    bResolvedCritical = bCriticalSpell;
+    bResolvedKill = Enemy->Health <= 0.f;
+   }
    RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
@@ -1101,6 +1113,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   OnHealthChanged(Health, MaxHealth);
  }
  OnSpellCast(School, Hand == 0);
+ if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f)
+  OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,
+    bResolvedCritical, bResolvedKill);
  return true;
 }
 void AMoonfallHeroPawn::CastLeft()

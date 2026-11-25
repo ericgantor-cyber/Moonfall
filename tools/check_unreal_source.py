@@ -54,6 +54,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(melee.index(sword_cue), melee.index("OnSuccessfulHitCombo("))
         self.assertEqual(melee.count("ApplyConfirmedHitFeedback("), 1)
 
+    def test_spell_impact_presentation_uses_committed_cast_and_captured_hit(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,", self.hero_h)
+        self.assertIn("float AppliedDamage, bool bCritical, bool bKillingBlow);", self.hero_h)
+        capture = cast.index("ResolvedImpactDamage = ActualSpellDamage;")
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"), capture)
+        self.assertLess(cast.index("FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()"), capture)
+        self.assertLess(cast.index("bResolvedKill = Enemy->Health <= 0.f;"), cast.index("OnSuccessfulHitCombo("))
+        self.assertIn("float ResolvedImpactDamage = 0.f;", cast)
+        cue = cast.index("OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,")
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "ParryCounterUntil = -1.f;", "OnSpellCast(School, Hand == 0);",
+                          "IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f"):
+            self.assertLess(cast.index(committed), cue)
+        self.assertEqual(cast.count("OnSpellImpact("), 1)
+        self.assertNotIn("Enemy->", cast[cue:])
+        # Keep existing visual fallback until actual spell VFX are authored.
+        self.assertIn("DrawDebugSphere(", cast)
+        self.assertIn("DrawDebugLine(", cast)
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
