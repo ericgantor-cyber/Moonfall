@@ -6309,6 +6309,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_talent_menu_guards_load_and_clears_confirmation_before_callbacks(self):
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
+        for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
+            self.assertLess(toggle.index(guard), toggle.index("bTalentWebOpen=true;"))
+        spend = self.hero_cpp.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
+                      "bTalentRespecArmed=false;", "TalentRespecArmUntil=-1.f;"):
+            self.assertLess(spend.index(guard), spend.index("SpendTalentPoint(TalentWebSelected);"))
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
