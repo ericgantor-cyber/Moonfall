@@ -17,6 +17,8 @@ class AMoonfallWorldNPC;
 class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
+class UNiagaraSystem;
+class UNiagaraComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -231,6 +233,11 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
+ // Optional authored systems indexed by the six existing spell schools.
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Combat|VFX")
+ TArray<TObjectPtr<UNiagaraSystem>> SpellImpactSystems;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Combat|VFX")
+ bool bEnableAuthoredSpellVFX = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
@@ -627,6 +634,8 @@ private:
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryPlayAuthoredSpellImpact(int32 School, const FVector& Point, float Multiplier);
+ TArray<TWeakObjectPtr<UNiagaraComponent>> ActiveSpellImpactFX;
  bool bEquipmentCraftInProgress = false;
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;
