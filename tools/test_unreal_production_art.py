@@ -205,6 +205,66 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index("duplicate_asset(source, target)"), script.index("editor.set_nanite_settings("))
         self.assertNotIn("delete_asset(", script)
 
+    def test_warden_skin_and_animation_source(self):
+        import base64
+        import struct
+        asset = json.loads((ART / "Rigs/SK_MF_FirstlightWarden.gltf").read_text())
+        self.assertEqual(asset["asset"]["version"], "2.0")
+        buffer = asset["buffers"][0]
+        raw = base64.b64decode(buffer["uri"].split(",",1)[1], validate=True)
+        self.assertEqual(len(raw), buffer["byteLength"])
+        dimensions = {"SCALAR":1, "VEC2":2, "VEC3":3, "VEC4":4, "MAT4":16}
+        formats = {5126:"f", 5123:"H"}
+        def read(index):
+            a = asset["accessors"][index]
+            view = asset["bufferViews"][a["bufferView"]]
+            count = a["count"] * dimensions[a["type"]]
+            fmt = "<" + str(count) + formats[a["componentType"]]
+            self.assertEqual(view["byteOffset"] % 4, 0)
+            self.assertEqual(struct.calcsize(fmt), view["byteLength"])
+            self.assertLessEqual(view["byteOffset"] + view["byteLength"], len(raw))
+            values = struct.unpack_from(fmt, raw, view["byteOffset"])
+            self.assertTrue(all(math.isfinite(v) for v in values))
+            return values
+        for index in range(len(asset["accessors"])):
+            read(index)
+        skin = asset["skins"][0]
+        self.assertEqual(len(skin["joints"]), 17)
+        self.assertEqual(len(set(skin["joints"])), 17)
+        self.assertEqual(len(read(skin["inverseBindMatrices"])), 17*16)
+        total_triangles = 0
+        for primitive in asset["meshes"][0]["primitives"]:
+            attrs = primitive["attributes"]
+            pos = read(attrs["POSITION"])
+            joints = read(attrs["JOINTS_0"])
+            weights = read(attrs["WEIGHTS_0"])
+            count = len(pos)//3
+            self.assertEqual(len(joints), count*4)
+            self.assertEqual(len(weights), count*4)
+            self.assertTrue(all(0 <= j < 17 for j in joints))
+            for i in range(0,len(weights),4):
+                self.assertAlmostEqual(sum(weights[i:i+4]), 1.0)
+                self.assertTrue(all(0 <= w <= 1 for w in weights[i:i+4]))
+            indices = read(primitive["indices"])
+            self.assertEqual(len(indices)%3, 0)
+            self.assertTrue(all(0 <= i < count for i in indices))
+            for i in range(0,len(indices),3):
+                self.assertEqual(len(set(indices[i:i+3])), 3)
+            total_triangles += len(indices)//3
+        self.assertEqual(total_triangles, 1296)
+        self.assertEqual({a["name"] for a in asset["animations"]},
+                         {"Idle","Walk","Attack","Guard","HitReact"})
+        for clip in asset["animations"]:
+            for channel in clip["channels"]:
+                self.assertIn(channel["target"]["node"], skin["joints"])
+                sampler = clip["samplers"][channel["sampler"]]
+                times, rotations = read(sampler["input"]), read(sampler["output"])
+                self.assertEqual(times[0], 0)
+                self.assertTrue(all(b > a for a,b in zip(times,times[1:])))
+                self.assertEqual(len(rotations), len(times)*4)
+                for i in range(0,len(rotations),4):
+                    self.assertAlmostEqual(sum(q*q for q in rotations[i:i+4]), 1.0, places=5)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
