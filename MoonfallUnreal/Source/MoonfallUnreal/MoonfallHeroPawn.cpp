@@ -1874,12 +1874,18 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Insufficient stamina breaks guard without granting free damage reduction.
   BreakGuard();
  }
+ // Defense callbacks may synchronously defeat or destroy the hero.
+ if (IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)
+     || Health <= 0.f || !FMath::IsFinite(DamageAfterGuard) || DamageAfterGuard < 0.f) return;
  // A recruited nearby scout may cover part of an ordinary directional hit.
  // Never consume support on a parry, dodge-only strike or sourceless hazard.
  if(DamageAfterGuard>0.f&&bHasIncomingDamageSource&&!bIncomingDamageDodgeOnly){
   if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
    DamageAfterGuard=FMath::Max(0.f,DamageAfterGuard-Mode->ConsumeLocalCompanionCover(this,DamageAfterGuard,IncomingDamageSource));
  }
+ // Companion cover can also invoke synchronous gameplay callbacks.
+ if (IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)
+     || Health <= 0.f || !FMath::IsFinite(DamageAfterGuard) || DamageAfterGuard < 0.f) return;
  const float PreviousHealth = Health;
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
  // Taking actual health damage interrupts the perfect-parry offensive opening.
