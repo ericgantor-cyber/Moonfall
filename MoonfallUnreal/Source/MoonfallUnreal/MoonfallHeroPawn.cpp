@@ -3538,7 +3538,8 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
   if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=false;
   return;
  }
- if (Health<=0.f || !FMath::IsFinite(Health)
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || Health<=0.f || !FMath::IsFinite(Health)
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid())return;
  StopJumping();
@@ -3575,10 +3576,13 @@ void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  bTalentRespecArmed=false;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
- if (!bTalentWebOpen || Health<=0.f || TalentWebSelected<0
-     || TalentWebSelected>=MoonfallTalents::NodeCount)return;
- SpendTalentPoint(TalentWebSelected);
+ if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
+     || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
+     || TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
+ // Clear confirmation before the allocation can notify Blueprint listeners.
  bTalentRespecArmed=false;
+ TalentRespecArmUntil=-1.f;
+ SpendTalentPoint(TalentWebSelected);
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
  if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
