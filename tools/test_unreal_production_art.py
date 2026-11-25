@@ -91,6 +91,21 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index("found != expected"), script.index("mesh.set_material(index"))
         self.assertNotIn("delete_asset(", script)
 
+    def test_textured_material_graph_uses_correct_channels_and_fallbacks(self):
+        script = (ROOT / "Content/Python/install_production_materials.py").read_text()
+        for token in ('("BaseColor", "RGB", unreal.MaterialProperty.MP_BASE_COLOR)',
+                      '("Normal", "RGB", unreal.MaterialProperty.MP_NORMAL)',
+                      '("ORM", "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)',
+                      '("ORM", "G", unreal.MaterialProperty.MP_ROUGHNESS)',
+                      '("ORM", "B", unreal.MaterialProperty.MP_METALLIC)',
+                      "SAMPLERTYPE_COLOR", "SAMPLERTYPE_NORMAL", "SAMPLERTYPE_MASKS",
+                      '("_Textured" if textures else "")',
+                      "len(textures) != len(SLOTS)*len(kinds)",
+                      "elif textures and current.get_path_name() == previous:"):
+            self.assertIn(token, script)
+        self.assertLess(script.index("textures = load_texture_pack()"), script.index("mesh.set_material(index"))
+        self.assertNotIn("delete_asset(", script)
+
     def test_texture_generation_is_repeatable_and_periodic(self):
         import importlib.util
         import struct
