@@ -104,6 +104,15 @@ inline int Move(int nodeIndex,int branch,int tierStep,int rowStep) {
  }
  return best;
 }
+// Keep the selected tier and nearest authored row when changing branches.
+inline int SameTierInBranch(int nodeIndex,int branch) {
+ if (branch<0 || branch>2)return -1;
+ if (BranchOf(nodeIndex)<0)return Root(branch);
+ if (BranchOf(nodeIndex)==branch)return nodeIndex;
+ const int root=Root(branch);
+ if (root<0)return -1;
+ return Move(root,branch,MoonfallTalents::Nodes[nodeIndex].Tier-1,Row(nodeIndex));
+}
 inline int FirstTierForSelection(int nodeIndex,int current,int visibleTiers) {
  if(nodeIndex<0 || nodeIndex>=MoonfallTalents::NodeCount || visibleTiers<1)return current;
  const int tier=MoonfallTalents::Nodes[nodeIndex].Tier;
