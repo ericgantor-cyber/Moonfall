@@ -91,6 +91,52 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index("found != expected"), script.index("mesh.set_material(index"))
         self.assertNotIn("delete_asset(", script)
 
+    def test_texture_generation_is_repeatable_and_periodic(self):
+        import importlib.util
+        import struct
+        import tempfile
+        import zlib
+        spec = importlib.util.spec_from_file_location("mf_texture", ART / "generate_texture_maps.py")
+        gen = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gen)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            self.assertEqual(gen.generate(64, output), 15)
+            files = sorted(output.glob("*.png"))
+            self.assertEqual(len(files), 15)
+            for path in files:
+                data = path.read_bytes()
+                self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+                self.assertEqual(struct.unpack(">II", data[16:24]), (64, 64))
+                pos, compressed = 8, bytearray()
+                while pos < len(data):
+                    count = struct.unpack(">I", data[pos:pos+4])[0]
+                    kind = data[pos+4:pos+8]
+                    payload = data[pos+8:pos+8+count]
+                    crc = struct.unpack(">I", data[pos+8+count:pos+12+count])[0]
+                    self.assertEqual(crc, zlib.crc32(kind+payload)&0xffffffff)
+                    if kind == b"IDAT": compressed.extend(payload)
+                    pos += 12+count
+                raw = zlib.decompress(compressed)
+                self.assertEqual(len(raw), 64*(64*3+1))
+                if path.stem.endswith("_ORM"):
+                    pixels = [raw[y*193+1:y*193+193] for y in range(64)]
+                    metallic = 255 if "Steel" in path.stem or "Bronze" in path.stem else 0
+                    self.assertTrue(all(row[i] == metallic for row in pixels for i in range(2,192,3)))
+            original = {p.name:p.read_bytes() for p in files}
+            gen.generate(64, output)
+            self.assertEqual(original, {p.name:p.read_bytes() for p in files})
+            files[0].write_bytes(b"protected")
+            with self.assertRaises(FileExistsError): gen.generate(64, output)
+            self.assertEqual(files[0].read_bytes(), b"protected")
+        for name in gen.NAMES:
+            self.assertAlmostEqual(gen.height_at(name,.123,.456,101), gen.height_at(name,1.123,.456,101))
+            self.assertAlmostEqual(gen.height_at(name,.123,.456,101), gen.height_at(name,.123,1.456,101))
+        script = (ROOT / "Content/Python/import_production_textures.py").read_text()
+        for token in ('"replace_existing", False', '"srgb", kind == "BaseColor"',
+                      "TC_NORMALMAP", "TC_MASKS", "isinstance(texture, unreal.Texture2D)"):
+            self.assertIn(token, script)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
