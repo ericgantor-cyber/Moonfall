@@ -6174,6 +6174,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(hit.index(guard), hit.index("ApplyMoonfallDamage(Amount)"))
         self.assertIn("return bLastIncomingHitParried;", hit)
 
+    def test_movement_axes_validate_health_actor_and_rotation(self):
+        for method, next_method in (("MoveForward", "MoveRight"), ("MoveRight", "Turn")):
+            with self.subTest(method=method):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method + "(float Value)", 1)[1].split("void AMoonfallHeroPawn::" + next_method + "(", 1)[0]
+                for guard in ("!FMath::IsFinite(Health)", "IsActorBeingDestroyed()", "Yaw.ContainsNaN()", "!FMath::IsFinite(Value)"):
+                    self.assertLess(body.index(guard), body.index("AddMovementInput("))
+
     def test_movement_and_guard_reject_stale_npc_focus_and_invalid_actor(self):
         for method, next_method, mutation in (
             ("TryJump()", "MoveForward(", "Jump();"),
