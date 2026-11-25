@@ -8,6 +8,9 @@ Open **MoonfallUnreal/MoonfallUnreal.uproject** in Unreal Engine 5.4 with editor
 ## Material installation
 After importing the six meshes, execute **Content/Python/install_production_materials.py** in UE5. It validates source material slots, creates five physically based constant materials (bronze, leather, steel, stone, moonstone) in /Game/MoonfallProduction/Materials, and fills only default or empty material slots. Existing authored materials and packages are not overwritten. These are base-color, metallic and roughness values, not detailed PBR texture maps. Native material compilation, slot mapping and visual inspection are still required.
 
+## Texture source generation
+Run `python MoonfallUnreal/Art/Production/generate_texture_maps.py` from the repository root. It generates 15 deterministic 1024x1024 PNG maps in Art/Production/Textures: five surfaces, each with sRGB base color, tangent-space normal, and linear packed ambient occlusion/roughness/metallic (R/G/B). Existing differing files are never overwritten. These are original procedural tileable textures, not scanned or hand-painted assets. Use a separate output folder for alternative resolutions. Run **Content/Python/import_production_textures.py** in UE5 to import the files into /Game/MoonfallProduction/Textures. Existing texture packages are preserved. Material graph hookup, visual review and native compilation are still pending. CI generates and decodes 64-pixel test maps; the full 1024 source files are generated locally, not committed binary assets.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
