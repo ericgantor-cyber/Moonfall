@@ -5250,21 +5250,31 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
  return 0;
 }
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+ const int32* ExistingState = ResidentQuestStates.Find(ResidentId);
+ if (ExistingState && *ExistingState != 0) return false;
+ const bool bHadZeroState = ExistingState != nullptr;
  ResidentQuestStates.Add(ResidentId, 1);
  if (!SaveWorldProgress()) {
-  ResidentQuestStates.Remove(ResidentId);
+  if (bHadZeroState) ResidentQuestStates.Add(ResidentId, 0);
+  else ResidentQuestStates.Remove(ResidentId);
   return false;
  }
  return true;
 }
 bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
+ if (!GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
+     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!FMath::IsFinite(Health) || Health <= 0.f || !FMath::IsFinite(MaxHealth)
      || MaxHealth < Health || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana)
      || MaxMana < 0.f || Mana < 0.f || Mana > MaxMana || Level < 1 || Level > 100
      || Experience < 0 || Experience > 1000000 || ExperienceToNextLevel <= 0
      || !FMath::IsFinite(SpellPowerMultiplier)) return false;
+ if (ExperienceToNextLevel != 100 + (Level - 1) * 55 || Salvage < 0 || Salvage > 100000000) return false;
+ if (!IsValid(Resident) || Resident->GetWorld() != GetWorld() || Resident->IsActorBeingDestroyed()) return false;
  if (!IsValid(Resident) || Resident->bAmbientVisitor || !Resident->CanHeroInteract(this)
      || GetFactionReputation(Resident->FactionId) <= -50
      || !IsNamedMoonfallResident(Resident->ResidentId)
