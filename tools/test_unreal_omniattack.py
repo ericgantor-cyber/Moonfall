@@ -184,7 +184,9 @@ int main() {
         hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
         self.assertIn("MoonfallOmniattack::EnemyAngle(Pattern)", enemy)
         self.assertIn("Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage", enemy)
-        self.assertIn("IncomingSwordAngle = PreviousAngle;", hero)
+        directional = hero.split("bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(", 1)[1].split("bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("TGuardValue<int32> AngleGuard(IncomingSwordAngle, MoonfallOmniattack::ValidAngle(Angle) ? Angle : -1);", directional)
+        self.assertLess(directional.index("TGuardValue<int32> AngleGuard"), directional.index("return ApplyMoonfallDamageFrom("))
         self.assertIn("const int32 ResolvedSwordAngle = CommittedSwordAngle;", enemy)
         self.assertIn("CommittedSwordAngle = -1;", enemy)
         damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
@@ -195,6 +197,19 @@ int main() {
         self.assertIn("OnDirectionalGuardImpact(GuardAngle, bPerfectParry)", hero)
         self.assertIn("E->GetDirectionalWindup(WorldTime, HeroLocation)", hud)
         self.assertIn('TEXT("%s STRIKE | GUARD")', hud)
+
+    def test_damage_revalidates_hero_after_defense_and_companion_callbacks(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
+        guard = ("if (IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)\n"
+                 "     || Health <= 0.f || !FMath::IsFinite(DamageAfterGuard) || DamageAfterGuard < 0.f) return;")
+        first = damage.index(guard)
+        second = damage.index(guard, first + len(guard))
+        self.assertLess(damage.index("OnGuardImpact("), first)
+        self.assertLess(first, damage.index("ConsumeLocalCompanionCover("))
+        self.assertLess(damage.index("ConsumeLocalCompanionCover("), second)
+        self.assertLess(second, damage.index("const float PreviousHealth = Health;"))
+        self.assertLess(second, damage.index("Health = FMath::Max(0.f, Health - DamageAfterGuard);"))
 
     def test_melee_montage_plays_once_before_hit_resolution_even_on_miss(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()

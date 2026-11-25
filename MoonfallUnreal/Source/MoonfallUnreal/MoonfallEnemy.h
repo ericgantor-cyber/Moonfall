@@ -107,6 +107,9 @@ public:
  // Returns only a live, nearby hero-directed elite windup.
  int32 GetDirectionalWindup(float Now, const FVector& HeroPosition) const;
 private:
+ // Blueprint combat notifications are synchronous; never resolve nested hits or breaks.
+ bool bResolvingDamage = false;
+ bool bResolvingPosture = false;
  int32 CommittedSwordAngle = -1;
  void RefreshAttackTellMarker(float Now, bool bReduceMotion);
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.

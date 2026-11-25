@@ -850,7 +850,7 @@ void AMoonfallUnrealGameMode::AuditLiveDungeonSlots(bool bQueueMissing)
 
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
- if (!GetWorld() || bDungeonStartupNotified || bDungeonStartupStopped) return;
+ if (!GetWorld() || IsActorBeingDestroyed() || bDungeonStartupNotified || bDungeonStartupStopped) return;
  // Always allow one slot per pulse to guarantee progress on slower PCs.
  // This is a cooperative time budget, not a hard limit on one actor's cost.
  static_assert(TotalDungeons == MoonfallDungeonStartup::MaxSlots, "Startup policy slot count mismatch");
@@ -889,7 +889,8 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   }
   SetDungeonSlotReady(Slot, false);
   FTransform DungeonTransform;
-  if (!GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)) {
+  if (!GetDungeonEntranceTransform(Zone, DungeonIndex, DungeonTransform)
+      || DungeonTransform.ContainsNaN()) {
    if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
    continue;
   }
@@ -899,6 +900,11 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   if (!IsValid(Layout) || Layout->IsActorBeingDestroyed()) {
    if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
    continue;
+  }
+  // Deferred creation may itself run callbacks before FinishSpawning.
+  if (bDungeonStartupStopped || !GetWorld() || IsActorBeingDestroyed()) {
+   if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) Layout->Destroy();
+   return;
   }
   Layout->ZoneIndex = Zone;
   Layout->DungeonIndex = DungeonIndex;

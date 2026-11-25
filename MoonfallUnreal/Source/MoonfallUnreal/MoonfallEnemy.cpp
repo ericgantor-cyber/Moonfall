@@ -18,6 +18,7 @@
 #include "DrawDebugHelpers.h"
 #include "CollisionQueryParams.h"
 #include "EngineUtils.h"
+#include "Misc/GuardValue.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -129,6 +130,8 @@ void AMoonfallEnemy::CancelDivineSignature() {
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
+ if (bResolvingPosture || !FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
+ TGuardValue<bool> PostureGuard(bResolvingPosture, true);
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -141,6 +144,8 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)
    ? FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f) : 3.f);
  OnPostureChanged(Posture, MaxPosture);
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (!FMath::IsFinite(Posture) || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  if (Posture < MaxPosture) return;
  // Break interrupts current attacks and exposes the enemy for a finite window.
  Posture = 0.f;
@@ -161,7 +166,13 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
   NextPostureBreakAllowedAt = PostureBrokenUntil
     + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
+ if (!FMath::IsFinite(HitReactionEndsAt)) HitReactionEndsAt = Now;
+ if (!FMath::IsFinite(NextAttackAt)) NextAttackAt = Now;
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
+ bCompanionAttackCommitted = false;
+ LockedCompanionTarget.Reset();
+ CommittedSwordAngle = -1;
+ LockedAttackDirection = FVector::ZeroVector;
  WindupEndsAt = -1.f;
  BossWarningEndTime = -1.f;
  // A posture break cancels the warning instantly, without waiting for Tick.
@@ -203,6 +214,9 @@ bool AMoonfallEnemy::HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout
     &&Now>=RecentCompanionAttackerAt&&Now-RecentCompanionAttackerAt<=8.f;
 }
 bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount){
+ // The shared TakeSpellDamage path owns the guard. Acquiring it here
+ // would suppress the companion's own legitimate melee damage.
+ if (bResolvingDamage) return false;
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||bBoss||bElite
      ||!FMath::IsFinite(Amount)||Amount<=0.f||Amount>10.f
      ||!FMath::IsFinite(Health)||Health<=Amount||bPostureFinisherAvailable)return false;
@@ -219,8 +233,13 @@ void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
+  if (bResolvingDamage) return;
+  TGuardValue<bool> DamageGuard(bResolvingDamage, true);
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
+  if (!FMath::IsFinite(Health) || !GetWorld() || IsActorBeingDestroyed()) return;
+  if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
+  if (!FMath::IsFinite(MaxHealthAtSpawn)) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
   if (Health <= 0.f) return;
@@ -242,10 +261,12 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Extreme finite Blueprint values can overflow once affixes and shatter multiply.
   // Do not consume the once-only shatter opening for invalid damage.
   if (!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f) return;
-  if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // Sub-precision hits must not consume a finisher or trigger hit reactions.
+  if (ActualDamage <= 0.f) return;
+  if (bShatterFinisher) bPostureFinisherAvailable = false;
   // A struck ordinary enemy investigates its attacker briefly. This does not
   // reveal the hero forever or share omniscient positions with other enemies.
   if (!bBoss && ActualDamage > 0.f && GetWorld()) {
@@ -449,6 +470,10 @@ void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) {
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(false);
+  return;
+ }
  if (Health <= 0.f) {
   if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
    AttackTellMarker->SetVisibility(false);
@@ -498,6 +523,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Cancel the full chain without dealing damage, then apply a brief recovery.
  if (!FMath::IsFinite(WindupEndsAt)) {
   CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -518,9 +546,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      && FMath::IsFinite(PostureRecoveryStartsAt) && Now >= PostureRecoveryStartsAt
      && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
      && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
+  const float PreviousPosture = Posture;
   Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
       * (FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.4f) : 0.f), 0.f, MaxPosture);
-  OnPostureChanged(Posture, MaxPosture);
+  if (Posture != PreviousPosture) OnPostureChanged(Posture, MaxPosture);
+  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+  if (!IsValid(Hero) || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
  }
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
@@ -666,8 +697,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    bCanSeeHero = false;
    ReturnToDungeonPost();
   }
+  // Clear the entire attack commitment before sleeping the distant AI.
+  // Only an interrupted attack needs recovery; idle enemies remain ready.
+  if (WindupEndsAt > 0.f || bComboSecondHitPending || bComboSecondHitActive)
+   NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
   CancelDivineSignature();
+  bCompanionAttackCommitted = false;
+  LockedCompanionTarget.Reset();
+  CommittedSwordAngle = -1;
+  LockedAttackDirection = FVector::ZeroVector;
   WindupEndsAt = -1.f;
+  if (IsValid(AttackTellMarker) && AttackTellMarker->IsVisible())
+   AttackTellMarker->SetVisibility(false);
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
   BossWarningEndTime = -1.f;

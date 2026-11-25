@@ -368,7 +368,10 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(begin.index("InitialSpawnTransform = GetActorTransform();"),
                         begin.index("LoadWorldProgress();"))
         self.assertIn("if (RestoreMoonfallPlayerStart(this)) return true;", fallback)
-        self.assertIn("if (!bHasInitialSpawnTransform) return false;", fallback)
+        self.assertIn("if (!bHasInitialSpawnTransform || InitialSpawnTransform.ContainsNaN()) return false;", fallback)
+        self.assertLess(fallback.index("InitialSpawnTransform.ContainsNaN()"), fallback.index("TeleportTo(Location"))
+        self.assertLess(helper.index("Start->IsActorBeingDestroyed()"), helper.index("Hero->TeleportTo("))
+        self.assertLess(helper.index("Start->GetActorRotation().ContainsNaN()"), helper.index("Hero->TeleportTo("))
         self.assertIn("Location.ContainsNaN()", fallback)
         self.assertIn("Location.SizeSquared() >= 1.0e14f", fallback)
         self.assertIn("TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false)", fallback)
