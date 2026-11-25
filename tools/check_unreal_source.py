@@ -6434,6 +6434,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "Crest->SetCanEverAffectNavigation(false)", "FMath::Clamp(DungeonBossRank,1,5)",
                       "Crest->SetCullDistances(4500,6500)"):
             self.assertIn(token, art)
+        self.assertIn("RaceId>=0 && RaceId<MoonfallRaces::Count", art)
+        self.assertIn("RaceOrnaments[MoonfallRaces::Count]", art)
+        self.assertIn("RaceOrnaments[RaceId]", art)
+        for name in ("Human:", "High Elf:", "Wood Elf:", "Dwarf:", "Halfling:",
+                     "Orc:", "Goblin:", "Troll:", "Entkin:", "Shadowborn:",
+                     "Moonborn:", "Draconid:"):
+            self.assertIn(name, art)
         self.assertNotIn("Body->SetStaticMesh", art)
         self.assertNotIn("Health =", art)
         self.assertNotIn("SetTimer", art)
