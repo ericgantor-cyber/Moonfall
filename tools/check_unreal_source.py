@@ -2931,7 +2931,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_perfect_parry_staggers_attacker_and_breaks_combo(self):
         self.assertIn("bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
-        self.assertIn("bLastIncomingHitParried = false;", self.hero_cpp)
+        self.assertIn("TGuardValue<bool> ParryResultGuard(bLastIncomingHitParried, false);", self.hero_cpp)
         self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
         self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
         self.assertIn("const bool bParried = bDodgeOnlyStrike", self.enemy_cpp)
@@ -2948,7 +2948,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();", self.hero_cpp)
         self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", self.hero_cpp)
         self.assertIn("bGuarding && bFrontAttack && !bOptionsOpen", self.hero_cpp)
-        self.assertIn("bHasIncomingDamageSource = false;", self.hero_cpp)
+        self.assertIn("TGuardValue<bool> HasSourceGuard(bHasIncomingDamageSource, true);", self.hero_cpp)
 
     def test_directional_guard_matches_character_facing_not_camera(self):
         self.assertIn("bOrientRotationToMovement = true", self.hero_cpp)
@@ -5081,10 +5081,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool bIncomingDamageDodgeOnly = false;", hero_h)
         dodge = hero.split("bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(", 1)[1].split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
-        self.assertLess(dodge.index("bIncomingDamageDodgeOnly = true;"),
+        self.assertLess(dodge.index("TGuardValue<bool> DodgeOnlyGuard(bIncomingDamageDodgeOnly, true);"),
                         dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"))
-        self.assertLess(dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"),
-                        dodge.index("bIncomingDamageDodgeOnly = false;"))
         damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("!bIncomingDamageDodgeOnly && bGuarding", damage)
@@ -6163,6 +6161,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(spawn.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
+
+    def test_directional_damage_scopes_callback_context(self):
+        hit = self.hero_cpp.split("bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[1].split("void AMoonfallHeroPawn::ApplyMoonfallDamage(", 1)[0]
+        for guard in ("SourceLocation.ContainsNaN()", "TGuardValue<bool> ParryResultGuard(bLastIncomingHitParried, false)", "TGuardValue<FVector> SourceGuard(IncomingDamageSource, SourceLocation)", "TGuardValue<bool> HasSourceGuard(bHasIncomingDamageSource, true)"):
+            self.assertLess(hit.index(guard), hit.index("ApplyMoonfallDamage(Amount)"))
+        self.assertIn("return bLastIncomingHitParried;", hit)
 
     def test_xp_award_validates_ledger_and_resources(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
