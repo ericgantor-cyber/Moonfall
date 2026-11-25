@@ -4595,7 +4595,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MoonfallQuestXP::Preview(ContractCost,Hero->Level", hud)
         self.assertIn("else if (bQuestRewardVisible)", hud)
         self.assertIn("MAX LEVEL", hud)
-        self.assertIn("Confirm: %d salvage | +%d XP", self.hero_cpp)
+        self.assertIn("Confirm spending %d salvage | +%d XP", self.hero_cpp)
         self.assertIn("Complete! +%d XP | Level %d", self.hero_cpp)
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         self.assertIn("Resident->bAmbientVisitor", body)

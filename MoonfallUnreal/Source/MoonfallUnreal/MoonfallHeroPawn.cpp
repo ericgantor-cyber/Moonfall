@@ -4952,7 +4952,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    const int32 Cost=Resident->GetContractSalvageCost();
    const int32 RewardXP=MoonfallQuestXP::Reward(Cost,Level);
    Message = FText::FromString(FString::Printf(
-     TEXT("Confirm: %d salvage | +%d XP"),Cost,RewardXP));
+     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP));
   } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
    Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
