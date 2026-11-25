@@ -2254,7 +2254,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("LT: equip best  |  Crafting and salvage unavailable"), FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   else DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: stats   P / Y: spell book   B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   DrawLiveMenuHitCue();
   return;
@@ -2498,9 +2498,9 @@ void AMoonfallCombatHUD::DrawHUD()
     case EAction::SwingSword:
      Objective = TEXT("Try your sword (left-click / RT)"); break;
     case EAction::PerformDodge:
-     Objective = TEXT("Dodge near the northern practice sentries"); break;
+     Objective = TEXT("Dodge (Q / Pad B) near northern practice sentries"); break;
     case EAction::OpenSpellbook:
-     Objective = TEXT("Open your Spell Book (P / inventory Book tab)"); break;
+     Objective = TEXT("Open Spell Book (P / Select then Y)"); break;
     default: break;
    }
    Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");
