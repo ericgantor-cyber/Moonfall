@@ -28,6 +28,16 @@ inline constexpr const FAttackProfile& Profile(int Angle) noexcept {
 inline constexpr int FairRollCount = 12;
 inline void Reset(FFlow& Flow) noexcept { Flow = FFlow{}; }
 inline constexpr bool ValidAngle(int Angle) noexcept { return Angle >= 0 && Angle < 4; }
+// Existing quick/heavy/sweep/crush patterns map to right/high/low/left.
+inline constexpr int EnemyAngle(int Pattern) noexcept {
+ return Pattern == 0 ? 1 : Pattern == 1 ? 0 : Pattern == 2 ? 2 : Pattern == 3 ? 3 : -1;
+}
+inline constexpr const char* GuardName(int Angle) noexcept {
+ return Angle == 0 ? "HIGH" : Angle == 1 ? "RIGHT" : Angle == 2 ? "LOW" : Angle == 3 ? "LEFT" : "";
+}
+inline constexpr float GuardCostScale(int Angle) noexcept {
+ return Angle == 0 ? 1.15f : Angle == 2 ? 1.10f : Angle == 3 ? 1.05f : 1.f;
+}
 inline constexpr int AnticipatedGuard(int LastAttack) noexcept {
  return ValidAngle(LastAttack) ? (LastAttack + 2) % 4 : -1;
 }

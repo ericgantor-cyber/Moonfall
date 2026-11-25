@@ -96,6 +96,15 @@ int main() {
  }
  if(MoonfallOmniattack::AnticipatedGuard(-1)!=-1 ||
     MoonfallOmniattack::GuardDamageScale(-1,-1,false)!=1.f) return 18;
+ for(int pattern=0;pattern<4;++pattern) {
+  const int angle=MoonfallOmniattack::EnemyAngle(pattern);
+  if(!MoonfallOmniattack::ValidAngle(angle) || !*MoonfallOmniattack::GuardName(angle)) return 19;
+  const float cost=MoonfallOmniattack::GuardCostScale(angle);
+  if(cost<1.f || cost>1.15f) return 20;
+ }
+ if(MoonfallOmniattack::EnemyAngle(-1)!=-1 || MoonfallOmniattack::EnemyAngle(4)!=-1
+    || MoonfallOmniattack::GuardCostScale(-1)!=1.f
+    || MoonfallOmniattack::GuardCostScale(0)<=MoonfallOmniattack::GuardCostScale(1)) return 21;
  return 0;
 }
 """
@@ -168,6 +177,18 @@ int main() {
         self.assertLess(melee.index("if (!bLivingTarget) {"),
                         melee.index("Enemy->TakeMeleeDamage("))
         self.assertEqual(melee.count("SweepSingleByChannel("), 1)
+
+    def test_assisted_directional_defense_uses_existing_pipeline(self):
+        enemy = (SRC / "MoonfallEnemy.cpp").read_text()
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("MoonfallOmniattack::EnemyAngle(Pattern)", enemy)
+        self.assertIn("Hero->ApplyDirectionalSwordDamageFrom(EffectiveAttackDamage", enemy)
+        self.assertIn("IncomingSwordAngle = PreviousAngle;", hero)
+        self.assertIn("HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle)", hero)
+        self.assertIn("OnDirectionalGuardImpact(GuardAngle, bPerfectParry)", hero)
+        self.assertIn("E->GetDirectionalWindup(WorldTime, HeroLocation)", hud)
+        self.assertIn('TEXT("%s STRIKE | GUARD")', hud)
 
     def test_melee_montage_plays_once_before_hit_resolution_even_on_miss(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()

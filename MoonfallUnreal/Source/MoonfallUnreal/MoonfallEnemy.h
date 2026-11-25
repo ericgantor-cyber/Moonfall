@@ -104,7 +104,10 @@ public:
  void RegisterComboMilestone(int32 Stage);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
+ // Returns only a live, nearby hero-directed elite windup.
+ int32 GetDirectionalWindup(float Now, const FVector& HeroPosition) const;
 private:
+ int32 CommittedSwordAngle = -1;
  void RefreshAttackTellMarker(float Now, bool bReduceMotion);
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
  TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;

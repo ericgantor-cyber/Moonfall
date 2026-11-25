@@ -1640,6 +1640,14 @@ bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVe
  return bParried;
 }
 
+bool AMoonfallHeroPawn::ApplyDirectionalSwordDamageFrom(float Amount, const FVector& SourceLocation, int32 Angle) {
+ const int32 PreviousAngle = IncomingSwordAngle;
+ IncomingSwordAngle = MoonfallOmniattack::ValidAngle(Angle) ? Angle : -1;
+ const bool bParried = ApplyMoonfallDamageFrom(Amount, SourceLocation);
+ IncomingSwordAngle = PreviousAngle;
+ return bParried;
+}
+
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
  bLastIncomingHitParried = false;
  IncomingDamageSource = SourceLocation;
@@ -1691,7 +1699,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack
      && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
- const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
+ const int32 GuardAngle = IncomingSwordAngle;
+ // Assisted guard matches the incoming direction without another key.
+ // Heavy high/low strikes exert distinct stamina pressure; perfect timing is unchanged.
+ const float RequiredGuardCost = bPerfectParry ? 0.f :
+     HitGuardCost * MoonfallOmniattack::GuardCostScale(GuardAngle);
  if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
@@ -1723,6 +1735,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    DamageAfterGuard *= 0.4f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
+  if (MoonfallOmniattack::ValidAngle(GuardAngle))
+   OnDirectionalGuardImpact(GuardAngle, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
  } else if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack) {
   // Insufficient stamina breaks guard without granting free damage reduction.
