@@ -674,6 +674,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
  Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
@@ -960,6 +961,15 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ControllerBack()
+{
+ // Choose one route before a modal transition can expose gameplay input.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen) { TalentCloseWeb(); return; }
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }
+ Dodge();
 }
 void AMoonfallHeroPawn::ControllerConfirm()
 {
