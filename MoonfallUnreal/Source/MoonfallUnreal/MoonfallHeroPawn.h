@@ -326,6 +326,10 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
+ // Optional directional sword VFX/audio. No cue for misses or absorbed hits.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnMeleeImpact(int32 Angle, FVector ImpactPoint, float AppliedDamage,
+   bool bRiposte, bool bKillingBlow);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 CurrentSwordAngle = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 SwordFlowStep = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.1", ClampMax="1.5")) float MeleeAttackCooldown = 0.48f;

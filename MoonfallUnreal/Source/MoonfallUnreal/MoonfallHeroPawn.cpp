@@ -1472,10 +1472,16 @@ void AMoonfallHeroPawn::MeleeAttack()
   return;
  }
  const float HealthBefore = Enemy->Health;
+ const int32 ResolvedSwordAngle = CurrentSwordAngle;
+ const FVector ResolvedSwordImpact = Hit.ImpactPoint;
  // Shared enemy health, posture, phase and loot resolution. No mana used.
  Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
+ const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;
+ const bool bResolvedSwordRiposte = bConnected && bCounterReady;
+ const bool bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)
+     && !ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle);
  if (bConnected) {
   RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;
   // Shared spell/sword riposte is consumed only by actual damage.
@@ -1517,6 +1523,9 @@ void AMoonfallHeroPawn::MeleeAttack()
   ResetMeleeHitCombo();
  }
  OnMeleeSwing(CurrentSwordAngle, bConnected);
+ if (bEmitSwordImpact && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
+  OnMeleeImpact(ResolvedSwordAngle, ResolvedSwordImpact, Dealt,
+    bResolvedSwordRiposte, bResolvedSwordKill);
 }
 
 void AMoonfallHeroPawn::BreakGuard()

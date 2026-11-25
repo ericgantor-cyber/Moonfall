@@ -75,6 +75,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DrawDebugSphere(", cast)
         self.assertIn("DrawDebugLine(", cast)
 
+    def test_directional_melee_impact_captures_confirmed_hit_before_callbacks(self):
+        melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("void OnMeleeImpact(int32 Angle, FVector ImpactPoint, float AppliedDamage,", self.hero_h)
+        self.assertIn("bool bRiposte, bool bKillingBlow);", self.hero_h)
+        hit = melee.index("Enemy->TakeMeleeDamage(")
+        cue = melee.index("OnMeleeImpact(ResolvedSwordAngle, ResolvedSwordImpact, Dealt,")
+        self.assertLess(melee.index("const int32 ResolvedSwordAngle = CurrentSwordAngle;"), hit)
+        self.assertLess(melee.index("const FVector ResolvedSwordImpact = Hit.ImpactPoint;"), hit)
+        self.assertLess(hit, melee.index("const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;"))
+        self.assertIn("const bool bResolvedSwordRiposte = bConnected && bCounterReady;", melee)
+        self.assertIn("bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)", melee)
+        self.assertIn("!ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle)", melee)
+        for committed in ("Stamina = FMath::Clamp(Stamina - Cost", "NextMeleeAttackAt = Now +",
+                          "ParryCounterUntil = -1.f;", "OnSuccessfulHitCombo(HitComboStage, false);",
+                          "OnMeleeSwing(CurrentSwordAngle, bConnected);",
+                          "bEmitSwordImpact && IsValid(this) && !IsActorBeingDestroyed() && GetWorld()"):
+            self.assertLess(melee.index(committed), cue)
+        self.assertEqual(melee.count("OnMeleeImpact("), 1)
+        self.assertNotIn("Enemy->", melee[cue:])
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
