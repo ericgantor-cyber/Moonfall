@@ -29,8 +29,55 @@ def load_profiles():
             raise RuntimeError("Invalid production material parameters")
     return profiles["materials"]
 
-def create_material(slot, profile):
-    name = "M_MF_" + slot.title()
+TEXTURE_ROOT = "/Game/MoonfallProduction/Textures"
+
+def load_texture_pack():
+    textures = {}
+    kinds = ("BaseColor", "Normal", "ORM")
+    for slot in sorted(SLOTS):
+        for kind in kinds:
+            name = "T_MF_" + slot.title() + "_" + kind
+            target = TEXTURE_ROOT + "/" + name
+            if not unreal.EditorAssetLibrary.does_asset_exist(target):
+                continue
+            texture = unreal.EditorAssetLibrary.load_asset(target)
+            if not isinstance(texture, unreal.Texture2D):
+                raise RuntimeError("Unexpected texture asset: " + target)
+            if texture.get_editor_property("srgb") != (kind == "BaseColor"):
+                raise RuntimeError("Incorrect texture color space: " + target)
+            expected = {"Normal": unreal.TextureCompressionSettings.TC_NORMALMAP,
+                        "ORM": unreal.TextureCompressionSettings.TC_MASKS}.get(kind)
+            if expected is not None and texture.get_editor_property("compression_settings") != expected:
+                raise RuntimeError("Incorrect texture compression: " + target)
+            textures[(slot, kind)] = texture
+    if textures and len(textures) != len(SLOTS)*len(kinds):
+        raise RuntimeError("Import all fifteen production textures before installing textured materials.")
+    return textures
+
+def connect_textures(lib, mat, slot, textures):
+    samplers = {
+        "BaseColor": unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+        "Normal": unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+        "ORM": unreal.MaterialSamplerType.SAMPLERTYPE_MASKS,
+    }
+    nodes = {}
+    for idx, kind in enumerate(("BaseColor", "Normal", "ORM")):
+        node = lib.create_material_expression(mat, unreal.MaterialExpressionTextureSample, -450, idx*260)
+        node.set_editor_property("texture", textures[(slot, kind)])
+        node.set_editor_property("sampler_type", samplers[kind])
+        nodes[kind] = node
+    for kind, channel, prop in (
+        ("BaseColor", "RGB", unreal.MaterialProperty.MP_BASE_COLOR),
+        ("Normal", "RGB", unreal.MaterialProperty.MP_NORMAL),
+        ("ORM", "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION),
+        ("ORM", "G", unreal.MaterialProperty.MP_ROUGHNESS),
+        ("ORM", "B", unreal.MaterialProperty.MP_METALLIC),
+    ):
+        if not lib.connect_material_property(nodes[kind], channel, prop):
+            raise RuntimeError("Could not bind " + kind + "/" + channel + " for " + slot)
+
+def create_material(slot, profile, textures):
+    name = "M_MF_" + slot.title() + ("_Textured" if textures else "")
     target = MATERIAL_ROOT + "/" + name
     if unreal.EditorAssetLibrary.does_asset_exist(target):
         mat = unreal.EditorAssetLibrary.load_asset(target)
@@ -42,17 +89,20 @@ def create_material(slot, profile):
     if not isinstance(mat, unreal.Material):
         raise RuntimeError("Failed to create " + target)
     lib = unreal.MaterialEditingLibrary
-    color = lib.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -350, -160)
-    color.set_editor_property("constant", unreal.LinearColor(*profile["base_color"], 1.0))
-    if not lib.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR):
-        raise RuntimeError("Could not connect Base Color: " + target)
-    for idx, (field, prop) in enumerate((
-        ("metallic", unreal.MaterialProperty.MP_METALLIC),
-        ("roughness", unreal.MaterialProperty.MP_ROUGHNESS))):
-        node = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -350, idx * 120)
-        node.set_editor_property("r", float(profile[field]))
-        if not lib.connect_material_property(node, "", prop):
-            raise RuntimeError("Could not connect " + field + ": " + target)
+    if textures:
+        connect_textures(lib, mat, slot, textures)
+    else:
+        color = lib.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -350, -160)
+        color.set_editor_property("constant", unreal.LinearColor(*profile["base_color"], 1.0))
+        if not lib.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR):
+            raise RuntimeError("Could not connect Base Color: " + target)
+        for idx, (field, prop) in enumerate((
+            ("metallic", unreal.MaterialProperty.MP_METALLIC),
+            ("roughness", unreal.MaterialProperty.MP_ROUGHNESS))):
+            node = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -350, idx * 120)
+            node.set_editor_property("r", float(profile[field]))
+            if not lib.connect_material_property(node, "", prop):
+                raise RuntimeError("Could not connect " + field + ": " + target)
     lib.recompile_material(mat)
     if not unreal.EditorAssetLibrary.save_loaded_asset(mat, False):
         raise RuntimeError("Could not save " + target)
@@ -62,6 +112,7 @@ def run():
     if not (PROJECT / "MoonfallUnreal.uproject").is_file():
         raise RuntimeError("Open MoonfallUnreal first.")
     profiles = load_profiles()
+    textures = load_texture_pack()
     # Resolve and validate every expected slot before modifying a mesh.
     assignments = []
     for name in sorted(MESH_NAMES):
@@ -80,11 +131,17 @@ def run():
                 raise RuntimeError("Unrecognized imported slot in " + name + ": " + key)
             found.add(key)
             current = slot.get_editor_property("material_interface")
+            # Replace only empty/default slots or our exact previous constant
+            # material reference; never edit an existing material package.
+            previous_name = "M_MF_" + key.title()
+            previous = MATERIAL_ROOT + "/" + previous_name + "." + previous_name
             if current is None or current.get_path_name() == DEFAULT:
+                assignments.append((mesh, index, key))
+            elif textures and current.get_path_name() == previous:
                 assignments.append((mesh, index, key))
         if found != expected:
             raise RuntimeError("Imported material slots differ from source: " + name)
-    materials = {slot: create_material(slot, profiles[slot]) for slot in sorted(SLOTS)}
+    materials = {slot: create_material(slot, profiles[slot], textures) for slot in sorted(SLOTS)}
     changed = {}
     for mesh, index, slot in assignments:
         mesh.set_material(index, materials[slot])
@@ -92,7 +149,7 @@ def run():
     for mesh in changed.values():
         if not unreal.EditorAssetLibrary.save_loaded_asset(mesh, False):
             raise RuntimeError("Could not save " + mesh.get_path_name())
-    unreal.log("Production PBR constants installed; {} default slots assigned. Existing authored slots preserved.".format(len(assignments)))
+    unreal.log("Production {} PBR materials installed; {} slots assigned. Existing custom slots preserved.".format("textured" if textures else "constant", len(assignments)))
 
 if __name__ == "__main__":
     run()
