@@ -4485,6 +4485,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(recovery.index("bDungeonRecoveryAuditComplete = true;"),
                         recovery.index("AuditLiveDungeonSlots(true);"))
         self.assertNotIn("FailedDungeonSlots.Reset()", batch)
+        self.assertIn("bool bAuditedThisBatch = false;", batch)
+        self.assertEqual(batch.count("bAuditedThisBatch = true;"), 2)
+        self.assertIn("if (!bAuditedThisBatch) {", recovery)
+        self.assertIn("if (!bAuditedThisBatch) AuditLiveDungeonSlots(false);", batch)
+        # No world mutation may invalidate a snapshot before it is reused.
+        audit_tail = batch.split("bool bAuditedThisBatch = false;", 1)[1].split(
+            "OnDungeonWorldReady(ReadyDungeonCount);", 1)[0]
+        self.assertNotIn("SpawnActor", audit_tail)
+        self.assertNotIn("FinishSpawning", audit_tail)
+        self.assertNotIn("->Destroy()", audit_tail)
         self.assertIn("AuditLiveDungeonSlots(false);", batch)
         self.assertLess(batch.index("AuditLiveDungeonSlots(false);"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))
         self.assertLess(batch.index("bDungeonStartupNotified = true;"), batch.index("OnDungeonWorldReady(ReadyDungeonCount);"))

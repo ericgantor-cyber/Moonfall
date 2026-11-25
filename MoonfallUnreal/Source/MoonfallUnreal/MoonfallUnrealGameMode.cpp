@@ -914,9 +914,13 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   if (MoonfallDungeonStartup::CanQueueRetry(Slot, bRetryPass)) FailedDungeonSlots.AddUnique(Slot);
  }
  if (bDungeonStartupStopped || !GetWorld()) return;
+ // Reuse a fresh audit within this synchronous tail: no spawning or
+ // external callback occurs between these completion checks.
+ bool bAuditedThisBatch = false;
  if (NextDungeonSlot >= TotalDungeons && !bDungeonStartupAuditComplete) {
   bDungeonStartupAuditComplete = true;
   AuditLiveDungeonSlots(true);
+  bAuditedThisBatch = true;
  }
  // If a previously successful slot disappears during retries, offer it the
  // same single recovery opportunity. AddUnique retains consumed slots, so
@@ -924,12 +928,15 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
  if (NextDungeonSlot >= TotalDungeons && NextFailedDungeonRetry >= FailedDungeonSlots.Num()
      && !bDungeonRecoveryAuditComplete) {
   bDungeonRecoveryAuditComplete = true;
-  AuditLiveDungeonSlots(true);
+  if (!bAuditedThisBatch) {
+   AuditLiveDungeonSlots(true);
+   bAuditedThisBatch = true;
+  }
  }
  if (NextDungeonSlot >= TotalDungeons && NextFailedDungeonRetry >= FailedDungeonSlots.Num()) {
   // Recount distinct live slots after the bounded retry phase. Do not
   // claim a destroyed or duplicate actor as a completed dungeon.
-  AuditLiveDungeonSlots(false);
+  if (!bAuditedThisBatch) AuditLiveDungeonSlots(false);
   bDungeonStartupNotified = true;
   GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
   if (ReadyDungeonCount != TotalDungeons)
