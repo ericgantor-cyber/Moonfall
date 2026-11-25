@@ -6,6 +6,10 @@
 #include <cmath>
 namespace MoonfallTalentWeb {
 constexpr int MaxTier=14;
+inline bool RespecPending(bool armed,double now,double deadline) {
+ return armed && std::isfinite(now) && std::isfinite(deadline)
+     && now>=0.0 && deadline>=now;
+}
 struct Rect {
  double X=0, Y=0, W=0, H=0;
  bool Hit(double px,double py) const {
