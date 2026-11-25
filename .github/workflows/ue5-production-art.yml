@@ -7,6 +7,7 @@ on:
       - 'MoonfallUnreal/Content/Python/install_production_materials.py'
       - 'MoonfallUnreal/Content/Python/import_production_textures.py'
       - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
+      - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
@@ -18,6 +19,7 @@ on:
       - 'MoonfallUnreal/Content/Python/install_production_materials.py'
       - 'MoonfallUnreal/Content/Python/import_production_textures.py'
       - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
+      - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
@@ -32,4 +34,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tools/test_unreal_production_art.py
-      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py MoonfallUnreal/Content/Python/import_production_textures.py MoonfallUnreal/Art/Production/generate_texture_maps.py MoonfallUnreal/Tools/install_cinematic_preview_lighting.py
+      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py MoonfallUnreal/Content/Python/import_production_textures.py MoonfallUnreal/Art/Production/generate_texture_maps.py MoonfallUnreal/Tools/install_cinematic_preview_lighting.py MoonfallUnreal/Tools/create_nanite_benchmark_assets.py
