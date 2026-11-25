@@ -6309,6 +6309,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_xp_award_publishes_only_committed_progression(self):
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
+            self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
+        self.assertEqual(award.count("OnHealthChanged("), 1)
+        self.assertLess(award.index("if (Level >= 100) Experience = 0;"),
+                        award.index("if (Level != PreviousLevel) OnHealthChanged(Health, MaxHealth);"))
+
     def test_ground_loot_spawn_validates_state_and_coordinates(self):
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress", "Origin.ContainsNaN()", "Origin.SizeSquared() >= 1.0e14f", "LevelId.IsNone()"):
