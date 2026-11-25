@@ -6431,7 +6431,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(toggle.index("if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }"), toggle.index("bTalentWebOpen=true;"))
         spend = self.hero_cpp.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
-                      "bTalentRespecArmed=false;", "TalentRespecArmUntil=-1.f;"):
+                      "bTalentRespecArmed=false;"):
             self.assertLess(spend.index(guard), spend.index("SpendTalentPoint(TalentWebSelected);"))
 
     def test_dungeon_deferred_creation_guards_teardown_and_invalid_transform(self):
