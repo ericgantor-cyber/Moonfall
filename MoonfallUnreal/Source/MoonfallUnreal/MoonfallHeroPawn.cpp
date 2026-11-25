@@ -1015,7 +1015,8 @@ void AMoonfallHeroPawn::ControllerBack()
  // Choose one route before a modal transition can expose gameplay input.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentCloseWeb(); return; }
- if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }
+ if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }
  if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }
  Dodge();
 }
