@@ -4824,10 +4824,6 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // unexpectedly open talents during travel or combat with no nearby NPC.
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  // A conversation must cancel any queued swing before taking input.
- StopJumping();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
- EndSprint();
- EndGuard();
  DodgeBuffer.Clear();
  SwordBuffer.Clear();
  FocusedResident = Resident;
@@ -4883,10 +4879,6 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
-    StopJumping();
-    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
-    EndSprint();
-    EndGuard();
     DodgeBuffer.Clear();
     SwordBuffer.Clear();
     FocusedResident = Resident;
