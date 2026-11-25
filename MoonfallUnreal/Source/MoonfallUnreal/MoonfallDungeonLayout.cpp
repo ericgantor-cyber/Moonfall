@@ -263,7 +263,7 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
  if (!bBonusEncounterActive || !GetWorld() || !IsValid(Hero)
      || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
      || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
-     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen)
+     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen)
   return false;
  int32 Group = INDEX_NONE;
  for (int32 Candidate = 0; Candidate < 3; ++Candidate) {
@@ -347,6 +347,15 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    break;
   }
  }
+ // A later member's Blueprint initialization may invalidate an earlier
+ // member. Revalidate the entire group before consuming its one-shot token.
+ for (const AMoonfallEnemy* Member : GroupActors) {
+  if (!IsValid(Member) || Member->IsActorBeingDestroyed() || Member->GetOwner() != this
+      || !FMath::IsFinite(Member->Health) || Member->Health <= 0.f) {
+   bAllSpawned = false;
+   break;
+  }
+ }
  if (!bAllSpawned || GroupActors.Num() != GroupSize) {
   // A rejected member must never leave a partial 5..11 pack or consume
   // the one-shot token; re-entering this room can retry once space clears.
@@ -379,7 +388,8 @@ void AMoonfallDungeonLayout::HandleEntrance(
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
-     || Hero->bAtlasOpen) return;
+     || Hero->bAtlasOpen || Hero->bTalentWebOpen || Hero->bOptionsOpen
+     || Hero->bInventoryOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
  // First visit saves through the V8 ledger; later visits are already known.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -395,7 +405,7 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  if (bFinalChamberNotified || !IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen) return;
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -419,7 +429,7 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen) return;
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen) return;
  // Require a durable entrance discovery before announcing room events.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
@@ -457,7 +467,7 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen
      || !GetWorld() || !FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f
      || !FMath::IsFinite(HazardCooldownSeconds)) return;
  // Never damage a player before their dungeon discovery is durably saved.
@@ -483,7 +493,7 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  if (!GetWorld() || !IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 1) return false;
 
@@ -571,6 +581,8 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
 {
  if (!GetWorld() || !IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen
      || ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5
      || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
      || GetChamberType(ChamberIndex) != 2) return false;
@@ -614,7 +626,7 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
      || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
      || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen
      || ZoneIndex < 0 || ZoneIndex >= 6
      || DungeonIndex < 0 || DungeonIndex >= 5) return false;
  // Existing saves must not respawn permanently defeated bosses.

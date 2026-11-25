@@ -4,6 +4,7 @@
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
 class AMoonfallHeroPawn;
+class AMoonfallWorldNPC;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -25,6 +26,9 @@ public:
  UStaticMeshComponent* AttackTellMarker = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Short-lived guard memory; only elite non-boss enemies use it.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") int32 SwordGuardAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Sword") float SwordGuardUntil = -1.f;
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
  // -1 means no known chamber and must not join dungeon coordination.
  int32 DungeonChamberIndex = -1;
@@ -100,7 +104,13 @@ public:
  void RegisterComboMilestone(int32 Stage);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
+ // Returns only a live, nearby hero-directed elite windup.
+ int32 GetDirectionalWindup(float Now, const FVector& HeroPosition) const;
 private:
+ // Blueprint combat notifications are synchronous; never resolve nested hits or breaks.
+ bool bResolvingDamage = false;
+ bool bResolvingPosture = false;
+ int32 CommittedSwordAngle = -1;
  void RefreshAttackTellMarker(float Now, bool bReduceMotion);
  // Weakly retain the current hero for crowded-world AI ticks; never own the pawn.
  TWeakObjectPtr<AMoonfallHeroPawn> CachedHero;
@@ -133,8 +143,17 @@ private:
  float NextTacticalRetreatAt = 0.f;
  bool bRetreatFlankLeft = false;
  FVector CachedWaypoint = FVector::ZeroVector;
+ // World origin (0,0,0) is a valid NavMesh waypoint, not a cache sentinel.
+ bool bHasCachedNavigationWaypoint = false;
+ // Retain a failed route until the existing cached path refresh retries it.
+ // This prevents direct pursuit into walls when NavMesh cannot find a route.
+ bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> RecentCompanionAttacker;
+ float RecentCompanionAttackerAt=-1000.f;
+ TWeakObjectPtr<AMoonfallWorldNPC> LockedCompanionTarget;
+ bool bCompanionAttackCommitted=false;
  // -1 by default; authored tag selects one deterministic guardian footprint.
  int32 ActiveGuardianFootprint = -1;
  FVector GuardianOrigin = FVector::ZeroVector;
@@ -189,4 +208,10 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
+ // Melee resolves through the same bounded health, boss-phase, posture and loot pipeline.
+ UFUNCTION(BlueprintCallable, Category="Combat") void TakeMeleeDamage(float Amount);
+ // Nonlethal companion support uses the existing damage resolution.
+ bool TryCompanionSupportStrike(float Amount);
+ void RememberCompanionAttacker(AMoonfallWorldNPC* Scout,float Now);
+ bool HasRecentCompanionAggression(const AMoonfallWorldNPC* Scout,float Now) const;
 };

@@ -14,6 +14,14 @@ class TestSocialWorld(unittest.TestCase):
   cls.save=(ROOT/"MoonfallPersistentSave.h").read_text()
   cls.arena=(ROOT/"MoonfallArena.cpp").read_text()
   cls.input=(ROOT.parents[1]/"Config"/"DefaultInput.ini").read_text()
+ def _assert_spell_cast_modal_guard(self):
+  # Check the spell authority's guard, not brittle one-line source layout.
+  cast=self.hero.split("bool AMoonfallHeroPawn::TryCast(",1)[1].split(
+   "const float Time =",1)[0]
+  for condition in ("bOptionsOpen","bInventoryOpen","bAtlasOpen",
+     "bResidentContextOpen","FocusedResident.IsValid()","!GetWorld()",
+     "School < 0","Hand < 0","return false;"):
+   self.assertIn(condition,cast)
  def test_fixed_settlement(self):
   self.assertIn('SettlementId = FName(TEXT("Crossroads"))',self.arena)
   for resident in ("Birchroot","Anvilkeeper","Silverwatch","Ember Scout"):
@@ -22,7 +30,8 @@ class TestSocialWorld(unittest.TestCase):
  def test_social_reaction(self):
   self.assertIn("GetSocialDisposition",self.npc_h)
   self.assertIn("GetCurrentActivity()",self.npc_h)
-  self.assertIn("FMath::FloorToInt",self.npc)
+  self.assertIn("MoonfallLivingSimulation::ActivityFor(",self.npc)
+  self.assertIn("MoonfallLivingSimulation::WeatherFor(",self.npc)
   self.assertIn("GetCurrentActivity() == TEXT",self.npc)
   for word in ("Hostile","Wary","Neutral","Friendly","Trusted"):
    self.assertIn('TEXT("'+word+'")',self.npc)
@@ -68,8 +77,11 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
   # Ensure quest status never overrides a hostile faction response.
-  self.assertIn('if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
-  self.assertIn('else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
+  self.assertIn('if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
+  self.assertIn('else if (!bAmbientVisitor && Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
+  # Short-lived road visitors may talk, but cannot fabricate persistent contracts.
+  self.assertIn("if (bAmbientVisitor || ResidentId.IsNone()",self.npc)
+  self.assertIn("if (bAmbientVisitor) return 0;",self.npc)
  def test_native_canvas_menu_and_input_safety(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("Hero->FocusedResident.Get()",hud)
@@ -82,7 +94,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentContextSelection = Row;",self.hero)
   self.assertIn("ChooseResidentContextAction(Row)",self.hero)
   self.assertIn("ChooseResidentContextAction(ResidentContextSelection)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self._assert_spell_cast_modal_guard()
   self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton',self.input)
  def test_native_spoken_dialogue_without_blueprint_widget(self):
   self.assertIn("LastSpokenLine",self.npc_h)
@@ -95,18 +107,60 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bResidentContextOpen = false;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
   close=self.hero.split("void AMoonfallHeroPawn::CloseResidentContext()",1)[1].split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[0]
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",close)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
   self.assertNotIn("PC->bShowMouseCursor = false;",close)
-  self.assertIn("if (bResidentContextOpen &&",self.hero)
+  self.assertIn("if (bResidentContextOpen) {",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
-  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+  self._assert_spell_cast_modal_guard()
+ def test_npc_dialogue_blocks_stale_controller_and_keyboard_input(self):
+  # This verifies native source guard ordering; it does not run UE5 gameplay.
+  def body(name,next_name):
+   return self.hero.split("void AMoonfallHeroPawn::"+name+"()",1)[1].split(
+       "void AMoonfallHeroPawn::"+next_name+"()",1)[0]
+  jump=body("TryJump","MoveForward")
+  modal=jump.split("if (bResidentContextOpen) {",1)[1].split(
+      "// Jump must obey",1)[0]
+  self.assertIn("if (!FocusedResident.IsValid()) {",modal)
+  self.assertLess(modal.index("CloseResidentContext();"),modal.index(
+      "ChooseResidentContextAction(ResidentContextSelection);"))
+  self.assertNotIn("Jump();",modal)
+  for name,next_name in (("OptionsUp","OptionsDown"),("OptionsDown","OptionsLeft")):
+   nav=body(name,next_name)
+   self.assertIn("if (bResidentContextOpen) {",nav)
+   self.assertIn("!FocusedResident->CanHeroInteract(this)",nav)
+   self.assertLess(nav.index("CloseResidentContext();"),nav.index(
+       "ResidentContextSelection ="))
+   self.assertIn("AtlasChronicleChapter = -1;",nav)
+  npc=body("OpenFocusedResidentContext","CastRightMouse")
+  self.assertLess(npc.index("CloseResidentContext();"),npc.index(
+      "AMoonfallWorldNPC* Resident = GetNearestResidentNPC();"))
+  self.assertIn("!FocusedResident->CanHeroInteract(this)",npc)
+  right=self.hero.split(
+      "void AMoonfallHeroPawn::CastRightMouse()",1)[1].split(
+      "void AMoonfallHeroPawn::OptionsUp()",1)[0]
+  self.assertIn("if (bResidentContextOpen) { CloseResidentContext(); return; }",right)
+  for name in ("MoveForward","MoveRight"):
+   movement=self.hero.split("void AMoonfallHeroPawn::"+name+"(float Value)",1)[1].split("return;",1)[0]
+   self.assertIn("bResidentContextOpen",movement)
+  for name,next_name in (("Dodge","RewardPerfectDodge"),
+                         ("BeginGuard","EndGuard"),("BeginSprint","EndSprint")):
+   guard=body(name,next_name).split("return;",1)[0]
+   self.assertIn("bResidentContextOpen",guard)
+  close=body("CloseResidentContext","OpenFocusedResidentContext")
+  self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen;",close)
+  self.assertIn('#include "MoonfallChronicleUI.h"',self.hero)
  def test_nearest_npc_skips_occluded_candidates(self):
-  self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
-  self.assertIn("Checked < 64",self.hero)
-  self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",self.hero)
+  lookup=self.hero.split(
+      "AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {",1)[1].split(
+      "void AMoonfallHeroPawn::CloseResidentContext()",1)[0]
+  self.assertIn("Candidate->CanHeroInteract(this)",lookup)
+  self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",lookup)
+  # Query runs on explicit input and must reach NPCs beyond the old 64 cap.
+  self.assertIn("for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It; ++It)",lookup)
+  self.assertNotIn("Checked < 64",lookup)
  def test_npc_menu_uses_actual_interaction_distance(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("FMath::Clamp(Resident->InteractRange, 50.f, 400.f)",self.hero)
@@ -142,7 +196,7 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Active")',hud)
   self.assertIn('TEXT("Completed")',hud)
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
-  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;",self.hero)
+  self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen || bAtlasOpen;",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
@@ -169,7 +223,7 @@ class TestSocialWorld(unittest.TestCase):
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
-  self.assertIn("Version = 12",self.save)
+  self.assertIn("Version = 16",self.save)
   self.assertIn("Save->FactionReputation = FactionReputation;",self.hero)
   self.assertIn("if (Save->Version >= 4)",self.hero)
   self.assertIn("FMath::Clamp(*Value, -100, 100)",self.hero)

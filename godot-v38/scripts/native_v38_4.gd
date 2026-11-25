@@ -34,7 +34,7 @@ func _create_realm_follower()->void:
 func _process(delta:float)->void:
  super._process(delta)
  if not is_instance_valid(realm_follower):return
- var active:bool = hero_playing and not death_active and not menu_open and is_instance_valid(player)
+ var active:bool = hero_playing and not death_active and is_instance_valid(player)
  realm_follower.visible = active
  if not active:return
  var state:Dictionary = REALM_ETHICS.normalize(realm_ethics)

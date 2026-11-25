@@ -24,6 +24,20 @@ jobs:
           godot --version
       - name: Import project resources
         run: godot --headless --path godot-v38 --editor --import --quit
+      - name: Compile full Moonfall gameplay script chain
+        run: godot --headless --path godot-v38 --script res://tests/game_script_chain_parse.gd
+      - name: Check talent-web live-world regression
+        run: python3 -m unittest discover -s godot-v38/tests -p test_talent_combat_pause.py -v
+      - name: Check that all panel overlays keep the world live
+        run: python3 -m unittest discover -s godot-v38/tests -p test_all_panels_live.py -v
+      - name: Verify atlas fog rejects hidden-chamber waypoints
+        run: godot --headless --path godot-v38 --script res://tests/atlas_hidden_waypoint_test.gd
+      - name: Verify bounded live dodge countdown and elite attack immunity (11,111 cases)
+        run: godot --headless --path godot-v38 --script res://tests/dodge_timer_corruption.gd
+      - name: Verify 55 guardian profiles, deterministic rosters and safe relics
+        run: godot --headless --path godot-v38 --script res://tests/navigation_atlas_integration.gd
+      - name: Verify Omniattack angle shuffle in Godot runtime
+        run: godot --headless --path godot-v38 --script res://tests/omniattack_flow.gd
       - name: Run gameplay, controller, combat rhythm and boss-dodge regressions
         shell: bash
         run: |
@@ -32,7 +46,7 @@ jobs:
           export XDG_DATA_HOME="${RUNNER_TEMP}/moonfall-gameplay-data"
           export MOONFALL_TEST_PROFILE="${XDG_DATA_HOME}/godot/app_userdata"
           mkdir -p "${MOONFALL_TEST_PROFILE}"
-          for test in equipment_catalog.gd equipment_inventory.gd equipment_rng.gd loot_capacity_integrity.gd material_capacity_integrity.gd crafting_capacity.gd v30_4_inventory_rules.gd aim_v38_8.gd key_ring.gd talent_tree_runtime.gd talent_web_runtime.gd talent_panel_layout_runtime.gd combat_rhythm_test.gd combat_rhythm_live_test.gd; do
+          for test in equipment_catalog.gd equipment_inventory.gd equipment_rng.gd loot_capacity_integrity.gd material_capacity_integrity.gd crafting_capacity.gd v30_4_inventory_rules.gd aim_v38_8.gd key_ring.gd talent_tree_runtime.gd talent_web_runtime.gd talent_panel_layout_runtime.gd combat_rhythm_test.gd combat_rhythm_live_test.gd talent_world_live.gd panels_world_live.gd; do
             echo "::group::${test}"
             godot --headless --path godot-v38 --script "res://tests/${test}"
             echo "::endgroup::"

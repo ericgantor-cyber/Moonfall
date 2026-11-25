@@ -1,6 +1,8 @@
 extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
+const GUARDIAN_TRAIT_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
+const GUARDIAN_55=preload("res://scripts/systems/guardian_55_profiles.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AI_WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
@@ -28,10 +30,15 @@ var atlas_regional_seen:Array[int]=[]
 var atlas_regional_relics_claimed:Array[int]=[]
 var atlas_regional_guardians_cleared:Array[int]=[]
 var atlas_regional_guardian_actors:Dictionary={}
+var guardian_trait_attack_clock:float=0.0
+var guardian_trait_warns:int=0
+var guardian_trait_hits:int=0
+var guardian_trait_counters:int=0
 var atlas_regional_residents_defeated:Array[int]=[]
 var atlas_regional_resident_actors:Dictionary={}
 const DUNGEON_RESIDENT_TRIGGER_RADIUS_SQ:float=14.0*14.0
 var atlas_regional_guardian_rolls:Array[int]=[]
+var atlas_regional_guardian_profiles:Array[int]=[]
 const DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:float=16.0*16.0
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_fast_travel_select:OptionButton
@@ -419,6 +426,10 @@ func _atlas_roll_regional_guardians()->void:
    atlas_regional_guardian_rolls.append(available[pick])
    available.remove_at(pick)
 
+# Give each dungeon a unique named profile while respecting native species rolls.
+func _atlas_roll_guardian_profiles()->void:
+ atlas_regional_guardian_profiles=GUARDIAN_55.roll_unique_profiles(atlas_regional_guardian_rolls,rng)
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  atlas_has_waypoint=false
@@ -429,9 +440,14 @@ func _start_game(selected_hero:String)->void:
  atlas_regional_relics_claimed.clear()
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
+ guardian_trait_attack_clock=0.0
+ guardian_trait_warns=0
+ guardian_trait_hits=0
+ guardian_trait_counters=0
  atlas_regional_residents_defeated.clear()
  atlas_regional_resident_actors.clear()
  _atlas_roll_regional_guardians()
+ _atlas_roll_guardian_profiles()
  _americas_roll_profiles()
  _americas_apply_wildlife_profiles()
  atlas_fast_travel_unlocked_cache.clear()
@@ -452,6 +468,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_regional_guardians_cleared"]=atlas_regional_guardians_cleared.duplicate()
  data["atlas_regional_residents_defeated"]=atlas_regional_residents_defeated.duplicate()
  data["atlas_regional_guardian_rolls"]=atlas_regional_guardian_rolls.duplicate()
+ data["atlas_regional_guardian_profiles"]=atlas_regional_guardian_profiles.duplicate()
  data["americas_wildlife_rolls"]=american_wildlife_rolls.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
@@ -476,6 +493,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_regional_residents_defeated.clear()
  atlas_regional_resident_actors.clear()
  atlas_regional_guardian_rolls.clear()
+ atlas_regional_guardian_profiles.clear()
  american_wildlife_rolls.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
@@ -502,6 +520,21 @@ func _restore_data(data:Dictionary)->void:
      break
    if valid_rolls:
     for choice in saved_guardians:atlas_regional_guardian_rolls.append(int(choice))
+  var saved_profiles:Variant=extras.get("atlas_regional_guardian_profiles",[])
+  if saved_profiles is Array and saved_profiles.size()==expected_rolls and atlas_regional_guardian_rolls.size()==expected_rolls:
+   var valid_profiles:bool=true
+   var unique_profiles:Dictionary={}
+   for i in range(expected_rolls):
+    var guardian_profile_id:Variant=saved_profiles[i]
+    if not (guardian_profile_id is int) or not GUARDIAN_55.valid_profile(int(guardian_profile_id)) or unique_profiles.has(guardian_profile_id):
+     valid_profiles=false
+     break
+    if int(GUARDIAN_55.profile(int(guardian_profile_id))["species"])!=atlas_regional_guardian_rolls[i]:
+     valid_profiles=false
+     break
+    unique_profiles[guardian_profile_id]=true
+   if valid_profiles:
+    for guardian_profile_id in saved_profiles:atlas_regional_guardian_profiles.append(int(guardian_profile_id))
   var saved_american_rolls:Variant=extras.get("americas_wildlife_rolls",[])
   if saved_american_rolls is Array and saved_american_rolls.size()==REGIONS.size():
    var valid_wildlife:bool=true
@@ -535,6 +568,8 @@ func _restore_data(data:Dictionary)->void:
     atlas_has_waypoint=bool(extras.get("atlas_has_waypoint",false))
  if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT:
   _atlas_roll_regional_guardians()
+ if atlas_regional_guardian_profiles.size()!=atlas_regional_guardian_rolls.size():
+  _atlas_roll_guardian_profiles()
  if american_wildlife_rolls.size()!=REGIONS.size():_americas_roll_profiles()
  _americas_apply_wildlife_profiles()
  _refresh_atlas()
@@ -619,6 +654,12 @@ func _atlas_zoom(factor:float)->void:
   atlas_zoom_radius=clampf(atlas_zoom_radius*factor,25.0,2000.0)
  atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 or atlas_regional_dungeon>=0 else atlas_zoom_radius)
  _refresh_atlas()
+
+# The map belongs to this extension layer; only this class can safely
+# access it while entering the Raven Atlas menu.
+func _toggle_menu()->void:
+ if not menu_open and is_instance_valid(atlas_panel):atlas_panel.hide()
+ super._toggle_menu()
 
 func _toggle_atlas()->void:
  if not hero_playing or menu_open or death_active or not is_instance_valid(atlas_panel):return
@@ -769,6 +810,154 @@ func _atlas_update_dungeon_residents(position:Vector3)->void:
   atlas_regional_resident_actors[resident_id]=resident
   return # One new enemy per 0.25-second scan.
 
+func _guardian_create_trait_warning(trait_id:int,guardian_id:int)->Node3D:
+ var root:=Node3D.new()
+ root.name="GuardianTraitWarning_%d" % guardian_id
+ var tint:Color=GUARDIAN_TRAIT_ATTACKS.WARNING_COLORS[trait_id]
+ var material:=StandardMaterial3D.new()
+ material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+ material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+ material.albedo_color=tint
+ material.no_depth_test=false
+ if trait_id==0:
+  var ring:=TorusMesh.new()
+  ring.inner_radius=2.1
+  ring.outer_radius=5.2
+  ring.rings=8
+  ring.ring_segments=32
+  var surface:=MeshInstance3D.new()
+  surface.mesh=ring
+  surface.material_override=material
+  surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(surface)
+ elif trait_id==2:
+  var pool:=CylinderMesh.new()
+  pool.top_radius=2.8
+  pool.bottom_radius=2.8
+  pool.height=0.035
+  pool.radial_segments=28
+  var surface:=MeshInstance3D.new()
+  surface.mesh=pool
+  surface.material_override=material
+  surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(surface)
+ else:
+  var lane_mesh:=BoxMesh.new()
+  lane_mesh.size=Vector3(7.0 if trait_id==1 else 14.0,0.04,2.4 if trait_id==1 else 1.8)
+  var lane:=MeshInstance3D.new()
+  lane.mesh=lane_mesh
+  lane.material_override=material
+  lane.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(lane)
+  if trait_id==3:
+   var crossing:=MeshInstance3D.new()
+   crossing.mesh=lane_mesh
+   crossing.rotation.y=PI*0.5
+   crossing.material_override=material
+   crossing.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(crossing)
+ # Text plus color makes the cue readable when color distinction is poor.
+ var cue:=Label3D.new()
+ cue.name="TraitAttackCaption"
+ cue.font_size=38
+ cue.pixel_size=0.005
+ cue.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ cue.modulate=Color.WHITE
+ cue.outline_size=12
+ cue.position=Vector3(0.0,1.5,0.0)
+ cue.text=GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper()
+ root.add_child(cue)
+ root.visible=false
+ world.add_child(root)
+ return root
+
+func _guardian_place_trait_warning(guardian:Dictionary)->void:
+ var root:Node3D=guardian.get("trait_warning_root") as Node3D
+ var body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+ if not is_instance_valid(root) or not is_instance_valid(body):return
+ var trait_id:int=int(guardian.get("regional_guardian_trait",-1))
+ if not GUARDIAN_TRAIT_ATTACKS.valid_trait(trait_id):return
+ var origin:Vector3=guardian.get("trait_origin",body.global_position)
+ var target:Vector3=guardian.get("trait_target",origin)
+ root.position=Vector3(origin.x,0.09,origin.z)
+ root.rotation.y=0.0
+ if trait_id==1:
+  var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
+  root.position+=Vector3(facing.x*3.5,0,facing.y*3.5)
+  root.rotation.y=-atan2(facing.y,facing.x)
+ elif trait_id==2:root.position=Vector3(target.x,0.09,target.z)
+ root.visible=true
+
+# Four explicit moves: Moonbound donut, Ember line, Venom target pool,
+# Eclipse crossing lanes. Each has a 1.35s visual warning and safe escape.
+func _guardian_update_trait_attacks(delta:float)->void:
+ guardian_trait_attack_clock+=clampf(delta,0.0,0.2)
+ if guardian_trait_attack_clock<0.10:return
+ guardian_trait_attack_clock=fmod(guardian_trait_attack_clock,0.10)
+ if not hero_playing or death_active or menu_open or not is_instance_valid(player):
+  for guardian_id in atlas_regional_guardian_actors.keys():
+   var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
+   guardian["trait_warning_until"]=0.0
+   var old_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(old_warning):old_warning.visible=false
+  return
+ var here:Vector3=player.global_position
+ for guardian_id in atlas_regional_guardian_actors.keys():
+  var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
+  if not bool(guardian.get("alive",false)):continue
+  if int(guardian.get("zone",-1))!=region_index:
+   guardian["trait_warning_until"]=0.0
+   var far_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(far_warning):far_warning.visible=false
+   continue
+  var body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+  if not is_instance_valid(body):continue
+  var trait_id:int=int(guardian.get("regional_guardian_trait",-1))
+  if not GUARDIAN_TRAIT_ATTACKS.valid_trait(trait_id):continue
+  var origin:Vector3=body.global_position
+  var horizontal:Vector2=Vector2(here.x-origin.x,here.z-origin.z)
+  var warning_until:float=float(guardian.get("trait_warning_until",0.0))
+  if warning_until>0.0:
+   var warning_root:Node3D=guardian.get("trait_warning_root") as Node3D
+   # Clear stale cues when the hero leaves the encounter. No delayed hit can
+   # follow the player across an open-world fast-travel destination.
+   if horizontal.length_squared()>18.0*18.0:
+    guardian["trait_warning_until"]=0.0
+    guardian["trait_next_at"]=map_time+2.0
+    if is_instance_valid(warning_root):warning_root.visible=false
+    continue
+   if map_time<warning_until:
+    if is_instance_valid(warning_root):
+     var cue:Label3D=warning_root.get_node_or_null("TraitAttackCaption") as Label3D
+     if is_instance_valid(cue):
+      cue.text="%s • %.1fs" % [GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper(),maxf(0.0,warning_until-map_time)]
+    continue
+   guardian["trait_warning_until"]=0.0
+   var root:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(root):root.visible=false
+   var warning_origin:Vector3=guardian.get("trait_origin",origin)
+   var target:Vector3=guardian.get("trait_target",warning_origin)
+   var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
+   var hit:bool=GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)
+   if hit and dodge_time<=0.0 and not mounted:
+    _apply_incoming_damage(GUARDIAN_TRAIT_ATTACKS.damage(trait_id,int(guardian.get("boss_phase",1)))*float(guardian.get("regional_guardian_attack_scale",1.0)))
+    guardian_trait_hits+=1
+   else:
+    guardian_trait_counters+=1
+    _show_message("COUNTERED: "+GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id],1.2)
+   guardian["trait_next_at"]=map_time+GUARDIAN_TRAIT_ATTACKS.cooldown(trait_id,int(guardian.get("boss_phase",1)))*float(guardian.get("regional_guardian_cooldown_scale",1.0))
+   continue
+  if map_time<float(guardian.get("trait_next_at",0.0)) or mounted:continue
+  if horizontal.length_squared()>GUARDIAN_TRAIT_ATTACKS.ENGAGE_RANGE_SQ or horizontal.length_squared()<0.01:continue
+  if not _has_clear_sight(body,player):continue
+  guardian["trait_origin"]=origin
+  guardian["trait_target"]=here
+  guardian["trait_facing"]=horizontal.normalized()
+  guardian["trait_warning_until"]=map_time+GUARDIAN_TRAIT_ATTACKS.WARNING_SECONDS
+  _guardian_place_trait_warning(guardian)
+  guardian_trait_warns+=1
+  _show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]+"! "+GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id],GUARDIAN_TRAIT_ATTACKS.WARNING_SECONDS)
+
 func _atlas_update_dungeon_guardians(position:Vector3)->void:
  if not hero_playing or death_active or not NAVIGATION_MAP._valid_world_point(position):return
  for zone in range(REGIONS.size()):
@@ -783,6 +972,10 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if guardian_id>=atlas_regional_guardian_rolls.size():continue
    var rolled_index:int=atlas_regional_guardian_rolls[guardian_id]
    if rolled_index<0 or rolled_index>=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size():continue
+   if guardian_id>=atlas_regional_guardian_profiles.size():continue
+   var chosen_profile_id:int=atlas_regional_guardian_profiles[guardian_id]
+   var profile:Dictionary=GUARDIAN_55.profile(chosen_profile_id)
+   if profile.is_empty() or int(profile["species"])!=rolled_index:continue
    var monster:String=V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]
    if not BEASTS.has(monster):continue
    _spawn_beast(room_position,monster,zone,"elder",true)
@@ -790,15 +983,18 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    var guardian:Dictionary=beasts[-1]
    guardian["regional_guardian_id"]=guardian_id
    guardian["home"]=room_position
-   var trait_id:int=V321_RULES.regional_guardian_trait(zone,dungeon_id,rolled_index)
+   var trait_id:int=int(profile["trait"])
    guardian["regional_guardian_trait"]=trait_id
-   var health_scale:float=V321_RULES.regional_guardian_health_multiplier(trait_id)
+   guardian["regional_guardian_profile"]=chosen_profile_id
+   guardian["regional_guardian_attack_scale"]=float(profile["attack_scale"])
+   guardian["regional_guardian_cooldown_scale"]=float(profile["cooldown_scale"])
+   var health_scale:float=V321_RULES.regional_guardian_health_multiplier(trait_id)*float(profile["health_scale"])
    guardian["max"]=float(guardian["max"])*health_scale
    guardian["hp"]=guardian["max"]
    guardian["base_hp"]=float(guardian["base_hp"])*health_scale
    var title:Label3D=guardian.get("nameplate") as Label3D
    if is_instance_valid(title):
-    title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
+    title.text="%s • %s GUARDIAN • %d / 5" % [str(profile["name"]).to_upper(),monster.to_upper(),dungeon_id+1]
     title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
    # Later 55-profile guardian types can use approved custom images automatically.
    var approved_profile:int=int(guardian.get("regional_guardian_profile",-1))
@@ -810,6 +1006,9 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
      guardian["ai_art_animation_binding"]=AI_ART_ANIMATION.bind_imported(guardian_model)
     else:
      APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
+   guardian["trait_next_at"]=map_time+3.0
+   guardian["trait_warning_until"]=0.0
+   guardian["trait_warning_root"]=_guardian_create_trait_warning(trait_id,guardian_id)
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
@@ -861,6 +1060,8 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  var guardian_body:CharacterBody3D=beast.get("body") as CharacterBody3D
  var guardian_drop_at:Vector3=guardian_body.global_position if first_clear and is_instance_valid(guardian_body) else Vector3.ZERO
  if first_clear:atlas_regional_guardians_cleared.append(guardian_id)
+ var warning_root:Node3D=beast.get("trait_warning_root") as Node3D
+ if is_instance_valid(warning_root):warning_root.visible=false
  super._defeat_beast(beast,pet_kill)
  if first_resident_clear:beast["respawn_at"]=1.0e30
  if first_clear:
@@ -871,7 +1072,8 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   var trait_id:int=int(beast.get("regional_guardian_trait",-1))
   if zone>=0 and zone<REGIONS.size() and trait_id>=0 and trait_id<V321_RULES.REGIONAL_GUARDIAN_TRAITS.size():
    if is_instance_valid(guardian_body) and NAVIGATION_MAP._valid_world_point(guardian_drop_at):
-    var relic:Dictionary=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
+    var relic:Dictionary=GUARDIAN_55.guardian_relic(int(beast.get("regional_guardian_profile",-1)),zone,dungeon_id,AFFIXES[guardian_id%AFFIXES.size()])
+    if relic.is_empty():relic=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
     _create_gear_drop(guardian_drop_at,"Dungeon Guardian Crest","elder",zone,relic)
   _show_message("DUNGEON GUARDIAN DEFEATED! The final chamber is secured.",3.0)
 
@@ -1088,6 +1290,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ _guardian_update_trait_attacks(delta)
  _ai_art_track_frame_performance(delta)
  _ai_art_update_animations(delta)
  _americas_update_wildlife_visuals(delta)

@@ -2,6 +2,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallOmniattack.h"
+#include "MoonfallCombatInputBuffer.h"
+#include "MoonfallFirstlightTutorial.h"
+#include "MoonfallSpellBook.h"
+#include "MoonfallTalentRules.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -28,11 +33,16 @@ public:
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
+ // Fresh-character, optional onboarding only; not persisted in world saves.
+ MoonfallFirstlightTutorial::FProgress FirstlightTutorial;
+ void RecordFirstlightAction(MoonfallFirstlightTutorial::EAction Action);
  // Cache the authored sanctuary world position once on load, not per HUD frame.
  void CacheStartingSanctuaryAnchor();
  bool bHasStartingSanctuaryAnchor = false;
  FVector StartingSanctuaryAnchor = FVector::ZeroVector;
  bool IsNearStartingSanctuary() const;
+ bool IsRecentlyInCombatForAmbientAI() const;
+ AMoonfallEnemy* GetRecentCompanionAssistTarget(float& Age) const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // Twelve persistent fantasy ancestries. Choice locks on first selection.
@@ -45,6 +55,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Live 12-ancestry passives and active-power details for the C character sheet.
+ // Read-only: no new saved IDs, no new ability cooldowns, no character art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePassiveSummary() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerDescription() const;
+ // Pre-confirmation read-only snapshot from the SAME 12 canonical runtime
+ // profiles used by ChooseRace and actual Might/Insight/Resolve/regen.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race")
+ static FString PreviewGameplayAncestry(int32 CandidateRaceId);
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
  // Choice buttons are implemented by UI using ChooseResidentContextAction.
@@ -59,6 +77,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") AMoonfallWorldNPC* GetNearestResidentNPC() const;
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  bool bResidentContextOpen = false;
+ bool bResidentCompanionMenu=false;
+ bool bResidentCompanionTalents=false;
+ bool bResidentCompanionTraining=false;
+ bool bResidentCompanionGear=false;
+ int32 GetResidentContextRowCount() const;
+ float GetResidentContextPanelHeight(float ViewportHeight) const;
+ float GetResidentContextRowPitch(float PanelHeight) const;
+ bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
@@ -77,8 +103,22 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+ uint32 GetCompanionProfile(FName ResidentId) const;
+ const FMoonfallCompanionPartyRecord& GetCompanionParty() const {return CompanionParty;}
+ bool IsCompanionPartyRestoreReady() const {return bWorldProgressInitialized&&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked;}
+ bool CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next);
+ void UpdateCompanionVitals(FName ResidentId,float NewHealth,int64 AbilityReadyUtc);
+ int32 GetCompanionGearCode(FName ResidentId,int32 Slot) const;
+ int32 GetCompanionGearTier(FName ResidentId,int32 Slot) const;
+ bool TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn);
+ bool ReportScoutDeeds(AMoonfallWorldNPC* Resident);
+ // Internal authoritative transaction used by the companion GameMode APIs.
+ bool CommitCompanionProfile(FName ResidentId,uint32 Profile);
  // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
+ // Read-only quest eligibility shared by dialogue and Canvas/Blueprint UI.
+ // Unknown designer-spawned residents can talk but cannot create unsaveable quests.
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") bool SupportsResidentContract(FName ResidentId) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
@@ -86,7 +126,9 @@ public:
 
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
- void TriggerRacePower() { ActivateRacePower(); }
+ // The already-bound controller Y button opens the spell book ONLY inside
+ // inventory; gameplay still activates the same ancestry power.
+ void TriggerRacePower() { if (bInventoryOpen) ToggleSpellBook(); else ActivateRacePower(); }
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
@@ -94,6 +136,8 @@ public:
 
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetValidatedEquippedTier(int32 Slot) const;
+ // Display-only validated worn code; unsupported slots remain empty.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentSlotCode(int32 Slot) const;
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
@@ -171,15 +215,19 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
+ bool ApplyDirectionalSwordDamageFrom(float Amount, const FVector& SourceLocation, int32 Angle);
  // Explicit dodge-only boss hit, preserving the normal attack API.
  bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  // Returns true only when this specific attack consumed the perfect-dodge window.
  bool TryRewardPerfectDodge();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Combat") float GetParryCounterRemaining() const;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Combat") bool bGuarding = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") float GuardBrokenUntil = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardBroken();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
+ // Optional directional guard animation; the existing guard input auto-matches.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDirectionalGuardImpact(int32 Angle, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
@@ -201,6 +249,47 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Canonical 141-node allocation. Persisted explicitly in V13 world saves.
+ // Live talent bonuses are reconciled as validated resource deltas; saves
+ // store base health capacity to avoid stacking rank bonuses on reload.
+ MoonfallTalents::Ranks TalentRanks{};
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetAvailableTalentPoints() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents")
+ int32 GetTalentRank(int32 NodeIndex) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool SpendTalentPoint(int32 NodeIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents")
+ bool RespecTalentPoints();
+ // Shared atomic rank/resource update, with save rollback on failure.
+ bool CommitTalentAllocation(const MoonfallTalents::Ranks& Candidate);
+ // UI-only state. Never serialized: ranks are the single persistent authority.
+ // Transient C-page state. The selection and all racial bonuses remain
+ // owned by the canonical hero race, not by a second character UI catalog.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bCharacterRacePageOpen = false;
+ // Stats and equipped gear share the first read-only character page.
+ // Saved faction standings are displayed on a third, read-only page.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") bool bCharacterRepPageOpen = false;
+ // Transient selected faction row, shared by mouse and controller; no save changes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") int32 CharacterRepSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") void SelectCharacterReputation(int32 FactionIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void SelectCharacterPage(int32 Page);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") void ToggleCharacterRacePage();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWebOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebBranch = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
+ float TalentRespecArmUntil = -1.f;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
+ void TalentSpendSelected();
+ void TalentConfirmRespec();
+ void TalentCloseWeb();
+ void TalentNextBranch();
+ void TalentPreviousBranch();
+ void TalentMove(int32 TierDirection, int32 RowDirection);
+ void TalentChangeBranch(int32 Direction);
+ void TalentPointerClick();
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
@@ -226,7 +315,32 @@ public:
  // Optional authored animations, one slot per hit. Null slots keep gameplay working.
  // These do not replace or alter the original character art.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> ComboMontages;
+ // Optional four angle-specific montages. Existing combo art remains the fallback.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> SwordAngleMontages;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
+ // A committed melee swing uses an automatic angle: high/right/low/left.
+ // Optional Blueprint hook can play a montage or weapon trail for that angle.
+ // Skyrim-inspired right-hand slot: weapon/unarmed or explicitly readied spell.
+ // Defaults to weapon; right-click NPC interactions and spell hotkeys remain separate.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat|Hands") bool bRightHandSpellReadied = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void RightHandAction();
+  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool ReadyRightHandSpell(int32 School);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") void ReadyRightHandWeapon();
+ // Favorites are equipped from Inventory, not a dedicated gameplay toggle.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat|Hands") bool EquipRightHandFavorite(int32 FavoriteIndex);
+ int32 HitTestRightHandFavorite() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
+ // Optional directional sword VFX/audio. No cue for misses or absorbed hits.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnMeleeImpact(int32 Angle, FVector ImpactPoint, float AppliedDamage,
+   bool bRiposte, bool bKillingBlow);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 CurrentSwordAngle = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 SwordFlowStep = 0;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.1", ClampMax="1.5")) float MeleeAttackCooldown = 0.48f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="50.0")) float MeleeStaminaCost = 8.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="60.0", ClampMax="350.0")) float MeleeAttackRange = 225.f;
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
@@ -254,6 +368,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
  // Transient atlas navigation, never written into save data.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
+ // Read-only lore navigation; these are never serialized with world progress.
+ // -1 follows the region's automatically featured discovered chapter.
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") int32 AtlasChronicleChapter = -1;
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasChronicleFocus = false;
+ void ToggleAtlasChronicleFocus();
+ void StepAtlasChronicle(int32 Direction);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasPanY = -2500.f;
  // Runtime-only shrine cache. Refresh once when the Atlas opens, never in DrawHUD.
@@ -268,6 +388,18 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Atlas") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
+ // Separate spell book page inside the existing B/Select inventory modal.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") bool bSpellBookOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|SpellBook") int32 SpellBookSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBook();
+ // Direct P shortcut: opens the grimoire from gameplay, closes it on repeat.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") void ToggleSpellBookShortcut();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|SpellBook") bool EquipSpellBookSelection(bool bLeftHand);
+ // Read-only per-hand status. Target/line of sight is verified by TryCast
+ // only when actually casting, never by the UI every frame.
+ MoonfallSpellBook::FCastState GetSpellBookCastState(int32 School, bool bLeftHand) const;
+ bool HandleSpellBookPointer();
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient visible row offset; wheel scrolling never changes selection or equipment.
@@ -328,6 +460,10 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Optional authored VFX/audio, emitted only after actual hostile HP damage.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
+   float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
@@ -377,13 +513,26 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
+ void ResetMeleeHitCombo();
+ MoonfallOmniattack::FFlow SwordFlow;
+ MoonfallCombatInputBuffer::FSingleSwing SwordBuffer;
+ float NextMeleeAttackAt = 0.f;
  TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
+ FMoonfallCompanionPartyRecord CompanionParty;
+ TMap<FName,int32> CompanionProfiles;
+ TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
+ TWeakObjectPtr<AMoonfallEnemy> RecentCompanionAssistTarget;
+ float RecentCompanionAssistHitAt=-100.f;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ MoonfallCombatInputBuffer::FSingleSwing DodgeBuffer;
+ FVector BufferedDodgeDirection = FVector::ZeroVector;
+ bool bDispatchingBufferedDodge = false;
  FVector IncomingDamageSource = FVector::ZeroVector;
  bool bHasIncomingDamageSource = false;
  bool bIncomingDamageDodgeOnly = false;
+ int32 IncomingSwordAngle = -1;
  bool bLastIncomingHitParried = false;
  float ParryWindowEndsAt = -1.f;
  float NextParryAt = 0.f;
@@ -406,6 +555,10 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ float LastOffensiveImpactAt = -100.f;
+ // Prevent synchronous cosmetic callbacks from recursively resolving attacks.
+ bool bResolvingCombatAction = false;
+ void ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal);
  // Gameplay mouse wheel zoom; does not alter the minimap or combat HUD.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
@@ -417,6 +570,10 @@ private:
   UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="1.0")) float CombatManaRegenMultiplier = 0.5f;
   UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="15.0")) float PerfectParryManaReward = 5.f;
   float CombatRecoveryEndsAt = 0.f;
+ // Nonpersistent, timestamped only when health actually decreases. Gives
+ // open live-world menus a reliable hit cue without polling enemy actors.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat")
+ float LastRealDamageAt = -100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.24", ClampMax="5.0")) float DodgeCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Movement", meta=(ClampMin="250.0", ClampMax="1200.0")) float DodgeLaunchSpeed = 650.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float StaminaRegenPerSecond = 24.f;
@@ -460,4 +617,10 @@ private:
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool bEquipmentCraftInProgress = false;
+ bool bEquipBestInProgress = false;
+ bool bTalentAllocationInProgress = false;
+ // Session-only owned gear choices made at zero HP; never serialized as loot.
+ int32 DefeatedEquipmentSelection[3] = {0, 0, 0};
+ bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };

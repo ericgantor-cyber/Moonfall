@@ -1,0 +1,38 @@
+name: UE5 bounded hit-feedback policy C++17
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallImpactFeedback.h'
+      - 'tools/test_unreal_impact_feedback.cpp'
+      - '.github/workflows/unreal-impact-feedback-policy-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pure-hit-feedback:
+    name: Combat feedback C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GCC feedback regressions
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror tools/test_unreal_impact_feedback.cpp -o /tmp/moonfall_hit_feedback
+          /tmp/moonfall_hit_feedback
+      - name: Configure Windows MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and run MSVC feedback regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_impact_feedback.cpp /Fe:moonfall_hit_feedback.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_hit_feedback.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

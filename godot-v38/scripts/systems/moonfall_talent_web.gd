@@ -1,7 +1,7 @@
 extends Control
 ## Moonfall-original, zoomable 141-node constellation web.
 ## Mouse: wheel zoom, left-click nodes, drag empty space or right/middle-drag to pan.
-## Keyboard: arrow keys pan, Home fits the web. Mouse zoom needs no +/- keys.
+## Keyboard: numpad 4/6/8/2 pans, Home fits the web. Mouse zoom needs no +/- keys.
 signal talent_selected(talent_id: String)
 
 const BRANCH_COLORS: Dictionary = {
@@ -271,13 +271,13 @@ func _gui_input(event: InputEvent) -> void:
    var target_id: String = focus_tier(current_tier + direction)
    if target_id != "":
     talent_selected.emit(target_id)
-  elif key.keycode == KEY_LEFT:
+  elif key.keycode == KEY_KP_4:
    pan.x += 100.0 / zoom
-  elif key.keycode == KEY_RIGHT:
+  elif key.keycode == KEY_KP_6:
    pan.x -= 100.0 / zoom
-  elif key.keycode == KEY_UP:
+  elif key.keycode == KEY_KP_8:
    pan.y += 100.0 / zoom
-  elif key.keycode == KEY_DOWN:
+  elif key.keycode == KEY_KP_2:
    pan.y -= 100.0 / zoom
   else:
    return

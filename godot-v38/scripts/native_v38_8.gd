@@ -341,7 +341,9 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
 func _update_beast_step(beast:Dictionary,delta:float)->void:
  super._update_beast_step(beast,delta)
  if not bool(beast.get("alive",false)) or not beast.has("divine_id"):return
- if not is_instance_valid(player) or not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
+ # Informational menu visibility must not erase an already telegraphed
+ # divine strike. Only true lifecycle transitions cancel the warning.
+ if not is_instance_valid(player) or not hero_playing or death_active or wait_open or wait_transition_active:
   _clear_divine_warning(beast)
   return
  # A distant/hidden boss must never resolve a stale marked attack after travel.

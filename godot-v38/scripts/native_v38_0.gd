@@ -74,7 +74,10 @@ const V393_RIPOSTE_MULTIPLIER:float=1.35
 var v393_riposte_until:float=-999.0
 var v393_riposte_active:bool=false
 var v394_strike_direction:int=0
-var v394_strike_direction_label:String="FRONT"
+var v394_strike_direction_label:String="READY"
+# Transient four-angle shuffle bag. Never persist this to a checkpoint.
+var v394_omni_deck:Array[int]=[]
+var v394_omni_last:int=-1
 const V395_GUARD_WINDOW:float=0.9
 const V395_GUARD_PERIOD:float=5.0
 const V395_GUARD_REDUCTION:float=0.4
@@ -713,6 +716,22 @@ func _v406_respec()->void:
  _save_game()
  _v398_refresh_tree()
 
+# Visibility only determines how to close the web; combat never pauses.
+func _v406_talents_visible()->bool:
+ return is_instance_valid(v398_panel) and v398_panel.visible
+
+func _respawn_player()->void:
+ # Live combat can kill the hero during talent browsing. Do not leave the
+ # constellation over the death/sanctuary UI after a fatal strike.
+ if is_instance_valid(v398_panel):v398_panel.hide()
+ super._respawn_player()
+
+# Close the talent overlay immediately before opening Raven Atlas.
+# The separate map is declared by native_v38_2, not this base class.
+func _toggle_menu()->void:
+ if not menu_open and is_instance_valid(v398_panel):v398_panel.hide()
+ super._toggle_menu()
+
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
@@ -721,21 +740,15 @@ func _v398_toggle_tree()->void:
   _v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
+ # Controller B/Start closes the web. Other gameplay continues normally.
+ if _v406_talents_visible() and event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_B,JOY_BUTTON_START]:
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
   _v401_end_z_intro()
   get_viewport().set_input_as_handled()
   return
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K:
-  _v398_toggle_tree()
-  get_viewport().set_input_as_handled()
-  return
- if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
-  if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
-   v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
-   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
-   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
-   get_viewport().set_input_as_handled()
-   return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active and not event.alt_pressed:
   # Plain right-click starts parry; Alt+right-click is reserved for camera orbit.
   v392_guard_started=map_time
@@ -778,7 +791,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.65)
   _show_message("GUARD BROKEN!",0.65)
  elif guarding:
-  _show_message("Guarded "+(["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction])+"! Change angle or strike heavy.",0.65)
+  _show_message("Guarded "+(["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction])+"! Next swing varies automatically; heavy can break guard.",0.65)
  var angle_damage:float=(1.08 if v394_strike_direction==0 else 1.0)*(1.0+0.04*float(v398_ranks.get("weapon_technique",0)))
  var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
  super._apply_player_hit(target,base_damage*(V396_MATCHED_GUARD_REDUCTION if matched_guard and not guard_break else V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
@@ -949,6 +962,28 @@ func _hero_damage_multiplier()->float:
  if v406_damage_context=="magic":return base*(1.0+_v406_bonus("magic_damage","percent"))+_v406_bonus("magic_damage","flat")
  return base
 
+# Omniattack plays every angle once in a four-swing cycle, in a shuffled
+# order. Prevent a repeat across cycle boundaries without reading enemy guards.
+# Randomness is rolled only for committed swings, never during movement or Tick.
+func _v394_next_auto_angle()->int:
+ if v394_omni_deck.is_empty():
+  v394_omni_deck=[0,1,2,3]
+  v394_omni_deck.shuffle()
+  if v394_omni_deck[0]==v394_omni_last:
+   var swap_index:int=randi_range(1,3)
+   var swap_value:int=v394_omni_deck[0]
+   v394_omni_deck[0]=v394_omni_deck[swap_index]
+   v394_omni_deck[swap_index]=swap_value
+ var next_angle:int=v394_omni_deck.pop_front()
+ v394_omni_last=next_angle
+ return next_angle
+
+func _v394_reset_omniattack()->void:
+ v394_omni_deck.clear()
+ v394_omni_last=-1
+ v394_strike_direction=0
+ v394_strike_direction_label="READY"
+
 func _attack()->void:
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
@@ -960,14 +995,12 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<heavy_cost:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
- # Arrow keys select one of four sword angles; normal attack remains usable without selection.
- var chosen_direction:int=v394_strike_direction
- if Input.is_key_pressed(KEY_UP):chosen_direction=0
- elif Input.is_key_pressed(KEY_RIGHT):chosen_direction=1
- elif Input.is_key_pressed(KEY_DOWN):chosen_direction=2
- elif Input.is_key_pressed(KEY_LEFT):chosen_direction=3
- v394_strike_direction=chosen_direction
- v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][chosen_direction]
+ # Dawnwalker-style Omniattack: select an angle automatically for an
+ # available swing. Movement input does not steer attacks and no enemy
+ # guard information is read. Invalid cooldown/mounted inputs leave it alone.
+ if attack_cooldown<=0.0 and not mounted:
+  v394_strike_direction=_v394_next_auto_angle()
+  v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
@@ -984,6 +1017,12 @@ func _attack()->void:
    v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
    attack_cooldown=maxf(attack_cooldown,0.62)
 
+func _v385_spell_mana_cost(which:String)->float:
+ # Shared cost for inherited spells and aimed Eclipse Flame; talent discounts
+ # must never diverge between the two combat input paths.
+ var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
+ return maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
+
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
@@ -992,8 +1031,7 @@ func _spell(which:String)->void:
   super._spell(which)
   v406_damage_context=""
   return
- var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
- var cost:float=maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
+ var cost:float=_v385_spell_mana_cost(which)
  if v385_mana<cost:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
   return
@@ -1052,6 +1090,7 @@ func _dodge()->void:
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ _v394_reset_omniattack()
  v406_applied_health_bonus=0.0
  _v406_invalidate_bonus_cache()
  _v400_apply_adventurer_look()
@@ -1069,6 +1108,7 @@ func _checkpoint_extra_data()->Dictionary:
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
+ _v394_reset_omniattack()
  _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
@@ -1134,6 +1174,20 @@ func _v384_refresh_vitals()->void:
  v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(_v406_resource_max("mana",V385_MAX_MANA)),experience,experience_target,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
 
 func _unhandled_key_input(event:InputEvent)->void:
+ # Godot dispatches unhandled key events before generic unhandled input.
+ # Intercept Escape here before main.gd can open its pause screen.
+ # WASD/arrows only move and sword angles are chosen by Omniattack.
+ # Alt+1-4 continues to belong to the inherited ability shortcuts.
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE,KEY_F10] and _v406_talents_visible():
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
+ # The base key handler consumes all game keys, including K. Open and close
+ # the constellation before forwarding keyboard events to the world.
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K and hero_playing and not death_active and not menu_open:
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
   v380_status_enabled=not v380_status_enabled
   if v380_status_enabled:
@@ -1157,7 +1211,9 @@ func _process(delta:float)->void:
     if is_instance_valid(target) and player.global_position.distance_to(target.global_position)<18.0:
      _v401_begin_z_intro()
      break
- if hero_playing and not death_active and not menu_open:
+ # Mana and stamina regenerate against the same live clock as incoming
+ # damage, including while the Raven Atlas or talent constellation is open.
+ if hero_playing and not death_active:
   v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA),v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
   if v387_stamina_regen_wait>0.0:
@@ -1205,6 +1261,8 @@ func _process(delta:float)->void:
  var luck_odds:Dictionary=preload("res://scripts/systems/equipment_rng.gd").rarity_odds_per_thousand(equipment_luck)
  var rare_or_better:int=int(luck_odds["Rare"])+int(luck_odds["Epic"])+int(luck_odds["Legendary"])
  v380_status_text.text+="\nLUCK "+str(equipment_luck)+"  •  Enemy Rare+ "+str(rare_or_better/10.0)+"%  •  Legendary "+str(float(luck_odds["Legendary"])/10.0)+"% (RNG, no guarantees)"
+ if v394_omni_last>=0:
+  v380_status_text.text+="\nOMNIATTACK  "+v394_strike_direction_label+"  •  flow "+str(4-v394_omni_deck.size())+"/4"
  v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
   v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])

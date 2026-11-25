@@ -1,5 +1,7 @@
 #include "MoonfallCharacterCreationWidget.h"
 #include "MoonfallCharacterPreviewActor.h"
+#include "MoonfallHeroPawn.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -67,7 +69,17 @@ void UMoonfallCharacterCreationWidget::NativeConstruct()
  SetIsFocusable(true);
  if (WidgetTree && !WidgetTree->RootWidget)
   BuildLayout();
+ if (!ConfirmationHero.IsValid())
+  BindHeroForConfirmation(Cast<AMoonfallHeroPawn>(
+    UGameplayStatics::GetPlayerPawn(this,0)));
  RefreshSelection();
+}
+
+void UMoonfallCharacterCreationWidget::BindHeroForConfirmation(AMoonfallHeroPawn* Hero)
+{
+ // Only a live, locally controlled player can commit a permanent ancestry.
+ ConfirmationHero = IsValid(Hero) && Hero->IsPlayerControlled()
+   ? Hero : nullptr;
 }
 
 void UMoonfallCharacterCreationWidget::BuildLayout()
@@ -116,11 +128,13 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  NextRace->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleNextRace);
  UButton* Confirm = AddAction(WidgetTree, Center, TEXT("CONTINUE"));
  Confirm->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleConfirmRace);
+ ConfirmationStatus = AddLabel(WidgetTree, Center,
+   TEXT("Race not saved. Confirm a compatible gameplay lineage."),14);
  UButton* ResetView = AddAction(WidgetTree, Center, TEXT("RESET VIEW"));
  ResetView->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleResetPreview);
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
- AddLabel(WidgetTree, Right, TEXT("Arrows / D-pad: race and family | Enter / A: continue"), 15);
+ AddLabel(WidgetTree, Right, TEXT("PgUp/PgDn: race | D-pad: race/family | Enter / A: continue"), 15);
  AddLabel(WidgetTree, Right, TEXT("Q/E or shoulder buttons: family | Mouse wheel: character zoom"), 15);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
  FamilyTitle = AddLabel(WidgetTree, Right, TEXT(""), 17);
@@ -336,6 +350,8 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
       CurrentRaceId, CurrentFamily, BaseVitality, BasePower, BaseSpeed, Next))
   return;
  const bool bRaceChanged = Selection.RaceId != Next.RaceId;
+ if (bRaceChanged && ConfirmationStatus)
+  ConfirmationStatus->SetText(FText::FromString(TEXT("Race not yet saved.")));
  Selection = Next;
  CurrentRaceId = Next.RaceId;
  RefreshRaceList();
@@ -347,10 +363,25 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
   FamilyTitle->SetText(FText::FromString(
    FString::Printf(TEXT("%s | Race %d of %d"), *Next.Profile.Family.ToString(),
                     Next.RacePosition, Next.RaceTotal)));
- if (StatDetails)
+ if (StatDetails) {
+  // Relative profile modifiers show the tradeoffs before confirmation.
+  // These are selection previews only; gameplay ancestry and active racial
+  // powers remain authoritative on the saved C character sheet.
+  const float VitalityPercent=(Next.Profile.VitalityMultiplier-1.f)*100.f;
+  const float PowerPercent=(Next.Profile.PowerMultiplier-1.f)*100.f;
+  const float SpeedPercent=(Next.Profile.SpeedMultiplier-1.f)*100.f;
+  int32 SavedAncestryId=-1;
+  const bool bGameplayLineage=UMoonfallRaceLibrary::ResolveHeroAncestryId(
+    Next.RaceId,SavedAncestryId);
+  const FString LineageText=bGameplayLineage
+    ? AMoonfallHeroPawn::PreviewGameplayAncestry(SavedAncestryId)
+    : TEXT("NPC / CREATURE PROFILE ONLY. Not a playable saved ancestry.");
   StatDetails->SetText(FText::FromString(FString::Printf(
-   TEXT("Vitality: %.1f\nPower: %.1f\nSpeed: %.2f\n\nChoose a race, then CONTINUE."),
-   Next.Stats.Vitality, Next.Stats.Power, Next.Stats.Speed)));
+   TEXT("RACE TRAITS (PREVIEW)\nVitality: %.1f  (%+.0f%%)\nPower: %.1f  (%+.0f%%)\nSpeed: %.2f  (%+.0f%%)\n\n%s\n\nCONFIRM will save the displayed lineage.\nPress C again to display your saved passives."),
+   Next.Stats.Vitality,VitalityPercent,
+   Next.Stats.Power,PowerPercent,
+   Next.Stats.Speed,SpeedPercent,*LineageText)));
+ }
 }
 
 void UMoonfallCharacterCreationWidget::SelectRace(FName RaceId)
@@ -463,8 +494,39 @@ void UMoonfallCharacterCreationWidget::HandleNextFamily() { AdvanceFamily(true);
 void UMoonfallCharacterCreationWidget::HandleRaceChoice(FName RaceId) { SelectRace(RaceId); }
 void UMoonfallCharacterCreationWidget::HandleConfirmRace()
 {
- if (!Selection.RaceId.IsNone() && Selection.Profile.bPlayableCandidate)
-  OnRaceConfirmed.Broadcast(Selection.RaceId);
+ // No race may be confirmed by only broadcasting a UI event. A failed or
+ // blocked checkpoint save must never pretend the selection was committed.
+ int32 SavedAncestryId=-1;
+ if (Selection.RaceId.IsNone() || !Selection.Profile.bPlayableCandidate
+     || !UMoonfallRaceLibrary::ResolveHeroAncestryId(
+           Selection.RaceId,SavedAncestryId)) {
+  if (ConfirmationStatus) ConfirmationStatus->SetText(FText::FromString(
+    TEXT("Race is not eligible for a saved playable ancestry.")));
+  return;
+ }
+ if (!ConfirmationHero.IsValid())
+  BindHeroForConfirmation(Cast<AMoonfallHeroPawn>(
+    UGameplayStatics::GetPlayerPawn(this,0)));
+ AMoonfallHeroPawn* Hero=ConfirmationHero.Get();
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()) {
+  if (ConfirmationStatus) ConfirmationStatus->SetText(FText::FromString(
+    TEXT("Cannot save race: no controlled hero. Creation remains unchanged.")));
+  return;
+ }
+ if (Hero->bRaceChosen) {
+  if (ConfirmationStatus) ConfirmationStatus->SetText(FText::FromString(
+    TEXT("Ancestry already chosen and saved. Existing choice is permanent.")));
+  return;
+ }
+ if (!Hero->ChooseRace(SavedAncestryId)) {
+  if (ConfirmationStatus) ConfirmationStatus->SetText(FText::FromString(
+    TEXT("Race not saved. Check the checkpoint/save and try again.")));
+  return;
+ }
+ if (ConfirmationStatus) ConfirmationStatus->SetText(FText::FromString(
+   TEXT("GAMEPLAY ANCESTRY SAVED. Your permanent racial passives are active.")));
+ OnGameplayAncestryConfirmed.Broadcast(SavedAncestryId);
+ OnRaceConfirmed.Broadcast(Selection.RaceId);
 }
 
 FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
@@ -473,13 +535,15 @@ FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  const FKey Key = InKeyEvent.GetKey();
  if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == EKeys::Gamepad_FaceButton_Bottom)
  { HandleConfirmRace(); return FReply::Handled(); }
- if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
+ // Keyboard arrows are reserved for movement, including while menus exist.
+ // PageUp/PageDown cycle races; Q/E cycle families; gamepad D-pad is unchanged.
+ if (Key == EKeys::PageUp || Key == EKeys::Gamepad_DPad_Left)
  { AdvanceRace(false); return FReply::Handled(); }
- if (Key == EKeys::Right || Key == EKeys::Gamepad_DPad_Right)
+ if (Key == EKeys::PageDown || Key == EKeys::Gamepad_DPad_Right)
  { AdvanceRace(true); return FReply::Handled(); }
- if (Key == EKeys::Up || Key == EKeys::Gamepad_DPad_Up)
+ if (Key == EKeys::Gamepad_DPad_Up)
  { AdvanceFamily(false); return FReply::Handled(); }
- if (Key == EKeys::Down || Key == EKeys::Gamepad_DPad_Down)
+ if (Key == EKeys::Gamepad_DPad_Down)
  { AdvanceFamily(true); return FReply::Handled(); }
  if (Key == EKeys::Q || Key == EKeys::Gamepad_LeftShoulder)
  { AdvanceFamily(false); return FReply::Handled(); }

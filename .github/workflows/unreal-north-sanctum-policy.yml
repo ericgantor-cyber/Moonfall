@@ -1,0 +1,43 @@
+name: UE5 northern divine sanctum plans (C++17)
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthZones.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthMorvella.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivine.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDivineRoutes.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumLayouts.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSanctumGeometry.h'
+      - 'tools/test_unreal_north_sanctum_policy.cpp'
+      - '.github/workflows/unreal-north-sanctum-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pure-sanctum-policy:
+    name: Three divine sanctums C++17 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test with GCC
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror tools/test_unreal_north_sanctum_policy.cpp -o /tmp/moonfall_north_sanctum
+          /tmp/moonfall_north_sanctum
+      - name: Configure Windows MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile and test with MSVC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /WX tools/test_unreal_north_sanctum_policy.cpp /Fe:moonfall_north_sanctum.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./moonfall_north_sanctum.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

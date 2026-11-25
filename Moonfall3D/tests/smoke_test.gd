@@ -18,6 +18,22 @@ func _run_tests() -> void:
     if game.bindings.has("slot_1"):
         _fail("Removed WoW action-bar bindings unexpectedly returned")
         return
+    # In-memory legacy-save migration tests. Never write test keys to the
+    # user's profile; restore the original live key layout after exercising it.
+    var original_keys: Dictionary = game.bindings.duplicate()
+    game._restore_saved_bindings({
+        "forward": KEY_Q, "dodge": KEY_Q,
+        "inventory": KEY_UP, "jump": "invalid",
+        "target": INF, "interact": -1
+    })
+    if game.bindings != original_keys:
+        _fail("Corrupt profile stole movement, duplicated combat, or accepted invalid keys")
+        return
+    game._restore_saved_bindings({"jump": KEY_K, "dodge": KEY_L})
+    if game.bindings["jump"] != KEY_K or game.bindings["dodge"] != KEY_L:
+        _fail("Valid non-conflicting saved keys did not restore")
+        return
+    game.bindings = original_keys
     if game.spells.size() != 6 or game.spell_menu == null:
         _fail("Spellbook missing schools or menu")
         return
