@@ -1661,7 +1661,8 @@ void AMoonfallHeroPawn::Dodge()
 {
 
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
- if (bTalentWebOpen || !FMath::IsFinite(Health)) return;
+ if (bTalentWebOpen) return;
+ if (!FMath::IsFinite(Health)) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
