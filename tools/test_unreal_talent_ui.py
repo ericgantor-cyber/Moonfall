@@ -54,14 +54,14 @@ assert buffer_start < buffer_end
 
 
 for name, key in {
-    "TalentWeb": "K", "TalentSpend": "Enter", "TalentRespec": "BackSpace",
+    "TalentWeb": "K", "TalentSpend": "Enter",
     "ControllerConfirm": "Gamepad_FaceButton_Bottom",
     "ControllerBack": "Gamepad_FaceButton_Right",
     "ControllerLeftShoulder": "Gamepad_LeftShoulder",
     "ControllerRightShoulder": "Gamepad_RightShoulder",
 }.items():
     assert f'ActionName="{name}",Key={key}' in inputs, (name, key)
-for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "TalentRespec", "ControllerBack",
+for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "ControllerBack",
              "ControllerLeftShoulder", "ControllerRightShoulder"):
     assert f'Input->BindAction(TEXT("{name}")' in pawn
 for side, talent, gear, cast in (
@@ -102,7 +102,8 @@ routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 
           " Dodge();\n}")
 indices = [back.index(route) for route in routes]
 assert indices == sorted(indices)
-assert 'ActionName="TalentRespec",Key=BackSpace' in inputs
+assert 'ActionName="TalentRespec",Key=BackSpace' not in inputs
+assert 'BindAction(TEXT("TalentRespec")' not in pawn
 lt_mappings = [line for line in inputs.splitlines()
                if line.startswith("+ActionMappings=") and "Key=Gamepad_LeftTrigger" in line]
 assert lt_mappings == ['+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)']
@@ -167,10 +168,9 @@ for method in ("ZoomCameraIn", "ZoomCameraOut"):
     assert "if (bTalentWebOpen)" in method_segment(method)
     assert "MoonfallTalentWeb::ForViewport(" in method_segment(method)
     zoom = method_segment(method).split("if (bAtlasOpen)", 1)[0]
-    assert zoom.index("bTalentRespecArmed=false;") < zoom.index("TalentRespecArmUntil=-1.f;") < zoom.index("return;")
+    assert zoom.index("bTalentRespecArmed=false;") < zoom.index("return;")
 move = pawn.split("void AMoonfallHeroPawn::TalentMove(", 1)[1].split("void AMoonfallHeroPawn::TalentChangeBranch(", 1)[0]
 assert "bTalentRespecArmed=false;" in move
-assert "TalentRespecArmUntil=-1.f;" in move
 npc = method_segment("OpenFocusedResidentContext", "void") + pawn[
     pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext(") + 700:
     pawn.index("void AMoonfallHeroPawn::CastRightMouse(", pawn.index("void AMoonfallHeroPawn::OpenFocusedResidentContext("))]
@@ -189,7 +189,14 @@ assert "SwordBuffer.Clear();" in web
 assert "GetCharacterMovement()->StopMovementImmediately()" in web
 assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
-assert "TalentRespecArmUntil=Now+3.0f;" in web
+assert "TalentRespecArmUntil" not in pawn + header + hud
+request = web.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[0]
+assert "bTalentRespecArmed=!bTalentRespecArmed;" in request
+assert "RespecTalentPoints();" not in request
+confirm_reset = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[0]
+assert confirm_reset.index("if (bTalentRespecArmed)") < confirm_reset.index("bTalentRespecArmed=false;") < confirm_reset.index("RespecTalentPoints();") < confirm_reset.index("SpendTalentPoint(TalentWebSelected);")
+assert 'TEXT("RESET TALENTS")' in hud and 'TEXT("CANCEL")' in hud
+assert 'TEXT("CONFIRM RESET")' in hud
 assert "MoonfallTalentWeb::HitNode(" in web
 pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
 branch_tab = pointer.split("if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y))", 1)[1].split("if (MoonfallTalentWeb::SpendRect", 1)[0]
@@ -198,6 +205,5 @@ assert branch_tab.index("if (NextSelection<0)return;") < branch_tab.index("Talen
 assert "MoonfallTalentWeb::FirstTierForSelection(" in branch_tab
 assert "TalentWebFirstTier=1;" not in branch_tab
 assert "bTalentRespecArmed=false;" in branch_tab
-assert "TalentRespecArmUntil=-1.f;" in branch_tab
-assert "TalentRespecArmUntil=-1.f;" in pointer.split("if (Hit>=0)", 1)[1]
+assert "bTalentRespecArmed=false;" in pointer.split("if (Hit>=0)", 1)[1]
 print("UE5 talent web: layout, full node UI, mouse/controller input and modal isolation source checks passed.")
