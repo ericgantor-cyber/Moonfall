@@ -2719,7 +2719,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
- if (Health <= 0.f) return 0;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || Level < 1 || Level > 100) return 0;
  // Roll randomized item stats once at death; pickup is handled separately.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
@@ -2760,6 +2760,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 // instead spawn a ground actor, so equipment is not auto-collected on kills.
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !GetWorld() || IsActorBeingDestroyed()
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return;
  // Scripted rewards must honor the same persistent inventory capacity as
  // ground pickups. Do not roll or mutate last-loot UI when the bag is full.
  if (InventoryItemCodes.Num() >= 10000) return;
