@@ -30,6 +30,121 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
         self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
 
+    def test_confirmed_hit_camera_feedback_is_shared_by_swords_and_spells(self):
+        hero = self.hero_cpp
+        helper = hero.split("void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryCast(", 1)[0]
+        self.assertIn("MoonfallImpactFeedback::ConfirmedHit(", helper)
+        for gate in ("bReduceMotion", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()",
+                     "bSpellBookOpen", "bCharacterStatsOpen", "bCharacterRacePageOpen",
+                     "bCharacterRepPageOpen", "!FMath::IsFinite(Health)", "Health <= 0.f"):
+            self.assertIn(gate, helper)
+        self.assertIn("ImpactCameraOffset = Feedback.Offset;", helper)
+        self.assertIn("LastOffensiveImpactAt = Feedback.LastAt;", helper)
+        self.assertIn("float LastOffensiveImpactAt = -100.f;", self.hero_h)
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        spell_cue = "ApplyConfirmedHitFeedback(Time, ActualSpellDamage, Enemy->bBoss, Enemy->Health <= 0.f);"
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"), cast.index(spell_cue))
+        self.assertEqual(cast.count("ApplyConfirmedHitFeedback("), 1)
+        melee = hero.split("Enemy->TakeMeleeDamage(", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        sword_cue = "ApplyConfirmedHitFeedback(Now, Dealt, Enemy->bBoss, Enemy->Health <= 0.f);"
+        self.assertLess(melee.index("if (bConnected) {"), melee.index(sword_cue))
+        self.assertLess(melee.index(sword_cue), melee.index("OnSuccessfulHitCombo("))
+        self.assertEqual(melee.count("ApplyConfirmedHitFeedback("), 1)
+
+    def test_spell_impact_presentation_uses_committed_cast_and_captured_hit(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,", self.hero_h)
+        self.assertIn("float AppliedDamage, bool bCritical, bool bKillingBlow);", self.hero_h)
+        capture = cast.index("ResolvedImpactDamage = ActualSpellDamage;")
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"), capture)
+        self.assertLess(cast.index("FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()"), capture)
+        self.assertLess(cast.index("bResolvedKill = Enemy->Health <= 0.f;"), cast.index("OnSuccessfulHitCombo("))
+        self.assertIn("float ResolvedImpactDamage = 0.f;", cast)
+        cue = cast.index("OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,")
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "ParryCounterUntil = -1.f;", "OnSpellCast(School, Hand == 0);",
+                          "IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f"):
+            self.assertLess(cast.index(committed), cue)
+        self.assertEqual(cast.count("OnSpellImpact("), 1)
+        self.assertNotIn("Enemy->", cast[cue:])
+        # Keep existing visual fallback until actual spell VFX are authored.
+        self.assertIn("DrawDebugSphere(", cast)
+        self.assertIn("DrawDebugLine(", cast)
+
+    def test_directional_melee_impact_captures_confirmed_hit_before_callbacks(self):
+        melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertIn("void OnMeleeImpact(int32 Angle, FVector ImpactPoint, float AppliedDamage,", self.hero_h)
+        self.assertIn("bool bRiposte, bool bKillingBlow);", self.hero_h)
+        hit = melee.index("Enemy->TakeMeleeDamage(")
+        cue = melee.index("OnMeleeImpact(ResolvedSwordAngle, ResolvedSwordImpact, Dealt,")
+        self.assertLess(melee.index("const int32 ResolvedSwordAngle = CurrentSwordAngle;"), hit)
+        self.assertLess(melee.index("const FVector ResolvedSwordImpact = Hit.ImpactPoint;"), hit)
+        self.assertLess(hit, melee.index("const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;"))
+        self.assertIn("const bool bResolvedSwordRiposte = bConnected && bCounterReady;", melee)
+        self.assertIn("bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)", melee)
+        self.assertIn("!ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle)", melee)
+        for committed in ("Stamina = FMath::Clamp(Stamina - Cost", "NextMeleeAttackAt = Now +",
+                          "ParryCounterUntil = -1.f;", "OnSuccessfulHitCombo(HitComboStage, false);",
+                          "OnMeleeSwing(CurrentSwordAngle, bConnected);",
+                          "bEmitSwordImpact && IsValid(this) && !IsActorBeingDestroyed() && GetWorld()"):
+            self.assertLess(melee.index(committed), cue)
+        self.assertEqual(melee.count("OnMeleeImpact("), 1)
+        self.assertNotIn("Enemy->", melee[cue:])
+
+    def test_impact_feedback_clears_on_defeat_respawn_and_direct_reduced_motion(self):
+        hero = self.hero_cpp
+        tick = hero.split("void AMoonfallHeroPawn::Tick(", 1)[1].split("const float SafeCameraDelta", 1)[0]
+        reset = "ImpactCameraOffset = 0.f;\n  LastOffensiveImpactAt = -100.f;"
+        self.assertIn("if (bReduceMotion || !FMath::IsFinite(Health) || Health <= 0.f)", tick)
+        self.assertIn(reset, tick)
+        damage = hero.split("const float DamageTaken = PreviousHealth - Health;", 1)[1].split(
+            "OnDamageImpact(DamageTaken);", 1)[0]
+        self.assertIn("if (Health <= 0.f || !FMath::IsFinite(Health) || bReduceMotion)", damage)
+        self.assertIn(reset, damage)
+        self.assertIn("else if (FMath::IsFinite(DamageTaken) && DamageTaken > 0.f)", damage)
+        self.assertIn("const float SafeImpulse = FMath::IsFinite(ImpactCameraOffset)", damage)
+        self.assertIn("FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f)", damage)
+        respawn = hero.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "if (!LoadWorldProgress())", 1)[0]
+        self.assertIn("ImpactCameraOffset = 0.f;", respawn)
+        self.assertIn("LastOffensiveImpactAt = -100.f;", respawn)
+
+    def test_combat_callbacks_cannot_recursively_cast_or_queue_attacks(self):
+        hero = self.hero_cpp
+        self.assertIn("bool bResolvingCombatAction = false;", self.hero_h)
+        self.assertIn('#include "Misc/GuardValue.h"', hero)
+        guard = "TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);"
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertLess(cast.index("if (bResolvingCombatAction) return false;"), cast.index(guard))
+        self.assertLess(cast.index(guard), cast.index("Enemy->TakeSpellDamage("))
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertLess(melee.index("if (bResolvingCombatAction) return;"), melee.index(guard))
+        self.assertLess(melee.index(guard), melee.index("SwordBuffer.Clear();"))
+        for action in ("CastLeft", "CastRight", "CastBoth", "RightHandAction"):
+            body = hero.split("void AMoonfallHeroPawn::" + action + "()", 1)[1].split(
+                "\n}", 1)[0]
+            self.assertLess(body.index("if (bResolvingCombatAction) return;"),
+                            body.index("SwordBuffer."))
+        dual = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        self.assertNotIn("OnSpellCast(", dual)
+        self.assertLess(cast.index(guard), cast.index("OnSpellCast(School, false);"))
+        self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
+                        cast.index("OnSpellCast(School, Hand == 0);"))
+        self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
+                        cast.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertLess(cast.index("!FMath::IsFinite(LastCastTime[1])"),
+                        cast.index("Enemy->TakeSpellDamage("))
+        self.assertIn("if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cast)
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")

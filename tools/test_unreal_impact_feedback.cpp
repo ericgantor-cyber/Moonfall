@@ -4,6 +4,10 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <initializer_list>
+#ifdef NDEBUG
+#error Impact feedback regression requires active assertions
+#endif
 
 namespace I = MoonfallImpactFeedback;
 int main() {
@@ -63,7 +67,7 @@ int main() {
  for (int Frame=0; Frame<600; ++Frame) {
   // 120 high-damage spells per second. Visible response must not build
   // beyond the existing 24-unit camera arm safety limit.
-  const auto R = I::ConfirmedHit(Offset, Last, Frame / 120.f,
+  const auto R = I::ConfirmedHit(Offset, Last, static_cast<float>(Frame) / 120.f,
      10000.f, 12, true, true, false, false);
   Offset = R.Offset; Last = R.LastAt;
   Triggers += R.Triggered ? 1 : 0;
@@ -71,5 +75,21 @@ int main() {
  }
  assert(Triggers > 0 && Triggers < 100);
 
- std::cout << "Moonfall confirmed-hit AAA camera feedback policy passed\n";
+ // Exhaustively exercise the same policy used by sword and spell callers.
+ int Cases = 0;
+ for (int Stage = -1; Stage <= 13; ++Stage)
+  for (float Damage : {-1.f, 0.f, 1.f, 40.f, 120.f, 10000.f})
+   for (float Current : {-5.f, 0.f, 12.f, 24.f, 80.f})
+    for (bool Boss : {false, true}) for (bool Lethal : {false, true})
+     for (bool ReducedMotion : {false, true}) for (bool MenuOpen : {false, true}) {
+      const auto R = I::ConfirmedHit(Current, -100.f, 1.f, Damage, Stage,
+       Boss, Lethal, ReducedMotion, MenuOpen);
+      const bool Expected = Damage > 0.f && Stage >= 1 && !ReducedMotion && !MenuOpen;
+      assert(R.Triggered == Expected);
+      assert(std::isfinite(R.Offset) && R.Offset >= 0.f && R.Offset <= I::MaxImpulse);
+      if (ReducedMotion) assert(R.Offset == 0.f);
+      else if (!Expected) assert(R.Offset == I::Clamp(Current, 0.f, I::MaxImpulse));
+      ++Cases;
+     }
+ std::cout << "Moonfall confirmed-hit policy: " << Cases << " combinations plus boundary and rapid-hit tests passed\n";
 }

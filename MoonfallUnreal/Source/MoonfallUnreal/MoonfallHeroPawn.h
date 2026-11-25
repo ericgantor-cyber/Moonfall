@@ -326,6 +326,10 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Hands") void OnRightHandLoadoutChanged(bool bUsingSpell, int32 SpellSchool);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void MeleeAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnMeleeSwing(int32 Angle, bool bConnected);
+ // Optional directional sword VFX/audio. No cue for misses or absorbed hits.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnMeleeImpact(int32 Angle, FVector ImpactPoint, float AppliedDamage,
+   bool bRiposte, bool bKillingBlow);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 CurrentSwordAngle = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 SwordFlowStep = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.1", ClampMax="1.5")) float MeleeAttackCooldown = 0.48f;
@@ -450,6 +454,10 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
+ // Optional authored VFX/audio, emitted only after actual hostile HP damage.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat|Presentation")
+ void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
+   float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
@@ -538,6 +546,10 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ float LastOffensiveImpactAt = -100.f;
+ // Prevent synchronous cosmetic callbacks from recursively resolving attacks.
+ bool bResolvingCombatAction = false;
+ void ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal);
  // Gameplay mouse wheel zoom; does not alter the minimap or combat HUD.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;

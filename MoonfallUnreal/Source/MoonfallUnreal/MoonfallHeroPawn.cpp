@@ -1,4 +1,6 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallImpactFeedback.h"
+#include "Misc/GuardValue.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -492,6 +494,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  // Never allow invalid frame time or camera impulse to contaminate the boom.
  if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;
+ // Reduced Motion can also be set directly by a Blueprint. Never retain
+ // a hidden impulse that could reappear if the setting is switched off.
+ if (bReduceMotion || !FMath::IsFinite(Health) || Health <= 0.f) {
+  ImpactCameraOffset = 0.f;
+  LastOffensiveImpactAt = -100.f;
+ }
  const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  ImpactCameraOffset = FMath::Clamp(FMath::FInterpTo(FMath::Clamp(ImpactCameraOffset, 0.f, 24.f), 0.f, SafeCameraDelta, 12.f), 0.f, 24.f);
  if (CameraBoom) {
@@ -946,8 +954,23 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 }
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
+{
+ const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
+     ImpactCameraOffset, LastOffensiveImpactAt, Now, Damage, HitComboStage,
+     bBoss, bLethal, bReduceMotion,
+     bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+         || bResidentContextOpen || FocusedResident.IsValid() || bSpellBookOpen
+         || bCharacterStatsOpen || bCharacterRacePageOpen || bCharacterRepPageOpen
+         || !FMath::IsFinite(Health) || Health <= 0.f);
+ ImpactCameraOffset = Feedback.Offset;
+ LastOffensiveImpactAt = Feedback.LastAt;
+}
+
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
+ if (bResolvingCombatAction) return false;
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
  if (bTalentWebOpen) return false;
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -960,7 +983,18 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
      || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[Hand])) return false;
+ const bool bDualCast = Hand == 0 && Multiplier == 2.f;
+ // Dual casting is one resource transaction, not two callback-driven casts.
+ if (bDualCast && (LeftSpell != School || RightSpell != School
+     || !FMath::IsFinite(LastCastTime[1]) || Time - LastCastTime[1] < Cooldowns[School])) return false;
  if (School == 3 && Health >= MaxHealth) return false;
+ // Capture presentation data before combo/posture callbacks can mutate the
+ // target. Emit after committing mana and cooldown, without retaining it.
+ FVector ResolvedImpactPoint = FVector::ZeroVector;
+ float ResolvedImpactDamage = 0.f;
+ bool bResolvedCritical = false;
+ bool bResolvedKill = false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
@@ -1033,10 +1067,17 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
+   if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
+    ResolvedImpactPoint = Hit.ImpactPoint;
+    ResolvedImpactDamage = ActualSpellDamage;
+    bResolvedCritical = bCriticalSpell;
+    bResolvedKill = Enemy->Health <= 0.f;
+   }
    RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Time;
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   ApplyConfirmedHitFeedback(Time, ActualSpellDamage, Enemy->bBoss, Enemy->Health <= 0.f);
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
@@ -1081,15 +1122,23 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
+ if (bDualCast) LastCastTime[1] = Time;
  if (School == 3) {
   Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
  }
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
  OnSpellCast(School, Hand == 0);
+ if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
+  OnSpellCast(School, false);
+ if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f)
+  OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,
+    bResolvedCritical, bResolvedKill);
  return true;
 }
 void AMoonfallHeroPawn::CastLeft()
 {
+ if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
@@ -1097,6 +1146,7 @@ void AMoonfallHeroPawn::CastLeft()
 }
 void AMoonfallHeroPawn::CastRight()
 {
+ if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
@@ -1104,26 +1154,23 @@ void AMoonfallHeroPawn::CastRight()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
-
  if (bOptionsOpen || bAtlasOpen) return;
  if (bTalentWebOpen) return;
+ if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
- if (TryCast(LeftSpell, 0, 2.f))
- {
-  LastCastTime[1] = LastCastTime[0];
-  OnSpellCast(LeftSpell, false);
- }
+ TryCast(LeftSpell, 0, 2.f);
 }
 // Right-hand input mirrors equipped-hand combat: the same click/trigger
 // invokes weapon melee or the prepared right-hand spell. Explicit Z/X and
 // shoulder spell shortcuts continue working regardless of this selection.
 void AMoonfallHeroPawn::RightHandAction()
 {
+ if (bResolvingCombatAction) return;
 
  // RT and primary-action input must not dispatch either attack path while
  // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
@@ -1313,6 +1360,8 @@ void AMoonfallHeroPawn::ResetMeleeHitCombo()
 // No animation asset is required; the Blueprint event can add authored trails.
 void AMoonfallHeroPawn::MeleeAttack()
 {
+ if (bResolvingCombatAction) return;
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
 
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
      || bResidentContextOpen || FocusedResident.IsValid() || bGuarding
@@ -1442,10 +1491,16 @@ void AMoonfallHeroPawn::MeleeAttack()
   return;
  }
  const float HealthBefore = Enemy->Health;
+ const int32 ResolvedSwordAngle = CurrentSwordAngle;
+ const FVector ResolvedSwordImpact = Hit.ImpactPoint;
  // Shared enemy health, posture, phase and loot resolution. No mana used.
  Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
+ const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;
+ const bool bResolvedSwordRiposte = bConnected && bCounterReady;
+ const bool bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)
+     && !ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle);
  if (bConnected) {
   RecentCompanionAssistTarget=Enemy;RecentCompanionAssistHitAt=Now;
   // Shared spell/sword riposte is consumed only by actual damage.
@@ -1471,6 +1526,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   HitComboStage = bContinues && PreviousStage < 12 ? PreviousStage + 1 : 1;
   LastHitComboTarget = Enemy;
   LastSuccessfulHitAt = Now;
+  ApplyConfirmedHitFeedback(Now, Dealt, Enemy->bBoss, Enemy->Health <= 0.f);
   if (Enemy->Health > 0.f && (HitComboStage == 4 || HitComboStage == 8
       || HitComboStage == 12)) {
    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
@@ -1486,6 +1542,9 @@ void AMoonfallHeroPawn::MeleeAttack()
   ResetMeleeHitCombo();
  }
  OnMeleeSwing(CurrentSwordAngle, bConnected);
+ if (bEmitSwordImpact && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
+  OnMeleeImpact(ResolvedSwordAngle, ResolvedSwordImpact, Dealt,
+    bResolvedSwordRiposte, bResolvedSwordKill);
 }
 
 void AMoonfallHeroPawn::BreakGuard()
@@ -1803,7 +1862,14 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   if (APlayerController* PC = Cast<APlayerController>(Controller))
    PC->bShowMouseCursor = false;
  }
- if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
+ if (Health <= 0.f || !FMath::IsFinite(Health) || bReduceMotion) {
+  ImpactCameraOffset = 0.f;
+  LastOffensiveImpactAt = -100.f;
+ } else if (FMath::IsFinite(DamageTaken) && DamageTaken > 0.f) {
+  const float SafeImpulse = FMath::IsFinite(ImpactCameraOffset)
+      ? FMath::Clamp(ImpactCameraOffset, 0.f, 24.f) : 0.f;
+  ImpactCameraOffset = FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
+ }
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
 }
@@ -4045,6 +4111,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
+ // Presentation state is transient, including forced or failed respawns.
+ ImpactCameraOffset = 0.f;
+ LastOffensiveImpactAt = -100.f;
  // Defensive recovery for older saves, forced respawns, and transient
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
