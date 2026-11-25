@@ -468,17 +468,22 @@ void AMoonfallUnrealGameMode::BeginPlay()
  Super::BeginPlay();
  if (!GetWorld()) return;
 
- // Preserve an arena already placed by a designer.
- bool bHasArena = false;
- for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
-  if (IsValid(*It) && !It->IsActorBeingDestroyed()) { bHasArena = true; break; }
- if (!bHasArena)
-  GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
-
+ // Preserve authored arenas, and never inject legacy content into a map
+ // whose GameMode explicitly opts out of legacy startup.
+ if (bSpawnLegacyArena) {
+  bool bHasArena = false;
+  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It)
+   if (IsValid(*It) && !It->IsActorBeingDestroyed()) { bHasArena = true; break; }
+  if (!bHasArena)
+   GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
+ }
+ // Arena construction may synchronously tear down the world.
+ if (bDungeonStartupStopped || !GetWorld() || IsActorBeingDestroyed()) return;
  // A single low-frequency pulse powers nearby resident routines, regional
  // atmosphere and bounded, optional roadside encounters.
- GetWorldTimerManager().SetTimer(LivingWorldPulseTimer, this,
-     &AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f);
+ if (bEnableLivingWorldPulse)
+  GetWorldTimerManager().SetTimer(LivingWorldPulseTimer, this,
+      &AMoonfallUnrealGameMode::PulseLivingWorld, 4.f, true, 4.f);
  if (!bGenerateDungeonWorld) return;
  ReadyDungeonCount = 0;
  ReadyDungeonSlots.SetNumZeroed(TotalDungeons);
