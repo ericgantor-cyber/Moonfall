@@ -1372,9 +1372,13 @@ void AMoonfallHeroPawn::MeleeAttack()
      && Now - LastSuccessfulHitAt <= ComboWindow;
  const int32 NextSwingStage = bNextSameTarget && HitComboStage >= 1
      && HitComboStage < 12 ? HitComboStage + 1 : 1;
- if (!bReduceMotion && GetMesh() && ComboMontages.IsValidIndex(NextSwingStage - 1)) {
-  if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
-   if (UAnimMontage* Montage = ComboMontages[NextSwingStage - 1].Get())
+ if (!bReduceMotion && GetMesh()) {
+  UAnimMontage* Montage = SwordAngleMontages.IsValidIndex(CurrentSwordAngle)
+      ? SwordAngleMontages[CurrentSwordAngle].Get() : nullptr;
+  if (!Montage && ComboMontages.IsValidIndex(NextSwingStage - 1))
+   Montage = ComboMontages[NextSwingStage - 1].Get();
+  if (Montage) {
+   if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
     Anim->Montage_Play(Montage, 1.f);
   }
  }
