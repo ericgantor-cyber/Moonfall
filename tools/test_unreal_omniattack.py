@@ -36,6 +36,43 @@ int main() {
   MoonfallOmniattack::Reset(flow);
   if (flow.Last!=-1 || flow.Remaining!=0x0f || flow.Step!=0) return 4;
  }
+ // Exercise every possible bag state and all twelve rolls. Each legal
+ // choice has exactly the same probability, including three-way choices.
+ for (unsigned mask=1; mask<16; ++mask) {
+  for (int last=-1; last<4; ++last) {
+   int counts[4]={0,0,0,0};
+   for (int roll=0; roll<MoonfallOmniattack::FairRollCount; ++roll) {
+    MoonfallOmniattack::FFlow flow;
+    flow.Remaining=static_cast<std::uint8_t>(mask); flow.Last=last;
+    const int angle=MoonfallOmniattack::Next(flow,roll);
+    if (angle<0 || angle>=4 || !(mask&(1u<<angle))) return 5;
+    if (mask==15 && angle==last) return 6;
+    ++counts[angle];
+   }
+   int common=0;
+   for (int count:counts) {
+    if (count && common && count!=common) return 7;
+    if (count) common=count;
+   }
+  }
+ }
+ using MoonfallOmniattack::Profile;
+ for(int angle=0;angle<4;++angle) {
+  const auto& p=Profile(angle);
+  if (!p.Name || p.DamageScale<0.90f || p.DamageScale>1.20f
+      || p.RecoveryScale<0.85f || p.RecoveryScale>1.15f
+      || p.RangeScale<0.85f || p.RangeScale>1.15f
+      || p.Radius<30.f || p.Radius>80.f
+      || p.PostureScale<0.10f || p.PostureScale>0.50f) return 8;
+ }
+ if (!(Profile(0).DamageScale>Profile(1).DamageScale
+       && Profile(2).PostureScale>Profile(0).PostureScale
+       && Profile(2).Radius>Profile(1).Radius
+       && Profile(3).RangeScale>Profile(1).RangeScale
+       && Profile(3).RecoveryScale<Profile(0).RecoveryScale)) return 9;
+ if (&Profile(-1)!=&Profile(1) || &Profile(4)!=&Profile(1)) return 10;
+ MoonfallOmniattack::FFlow bad;bad.Remaining=0xf0;bad.Step=99;bad.Last=99;
+ if(MoonfallOmniattack::Next(bad,0)!=0 || bad.Step!=1 || bad.Remaining!=14) return 11;
  return 0;
 }
 """
@@ -67,6 +104,31 @@ int main() {
         enemy = (SRC / "MoonfallEnemy.cpp").read_text()
         self.assertIn("void AMoonfallEnemy::TakeMeleeDamage(float Amount)", enemy)
         self.assertIn("TakeSpellDamage(Amount);", enemy)
+
+    def test_four_angle_profiles_drive_live_combat_and_hud(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        for token in ("FMath::RandHelper(MoonfallOmniattack::FairRollCount)",
+                      "MoonfallOmniattack::Profile(CurrentSwordAngle)",
+                      "MeleeAttackCooldown * Attack.RecoveryScale",
+                      "MeleeAttackRange * Attack.RangeScale",
+                      "FCollisionShape::MakeSphere(Attack.Radius)",
+                      "AngleBonus = Attack.DamageScale",
+                      "Dealt * Attack.PostureScale",
+                      "SwordAngleMontages.IsValidIndex(CurrentSwordAngle)",
+                      "if (!Montage && ComboMontages.IsValidIndex(NextSwingStage - 1))",
+                      "TalentMeleeMultiplier"):
+            self.assertIn(token, melee)
+        self.assertLess(melee.index("if (Stamina < Cost) return;"),
+                        melee.index("MoonfallOmniattack::Next("))
+        self.assertLess(melee.index("MoonfallOmniattack::Next("),
+                        melee.index("NextMeleeAttackAt = Now +"))
+        self.assertEqual(melee.count("SweepSingleByChannel("), 1)
+        self.assertIn("!Enemy->IsActorBeingDestroyed()", melee)
+        self.assertIn("MoonfallOmniattack::Profile(Hero->CurrentSwordAngle)", hud)
+        self.assertIn('TEXT("%s | FLOW %d/4")', hud)
 
     def test_melee_montage_plays_once_before_hit_resolution_even_on_miss(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
