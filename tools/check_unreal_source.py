@@ -4014,6 +4014,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         combat.index("Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"))
         self.assertLess(combat.index("Enemy->Destroy();"), combat.index("++Spawned;"))
 
+    def test_dungeon_bonus_rejects_invalid_health_and_preserves_atomic_retry(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        bonus = layout.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
+        self.assertIn("if (!IsValid(Enemy)) continue;", bonus)
+        self.assertIn("!FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f", bonus)
+        self.assertIn("Enemy->IsActorBeingDestroyed()", bonus)
+        self.assertIn("Enemy->Destroy();", bonus)
+        self.assertLess(bonus.index("Enemy->FinishSpawning(SpawnTransform);"),
+                        bonus.index("!FMath::IsFinite(Enemy->Health)"))
+        self.assertLess(bonus.index("!FMath::IsFinite(Enemy->Health)"),
+                        bonus.index("GroupActors.Add(Enemy);"))
+        self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", bonus)
+        self.assertLess(bonus.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
+                        bonus.index("SpawnedBonusGroupsMask |= GroupBit;"))
+
     def test_dungeon_bonus_roll_plans_only_three_bounded_groups(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
@@ -5888,6 +5904,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(chamber.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
 
+
+    def test_dungeon_boss_blueprint_callbacks_cannot_complete_invalid_spawn(self):
+        dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        boss = dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        after_identity = boss.split("Boss->OnDungeonBossIdentityReady(", 1)[1].split(
+            "OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[0]
+        after_encounter = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
+        invalid_health = "if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)"
+        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;"
+        for stage in (after_identity, after_encounter):
+            self.assertIn(actor_invalid, stage)
+            self.assertIn(invalid_health, stage)
+            self.assertLess(stage.index(actor_invalid), stage.index(invalid_health))
+            self.assertLess(stage.index(invalid_health), stage.index("Boss->Destroy();"))
+            self.assertLess(stage.index("Boss->Destroy();"), stage.index("return false;\n }"))
+        self.assertLess(after_encounter.index(invalid_health), after_encounter.index("return true;"))
+        self.assertIn("return false; // All collision-safe spawn positions were unavailable.", boss)
 
     def test_dungeon_final_boss_uses_first_entry_level_before_beginplay(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
