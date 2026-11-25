@@ -6174,6 +6174,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(hit.index(guard), hit.index("ApplyMoonfallDamage(Amount)"))
         self.assertIn("return bLastIncomingHitParried;", hit)
 
+    def test_camera_axes_reject_stale_focus_and_invalid_hero(self):
+        for method, axis in (("Turn", "Yaw"), ("LookUp", "Pitch")):
+            with self.subTest(method=method):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method + "(float Value)", 1)[1].split("\nvoid AMoonfallHeroPawn::", 1)[0]
+                for guard in ("!FMath::IsFinite(Health)", "FocusedResident.IsValid()", "IsActorBeingDestroyed()", "FMath::IsFinite(Value)"):
+                    self.assertLess(body.index(guard), body.index("AddController" + axis + "Input(Value)"))
+
     def test_movement_axes_validate_health_actor_and_rotation(self):
         for method, next_method in (("MoveForward", "MoveRight"), ("MoveRight", "Turn")):
             with self.subTest(method=method):
