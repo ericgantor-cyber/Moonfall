@@ -306,6 +306,8 @@ public:
  // Optional authored animations, one slot per hit. Null slots keep gameplay working.
  // These do not replace or alter the original character art.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> ComboMontages;
+ // Optional four angle-specific montages. Existing combo art remains the fallback.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Combat") TArray<TObjectPtr<UAnimMontage>> SwordAngleMontages;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
  // A committed melee swing uses an automatic angle: high/right/low/left.
  // Optional Blueprint hook can play a montage or weapon trail for that angle.
