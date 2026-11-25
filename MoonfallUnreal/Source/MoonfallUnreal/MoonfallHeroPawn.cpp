@@ -3727,10 +3727,21 @@ void AMoonfallHeroPawn::TalentMove(int32 TierDirection,int32 RowDirection) {
 }
 void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  if (!bTalentWebOpen)return;
- TalentWebBranch=(TalentWebBranch+(Direction>=0?1:2))%3;
- TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
- TalentWebFirstTier=1;
+ if (Direction!=1 && Direction!=-1)return;
+ const int NextBranch=(FMath::Clamp(TalentWebBranch,0,2)+(Direction>0?1:2))%3;
+ const int NextSelection=MoonfallTalentWeb::SameTierInBranch(TalentWebSelected,NextBranch);
+ if (NextSelection<0)return;
+ TalentWebBranch=NextBranch;
+ TalentWebSelected=NextSelection;
+ int ViewW=1280,ViewH=720;
+ if (const APlayerController* PC=Cast<APlayerController>(Controller))
+  PC->GetViewportSize(ViewW,ViewH);
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (Layout.Valid)
+  TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+      TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
  bTalentRespecArmed=false;
+ TalentRespecArmUntil=-1.f;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
