@@ -260,12 +260,14 @@ class EnemyPathBudgetTests(unittest.TestCase):
 
     def test_character_and_resident_panels_cancel_enemy_windups(self):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu_guard = tick.split("// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
+        menu_guard = tick.split("// Only genuine blocking states suspend hostiles.", 1)[1].split(
             "// A corrupt nonfinite windup", 1
         )[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu_guard)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen", menu_guard)
+        self.assertNotIn("Hero->bInventoryOpen", menu_guard)
+        self.assertNotIn("Hero->bCharacterStatsOpen", menu_guard)
         self.assertIn("Hero->bAtlasOpen", menu_guard)
-        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu_guard)
+        self.assertIn("Hero->bResidentContextOpen", menu_guard)
         self.assertNotIn("Hero->bTalentWebOpen", menu_guard)
         self.assertIn("CancelDivineSignature();", menu_guard)
         self.assertIn("WindupEndsAt = -1.f;", menu_guard)
@@ -276,7 +278,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         tick = self.source.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if (!IsValid(Hero) || !Hero->IsPlayerControlled())", tick)
         self.assertLess(tick.index("!Hero->IsPlayerControlled()"),
-                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
+                        tick.index("Hero->bOptionsOpen || Hero->bAtlasOpen"))
 
     def test_hero_cache_refreshes_after_possession_switch(self):
         header = (SOURCE.parent / "MoonfallEnemy.h").read_text(encoding="utf-8")

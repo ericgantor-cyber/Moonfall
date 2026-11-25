@@ -429,7 +429,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)
+  if (Health <= 0.f || bOptionsOpen || bAtlasOpen || !IsValid(ComboTarget)
        || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
        || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
@@ -492,7 +492,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -705,6 +705,31 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
         MouseY >= Top + 14.f && MouseY <= Top + 42.f;
 }
 
+bool AMoonfallHeroPawn::IsPointerOutsideInventoryPanel() const
+{
+ // Fail closed on absent/stale cursor information: clicks must not reach
+ // combat when the panel's visible hit region cannot be established.
+ if (!bInventoryOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f) return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)
+     || MouseX < 0.f || MouseY < 0.f
+     || MouseX >= float(Width) || MouseY >= float(Height)) return false;
+ // Match the dock's Canvas geometry, including compact viewport sizing.
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ return MouseX < Left || MouseX > Left + PanelWidth
+     || MouseY < Top || MouseY > Top + PanelHeight;
+}
+
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
@@ -853,12 +878,12 @@ void AMoonfallHeroPawn::TryJump()
   return;
  }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -867,7 +892,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -912,19 +937,29 @@ void AMoonfallHeroPawn::LookUp(float Value) {
   return;
  }
  if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bInventoryPointerCast)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || (bInventoryOpen && !bInventoryPointerCast) || bAtlasOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
-  const FVector Origin = FollowCamera->GetComponentLocation();
-  const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  FVector Origin = FollowCamera->GetComponentLocation();
+  FVector AimDirection = FollowCamera->GetForwardVector();
+  if (bInventoryPointerCast) {
+   // When a dock is open, aim into the exposed world under the actual mouse
+   // cursor rather than firing through the center of the character sheet.
+   APlayerController* PC = Cast<APlayerController>(Controller);
+   if (!PC || !PC->bShowMouseCursor
+       || !PC->DeprojectMousePositionToWorld(Origin, AimDirection)
+       || Origin.ContainsNaN() || AimDirection.ContainsNaN()
+       || AimDirection.IsNearlyZero()) return false;
+  }
+  const FVector End = Origin + AimDirection * 1800.f;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
@@ -1115,7 +1150,7 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
+ if (bOptionsOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
@@ -1145,7 +1180,7 @@ void AMoonfallHeroPawn::GamepadBack()
 }
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid() || bResidentContextOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -1307,6 +1342,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  // Only actual HP loss triggers visual feedback. A fully blocked or
+  // parried strike must never flash the menus red. No global pause.
+  if (bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+      || bResidentContextOpen)
+   MenuDamageFlashUntil = Now + 0.28f;
   CombatRecoveryEndsAt = FMath::Max(
        FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
        Now + (FMath::IsFinite(CombatRecoverySeconds)
@@ -1337,6 +1377,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterStatsOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
+  // Defeat is its own screen, not a menu and not a lingering damage tint.
+  MenuDamageFlashUntil = -1.f;
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
@@ -1467,10 +1509,8 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
-  StopJumping();
-  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
-  EndSprint();
-  EndGuard();
+  // The right-docked inventory is informational for world simulation.
+  // Do not halt movement/sprint or clear already-earned combo momentum.
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
   KeepInventorySelectionVisible();
  }
@@ -1706,6 +1746,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   TalentWebStepSelection(-1);
   return;
  }
+ // Up must not change inventory selection when W is held for live movement.
+ // Arrow Up and D-pad Up remain contextual navigation controls.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::W) && !PC->IsInputKeyDown(EKeys::Up)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Up)) return;
+  }
+ }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
@@ -1741,6 +1789,13 @@ void AMoonfallHeroPawn::OptionsDown() {
   }
   TalentWebStepSelection(1);
   return;
+ }
+ // S moves the hero; only Down/D-pad Down scrolls the inventory selection.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::S) && !PC->IsInputKeyDown(EKeys::Down)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Down)) return;
+  }
  }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
@@ -1794,6 +1849,14 @@ void AMoonfallHeroPawn::OptionsRight() {
   }
   TalentWebStepBranch(1);
   return;
+ }
+ // D strafes while the character sheet is open. Require Right/D-pad Right
+ // for the character-sheet-to-constellation shortcut.
+ if (bInventoryOpen) {
+  if (const APlayerController* PC = Cast<APlayerController>(Controller)) {
+   if (PC->IsInputKeyDown(EKeys::D) && !PC->IsInputKeyDown(EKeys::Right)
+       && !PC->IsInputKeyDown(EKeys::Gamepad_DPad_Right)) return;
+  }
  }
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bAtlasOpen) {
@@ -3482,12 +3545,15 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
+ MenuDamageFlashUntil = -1.f;
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  bWorldProgressLoadInProgress = false;
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ // Never replay a pre-death menu hit flash after the checkpoint restores.
+ MenuDamageFlashUntil = -1.f;
  DefeatElapsedSeconds = 0.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
@@ -3767,7 +3833,12 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
    EquipInventoryItem(HitIndex);
+   return;
   }
+  // Inside the dock, even empty pixels belong to inventory UI.
+  // Only a valid pointer outside the entire panel may attack the world.
+  if (!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel())
+   TryCast(RightSpell, 1, 1.f, true);
   return;
  }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
@@ -3982,7 +4053,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   }
   if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
-  if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  if (HitIndex != INDEX_NONE) {
+   InventorySelection = HitIndex;
+   return;
+  }
+  if (!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel())
+   TryCast(LeftSpell, 0, 1.f, true);
   return;
  }
  if (!bResidentContextOpen) { CastLeft(); return; }

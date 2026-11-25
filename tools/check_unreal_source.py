@@ -687,7 +687,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
         self.assertNotIn("void InventoryConfirm();", self.hero_h)
         self.assertNotIn('ActionName="InventoryConfirm"', inputs)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -811,7 +811,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (bInventoryOpen)", left)
-        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", left)
+        self.assertIn("if (HitIndex != INDEX_NONE) {\n   InventorySelection = HitIndex;\n   return;\n  }", left)
         self.assertNotIn("EquipInventoryItem(", left)
         self.assertIn("if (bInventoryOpen)", right)
         self.assertIn("InventorySelection = HitIndex;", right)
@@ -823,6 +823,46 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Right click: equip", self.hud)
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
+
+    def test_inventory_mouse_world_combat_only_outside_docked_ui(self):
+        helper = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::IsPointerOutsideInventoryPanel() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool IsPointerOutsideInventoryPanel() const;", self.hero_h)
+        for gate in ("!bInventoryOpen", "bOptionsOpen", "bAtlasOpen", "bResidentContextOpen",
+                     "!PC || !PC->bShowMouseCursor", "PC->GetViewportSize(Width, Height)",
+                     "!PC->GetMousePosition(MouseX, MouseY)", "!FMath::IsFinite(MouseX)",
+                     "!FMath::IsFinite(MouseY)", "MouseX >= float(Width)",
+                     "MouseY >= float(Height)"):
+            self.assertIn(gate, helper)
+        self.assertIn("FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)", helper)
+        self.assertIn("float(Width) - PanelWidth - 12.f", helper)
+        self.assertIn("MouseX < Left || MouseX > Left + PanelWidth", helper)
+        self.assertIn("MouseY < Top || MouseY > Top + PanelHeight", helper)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool bInventoryPointerCast = false", self.hero_h)
+        self.assertIn("(bInventoryOpen && !bInventoryPointerCast)", cast)
+        self.assertIn("PC->DeprojectMousePositionToWorld(Origin, AimDirection)", cast)
+        self.assertIn("Origin.ContainsNaN() || AimDirection.ContainsNaN()", cast)
+        for name, spell in (("CastRightMouse", "RightSpell, 1"),
+                            ("ResidentContextMouseClick", "LeftSpell, 0")):
+            method = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
+            inventory = method.split("if (bInventoryOpen) {", 1)[1].split("\n }", 1)[0]
+            self.assertIn("if (HitIndex != INDEX_NONE) {", inventory)
+            self.assertIn("InventorySelection = HitIndex;", inventory)
+            self.assertIn("return;", inventory)
+            self.assertIn("!bInventoryScrollbarDragging && IsPointerOutsideInventoryPanel()", inventory)
+            self.assertIn(f"TryCast({spell}, 1.f, true);", inventory)
+            self.assertLess(inventory.index("InventorySelection = HitIndex;"),
+                            inventory.index("IsPointerOutsideInventoryPanel()"))
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (HitTestInventoryCloseButton())", left)
+        self.assertLess(left.index("HitTestInventoryCloseButton()"), left.index("IsPointerOutsideInventoryPanel()"))
+        self.assertLess(right.index("HitTestInventorySortButton()"), right.index("IsPointerOutsideInventoryPanel()"))
+        self.assertLess(right.index("HitTestInventoryEquipButton()"), right.index("IsPointerOutsideInventoryPanel()"))
+        self.assertIn("TryCast(LeftSpell, 0, 1.f);", self.hero_cpp)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", self.hero_cpp)
+        self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
 
     def test_controller_inventory_dpad_selects_without_confirm_equip(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -1204,7 +1244,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (HitTestInventoryEquipButton())", click)
         self.assertIn("EquipSelectedInventoryItem();", click)
         self.assertLess(click.index("if (HitTestInventoryEquipButton())"), click.index("HitTestInventoryRow()"))
-        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", click)
+        self.assertIn("if (HitIndex != INDEX_NONE) {\n   InventorySelection = HitIndex;\n   return;\n  }", click)
         self.assertIn('DrawText(TEXT("EQUIP SELECTED")', self.hud)
         self.assertIn("const float EquipY = Top + 87.f;", self.hud)
 
@@ -2013,10 +2053,137 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_live_inventory_wasd_does_not_change_selection_or_open_talents(self):
+        input_ini = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for movement in ("W", "S", "A", "D"):
+            self.assertIn(f'Key={movement})', input_ini)
+        for name, next_name, moving, arrow, dpad, action in (
+            ("OptionsUp", "OptionsDown", "W", "Up", "Up", "ResidentContextSelection"),
+            ("OptionsDown", "OptionsLeft", "S", "Down", "Down", "InventorySelection"),
+            ("OptionsRight", "AdjustOption", "D", "Right", "Right", "ToggleTalentWeb();"),
+        ):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split(
+                f"void AMoonfallHeroPawn::{next_name}", 1)[0]
+            self.assertIn("if (bInventoryOpen)", body)
+            key = f"PC->IsInputKeyDown(EKeys::{moving})"
+            self.assertIn(key, body)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::{arrow})", body)
+            self.assertIn(f"!PC->IsInputKeyDown(EKeys::Gamepad_DPad_{dpad})", body)
+            self.assertLess(body.index(key), body.rindex(action))
+        # Gamepad B is still a menu back command, not a hidden dodge.
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::GamepadBack()", 1)[1].split(
+            "void AMoonfallHeroPawn::Dodge()", 1)[0]
+        self.assertIn("bInventoryOpen", back)
+        self.assertLess(back.index("OpenOptions();"), back.index("Dodge();"))
+
+    def test_actual_hp_damage_flashes_red_over_every_menu_without_pause(self):
+        import re
+        self.assertIn("float MenuDamageFlashUntil = -1.f;", self.hero_h)
+        self.assertIn('UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat")', self.hero_h)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        hit = damage.split("const float DamageTaken = PreviousHealth - Health;", 1)[1].split(
+            "if (Health <= 0.f)", 1)[0]
+        self.assertIn("if (DamageTaken > 0.f) {", hit)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen", hit)
+        self.assertIn("|| bResidentContextOpen", hit)
+        self.assertIn("MenuDamageFlashUntil = Now + 0.28f;", hit)
+        self.assertLess(hit.index("if (DamageTaken > 0.f) {"), hit.index("MenuDamageFlashUntil = Now + 0.28f;"))
+        self.assertNotIn("SetGamePaused(", hit)
+        flash = self.hud.split("void AMoonfallCombatHUD::DrawMenuDamageFlash(", 1)[1].split(
+            "void AMoonfallCombatHUD::DrawHUD()", 1)[0]
+        self.assertIn("if (!Canvas || !IsValid(Hero) || !GetWorld()) return;", flash)
+        self.assertIn("!FMath::IsFinite(Now) || !FMath::IsFinite(Until) || Until <= Now", flash)
+        self.assertIn("FMath::Clamp((Until - Now) / 0.28f, 0.f, 1.f)", flash)
+        self.assertIn("Hero->bReduceMotion ? 0.09f : 0.22f", flash)
+        self.assertIn("0.f, 0.f, Canvas->SizeX, Canvas->SizeY", flash)
+        self.assertNotIn("SetPause(", flash)
+        self.assertIn("void DrawMenuDamageFlash(const AMoonfallHeroPawn* Hero);", (
+            ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
+        # Overlay must draw after the menu contents, including tiny-viewport
+        # fallbacks, rather than be hidden by the opaque menu backgrounds.
+        menu_sections = (
+            ("talent", "if (Hero->bTalentWebOpen) {", "// Native Canvas resident menu.", 2),
+            ("resident", "// Native Canvas resident menu.", "if (Hero->bAtlasOpen) {", 1),
+            ("atlas", "if (Hero->bAtlasOpen) {", "if (Hero->bOptionsOpen) {", 2),
+            ("options", "if (Hero->bOptionsOpen) {", "if (Hero->bInventoryOpen) {", 1),
+            ("inventory/stats", "if (Hero->bInventoryOpen) {",
+             "// Reuse a single world scan for boss/posture HUD", 2),
+        )
+        for label, start, end, expected in menu_sections:
+            with self.subTest(menu=label):
+                section = self.hud.split(start, 1)[1].split(end, 1)[0]
+                calls = re.findall(
+                    r"(?m)^ {2,3}DrawMenuDamageFlash\(Hero\);\n {2,3}return;$",
+                    section)
+                self.assertEqual(len(calls), expected)
+        self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
+        self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', self.hud)
+        # A hit from a prior life/save must not tint the next checkpoint,
+        # even if a player opens the inventory in the same rendered frame.
+        respawn = self.hero_cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split("\n}", 1)[0]
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("\n}", 1)[0]
+        death = damage.split("if (Health <= 0.f) {", 1)[1].split("OnDamageImpact(DamageTaken);", 1)[0]
+        self.assertIn("MenuDamageFlashUntil = -1.f;", respawn)
+        self.assertIn("MenuDamageFlashUntil = -1.f;", load)
+        self.assertIn("MenuDamageFlashUntil = -1.f;", death)
+
+    def test_live_inventory_and_character_sheet_show_bounded_resources(self):
+        # The normal red/blue/purple combat orb is drawn after the inventory
+        # return, so the docked panels must expose current combat resources.
+        inventory = self.hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
+            "// Reuse a single world scan for boss/posture HUD", 1)[0]
+        character_return = inventory.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
+            "return;", 1)[0]
+        vitals = inventory.split("// The usual lower-left orb is rendered", 1)[1].split(
+            "if (Hero->bCharacterStatsOpen) {", 1)[0]
+        for label in ('TEXT("HP")', 'TEXT("MANA")', 'TEXT("STAM")', 'TEXT("XP")'):
+            self.assertIn(label, vitals)
+        self.assertIn('TEXT("RESOURCES")', vitals)
+        self.assertIn('TEXT("LOW HP")', vitals)
+        self.assertIn("VitalsWidth = FMath::Clamp(Left - 28.f, 26.f, 224.f)", vitals)
+        self.assertIn("VitalsTop = FMath::Max(8.f, Canvas->SizeY - 168.f)", vitals)
+        self.assertIn("bTightVitals = VitalsWidth < 140.f", vitals)
+        for resource in ("Health", "Mana", "Stamina"):
+            self.assertIn(f"FMath::IsFinite(Hero->Max{resource})", vitals)
+            self.assertIn(f"FMath::IsFinite(Hero->{resource})", vitals)
+        self.assertIn("FMath::Clamp(Current / Maximum, 0.f, 1.f)", vitals)
+        self.assertIn("VitalHealth <= VitalMaxHealth * 0.25f", vitals)
+        self.assertIn("FMath::Min(VitalXP, VitalMaxXP)", vitals)
+        self.assertLess(inventory.index("DrawVital(3,"),
+                        inventory.index("if (Hero->bCharacterStatsOpen) {"))
+        self.assertIn("DrawText(TEXT(\"MOONFALL  |  CHARACTER\")", character_return)
+        self.assertIn("return;", inventory)
+
+    def test_live_inventory_and_stats_do_not_pause_enemy_or_player_movement(self):
+        enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        modal = enemy_tick.split("if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
+            "// A corrupt nonfinite windup", 1)[0]
+        for state in ("Hero->bInventoryOpen", "Hero->bCharacterStatsOpen", "Hero->bTalentWebOpen"):
+            self.assertNotIn(state, modal)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen", modal)
+        inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        for forced_stop in ("StopMovementImmediately();", "EndSprint();", "EndGuard();", "StopJumping();"):
+            self.assertNotIn(forced_stop, inventory)
+        for axis, next_method in (("MoveForward", "MoveRight"), ("MoveRight", "Turn")):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
+                f"void AMoonfallHeroPawn::{next_method}", 1)[0]
+            self.assertNotIn("bInventoryOpen", body)
+            self.assertIn("bOptionsOpen || bAtlasOpen", body)
+        for begin, end in (("BeginSprint", "EndSprint"), ("Dodge", "RewardPerfectDodge")):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{begin}()", 1)[1].split(
+                f"void AMoonfallHeroPawn::{end}()", 1)[0]
+            self.assertNotIn("bInventoryOpen", body)
+            self.assertIn("bOptionsOpen || bAtlasOpen", body)
+        self.assertNotIn('TEXT("WORLD LIVE | ENEMIES ATTACK")', self.hud)
+
     def test_opening_menus_releases_held_sprint(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
-        self.assertIn("if (!bInventoryOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", inventory)
+        self.assertIn("if (!bInventoryOpen) {", inventory)
+        for action in ("StopJumping();", "StopMovementImmediately();", "EndSprint();", "EndGuard();"):
+            self.assertNotIn(action, inventory)
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
         self.assertIn("if (!bOptionsOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)
@@ -2039,7 +2206,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Native Canvas resident menu.", 1)[0]
         self.assertNotIn('TEXT("WORLD LIVE / ENEMIES ATTACK")', hud)
         self.assertNotIn('TEXT("ENEMY ATTACKS PAUSED")', hud)
-        self.assertIn('TEXT("X")', hud)  # Talent close control remains.
+        self.assertIn('TEXT("X")', hud)
 
     def test_skyrim_style_talent_menu_rejects_hits_before_hp_or_parry(self):
 
@@ -2077,7 +2244,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health)", 1)[1].split(
             "// A corrupt nonfinite windup", 1)[0]
         self.assertNotIn("Hero->bTalentWebOpen", modal)
-        for state in ("Hero->bOptionsOpen", "Hero->bInventoryOpen", "Hero->bAtlasOpen"):
+        for state in ("Hero->bOptionsOpen", "Hero->bAtlasOpen", "Hero->bResidentContextOpen"):
             self.assertIn(state, modal)
         self.assertIn("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)", enemy_tick)
         self.assertIn("CancelDivineSignature();", modal)  # Still used for defeat/real pauses.
@@ -2098,10 +2265,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_batch_menus_cancel_enemy_windups_and_followups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        menu = tick.split("// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
+        menu = tick.split("// Only genuine blocking states suspend hostiles.", 1)[1].split(
             "// A shatter follow-up expires", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
-        self.assertIn("Hero->bCharacterStatsOpen || Hero->bResidentContextOpen", menu)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen", menu)
+        self.assertNotIn("Hero->bInventoryOpen", menu)
+        self.assertNotIn("Hero->bCharacterStatsOpen", menu)
+        self.assertIn("Hero->bResidentContextOpen", menu)
         self.assertIn("CancelDivineSignature();", menu)
         for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
                        "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
@@ -2109,13 +2278,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(action, menu)
         self.assertIn("NextAttackAt = FMath::Max(", menu)
         self.assertIn("Now + 0.35f", menu)
-        self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
-        self.assertLess(tick.index("// Legacy full-screen pause modals still suspend hostiles."),
+        self.assertLess(menu.index("bAtlasOpen"), menu.index("return;"))
+        self.assertLess(tick.index("// Only genuine blocking states suspend hostiles."),
                         tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = CachedHero.Get();"), 1)
         self.assertEqual(tick.count("Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 2)
         self.assertLess(tick.index("if (!IsValid(Hero) || !Hero->IsPlayerControlled())"),
-                        tick.index("Hero->bOptionsOpen || Hero->bInventoryOpen"))
+                        tick.index("Hero->bOptionsOpen || Hero->bAtlasOpen"))
 
     def test_batch_guard_validates_timers_before_stance(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
@@ -2432,13 +2601,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void TryJump();", self.hero_h)
         jump = controls.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
             "void AMoonfallHeroPawn::MoveForward", 1)[0]
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;", jump)
-        self.assertLess(jump.index("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;"),
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bAtlasOpen) return;", jump)
+        self.assertLess(jump.index("if (Health <= 0.f || bOptionsOpen || bAtlasOpen) return;"),
                         jump.index("Jump();"))
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
+            self.assertIn("Health <= 0.f || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "void AMoonfallHeroPawn::", 1)[0]
@@ -2455,7 +2624,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         defeat = damage.split("if (Health <= 0.f) {", 1)[1].split("if (!bReduceMotion)", 1)[0]
-        for body in (inventory, options, defeat):
+        self.assertNotIn("StopJumping();", inventory)
+        self.assertNotIn("StopMovementImmediately();", inventory)
+        for body in (options, defeat):
             self.assertIn("StopJumping();", body)
             self.assertIn("GetCharacterMovement()->StopMovementImmediately();", body)
             self.assertLess(body.index("StopJumping();"), body.index("EndSprint();"))
@@ -2516,7 +2687,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         combo = tick.split("if (HitComboStage > 0 && GetWorld()) {", 1)[1].split(
             "// Bounded camera impulse", 1)[0]
-        self.assertIn("bOptionsOpen || bInventoryOpen", combo)
+        self.assertIn("bOptionsOpen || bAtlasOpen", combo)
+        self.assertNotIn("bInventoryOpen", combo)
         for check in ("!FMath::IsFinite(ComboTarget->Health)", "!FMath::IsFinite(ComboNow)",
                       "!FMath::IsFinite(LastSuccessfulHitAt)"):
             self.assertIn(check, combo)
@@ -2549,8 +2721,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
-        self.assertIn("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;", begin)
-        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;"),
+        self.assertIn("if (bOptionsOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;", begin)
+        self.assertLess(begin.index("if (bOptionsOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;"),
                         begin.index("bSprintHeld = true;"))
 
     def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
@@ -2585,7 +2757,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
         self.assertIn("Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina)", tick)
         self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
-        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
+        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("GetLastMovementInputVector().SizeSquared2D() > 0.01f", tick)
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
@@ -6296,9 +6468,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
         final = dungeon.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
             "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        # World overlaps remain live behind inventory/character stats.
+        # Only genuinely blocking modals suppress room one-shots.
         menu_guards = (
-            "Hero->bOptionsOpen", "Hero->bInventoryOpen",
-            "Hero->bCharacterStatsOpen", "Hero->bResidentContextOpen"
+            "Hero->bOptionsOpen", "Hero->bAtlasOpen", "Hero->bResidentContextOpen"
         )
         for guard in menu_guards:
             self.assertIn(guard, bonus)
@@ -6306,6 +6479,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, final)
             self.assertLess(chamber.index(guard), chamber.index("TrySpawnBonusGroup(Hero, ChamberIndex);"))
             self.assertLess(final.index(guard), final.index("StartFinalBossChamber(Hero)"))
+        for informational in ("Hero->bInventoryOpen", "Hero->bCharacterStatsOpen"):
+            self.assertNotIn(informational, bonus)
+            self.assertNotIn(informational, chamber)
+            self.assertNotIn(informational, final)
+        hazards = dungeon.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[0]
+        for informational in ("Hero->bInventoryOpen", "Hero->bCharacterStatsOpen"):
+            self.assertNotIn(informational, hazards)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen", hazards)
+        entrance = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("Hero->bInventoryOpen", entrance)
+        self.assertNotIn("Hero->bCharacterStatsOpen", entrance)
         self.assertLess(chamber.index("EnteredChambersMask |= Bit;"),
                         chamber.rindex("TrySpawnBonusGroup(Hero, ChamberIndex);"))
         self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
@@ -6353,8 +6538,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         guarded = {
             "CastBoth": "if (bOptionsOpen || bAtlasOpen) return;",
             "BeginGuard": "bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f",
-            "BeginSprint": "if (bOptionsOpen || bInventoryOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;",
-            "Dodge": "bOptionsOpen || bInventoryOpen || bAtlasOpen || FocusedResident.IsValid()",
+            "BeginSprint": "if (bOptionsOpen || bAtlasOpen || Health <= 0.f || bResidentContextOpen) return;",
+            "Dodge": "bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()",
         }
         for method, guard in guarded.items():
             with self.subTest(method=method):
@@ -6685,9 +6870,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         enemy_tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         enemy_modal = enemy_tick.split(
-            "// Legacy full-screen pause modals still suspend hostiles.", 1)[1].split(
+            "// Only genuine blocking states suspend hostiles.", 1)[1].split(
             "// A corrupt nonfinite windup", 1)[0]
-        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen", enemy_modal)
+        self.assertIn("Hero->bOptionsOpen || Hero->bAtlasOpen", enemy_modal)
+        self.assertNotIn("Hero->bInventoryOpen", enemy_modal)
+        self.assertNotIn("Hero->bCharacterStatsOpen", enemy_modal)
         for cancel in ("CancelDivineSignature();", "WindupEndsAt = -1.f;",
                        "BossWarningEndTime = -1.f;", "bComboSecondHitPending = false;",
                        "bComboSecondHitActive = false;", "NextAttackAt = FMath::Max("):
@@ -6696,10 +6883,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         enemy_tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
         self.assertIn("&& !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {", tick)
         self.assertIn("else AutoLootElapsed = 0.f;", tick)
-        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
+        self.assertIn("Health <= 0.f || bOptionsOpen || bAtlasOpen || !IsValid(ComboTarget)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && FMath::IsFinite(MenuRecoveryMultiplier)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen) && Health > 0.f", tick)
-        self.assertIn("!bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f", tick)
+        self.assertIn("!bOptionsOpen && !bAtlasOpen && Health > 0.f", tick)
         self.assertIn("&& !bSprinting && !bGuarding && GetWorld()", tick)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]

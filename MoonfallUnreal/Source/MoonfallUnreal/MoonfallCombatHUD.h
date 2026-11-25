@@ -10,6 +10,9 @@ class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
 public:
  virtual void DrawHUD() override;
 private:
+ // Drawn after each modal panel so the damage cue remains visible above it.
+ // No world pause, extra widgets, or per-frame actor scans.
+ void DrawMenuDamageFlash(const AMoonfallHeroPawn* Hero);
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
  float DisplayStamina = -1.f;

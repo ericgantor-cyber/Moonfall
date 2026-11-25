@@ -179,6 +179,10 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
+ // Transient timestamp for a brief red overlay when genuine HP damage lands
+ // while a menu is visible. Never saved or used to modify combat.
+ UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat")
+ float MenuDamageFlashUntil = -1.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
@@ -314,6 +318,8 @@ public:
  bool HitTestInventoryEquipButton() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
+ // World mouse clicks are allowed only outside the right-docked inventory rectangle.
+ bool IsPointerOutsideInventoryPanel() const;
  // Clickable scrollbar track changes only the transient display window.
  bool ScrollInventoryToMouseTrack();
  // Mouse drag is transient and cannot mutate inventory or equipped items.
@@ -505,5 +511,5 @@ private:
  void RefreshTalentBonuses();
  void SetTalentWebNotice(const FString& Message, bool bSuccess);
  bool CommitTalentRanks(const TMap<FName, int32>& Candidate);
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, bool bInventoryPointerCast = false);
 };

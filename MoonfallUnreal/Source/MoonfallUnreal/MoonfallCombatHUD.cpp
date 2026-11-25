@@ -14,6 +14,22 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+// A subtle, single-hit full-screen tint stays visible even when a Canvas
+// panel covers the world. This is visual feedback only, never a combat pause.
+void AMoonfallCombatHUD::DrawMenuDamageFlash(const AMoonfallHeroPawn* Hero)
+{
+ if (!Canvas || !IsValid(Hero) || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ const float Until = Hero->MenuDamageFlashUntil;
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(Until) || Until <= Now
+     || !FMath::IsFinite(Canvas->SizeX) || !FMath::IsFinite(Canvas->SizeY)
+     || Canvas->SizeX <= 0.f || Canvas->SizeY <= 0.f) return;
+ // One short fade for actual HP loss; no strobing or permanent danger banner.
+ const float Fraction = FMath::Clamp((Until - Now) / 0.28f, 0.f, 1.f);
+ const float Alpha = (Hero->bReduceMotion ? 0.09f : 0.22f) * Fraction;
+ DrawRect(FLinearColor(0.94f, 0.07f, 0.11f, Alpha),
+   0.f, 0.f, Canvas->SizeX, Canvas->SizeY);
+}
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -29,6 +45,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!P.bUsable) {
    DrawText(TEXT("TALENT WEB | Enlarge window | K / ESC: close"),
      FLinearColor::White, 12.f, 12.f, nullptr, 0.85f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   const int32 Available=Hero->GetUnspentTalentPoints();
@@ -150,6 +167,7 @@ void AMoonfallCombatHUD::DrawHUD()
       bShowNotice ? (Hero->bTalentWebNoticeSuccess ? Teal : Gold)
        : FLinearColor(0.74f,0.81f,0.92f),
       P.Left+16.f,P.Top+P.Height-24.f,nullptr,0.64f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
@@ -214,6 +232,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
  }
@@ -222,6 +241,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Canvas->SizeX < 300.f || Canvas->SizeY < 240.f) {
    DrawText(TEXT("ATLAS | Enlarge window | J / ESC: close"),
        FLinearColor(0.91f, 0.84f, 0.68f), 12.f, 14.f, nullptr, 0.75f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
@@ -669,6 +689,7 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.70f, 0.70f, 0.66f), MapLeft, MapTop + MapHeight + 20.f,
        nullptr, Scale * 0.66f);
   }
+  DrawMenuDamageFlash(Hero);
   return;
  }
  if (Hero->bOptionsOpen) {
@@ -777,6 +798,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  if (Hero->bInventoryOpen) {
@@ -795,6 +817,57 @@ void AMoonfallCombatHUD::DrawHUD()
   const float CloseButtonX = CloseSortX - 36.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
+  // The usual lower-left orb is rendered after the menu returns below. Give
+  // both live right-docked panels a compact, real-time vitals strip so the
+  // hero cannot lose HP or dodge stamina without any visible resource cue.
+  // Keep it left of the dock on ordinary windows and inside the viewport
+  // even on narrow windows; no extra widgets or actor scans per frame.
+  const float VitalsWidth = FMath::Clamp(Left - 28.f, 26.f, 224.f);
+  const float VitalsTop = FMath::Max(8.f, Canvas->SizeY - 168.f);
+  const bool bTightVitals = VitalsWidth < 140.f;
+  const float VitalsScale = bTightVitals ? 0.60f : 0.78f;
+  const float VitalMaxHealth = FMath::IsFinite(Hero->MaxHealth)
+    ? FMath::Max(1.f, Hero->MaxHealth) : 1.f;
+  const float VitalMaxMana = FMath::IsFinite(Hero->MaxMana)
+    ? FMath::Max(1.f, Hero->MaxMana) : 1.f;
+  const float VitalMaxStamina = FMath::IsFinite(Hero->MaxStamina)
+    ? FMath::Max(1.f, Hero->MaxStamina) : 1.f;
+  const float VitalHealth = FMath::IsFinite(Hero->Health)
+    ? FMath::Clamp(Hero->Health, 0.f, VitalMaxHealth) : 0.f;
+  const float VitalMana = FMath::IsFinite(Hero->Mana)
+    ? FMath::Clamp(Hero->Mana, 0.f, VitalMaxMana) : 0.f;
+  const float VitalStamina = FMath::IsFinite(Hero->Stamina)
+    ? FMath::Clamp(Hero->Stamina, 0.f, VitalMaxStamina) : 0.f;
+  const float VitalXP = static_cast<float>(FMath::Max(0, Hero->Experience));
+  const float VitalMaxXP = static_cast<float>(FMath::Max(1, Hero->ExperienceToNextLevel));
+  const bool bVitalsCritical = Hero->Health > 0.f && VitalHealth <= VitalMaxHealth * 0.25f;
+  DrawRect(FLinearColor(0.035f, 0.039f, 0.072f, 0.91f),
+    8.f, VitalsTop, VitalsWidth + 16.f, 157.f);
+  DrawText(bVitalsCritical ? TEXT("LOW HP") : TEXT("RESOURCES"),
+    bVitalsCritical ? FLinearColor(1.f, 0.38f, 0.43f) : FLinearColor(0.80f, 0.87f, 1.f),
+    13.f, VitalsTop + 6.f, nullptr, VitalsScale);
+  const auto DrawVital = [this, VitalsTop, VitalsWidth, VitalsScale, bTightVitals](
+    int32 Row, const TCHAR* ShortLabel, float Current, float Maximum,
+    const FLinearColor& Ink) {
+    const float Y = VitalsTop + 26.f + Row * 32.f;
+    const float Fraction = FMath::Clamp(Current / Maximum, 0.f, 1.f);
+    const FString Caption = bTightVitals
+      ? FString(ShortLabel)
+      : FString::Printf(TEXT("%s %.0f / %.0f"), ShortLabel, Current, Maximum);
+    DrawText(Caption, FLinearColor::White, 13.f, Y, nullptr, VitalsScale);
+    DrawRect(FLinearColor(0.15f, 0.15f, 0.20f, 0.96f),
+      13.f, Y + 15.f, VitalsWidth - 10.f, 6.f);
+    DrawRect(Ink, 13.f, Y + 15.f,
+      (VitalsWidth - 10.f) * Fraction, 6.f);
+  };
+  DrawVital(0, TEXT("HP"), VitalHealth, VitalMaxHealth,
+    FLinearColor(0.95f, 0.12f, 0.19f));
+  DrawVital(1, TEXT("MANA"), VitalMana, VitalMaxMana,
+    FLinearColor(0.18f, 0.56f, 0.99f));
+  DrawVital(2, TEXT("STAM"), VitalStamina, VitalMaxStamina,
+    FLinearColor(0.22f, 0.86f, 0.43f));
+  DrawVital(3, TEXT("XP"), FMath::Min(VitalXP, VitalMaxXP), VitalMaxXP,
+    FLinearColor(0.70f, 0.32f, 1.f));
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
@@ -849,6 +922,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("C / P / R3: back to inventory    B / I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   DrawMenuDamageFlash(Hero);
    return;
   }
   // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
@@ -1169,6 +1243,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / P / R3: character stats    B / I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  DrawMenuDamageFlash(Hero);
   return;
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
