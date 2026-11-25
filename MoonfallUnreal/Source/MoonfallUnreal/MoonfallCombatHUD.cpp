@@ -1895,7 +1895,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
       Book.Width<500.f ? 0.62f : 0.85f);
    if (Book.Width >= 440.f)
-    DrawText(TEXT("P/Y: BACK | J/R3: ATLAS | D-PAD: SELECT / EQUIP"),
+    DrawText(TEXT("P: CLOSE | Y: BAG | J/R3: ATLAS | UP/DOWN: SELECT | LEFT/RIGHT: EQUIP"),
        FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
        Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    DrawLiveMenuHitCue();
