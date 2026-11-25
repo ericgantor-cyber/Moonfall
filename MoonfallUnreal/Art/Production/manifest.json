@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "destination": "/Game/MoonfallProduction/Meshes",
+  "assets": [
+    {
+      "name": "SM_MF_FirstlightSword",
+      "file": "SM_MF_FirstlightSword.obj",
+      "triangles": 1240,
+      "role": "equipment"
+    },
+    {
+      "name": "SM_MF_LunarReliquary",
+      "file": "SM_MF_LunarReliquary.obj",
+      "triangles": 1264,
+      "role": "shrine"
+    },
+    {
+      "name": "SM_MF_GothicColumn",
+      "file": "SM_MF_GothicColumn.obj",
+      "triangles": 576,
+      "role": "architecture"
+    }
+  ],
+  "protected": "No edits to Z or Nyra or existing Content packages",
+  "status": "source_meshes_only; editor import and runtime integration unverified"
+}
