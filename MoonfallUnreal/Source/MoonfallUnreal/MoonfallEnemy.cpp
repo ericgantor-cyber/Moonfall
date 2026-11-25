@@ -221,6 +221,9 @@ void AMoonfallEnemy::TakeMeleeDamage(float Amount) {
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
+  if (!FMath::IsFinite(Health) || !GetWorld() || IsActorBeingDestroyed()) return;
+  if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
+  if (!FMath::IsFinite(MaxHealthAtSpawn)) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
   if (Health <= 0.f) return;
@@ -242,10 +245,12 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Extreme finite Blueprint values can overflow once affixes and shatter multiply.
   // Do not consume the once-only shatter opening for invalid damage.
   if (!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f) return;
-  if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // Sub-precision hits must not consume a finisher or trigger hit reactions.
+  if (ActualDamage <= 0.f) return;
+  if (bShatterFinisher) bPostureFinisherAvailable = false;
   // A struck ordinary enemy investigates its attacker briefly. This does not
   // reveal the hero forever or share omniscient positions with other enemies.
   if (!bBoss && ActualDamage > 0.f && GetWorld()) {
