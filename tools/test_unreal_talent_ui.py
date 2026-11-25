@@ -55,16 +55,22 @@ assert buffer_start < buffer_end
 
 for name, key in {
     "TalentWeb": "K", "TalentSpend": "Enter", "TalentRespec": "BackSpace",
-    "TalentSpend": "Gamepad_FaceButton_Bottom",
+    "ControllerConfirm": "Gamepad_FaceButton_Bottom",
     "TalentClose": "Gamepad_FaceButton_Right",
     "TalentBranchPrevious": "Gamepad_LeftShoulder",
     "TalentBranchNext": "Gamepad_RightShoulder",
 }.items():
     assert f'ActionName="{name}",Key={key}' in inputs, (name, key)
-for name in ("TalentWeb", "TalentSpend", "TalentRespec", "TalentClose",
+for name in ("TalentWeb", "TalentSpend", "ControllerConfirm", "TalentRespec", "TalentClose",
              "TalentBranchPrevious", "TalentBranchNext"):
     assert f'Input->BindAction(TEXT("{name}")' in pawn
 assert 'ActionName="TalentSpend",Key=Enter' in inputs
+a_mappings = [line for line in inputs.splitlines()
+              if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Bottom" in line]
+assert a_mappings == ['+ActionMappings=(ActionName="ControllerConfirm",Key=Gamepad_FaceButton_Bottom)']
+confirm = pawn.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("void AMoonfallHeroPawn::TryJump()", 1)[0]
+assert "if (bTalentWebOpen) { TalentSpendSelected(); return; }" in confirm
+assert confirm.index("if (bTalentWebOpen)") < confirm.index("TryJump();")
 assert 'ActionName="TalentRespec",Key=Gamepad_LeftTrigger' in inputs
 # The keyboard arrows and WASD still move the character ONLY.
 for line in inputs.splitlines():
