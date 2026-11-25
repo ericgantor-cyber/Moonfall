@@ -9,7 +9,8 @@ import unreal
 PROJECT = Path(unreal.Paths.project_dir()).resolve()
 SOURCE = PROJECT / "Art" / "Production" / "Meshes"
 DEST = "/Game/MoonfallProduction/Meshes"
-NAMES = {"SM_MF_FirstlightSword", "SM_MF_LunarReliquary", "SM_MF_GothicColumn"}
+NAMES = {"SM_MF_FirstlightSword", "SM_MF_LunarReliquary", "SM_MF_GothicColumn",
+         "SM_MF_FirstlightShield", "SM_MF_FirstlightCuirass", "SM_MF_EclipseAmulet"}
 
 def run():
     if not (PROJECT / "MoonfallUnreal.uproject").is_file():
