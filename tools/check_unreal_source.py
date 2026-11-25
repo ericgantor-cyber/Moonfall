@@ -6342,6 +6342,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip.index("EquipmentTier = FMath::Max("),
                         equip.index("ReadyRightHandWeapon();"))
 
+    def test_hand_loadout_rejects_unsafe_world_and_menu_transitions(self):
+        for name in ("ReadyRightHandSpell", "ReadyRightHandWeapon",
+                     "EquipRightHandFavorite", "EquipSpellBookSelection"):
+            body = self.hero_cpp.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            entry = body.split("{", 1)[1].split(";", 1)[0]
+            for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress",
+                          "bTalentAllocationInProgress", "bEquipmentCraftInProgress",
+                          "bTalentWebOpen", "FocusedResident.IsValid()"):
+                self.assertIn(guard, entry, name)
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
