@@ -191,6 +191,20 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index('world.get_path_name()'), script.index("spawn_actor_from_class("))
         self.assertNotIn("save_current_level(", script)
 
+    def test_nanite_benchmarks_leave_runtime_meshes_untouched(self):
+        script = (ROOT / "Tools/create_nanite_benchmark_assets.py").read_text()
+        for token in ('DEST = "/Game/MoonfallProduction/NanitePreview"',
+                      'NAMES = ("SM_MF_GothicColumn", "SM_MF_LunarReliquary")',
+                      "duplicate_asset(source, target)", 'set_editor_property("enabled", True)',
+                      'set_editor_property("keep_percent_triangles", 1.0)',
+                      'set_editor_property("fallback_percent_triangles", 1.0)',
+                      "NaniteFallbackTarget.PERCENT_TRIANGLES",
+                      "editor.set_nanite_settings(mesh, settings, True)"):
+            self.assertIn(token, script)
+        self.assertLess(script.index("does_asset_exist(target)"), script.index("duplicate_asset(source, target)"))
+        self.assertLess(script.index("duplicate_asset(source, target)"), script.index("editor.set_nanite_settings("))
+        self.assertNotIn("delete_asset(", script)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
