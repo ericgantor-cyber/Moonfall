@@ -919,6 +919,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
@@ -934,10 +935,13 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
-  InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
+  const int32 MaxStart = FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows());
+  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+  InventoryViewStart = FMath::Min(MaxStart, InventoryViewStart + 1);
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
