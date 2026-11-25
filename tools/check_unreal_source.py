@@ -134,8 +134,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                             body.index("SwordBuffer."))
         dual = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "\n}", 1)[0]
-        self.assertLess(dual.index("TryCast(LeftSpell, 0, 2.f)"), dual.index(guard))
-        self.assertLess(dual.index(guard), dual.index("OnSpellCast(LeftSpell, false);"))
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        self.assertNotIn("OnSpellCast(", dual)
+        self.assertLess(cast.index(guard), cast.index("OnSpellCast(School, false);"))
+        self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
+                        cast.index("OnSpellCast(School, Hand == 0);"))
+        self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
+                        cast.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertLess(cast.index("!FMath::IsFinite(LastCastTime[1])"),
+                        cast.index("Enemy->TakeSpellDamage("))
+        self.assertIn("if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cast)
 
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")

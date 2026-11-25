@@ -290,8 +290,8 @@ int main() {
         both = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "void AMoonfallHeroPawn::RightHandAction()", 1)[0]
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", both)
-        self.assertLess(both.index("TryCast(LeftSpell, 0, 2.f)"),
-                        both.index("LastCastTime[1] = LastCastTime[0];"))
+        self.assertIn("if (bDualCast) LastCastTime[1] = Time;", hero)
+        self.assertNotIn("LastCastTime[1] = LastCastTime[0];", both)
 
     def test_favorites_only_equip_inside_inventory(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
