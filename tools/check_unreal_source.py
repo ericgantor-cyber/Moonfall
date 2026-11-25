@@ -6361,6 +6361,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(body.index("InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded"),
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
 
+    def test_combat_entry_rejects_unsafe_transitions_and_trace_geometry(self):
+        for name in ("TryCast", "MeleeAttack", "Dodge", "BeginGuard"):
+            body = self.hero_cpp.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            entry = body.split("{", 1)[1].split(";", 1)[0]
+            for guard in ("IsActorBeingDestroyed()", "bWorldProgressLoadInProgress",
+                          "bEquipmentCraftInProgress", "bTalentAllocationInProgress"):
+                self.assertIn(guard, entry, name)
+        spell = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(spell.index("Origin.ContainsNaN() || End.ContainsNaN()"),
+                        spell.index("LineTraceSingleByChannel("))
+        melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(melee.index("Facing.ContainsNaN()"), melee.index("SweepSingleByChannel("))
+
     def test_xp_award_publishes_only_committed_progression(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
