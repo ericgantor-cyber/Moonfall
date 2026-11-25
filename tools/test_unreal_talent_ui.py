@@ -154,7 +154,10 @@ assert 'BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHe
 r3_press = pawn.split("void AMoonfallHeroPawn::ControllerRightStickPress()", 1)[1].split("\n}", 1)[0]
 r3_release = pawn.split("void AMoonfallHeroPawn::ControllerRightStickRelease()", 1)[1].split("\n}", 1)[0]
 assert r3_press.index("if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }") < r3_press.index("BeginGuard();")
+assert r3_press.index("if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }") < r3_press.index("if (bInventoryOpen) { ToggleAtlas(); return; }") < r3_press.index("BeginGuard();")
+assert r3_press.index("if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;") < r3_press.index("if (bInventoryOpen) { ToggleAtlas(); return; }")
 assert r3_press.index("if (bGuarding) return;") < r3_press.index("BeginGuard();")
+assert "J/R3: atlas" in hud and "J/R3: ATLAS" in hud
 assert r3_press.index("BeginGuard();") < r3_press.index("bControllerGuardStarted = bGuarding;")
 assert r3_release.index("if (!bControllerGuardStarted) return;") < r3_release.index("EndGuard();")
 assert "bControllerGuardStarted = false;" in method_segment("EndGuard")
