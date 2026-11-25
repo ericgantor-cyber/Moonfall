@@ -173,7 +173,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             physical = [m for m in config.splitlines()
                         if m.startswith("+ActionMappings=") and m.endswith("Key="+key+")")]
             self.assertEqual(len(physical), 1, key)
-        self.assertIn("D-pad UP/DOWN: same branch  LEFT/RIGHT: switch  Right stick: pan", self.hud)
+        self.assertIn("D-pad: select / branch | R stick: pan | LB/RB: zoom", self.hud)
+        for action, zoom, cast in (
+            ("CastLeft", "ZoomCameraOut", "TryCast(LeftSpell, 0, 1.f)"),
+            ("CastRight", "ZoomCameraIn", "TryCast(RightSpell, 1, 1.f)"),
+        ):
+            body = self.hero_cpp.split(f"void AMoonfallHeroPawn::{action}()", 1)[1].split("\n}", 1)[0]
+            route = f"if (bTalentWebOpen) {{ {zoom}(); return; }}"
+            self.assertLess(body.index(route), body.index(cast))
         self.assertIn("inline int32 StepBranch(int32 CurrentIndex, int32 Direction)", layout)
         self.assertIn("inline int32 StepWithinBranch(int32 CurrentIndex, int32 Direction)", layout)
         self.assertIn("Candidate = (Candidate + (Direction > 0 ? 1 : Count - 1)) % Count;", layout)
