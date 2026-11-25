@@ -125,6 +125,22 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, HUD)
 
+    def test_expanded_engraved_art_is_bounded_and_display_only(self):
+        for token in (
+            "K<=4;++K", "Octagonal enamel seal", "Rarity-colored metal setting",
+            "cardinal gilded studs", "Heraldic escutcheon", "Four engraved compass points",
+            "Static gold bezel ticks", "DrawOptionGlyph(MenuLeft+25.f,Y+RowHeight*0.5f,i,",
+        ):
+            self.assertIn(token, HUD)
+        options = HUD.split("const auto DrawOptionGlyph=", 1)[1].split(
+            "const auto DrawSelectionRail", 1)[0]
+        self.assertIn("Option<0 || Option>=8", options)
+        for index in range(7):
+            self.assertIn(f"case {index}:", options)
+        self.assertIn("default: // Display mode", options)
+        for forbidden in ("BindAction", "SaveWorldProgress", "LoadObject", "TActorIterator"):
+            self.assertNotIn(forbidden, options)
+
     def test_talent_stat_runes_are_bounded_and_use_real_catalog_stats(self):
         art = HUD.split("const auto DrawTalentRune=", 1)[1].split("for(int I=0;", 1)[0]
         for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):
