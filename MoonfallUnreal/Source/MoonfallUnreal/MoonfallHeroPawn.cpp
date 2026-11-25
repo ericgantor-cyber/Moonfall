@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallImpactFeedback.h"
+#include "Misc/GuardValue.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -968,6 +969,8 @@ void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool 
 
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
+ if (bResolvingCombatAction) return false;
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
  if (bTalentWebOpen) return false;
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -1126,6 +1129,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 }
 void AMoonfallHeroPawn::CastLeft()
 {
+ if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
@@ -1133,6 +1137,7 @@ void AMoonfallHeroPawn::CastLeft()
 }
 void AMoonfallHeroPawn::CastRight()
 {
+ if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
@@ -1140,6 +1145,7 @@ void AMoonfallHeroPawn::CastRight()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
+ if (bResolvingCombatAction) return;
 
  if (bOptionsOpen || bAtlasOpen) return;
  if (bTalentWebOpen) return;
@@ -1151,6 +1157,8 @@ void AMoonfallHeroPawn::CastBoth()
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
  if (TryCast(LeftSpell, 0, 2.f))
  {
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+  TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
  }
@@ -1160,6 +1168,7 @@ void AMoonfallHeroPawn::CastBoth()
 // shoulder spell shortcuts continue working regardless of this selection.
 void AMoonfallHeroPawn::RightHandAction()
 {
+ if (bResolvingCombatAction) return;
 
  // RT and primary-action input must not dispatch either attack path while
  // a menu, the Atlas, or NPC dialogue owns input. Keep this shared gate
@@ -1349,6 +1358,8 @@ void AMoonfallHeroPawn::ResetMeleeHitCombo()
 // No animation asset is required; the Blueprint event can add authored trails.
 void AMoonfallHeroPawn::MeleeAttack()
 {
+ if (bResolvingCombatAction) return;
+ TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);
 
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen
      || bResidentContextOpen || FocusedResident.IsValid() || bGuarding

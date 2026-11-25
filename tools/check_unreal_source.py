@@ -114,6 +114,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ImpactCameraOffset = 0.f;", respawn)
         self.assertIn("LastOffensiveImpactAt = -100.f;", respawn)
 
+    def test_combat_callbacks_cannot_recursively_cast_or_queue_attacks(self):
+        hero = self.hero_cpp
+        self.assertIn("bool bResolvingCombatAction = false;", self.hero_h)
+        self.assertIn('#include "Misc/GuardValue.h"', hero)
+        guard = "TGuardValue<bool> CombatActionGuard(bResolvingCombatAction, true);"
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertLess(cast.index("if (bResolvingCombatAction) return false;"), cast.index(guard))
+        self.assertLess(cast.index(guard), cast.index("Enemy->TakeSpellDamage("))
+        melee = hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        self.assertLess(melee.index("if (bResolvingCombatAction) return;"), melee.index(guard))
+        self.assertLess(melee.index(guard), melee.index("SwordBuffer.Clear();"))
+        for action in ("CastLeft", "CastRight", "CastBoth", "RightHandAction"):
+            body = hero.split("void AMoonfallHeroPawn::" + action + "()", 1)[1].split(
+                "\n}", 1)[0]
+            self.assertLess(body.index("if (bResolvingCombatAction) return;"),
+                            body.index("SwordBuffer."))
+        dual = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertLess(dual.index("TryCast(LeftSpell, 0, 2.f)"), dual.index(guard))
+        self.assertLess(dual.index(guard), dual.index("OnSpellCast(LeftSpell, false);"))
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
