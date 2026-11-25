@@ -1922,8 +1922,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::BeginFinisherDefeat", 1)[0]
         companion = self.enemy_cpp.split("bool AMoonfallEnemy::TryCompanionSupportStrike(float Amount)", 1)[1].split("void AMoonfallEnemy::TakeMeleeDamage", 1)[0]
         posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::RegisterComboMilestone", 1)[0]
-        for body in (damage, companion):
-            self.assertLess(body.index("if (bResolvingDamage)"), body.index("TGuardValue<bool> DamageGuard(bResolvingDamage, true);"))
+        self.assertLess(damage.index("if (bResolvingDamage)"), damage.index("TGuardValue<bool> DamageGuard(bResolvingDamage, true);"))
+        self.assertLess(companion.index("if (bResolvingDamage)"), companion.index("TakeMeleeDamage(Amount);"))
+        self.assertNotIn("TGuardValue<bool> DamageGuard", companion)
+        self.assertNotIn("bResolvingDamage = true", companion)
+        melee = self.enemy_cpp.split("void AMoonfallEnemy::TakeMeleeDamage(float Amount)", 1)[1].split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[0]
+        self.assertIn("TakeSpellDamage(Amount);", melee)
+        self.assertLess(companion.index("TakeMeleeDamage(Amount);"), companion.index("return Health<Before;"))
         self.assertLess(damage.index("TGuardValue<bool> DamageGuard"), damage.index("Health = FMath::Max(0.0f, Health -"))
         self.assertLess(posture.index("if (bResolvingPosture"), posture.index("TGuardValue<bool> PostureGuard"))
         self.assertLess(posture.index("TGuardValue<bool> PostureGuard"), posture.index("OnPostureChanged(Posture, MaxPosture);"))
