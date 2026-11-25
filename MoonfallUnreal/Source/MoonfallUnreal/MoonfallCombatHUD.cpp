@@ -2422,6 +2422,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float TellX = (Canvas->SizeX - TellWidth) * 0.5f;
   const float TellY = Canvas->SizeY * 0.23f;
   DrawRect(FLinearColor(0.055f,0.035f,0.065f,0.92f), TellX,TellY,TellWidth,40.f);
+  // Forged alert rails distinguish the sword tell without changing its size.
+  const FLinearColor TellFoil(0.78f,0.58f,0.33f,0.93f);
+  DrawRect(TellFoil,TellX,TellY,TellWidth,1.f);
+  DrawRect(TellFoil,TellX,TellY+39.f,TellWidth,1.f);
+  DrawRect(TellFoil,TellX,TellY+5.f,3.f,30.f);
+  DrawRect(TellFoil,TellX+TellWidth-3.f,TellY+5.f,3.f,30.f);
   DrawText(FString::Printf(TEXT("%s STRIKE | GUARD"), UTF8_TO_TCHAR(MoonfallOmniattack::GuardName(NearbySwordTell))),
      FLinearColor(0.95f,0.86f,0.68f),TellX+9.f,TellY+10.f,nullptr,0.84f);
  }
@@ -2881,6 +2887,15 @@ void AMoonfallCombatHUD::DrawHUD()
      CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("FOLLOW"):
      CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("HOLD"):TEXT("PASSIVE");
    DrawRect(FLinearColor(0.035f,0.045f,0.09f,0.92f),X,Y,W,65.f);
+   // Companion portrait substitute: a static oath crest in the unused
+   // lower-right corner, reflecting the real downed state, not a new status.
+   const FLinearColor OathInk=bDown?FLinearColor(0.93f,0.37f,0.32f)
+      :FLinearColor(0.63f,0.83f,0.72f);
+   DrawRect(OathInk,X,Y,W,1.f);
+   DrawRect(OathInk,X,Y+64.f,W,1.f);
+   DrawRect(OathInk,X,Y,2.f,65.f);
+   DrawRect(OathInk,X+W-2.f,Y,2.f,65.f);
+   DrawMoonfallSigil(X+W-17.f,Y+49.f,8.f,OathInk,2);
    DrawText(Scout->DisplayName.ToString().Left(24),FLinearColor::White,X+10.f,Y+5.f,nullptr,0.82f);
    DrawRect(FLinearColor(0.20f,0.12f,0.16f),X+10.f,Y+27.f,W-20.f,7.f);
    const FLinearColor HPColor=HP<=25.f?FLinearColor(1.f,0.28f,0.25f):FLinearColor(0.32f,0.82f,0.53f);
