@@ -2558,8 +2558,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(PostureFinisherDamageMultiplier, 1.f, 4.f)", damage)
         self.assertIn("if (bShatterFinisher) bPostureFinisherAvailable = false;", damage)
         self.assertIn("bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f)", damage)
+        self.assertLess(damage.index("Health = FMath::Max(0.0f, Health -"),
+                        damage.index("if (ActualDamage <= 0.f) return;"))
+        self.assertLess(damage.index("if (ActualDamage <= 0.f) return;"),
+                        damage.index("if (bShatterFinisher) bPostureFinisherAvailable = false;"))
         self.assertLess(damage.index("if (bShatterFinisher) bPostureFinisherAvailable = false;"),
-                        damage.index("Health = FMath::Max(0.0f, Health -"))
+                        damage.index("OnShatterFinisher(ActualDamage);"))
         self.assertIn('TEXT("POSTURE SHATTERED")', self.hud)
         self.assertIn('TEXT("SHATTERED")', self.hud)
         self.assertIn("Boss->Posture / FMath::Max(1.f, Boss->MaxPosture)", self.hud)
