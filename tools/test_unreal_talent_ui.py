@@ -86,7 +86,13 @@ routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 
           " Dodge();\n}")
 indices = [back.index(route) for route in routes]
 assert indices == sorted(indices)
-assert 'ActionName="TalentRespec",Key=Gamepad_LeftTrigger' in inputs
+assert 'ActionName="TalentRespec",Key=BackSpace' in inputs
+lt_mappings = [line for line in inputs.splitlines()
+               if line.startswith("+ActionMappings=") and "Key=Gamepad_LeftTrigger" in line]
+assert lt_mappings == ['+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)']
+lt = pawn.split("void AMoonfallHeroPawn::ControllerLeftTrigger()", 1)[1].split("void AMoonfallHeroPawn::ControllerRightTrigger()", 1)[0]
+assert "if (bTalentWebOpen) { TalentConfirmRespec(); return; }" in lt
+assert lt.index("TalentConfirmRespec(); return;") < lt.index("EquipBestInventoryAction(); return;") < lt.index("CastBoth();")
 # The keyboard arrows and WASD still move the character ONLY.
 for line in inputs.splitlines():
     if 'ActionMappings=(ActionName="Talent' in line:
