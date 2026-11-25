@@ -1494,7 +1494,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
         self.assertIn('ActionName="Inventory",Key=B', inputs)
-        self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
+        lt_mappings = [line for line in inputs.splitlines()
+                       if line.startswith("+ActionMappings=") and "Key=Gamepad_LeftTrigger" in line]
+        self.assertEqual(lt_mappings, ['+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)'])
+        self.assertIn('BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftTrigger);', self.hero_cpp)
+        self.assertIn("void ControllerLeftTrigger();", self.hero_h)
+        trigger = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerLeftTrigger()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerRightTrigger()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;",
+                  "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bTalentWebOpen) { TalentConfirmRespec(); return; }",
+                  "if (bInventoryOpen) { EquipBestInventoryAction(); return; }",
+                  "if (Health <= 0.f) return;",
+                  " CastBoth();\n}")
+        indices = [trigger.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
         self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
