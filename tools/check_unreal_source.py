@@ -6632,6 +6632,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->bBoss = true;", boss)
         self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
 
+    def test_modal_spell_shortcuts_preserve_combat_buffers(self):
+        guard = "if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;"
+        for action in ("CastLeft", "CastRight", "CastBoth"):
+            with self.subTest(action=action):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + action + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index(guard), body.index("DodgeBuffer.Clear();"))
+                self.assertLess(body.index(guard), body.index("SwordBuffer.Clear();"))
+                self.assertLess(body.index(guard), body.index("TryCast("))
+
     def test_atlas_modal_blocks_remaining_combat_and_world_mouse_input(self):
         def method_body(name):
             return self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}(", 1)[1].split("\n}", 1)[0]
