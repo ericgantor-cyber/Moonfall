@@ -1599,7 +1599,8 @@ void AMoonfallHeroPawn::BeginGuard()
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
-     || Stamina < GuardStaminaCost || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
+     || FocusedResident.IsValid() || IsActorBeingDestroyed()
+     || Stamina < GuardStaminaCost) return;
  if (bTalentWebOpen) return;
  // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
  const float GuardNow = GetWorld()->GetTimeSeconds();
