@@ -9,6 +9,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallWorldQuest.h"
+#include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -596,9 +597,13 @@ void AMoonfallCombatHUD::DrawHUD()
        !Hero->SupportsResidentContract(Resident->ResidentId);
    const int32 Quest = Resident->bAmbientVisitor ? 2
        : bNoContract ? 2 : Hero->GetResidentQuestState(Resident->ResidentId);
+   const int32 ContractCost=bNoContract?0:Resident->GetContractSalvageCost();
+   const auto QuestReward=MoonfallQuestXP::Preview(ContractCost,Hero->Level,
+       Hero->Experience,Hero->ExperienceToNextLevel);
+   const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu;
    const FString QuestAction = bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
-     : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
+     : Quest == 1 ? (Hero->Salvage<ContractCost ? TEXT("Need salvage") : TEXT("Turn in salvage")) : TEXT("Completed");
    FString Names[9] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
@@ -728,7 +733,14 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
-        L + 18.f, T + 99.f, nullptr, 0.72f);
+        L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
+   else if (bQuestRewardVisible) {
+    FString RewardLabel=FString::Printf(TEXT("%d salvage | +%d XP"),ContractCost,QuestReward.RewardXP);
+    if (Hero->Level==100) RewardLabel=FString::Printf(TEXT("%d salvage | MAX LEVEL"),ContractCost);
+    else if (QuestReward.LevelsGained>0) RewardLabel+=FString::Printf(TEXT(" | Lv %d"),QuestReward.FinalLevel);
+    if (W>=390.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
+    DrawText(RewardLabel, FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.65f:0.76f);
+   }
    if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);

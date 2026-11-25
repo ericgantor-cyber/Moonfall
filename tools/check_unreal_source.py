@@ -4589,6 +4589,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bDungeonStartupStopped || !GetWorld() || IsActorBeingDestroyed()) return;", start)
         self.assertLess(start.index("if (!bGenerateDungeonWorld) return;"), start.index("SpawnDungeonBatch();"))
 
+    def test_resident_quest_reward_preview_respects_contract_state(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu", hud)
+        self.assertIn("MoonfallQuestXP::Preview(ContractCost,Hero->Level", hud)
+        self.assertIn("else if (bQuestRewardVisible)", hud)
+        self.assertIn("MAX LEVEL", hud)
+        self.assertIn("Confirm: %d salvage | +%d XP", self.hero_cpp)
+        self.assertIn("Complete! +%d XP | Level %d", self.hero_cpp)
+        body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Resident->bAmbientVisitor", body)
+        self.assertIn("GetFactionReputation(Resident->FactionId) <= -50", body)
+        self.assertIn("Reward.NextLevelXP", body)
+
     def test_resident_quest_xp_is_committed_with_contract_and_rolls_back(self):
         body = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         self.assertEqual(body.count("SaveWorldProgress()"), 1)
