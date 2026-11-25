@@ -4251,6 +4251,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  TalentRanks = LoadedTalentRanks;
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
+ // Restore the same level-derived spell power used by earned level-ups.
+ // Do not replay XP awards or add health already recorded in the save.
+ SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
