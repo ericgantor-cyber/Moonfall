@@ -4220,10 +4220,10 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();
- SwordBuffer.Clear();
  ParryCounterUntil = -1.f;
  PerfectDodgeWindowUntil = -1.f;
  ParryWindowEndsAt = -1.f;
+ SwordBuffer.Clear();
  MoonfallOmniattack::Reset(SwordFlow);
  CurrentSwordAngle = -1;
  SwordFlowStep = 0;
