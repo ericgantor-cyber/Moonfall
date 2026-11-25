@@ -6162,6 +6162,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 
+    def test_damage_feedback_measures_only_current_impact(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split("void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertLess(damage.index("OnGuardImpact("), damage.index("const float PreviousHealth = Health;"))
+        self.assertIn("const float PreviousHealth = Health;\n Health = FMath::Max(0.f, Health - DamageAfterGuard);", damage)
+        self.assertLess(damage.index("const float PreviousHealth = Health;"), damage.index("const float DamageTaken = PreviousHealth - Health;"))
+
     def test_directional_damage_scopes_callback_context(self):
         hit = self.hero_cpp.split("bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[1].split("void AMoonfallHeroPawn::ApplyMoonfallDamage(", 1)[0]
         for guard in ("SourceLocation.ContainsNaN()", "TGuardValue<bool> ParryResultGuard(bLastIncomingHitParried, false)", "TGuardValue<FVector> SourceGuard(IncomingDamageSource, SourceLocation)", "TGuardValue<bool> HasSourceGuard(bHasIncomingDamageSource, true)"):
