@@ -463,6 +463,36 @@ void AMoonfallCombatHUD::DrawHUD()
         FLinearColor(0.53f,0.43f,0.68f,0.72f),1.4f);
    }
   }
+  // Six original engraved stat runes. Fixed-cost, static Canvas artwork.
+  const auto DrawTalentRune=[this](float X,float Y,MoonfallTalents::Stat Stat,
+                                   const FLinearColor& Ink) {
+   const auto S=[this,X,Y,&Ink](float A,float B,float C,float D) {
+    DrawLine(X+A*7.f,Y+B*7.f,X+C*7.f,Y+D*7.f,Ink,1.35f);
+   };
+   S(0,-1,1,0); S(1,0,0,1); S(0,1,-1,0); S(-1,0,0,-1);
+   switch (Stat) {
+    case MoonfallTalents::Stat::Health: // Heart
+     S(-.65f,-.2f,-.35f,-.55f); S(-.35f,-.55f,0,-.25f);
+     S(0,-.25f,.35f,-.55f); S(.35f,-.55f,.65f,-.2f);
+     S(.65f,-.2f,0,.65f); S(0,.65f,-.65f,-.2f); break;
+    case MoonfallTalents::Stat::Mana: // Lunar droplet
+     S(0,-.65f,.5f,.15f); S(.5f,.15f,0,.65f);
+     S(0,.65f,-.5f,.15f); S(-.5f,.15f,0,-.65f); break;
+    case MoonfallTalents::Stat::Stamina: // Lightning
+     S(.25f,-.7f,-.45f,.03f); S(-.45f,.03f,.35f,.03f);
+     S(.35f,.03f,-.25f,.7f); break;
+    case MoonfallTalents::Stat::MeleeDamage: // Blade
+     S(-.45f,.65f,.45f,-.65f); S(.45f,-.65f,.55f,-.22f);
+     S(-.4f,.05f,.2f,.45f); break;
+    case MoonfallTalents::Stat::RangedDamage: // Arrow
+     S(-.5f,.5f,.55f,-.55f); S(.05f,-.55f,.55f,-.55f);
+     S(.55f,-.55f,.55f,-.05f); break;
+    case MoonfallTalents::Stat::MagicDamage: // Four-point star
+     S(0,-.65f,0,.65f); S(-.65f,0,.65f,0);
+     S(-.4f,-.4f,.4f,.4f); S(-.4f,.4f,.4f,-.4f); break;
+    default: break;
+   }
+  };
   for(int I=0;I<MoonfallTalents::NodeCount;++I) {
    if(MoonfallTalentWeb::BranchOf(I)!=Branch)continue;
    const auto NodeRect=MoonfallTalentWeb::NodeRect(P,I,Branch);
@@ -482,10 +512,15 @@ void AMoonfallCombatHUD::DrawHUD()
       float(NodeRect.W),float(NodeRect.H));
    DrawRect(Selected?FLinearColor(0.96f,0.79f,0.40f):BranchColors[Branch],
       float(NodeRect.X),float(NodeRect.Y),4.f,float(NodeRect.H));
-   // Rank stamp is drawn only for invested or focused talents.
-   if ((Selected || Rank>0) && NodeRect.W>=110 && NodeRect.H>=32)
-    DrawMoonfallSigil(float(NodeRect.X+NodeRect.W-13),
-      float(NodeRect.Y+13),6.f,BranchColors[Branch],Branch);
+   // Reserve the lower-right corner for stat artwork, away from title and rank.
+   if (NodeRect.W>=132 && NodeRect.H>=36) {
+    const FLinearColor RuneInk=Selected?FLinearColor(0.98f,0.82f,0.43f)
+       : Rank>0?FLinearColor(0.72f,0.94f,0.77f):BranchColors[Branch];
+    DrawTalentRune(float(NodeRect.X+NodeRect.W-14),
+      float(NodeRect.Y+NodeRect.H-12),Node.AffectedStat,RuneInk);
+   }
+   if (Selected) DrawHoverFrame(float(NodeRect.X),float(NodeRect.Y),
+       float(NodeRect.W),float(NodeRect.H));
    const FString Name=FString(UTF8_TO_TCHAR(Node.Title)).Left(P.TileWidth<148?16:22);
    DrawText(Name,Selected?FLinearColor::White:FLinearColor(0.87f,0.86f,0.89f),
       float(NodeRect.X+9),float(NodeRect.Y+5),nullptr,
