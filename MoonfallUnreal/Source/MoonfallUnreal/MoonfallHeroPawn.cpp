@@ -1779,7 +1779,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(DamageImmunityUntil)
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
- const float PreviousHealth = Health;
+ // Measure this impact at its actual health mutation, after synchronous defense callbacks.
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const bool bOwnedArmor = InventoryItemCodes.Contains(EquippedArmorCode);
  const float ArmorMitigation = FMath::Min(0.34f,
@@ -1862,6 +1862,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>())
    DamageAfterGuard=FMath::Max(0.f,DamageAfterGuard-Mode->ConsumeLocalCompanionCover(this,DamageAfterGuard,IncomingDamageSource));
  }
+ const float PreviousHealth = Health;
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
  // Taking actual health damage interrupts the perfect-parry offensive opening.
  // Fully blocked/parried hits leave it intact.
