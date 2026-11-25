@@ -144,7 +144,19 @@ assert "if (bTalentWebOpen) return;" in atlas_focus
 assert "TalentChangeBranch(" not in atlas_focus
 assert "if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;" in atlas_focus
 assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
-assert 'ActionName="ChronicleFocus",Key=Gamepad_RightThumbstick' in inputs
+r3_mappings = [line for line in inputs.splitlines()
+               if line.startswith("+ActionMappings=") and "Key=Gamepad_RightThumbstick" in line]
+assert r3_mappings == ['+ActionMappings=(ActionName="ControllerRightStick",Key=Gamepad_RightThumbstick)']
+assert 'ActionName="Guard",Key=E' in inputs
+assert 'BindAction(TEXT("ControllerRightStick"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightStickPress);' in pawn
+assert 'BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHeroPawn::ControllerRightStickRelease);' in pawn
+r3_press = pawn.split("void AMoonfallHeroPawn::ControllerRightStickPress()", 1)[1].split("\n}", 1)[0]
+r3_release = pawn.split("void AMoonfallHeroPawn::ControllerRightStickRelease()", 1)[1].split("\n}", 1)[0]
+assert r3_press.index("if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }") < r3_press.index("BeginGuard();")
+assert r3_press.index("if (bGuarding) return;") < r3_press.index("BeginGuard();")
+assert r3_press.index("BeginGuard();") < r3_press.index("bControllerGuardStarted = bGuarding;")
+assert r3_release.index("if (!bControllerGuardStarted) return;") < r3_release.index("EndGuard();")
+assert "bControllerGuardStarted = false;" in method_segment("EndGuard")
 for method, action in (("OptionsUp", "TalentMove(0,-1)"),
                        ("OptionsDown", "TalentMove(0,1)"),
                        ("OptionsLeft", "TalentMove(-1,0)"),
