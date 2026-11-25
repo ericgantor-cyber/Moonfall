@@ -10,7 +10,10 @@ class ProductionArtTests(unittest.TestCase):
     def test_meshes_have_valid_uvs_faces_and_material_slots(self):
         manifest = json.loads((ART / "manifest.json").read_text())
         self.assertEqual(manifest["destination"], "/Game/MoonfallProduction/Meshes")
-        self.assertEqual(len(manifest["assets"]), 3)
+        self.assertEqual(len(manifest["assets"]), 6)
+        self.assertEqual({a["name"] for a in manifest["assets"]}, {
+            "SM_MF_FirstlightSword", "SM_MF_LunarReliquary", "SM_MF_GothicColumn",
+            "SM_MF_FirstlightShield", "SM_MF_FirstlightCuirass", "SM_MF_EclipseAmulet"})
         materials = {l.split()[1] for l in (ART / "Meshes" / "moonfall_relics.mtl").read_text().splitlines() if l.startswith("newmtl ")}
         for asset in manifest["assets"]:
             name = asset["name"]
