@@ -3803,7 +3803,7 @@ void AMoonfallHeroPawn::TalentConfirmRespec() {
   RespecTalentPoints();
  } else {
   bTalentRespecArmed=true;
-  TalentRespecArmUntil=Now+3.0f;
+  TalentRespecArmUntil=Now+10.0f;
  }
 }
 void AMoonfallHeroPawn::TalentPointerClick() {
