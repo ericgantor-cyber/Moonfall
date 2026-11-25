@@ -7,6 +7,7 @@
 #include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
+#include "Misc/PackageName.h"
 #include "Kismet/GameplayStatics.h"
 
 AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
@@ -28,11 +29,31 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  ShrineBeacon->SetRelativeScale3D(FVector(0.22f, 0.22f, 0.22f));
  ShrineBase->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  ShrineBeacon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // The imported reliquary replaces the primitive display only if present
+ // and usable. Discovery volume, respawn height, label and light stay fixed.
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_LunarReliquary"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> Reliquary(
+      TEXT("/Game/MoonfallProduction/Meshes/SM_MF_LunarReliquary.SM_MF_LunarReliquary"));
+  if (UStaticMesh* Imported=Reliquary.Get()) {
+   const FBox Bounds=Imported->GetBoundingBox();
+   const FVector Size=Bounds.GetSize();
+   const float Span=static_cast<float>(Size.GetMax());
+   if (Bounds.IsValid && !Bounds.Min.ContainsNaN() && !Bounds.Max.ContainsNaN()
+       && FMath::IsFinite(Span) && Span>0.1f && Span<100000.f
+       && ShrineBase->SetStaticMesh(Imported)) {
+    const float Scale=80.f/Span;
+    const FVector Center=Bounds.GetCenter();
+    ShrineBase->SetRelativeScale3D(FVector(Scale));
+    ShrineBase->SetRelativeLocation(FVector(-Center.X*Scale,-Center.Y*Scale,-12.5f-Bounds.Min.Z*Scale));
+    ShrineBeacon->SetVisibility(false);
+   }
+  }
+ }
  ShrineBase->SetGenerateOverlapEvents(false);
  ShrineBeacon->SetGenerateOverlapEvents(false);
 
  // Dark-fantasy beacon lighting without Tick, dynamic shadow casting,
- // imported assets, or changes to Z and Nyra's original artwork.
+ // extra animated effects, or changes to Z and Nyra's original artwork.
  ShrineLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("ShrineLight"));
  ShrineLight->SetupAttachment(SceneRoot);
  ShrineLight->SetRelativeLocation(FVector(0.f, 0.f, 90.f));
