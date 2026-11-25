@@ -8,6 +8,7 @@
 #include "MoonfallSpellBook.h"
 #include "MoonfallForgeForecast.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallWorldQuest.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -2550,6 +2551,37 @@ void AMoonfallCombatHUD::DrawHUD()
        Discovered, Cleared, RegionsCleared),
      FLinearColor(0.82f, 0.91f, 0.96f), Left + 14.f, Top + 102.f, nullptr,
      Canvas->SizeX < 1050.f ? 0.65f : 0.74f);
+  // Preserve the sanctuary tutorial and primary objective. Additional regional
+  // quests are read-only, derived from the same persistent dungeon ledger.
+  if (!bSanctuaryObjective) {
+   int Seen[MoonfallWorldQuest::ZoneCount]{}, Defeated[MoonfallWorldQuest::ZoneCount]{};
+   for (int Zone=0; Zone<MoonfallWorldQuest::ZoneCount; ++Zone)
+    for (int Dungeon=0; Dungeon<5; ++Dungeon) {
+     Seen[Zone] += Hero->HasDiscoveredDungeon(Zone,Dungeon) ? 1 : 0;
+     Defeated[Zone] += Hero->HasDefeatedDungeonBoss(Zone,Dungeon) ? 1 : 0;
+    }
+   const auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,MoonfallWorldQuest::MaxVisible);
+   const float ExtraTop=Top+132.f;
+   const float OrbRadius=FMath::Clamp(FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.092f,50.f,80.f);
+   const float Available=Canvas->SizeY-2.f*OrbRadius-33.f-ExtraTop;
+   const int Rows=MoonfallWorldQuest::VisibleRows(Available,Goals.Count);
+   if (Goals.Valid && Rows>0) {
+    const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
+    DrawRect(FLinearColor(0.035f,0.055f,0.11f,0.88f),Left,ExtraTop,Width,Height);
+    DrawText(FString::Printf(TEXT("REGIONAL QUESTS  |  %d/%d SHOWN"),Rows,Goals.Count),
+      FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
+    for (int Row=0; Row<Rows; ++Row) {
+     const int Goal=Goals.Indices[Row];
+     const int Progress=MoonfallWorldQuest::Progress(Goal,Seen,Defeated);
+     const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
+     DrawText(FString::Printf(TEXT("%s  |  %d/5 %s"),UTF8_TO_TCHAR(MoonfallWorldQuest::GoalTitles[Goal]),
+        Progress,UTF8_TO_TCHAR(MoonfallWorldQuest::Type(Goal))),
+        FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+2.f,nullptr,0.70f);
+     DrawRect(FLinearColor(0.13f,0.18f,0.26f),Left+14.f,Y+20.f,TrackWidth,3.f);
+     DrawRect(FLinearColor(0.32f,0.74f,0.91f),Left+14.f,Y+20.f,TrackWidth*(Progress/5.f),3.f);
+    }
+   }
+  }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
