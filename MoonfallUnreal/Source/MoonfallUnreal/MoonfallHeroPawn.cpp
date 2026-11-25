@@ -2780,12 +2780,29 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // Scripted rewards must honor the same persistent inventory capacity as
  // ground pickups. Do not roll or mutate last-loot UI when the bag is full.
  if (InventoryItemCodes.Num() >= 10000) return;
+ const int32 OldLootAffix = LastLootAffix;
+ const int32 OldLootSlot = LastLootSlot;
+ const int32 OldLootRarity = LastLootRarity;
+ const int32 OldLootTier = LastLootTier;
+ const int32 OldLootUpgrade = LastLootUpgrade;
+ const int32 OldSelection = InventorySelection;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (!ValidMoonfallItemCode(ItemCode)) return;
  // Keep every valid scripted reward in the bag without equipping it.
  // The paginated inventory supports growth beyond the former 30-slot limit.
- InventoryItemCodes.Add(ItemCode);
+ const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
+ if (!SaveWorldProgress()) {
+  InventoryItemCodes.RemoveAt(AddedIndex);
+  InventorySelection = OldSelection;
+  LastLootAffix = OldLootAffix;
+  LastLootSlot = OldLootSlot;
+  LastLootRarity = OldLootRarity;
+  LastLootTier = OldLootTier;
+  LastLootUpgrade = OldLootUpgrade;
+  return;
+ }
+ SecondsSinceLastWorldSave = 0.f;
  // Rewards are inventory choices only. Never auto-equip scripted drops;
  // the player chooses when to change weapon, armor, or accessory.
 }
