@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallImpactFeedback.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -946,6 +947,17 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 }
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
+{
+ const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
+     ImpactCameraOffset, LastOffensiveImpactAt, Now, Damage, HitComboStage,
+     bBoss, bLethal, bReduceMotion,
+     bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+         || bResidentContextOpen || FocusedResident.IsValid() || Health <= 0.f);
+ ImpactCameraOffset = Feedback.Offset;
+ LastOffensiveImpactAt = Feedback.LastAt;
+}
+
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  if (bTalentWebOpen) return false;
@@ -1037,6 +1049,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   ApplyConfirmedHitFeedback(Time, ActualSpellDamage, Enemy->bBoss, Enemy->Health <= 0.f);
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
    // area hit, free health, or repeated reward when the chain is capped.
@@ -1471,6 +1484,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   HitComboStage = bContinues && PreviousStage < 12 ? PreviousStage + 1 : 1;
   LastHitComboTarget = Enemy;
   LastSuccessfulHitAt = Now;
+  ApplyConfirmedHitFeedback(Now, Dealt, Enemy->bBoss, Enemy->Health <= 0.f);
   if (Enemy->Health > 0.f && (HitComboStage == 4 || HitComboStage == 8
       || HitComboStage == 12)) {
    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));

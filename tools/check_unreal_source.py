@@ -30,6 +30,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
         self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
 
+    def test_confirmed_hit_camera_feedback_is_shared_by_swords_and_spells(self):
+        hero = self.hero_cpp
+        helper = hero.split("void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryCast(", 1)[0]
+        self.assertIn("MoonfallImpactFeedback::ConfirmedHit(", helper)
+        for gate in ("bReduceMotion", "bOptionsOpen", "bInventoryOpen", "bAtlasOpen",
+                     "bTalentWebOpen", "bResidentContextOpen", "FocusedResident.IsValid()", "Health <= 0.f"):
+            self.assertIn(gate, helper)
+        self.assertIn("ImpactCameraOffset = Feedback.Offset;", helper)
+        self.assertIn("LastOffensiveImpactAt = Feedback.LastAt;", helper)
+        self.assertIn("float LastOffensiveImpactAt = -100.f;", self.hero_h)
+        cast = hero.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        spell_cue = "ApplyConfirmedHitFeedback(Time, ActualSpellDamage, Enemy->bBoss, Enemy->Health <= 0.f);"
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"), cast.index(spell_cue))
+        self.assertEqual(cast.count("ApplyConfirmedHitFeedback("), 1)
+        melee = hero.split("Enemy->TakeMeleeDamage(", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        sword_cue = "ApplyConfirmedHitFeedback(Now, Dealt, Enemy->bBoss, Enemy->Health <= 0.f);"
+        self.assertLess(melee.index("if (bConnected) {"), melee.index(sword_cue))
+        self.assertLess(melee.index(sword_cue), melee.index("OnSuccessfulHitCombo("))
+        self.assertEqual(melee.count("ApplyConfirmedHitFeedback("), 1)
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")

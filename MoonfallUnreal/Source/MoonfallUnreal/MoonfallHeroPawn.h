@@ -538,6 +538,8 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ float LastOffensiveImpactAt = -100.f;
+ void ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal);
  // Gameplay mouse wheel zoom; does not alter the minimap or combat HUD.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
