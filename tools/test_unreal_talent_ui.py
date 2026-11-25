@@ -96,7 +96,8 @@ assert 'BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn:
 back = pawn.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
 routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
           "if (bTalentWebOpen) { TalentCloseWeb(); return; }",
-          "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+          "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }",
+          "if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }",
           "if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }",
           " Dodge();\n}")
 indices = [back.index(route) for route in routes]
