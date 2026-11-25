@@ -6164,6 +6164,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
 
 
+    def test_authoritative_loot_and_save_reject_invalid_hero_state(self):
+        collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(", 1)[1].split("bool AMoonfallHeroPawn::RegisterPersistentEquipmentDrops", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "bTalentWebOpen", "bAtlasOpen", "bInventoryOpen", "bOptionsOpen", "bResidentContextOpen"):
+            self.assertLess(collect.index(guard), collect.index("InventoryItemCodes.Add(ItemCode)"))
+        persisted = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(", 1)[0]
+        self.assertLess(persisted.index("!GetWorld()"), persisted.index("UGameplayStatics::GetCurrentLevelName"))
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertLess(save.index("!FMath::IsFinite(Health)"), save.index("UGameplayStatics::CreateSaveGameObject"))
+        shrine = self.hero_cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split("int32 AMoonfallHeroPawn::GetDungeonTreasureState", 1)[0]
+        self.assertLess(shrine.index("!GetWorld()"), shrine.index("GetWorld()->LineTraceTestByChannel"))
+        self.assertLess(shrine.index("!FMath::IsFinite(Health)"), shrine.index("DiscoveredShrineIds.Add("))
+
     def test_dungeon_and_loot_modal_gates_include_talent_web(self):
         dungeon = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         for name in ("TrySpawnBonusGroup", "HandleEntrance", "HandleFinalChamber", "HandleChamberOverlap", "HandleHazardOverlap", "StartCombatChamber", "SpawnTreasureChamber", "StartFinalBossChamber"):

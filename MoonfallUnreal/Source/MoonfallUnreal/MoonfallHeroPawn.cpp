@@ -2791,6 +2791,8 @@ bool AMoonfallHeroPawn::CollectDungeonTreasureCode(
 bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId)
 {
  if (!DropId.IsValid() || bPersistentSaveWritesBlocked) return false;
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress) return false;
  const FName LevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  const int32 Index = PendingWorldLoot.IndexOfByPredicate(
   [&](const FMoonfallWorldLootRecord& Record) {
@@ -2807,6 +2809,11 @@ bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(int32 ItemCode, cons
 bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey)
 {
  if (Health <= 0.f || ItemCode <= 0) return false;
+ // The shared transaction is also reached by direct Blueprint/C++ callers.
+ if (!FMath::IsFinite(Health) || !GetWorld() || IsActorBeingDestroyed()
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bCharacterStatsOpen || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
@@ -3190,8 +3197,9 @@ bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const 
      && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
 }
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)) return false;
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
-     || Shrine->ShrineId.IsNone() || Health <= 0.f
+     || Shrine->ShrineId.IsNone() || Health <= 0.f || Shrine->IsActorBeingDestroyed()
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
@@ -3616,6 +3624,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) return false;
  // Prevent saving a rank ledger that this exact V13 loader would reject.
  MoonfallTalents::Snapshot ValidTalentSnapshot;
  if (MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot) != MoonfallTalents::Result::Ok) return false;
