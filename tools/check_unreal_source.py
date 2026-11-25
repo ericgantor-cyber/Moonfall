@@ -6218,6 +6218,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_ground_loot_spawn_validates_state_and_coordinates(self):
+        spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress", "Origin.ContainsNaN()", "Origin.SizeSquared() >= 1.0e14f", "LevelId.IsNone()"):
+            self.assertLess(spawn.index(guard), spawn.index("RollEquipmentCode("))
+        for guard in ("Record.Location.ContainsNaN()", "Record.Location.SizeSquared() >= 1.0e14f"):
+            self.assertLess(spawn.index(guard), spawn.index("Drops.Add(Record)"))
+        self.assertLess(spawn.index("Drops.Add(Record)"), spawn.index("RegisterPersistentEquipmentDrops(Drops)"))
+
     def test_scripted_equipment_grants_roll_back_on_failed_save(self):
         grant = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         for field in ("LootAffix", "LootSlot", "LootRarity", "LootTier", "LootUpgrade"):
