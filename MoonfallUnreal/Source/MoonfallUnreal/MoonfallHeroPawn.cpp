@@ -2131,6 +2131,8 @@ void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
  if (bEquipmentCraftInProgress) return false;
  // Enforce the inventory owner's modal restrictions for direct C++/Blueprint calls.
  if (bTalentWebOpen || FocusedResident.IsValid()) return false;
@@ -2171,6 +2173,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
@@ -2217,6 +2221,8 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 
 bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
@@ -2265,6 +2271,8 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid() || !bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
@@ -2309,6 +2317,8 @@ void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return 0;
  if (bEquipmentCraftInProgress) return 0;
  // Reject the wrong inventory page before initiating any batch transaction.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
@@ -3119,6 +3129,8 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return 0;
  if (bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress) return 0;
  // Only a deliberate input while viewing inventory can change worn equipment.
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
@@ -3158,6 +3170,8 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 
 bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
 {
+ if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
  // Direct callers must honor the same inventory-only modal boundary as UI actions.
  if (bTalentWebOpen || FocusedResident.IsValid()) return false;
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || bOptionsOpen
@@ -3195,8 +3209,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  *EquippedCode = Code;
  // An explicitly equipped weapon becomes the active right-hand action,
  // just as explicitly equipping a spell readies the spell.
- if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
   const float HealthDelta = 2.f * (Tier - PreviousTier);
