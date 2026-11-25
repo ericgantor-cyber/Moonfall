@@ -1043,8 +1043,18 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bAtlasOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bAtlasOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft()
+{
+ if (bTalentWebOpen) { ZoomCameraOut(); return; }
+ if (bOptionsOpen || bAtlasOpen) return;
+ TryCast(LeftSpell, 0, 1.f);
+}
+void AMoonfallHeroPawn::CastRight()
+{
+ if (bTalentWebOpen) { ZoomCameraIn(); return; }
+ if (bOptionsOpen || bAtlasOpen) return;
+ TryCast(RightSpell, 1, 1.f);
+}
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
