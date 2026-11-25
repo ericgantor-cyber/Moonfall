@@ -672,19 +672,27 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
+ Input->BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);
+ Input->BindAction(TEXT("ControllerLeftShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftShoulder);
+ Input->BindAction(TEXT("ControllerRightShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightShoulder);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
- Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::RightHandAction);
+ Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightTrigger);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
- Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
+ Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftTrigger);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
  Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
+ Input->BindAction(TEXT("ControllerRightStick"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightStickPress);
+ Input->BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHeroPawn::ControllerRightStickRelease);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
@@ -959,6 +967,71 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
+void AMoonfallHeroPawn::ControllerLeftShoulder()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentPreviousBranch(); return; }
+ if (bInventoryOpen) { ReforgeSelectedInventoryItem(); return; }
+ CastLeft();
+}
+void AMoonfallHeroPawn::ControllerRightShoulder()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentNextBranch(); return; }
+ if (bInventoryOpen) { ForgeFiveSelectedInventoryItem(); return; }
+ CastRight();
+}
+void AMoonfallHeroPawn::ControllerLootOrSalvage()
+{
+ // One X press owns one action; keyboard F and Delete remain independent.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bInventoryOpen) { InventorySalvage(); return; }
+ PickupNearestGroundLoot();
+}
+void AMoonfallHeroPawn::ControllerLeftTrigger()
+{
+ // Preserve Equip Best's existing zero-health inventory policy; its own
+ // validated transaction remains authoritative. Never cast at zero health.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen) { TalentConfirmRespec(); return; }
+ if (bInventoryOpen) { EquipBestInventoryAction(); return; }
+ if (Health <= 0.f) return;
+ CastBoth();
+}
+void AMoonfallHeroPawn::ControllerRightTrigger()
+{
+ // Route physical RT once; mouse combat continues to call RightHandAction.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bInventoryOpen) { UpgradeSelectedInventoryItem(); return; }
+ RightHandAction();
+}
+void AMoonfallHeroPawn::ControllerBack()
+{
+ // Choose one route before a modal transition can expose gameplay input.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen) { TalentCloseWeb(); return; }
+ if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }
+ if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }
+ if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }
+ Dodge();
+}
+void AMoonfallHeroPawn::ControllerConfirm()
+{
+ // One A press takes exactly one route, even when a synchronous UI callback
+ // closes or opens another panel. Keyboard C, Enter and Space stay separate.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen) { TalentSpendSelected(); return; }
+ if (bResidentContextOpen) { TryJump(); return; }
+ if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
+ if (bInventoryOpen) { ToggleCharacterStats(); return; }
+ TryJump();
+}
 void AMoonfallHeroPawn::TryJump()
 {
  if (bTalentWebOpen) return;
@@ -1195,6 +1268,7 @@ void AMoonfallHeroPawn::CastLeft()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit left-hand spell input overrides queued melee.
  TryCast(LeftSpell, 0, 1.f);
@@ -1204,6 +1278,7 @@ void AMoonfallHeroPawn::CastRight()
  if (bResolvingCombatAction) return;
  if (bTalentWebOpen) return;
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  DodgeBuffer.Clear();
  SwordBuffer.Clear(); // Explicit right-hand spell input overrides queued melee.
  TryCast(RightSpell, 1, 1.f);
@@ -1211,6 +1286,7 @@ void AMoonfallHeroPawn::CastRight()
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  // Cancel queued sword input even if this attempted dual cast cannot resolve.
@@ -1630,6 +1706,20 @@ void AMoonfallHeroPawn::BreakGuard()
  OnGuardBroken();
 }
 
+void AMoonfallHeroPawn::ControllerRightStickPress()
+{
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
+ if (bGuarding) return;
+ BeginGuard();
+ bControllerGuardStarted = bGuarding;
+}
+void AMoonfallHeroPawn::ControllerRightStickRelease()
+{
+ if (!bControllerGuardStarted) return;
+ EndGuard();
+}
 void AMoonfallHeroPawn::BeginGuard()
 {
 
@@ -1671,6 +1761,7 @@ void AMoonfallHeroPawn::BeginGuard()
 }
 void AMoonfallHeroPawn::EndGuard()
 {
+ bControllerGuardStarted = false;
  const bool bWasGuarding = bGuarding;
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
@@ -3643,8 +3734,10 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  }
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
      || Health<=0.f || !FMath::IsFinite(Health)
-     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen
-     || FocusedResident.IsValid())return;
+     || bOptionsOpen || (bInventoryOpen && (!bCharacterStatsOpen || bSpellBookOpen))
+     || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid())return;
+ // Validate first, then leave the character sheet using its normal cleanup.
+ if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }
  StopJumping();
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
@@ -3673,10 +3766,21 @@ void AMoonfallHeroPawn::TalentMove(int32 TierDirection,int32 RowDirection) {
 }
 void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  if (!bTalentWebOpen)return;
- TalentWebBranch=(TalentWebBranch+(Direction>=0?1:2))%3;
- TalentWebSelected=MoonfallTalentWeb::Root(TalentWebBranch);
- TalentWebFirstTier=1;
+ if (Direction!=1 && Direction!=-1)return;
+ const int NextBranch=(FMath::Clamp(TalentWebBranch,0,2)+(Direction>0?1:2))%3;
+ const int NextSelection=MoonfallTalentWeb::SameTierInBranch(TalentWebSelected,NextBranch);
+ if (NextSelection<0)return;
+ TalentWebBranch=NextBranch;
+ TalentWebSelected=NextSelection;
+ int ViewW=1280,ViewH=720;
+ if (const APlayerController* PC=Cast<APlayerController>(Controller))
+  PC->GetViewportSize(ViewW,ViewH);
+ const auto Layout=MoonfallTalentWeb::ForViewport(ViewW,ViewH,TalentWebFirstTier);
+ if (Layout.Valid)
+  TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+      TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
  bTalentRespecArmed=false;
+ TalentRespecArmUntil=-1.f;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
@@ -3715,10 +3819,14 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (MoonfallTalentWeb::CloseRect(Layout).Hit(X,Y)) { ToggleTalentWeb();return; }
  for(int B=0;B<3;++B)
   if(MoonfallTalentWeb::BranchTab(Layout,B).Hit(X,Y)) {
+   const int NextSelection=MoonfallTalentWeb::SameTierInBranch(TalentWebSelected,B);
+   if (NextSelection<0)return;
    TalentWebBranch=B;
-   TalentWebSelected=MoonfallTalentWeb::Root(B);
-   TalentWebFirstTier=1;
+   TalentWebSelected=NextSelection;
+   TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
+       TalentWebSelected,Layout.FirstTier,Layout.VisibleTiers);
    bTalentRespecArmed=false;
+   TalentRespecArmUntil=-1.f;
    return;
   }
  if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
@@ -3727,6 +3835,7 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (Hit>=0) {
   TalentWebSelected=Hit;
   bTalentRespecArmed=false;
+  TalentRespecArmUntil=-1.f;
  }
 }
 

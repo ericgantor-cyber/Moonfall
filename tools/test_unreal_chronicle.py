@@ -168,11 +168,11 @@ class ChronicleIntegration(unittest.TestCase):
                       self.pawn)
         self.assertIn('BindAction(TEXT("ChronicleFocus"), IE_Pressed,', self.pawn)
         self.assertIn('ActionName="ChronicleFocus",Key=Tab', self.keys)
-        self.assertIn('ActionName="ChronicleFocus",Key=Gamepad_RightThumbstick',
+        self.assertIn('ActionName="ControllerRightStick",Key=Gamepad_RightThumbstick',
                       self.keys)
         self.assertIn('ActionName="Dodge",Key=Q', self.keys)
         self.assertIn('ActionName="Atlas",Key=J', self.keys)
-        self.assertIn('ActionName="Guard",Key=Gamepad_RightThumbstick', self.keys)
+        self.assertIn('ActionName="ControllerRightStick",Key=Gamepad_RightThumbstick', self.keys)
         self.assertIn("bInventoryOpen || bAtlasOpen || Health <= 0.f", self.pawn)
         click = self.pawn.split(
             "void AMoonfallHeroPawn::ResidentContextMouseClick()", 1

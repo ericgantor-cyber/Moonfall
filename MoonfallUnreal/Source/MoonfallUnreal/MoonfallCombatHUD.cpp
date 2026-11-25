@@ -1745,7 +1745,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
-   DrawText(TEXT("Esc: back to inventory    B / I / Select: close    P: spell book"),
+   DrawText(TEXT("A / K: talents   Esc / Pad B: back   Select: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    DrawLiveMenuHitCue();

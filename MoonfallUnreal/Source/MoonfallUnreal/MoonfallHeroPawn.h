@@ -587,6 +587,13 @@ private:
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
  void TryJump();
+ void ControllerConfirm();
+ void ControllerBack();
+ void ControllerLootOrSalvage();
+ void ControllerLeftShoulder();
+ void ControllerRightShoulder();
+ void ControllerRightTrigger();
+ void ControllerLeftTrigger();
  void MoveForward(float Amount);
  void MoveRight(float Amount);
  void Turn(float Amount);
@@ -602,6 +609,9 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
+ void ControllerRightStickPress();
+ void ControllerRightStickRelease();
+ bool bControllerGuardStarted = false;
  void InventorySalvage();
  void OpenOptions();
  void OptionsUp();

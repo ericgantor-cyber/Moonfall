@@ -530,7 +530,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
-        for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
+        for action in ('ActionName="PickupLoot",Key=F', 'ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
@@ -1194,7 +1194,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertIn('ActionName="SpellBook",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        # Controller A dispatches once instead of triggering three actions.
+        a_mappings = [line for line in inputs.splitlines()
+                      if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Bottom" in line]
+        self.assertEqual(a_mappings, ['+ActionMappings=(ActionName="ControllerConfirm",Key=Gamepad_FaceButton_Bottom)'])
+        self.assertIn('ActionName="Jump",Key=SpaceBar', inputs)
+        self.assertIn('ActionName="TalentSpend",Key=Enter', inputs)
+        self.assertIn('BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);', self.hero_cpp)
+        self.assertIn("void ControllerConfirm();", self.hero_h)
+        confirm = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split(
+            "void AMoonfallHeroPawn::TryJump()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen) { TalentSpendSelected(); return; }",
+                  "if (bResidentContextOpen) { TryJump(); return; }",
+                  "if (bOptionsOpen || bAtlasOpen) return;",
+                  "if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }",
+                  "if (bInventoryOpen) { ToggleCharacterStats(); return; }",
+                  " TryJump();\n}")
+        indices = [confirm.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -1227,9 +1246,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EQUIPMENT SET BONUSES", hud)
         self.assertIn("C / D-pad Left/Right: stats & gear / ancestry / rep", hud)
         self.assertIn('TEXT("EQUIPPED GEAR")', hud)
-        self.assertIn("Esc: back to inventory", hud)
+        # The HUD now advertises both Escape and controller B.
+        self.assertIn("Esc / Pad B: back", hud)
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        sheet_back = options.split("if (bCharacterStatsOpen) {", 1)[1].split("if (bSpellBookOpen)", 1)[0]
+        self.assertIn("bCharacterStatsOpen = false;", sheet_back)
+        self.assertIn("return;", sheet_back)
+        self.assertNotIn("ToggleInventory();", sheet_back)
         self.assertIn("P: spell book", hud)
         self.assertIn("C / A: character stats", hud)
+        self.assertIn("A / K: talents   Esc / Pad B: back   Select: close", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1310,7 +1336,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="ReforgeGear",Key=G', inputs)
-        self.assertIn('ActionName="ReforgeGear",Key=Gamepad_LeftShoulder', inputs)
+        self.assertIn('ActionName="ControllerLeftShoulder",Key=Gamepad_LeftShoulder', inputs)
         self.assertIn('BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool ReforgeInventoryItemAffix(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentReforged(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
@@ -1359,7 +1385,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="AscendGear",Key=R', inputs)
-        self.assertIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('ActionName="ControllerBack",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertNotIn('ActionName="AscendGear",Key=Gamepad_FaceButton_Right', inputs)
+        back = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
+        self.assertIn("if (bInventoryOpen) { AscendSelectedInventoryItem(); return; }", back)
+        self.assertLess(back.index("TalentCloseWeb(); return;"), back.index("AscendSelectedInventoryItem(); return;"))
+        self.assertLess(back.index("AscendSelectedInventoryItem(); return;"), back.index("Dodge();"))
         self.assertIn('BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem)', self.hero_cpp)
         self.assertIn("bool AscendInventoryItemRarity(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);", self.hero_h)
@@ -1407,7 +1439,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="ForgeFive",Key=H', inputs)
-        self.assertIn('ActionName="ForgeFive",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('ActionName="ControllerRightShoulder",Key=Gamepad_RightShoulder', inputs)
         self.assertIn('BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem)', self.hero_cpp)
         self.assertIn('int32 ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels);', self.hero_h)
         self.assertIn('void ForgeFiveSelectedInventoryItem();', self.hero_h)
@@ -1429,7 +1461,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="UpgradeGear",Key=U', inputs)
-        self.assertIn('ActionName="UpgradeGear",Key=Gamepad_RightTrigger', inputs)
+        rt_mappings = [line for line in inputs.splitlines()
+                       if line.startswith("+ActionMappings=") and "Key=Gamepad_RightTrigger" in line]
+        self.assertEqual(rt_mappings, ['+ActionMappings=(ActionName="RightHandAction",Key=Gamepad_RightTrigger)'])
+        self.assertIn('BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightTrigger);', self.hero_cpp)
+        self.assertIn("void ControllerRightTrigger();", self.hero_h)
+        trigger = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerRightTrigger()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerBack()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bInventoryOpen) { UpgradeSelectedInventoryItem(); return; }",
+                  " RightHandAction();\n}")
+        indices = [trigger.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem)', self.hero_cpp)
         self.assertIn('bool UpgradeInventoryItem(int32 InventoryIndex);', self.hero_h)
         self.assertIn('void UpgradeSelectedInventoryItem();', self.hero_h)
@@ -1458,7 +1502,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
         self.assertIn('ActionName="Inventory",Key=B', inputs)
-        self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
+        lt_mappings = [line for line in inputs.splitlines()
+                       if line.startswith("+ActionMappings=") and "Key=Gamepad_LeftTrigger" in line]
+        self.assertEqual(lt_mappings, ['+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)'])
+        self.assertIn('BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftTrigger);', self.hero_cpp)
+        self.assertIn("void ControllerLeftTrigger();", self.hero_h)
+        trigger = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerLeftTrigger()", 1)[1].split(
+            "void AMoonfallHeroPawn::ControllerRightTrigger()", 1)[0]
+        routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;",
+                  "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bTalentWebOpen) { TalentConfirmRespec(); return; }",
+                  "if (bInventoryOpen) { EquipBestInventoryAction(); return; }",
+                  "if (Health <= 0.f) return;",
+                  " CastBoth();\n}")
+        indices = [trigger.index(route) for route in routes]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
         self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen && !bSpellBookOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
@@ -1484,7 +1542,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_inventory_salvage_is_validated_and_protects_equipped_gear(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="InventorySalvage",Key=Delete', inputs)
-        self.assertIn('ActionName="InventorySalvage",Key=Gamepad_FaceButton_Left', inputs)
+        self.assertIn('ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left', inputs)
+        x_mappings = [line for line in inputs.splitlines()
+                      if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Left" in line]
+        self.assertEqual(x_mappings, ['+ActionMappings=(ActionName="ControllerLootOrSalvage",Key=Gamepad_FaceButton_Left)'])
+        self.assertIn("void ControllerLootOrSalvage();", self.hero_h)
+        self.assertIn('BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);', self.hero_cpp)
+        route = self.hero_cpp.split("void AMoonfallHeroPawn::ControllerLootOrSalvage()", 1)[1].split("\n}", 1)[0]
+        guards = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+                  "if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;",
+                  "if (bInventoryOpen) { InventorySalvage(); return; }",
+                  "PickupNearestGroundLoot();")
+        indices = [route.index(guard) for guard in guards]
+        self.assertEqual(indices, sorted(indices))
         self.assertIn("bool SalvageInventoryItem(int32 InventoryIndex);", self.hero_h)
         self.assertIn("void SalvageSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("InventorySalvage"), IE_Pressed', self.hero_cpp)
@@ -6357,6 +6427,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
             self.assertLess(toggle.index(guard), toggle.index("bTalentWebOpen=true;"))
+        self.assertIn("(bInventoryOpen && (!bCharacterStatsOpen || bSpellBookOpen))", toggle)
+        self.assertLess(toggle.index("if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }"), toggle.index("bTalentWebOpen=true;"))
         spend = self.hero_cpp.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
                       "bTalentRespecArmed=false;", "TalentRespecArmUntil=-1.f;"):
@@ -6581,6 +6653,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(EncounterLevelOverride, 1, 100)", enemy_begin)
         self.assertIn("Boss->bBoss = true;", boss)
         self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
+
+    def test_modal_spell_shortcuts_preserve_combat_buffers(self):
+        guard = "if (bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;"
+        for action in ("CastLeft", "CastRight", "CastBoth"):
+            with self.subTest(action=action):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + action + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index(guard), body.index("DodgeBuffer.Clear();"))
+                self.assertLess(body.index(guard), body.index("SwordBuffer.Clear();"))
+                self.assertLess(body.index(guard), body.index("TryCast("))
 
     def test_atlas_modal_blocks_remaining_combat_and_world_mouse_input(self):
         def method_body(name):
