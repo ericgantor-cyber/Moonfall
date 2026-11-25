@@ -107,7 +107,8 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
 
 void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
 {
- if (!IsValid(Hero) || Hero->GetWorld() != GetWorld() || ShrineId.IsNone())
+ if (!GetWorld() || IsActorBeingDestroyed() || !IsValid(Hero)
+     || Hero->IsActorBeingDestroyed() || Hero->GetWorld() != GetWorld() || ShrineId.IsNone())
   return;
  // A shrine can begin play before the hero restores its saved checkpoint.
  // The subsequent one-time hero scan must handle that ordering, without
@@ -124,7 +125,10 @@ void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
 
 void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
 {
- if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()) return;
+ if (!GetWorld() || IsActorBeingDestroyed() || !IsValid(Hero)
+     || Hero->IsActorBeingDestroyed() || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()) return;
+ if (!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetActorLocation().ContainsNaN() || GetActorLocation().ContainsNaN()) return;
  if (Hero->HasDiscoveredShrine(ShrineId))
  {
   RefreshShrineDisplay(Hero);
@@ -134,7 +138,9 @@ void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
  }
  if (Hero->DiscoverShrine(this))
  {
-  RefreshShrineDisplay(Hero);
+  // The discovery event may synchronously destroy either actor.
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+  if (IsValid(Hero) && !Hero->IsActorBeingDestroyed()) RefreshShrineDisplay(Hero);
   GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
   PendingDiscoveryHero.Reset();
   return;
@@ -142,9 +148,12 @@ void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
  // If an entry occurs mid-fall or while a transient save cannot complete,
  // an overlap event will not fire again until the hero leaves. Retry at most
  // eight times while nearby, with no per-frame Actor Tick.
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+     || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
  const FVector Location = Hero->GetActorLocation();
- if (Hero->Health <= 0.f || Location.ContainsNaN() ||
-     FVector::DistSquared(Location, GetActorLocation()) > FMath::Square(220.f)) return;
+ if (!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f || Location.ContainsNaN()
+     || GetActorLocation().ContainsNaN()
+     || FVector::DistSquared(Location, GetActorLocation()) > FMath::Square(220.f)) return;
  if (!GetWorldTimerManager().IsTimerActive(DiscoveryRetryTimer))
  {
   DiscoveryRetryAttempts = 0;
@@ -157,8 +166,10 @@ void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
 void AMoonfallCheckpointShrine::RetryPendingDiscovery()
 {
  AMoonfallHeroPawn* Hero = PendingDiscoveryHero.Get();
- if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()
-     || Hero->Health <= 0.f || Hero->GetActorLocation().ContainsNaN()
+ if (!GetWorld() || IsActorBeingDestroyed()) return;
+ if (!IsValid(Hero) || Hero->IsActorBeingDestroyed() || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetActorLocation().ContainsNaN() || GetActorLocation().ContainsNaN()
      || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(220.f)
      || ++DiscoveryRetryAttempts > 8)
  {
