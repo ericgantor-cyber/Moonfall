@@ -39,6 +39,17 @@ int main() {
    assert(BranchOf(right)==branch && BranchOf(down)==branch);
    assert(MoonfallTalents::Nodes[right].Tier>=n.Tier);
    assert(MoonfallTalents::Nodes[down].Tier==n.Tier);
+   // Every node can switch branches while retaining its tier.
+   for (int target=0;target<3;++target) {
+    const int next=SameTierInBranch(i,target);
+    assert(next>=0 && BranchOf(next)==target);
+    assert(MoonfallTalents::Nodes[next].Tier==n.Tier);
+    if (target==branch) assert(next==i);
+    for (int candidate=0;candidate<MoonfallTalents::NodeCount;++candidate) {
+     if (BranchOf(candidate)==target && MoonfallTalents::Nodes[candidate].Tier==n.Tier)
+      assert(std::abs(Row(next)-row)<=std::abs(Row(candidate)-row));
+    }
+   }
   }
   assert(count==47 && visible>0);
   const auto rootRect=NodeRect(Normal,root,branch);
@@ -47,6 +58,9 @@ int main() {
   assert(HitNode(Normal,branch,std::numeric_limits<double>::infinity(),0)==-1);
   assert(FirstTierForSelection(root,11,Normal.VisibleTiers)==1);
  }
+ assert(SameTierInBranch(-1,0)==Root(0));
+ assert(SameTierInBranch(0,-1)==-1);
+ assert(SameTierInBranch(0,3)==-1);
  const auto spend=SpendRect(Normal),respec=RespecRect(Normal);
  assert(spend.W>0 && respec.W>0 && spend.X+spend.W<respec.X);
  assert(CloseRect(Normal).Hit(Normal.Panel.X+Normal.Panel.W-25,
