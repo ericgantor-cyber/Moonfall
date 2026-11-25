@@ -1042,6 +1042,11 @@ void AMoonfallHeroPawn::ControllerConfirmRelease()
  bControllerJumpStarted=false;
  StopJumping();
 }
+void AMoonfallHeroPawn::StopJumping()
+{
+ bControllerJumpStarted=false;
+ Super::StopJumping();
+}
 void AMoonfallHeroPawn::TryJump()
 {
  if (bTalentWebOpen) return;
