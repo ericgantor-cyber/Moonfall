@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallImpactFeedback.h"
@@ -355,6 +356,10 @@ void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // The Northern preview must never load or overwrite the campaign slot.
+ if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
+  bPersistentSaveWritesBlocked = true;
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
@@ -394,9 +399,9 @@ void AMoonfallHeroPawn::BeginPlay() {
  const bool bLoadedWorldProgress = LoadWorldProgress();
  // Recheck once on the next game tick: GameMode may create the arena after
  // this hero's BeginPlay. Neither pass can override a returning player's save.
- if (!bLoadedWorldProgress
+ if (!bLoadedWorldProgress && !bPersistentSaveWritesBlocked
      && !UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)
-     && !bPersistentSaveWritesBlocked && GetWorld()) {
+     && GetWorld()) {
   TryPlaceNewCharacterAtSanctuary();
   GetWorldTimerManager().SetTimerForNextTick(
     this, &AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary);
@@ -3304,11 +3309,15 @@ bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const 
      && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
 }
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ const bool bPreviewOnlyShrine = bPersistentSaveWritesBlocked && GetWorld()
+     && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass());
  if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)) return false;
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f || Shrine->IsActorBeingDestroyed()
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || (bPersistentSaveWritesBlocked && !bPreviewOnlyShrine)
+     || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
@@ -3347,20 +3356,20 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  ActiveShrineId = Shrine->ShrineId;
  RespawnCheckpointLocation = NewRespawn;
  bHasRespawnCheckpointLocation = true;
- // Unlock + checkpoint persist together. Failed saves cannot activate a
- // shrine in memory and silently lose it after quitting.
- if (!SaveWorldProgress()) {
-  DiscoveredShrineIds.Remove(Shrine->ShrineId);
-  ActiveShrineId = PreviousShrineId;
-  RespawnCheckpointLocation = PreviousCheckpoint;
-  bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
-  return false;
+ // Campaign shrines persist atomically; preview shrines are session-local.
+ if (!bPreviewOnlyShrine) {
+  if (!SaveWorldProgress()) {
+   DiscoveredShrineIds.Remove(Shrine->ShrineId);
+   ActiveShrineId = PreviousShrineId;
+   RespawnCheckpointLocation = PreviousCheckpoint;
+   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
+   return false;
+  }
+  // Count only a persisted Firstlight discovery, never a failed checkpoint.
+  if (Shrine->ShrineId == FName(TEXT("sanctuary_firstlight")))
+   RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::DiscoverShrine);
+  SecondsSinceLastWorldSave = 0.f;
  }
- // Count only a persisted Firstlight discovery, never a failed checkpoint.
- if (Shrine->ShrineId == FName(TEXT("sanctuary_firstlight")))
-  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::DiscoverShrine);
- // Shrine discovery saved the world already; restart the autosave interval.
- SecondsSinceLastWorldSave = 0.f;
  // Discovery is rare, so update visual statuses only after a saved change.
  // Old shrines stop showing ACTIVE without a per-frame world scan.
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
@@ -3368,6 +3377,32 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  OnShrineDiscovered(ActiveShrineId);
  return true;
 }
+void AMoonfallHeroPawn::RestAtDiscoveredPreviewShrine(AMoonfallCheckpointShrine* Shrine) {
+ // The campaign never receives free shrine heals or preview-only save state.
+ if (!GetWorld() || IsActorBeingDestroyed() || !IsValid(Shrine)
+     || Shrine->IsActorBeingDestroyed() || Shrine->GetWorld() != GetWorld()
+     || !IsValid(GetWorld()->GetAuthGameMode())
+     || !GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass())
+     || !bPersistentSaveWritesBlocked
+     || !HasDiscoveredShrine(Shrine->ShrineId) || !FMath::IsFinite(Health) || Health <= 0.f)
+  return;
+ const FVector PlayerPos = GetActorLocation();
+ const FVector ShrinePos = Shrine->GetActorLocation();
+ if (PlayerPos.ContainsNaN() || ShrinePos.ContainsNaN()
+     || FVector::DistSquared2D(PlayerPos, ShrinePos) > FMath::Square(220.f)
+     || FMath::Abs(PlayerPos.Z - ShrinePos.Z) > 200.f)
+  return;
+ if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f
+     || !FMath::IsFinite(MaxMana) || MaxMana < 0.f
+     || !FMath::IsFinite(MaxStamina) || MaxStamina < 0.f)
+  return;
+ // One event on entering a shrine, not a per-frame healing zone.
+ Health = MaxHealth;
+ Mana = MaxMana;
+ Stamina = MaxStamina;
+ OnHealthChanged(Health, MaxHealth);
+}
+
 int32 AMoonfallHeroPawn::GetDungeonTreasureState(int32 Zone, int32 Dungeon, int32 Chamber) const
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
@@ -3763,6 +3798,9 @@ bool AMoonfallHeroPawn::RespecTalentPoints() {
 }
 
 bool AMoonfallHeroPawn::SaveWorldProgress() {
+ if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
+  return false;
  if (bEquipmentCraftInProgress) return false;
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
@@ -3922,6 +3960,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
+     && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
+  return false;
  if (bEquipmentCraftInProgress) return false;
  // Teleport and health notifications can synchronously invoke Blueprint code.
  // Refuse nested loads while the current save is being restored.

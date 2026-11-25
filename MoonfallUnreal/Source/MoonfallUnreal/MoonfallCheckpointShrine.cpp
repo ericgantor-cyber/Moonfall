@@ -134,6 +134,7 @@ void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
   RefreshShrineDisplay(Hero);
   GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
   PendingDiscoveryHero.Reset();
+  Hero->RestAtDiscoveredPreviewShrine(this);
   return;
  }
  if (Hero->DiscoverShrine(this))
@@ -143,6 +144,7 @@ void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
   if (IsValid(Hero) && !Hero->IsActorBeingDestroyed()) RefreshShrineDisplay(Hero);
   GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
   PendingDiscoveryHero.Reset();
+  if (IsValid(Hero) && !Hero->IsActorBeingDestroyed()) Hero->RestAtDiscoveredPreviewShrine(this);
   return;
  }
  // If an entry occurs mid-fall or while a transient save cannot complete,

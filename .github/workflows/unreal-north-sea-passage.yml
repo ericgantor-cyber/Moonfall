@@ -1,0 +1,109 @@
+name: Northern Expanse reversible ferry policy
+
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthAutoSail.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDryLandingPolicy.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryNativeTests.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_layout.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_editor.py'
+      - 'MoonfallUnreal/Tools/add_shiverwake_shrines_to_existing_preview.py'
+      - 'tools/test_unreal_shiverwake_shrines_source.py'
+      - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_auto_sail.cpp'
+      - 'tools/test_unreal_north_dry_landing.cpp'
+      - 'tools/test_unreal_north_auto_sail_source.py'
+      - 'MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1'
+      - '.github/workflows/unreal-compile-windows.yml'
+      - 'tools/test_unreal_north_sea_gate_source.py'
+      - 'tools/test_unreal_north_ferry_preview_source.py'
+      - 'tools/test_unreal_north_gothic_ferry_source.py'
+      - 'MoonfallUnreal/NORTHERN_EXPANSE_SEA_PASSAGE.md'
+      - '.github/workflows/unreal-north-sea-passage.yml'
+  push:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthSeaPassage.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthAutoSail.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthDryLandingPolicy.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryGate.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthFerryNativeTests.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallNorthGothicFerryActor.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Tools/create_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/validate_northern_expanse_preview.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_layout.py'
+      - 'MoonfallUnreal/Tools/shiverwake_shrine_editor.py'
+      - 'MoonfallUnreal/Tools/add_shiverwake_shrines_to_existing_preview.py'
+      - 'tools/test_unreal_shiverwake_shrines_source.py'
+      - 'tools/test_unreal_north_sea_passage.cpp'
+      - 'tools/test_unreal_north_auto_sail.cpp'
+      - 'tools/test_unreal_north_dry_landing.cpp'
+      - 'tools/test_unreal_north_auto_sail_source.py'
+      - 'MoonfallUnreal/Build/Test-NorthernFerryNativeAutomation.ps1'
+      - '.github/workflows/unreal-compile-windows.yml'
+      - 'tools/test_unreal_north_sea_gate_source.py'
+      - 'tools/test_unreal_north_ferry_preview_source.py'
+      - 'tools/test_unreal_north_gothic_ferry_source.py'
+      - 'MoonfallUnreal/NORTHERN_EXPANSE_SEA_PASSAGE.md'
+      - '.github/workflows/unreal-north-sea-passage.yml'
+  workflow_dispatch:
+
+jobs:
+  portable-ferry-contract:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ferry actor source boundaries
+        run: python tools/test_unreal_north_sea_gate_source.py
+      - name: Check preview map and isolated save boundaries
+        run: |
+          python tools/test_unreal_north_preview_map_source.py
+          python tools/test_unreal_north_ferry_preview_source.py
+          python tools/test_unreal_north_gothic_ferry_source.py
+          python tools/test_unreal_north_auto_sail_source.py
+      - name: Test all 18 Shiverwake shrines and preview checkpoint isolation
+        run: python tools/test_unreal_shiverwake_shrines_source.py
+      - name: GCC C++17 ferry route test
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_sea_passage.cpp -o /tmp/moonfall_north_sea
+          /tmp/moonfall_north_sea
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_auto_sail.cpp -o /tmp/moonfall_auto_sail
+          /tmp/moonfall_auto_sail
+          g++ -std=c++17 -Wall -Wextra -Werror -O2 tools/test_unreal_north_dry_landing.cpp -o /tmp/moonfall_dry_landing
+          /tmp/moonfall_dry_landing
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: MSVC C++17 ferry route test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_north_sea.exe tools/test_unreal_north_sea_passage.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_north_sea.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_auto_sail.exe tools/test_unreal_north_auto_sail.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_auto_sail.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cl /nologo /std:c++17 /W4 /WX /EHsc /Fe:moonfall_dry_landing.exe tools/test_unreal_north_dry_landing.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./moonfall_dry_landing.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
