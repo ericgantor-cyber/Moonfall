@@ -2124,7 +2124,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 "}", 1)[0]
             self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
-            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+            body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split("\nvoid AMoonfallHeroPawn::", 1)[0]
+            self.assertIn(f"if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value);", body)
+            self.assertLess(body.index("FocusedResident.IsValid()"), body.index(f"{call}(Value)"))
 
     def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
