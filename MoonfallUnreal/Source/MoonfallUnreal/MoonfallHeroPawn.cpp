@@ -3817,6 +3817,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (bEquipmentCraftInProgress) return false;
+ // Teleport and health notifications can synchronously invoke Blueprint code.
+ // Refuse nested loads while the current save is being restored.
+ if (bWorldProgressLoadInProgress || bEquipBestInProgress || !GetWorld() || IsActorBeingDestroyed()) return false;
+ if (!FMath::IsFinite(GetWorld()->GetTimeSeconds()) || GetActorRotation().ContainsNaN()) return false;
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
