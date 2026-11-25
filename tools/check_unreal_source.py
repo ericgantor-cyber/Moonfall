@@ -6176,6 +6176,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(hit.index(guard), hit.index("ApplyMoonfallDamage(Amount)"))
         self.assertIn("return bLastIncomingHitParried;", hit)
 
+    def test_world_zoom_rejects_npc_focus_and_scroll_is_bounded(self):
+        for method in ("ZoomCameraIn", "ZoomCameraOut"):
+            with self.subTest(method=method):
+                body = self.hero_cpp.split("void AMoonfallHeroPawn::" + method + "()", 1)[1].split("\nvoid AMoonfallHeroPawn::", 1)[0]
+                world_guard = "if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;"
+                self.assertLess(body.index(world_guard), body.index("CameraDistance ="))
+                self.assertLess(body.index("if (bAtlasOpen)"), body.index(world_guard))
+                if method == "ZoomCameraOut":
+                    self.assertLess(body.index("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart)"), body.index("InventoryViewStart + 1"))
+
     def test_camera_axes_reject_stale_focus_and_invalid_hero(self):
         for method, axis in (("Turn", "Yaw"), ("LookUp", "Pitch")):
             with self.subTest(method=method):
