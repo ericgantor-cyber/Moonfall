@@ -675,6 +675,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
  Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
+ Input->BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("RightHandAction"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightTrigger);
@@ -961,6 +962,14 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bResidentContextOpen || FocusedResident.IsValid()) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ControllerLootOrSalvage()
+{
+ // One X press owns one action; keyboard F and Delete remain independent.
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bInventoryOpen) { InventorySalvage(); return; }
+ PickupNearestGroundLoot();
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
 {
