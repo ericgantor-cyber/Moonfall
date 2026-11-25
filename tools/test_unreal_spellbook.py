@@ -176,7 +176,7 @@ int main() {
         self.assertIn("if (bSpellBookOpen) {", shortcut)
         self.assertIn("ToggleInventory(); // Also clears the spell-book state", shortcut)
         self.assertIn("ToggleSpellBook();", shortcut)
-        self.assertIn("P: spell book", hud)
+        self.assertIn("P / Y: spell book", hud)
         self.assertIn("P: CLOSE", hud)
         self.assertNotIn("C / P / A:", hud)
         for movement in ("W", "A", "S", "D", "Up", "Down", "Left", "Right"):
