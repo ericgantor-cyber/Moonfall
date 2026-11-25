@@ -984,8 +984,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
 {
  const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
