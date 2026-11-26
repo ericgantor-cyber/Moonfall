@@ -2642,11 +2642,12 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  Report->SetStringField(TEXT("kind"),TEXT("moonfall_recovery_snapshot"));
  Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
  Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
- Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
  const double SampleAge=PerformanceAudit.SampleAge(Now);
- if (SampleAge>=0) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
- if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS)
-     && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms)) {
+ const bool bSampleReady=SampleAge>=0 && FMath::IsFinite(Sample.AverageFPS)
+     && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms);
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),bSampleReady);
+ if (bSampleReady) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
+ if (bSampleReady) {
   Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
   Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
   Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
@@ -2711,12 +2712,13 @@ void AMoonfallHeroPawn::ExportBugReport() {
  Report->SetNumberField(TEXT("dedicated_video_bytes"),double(AuditDedicatedVideoMemory));
  Report->SetNumberField(TEXT("texture_allocation_bytes"),double(AuditTextureMemory));
  Report->SetNumberField(TEXT("texture_pool_bytes"),double(AuditTexturePool));
- Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
  const double SampleAge=PerformanceAudit.SampleAge(Now);
- if (SampleAge>=0) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
- Report->SetNumberField(TEXT("frame_samples"),Sample.Samples);
- if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS) && FMath::IsFinite(Sample.P95Ms)
-     && FMath::IsFinite(Sample.OnePercentLowFPS)) {
+ const bool bSampleReady=SampleAge>=0 && FMath::IsFinite(Sample.AverageFPS)
+     && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms);
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),bSampleReady);
+ if (bSampleReady) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
+ Report->SetNumberField(TEXT("frame_samples"),bSampleReady?Sample.Samples:0);
+ if (bSampleReady) {
   Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
   Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
   Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
