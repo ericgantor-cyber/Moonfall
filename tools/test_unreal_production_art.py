@@ -183,7 +183,12 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(fx.index("ActiveSpellImpactFX.Num()>=4"), fx.index("SpawnSystemAtLocation("))
         self.assertNotIn("TakeSpellDamage", fx)
         self.assertNotIn("Mana -=", fx)
-        self.assertIn("if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier))", pawn)
+        cue = pawn.split("// Presentation is optional.", 1)[1].split("Mana -= Costs[School] * Multiplier;", 1)[0]
+        self.assertIn("if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)", cue)
+        self.assertIn("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cue)
+        self.assertLess(cue.index("GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()"),
+                        cue.index("TryPlayAuthoredSpellImpact("))
+        self.assertLess(cue.index("TryPlayAuthoredSpellImpact("), cue.index("DrawDebugSphere("))
         self.assertIn("DrawDebugSphere(GetWorld(), Hit.ImpactPoint", pawn)
 
     def test_cinematic_scalability_and_isolated_lighting(self):
