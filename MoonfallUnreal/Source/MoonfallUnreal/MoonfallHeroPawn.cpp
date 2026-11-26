@@ -4598,23 +4598,16 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
  };
  MoonfallEquipmentLayout::FLoadout CheckedSavedWorn{};
- if (!MoonfallEquipmentLayout::TryRestoreLoadout(SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),false,
+ // V17 mirrors must agree with legacy slots. Inactive gear is rejected
+ // before any live state changes, so autosave cannot erase it.
+ if (!MoonfallEquipmentLayout::TryRestoreMirroredLoadout(
+     SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),
+     Save->EquippedSlotCodes.GetData(),Save->EquippedSlotCodes.Num(),
+     Save->Version>=17,MoonfallEquipmentLayout::LegacySlotCount,
      [Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},CheckedSavedWorn)) {
   bPersistentSaveWritesBlocked = true;
-  UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent or inactive equipped gear; original save protected."));
   return false;
- }
- // V17 mirrors must agree with legacy slots. Extra slots are not live yet;
- // refuse nonempty future gear rather than silently discard it on autosave.
- if(Save->Version>=17){
-  MoonfallEquipmentLayout::FLoadout ExpandedWorn{};
-  if(!MoonfallEquipmentLayout::TryRestoreLoadout(Save->EquippedSlotCodes.GetData(),
-      Save->EquippedSlotCodes.Num(),true,[Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},ExpandedWorn)
-      ||ExpandedWorn!=CheckedSavedWorn){
-   bPersistentSaveWritesBlocked=true;
-   UE_LOG(LogTemp, Warning, TEXT("Moonfall V17 equipment record is inconsistent or contains inactive gear; original save protected."));
-   return false;
-  }
  }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
