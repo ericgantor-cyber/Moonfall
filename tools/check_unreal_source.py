@@ -770,6 +770,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('bAlreadyEquipped ? TEXT("EQUIPPED")', block)
         self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
         self.assertIn("!bValidSelection ? CompareLine :", block)
+        self.assertIn('FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta)', block)
+        self.assertIn("DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,", block)
         self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
         self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
         self.assertIn("Top + PanelHeight - 110.f", block)
