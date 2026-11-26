@@ -126,6 +126,32 @@ int main() {
  L::FPlanner Unchanged(NineWorn);
  Unchanged.Add(181004,0);
  assert(Unchanged.Finish().Changes==0);
+ // Legacy mode must produce exactly the old planner's results before activation.
+ unsigned Seed=731u;
+ auto NextRandom=[&Seed](){Seed=Seed*1664525u+1013904223u;return Seed>>16;};
+ for(int Trial=0;Trial<128;++Trial){
+  G::FEquipped Old{};
+  for(int Slot=0;Slot<3;++Slot)
+   if(NextRandom()%2)Old[Slot]=Slot*10000+1000+1+static_cast<int>(NextRandom()%5);
+  const bool CombatOnly=Trial%2!=0;
+  G::FPlanner Legacy(Old,CombatOnly);
+  L::FPlanner Shared(L::ExpandLegacy(Old),CombatOnly,L::LegacySlotCount);
+  for(int I=0;I<36;++I){
+   const int Slot=static_cast<int>(NextRandom()%3),Affix=static_cast<int>(NextRandom()%4);
+   const int Code=Affix*100000+Slot*10000+1000+1+static_cast<int>(NextRandom()%7);
+   Legacy.Add(Code,I);Shared.Add(Code,I);
+  }
+  Shared.Add(181025,99);
+  const auto OldPlan=Legacy.Finish();
+  const auto SharedPlan=Shared.Finish();
+  assert(OldPlan.Gain==SharedPlan.Gain&&OldPlan.Changes==SharedPlan.Changes);
+  for(int Slot=0;Slot<3;++Slot){
+   assert(OldPlan.Codes[Slot]==SharedPlan.Codes[Slot]);
+   assert(OldPlan.Indices[Slot]==SharedPlan.Indices[Slot]);
+  }
+  for(int Slot=3;Slot<L::SlotCount;++Slot)
+   assert(SharedPlan.Codes[Slot]==0&&SharedPlan.Indices[Slot]==-1);
+ }
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
