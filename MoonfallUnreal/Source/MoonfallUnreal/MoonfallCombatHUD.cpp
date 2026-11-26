@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "HAL/PlatformMemory.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/PlatformTime.h"
 #include "RHI.h"
 #include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
@@ -2120,7 +2121,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
    const int32 Index = DisplayOrder[DisplayPosition];
    const int32 Code = Hero->InventoryItemCodes[Index];
@@ -2220,11 +2221,17 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
-     FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
-     FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
-     nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+  // Give mouse help its own rows rather than painting over advisor/crafting text.
+  // On short panels use the space left by the hidden item detail and forecast.
+  if (PanelHeight >= 420.f) {
+   const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
+   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
+      FLinearColor::White, Left + 18.f, Top + PanelHeight - HelpOffset, nullptr,
+      PanelWidth < 550.f ? 0.55f : 0.75f);
+   DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
+      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - HelpOffset + 20.f,
+      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+  }
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
@@ -2307,79 +2314,85 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 18.f, Top + PanelHeight - 182.f, nullptr,
       PanelWidth < 550.f ? 0.57f : 0.72f);
    }
-   const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
-   DrawText(bReforgeable
-     ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
-         ReforgeCost, Hero->Salvage >= ReforgeCost ? TEXT("READY") : TEXT("NEED MORE"))
-     : TEXT("Reforge trait: requires Rare or better"),
-     bReforgeable && Hero->Salvage >= ReforgeCost
-       ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
-     Left + 18.f, Top + PanelHeight - 156.f, nullptr, 0.70f);
-   const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
-   DrawText(bAscendable
-     ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
-         AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
-     : TEXT("Ascend rarity: LEGENDARY / invalid"),
-     bAscendable && Hero->Salvage >= AscendCost
-       ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
-     Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
-   // Compare the highlighted item against the currently equipped item in
-   // the same slot. This is informational only and never changes gear.
-   const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
-   const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
-   const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
-   const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
-   const int32 TierDelta = SelectedTier - EquippedTier;
-   const int32 RarityDelta = SelectedRarity - EquippedRarity;
-   const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
-   const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
-   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && (EquippedCode <= 0 || TierDelta > 0
-     || (TierDelta == 0 && RarityDelta > 0));
-   const bool bIsLower = bValidSelection && EquippedCode > 0 && (TierDelta < 0
-     || (TierDelta == 0 && RarityDelta < 0));
-   const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
-     : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
-     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
-   const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-     TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
-   const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
-     : EquippedCode <= 0
-     ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
-     : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-       CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
-       CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
-       EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
-       CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
-     FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
-   DrawText(PowerCompareLine,
-     bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
-       : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
-       : FLinearColor(0.78f,0.86f,1.f),
-     Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
-   const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
-   const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
-     : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
-       NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
-   DrawText(ForgeStatus, bForgeable && Hero->Salvage >= NextCost
-     ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
-     Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
+   // Keep minimum-height inventory rows clear of optional crafting previews.
+   if (PanelHeight >= 360.f) {
+    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
+    DrawText(bReforgeable
+      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
+          ReforgeCost, Hero->Salvage >= ReforgeCost ? TEXT("READY") : TEXT("NEED MORE"))
+      : TEXT("Reforge trait: requires Rare or better"),
+      bReforgeable && Hero->Salvage >= ReforgeCost
+        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
+      Left + 18.f, Top + PanelHeight - 156.f, nullptr, 0.70f);
+    const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
+    DrawText(bAscendable
+      ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
+          AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
+      : TEXT("Ascend rarity: LEGENDARY / invalid"),
+      bAscendable && Hero->Salvage >= AscendCost
+        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
+      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
+   }
+   if (PanelHeight >= 320.f) {
+    // Compare the highlighted item against the currently equipped item in
+    // the same slot. This is informational only and never changes gear.
+    const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
+    const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
+    const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
+    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
+    const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
+    const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
+    // Use the same validated power difference for the label and displayed value.
+    const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;
+    const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && PowerDelta > 0;
+    const bool bIsLower = bValidSelection && EquippedCode > 0 && PowerDelta < 0;
+    const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
+      : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
+    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+    const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
+      : EquippedCode <= 0
+      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
+      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
+        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
+        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
+        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
+        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
+    const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
+      FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
+    const FString CompactPowerCompareLine = !bValidSelection ? FString(TEXT("INVALID GEAR"))
+      : FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta);
+    DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,
+      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
+        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
+        : FLinearColor(0.78f,0.86f,1.f),
+      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
+    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
+    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
+      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
+        NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
+    DrawText(ForgeStatus, bForgeable && Hero->Salvage >= NextCost
+      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
+      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
+   }
   }
   // Cache the read-only selected-row score. Ownership validation searches the
   // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
   // Changing selection, equipped gear, count or selected item invalidates it.
   // Same-count changes in other slots refresh within 0.25 seconds.
-  const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const double AdvisorNow = FPlatformTime::Seconds();
+  const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
-  const bool bRefreshAdvisor = !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
+  const bool bRefreshAdvisor = !bAdvisorClockValid || !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
     || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
     || CachedAdvisorSelectedCode != AdvisorCode
     || CachedAdvisorWeapon != Hero->EquippedWeaponCode
     || CachedAdvisorArmor != Hero->EquippedArmorCode
     || CachedAdvisorAccessory != Hero->EquippedAccessoryCode
     || AdvisorNow < AdvisorScoreUpdatedAt
-    || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f;
+    || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25;
   if (bRefreshAdvisor) {
    CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
    CachedAdvisorHero = Hero;
@@ -2390,7 +2403,7 @@ void AMoonfallCombatHUD::DrawHUD()
    CachedAdvisorArmor = Hero->EquippedArmorCode;
    CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
    AdvisorScoreUpdatedAt = AdvisorNow;
-   bAdvisorScoreCached = true;
+   bAdvisorScoreCached = bAdvisorClockValid;
   }
   const int32 SelectedUpgradeScore = CachedAdvisorScore;
   const bool bCompactAdvisor = PanelWidth < 550.f;

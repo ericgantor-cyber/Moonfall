@@ -604,7 +604,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
         selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", rows)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20)", rows)
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
         self.assertIn("FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)))", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -755,8 +755,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("Hero->EquippedWeaponCode", block)
         self.assertNotIn("Hero->EquippedArmorCode", block)
         self.assertNotIn("Hero->EquippedAccessoryCode", block)
-        self.assertIn("const int32 TierDelta = SelectedTier - EquippedTier;", block)
-        self.assertIn("const int32 RarityDelta = SelectedRarity - EquippedRarity;", block)
+        self.assertIn("const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;", block)
+        self.assertIn("bValidSelection && !bAlreadyEquipped && PowerDelta > 0", block)
+        self.assertIn("bValidSelection && EquippedCode > 0 && PowerDelta < 0", block)
+        self.assertIn('FString::Printf(TEXT("  |  %+d gear power"), PowerDelta)', block)
+        self.assertEqual(block.count("GetItemPowerDelta(SelectedCode)"), 1)
+        self.assertNotIn("TierDelta", block)
+        self.assertNotIn("RarityDelta", block)
         self.assertIn("TEXT(\"UPGRADE\")", block)
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
@@ -765,11 +770,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('bAlreadyEquipped ? TEXT("EQUIPPED")', block)
         self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
         self.assertIn("!bValidSelection ? CompareLine :", block)
+        self.assertIn('FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta)', block)
+        self.assertIn("DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,", block)
         self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
         self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
         self.assertIn("Top + PanelHeight - 110.f", block)
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, block)
+
+    def test_inventory_optional_previews_clear_minimum_height_rows(self):
+        bag = self.hud.split("if (Hero->bInventoryOpen)", 1)[1]
+        self.assertIn("if (PanelHeight >= 360.f) {", bag)
+        self.assertIn("if (PanelHeight >= 320.f) {", bag)
+        self.assertLess(bag.index("if (PanelHeight >= 360.f) {"), bag.index("const int32 ReforgeCost"))
+        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);"))
+        # Match the shared inventory drawing and mouse hit-test geometry.
+        for height in range(280, 861):
+            room = height - (430 if height >= 500 else 390)
+            rows = max(2, min(20, room // 25))
+            row_end = 145 + rows * max(21, room / rows)
+            first_footer = (height - 270 if height >= 500 else
+                            height - 230 if height >= 420 else
+                            height - 156 if height >= 360 else
+                            height - 110 if height >= 320 else height - 70)
+            self.assertGreaterEqual(first_footer, row_end, height)
 
     def test_rarity_item_details_and_sorted_controller_selection_are_safe(self):
         up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
@@ -780,7 +804,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(f"FMath::Clamp(CurrentRow {direction}, 0, DisplayOrder.Num() - 1)", method)
             self.assertIn("KeepInventorySelectionVisible();", method)
             self.assertNotIn("EquipInventoryItem(", method)
-        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", self.hud)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);", self.hud)
         hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
         self.assertIn("PanelHeight >= 500.f", hud)
         self.assertIn("bValidDetail", hud)
@@ -802,8 +826,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("const float Left = float(Width) - PanelWidth - 12.f;", method)
             self.assertNotIn("(float(Width) - PanelWidth) * 0.5f", method)
         self.assertNotIn("(Canvas->SizeX - PanelWidth) * 0.5f", inventory)
-        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);", rows)
-        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", inventory)
+        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);", rows)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);", inventory)
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", sort)
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", inventory)
         self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", inventory)
@@ -1471,7 +1495,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", hud)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", self.hero_cpp)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20)", self.hero_cpp)
         self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
@@ -4157,7 +4181,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Nearest living boss", 1)[0]
         self.assertIn("CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0", bag)
         self.assertIn("if (bRefreshAdvisor) {", bag)
-        self.assertIn("AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f", bag)
+        self.assertIn("const double AdvisorNow = FPlatformTime::Seconds();", bag)
+        self.assertIn("FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0", bag)
+        self.assertIn("!bAdvisorClockValid || !bAdvisorScoreCached", bag)
+        self.assertIn("AdvisorNow < AdvisorScoreUpdatedAt", bag)
+        self.assertIn("AdvisorNow - AdvisorScoreUpdatedAt >= 0.25", bag)
+        self.assertIn("bAdvisorScoreCached = bAdvisorClockValid;", bag)
         for field in ("CachedAdvisorCount != Count", "CachedAdvisorSelected != Selected",
                       "CachedAdvisorSelectedCode != AdvisorCode",
                       "CachedAdvisorWeapon != Hero->EquippedWeaponCode",
@@ -4165,6 +4194,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "CachedAdvisorAccessory != Hero->EquippedAccessoryCode"):
             self.assertIn(field, bag)
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
         self.assertIn("bool bAdvisorScoreCached = false;", hud_header)
         self.assertIn("TWeakObjectPtr<const AMoonfallHeroPawn> CachedAdvisorHero;", hud_header)
         self.assertIn("CachedAdvisorHero.Get() != Hero", bag)
@@ -4180,6 +4210,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
         self.assertIn("bCompactAdvisor ? TEXT(\"GEAR: EMPTY BAG\") : TEXT(\"GEAR ADVISOR: find equipment to compare\")", bag)
         self.assertIn("Top + PanelHeight - 50.f", bag)
+        self.assertIn("if (PanelHeight >= 420.f)", bag)
+        self.assertIn("const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;", bag)
+        self.assertIn("Top + PanelHeight - HelpOffset + 20.f", bag)
+        self.assertNotIn("Top + PanelHeight - 51.f", bag)
+        self.assertNotIn("Top + PanelHeight - 68.f", bag)
         self.assertNotIn("GetRecommendedEquipmentIndex(", bag)
         advisor = bag.split("// Cache the read-only selected-row score.", 1)[1].split(
             'DrawText(TEXT("LT: equip best', 1)[0]
