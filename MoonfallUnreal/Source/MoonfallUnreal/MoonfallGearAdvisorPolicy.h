@@ -82,3 +82,29 @@ public:
  }
 };
 }
+
+// Nine-slot migration foundation. Not yet wired into the native inventory or save.
+// Preserve the legacy weapon/armor/accessory digits exactly; reserve six new IDs.
+namespace MoonfallEquipmentLayout {
+enum class ESlot : int { Weapon=0, Chest=1, Trinket=2, Head=3, Shoulders=4, Hands=5, Legs=6, Feet=7, Ring=8 };
+inline constexpr int SlotCount=9;
+inline constexpr int LegacySlotCount=3;
+using FLoadout=std::array<int,SlotCount>;
+constexpr bool Valid(int Code,int Slot) {
+ if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
+ // Normalize the slot digit only, then reuse the existing tier/rarity/affix validator.
+ return MoonfallGearAdvisor::Valid(Code-Slot*10000,0);
+}
+constexpr FLoadout ExpandLegacy(const MoonfallGearAdvisor::FEquipped& Old) {
+ FLoadout Out{};
+ for(int Slot=0;Slot<LegacySlotCount;++Slot)
+  if(Valid(Old[Slot],Slot)) Out[Slot]=Old[Slot];
+ return Out;
+}
+constexpr bool ValidLayout(const FLoadout& Codes) {
+ for(int Slot=0;Slot<SlotCount;++Slot)
+  if(Codes[Slot]!=0&&!Valid(Codes[Slot],Slot))return false;
+ return true;
+}
+static_assert(SlotCount<=10,"Item encoding reserves one decimal slot digit");
+} // namespace MoonfallEquipmentLayout
