@@ -1352,6 +1352,18 @@ void AMoonfallCombatHUD::DrawHUD()
    static const FString Audit=FString::Printf(TEXT("PC AUDIT | %llu GiB RAM | %d CPU threads"),
        static_cast<unsigned long long>(RAMGiB), Threads);
    DrawText(Audit,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-47.f,nullptr,0.65f);
+   if (MenuHeight>=510.f) {
+    const auto& Sample=Hero->GetPerformanceAudit();
+    const auto Advice=MoonfallPerformance::Advice(Sample);
+    const TCHAR* Hint=Advice==MoonfallPerformance::EAdvice::ReduceQuality?TEXT("Lower quality"):
+      Advice==MoonfallPerformance::EAdvice::Smooth?TEXT("Smooth sample"):
+      Advice==MoonfallPerformance::EAdvice::Monitor?TEXT("Monitor") : TEXT("Collecting");
+    const FString Timing=Sample.Ready
+      ? FString::Printf(TEXT("%.0f FPS | p95 %.1f ms | %u hitches | %s"),
+           Sample.AverageFPS,Sample.P95Ms,Sample.Hitches,Hint)
+      : TEXT("PC AUDIT | Play to collect frame timing");
+    DrawText(Timing,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-65.f,nullptr,0.65f);
+   }
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
