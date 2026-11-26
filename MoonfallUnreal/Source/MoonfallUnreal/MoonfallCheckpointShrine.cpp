@@ -3,6 +3,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -24,6 +25,23 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
  if (Cylinder.Succeeded()) ShrineBase->SetStaticMesh(Cylinder.Object);
  if (Sphere.Succeeded()) ShrineBeacon->SetStaticMesh(Sphere.Object);
+ // Original eight-pillar lunar reliquary: one noncolliding instanced batch.
+ ShrineCrownArt = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ShrineCrownArt"));
+ ShrineCrownArt->SetupAttachment(SceneRoot);
+ ShrineCrownArt->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ ShrineCrownArt->SetGenerateOverlapEvents(false);
+ ShrineCrownArt->SetCastShadow(false);
+ ShrineCrownArt->SetCanEverAffectNavigation(false);
+ ShrineCrownArt->SetCullDistances(8000,12000);
+ if (Cylinder.Succeeded()) {
+  ShrineCrownArt->SetStaticMesh(Cylinder.Object);
+  for (int32 I=0;I<8;++I) {
+   const float A=2.f*PI*float(I)/8.f;
+   const FVector P(37.f*FMath::Cos(A),37.f*FMath::Sin(A),0.f);
+   ShrineCrownArt->AddInstance(FTransform(FRotator::ZeroRotator,P+FVector(0,0,24),FVector(.085f,.085f,.48f)));
+   ShrineCrownArt->AddInstance(FTransform(FRotator::ZeroRotator,P+FVector(0,0,50),FVector(.14f,.14f,.08f)));
+  }
+ }
  ShrineBase->SetRelativeScale3D(FVector(0.65f, 0.65f, 0.25f));
  ShrineBeacon->SetRelativeLocation(FVector(0.f, 0.f, 65.f));
  ShrineBeacon->SetRelativeScale3D(FVector(0.22f, 0.22f, 0.22f));

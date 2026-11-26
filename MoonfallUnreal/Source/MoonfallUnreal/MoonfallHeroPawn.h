@@ -297,7 +297,6 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
- float TalentRespecArmUntil = -1.f;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
  void TalentSpendSelected();
  void TalentConfirmRespec();
@@ -618,8 +617,10 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ virtual void StopJumping() override;
  void TryJump();
  void ControllerConfirm();
+ void ControllerConfirmRelease();
  void ControllerBack();
  void ControllerLootOrSalvage();
  void ControllerLeftShoulder();
@@ -644,6 +645,7 @@ private:
  void ControllerRightStickPress();
  void ControllerRightStickRelease();
  bool bControllerGuardStarted = false;
+ bool bControllerJumpStarted = false;
  void InventorySalvage();
  void OpenOptions();
  void OptionsUp();

@@ -241,6 +241,15 @@ void AMoonfallArena::CreateRegionalLandmarks() {
    Details->AddInstance(FTransform(FRotator::ZeroRotator,
       FVector(CenterX+Spec.X,Spec.Y,H*50.f),
       FVector(Width,Width,H)));
+   // Two sculpted crown tiers per landmark; no new actors, lights or mesh batch.
+   const auto& Art=MoonfallRoadLandmarks::ArtProfiles[Zone];
+   const float Top=H*100.f;
+   Details->AddInstance(FTransform(FRotator(0.f,Art.CrownYaw,0.f),
+      FVector(CenterX+Spec.X,Spec.Y,Top+Art.CrownHeight*50.f),
+      FVector(Art.CrownWidth,Art.CrownWidth,Art.CrownHeight)));
+   Details->AddInstance(FTransform(FRotator::ZeroRotator,
+      FVector(CenterX+Spec.X,Spec.Y,Top+Art.CrownHeight*100.f+Art.TipHeight*50.f),
+      FVector(Art.TipWidth,Art.TipWidth,Art.TipHeight)));
   }
  }
  AddInstanceComponent(Details);

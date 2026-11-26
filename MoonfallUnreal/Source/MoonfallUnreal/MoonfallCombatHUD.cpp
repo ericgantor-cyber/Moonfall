@@ -100,6 +100,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const FLinearColor Etch(0.38f,0.42f,0.52f,0.54f);
    DrawRect(Etch,L+5.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
    DrawRect(Etch,L+W-6.f,T+59.f,1.f,FMath::Max(0.f,H-76.f));
+   // Hand-engraved double side rails, with four tiny rivets per frame.
+   for (int32 K=1;K<=4;++K) {
+    const float RivetY=T+H*float(K)/5.f;
+    DrawRect(Accent,L+4.f,RivetY,2.f,2.f);
+    DrawRect(Accent,L+W-6.f,RivetY,2.f,2.f);
+   }
    const float MidY=T+H*0.5f;
    Canvas->K2_DrawLine(FVector2D(L+3.f,MidY-13.f),
      FVector2D(L+10.f,MidY),1.f,Foil);
@@ -178,6 +184,12 @@ void AMoonfallCombatHUD::DrawHUD()
   };
   DrawRect(FLinearColor(0.05f,0.07f,0.14f,0.96f),
     Cx-R-2.f,Cy-R-2.f,2.f*R+4.f,2.f*R+4.f);
+  // Octagonal enamel seal surrounding the six school glyphs.
+  for (int32 I=0;I<8;++I) {
+   const float A=PI*float(I)/4.f, B=PI*float(I+1)/4.f;
+   Line(Cx+R*FMath::Cos(A),Cy+R*FMath::Sin(A),
+        Cx+R*FMath::Cos(B),Cy+R*FMath::Sin(B));
+  }
   // Four narrow cardinal marks make schools recognizable in compact layouts.
   Line(Cx-R,Cy,Cx-R*0.76f,Cy);
   Line(Cx+R*0.76f,Cy,Cx+R,Cy);
@@ -236,6 +248,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const auto Line=[this,&Ink](float X0,float Y0,float X1,float Y1) {
    Canvas->K2_DrawLine(FVector2D(X0,Y0),FVector2D(X1,Y1),1.7f,Ink);
   };
+  // Rarity-colored metal setting behind each real equipment slot glyph.
+  DrawRect(FLinearColor(0.06f,0.055f,0.095f,0.94f),Cx-R,Cy-R,2.f*R,2.f*R);
+  const float K=R*0.94f;
+  Line(Cx-K,Cy-K*0.5f,Cx-K*0.5f,Cy-K);
+  Line(Cx+K*0.5f,Cy-K,Cx+K,Cy-K*0.5f);
+  Line(Cx+K,Cy+K*0.5f,Cx+K*0.5f,Cy+K);
+  Line(Cx-K*0.5f,Cy+K,Cx-K,Cy+K*0.5f);
   switch (Slot) {
    case 0:
     Line(Cx-R*0.18f,Cy+R*0.8f,Cx+R*0.52f,Cy-R*0.88f);
@@ -268,7 +287,12 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!Canvas || Region<0 || Region>=6 || !FMath::IsFinite(X)
       || !FMath::IsFinite(Y) || !FMath::IsFinite(R)
       || R<5.f || R>24.f) return;
-  // Inner medallion frame has twelve bounded strokes and no animation.
+  // Inner medallion frame: octagon and cardinal gilded studs, no animation.
+  for (int32 I=0;I<4;++I) {
+   const float A=PI*float(I)*0.5f;
+   const float DX=FMath::Cos(A)*R*0.88f, DY=FMath::Sin(A)*R*0.88f;
+   DrawRect(Color,X+DX-1.f,Y+DY-1.f,2.f,2.f);
+  }
   constexpr int32 Edges=8;
   for (int32 I=0;I<Edges;++I) {
    const float A=2.f*PI*float(I)/float(Edges)-PI*0.5f;
@@ -339,6 +363,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float P=R*0.72f;
   DrawRect(FLinearColor(0.07f,0.10f,0.15f,0.93f),
     X-R,Y-R,2.f*R,2.f*R);
+  // Heraldic escutcheon behind the existing faction-specific engraving.
+  Stroke(X-R,Y-R,X+R,Y-R);
+  Stroke(X-R,Y-R,X-R,Y+R*0.38f);
+  Stroke(X+R,Y-R,X+R,Y+R*0.38f);
+  Stroke(X-R,Y+R*0.38f,X,Y+R);
+  Stroke(X+R,Y+R*0.38f,X,Y+R);
   switch(Faction) {
    case 0: // Wanderers: converging roads / wayfinder.
     Stroke(X-P,Y+P,X,Y-P);
@@ -376,6 +406,39 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  };
  // High-contrast rail marks the focused choice independently of text color.
+ // Eight original accessibility/graphics symbols in the actual option order.
+ const auto DrawOptionGlyph=[this](float X,float Y,int32 Option,const FLinearColor& Ink) {
+  if (!Canvas || Option<0 || Option>=8 || !FMath::IsFinite(X) || !FMath::IsFinite(Y))return;
+  const auto S=[this,X,Y,&Ink](float A,float B,float C,float D) {
+   DrawLine(X+A*7.f,Y+B*7.f,X+C*7.f,Y+D*7.f,Ink,1.3f);
+  };
+  switch(Option) {
+   case 0: // Resolution: screen
+    S(-.85f,-.6f,.85f,-.6f); S(.85f,-.6f,.85f,.5f); S(.85f,.5f,-.85f,.5f);
+    S(-.85f,.5f,-.85f,-.6f); S(0,.5f,0,.85f); S(-.4f,.85f,.4f,.85f); break;
+   case 1: // Render scale: expanding corners
+    S(-.8f,0,-.8f,-.8f); S(-.8f,-.8f,0,-.8f);
+    S(.8f,0,.8f,.8f); S(.8f,.8f,0,.8f); S(-.8f,-.8f,.8f,.8f); break;
+   case 2: // Quality: faceted jewel
+    S(0,-.9f,.85f,-.25f); S(.85f,-.25f,0,.9f); S(0,.9f,-.85f,-.25f);
+    S(-.85f,-.25f,0,-.9f); S(-.85f,-.25f,.85f,-.25f); break;
+   case 3: // Frame generation: paired chevrons
+    S(-.85f,-.65f,-.1f,0); S(-.1f,0,-.85f,.65f);
+    S(.05f,-.65f,.8f,0); S(.8f,0,.05f,.65f); break;
+   case 4: // Reduced motion: still waves
+    S(-.9f,-.45f,.9f,-.45f); S(-.9f,0,.9f,0); S(-.9f,.45f,.9f,.45f); break;
+   case 5: // Combat text: letter T
+    S(-.85f,-.65f,.85f,-.65f); S(0,-.65f,0,.8f);
+    S(-.35f,.8f,.35f,.8f); break;
+   case 6: // Boss alerts: warning triangle
+    S(0,-.85f,.9f,.7f); S(.9f,.7f,-.9f,.7f); S(-.9f,.7f,0,-.85f);
+    S(0,-.35f,0,.15f); S(0,.4f,0,.45f); break;
+   default: // Display mode: window
+    S(-.85f,-.8f,.85f,-.8f); S(.85f,-.8f,.85f,.8f);
+    S(.85f,.8f,-.85f,.8f); S(-.85f,.8f,-.85f,-.8f);
+    S(-.85f,-.35f,.85f,-.35f); break;
+  }
+ };
  const auto DrawSelectionRail = [this](float L,float T,float H) {
   if (!FMath::IsFinite(L)||!FMath::IsFinite(T)||!FMath::IsFinite(H)
       || H <= 0.f) return;
@@ -467,6 +530,36 @@ void AMoonfallCombatHUD::DrawHUD()
         FLinearColor(0.53f,0.43f,0.68f,0.72f),1.4f);
    }
   }
+  // Six original engraved stat runes. Fixed-cost, static Canvas artwork.
+  const auto DrawTalentRune=[this](float X,float Y,MoonfallTalents::Stat Stat,
+                                   const FLinearColor& Ink) {
+   const auto S=[this,X,Y,&Ink](float A,float B,float C,float D) {
+    DrawLine(X+A*7.f,Y+B*7.f,X+C*7.f,Y+D*7.f,Ink,1.35f);
+   };
+   S(0,-1,1,0); S(1,0,0,1); S(0,1,-1,0); S(-1,0,0,-1);
+   switch (Stat) {
+    case MoonfallTalents::Stat::Health: // Heart
+     S(-.65f,-.2f,-.35f,-.55f); S(-.35f,-.55f,0,-.25f);
+     S(0,-.25f,.35f,-.55f); S(.35f,-.55f,.65f,-.2f);
+     S(.65f,-.2f,0,.65f); S(0,.65f,-.65f,-.2f); break;
+    case MoonfallTalents::Stat::Mana: // Lunar droplet
+     S(0,-.65f,.5f,.15f); S(.5f,.15f,0,.65f);
+     S(0,.65f,-.5f,.15f); S(-.5f,.15f,0,-.65f); break;
+    case MoonfallTalents::Stat::Stamina: // Lightning
+     S(.25f,-.7f,-.45f,.03f); S(-.45f,.03f,.35f,.03f);
+     S(.35f,.03f,-.25f,.7f); break;
+    case MoonfallTalents::Stat::MeleeDamage: // Blade
+     S(-.45f,.65f,.45f,-.65f); S(.45f,-.65f,.55f,-.22f);
+     S(-.4f,.05f,.2f,.45f); break;
+    case MoonfallTalents::Stat::RangedDamage: // Arrow
+     S(-.5f,.5f,.55f,-.55f); S(.05f,-.55f,.55f,-.55f);
+     S(.55f,-.55f,.55f,-.05f); break;
+    case MoonfallTalents::Stat::MagicDamage: // Four-point star
+     S(0,-.65f,0,.65f); S(-.65f,0,.65f,0);
+     S(-.4f,-.4f,.4f,.4f); S(-.4f,.4f,.4f,-.4f); break;
+    default: break;
+   }
+  };
   for(int I=0;I<MoonfallTalents::NodeCount;++I) {
    if(MoonfallTalentWeb::BranchOf(I)!=Branch)continue;
    const auto NodeRect=MoonfallTalentWeb::NodeRect(P,I,Branch);
@@ -486,10 +579,15 @@ void AMoonfallCombatHUD::DrawHUD()
       float(NodeRect.W),float(NodeRect.H));
    DrawRect(Selected?FLinearColor(0.96f,0.79f,0.40f):BranchColors[Branch],
       float(NodeRect.X),float(NodeRect.Y),4.f,float(NodeRect.H));
-   // Rank stamp is drawn only for invested or focused talents.
-   if ((Selected || Rank>0) && NodeRect.W>=110 && NodeRect.H>=32)
-    DrawMoonfallSigil(float(NodeRect.X+NodeRect.W-13),
-      float(NodeRect.Y+13),6.f,BranchColors[Branch],Branch);
+   // Reserve the lower-right corner for stat artwork, away from title and rank.
+   if (NodeRect.W>=132 && NodeRect.H>=36) {
+    const FLinearColor RuneInk=Selected?FLinearColor(0.98f,0.82f,0.43f)
+       : Rank>0?FLinearColor(0.72f,0.94f,0.77f):BranchColors[Branch];
+    DrawTalentRune(float(NodeRect.X+NodeRect.W-14),
+      float(NodeRect.Y+NodeRect.H-12),Node.AffectedStat,RuneInk);
+   }
+   if (Selected) DrawHoverFrame(float(NodeRect.X),float(NodeRect.Y),
+       float(NodeRect.W),float(NodeRect.H));
    const FString Name=FString(UTF8_TO_TCHAR(Node.Title)).Left(P.TileWidth<148?16:22);
    DrawText(Name,Selected?FLinearColor::White:FLinearColor(0.87f,0.86f,0.89f),
       float(NodeRect.X+9),float(NodeRect.Y+5),nullptr,
@@ -526,23 +624,22 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
      W<760.f?0.54f:0.69f);
-  DrawText(TEXT("K/ESC: close   Enter/A: spend   Backspace/LT twice: reset"),
+  const bool Arm=Hero->bTalentRespecArmed;
+  DrawText(Arm?TEXT("Reset all talents? Enter/A: confirm   LT: cancel"):TEXT("K/ESC: close   Enter/A: spend   LT: reset"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-69.f,nullptr,
      W<760.f?0.54f:0.69f);
   const auto Spend=MoonfallTalentWeb::SpendRect(P);
   const auto Respec=MoonfallTalentWeb::RespecRect(P);
-  DrawRect(FLinearColor(0.16f,0.36f,0.27f,0.98f),
+  DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f):FLinearColor(0.16f,0.36f,0.27f,0.98f),
       float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
   DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
-  DrawText(TEXT("SPEND POINT"),FLinearColor::White,
+  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("SPEND POINT"),FLinearColor::White,
       float(Spend.X+15),float(Spend.Y+6),nullptr,0.75f);
-  const bool Arm=Hero->bTalentRespecArmed && Hero->GetWorld()
-       && Hero->GetWorld()->GetTimeSeconds()<=Hero->TalentRespecArmUntil;
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
       :FLinearColor(0.28f,0.18f,0.26f,0.96f),
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
-  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET ALL"),
+  DrawText(Arm?TEXT("CANCEL"):TEXT("RESET TALENTS"),
       FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
   DrawLiveMenuHitCue();
   return;
@@ -929,6 +1026,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const float CompassY=MapTop+35.f;
    DrawMoonfallSigil(CompassX,CompassY,13.f,
      FLinearColor(0.86f,0.76f,0.51f),1);
+   // Four engraved compass points, purely decorative and fog independent.
+   for (int32 I=0;I<4;++I) {
+    const float A=PI*float(I)*0.5f;
+    const float DX=FMath::Cos(A), DY=FMath::Sin(A);
+    DrawLine(CompassX+DX*14.f,CompassY+DY*14.f,
+             CompassX+DX*19.f,CompassY+DY*19.f,
+             FLinearColor(0.86f,0.76f,0.51f),1.1f);
+   }
    DrawText(TEXT("N"),FLinearColor(0.92f,0.83f,0.59f),
      CompassX-4.f,CompassY-27.f,nullptr,0.63f);
   }
@@ -1303,8 +1408,8 @@ void AMoonfallCombatHUD::DrawHUD()
     if (bSelected) DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);
     DrawHoverFrame(MenuLeft+10.f,Y,MenuWidth-20.f,RowHeight);
     if (!bCompactOptions && MenuWidth>=480.f && RowHeight>=24.f)
-     DrawMoonfallSigil(MenuLeft+25.f,Y+RowHeight*0.5f,7.f,
-       FLinearColor(0.54f,0.73f,0.91f),i);
+     DrawOptionGlyph(MenuLeft+25.f,Y+RowHeight*0.5f,i,
+       bSelected?FLinearColor(0.98f,0.83f,0.47f):FLinearColor(0.54f,0.73f,0.91f));
     DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
        MenuLeft + (bCompactOptions?17.f:38.f), Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.85f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
@@ -1799,7 +1904,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
-   DrawText(TEXT("A / K: talents   Esc / Pad B: back   Select: close"),
+   DrawText(TEXT("A/K: talents   J/R3: atlas   Esc/Pad B: back   Select: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    DrawLiveMenuHitCue();
@@ -1949,7 +2054,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
       Book.Width<500.f ? 0.62f : 0.85f);
    if (Book.Width >= 440.f)
-    DrawText(TEXT("P: CLOSE  |  Y: BAG  |  D-PAD UP/DOWN: SELECT  |  LEFT/RIGHT: EQUIP"),
+    DrawText(TEXT("P: CLOSE | Y: BAG | J/R3: ATLAS | UP/DOWN: SELECT | LEFT/RIGHT: EQUIP"),
        FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
        Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    DrawLiveMenuHitCue();
@@ -2308,7 +2413,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("LT: equip best  |  Crafting and salvage unavailable"), FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   else DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C/A: stats   P: spell book / Y   J/R3: atlas   B/I/Select/Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   DrawLiveMenuHitCue();
   return;
@@ -2370,6 +2475,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float TellX = (Canvas->SizeX - TellWidth) * 0.5f;
   const float TellY = Canvas->SizeY * 0.23f;
   DrawRect(FLinearColor(0.055f,0.035f,0.065f,0.92f), TellX,TellY,TellWidth,40.f);
+  // Forged alert rails distinguish the sword tell without changing its size.
+  const FLinearColor TellFoil(0.78f,0.58f,0.33f,0.93f);
+  DrawRect(TellFoil,TellX,TellY,TellWidth,1.f);
+  DrawRect(TellFoil,TellX,TellY+39.f,TellWidth,1.f);
+  DrawRect(TellFoil,TellX,TellY+5.f,3.f,30.f);
+  DrawRect(TellFoil,TellX+TellWidth-3.f,TellY+5.f,3.f,30.f);
   DrawText(FString::Printf(TEXT("%s STRIKE | GUARD"), UTF8_TO_TCHAR(MoonfallOmniattack::GuardName(NearbySwordTell))),
      FLinearColor(0.95f,0.86f,0.68f),TellX+9.f,TellY+10.f,nullptr,0.84f);
  }
@@ -2386,6 +2497,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const float AlertScale = FMath::Clamp(Hero->BossWarningScale, 1.f, 2.f);
   DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),
     X-6.f,Y-40.f,Width+12.f,120.f);
+  // Gothic boss-bar frame stays outside the actual health fill and labels.
+  const FLinearColor BossFoil(0.75f,0.45f,0.35f,0.90f);
+  DrawRect(BossFoil,X-2.f,Y-2.f,Width+4.f,1.f);
+  DrawRect(BossFoil,X-2.f,Y+17.f,Width+4.f,1.f);
+  DrawRect(BossFoil,X-2.f,Y-2.f,1.f,20.f);
+  DrawRect(BossFoil,X+Width+1.f,Y-2.f,1.f,20.f);
   DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
   DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
   DrawText(FString::Printf(TEXT("%s  |  PHASE %d / 3  |  %.0f / %.0f HP"),
@@ -2402,6 +2519,18 @@ void AMoonfallCombatHUD::DrawHUD()
     X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
   if (Width>=320.f) DrawMoonfallSigil(X+Width-13.f,Y+40.f,
     9.f,FLinearColor(0.95f,0.44f,0.59f),0);
+  // Phase medallions are non-animated and redundant with the numeric phase.
+  if (Width>=360.f) {
+   for (int32 Phase=1;Phase<=3;++Phase) {
+    const float PX=X+Width-45.f-float(3-Phase)*15.f;
+    const FLinearColor Ink=Phase<=Boss->BossPhase
+      ? FLinearColor(0.96f,0.66f,0.34f):FLinearColor(0.35f,0.29f,0.35f);
+    DrawLine(PX,Y+35.f,PX+4.f,Y+40.f,Ink,1.2f);
+    DrawLine(PX+4.f,Y+40.f,PX,Y+45.f,Ink,1.2f);
+    DrawLine(PX,Y+45.f,PX-4.f,Y+40.f,Ink,1.2f);
+    DrawLine(PX-4.f,Y+40.f,PX,Y+35.f,Ink,1.2f);
+   }
+  }
   DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
     bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
     X,Y+35.f,nullptr,0.78f);
@@ -2552,9 +2681,9 @@ void AMoonfallCombatHUD::DrawHUD()
     case EAction::SwingSword:
      Objective = TEXT("Try your sword (left-click / RT)"); break;
     case EAction::PerformDodge:
-     Objective = TEXT("Dodge near the northern practice sentries"); break;
+     Objective = TEXT("Dodge (Q / Pad B) near northern practice sentries"); break;
     case EAction::OpenSpellbook:
-     Objective = TEXT("Open your Spell Book (P / inventory Book tab)"); break;
+     Objective = TEXT("Open Spell Book (P / Select then Y)"); break;
     default: break;
    }
    Context = TEXT("OPTIONAL: Exit via the south gate whenever ready");
@@ -2576,6 +2705,14 @@ void AMoonfallCombatHUD::DrawHUD()
   // Static border aligns the in-world objective with the native menu frame.
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top,Width,2.f);
   DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,Top+122.f,Width,2.f);
+  // Quest parchment corner inlays remain in the existing margin.
+  const FLinearColor QuestFoil(0.63f,0.48f,0.28f,0.88f);
+  DrawRect(QuestFoil,Left+6.f,Top+4.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+6.f,Top+4.f,1.f,7.f);
+  DrawRect(QuestFoil,Left+Width-10.f,Top+4.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+Width-5.f,Top+4.f,1.f,7.f);
+  DrawRect(QuestFoil,Left+6.f,Top+119.f,6.f,1.f);
+  DrawRect(QuestFoil,Left+Width-10.f,Top+119.f,6.f,1.f);
   // The tracker uses the real current-region seal below, not a generic icon.
   DrawText(bSanctuaryObjective
       ? TEXT("SHATTERED SANCTUARY  |  FIRST STEPS")
@@ -2634,6 +2771,9 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Goals.Valid && Rows>0) {
     const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
     DrawRect(FLinearColor(0.035f,0.055f,0.11f,0.88f),Left,ExtraTop,Width,Height);
+    // A matching etched top rail ties the quest ledger to the main tracker.
+    DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
+    DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
     DrawText(FString::Printf(TEXT("REGIONAL QUESTS  |  %d/%d SHOWN"),Rows,Goals.Count),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
@@ -2683,6 +2823,16 @@ void AMoonfallCombatHUD::DrawHUD()
  // Readable static medallion mark sits beyond the original three-resource orb.
  DrawMoonfallSigil(CX,CY-Radius*1.28f,7.f,
    FLinearColor(0.88f,0.70f,0.44f),0);
+ // Static gold bezel ticks outside the resource arcs. No new resource layers.
+ if (Radius>=24.f) {
+  for (int32 I=0;I<12;++I) {
+   const float A=2.f*PI*float(I)/12.f;
+   const float DX=FMath::Cos(A), DY=FMath::Sin(A);
+   DrawLine(CX+DX*Radius*1.02f,CY+DY*Radius*1.02f,
+            CX+DX*Radius*1.08f,CY+DY*Radius*1.08f,
+            FLinearColor(0.74f,0.54f,0.30f,0.85f),1.2f);
+  }
+ }
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
  for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
@@ -2790,6 +2940,15 @@ void AMoonfallCombatHUD::DrawHUD()
      CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Follow?TEXT("FOLLOW"):
      CompanionMode->LocalCompanionStance==EMoonfallCompanionStance::Hold?TEXT("HOLD"):TEXT("PASSIVE");
    DrawRect(FLinearColor(0.035f,0.045f,0.09f,0.92f),X,Y,W,65.f);
+   // Companion portrait substitute: a static oath crest in the unused
+   // lower-right corner, reflecting the real downed state, not a new status.
+   const FLinearColor OathInk=bDown?FLinearColor(0.93f,0.37f,0.32f)
+      :FLinearColor(0.63f,0.83f,0.72f);
+   DrawRect(OathInk,X,Y,W,1.f);
+   DrawRect(OathInk,X,Y+64.f,W,1.f);
+   DrawRect(OathInk,X,Y,2.f,65.f);
+   DrawRect(OathInk,X+W-2.f,Y,2.f,65.f);
+   DrawMoonfallSigil(X+W-17.f,Y+49.f,8.f,OathInk,2);
    DrawText(Scout->DisplayName.ToString().Left(24),FLinearColor::White,X+10.f,Y+5.f,nullptr,0.82f);
    DrawRect(FLinearColor(0.20f,0.12f,0.16f),X+10.f,Y+27.f,W-20.f,7.f);
    const FLinearColor HPColor=HP<=25.f?FLinearColor(1.f,0.28f,0.25f):FLinearColor(0.32f,0.82f,0.53f);

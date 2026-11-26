@@ -23,7 +23,13 @@ class SanctuaryArchitectureTests(unittest.TestCase):
 #include <cmath>
 using namespace MoonfallSanctuaryArchitecture;
 int main() {
- if (GothicCount < 30 || RelicCount < 18) return 1;
+ if (GothicCount != 56 || RelicCount < 18) return 1;
+ int Finials=0, Capitals=0;
+ for (const FPiece& p : GothicStone) {
+  if (p.YawDegrees==45.f && p.Z>=639.f) ++Finials;
+  if (p.Z==477.f || p.Z==743.f) ++Capitals;
+ }
+ if (Finials!=10 || Capitals!=10) return 5;
  if (GothicCount + RelicCount > MaxTotalPieces) return 2;
  for (const FPiece& p : GothicStone) {
   if (!ClearsMainPath(p) || !std::isfinite(p.X) || !std::isfinite(p.Y)

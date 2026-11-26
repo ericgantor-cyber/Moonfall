@@ -125,6 +125,67 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, HUD)
 
+    def test_companion_and_sword_warning_art_preserve_gameplay(self):
+        self.assertIn("const FLinearColor TellFoil", HUD)
+        self.assertIn("DrawRect(TellFoil,TellX,TellY+39.f,TellWidth,1.f);", HUD)
+        self.assertIn("const FLinearColor OathInk=bDown?", HUD)
+        self.assertIn("DrawMoonfallSigil(X+W-17.f,Y+49.f,8.f,OathInk,2);", HUD)
+        self.assertIn("(W-20.f)*HP/100.f", HUD)
+        self.assertIn('TEXT("%s STRIKE | GUARD")', HUD)
+
+    def test_boss_and_quest_engravings_preserve_existing_progress(self):
+        self.assertIn("const FLinearColor BossFoil", HUD)
+        self.assertIn("Phase<=3;++Phase", HUD)
+        self.assertIn("Phase<=Boss->BossPhase", HUD)
+        self.assertIn("const FLinearColor QuestFoil", HUD)
+        self.assertIn("Width*Percent,16.f", HUD)
+        self.assertIn("Width*WarningProgress,4.f", HUD)
+        self.assertIn("const float Top = bQuestOverlapsBoss ? 232.f : 78.f;", HUD)
+        self.assertIn("TrackWidth*(Progress/5.f)", HUD)
+
+    def test_expanded_engraved_art_is_bounded_and_display_only(self):
+        for token in (
+            "K<=4;++K", "Octagonal enamel seal", "Rarity-colored metal setting",
+            "cardinal gilded studs", "Heraldic escutcheon", "Four engraved compass points",
+            "Static gold bezel ticks", "DrawOptionGlyph(MenuLeft+25.f,Y+RowHeight*0.5f,i,",
+        ):
+            self.assertIn(token, HUD)
+        options = HUD.split("const auto DrawOptionGlyph=", 1)[1].split(
+            "const auto DrawSelectionRail", 1)[0]
+        self.assertIn("Option<0 || Option>=8", options)
+        for index in range(7):
+            self.assertIn(f"case {index}:", options)
+        self.assertIn("default: // Display mode", options)
+        for forbidden in ("BindAction", "SaveWorldProgress", "LoadObject", "TActorIterator"):
+            self.assertNotIn(forbidden, options)
+
+    def test_constellation_interface_design_sheet_has_sixteen_editable_symbols(self):
+        source = ROOT / "MoonfallUnreal/Art/UI/moonfall_constellation_interface_engraving.svg"
+        root = ET.parse(source).getroot()
+        ns = "{http://www.w3.org/2000/svg}"
+        self.assertEqual(root.tag, ns + "svg")
+        self.assertEqual(root.attrib["viewBox"], "0 0 760 870")
+        tiles = [g for g in root if g.tag == ns + "g"]
+        self.assertEqual(len(tiles), 16)
+        self.assertEqual(len({g.attrib["id"] for g in tiles}), 16)
+        for name in ("health", "mana", "stamina", "melee", "ranged", "magic",
+                     "resolution", "render-scale", "quality", "frame-gen",
+                     "reduced-motion", "combat-text", "boss-alerts", "display-mode",
+                     "companion-oath", "boss-phase"):
+            self.assertIn("rune-" + name, {g.attrib["id"] for g in tiles})
+        for forbidden in ("script", "image", "foreignObject"):
+            self.assertFalse(list(root.iter(ns + forbidden)))
+
+    def test_talent_stat_runes_are_bounded_and_use_real_catalog_stats(self):
+        art = HUD.split("const auto DrawTalentRune=", 1)[1].split("for(int I=0;", 1)[0]
+        for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):
+            self.assertIn("case MoonfallTalents::Stat::" + stat, art)
+        self.assertIn("NodeRect.W>=132 && NodeRect.H>=36", HUD)
+        self.assertIn("float(NodeRect.Y+NodeRect.H-12),Node.AffectedStat,RuneInk", HUD)
+        self.assertNotIn("SpendTalentPoint(", art)
+        self.assertNotIn("LoadObject", art)
+        self.assertNotIn("TActorIterator", art)
+
     def test_original_runtime_art_and_six_distinct_panel_signatures(self):
         chrome = HUD.split("const auto DrawModalChrome = [this]", 1)[1].split(
             "const auto DrawMoonfallSigil = [this]", 1

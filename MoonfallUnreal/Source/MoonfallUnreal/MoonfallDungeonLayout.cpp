@@ -1,4 +1,5 @@
 #include "MoonfallDungeonLayout.h"
+#include "MoonfallRoadLandmarks.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
@@ -23,6 +24,14 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonHazardPlates"));
  HazardPlates->SetupAttachment(Root);
  HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ WallCrownArt = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonWallCrownArt"));
+ WallCrownArt->SetupAttachment(Root);
+ WallCrownArt->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ WallCrownArt->SetCollisionResponseToAllChannels(ECR_Ignore);
+ WallCrownArt->SetGenerateOverlapEvents(false);
+ WallCrownArt->SetCastShadow(false);
+ WallCrownArt->SetCanEverAffectNavigation(false);
+ WallCrownArt->SetCullDistances(8000, 12000);
  // Visual-only instanced-mesh distance fade. Distant chambers do not need
  // rendering from the arena or neighboring zones. Keep collision intact:
  // actors, traps, loot and world traversal are never disabled by culling.
@@ -34,6 +43,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
   Floors->SetStaticMesh(Cube.Object);
   Walls->SetStaticMesh(Cube.Object);
   HazardPlates->SetStaticMesh(Cube.Object);
+  WallCrownArt->SetStaticMesh(Cube.Object);
  }
  // Instanced geometry supports physical collision without one actor per tile.
  Floors->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -141,6 +151,7 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  Floors->ClearInstances();
  Walls->ClearInstances();
  HazardPlates->ClearInstances();
+ WallCrownArt->ClearInstances();
  int32 HazardChambers[3];
  BuildHazardChambers(HazardChambers);
  FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
@@ -162,6 +173,16 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
     FVector(X, 0.f, -20.f),
     FVector(ChamberLength / 100.f, ChamberWidth / 100.f, 0.4f)));
   for (const float Side : {-1.f, 1.f}) {
+   // Two small regional ornaments per chamber, on top of the outer wall.
+   // Never change room RNG, collision, hazard readability or central routes.
+   if (bEnableWallCrownArt && WallCrownArt->GetStaticMesh()
+       && ZoneIndex>=0 && ZoneIndex<6) {
+    const auto& Art=MoonfallRoadLandmarks::ArtProfiles[ZoneIndex];
+    const float CrownScale=Art.CrownWidth*0.24f;
+    WallCrownArt->AddInstance(FTransform(FRotator(0.f,Art.CrownYaw,0.f),
+      FVector(X,Side*ChamberWidth*0.5f,300.f+Art.CrownHeight*50.f),
+      FVector(CrownScale,CrownScale,Art.CrownHeight)));
+   }
    Walls->AddInstance(FTransform(FRotator::ZeroRotator,
      FVector(X, Side * ChamberWidth * 0.5f, 150.f),
      FVector(ChamberLength / 100.f, 0.4f, 3.f)));

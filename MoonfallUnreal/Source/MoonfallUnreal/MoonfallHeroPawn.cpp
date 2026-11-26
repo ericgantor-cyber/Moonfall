@@ -716,7 +716,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
- Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &AMoonfallHeroPawn::ControllerConfirmRelease);
  Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
  Input->BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);
  Input->BindAction(TEXT("ControllerLeftShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftShoulder);
@@ -747,7 +747,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
  Input->BindAction(TEXT("TalentSpend"), IE_Pressed, this, &AMoonfallHeroPawn::TalentSpendSelected);
- Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::TalentConfirmRespec);
  Input->BindAction(TEXT("TalentClose"), IE_Pressed, this, &AMoonfallHeroPawn::TalentCloseWeb);
  Input->BindAction(TEXT("TalentBranchPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::TalentPreviousBranch);
  Input->BindAction(TEXT("TalentBranchNext"), IE_Pressed, this, &AMoonfallHeroPawn::TalentNextBranch);
@@ -971,6 +970,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -991,6 +991,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -1057,7 +1058,9 @@ void AMoonfallHeroPawn::ControllerRightTrigger()
 void AMoonfallHeroPawn::ControllerBack()
 {
  // Choose one route before a modal transition can expose gameplay input.
- if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
+ // Match Escape: a defeated player may close an open bag, never craft or dodge.
+ if (Health == 0.f) { if (bInventoryOpen) OpenOptions(); return; }
  if (bTalentWebOpen) { TalentCloseWeb(); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }
  if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }
@@ -1071,10 +1074,25 @@ void AMoonfallHeroPawn::ControllerConfirm()
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
- if (bOptionsOpen || bAtlasOpen) return;
+ if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()) return;
+ // Spellbook already owns D-pad hand assignment. A must not swap panels.
+ if (bInventoryOpen && bSpellBookOpen) return;
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bInventoryOpen) { ToggleCharacterStats(); return; }
+ const bool bWasJumpPressed=bPressedJump;
  TryJump();
+ bControllerJumpStarted=!bWasJumpPressed && bPressedJump;
+}
+void AMoonfallHeroPawn::ControllerConfirmRelease()
+{
+ if (!bControllerJumpStarted) return;
+ bControllerJumpStarted=false;
+ StopJumping();
+}
+void AMoonfallHeroPawn::StopJumping()
+{
+ bControllerJumpStarted=false;
+ Super::StopJumping();
 }
 void AMoonfallHeroPawn::TryJump()
 {
@@ -1782,8 +1800,10 @@ void AMoonfallHeroPawn::ControllerRightStickPress()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bOptionsOpen) { ExportBugReport(); return; }
- if (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
+ // R3 opens the Atlas from the bag or its subpages, never from live combat.
+ if (bInventoryOpen) { ToggleAtlas(); return; }
  if (bGuarding) return;
  BeginGuard();
  bControllerGuardStarted = bGuarding;
@@ -2115,7 +2135,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // can cover defeat and lock movement after the next shrine respawn.
   bTalentWebOpen = false;
   bTalentRespecArmed = false;
-  TalentRespecArmUntil = -1.f;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
@@ -3972,7 +3991,6 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  if (bTalentWebOpen) {
   bTalentWebOpen=false;
   bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
   if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=false;
   return;
  }
@@ -4024,31 +4042,25 @@ void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
   TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
       TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
  bTalentRespecArmed=false;
- TalentRespecArmUntil=-1.f;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
-     || TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
- // Clear confirmation before the allocation can notify Blueprint listeners.
- bTalentRespecArmed=false;
- TalentRespecArmUntil=-1.f;
+     || bPersistentSaveWritesBlocked)return;
+ if (bTalentRespecArmed) {
+  // Confirm explicitly using the separate primary action; never repeat reset.
+  bTalentRespecArmed=false;
+  RespecTalentPoints();
+  return;
+ }
+ if (TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
  SpendTalentPoint(TalentWebSelected);
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
  if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)return;
- const float Now=GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now))return;
- if (bTalentRespecArmed && FMath::IsFinite(TalentRespecArmUntil) && Now<=TalentRespecArmUntil) {
-  // Consume confirmation before the transaction emits synchronous callbacks.
-  bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
-  RespecTalentPoints();
- } else {
-  bTalentRespecArmed=true;
-  TalentRespecArmUntil=Now+3.0f;
- }
+ // Reset button / LT requests or cancels; only the separate confirm action commits.
+ bTalentRespecArmed=!bTalentRespecArmed;
 }
 void AMoonfallHeroPawn::TalentPointerClick() {
  if (!bTalentWebOpen)return;
@@ -4070,7 +4082,6 @@ void AMoonfallHeroPawn::TalentPointerClick() {
    TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
        TalentWebSelected,Layout.FirstTier,Layout.VisibleTiers);
    bTalentRespecArmed=false;
-   TalentRespecArmUntil=-1.f;
    return;
   }
  if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
@@ -4079,7 +4090,6 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (Hit>=0) {
   TalentWebSelected=Hit;
   bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
  }
 }
 
@@ -4739,7 +4749,6 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
  bTalentRespecArmed = false;
- TalentRespecArmUntil = -1.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
   if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(MaxMana)
@@ -5052,7 +5061,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // One controller D-pad Up mapping serves modal navigation and the NPC menu.
  // Never acquire an NPC target behind the open Atlas.
  if (bOptionsOpen || bInventoryOpen || bAtlasOpen) { OptionsUp(); return; }
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || Health <= 0.f || !FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  if (bResidentContextOpen) {
   // Do not select another resident behind a stale conversation.
   if (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)) {
@@ -5099,6 +5108,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld()) return;
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
  // AC-like central aim selection when using hidden-cursor mouse look.
  FHitResult Hit;
