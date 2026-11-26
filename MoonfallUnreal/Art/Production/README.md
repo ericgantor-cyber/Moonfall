@@ -41,6 +41,9 @@ Run `MoonfallUnreal/Build/Get-MoonfallBugReports.ps1` with Windows PowerShell. I
 
 Installed-game report discovery checks the standard user-data and package locations, and the NSIS installer's per-user InstallLocation registration. A custom local installation is accepted only if its directory is non-reparse and contains the expected non-reparse MoonfallUnreal.exe. Duplicate report roots are skipped. Unregistered copies may be supplied explicitly with -IncludeInstalled -InstallDirectory; arbitrary Saved directory overrides are not searched. The index remains read-only and bounded.
 
+### ChatGPT diagnostic handoff
+In Build Center, select BUG REPORTS, then ASK CHATGPT - PREVIEW REPORT. Review the editable prompt, add reproduction steps, and explicitly copy it into your ChatGPT conversation. Only up to five summaries with fixed classification labels and validated numeric timing fields are included by default. No filenames, local paths, report identifiers or raw logs are copied by the generator. User-added text is their choice. No API key, automatic transmission, embedded AI runtime, or automatic code changes are included. The Windows regression tests verify the prompt bounds and allowlisted data; the interactive clipboard still requires a real desktop test.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
