@@ -902,6 +902,13 @@ int main(){
         self.assertIn("RegionWeatherLights[Zone]",weather)
         self.assertIn("if (!IsValid(Light)) continue;",weather)
         self.assertIn("WeatherFor(Zone,Phase)",weather)
+        self.assertIn("LastRegionWeatherPhase=-1;", region)
+        self.assertIn("for (int32& WeatherId : AppliedRegionWeather) WeatherId=INDEX_NONE;", region)
+        self.assertLess(weather.index("if (AppliedRegionWeather[Zone]==WeatherId) continue;"),
+                        weather.index("Light->SetLightColor(Tint);"))
+        self.assertLess(weather.index("Light->SetIntensity(Intensity);"),
+                        weather.index("AppliedRegionWeather[Zone]=WeatherId;"))
+        self.assertIn("const int32 WeatherId=static_cast<int32>(Weather);", weather)
         self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
                         arena.index("DungeonRoad->AddInstance("))
 

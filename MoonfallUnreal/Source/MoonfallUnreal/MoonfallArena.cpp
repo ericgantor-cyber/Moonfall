@@ -264,6 +264,8 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  // Six bounded, shadow-free weather lights (one per connected region).
  // Preserve zone identity even if creation of an earlier light fails.
  RegionWeatherLights.SetNum(6);
+ LastRegionWeatherPhase=-1;
+ for (int32& WeatherId : AppliedRegionWeather) WeatherId=INDEX_NONE;
  for (int32 Zone=0;Zone<6;++Zone) {
   UPointLightComponent* Light=NewObject<UPointLightComponent>(this);
   if (!IsValid(Light)) continue;
@@ -288,6 +290,10 @@ void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
   UPointLightComponent* Light=RegionWeatherLights[Zone];
   if (!IsValid(Light)) continue;
   const auto Weather=MoonfallLivingSimulation::WeatherFor(Zone,Phase);
+  const int32 WeatherId=static_cast<int32>(Weather);
+  // Adjacent phases often share the same weather. Avoid redundant render
+  // state updates without changing the authored lighting or phase schedule.
+  if (AppliedRegionWeather[Zone]==WeatherId) continue;
   FLinearColor Tint(0.66f,0.78f,0.89f);
   float Intensity=300.f;
   switch (Weather) {
@@ -306,6 +312,7 @@ void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
   }
   Light->SetLightColor(Tint);
   Light->SetIntensity(Intensity);
+  AppliedRegionWeather[Zone]=WeatherId;
  }
 }
 void AMoonfallArena::BeginPlay() {
