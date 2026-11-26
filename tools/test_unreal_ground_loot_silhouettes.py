@@ -12,7 +12,7 @@ class GroundLootVisualSafety(unittest.TestCase):
 
     def test_three_equipment_silhouettes(self):
         source = self.cpp.split("void AMoonfallGroundLoot::InitializeLoot",1)[1].split("void AMoonfallGroundLoot::SetPersistentDropId",1)[0]
-        for expected in ("if (Slot == 0)", "else if (Slot == 1 || (Slot >= 3 && Slot <= 7))", "else {",
+        for expected in ("if (Slot == 0)", "else if (Slot == 1 || (Slot >= 3 && Slot <= 7) || Slot == 10 || Slot == 11 || Slot == 12)", "else {",
                          "PickupDetailA->SetRelativeLocation(", "PickupDetailB->SetRelativeLocation(",
                          "GearCube", "GearSphere", "const float SizeAccent",
                          "const float BeaconWidth", "RarityBeacon->SetRelativeScale3D("):
@@ -37,7 +37,7 @@ class GroundLootVisualSafety(unittest.TestCase):
 
     def test_existing_codes_and_collection_unmodified(self):
         source = self.cpp
-        for text in ("InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier",
+        for text in ("MoonfallEquipmentLayout::CanOperateFull(InItemCode,MoonfallEquipmentLayout::ActiveSlotCount,",
                      "if (ItemCode != 0 || bCollected || IsActorBeingDestroyed()) return;",
                      "PersistentDropId", "CollectPersistedGroundEquipmentCode",
                      "CollectDungeonTreasureCode", "DistanceSq > FMath::Square(250.f)",
@@ -46,10 +46,10 @@ class GroundLootVisualSafety(unittest.TestCase):
 
     def test_expanded_slot_labels_and_imported_mesh_guard(self):
         source = self.cpp.split("void AMoonfallGroundLoot::InitializeLoot",1)[1].split("void AMoonfallGroundLoot::SetPersistentDropId",1)[0]
-        self.assertIn("Slot >= MoonfallEquipmentLayout::ActiveSlotCount", source)
-        self.assertIn("UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentLayout::SlotCount", source)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(InItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", source)
+        self.assertIn("UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentLayout::FullSlotCount", source)
         self.assertIn("Slot==2?ProductionAmulet:nullptr", source)
-        for name in ("Head", "Shoulders", "Hands", "Legs", "Feet", "Ring"):
+        for name in ("Head", "Shoulders", "Hands", "Legs", "Feet", "Ring", "Neck", "Back", "Wrists", "Waist", "Off-hand"):
             self.assertIn('TEXT("' + name + '")', source)
 
     def test_no_collisions_extra_actors_or_ticking(self):
