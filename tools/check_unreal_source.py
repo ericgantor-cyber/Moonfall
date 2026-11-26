@@ -23,7 +23,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         pointer=self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split("const float SidebarWidth",1)[0]
         self.assertIn("if(bQuestLogOpen) {",pointer)
         self.assertIn("MoonfallQuestJournal::HeaderButtons(PanelW)",pointer)
-        self.assertIn("QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)",pointer)
+        self.assertIn("if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT))",pointer)
+        atlas=self.hud.split("// Atlas close remains independent",1)[1].split("const float AtlasSidebarWidth",1)[0]
+        self.assertIn("MoonfallQuestJournal::HeaderButtons(Width)",atlas)
+        self.assertIn('bCompactAtlasHeader?TEXT("QUESTS"):TEXT("QUESTS [L]")',atlas)
+        self.assertIn("DrawHoverFrame(Left+QuestButtons.MapX,Top+46.f,QuestButtons.Width,20.f)",atlas)
+        self.assertNotIn("if(Width>=480.f)",atlas)
         self.assertIn("QuestButtons.HitAuto(MouseX-PanelL,MouseY-PanelT)) { ResetQuestTracking(); return; }",pointer)
         self.assertLess(pointer.index("ResetQuestTracking(); return;"),pointer.index("MoonfallQuestJournal::HitRow"))
         reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
