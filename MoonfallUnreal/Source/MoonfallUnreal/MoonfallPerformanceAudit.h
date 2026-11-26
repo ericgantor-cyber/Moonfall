@@ -60,6 +60,40 @@ private:
             static_cast<unsigned>(Count),Slow,Hitch,true};
  }
 };
+// Engine-provided stage times are delayed estimates, not synchronized GPU
+// profiler captures. Require eight valid consecutive samples for advice.
+struct FStageAudit {
+ std::array<std::array<double,3>,8> Samples{};
+ std::array<double,3> Mean{};
+ unsigned Count=0, Next=0;
+ void Reset() { Count=Next=0; Mean={}; }
+ bool Ready() const { return Count==Samples.size(); }
+ void Observe(double Game, double Render, double GPU) {
+  for (double V:{Game,Render,GPU}) {
+   if (!std::isfinite(V) || V<=0 || V>2000) { Reset(); return; }
+  }
+  Samples[Next]={Game,Render,GPU};
+  Next=(Next+1)%Samples.size();
+  Count=std::min(Count+1,static_cast<unsigned>(Samples.size()));
+  Mean={};
+  for (unsigned I=0;I<Count;++I)
+   for (unsigned J=0;J<3;++J) Mean[J]+=Samples[I][J]/Count;
+ }
+};
+enum class EStage { Unknown, Balanced, Game, Render, GPU };
+inline EStage LikelyStage(const FStageAudit& S, const FSnapshot& Frame) {
+ if (!S.Ready() || !Frame.Ready || !std::isfinite(Frame.MeanMs) || Frame.MeanMs<=0)
+  return EStage::Unknown;
+ const auto& M=S.Mean;
+ for (double V:M) if (!std::isfinite(V) || V<=0) return EStage::Unknown;
+ unsigned Largest=0;
+ for (unsigned I=1;I<3;++I) if (M[I]>M[Largest]) Largest=I;
+ if (M[Largest]<Frame.MeanMs*.75 || M[Largest]>Frame.MeanMs*1.5)
+  return EStage::Balanced; // caps, waits, mismatched samples or other work
+ for (unsigned I=0;I<3;++I)
+  if (I!=Largest && M[Largest]<M[I]*1.2) return EStage::Balanced;
+ return Largest==0?EStage::Game:Largest==1?EStage::Render:EStage::GPU;
+}
 enum class EAdvice { Collecting, ReduceQuality, Smooth, Monitor };
 inline EAdvice Advice(const FSnapshot& S) {
  if (!S.Ready || S.Samples<30 || !std::isfinite(S.AverageFPS) ||
