@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallLootLuck.h"
+#include "MoonfallLivingSimulation.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallEquipmentSlots.h"
@@ -433,6 +434,7 @@ void AMoonfallHeroPawn::BeginPlay() {
   RespawnCheckpointLocation = SpawnLocation;
   bHasRespawnCheckpointLocation = true;
  }
+ CelestialSessionAnchor = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
  const bool bLoadedWorldProgress = LoadWorldProgress();
  // Recheck once on the next game tick: GameMode may create the arena after
  // this hero's BeginPlay. Neither pass can override a returning player's save.
@@ -4476,7 +4478,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ // Celestial persistence requires V17 even on a legacy-only loadout.
+ EquipmentSaveVersion = MoonfallEquipmentSlots::ExpandedVersion;
  Save->Version = EquipmentSaveVersion;
+ Save->CelestialClockSeconds = GetCelestialClockSeconds();
  Save->InventoryItemCodes = InventoryItemCodes;
  if (EquipmentSaveVersion == MoonfallEquipmentSlots::ExpandedVersion) {
   const auto Extra = MoonfallEquipmentSlots::ToExtra(WornCodes);
@@ -4488,6 +4493,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
+}
+double AMoonfallHeroPawn::GetCelestialClockSeconds() const
+{
+ return MoonfallLivingSimulation::AdvanceClock(CelestialSavedPhase,CelestialSessionAnchor,
+     GetWorld()?GetWorld()->GetTimeSeconds():CelestialSessionAnchor);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
@@ -4506,6 +4516,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
+  return false;
+ }
+ if (!MoonfallLivingSimulation::ValidSavedClock(Save->CelestialClockSeconds)
+     || (Save->Version < MoonfallEquipmentSlots::ExpandedVersion && Save->CelestialClockSeconds != -1.0)) {
+  bPersistentSaveWritesBlocked = true;
   return false;
  }
  if(Save->Version>=16){
@@ -4762,6 +4777,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   ResolvedCheckpoint = GetActorLocation();
   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
  }
+ CelestialSavedPhase = MoonfallLivingSimulation::SavedClock(Save->CelestialClockSeconds);
+ CelestialSessionAnchor = GetWorld()->GetTimeSeconds();
  bPersistentSaveWritesBlocked = false;
  RespawnCheckpointLocation = ResolvedCheckpoint;
  bHasRespawnCheckpointLocation = true;
