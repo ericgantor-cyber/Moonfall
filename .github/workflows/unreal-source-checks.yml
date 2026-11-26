@@ -71,7 +71,9 @@ jobs:
           assert 'HitComboStage == 4 || HitComboStage == 8 || HitComboStage == 12' in hero
           assert 'HitComboStage > IncomingStage' in hero
           assert 'FMath::Clamp(EffectiveIncomingStage, 0, 3)' in hero
-          assert 'OnSuccessfulHitCombo(HitComboStage, Hand == 0)' in hero
+          cast = hero.split('bool AMoonfallHeroPawn::TryCast(', 1)[1].split('bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(', 1)[0]
+          assert 'if (ResolvedComboStage > 0) OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0)' in cast
+          assert cast.index('Mana -= Costs[School] * Multiplier;') < cast.index('OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0)')
           assert 'GetLastMovementInputVector' in hero
           assert enemy.count('Nav->ProjectPointToNavigation(') == 1
           assert enemy.index('if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt)') < enemy.index('Nav->ProjectPointToNavigation(')
@@ -220,6 +222,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
+
+      - name: Test native automation evidence parser with synthetic records
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-NativeAutomationResults.Tests.ps1
 
       - name: Parse Windows build scripts
         shell: pwsh

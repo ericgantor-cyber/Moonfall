@@ -146,6 +146,8 @@ atlas_focus = pawn.split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {"
 assert "if (bTalentWebOpen) return;" in atlas_focus
 assert "TalentChangeBranch(" not in atlas_focus
 assert "if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;" in atlas_focus
+assert "if (bQuestLogOpen) return;" in atlas_focus
+assert atlas_focus.index("if (bQuestLogOpen) return;") < atlas_focus.index("bAtlasChronicleFocus = !bAtlasChronicleFocus;")
 assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
 r3_mappings = [line for line in inputs.splitlines()
                if line.startswith("+ActionMappings=") and "Key=Gamepad_RightThumbstick" in line]

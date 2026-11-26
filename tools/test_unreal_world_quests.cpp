@@ -1,5 +1,6 @@
 // Native-free C++17 policy regression for 12 automatic regional world quests.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldQuest.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestJournal.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -55,7 +56,75 @@ constexpr bool RejectCorruption() {
    && !W::Select(Seen, Dead, 8).Valid;
 }
 static_assert(RejectCorruption(), "Bad saved counts must not produce a quest.");
+namespace J = MoonfallQuestJournal;
+static_assert(J::MaxTracked == W::MaxVisible);
+constexpr bool ManualTracking() {
+ J::FMask Active{}, M{};
+ for(int I=0;I<100;++I) Active.Add(I);
+ for(int I=0;I<7;++I) M=J::Toggle(M,Active,I);
+ if(J::Count(Active)!=100||J::Count(M)!=7||J::Toggle(M,Active,99)!=M) return false;
+ M=J::Toggle(M,Active,2);
+ M=J::Toggle(M,Active,99);
+ if(J::Count(M)!=7||!M.Has(99)||M.Has(2))return false;
+ Active.Remove(0);
+ return J::EntryAt(Active,98)==99&&J::EntryAt(Active,99)==-1
+   &&J::Count(J::Toggle(M,Active,-1))==6;
+}
+static_assert(ManualTracking(), "100 accepted quests support seven independent tracking slots.");
+static_assert(J::CanAccept(99)&&!J::CanAccept(100)&&!J::CanAccept(-1));
+static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
+static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
+static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
+static_assert(J::HitRow(28.f,4)==-1 && J::HitRow(30.f,4)==1);
+static_assert(J::HitRow(-1.f,4)==-1 && J::HitRow(120.f,4)==-1);
+constexpr bool SeparateQuestCounts() {
+ J::FMask Active{};
+ Active.Add(0); Active.Add(J::ResidentCount-1);
+ Active.Add(J::ResidentCount); Active.Add(J::EntryCount-1);
+ return J::Count(Active)==4 && J::CountContracts(Active)==2;
+}
+static_assert(SeparateQuestCounts());
+static_assert(J::PageStart(16,4)==16 && J::PageStart(26,17)==17);
+constexpr bool MoreAcceptedThanTracked() {
+ int States[J::ResidentCount]{};
+ for (int I=0; I<J::ResidentCount; ++I) States[I]=1;
+ const auto Before=J::Summarize(States,J::ResidentCount,25);
+ if (Before.Active!=15 || Before.TrackedCount!=7) return false;
+ const int First=Before.TrackedIndices[0];
+ States[First]=2;
+ const auto After=J::Summarize(States,J::ResidentCount,25);
+ if (After.Active!=14 || After.Completed!=1 || After.TrackedCount!=7) return false;
+ for (int I=0; I<After.TrackedCount; ++I)
+  if (After.TrackedIndices[I]==First) return false;
+ return After.TrackedIndices[6]==Before.TrackedIndices[6]+1;
+}
+static_assert(MoreAcceptedThanTracked(), "Tracking must never cap accepted quests.");
 int main() {
+ for (int Active=0; Active<=J::ResidentCount; ++Active) {
+  int States[J::ResidentCount]{};
+  for (int I=0; I<J::ResidentCount; ++I) States[I]=I<Active?1:2;
+  for (int Salvage=0; Salvage<=30; ++Salvage) {
+   const auto C=J::Summarize(States,J::ResidentCount,Salvage);
+   assert(C.Active==Active && C.Completed==J::ResidentCount-Active);
+   assert(C.TrackedCount==(Active<7?Active:7));
+   int Seen[6]{1,0,0,0,0,0}, Dead[6]{};
+   const auto G=W::Select(Seen,Dead,W::MaxVisible-C.TrackedCount);
+   assert(G.Valid && G.Count+C.TrackedCount<=7);
+   bool Unready=false;
+   for (int I=0; I<C.TrackedCount; ++I) {
+    const int Index=C.TrackedIndices[I];
+    assert(Index>=0 && Index<J::ResidentCount && States[Index]==1);
+    const bool Ready=Salvage>=J::Cost(Index);
+    assert(!Unready || !Ready);
+    if (!Ready) Unready=true;
+    for (int K=0; K<I; ++K) assert(C.TrackedIndices[K]!=Index);
+   }
+  }
+ }
+ for (int I=0; I<J::ResidentCount; ++I) {
+  assert(J::Cost(I)>=10 && J::Cost(I)<=25);
+  for(int K=0; K<I; ++K) assert(std::strcmp(J::Residents[I].Id,J::Residents[K].Id)!=0);
+ }
  for (int Goal=0; Goal<W::GoalCount; ++Goal) {
   assert(std::strlen(W::GoalTitles[Goal]) >= 6);
   assert(std::strlen(W::GoalTitles[Goal]) <= 30);

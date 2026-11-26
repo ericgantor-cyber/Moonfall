@@ -42,6 +42,9 @@ for state in (
 ):
     assert state in respawn, ("respawn", state)
 assert respawn.index("bTalentWebOpen = false;") < respawn.index("LoadWorldProgress()")
+for segment in (defeat, respawn):
+    assert "bQuestLogOpen = false;" in segment
+    assert "QuestLogSelection = 0;" in segment
 
 # The hostile world is NEVER paused by browsing a menu. All menu variants
 # receive the cue, but only for a brief finite-time window.
@@ -66,7 +69,7 @@ assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index
 sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
     ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
-    ("atlas", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 2),
+    ("atlas and quest log", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 3),
     ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
     ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )

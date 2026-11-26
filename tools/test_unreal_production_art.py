@@ -227,13 +227,17 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(fx.index("ActiveSpellImpactFX.Num()>=4"), fx.index("SpawnSystemAtLocation("))
         self.assertNotIn("TakeSpellDamage", fx)
         self.assertNotIn("Mana -=", fx)
-        cue = pawn.split("// Presentation is optional.", 1)[1].split("Mana -= Costs[School] * Multiplier;", 1)[0]
-        self.assertIn("if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)", cue)
-        self.assertIn("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cue)
-        self.assertLess(cue.index("GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()"),
-                        cue.index("TryPlayAuthoredSpellImpact("))
+        cast = pawn.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[0]
+        cue = cast.split("// Presentation is optional.", 1)[1]
+        self.assertIn("if (!TryPlayAuthoredSpellImpact(School, ResolvedImpactPoint, Multiplier)", cue)
+        self.assertIn("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld()", cue)
+        for guard in ("ResolvedImpactDamage > 0.f && !bReduceMotion",
+                      "GetNetMode()!=NM_DedicatedServer && !ResolvedImpactPoint.ContainsNaN()"):
+            self.assertLess(cue.index(guard), cue.index("TryPlayAuthoredSpellImpact("))
         self.assertLess(cue.index("TryPlayAuthoredSpellImpact("), cue.index("DrawDebugSphere("))
-        self.assertIn("DrawDebugSphere(GetWorld(), Hit.ImpactPoint", pawn)
+        self.assertIn("DrawDebugSphere(GetWorld(), ResolvedImpactPoint", cue)
+        self.assertLess(cast.index("Mana -= Costs[School] * Multiplier;"),
+                        cast.index("TryPlayAuthoredSpellImpact("))
 
     def test_cinematic_scalability_and_isolated_lighting(self):
         import configparser

@@ -14,6 +14,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_combined_quest_journal_matches_resident_save_contract(self):
+        import re
+        journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
+        allowed = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split("};", 1)[0]
+        ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
+        saved_ids = re.findall(r'FName\(TEXT\("([^"]+)"\)\)', allowed)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(set(ids), set(saved_ids))
+        tracker = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        for required in ("Hero->GetResidentQuestState(ResidentKeys[I])",
+                         "MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount",
+                         "VisibleRows(Available,TotalRows)",
+                         "Goals.Indices[Row-Contracts.TrackedCount]",
+                         "MoonfallQuestXP::Preview(Cost,Hero->Level,",
+                         "Hero->Experience,Hero->ExperienceToNextLevel)",
+                         'TEXT("MAX LEVEL")', 'TEXT(" | LEVEL UP")',
+                         "Contracts.Active,TotalRows,Rows",
+                         "2.28f*OrbRadius-40.f-ExtraTop",
+                         'TEXT("SALVAGE READY")', 'TEXT("GATHER SALVAGE")'):
+            self.assertIn(required, tracker)
+        accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
+        self.assertIn("ResidentQuestStates.Add(ResidentId, 1);", accept)
+        for cap in ("MaxTracked", "MaxVisible", "TrackedCount", "ResidentQuestStates.Num()"):
+            self.assertNotIn(cap, accept)
+        for forbidden in ("TActorIterator", "GetAllActorsOfClass", "SaveWorldProgress(",
+                          "AwardExperience(", "ResidentQuestStates.Add("):
+            self.assertNotIn(forbidden, tracker)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
@@ -141,7 +171,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("OnSpellCast(School, Hand == 0);"))
         self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
                         cast.index("OnHealthChanged(Health, MaxHealth);"))
-        self.assertLess(cast.index("!FMath::IsFinite(LastCastTime[1])"),
+        self.assertLess(cast.index("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[1], Haste, Remaining)"),
                         cast.index("Enemy->TakeSpellDamage("))
         self.assertIn("if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cast)
 
@@ -642,8 +672,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertIn("Left click: select", self.hud)
         self.assertIn("Right click: equip", self.hud)
-        self.assertNotIn("PgUp/PgDn", self.hud)
-        self.assertNotIn("Home/End", self.hud)
+        # Quest log has its own keyboard browsing controls, not bag paging.
+        inventory_hud = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[0] + self.hud.split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[1]
+        self.assertNotIn("PgUp/PgDn", inventory_hud)
+        self.assertNotIn("Home/End", inventory_hud)
+        log = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[1].split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[0]
+        self.assertIn("PgUp/PgDn", log)
+        self.assertIn("GetTrackedQuestMask()", log)
+        self.assertIn("ToggleSelectedQuestTracking()", left)
 
     def test_resident_dialogue_entry_validates_player_without_forcing_motion_stop(self):
         for method in ("OpenFocusedResidentContext", "CastRightMouse"):
@@ -1355,7 +1393,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("const float Haste = GetHasteBonus();", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[Hand], Haste, Remaining)", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[1], Haste, Remaining)", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
         self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
@@ -2019,12 +2059,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[0]
         cue = cast.split("// Presentation is optional.", 1)[1]
-        guard = "GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()"
+        guard = "GetNetMode()!=NM_DedicatedServer && !ResolvedImpactPoint.ContainsNaN()"
         for call in ("TryPlayAuthoredSpellImpact(", "DrawDebugSphere(", "DrawDebugLine("):
             self.assertLess(cue.index(guard), cue.index(call))
-        self.assertLess(cue.index("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld())"),
+            self.assertLess(cue.index("ResolvedImpactDamage > 0.f && !bReduceMotion"), cue.index(call))
+        self.assertLess(cue.index("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld()"),
                         cue.index("DrawDebugSphere("))
-        self.assertLess(cue.index("DrawDebugLine("), cue.index("Mana -= Costs[School] * Multiplier;"))
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "if (bDualCast) LastCastTime[1] = Time;"):
+            self.assertLess(cast.index(committed), cast.index("TryPlayAuthoredSpellImpact("))
+        self.assertLess(cast.index("ResolvedImpactOrigin = Origin;"), cast.index("TryPlayAuthoredSpellImpact("))
         self.assertEqual(cast.count("LineTraceSingleByChannel("), 1)
         fx = self.hero_cpp.split("bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
@@ -2395,6 +2439,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DodgeBuffer.Clear();", dodge)
         self.assertIn("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge)", dodge)
 
+    def test_buffered_dodge_direction_clears_with_pending_action(self):
+        # Every explicit cancellation, including modal entry and real damage,
+        # must discard the saved movement direction along with the deadline.
+        lines = self.hero_cpp.splitlines()
+        clear_sites = [i for i, line in enumerate(lines) if line.strip() == "DodgeBuffer.Clear();"]
+        self.assertGreater(len(clear_sites), 0)
+        for i in clear_sites:
+            self.assertEqual(lines[i + 1].strip(), "BufferedDodgeDirection = FVector::ZeroVector;")
+        tick = self.hero_cpp.split("// Replay one deliberately buffered dodge", 1)[1].split(
+            "// A second click shortly before recovery", 1)[0]
+        self.assertIn("if (DodgeBuffer.HasPending()) {", tick)
+        self.assertIn("if (!DodgeBuffer.HasPending()) BufferedDodgeDirection = FVector::ZeroVector;", tick)
+        self.assertLess(tick.index("Dodge();"), tick.index("if (!DodgeBuffer.HasPending())"))
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
+        self.assertLess(dodge.index("const FVector Direction ="), dodge.index("BufferedDodgeDirection = FVector::ZeroVector;"))
+        self.assertIn("LaunchCharacter(Direction *", dodge)
+
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
@@ -2639,7 +2701,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_spell_cast_cost_and_cooldown_contract(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("Mana < Costs[School] * Multiplier", cast)
-        self.assertIn("Time - LastCastTime[Hand] < Cooldowns[School]", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[Hand], Haste, Remaining)", cast)
         self.assertIn("Mana -= Costs[School] * Multiplier", cast)
         self.assertIn("LastCastTime[Hand] = Time", cast)
         self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * Multiplier"))
@@ -3327,11 +3389,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("const float HealthBeforeSpell = Enemy->Health;"),
                         cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
-                        cast.index("if (Enemy->Health > 0.f && !bReduceMotion"))
+                        cast.index("if (TargetUsable() && Enemy->Health > 0.f && !bReduceMotion"))
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("Anim->Montage_Play(Montage, 1.f);"))
         self.assertLess(cast.index("Anim->Montage_Play(Montage, 1.f);"),
-                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+                        cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
 
     def test_combo_milestone_reaction_cues_are_bounded(self):
         self.assertIn("void RegisterComboMilestone(int32 Stage);", self.enemy_h)
@@ -3348,7 +3410,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnComboMilestone(Stage);", reaction)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("if (bNewPostureMilestone && Enemy->Health > 0.f)", cast)
+        self.assertIn("if (TargetUsable() && bNewPostureMilestone && Enemy->Health > 0.f)", cast)
         self.assertIn("Enemy->RegisterComboMilestone(HitComboStage);", cast)
 
     def test_fourth_hit_has_full_damage_bonus_and_expiring_combo_clears(self):
@@ -3916,9 +3978,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", cast)
         self.assertIn("FMath::Clamp(EffectiveIncomingStage, 0, 3)", cast)
         self.assertIn("LastSuccessfulHitAt = Time;", cast)
-        self.assertIn("OnSuccessfulHitCombo(HitComboStage, Hand == 0);", cast)
+        self.assertIn("ResolvedComboStage = HitComboStage;", cast)
+        self.assertIn("if (ResolvedComboStage > 0) OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);", cast)
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "if (bDualCast) LastCastTime[1] = Time;"):
+            self.assertLess(cast.index(committed), cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
         self.assertLess(cast.index("const float ActualSpellDamage ="),
-                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+                        cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
         self.assertLess(cast.index("if (School == 3 && Health >= MaxHealth) return false;"),
                         cast.index("const float HitComboMultiplier"))
         injury = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
@@ -3967,7 +4033,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f}", cast)
         self.assertIn("FMath::Clamp(0.018f * ValidEquippedTier(EquippedWeaponCode, 0), 0.f, 0.35f)", cast)
-        self.assertIn("const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);", cast)
+        self.assertIn("? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;", cast)
         self.assertIn("ActualSpellDamage > 0.f && Enemy->Health > 0.f", cast)
         self.assertIn("FMath::IsFinite(OffensiveSpellPostureMultiplier)", cast)
         self.assertIn("FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f)", cast)
@@ -3978,6 +4044,59 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("const float ActualSpellDamage ="),
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
+    def test_melee_callbacks_revalidate_actors_before_followups(self):
+        melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        caster = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"
+        target = "!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"
+        for callback, next_operation in (
+            ("Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));", "const float Dealt"),
+            ("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", "Enemy->SwordGuardAngle ="),
+            ("Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);", "const float Window"),
+            ("Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));", "Enemy->RegisterComboMilestone("),
+        ):
+            section = melee.split(callback, 1)[1].split(next_operation, 1)[0]
+            self.assertIn(caster, section)
+            self.assertIn(target, section)
+
+    def test_defeat_rewards_revalidate_actors_after_callbacks(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
+        guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"
+        self.assertTrue(damage.split("OnEnemyDefeated(bLastHitWasShatter);", 1)[1].lstrip().startswith(guard))
+        for callback, next_operation in (
+            ("Hero->RegisterFinisherKill(", "const bool bSanctuaryPracticeReward"),
+            ("Hero->AwardExperience(FMath::RoundToInt(", "Hero->SpawnGroundEquipmentDrop("),
+        ):
+            section = damage.split(callback, 1)[1].split(next_operation, 1)[0]
+            self.assertIn("!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()", section)
+            self.assertIn("!IsValid(Hero) || Hero->IsActorBeingDestroyed()", section)
+
+    def test_enemy_damage_callbacks_stop_after_actor_teardown(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
+        guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;"
+        for callback in ("OnShatterFinisher(ActualDamage);",
+                         "ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));",
+                         "OnBossPhaseChanged(BossPhase);",
+                         "OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);",
+                         "OnHitFeedback(ActualDamage, Health);"):
+            with self.subTest(callback=callback):
+                self.assertTrue(damage.split(callback, 1)[1].lstrip().startswith(guard))
+
+    def test_spell_callbacks_revalidate_destroyed_targets_before_followups(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        damage = cast.index("Enemy->TakeSpellDamage(SpellDamage);")
+        valid = cast.index("const auto TargetUsable = [Enemy]()")
+        self.assertLess(damage, valid)
+        self.assertIn("IsValid(Enemy) && !Enemy->IsActorBeingDestroyed() && FMath::IsFinite(Enemy->Health)", cast)
+        self.assertIn("const float ActualSpellDamage = TargetUsable()", cast)
+        for condition in ("TargetUsable() && bNewPostureMilestone",
+                          "TargetUsable() && Enemy->Health > 0.f && !bReduceMotion",
+                          "TargetUsable() && ActualSpellDamage > 0.f",
+                          "TargetUsable() && Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)"):
+            self.assertLess(valid, cast.index(condition))
+        self.assertIn("if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("Mana -= Costs[School] * Multiplier;"))
 
     def test_counterspell_posture_pressure_requires_real_spell_damage(self):
         self.assertIn("float ParryCounterPostureDamage = 15.f;", self.hero_h)
@@ -4122,9 +4241,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_dual_cast_checks_both_spell_indices(self):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
-        self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
-        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(dual.index("LeftSpell != RightSpell"), dual.index("TryCast(LeftSpell, 0, 2.f)"))
+        # A shared valid school and equality to both equipped spells prove both indices.
+        bounds = "School < 0 || School >= 6 || Hand < 0 || Hand > 1"
+        both = "if (bDualCast && (LeftSpell != School || RightSpell != School"
+        self.assertLess(cast.index(bounds), cast.index("Costs[School]"))
+        self.assertLess(cast.index(bounds), cast.index("Cooldowns[School]"))
+        self.assertLess(cast.index("const bool bDualCast = Hand == 0 && Multiplier == 2.f;"), cast.index(both))
+        self.assertLess(cast.index(both), cast.index("Enemy->TakeSpellDamage("))
+        self.assertLess(cast.index(both), cast.index("Mana -= Costs[School] * Multiplier;"))
 
     def test_spell_cast_validates_health_state(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
@@ -4794,7 +4920,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+    def test_native_dungeon_readme_matches_safe_five_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4807,6 +4933,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.SeededRoomArchetypes",
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+            "Moonfall.Controls.CurrentInputContract",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4822,7 +4949,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
                                          "2. `Moonfall.Dungeons.",
                                          "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons."))
+                                         "4. `Moonfall.Dungeons.",
+                                         "5. `Moonfall.Controls."))
         ]
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
@@ -4846,11 +4974,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UnrealEditor-Cmd.exe", script)
         self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
-        self.assertIn("-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit", script)
+        self.assertIn("-ExecCmds=Automation RunTests Moonfall; Quit", script)
         self.assertIn("-TestExit=Automation Test Queue Empty", script)
-        self.assertIn("Test Completed", script)
-        self.assertIn("Passed", script)
-        self.assertIn("Failed", script)
+        self.assertIn("Read-NativeAutomationResults.ps1", script)
+        parser = (ROOT.parents[1] / "Build" / "Read-NativeAutomationResults.ps1").read_text(encoding="utf-8")
+        for token in ("Test Completed", "Passed", "Path=", "$counts[$name] -eq 1", "AnyNativeTestFailed"):
+            self.assertIn(token, parser)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", script)
         self.assertIn("$editorExit -ne 0", script)
         self.assertIn("$results.Values -contains $false", script)
@@ -4869,6 +4998,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("name: Run real UE5.4 dungeon automation tests", workflow)
         self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
+        self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
+        native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
+        for token in ("GetDefault<UInputSettings>()", "GetActionMappings()", "GetAxisMappings()", "RequireExclusiveAction", "MovementScales", "Moonfall.Controls.CurrentInputContract"):
+            self.assertIn(token, native)
         self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
@@ -5250,7 +5383,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all four native tests explicitly passed", runner)
+        self.assertIn("all five required native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
