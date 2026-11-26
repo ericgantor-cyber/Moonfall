@@ -103,8 +103,8 @@ routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0
           " Dodge();\n}")
 indices = [back.index(route) for route in routes]
 assert indices == sorted(indices)
-assert 'ActionName="TalentRespec",Key=BackSpace' not in inputs
-assert 'BindAction(TEXT("TalentRespec")' not in pawn
+assert 'ActionName="TalentReset",Key=BackSpace' in inputs
+assert 'BindAction(TEXT("TalentReset"), IE_Pressed' in pawn
 lt_mappings = [line for line in inputs.splitlines()
                if line.startswith("+ActionMappings=") and "Key=Gamepad_LeftTrigger" in line]
 assert lt_mappings == ['+ActionMappings=(ActionName="DualCast",Key=Gamepad_LeftTrigger)']
@@ -193,13 +193,16 @@ assert "SwordBuffer.Clear();" in web
 assert "GetCharacterMovement()->StopMovementImmediately()" in web
 assert "SpendTalentPoint(TalentWebSelected);" in web
 assert "RespecTalentPoints();" in web
-assert "TalentRespecArmUntil" not in pawn + header + hud
 request = web.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[0]
-assert "bTalentRespecArmed=!bTalentRespecArmed;" in request
-assert "RespecTalentPoints();" not in request
-confirm_reset = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[0]
-assert confirm_reset.index("if (bTalentRespecArmed)") < confirm_reset.index("bTalentRespecArmed=false;") < confirm_reset.index("RespecTalentPoints();") < confirm_reset.index("SpendTalentPoint(TalentWebSelected);")
-assert 'TEXT("RESET TALENTS")' in hud and 'TEXT("CANCEL")' in hud
+assert request.index("ResetConfirmationActive(") < request.index("RespecTalentPoints();")
+assert request.index("bTalentRespecArmed=false;", request.index("ResetConfirmationActive(")) < request.index("RespecTalentPoints();")
+assert "TalentRespecArmedAt=Now;" in request
+spend = web.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("bool AMoonfallHeroPawn::IsTalentResetConfirmationActive()", 1)[0]
+assert "RespecTalentPoints();" not in spend
+assert spend.index("if (bTalentRespecArmed)") < spend.index("SpendTalentPoint(TalentWebSelected);")
+assert 'TEXT("RESET TALENTS")' in hud and 'TEXT("CANCEL RESET")' in hud
+assert "ResetConfirmationSeconds=3.0" in layout
+assert "Hero->IsTalentResetConfirmationActive()" in hud
 assert 'TEXT("CONFIRM RESET")' in hud
 assert "MoonfallTalentWeb::HitNode(" in web
 pointer = web.split("void AMoonfallHeroPawn::TalentPointerClick()", 1)[1].split("\n}", 1)[0]
