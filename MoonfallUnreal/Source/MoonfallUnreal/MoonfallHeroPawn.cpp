@@ -4499,6 +4499,44 @@ double AMoonfallHeroPawn::GetCelestialClockSeconds() const
  return MoonfallLivingSimulation::AdvanceClock(CelestialSavedPhase,CelestialSessionAnchor,
      GetWorld()?GetWorld()->GetTimeSeconds():CelestialSessionAnchor);
 }
+bool AMoonfallHeroPawn::TryWaitCelestialHours(int32 Hours)
+{
+ // Only explicit local requests can advance the celestial phase. Do not
+ // change engine time, combat recovery, resources, loot or quest ledgers.
+ if (!MoonfallLivingSimulation::ValidWaitHours(Hours) || !GetWorld()
+     || !HasAuthority() || !IsLocallyControlled() || IsActorBeingDestroyed()
+     || !FMath::IsFinite(Health) || Health<=0.f || !bWorldProgressInitialized
+     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+     || bEquipmentCraftInProgress || bEquipBestInProgress || bTalentAllocationInProgress
+     || bCelestialWaitInProgress || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bResidentContextOpen || FocusedResident.IsValid()
+     || IsRecentlyInCombatForAmbientAI()) return false;
+ const auto* Movement=GetCharacterMovement();
+ const FVector Position=GetActorLocation();
+ if (!Movement || !Movement->IsMovingOnGround() || Position.ContainsNaN()
+     || GetVelocity().SizeSquared()>FMath::Square(10.f)) return false;
+ const double Now=GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now<0.0) return false;
+ // One scan on explicit confirmation, never per frame. Reject living
+ // enemies within 1200 units even before a combat recovery flag is set.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const auto* Enemy=*It;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || Enemy->Health<=0.f) continue;
+  if (!FMath::IsFinite(Enemy->Health) || Enemy->GetActorLocation().ContainsNaN()
+      || FVector::DistSquared(Position,Enemy->GetActorLocation())<FMath::Square(1200.f)) return false;
+ }
+ TGuardValue<bool> WaitGuard(bCelestialWaitInProgress,true);
+ const double PreviousPhase=CelestialSavedPhase, PreviousAnchor=CelestialSessionAnchor;
+ CelestialSavedPhase=MoonfallLivingSimulation::WaitClock(GetCelestialClockSeconds(),Hours);
+ CelestialSessionAnchor=Now;
+ if (!SaveWorldProgress()) {
+  CelestialSavedPhase=PreviousPhase;
+  CelestialSessionAnchor=PreviousAnchor;
+  return false;
+ }
+ SecondsSinceLastWorldSave=0.f;
+ return true;
+}
 bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
