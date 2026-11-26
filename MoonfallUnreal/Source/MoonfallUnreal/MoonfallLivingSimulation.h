@@ -68,6 +68,16 @@ constexpr const char* DayPhaseName(EDayPhase Phase){
  }
 }
 constexpr int LightingHour(int Minute){return Minute>=0&&Minute<1440?Minute/60:12;}
+// Ten in-game minute buckets prevent per-frame changes to global light.
+constexpr int CelestialLightBucket(int Minute){return Minute>=0&&Minute<1440?Minute/10:72;}
+constexpr float SunlightAmount(int Bucket){
+ if(Bucket<0||Bucket>=144)return 1.f;
+ const int Distance=Bucket>=72?Bucket-72:72-Bucket;
+ if(Distance>=48)return 0.f;
+ const float T=1.f-static_cast<float>(Distance)/48.f;
+ return T*T*(3.f-2.f*T);
+}
+constexpr float GlobalLightScale(int Bucket){return 0.28f+0.72f*SunlightAmount(Bucket);}
 // Never extinguish weather lighting or alter authored sanctuary lighting.
 constexpr float CelestialLightScale(int Hour){
  if(Hour<0||Hour>23)return 1.f;
