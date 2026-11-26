@@ -225,7 +225,66 @@ $bugReports.Add_Click({
             $close.AccessibleName = 'Close bug report viewer'
             $close.DialogResult = [Windows.Forms.DialogResult]::Cancel
             $viewer.CancelButton = $close
+            $askAI = New-Object Windows.Forms.Button
+            $askAI.Dock = 'Bottom'
+            $askAI.Height = 40
+            $askAI.Text = 'ASK CHATGPT - PREVIEW REPORT'
+            $askAI.AccessibleName = 'Preview a privacy-filtered diagnostic prompt for ChatGPT'
+            $askAI.Add_Click({
+                $promptScript = Join-Path $PSScriptRoot 'New-MoonfallAIBugPrompt.ps1'
+                try {
+                    if (-not (Test-Path -LiteralPath $promptScript -PathType Leaf)) { throw 'Missing prompt generator.' }
+                    $prompt = & $promptScript -ReportIndex $index
+                    $preview = New-Object Windows.Forms.Form
+                    try {
+                        $preview.Text = 'Review diagnostic handoff before sharing'
+                        $preview.Size = New-Object Drawing.Size(680,480)
+                        $preview.MinimumSize = New-Object Drawing.Size(440,300)
+                        $preview.StartPosition = 'CenterParent'
+                        $preview.Font = New-Object Drawing.Font('Segoe UI',11)
+                        $instructions = New-Object Windows.Forms.Label
+                        $instructions.Dock = 'Top'
+                        $instructions.Height = 64
+                        $instructions.Text = 'Review this prompt, add reproduction steps, then copy it and paste into your ChatGPT conversation. Nothing is sent automatically.'
+                        $instructions.AccessibleName = 'ChatGPT sharing instructions'
+                        $promptBox = New-Object Windows.Forms.TextBox
+                        $promptBox.Multiline = $true
+                        $promptBox.ScrollBars = 'Vertical'
+                        $promptBox.Dock = 'Fill'
+                        $promptBox.Text = $prompt
+                        $promptBox.AccessibleName = 'Editable diagnostic prompt'
+                        $copy = New-Object Windows.Forms.Button
+                        $copy.Dock = 'Bottom'
+                        $copy.Height = 38
+                        $copy.Text = 'COPY FOR CHATGPT'
+                        $copy.AccessibleName = 'Copy reviewed prompt to clipboard'
+                        $copy.Add_Click({
+                            try {
+                                [Windows.Forms.Clipboard]::SetText($promptBox.Text)
+                                $copy.Text = 'COPIED - PASTE INTO CHATGPT'
+                            } catch {
+                                [void][Windows.Forms.MessageBox]::Show('Clipboard unavailable. Select and copy the prompt manually.','Moonfall AI handoff')
+                            }
+                        })
+                        $back = New-Object Windows.Forms.Button
+                        $back.Dock = 'Bottom'
+                        $back.Height = 34
+                        $back.Text = 'BACK'
+                        $back.AccessibleName = 'Return to bug report list'
+                        $back.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                        $preview.CancelButton = $back
+                        $preview.Controls.Add($promptBox)
+                        $preview.Controls.Add($copy)
+                        $preview.Controls.Add($back)
+                        $preview.Controls.Add($instructions)
+                        [void]$preview.ShowDialog($viewer)
+                    } finally { $preview.Dispose() }
+                } catch {
+                    [void][Windows.Forms.MessageBox]::Show('Unable to prepare a diagnostic handoff. No information was sent.','Moonfall AI handoff')
+                }
+            })
             $viewer.Controls.Add($body)
+            $viewer.Controls.Add($askAI)
             $viewer.Controls.Add($close)
             $viewer.Controls.Add($note)
             [void]$viewer.ShowDialog($form)
