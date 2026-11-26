@@ -6587,15 +6587,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         spend = self.hero_cpp.split("void AMoonfallHeroPawn::TalentSpendSelected()", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "bWorldProgressLoadInProgress",
                       "bPersistentSaveWritesBlocked"):
-            for action in ("RespecTalentPoints();", "SpendTalentPoint(TalentWebSelected);"):
-                self.assertLess(spend.index(guard), spend.index(action))
-        self.assertLess(spend.index("if (bTalentRespecArmed)"), spend.index("bTalentRespecArmed=false;"))
-        self.assertLess(spend.index("bTalentRespecArmed=false;"), spend.index("RespecTalentPoints();"))
-        self.assertIn("RespecTalentPoints();\n  return;", spend)
+            self.assertLess(spend.index(guard), spend.index("SpendTalentPoint(TalentWebSelected);"))
+        self.assertNotIn("RespecTalentPoints();", spend)
         request = self.hero_cpp.split("void AMoonfallHeroPawn::TalentConfirmRespec()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bTalentRespecArmed=!bTalentRespecArmed;", request)
-        self.assertNotIn("RespecTalentPoints();", request)
-        self.assertNotIn("TalentRespecArmUntil", self.hero_cpp)
+        self.assertLess(request.index("ResetConfirmationActive("), request.index("RespecTalentPoints();"))
+        self.assertLess(request.index("bTalentRespecArmed=false;", request.index("ResetConfirmationActive(")), request.index("RespecTalentPoints();"))
+        self.assertIn("TalentRespecArmedAt=Now;", request)
+        self.assertIn("bTalentRespecArmed=true;", request)
+        self.assertIn('BindAction(TEXT("TalentReset"), IE_Pressed', self.hero_cpp)
+        self.assertIn("bTalentRespecArmed && !IsTalentResetConfirmationActive()", self.hero_cpp)
 
     def test_dungeon_deferred_creation_guards_teardown_and_invalid_transform(self):
         mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
