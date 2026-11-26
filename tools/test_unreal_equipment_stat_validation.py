@@ -34,7 +34,11 @@ class EquipmentStatSafety(unittest.TestCase):
                 self.assertIn("GetValidatedEquippedTier(MoonfallEquipmentSlots::"+slot+")", body)
             self.assertIn(", 10, 100);", body)
         mastery = self.source.split("AMoonfallHeroPawn::GetMasteryBonus() const", 1)[1].split("\n}", 1)[0]
-        self.assertEqual(mastery.count("GetValidatedEquippedTier(MoonfallEquipmentSlots::"), 6)
+        self.assertEqual(mastery.count("BuildOwnedEquipmentLoadout()"), 1)
+        self.assertEqual(mastery.count("Tier(MoonfallEquipmentSlots::"), 6)
+        self.assertIn("ValidEquippedTier(Codes[Slot], Slot)", mastery)
+        self.assertNotIn("InventoryItemCodes.Contains", mastery)
+        self.assertNotIn("GetValidatedEquippedTier(", mastery)
         self.assertIn("ExtraUnits * 0.000375f, 0.f, 0.12f", mastery)
         self.assertIn("0.f, 0.16f", mastery)
         tier = self.source.split("AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const", 1)[1].split("\n}", 1)[0]
