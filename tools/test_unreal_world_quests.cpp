@@ -72,6 +72,18 @@ constexpr bool ManualTracking() {
 }
 static_assert(ManualTracking(), "100 accepted quests support seven independent tracking slots.");
 static_assert(J::CanAccept(99)&&!J::CanAccept(100)&&!J::CanAccept(-1));
+constexpr bool HeaderButtonGeometry() {
+ for(int Width=276;Width<=900;++Width) {
+  const auto B=J::HeaderButtons(float(Width));
+  if(B.AutoX<120.f || B.AutoX+B.Width>=B.MapX || B.MapX+B.Width>Width-14.f) return false;
+  if(!B.HitAuto(B.AutoX,46.f)||!B.HitMap(B.MapX,46.f)) return false;
+  if(B.HitAuto(B.MapX,46.f)||B.HitMap(B.AutoX,46.f)) return false;
+  if(B.HitAuto(B.AutoX+B.Width,46.f)||B.HitMap(B.MapX,66.f)) return false;
+ }
+ return !J::HeaderButtons(275.f).HitAuto(0.f,46.f)
+     && !J::HeaderButtons(901.f).HitMap(0.f,46.f);
+}
+static_assert(HeaderButtonGeometry(), "Compact and wide quest header controls stay separate.");
 static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
 static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
 static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
@@ -89,11 +101,11 @@ constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};
  for (int I=0; I<J::ResidentCount; ++I) States[I]=1;
  const auto Before=J::Summarize(States,J::ResidentCount,25);
- if (Before.Active!=15 || Before.TrackedCount!=7) return false;
+ if (Before.Active!=J::ResidentCount || Before.TrackedCount!=7) return false;
  const int First=Before.TrackedIndices[0];
  States[First]=2;
  const auto After=J::Summarize(States,J::ResidentCount,25);
- if (After.Active!=14 || After.Completed!=1 || After.TrackedCount!=7) return false;
+ if (After.Active!=J::ResidentCount-1 || After.Completed!=1 || After.TrackedCount!=7) return false;
  for (int I=0; I<After.TrackedCount; ++I)
   if (After.TrackedIndices[I]==First) return false;
  return After.TrackedIndices[6]==Before.TrackedIndices[6]+1;

@@ -14,12 +14,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
+        log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
+        self.assertIn('TEXT("AUTO TRACK")',log)
+        self.assertIn("J::HeaderButtons(Width)",log)
+        self.assertIn("DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f)",log)
+        self.assertIn("DrawHoverFrame(Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f)",log)
+        pointer=self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split("const float SidebarWidth",1)[0]
+        self.assertIn("if(bQuestLogOpen) {",pointer)
+        self.assertIn("MoonfallQuestJournal::HeaderButtons(PanelW)",pointer)
+        self.assertIn("if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT))",pointer)
+        atlas=self.hud.split("// Atlas close remains independent",1)[1].split("const float AtlasSidebarWidth",1)[0]
+        self.assertIn("MoonfallQuestJournal::HeaderButtons(Width)",atlas)
+        self.assertIn('bCompactAtlasHeader?TEXT("QUESTS"):TEXT("QUESTS [L]")',atlas)
+        self.assertIn("DrawHoverFrame(Left+QuestButtons.MapX,Top+46.f,QuestButtons.Width,20.f)",atlas)
+        self.assertNotIn("if(Width>=480.f)",atlas)
+        self.assertIn("QuestButtons.HitAuto(MouseX-PanelL,MouseY-PanelT)) { ResetQuestTracking(); return; }",pointer)
+        self.assertLess(pointer.index("ResetQuestTracking(); return;"),pointer.index("MoonfallQuestJournal::HitRow"))
+        reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
+        self.assertIn("bManualQuestTracking=false;",reset)
+        self.assertIn("ManualQuestMask={};",reset)
+
     def test_combined_quest_journal_matches_resident_save_contract(self):
         import re
         journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
         ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
         self.assertEqual(len(ids), len(set(x.casefold() for x in ids)))
-        self.assertEqual(len(ids), 15)
+        self.assertEqual(len(ids), 27)
         catalog = self.hero_cpp.split("const TArray<FName>& NamedMoonfallResidentIds() {", 1)[1].split("bool IsNamedMoonfallResident(FName Id) {", 1)[0]
         self.assertIn("static const TArray<FName> Keys=[]", catalog)
         self.assertIn("Result.Reserve(MoonfallQuestJournal::ResidentCount)", catalog)
@@ -6433,18 +6454,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_world_signs_set_position_before_registering(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
-        zones = arena.split('for (int32 Zone = 0; Zone < 6; ++Zone)', 1)[1].split(
-            'if (bEnableStartingSanctuary) {', 1)[0]
+        zones = arena.split('FName(*FString::Printf(TEXT("DungeonZoneSign_%d"), Zone + 1))', 1)[1].split(
+            'DungeonZoneSigns.Add(Sign);', 1)[0]
         guide = arena.split('for (const FStarterSign& Entry : Signs)', 1)[1].split(
             'if (!GetWorld()) return;', 1)[0]
+        camp = arena.split('TEXT("RegionalWaystationSign_%d")', 1)[1].split(
+            'RegionalWaystationSigns.Add(Sign);', 1)[0]
+        road = arena.split('TEXT("RegionalRoadGuideSign_%d")', 1)[1].split(
+            'RegionalWaystationSigns.Add(RoadGuide);', 1)[0]
         self.assertIn('Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));', zones)
         self.assertIn('Sign->SetRelativeLocation(Entry.Position);', guide)
-        for section in (zones, guide):
-            self.assertEqual(section.count('Sign->RegisterComponent();'), 1)
-            self.assertLess(section.index('Sign->SetRelativeLocation('),
-                            section.index('Sign->RegisterComponent();'))
-            self.assertLess(section.index('Sign->SetTextRenderColor('),
-                            section.index('Sign->RegisterComponent();'))
+        self.assertIn('Sign->SetRelativeLocation(FVector(ZoneCenterX, -1590.f, 155.f));', camp)
+        self.assertIn('RoadGuide->SetRelativeLocation(FVector(ZoneCenterX, -2150.f, 170.f));', road)
+        for section, component in ((zones, 'Sign'), (guide, 'Sign'), (camp, 'Sign'), (road, 'RoadGuide')):
+            register = component + '->RegisterComponent();'
+            self.assertEqual(section.count(register), 1)
+            for setup in ('SetRelativeLocation(', 'SetTextRenderColor(', 'SetCollisionEnabled(', 'SetCanEverAffectNavigation(false)'):
+                self.assertLess(section.index(component + '->' + setup),
+                                section.index(register))
 
     def test_arena_blocks_reuse_loaded_mesh_and_register_once(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")

@@ -28,9 +28,21 @@ inline constexpr FResident Residents[] = {
  {"Ashscale", "Ashscale", "Ashen Elder's Stock", "Crossroads", 11},
  {"FirstlightArchivist", "Archivist Veyra", "Archive Supplies", "Firstlight", 1},
  {"FirstlightWatchkeeper", "Warden Cael", "Watchkeeper Supplies", "Firstlight", 0},
+ {"waystation_ashen_scout", "Cinder Runner", "Ashen Trail Supplies", "Emberwatch Camp", 5},
+ {"waystation_ashen_artisan", "Ashforge Keeper", "Ashforge Stockpile", "Emberwatch Camp", 3},
+ {"waystation_moonveil_scout", "Mira Fernstep", "Forest Trail Supplies", "Silverleaf Refuge", 2},
+ {"waystation_moonveil_scholar", "Selune Whisper", "Moon-rune Research", "Silverleaf Refuge", 1},
+ {"waystation_hollows_scout", "Nox Tunnelwatch", "Tunnel Lantern Supplies", "Deepstone Haven", 3},
+ {"waystation_hollows_tinker", "Dara Flint", "Workshop Salvage", "Deepstone Haven", 6},
+ {"waystation_foundry_scout", "Kora Spark", "Foundry Patrol Stock", "Sparkfall Relay", 6},
+ {"waystation_foundry_tinker", "Mek Ironhand", "Ironworks Salvage", "Sparkfall Relay", 3},
+ {"waystation_frost_scout", "Eira Froststep", "Frozen Trail Supplies", "Winterglass Lodge", 10},
+ {"waystation_frost_scholar", "Orin Snowbind", "Frozen Archive", "Winterglass Lodge", 1},
+ {"waystation_eclipse_scout", "Sable Nightroad", "Frontier Supplies", "Duskwatch Refuge", 9},
+ {"waystation_eclipse_elder", "Vesper Rune", "Eclipse Remnants", "Duskwatch Refuge", 11},
 };
 inline constexpr int ResidentCount = static_cast<int>(sizeof(Residents) / sizeof(Residents[0]));
-static_assert(ResidentCount == 15, "Match the current resident save whitelist");
+static_assert(ResidentCount == 27, "Match the current resident save whitelist");
 
 // Match AMoonfallWorldNPC::GetContractSalvageCost, including the Guide exception.
 constexpr int Cost(int Index) {
@@ -123,6 +135,22 @@ constexpr int CountContracts(FMask Mask) {
  int N=0;
  for(int I=0;I<ResidentCount;++I) if(Mask.Has(I))++N;
  return N;
+}
+// Shared quest header geometry for drawing and pointer routing.
+// Keep both buttons available at the existing 300px minimum viewport.
+struct FHeaderButtons {
+ float AutoX=0.f, MapX=0.f, Width=0.f;
+ constexpr bool HitAuto(float X,float Y) const {
+  return Width>0.f&&X>=AutoX&&X<AutoX+Width&&Y>=46.f&&Y<66.f;
+ }
+ constexpr bool HitMap(float X,float Y) const {
+  return Width>0.f&&X>=MapX&&X<MapX+Width&&Y>=46.f&&Y<66.f;
+ }
+};
+constexpr FHeaderButtons HeaderButtons(float Width) {
+ if(!(Width>=276.f&&Width<=900.f)) return {};
+ const float ButtonWidth=Width>=480.f?96.f:60.f;
+ return {Width-22.f-2.f*ButtonWidth,Width-14.f-ButtonWidth,ButtonWidth};
 }
 constexpr int PageRows(float Height) {
  // Clamp before converting to int; never convert infinity or NaN.
