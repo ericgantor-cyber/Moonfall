@@ -1018,6 +1018,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 void AMoonfallHeroPawn::ControllerLeftShoulder()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(-1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) { TalentPreviousBranch(); return; }
  if (bInventoryOpen) { ReforgeSelectedInventoryItem(); return; }
@@ -1026,6 +1027,7 @@ void AMoonfallHeroPawn::ControllerLeftShoulder()
 void AMoonfallHeroPawn::ControllerRightShoulder()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) { TalentNextBranch(); return; }
  if (bInventoryOpen) { ForgeFiveSelectedInventoryItem(); return; }
@@ -2369,6 +2371,18 @@ void AMoonfallHeroPawn::StepQuestLog(int32 Direction) {
  if(!bAtlasOpen||!bQuestLogOpen||(Direction!=1&&Direction!=-1)) return;
  const int Last=FMath::Max(0,MoonfallQuestJournal::Count(GetActiveQuestMask())-1);
  QuestLogSelection=FMath::Clamp(FMath::Clamp(QuestLogSelection,0,Last)+Direction,0,Last);
+}
+void AMoonfallHeroPawn::StepQuestLogPage(int32 Direction) {
+ if (!bAtlasOpen || !bQuestLogOpen || bOptionsOpen || IsActorBeingDestroyed()
+     || !FMath::IsFinite(Health) || Health<=0.f || (Direction!=-1 && Direction!=1)) return;
+ const auto* PC=Cast<APlayerController>(Controller);
+ if (!PC) return;
+ int32 ViewW=0, ViewH=0;
+ PC->GetViewportSize(ViewW,ViewH);
+ if (ViewW<300 || ViewH<240) return;
+ namespace J=MoonfallQuestJournal;
+ QuestLogSelection=J::SelectPage(QuestLogSelection,J::PageRows(float(ViewH)),
+     J::Count(GetActiveQuestMask()),Direction);
 }
 void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
