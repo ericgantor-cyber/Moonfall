@@ -78,6 +78,19 @@ constexpr bool EachExtraBlocksLegacy() {
  return true;
 }
 static_assert(EachExtraBlocksLegacy());
+constexpr bool WriteVersions() {
+ const int Bag[9]={1001,11002,21003,31004,41005,51006,61007,71008,81009};
+ const int Corrupt[4]={1001,11002,21003,100001};
+ return S::WriteVersion(Migrated,Bag,3)==16
+     && S::WriteVersion(Migrated,Bag,9)==17
+     && S::WriteVersion(Combined,Bag,9)==17
+     && S::WriteVersion(Combined,Bag,3)==0
+     && S::WriteVersion(Migrated,Corrupt,4)==0
+     && S::WriteVersion(S::FLoadout{},nullptr,0)==16
+     && S::WriteVersion(Migrated,nullptr,3)==0
+     && S::WriteVersion(Migrated,Bag,10001)==0;
+}
+static_assert(WriteVersions());
 constexpr bool Removal() {
  S::FLoadout Worn{};
  int Bag[10]{};
