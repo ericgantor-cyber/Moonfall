@@ -281,6 +281,7 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  // Preserve zone identity even if creation of an earlier light fails.
  RegionWeatherLights.SetNum(6);
  LastRegionWeatherPhase=-1;
+ LastCelestialLightingHour=-1;
  for (int32& WeatherId : AppliedRegionWeather) WeatherId=INDEX_NONE;
  for (int32 Zone=0;Zone<6;++Zone) {
   UPointLightComponent* Light=NewObject<UPointLightComponent>(this);
@@ -300,8 +301,11 @@ void AMoonfallArena::CreateRegionalLandmarks() {
 void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
  if (!FMath::IsFinite(WorldTime) || WorldTime<0.f) return;
  const int32 Phase=MoonfallLivingSimulation::Phase(WorldTime,360.f);
- if (LastRegionWeatherPhase==Phase) return;
+ const int32 Hour=MoonfallLivingSimulation::LightingHour(MoonfallLivingSimulation::CelestialMinute(WorldTime));
+ const bool bCelestialChanged=Hour!=LastCelestialLightingHour;
+ if (LastRegionWeatherPhase==Phase && !bCelestialChanged) return;
  LastRegionWeatherPhase=Phase;
+ LastCelestialLightingHour=Hour;
  for (int32 Zone=0;Zone<RegionWeatherLights.Num() && Zone<6;++Zone) {
   UPointLightComponent* Light=RegionWeatherLights[Zone];
   if (!IsValid(Light)) continue;
@@ -309,7 +313,7 @@ void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
   const int32 WeatherId=static_cast<int32>(Weather);
   // Adjacent phases often share the same weather. Avoid redundant render
   // state updates without changing the authored lighting or phase schedule.
-  if (AppliedRegionWeather[Zone]==WeatherId) continue;
+  if (AppliedRegionWeather[Zone]==WeatherId && !bCelestialChanged) continue;
   FLinearColor Tint(0.66f,0.78f,0.89f);
   float Intensity=300.f;
   switch (Weather) {
@@ -327,7 +331,7 @@ void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
     Tint=FLinearColor(0.9f,0.78f,0.54f);Intensity=320.f;break;
   }
   Light->SetLightColor(Tint);
-  Light->SetIntensity(Intensity);
+  Light->SetIntensity(Intensity*MoonfallLivingSimulation::CelestialLightScale(Hour));
   AppliedRegionWeather[Zone]=WeatherId;
  }
 }
