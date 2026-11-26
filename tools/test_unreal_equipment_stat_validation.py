@@ -8,7 +8,7 @@ class EquipmentStatSafety(unittest.TestCase):
         cls.source = SOURCE.read_text(encoding="utf-8")
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
-        self.assertIn("MoonfallEquipmentSlots::Legacy(ExpectedSlot)", body)
+        self.assertIn("MoonfallEquipmentSlots::Known(ExpectedSlot)", body)
         self.assertIn("MoonfallEquipmentSlots::Decode(Code)", body)
         self.assertIn("Item.Slot!=ExpectedSlot", body)
         for field in ("Affix", "Rarity", "Tier"):
