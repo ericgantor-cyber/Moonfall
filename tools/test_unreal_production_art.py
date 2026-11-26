@@ -283,6 +283,18 @@ class ProductionArtTests(unittest.TestCase):
             self.assertIn(token, audit)
         self.assertNotIn("ApplySettings", audit)
 
+    def test_pc_audit_reports_active_renderer_without_guessing_capabilities(self):
+        source = ROOT / "Source/MoonfallUnreal"
+        hud = (source / "MoonfallCombatHUD.cpp").read_text()
+        self.assertIn('PrivateDependencyModuleNames.Add("RHI")', (source / "MoonfallUnreal.Build.cs").read_text())
+        block = hud.split("// Report the active RHI",1)[1].split("DrawText(HelpText",1)[0]
+        for token in ("GRHIAdapterName.IsEmpty()", "GRHIAdapterName.Left(40)",
+                      "GDynamicRHI?FString(GDynamicRHI->GetName())", 'TEXT("Unknown GPU")',
+                      "MenuHeight>=540.f", "MenuTop+42.f"):
+            self.assertIn(token, block)
+        for token in ("ApplySettings", "SetOverallScalabilityLevel", "ExecuteConsoleCommand"):
+            self.assertNotIn(token, block)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
