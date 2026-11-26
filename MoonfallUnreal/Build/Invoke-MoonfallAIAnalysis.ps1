@@ -2,10 +2,12 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)] [ValidateLength(1,16000)] [string]$Prompt,
-    [switch]$Approved
+    [switch]$Approved,
+    [System.Threading.CancellationToken]$CancellationToken = [System.Threading.CancellationToken]::None
 )
 $ErrorActionPreference = 'Stop'
 if (-not $Approved) { throw 'Explicit approval is required before sending diagnostics.' }
+if ($CancellationToken.IsCancellationRequested) { throw 'AI request canceled locally. Billing status is unknown.' }
 $key = [Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process')
 if ([string]::IsNullOrWhiteSpace($key)) { throw 'Set OPENAI_API_KEY locally, then restart Build Center. Never paste it into a report.' }
 if ($key -match '[\r\n]' -or $key.Length -gt 512) { throw 'The local API key format is invalid.' }
@@ -29,17 +31,22 @@ try {
     } | ConvertTo-Json -Depth 5 -Compress
     $body = New-Object System.Net.Http.StringContent($payload,[Text.Encoding]::UTF8,'application/json')
     try {
-        $response = $client.PostAsync('https://api.openai.com/v1/responses',$body).GetAwaiter().GetResult()
-    } catch { throw 'AI request could not complete. Check network connectivity and try manually again.' }
+        $response = $client.PostAsync('https://api.openai.com/v1/responses',$body,$CancellationToken).GetAwaiter().GetResult()
+    } catch {
+        if ($CancellationToken.IsCancellationRequested) { throw 'AI request canceled locally. Billing status is unknown.' }
+        throw 'AI request could not complete. Check network connectivity and try manually again.'
+    }
     if (-not $response.IsSuccessStatusCode) {
         $status = [int]$response.StatusCode
         switch ($status) {
             401 { throw 'OpenAI rejected the local API key.' }
             403 { throw 'OpenAI denied access to this model or project.' }
+            404 { throw 'The configured AI model or endpoint is unavailable.' }
             429 { throw 'OpenAI rate limit or API billing quota reached.' }
             default { throw ('AI service returned HTTP '+$status+'. No automatic retry was made.') }
         }
     }
+    if ($CancellationToken.IsCancellationRequested) { throw 'AI request canceled locally. Billing status is unknown.' }
     $json = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
     $parts = @()
     foreach ($item in @($json.output)) {
@@ -51,6 +58,7 @@ try {
     }
     $answer = ($parts -join [Environment]::NewLine).Trim()
     if (-not $answer) { throw 'The AI returned no readable analysis. Try a shorter report.' }
+    if ($answer.Contains($key)) { $answer = $answer.Replace($key,'[REDACTED API KEY]') }
     if ($answer.Length -gt 24000) { $answer = $answer.Substring(0,24000) }
     if ($json.status -ne 'completed') { $answer = '[Partial response; request did not complete.]'+[Environment]::NewLine+$answer }
     $answer
