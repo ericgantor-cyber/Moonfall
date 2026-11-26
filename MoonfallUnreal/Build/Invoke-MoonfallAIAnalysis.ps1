@@ -9,6 +9,7 @@ if (-not $Approved) { throw 'Explicit approval is required before sending diagno
 $key = [Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process')
 if ([string]::IsNullOrWhiteSpace($key)) { throw 'Set OPENAI_API_KEY locally, then restart Build Center. Never paste it into a report.' }
 if ($key -match '[\r\n]' -or $key.Length -gt 512) { throw 'The local API key format is invalid.' }
+if ($Prompt.Contains($key)) { throw 'The reviewed prompt contains your configured API key. Remove it before sending.' }
 Add-Type -AssemblyName System.Net.Http
 $handler = New-Object System.Net.Http.HttpClientHandler
 $handler.AllowAutoRedirect = $false
