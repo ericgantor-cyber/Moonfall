@@ -47,6 +47,15 @@ bool FMoonfallQuestSaveContractTest::RunTest(const FString& Parameters)
  J::FMask Active{},Tracked{};
  for(int I=0;I<J::MaxActive;++I) Active.Add(I);
  for(int I=0;I<J::MaxTracked;++I) Tracked=J::Toggle(Tracked,Active,I);
+ // Verify the world HUD's regional count in the real Editor automation suite.
+ int Seen[MoonfallWorldQuest::ZoneCount]{}, Defeated[MoonfallWorldQuest::ZoneCount]{};
+ TestEqual(TEXT("Fresh regional quest count"),MoonfallWorldQuest::ActiveCount(Seen,Defeated),6);
+ Seen[0]=1;
+ TestEqual(TEXT("First discovery unlocks regional boss quest"),MoonfallWorldQuest::ActiveCount(Seen,Defeated),7);
+ Seen[0]=5;
+ TestEqual(TEXT("Discovery completion removes its quest"),MoonfallWorldQuest::ActiveCount(Seen,Defeated),6);
+ Defeated[0]=5;
+ TestEqual(TEXT("Boss completion removes its quest"),MoonfallWorldQuest::ActiveCount(Seen,Defeated),5);
  TestEqual(TEXT("100 active capacity"),J::Count(Active),100);
  TestEqual(TEXT("Seven tracked capacity"),J::Count(Tracked),7);
  TestTrue(TEXT("Eighth quest does not displace tracked quests"),J::Toggle(Tracked,Active,7)==Tracked);
