@@ -63,6 +63,52 @@ int main() {
      assert(!L::Valid(Code,(Slot+1)%L::SlotCount));
      if(Slot<3) assert(L::Valid(Code,Slot)==G::Valid(Code,Slot));
     }
+ // Cross-check exact optimization against all 4^9 combinations in tests only.
+ L::FLoadout NineWorn{};
+ int Choices[L::SlotCount][4]{};
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  for(int Affix=0;Affix<4;++Affix)
+   Choices[Slot][Affix]=Affix*100000+Slot*10000+1000+5+((Slot+Affix)%3==0?1:0);
+  NineWorn[Slot]=Slot*10000+1005;
+ }
+ L::FPlanner Nine(NineWorn);
+ for(int Slot=0;Slot<L::SlotCount;++Slot)
+  for(int Affix=0;Affix<4;++Affix)Nine.Add(Choices[Slot][Affix],Slot*4+Affix);
+ Nine.Add(181004,100);Nine.Add(191025,101);
+ const auto NinePlan=Nine.Finish();
+ int BestScore=-1, BestChanges=L::SlotCount+1;
+ for(unsigned Path=0;Path<(1u<<(2*L::SlotCount));++Path){
+  L::FLoadout Codes{};
+  unsigned Bits=Path;
+  int Changes=0;
+  for(int Slot=L::SlotCount-1;Slot>=0;--Slot){
+   Codes[Slot]=Choices[Slot][Bits&3u];Bits>>=2;
+   if(Codes[Slot]!=NineWorn[Slot])++Changes;
+  }
+  const int Score=L::TotalScore(Codes);
+  if(Score>BestScore||(Score==BestScore&&Changes<BestChanges)){
+   BestScore=Score;BestChanges=Changes;
+  }
+ }
+ assert(L::TotalScore(NinePlan.Codes)==BestScore);
+ assert(NinePlan.Gain==BestScore-L::TotalScore(NineWorn)&&NinePlan.Changes==BestChanges);
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  assert(L::Valid(NinePlan.Codes[Slot],Slot));
+  if(NinePlan.Codes[Slot]!=NineWorn[Slot])
+   assert(NinePlan.Indices[Slot]==Slot*4+NinePlan.Codes[Slot]/100000);
+ }
+ L::FPlanner Restricted(NineWorn,true);
+ Restricted.Add(101006,0);Restricted.Add(181025,1);
+ const auto RestrictedPlan=Restricted.Finish();
+ assert(RestrictedPlan.Changes==1&&RestrictedPlan.Codes[0]==101006);
+ for(int Slot=1;Slot<L::SlotCount;++Slot)assert(RestrictedPlan.Codes[Slot]==NineWorn[Slot]);
+ L::FPlanner Blank(L::FLoadout{});
+ Blank.Add(80001,9);Blank.Add(80001,10);
+ const auto BlankPlan=Blank.Finish();
+ assert(BlankPlan.Changes==1&&BlankPlan.Codes[8]==80001&&BlankPlan.Indices[8]==9);
+ L::FPlanner Unchanged(NineWorn);
+ Unchanged.Add(181004,0);
+ assert(Unchanged.Finish().Changes==0);
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
