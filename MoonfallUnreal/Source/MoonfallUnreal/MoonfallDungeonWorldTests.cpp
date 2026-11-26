@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallEquipmentSlots.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -212,6 +213,50 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    Legacy->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Legacy currency retained"), Legacy->Salvage, 9876);
  TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
+
+ // Exercise the reflected equipment fields in real Unreal serialization.
+ // V17 is a fixture only: the live writer/loader still uses V16.
+ namespace S = MoonfallEquipmentSlots;
+ Original->Version = 16;
+ Original->InventoryItemCodes = {1001, 11002, 21003};
+ Original->EquippedWeaponCode = 1001;
+ Original->EquippedArmorCode = 11002;
+ Original->EquippedAccessoryCode = 21003;
+ Original->ExtraEquippedCodes.Reset();
+ S::FLoadout Worn{};
+ for (int32 Version = 16; Version <= S::ExpandedVersion; ++Version) {
+  Original->Version = Version;
+  if (Version == S::ExpandedVersion) {
+   Original->ExtraEquippedCodes = {31004, 41005, 51006, 61007, 71008, 81009};
+   Original->InventoryItemCodes.Append(Original->ExtraEquippedCodes);
+  }
+  Bytes.Reset();
+  if (!TestTrue(TEXT("Equipment fixture serializes"),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* Gear = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(TEXT("Equipment fixture restores"), Gear)) return false;
+  TestEqual(TEXT("Equipment fixture version survives"), Gear->Version, Version);
+  TestTrue(TEXT("Exact bag survives"), Gear->InventoryItemCodes == Original->InventoryItemCodes);
+  TestTrue(TEXT("Exact extra gear survives"), Gear->ExtraEquippedCodes == Original->ExtraEquippedCodes);
+  const S::FLegacy Old{Gear->EquippedWeaponCode, Gear->EquippedArmorCode, Gear->EquippedAccessoryCode};
+  if (!TestTrue(TEXT("Restored equipment passes migration policy"),
+       S::ReadSavedLoadout(Gear->Version, Old, Gear->ExtraEquippedCodes.GetData(),
+        Gear->ExtraEquippedCodes.Num(), Gear->InventoryItemCodes.GetData(),
+        Gear->InventoryItemCodes.Num(), Worn))) return false;
+  for (int32 Slot = 0; Slot < S::SlotCount; ++Slot) {
+   const int32 Expected = Slot < Original->InventoryItemCodes.Num()
+       ? Original->InventoryItemCodes[Slot] : 0;
+   TestEqual(TEXT("Every worn slot round-trips or defaults empty"), Worn[Slot], Expected);
+  }
+  const S::FLoadout Before = Worn;
+  Gear->InventoryItemCodes.RemoveAt(0);
+  TestFalse(TEXT("Missing worn item rejects entire loadout"),
+    S::ReadSavedLoadout(Gear->Version, Old, Gear->ExtraEquippedCodes.GetData(),
+     Gear->ExtraEquippedCodes.Num(), Gear->InventoryItemCodes.GetData(),
+     Gear->InventoryItemCodes.Num(), Worn));
+  TestTrue(TEXT("Rejected load leaves output unchanged"), Worn == Before);
+ }
  return !HasAnyErrors();
 }
 
