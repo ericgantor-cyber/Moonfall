@@ -384,7 +384,7 @@ $bugReports.Add_Click({
                                     if ($pending.Active) { $eventArgs.Cancel = $true }
                                 })
                                 $originalReport = $promptBox.Text
-                                $session = @{ Worker=$null; Task=$null; LastAnswer=''; Requests=0 }
+                                $session = @{ Worker=$null; Task=$null; LastAnswer=''; Requests=0; CancelSource=$null; Canceled=$false }
                                 $question = New-Object Windows.Forms.TextBox
                                 $question.Dock = 'Bottom'
                                 $question.Multiline = $true
@@ -407,6 +407,20 @@ $bugReports.Add_Click({
                                 $analysisWindow.Controls.Add($follow)
                                 $analysisWindow.Controls.Add($question)
                                 $analysisWindow.Controls.Add($copyAnswer)
+                                $cancelRequest = New-Object Windows.Forms.Button
+                                $cancelRequest.Dock = 'Bottom'
+                                $cancelRequest.Height = 38
+                                $cancelRequest.Text = 'CANCEL REQUEST'
+                                $cancelRequest.AccessibleName = 'Cancel the active AI request locally; API charges may still apply'
+                                $cancelRequest.Enabled = $false
+                                $analysisWindow.Controls.Add($cancelRequest)
+                                $cancelRequest.Add_Click({
+                                    if (-not $pending.Active -or -not $session.CancelSource) { return }
+                                    $session.Canceled = $true
+                                    $cancelRequest.Enabled = $false
+                                    $status.Text = 'Canceling locally. API billing status is unknown.'
+                                    $session.CancelSource.Cancel()
+                                })
                                 $copyAnswer.Add_Click({
                                     if ($session.LastAnswer) {
                                         try { [Windows.Forms.Clipboard]::SetText($session.LastAnswer); $status.Text = 'Latest analysis copied.' }
@@ -420,18 +434,23 @@ $bugReports.Add_Click({
                                     if ($pending.Active -or $session.Requests -ge 10) { return }
                                     $worker = [PowerShell]::Create()
                                     try {
-                                        [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$request).AddParameter('Approved',$true)
+                                        $session.CancelSource = New-Object System.Threading.CancellationTokenSource
+                                        $session.Canceled = $false
+                                        [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$request).AddParameter('Approved',$true).AddParameter('CancellationToken',$session.CancelSource.Token)
                                         $session.Task = $worker.BeginInvoke()
                                         $session.Worker = $worker
                                         $session.Requests++
                                         $pending.Active = $true
                                         $done.Enabled = $false
+                                        $cancelRequest.Enabled = $true
                                         $question.Enabled = $false
                                         $follow.Enabled = $false
                                         $status.Text = ('Request {0}/10 in progress. No automatic retry.' -f $session.Requests)
                                         $poll.Start()
                                     } catch {
                                         $worker.Dispose()
+                                        if ($session.CancelSource) { $session.CancelSource.Dispose(); $session.CancelSource=$null }
+                                        $cancelRequest.Enabled = $false
                                         $status.Text = 'Unable to start request. No automatic retry.'
                                         $done.Enabled = $true
                                         $question.Enabled = [bool]$session.LastAnswer
@@ -443,15 +462,23 @@ $bugReports.Add_Click({
                                     $poll.Stop()
                                     try {
                                         $reply = ($session.Worker.EndInvoke($session.Task) | Out-String).Trim()
+                                        if ($session.Canceled) { throw 'Canceled locally.' }
                                         if ($session.Worker.HadErrors -or -not $reply) { throw 'No usable analysis was returned.' }
                                         $session.LastAnswer = $reply
                                         $answerBox.Text = $reply
                                         $question.Clear()
                                         $status.Text = ('AI analysis ready. {0}/10 requests used. Verify suggestions before applying changes.' -f $session.Requests)
                                     } catch {
-                                        $status.Text = 'Request failed. Check local API configuration or billing. Previous analysis retained.'
+                                        if ($session.Canceled) {
+                                            $status.Text = 'Canceled locally. Previous analysis retained. API billing status is unknown.'
+                                        } else {
+                                            # Never display unfiltered exception details, request bodies or credentials.
+                                            $status.Text = 'Request failed. Check local API configuration, billing, model access or network. Previous analysis retained.'
+                                        }
                                     } finally {
                                         $session.Worker.Dispose()
+                                        if ($session.CancelSource) { $session.CancelSource.Dispose(); $session.CancelSource=$null }
+                                        $cancelRequest.Enabled = $false
                                         $session.Worker = $null
                                         $session.Task = $null
                                         $pending.Active = $false
@@ -507,7 +534,9 @@ $bugReports.Add_Click({
                                 [void][Windows.Forms.MessageBox]::Show('Unable to complete live analysis. Use the manual handoff.','Moonfall live AI')
                             } finally {
                                 if ($poll) { $poll.Stop(); $poll.Dispose() }
+                                if ($session -and $session.CancelSource) { $session.CancelSource.Cancel() }
                                 if ($session -and $session.Worker) { $session.Worker.Dispose() }
+                                if ($session -and $session.CancelSource) { $session.CancelSource.Dispose() }
                                 $analysisWindow.Dispose()
                             }
                         })
