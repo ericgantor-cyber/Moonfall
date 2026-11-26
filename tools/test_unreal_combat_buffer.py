@@ -60,6 +60,16 @@ int main() {
  if (!queue.Queue(10.85f,11.f)) return 31;
  if (!queue.Consume(11.f,11.f,true)) return 32;
  if (queue.ExpiresAt!=-1.f || queue.QueuedAt!=-1.f) return 33;
+ if (queue.HasPending()) return 34;
+ if (!queue.Queue(11.85f,12.f)) return 35;
+ if (!queue.HasPending()) return 36;
+ if (queue.Queue(11.0f,12.f)) return 37; // Early press after rollback.
+ if (queue.HasPending()) return 38;
+ queue.QueuedAt=12.f; // Half-populated slot still requires cleanup.
+ if (!queue.HasPending() || queue.Consume(12.f,12.f,true)) return 39;
+ if (queue.HasPending()) return 40;
+ if (!queue.Queue(12.85f,13.f)) return 41;
+ if (queue.Queue(13.2f,14.f) || queue.HasPending()) return 42;
  return 0;
 }
 """
