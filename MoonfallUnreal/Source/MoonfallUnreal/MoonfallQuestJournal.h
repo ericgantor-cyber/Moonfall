@@ -28,9 +28,21 @@ inline constexpr FResident Residents[] = {
  {"Ashscale", "Ashscale", "Ashen Elder's Stock", "Crossroads", 11},
  {"FirstlightArchivist", "Archivist Veyra", "Archive Supplies", "Firstlight", 1},
  {"FirstlightWatchkeeper", "Warden Cael", "Watchkeeper Supplies", "Firstlight", 0},
+ {"waystation_ashen_scout", "Cinder Runner", "Ashen Trail Supplies", "Emberwatch Camp", 5},
+ {"waystation_ashen_artisan", "Ashforge Keeper", "Ashforge Stockpile", "Emberwatch Camp", 3},
+ {"waystation_moonveil_scout", "Mira Fernstep", "Forest Trail Supplies", "Silverleaf Refuge", 2},
+ {"waystation_moonveil_scholar", "Selune Whisper", "Moon-rune Research", "Silverleaf Refuge", 1},
+ {"waystation_hollows_scout", "Nox Tunnelwatch", "Tunnel Lantern Supplies", "Deepstone Haven", 3},
+ {"waystation_hollows_tinker", "Dara Flint", "Workshop Salvage", "Deepstone Haven", 6},
+ {"waystation_foundry_scout", "Kora Spark", "Foundry Patrol Stock", "Sparkfall Relay", 6},
+ {"waystation_foundry_tinker", "Mek Ironhand", "Ironworks Salvage", "Sparkfall Relay", 3},
+ {"waystation_frost_scout", "Eira Froststep", "Frozen Trail Supplies", "Winterglass Lodge", 10},
+ {"waystation_frost_scholar", "Orin Snowbind", "Frozen Archive", "Winterglass Lodge", 1},
+ {"waystation_eclipse_scout", "Sable Nightroad", "Frontier Supplies", "Duskwatch Refuge", 9},
+ {"waystation_eclipse_elder", "Vesper Rune", "Eclipse Remnants", "Duskwatch Refuge", 11},
 };
 inline constexpr int ResidentCount = static_cast<int>(sizeof(Residents) / sizeof(Residents[0]));
-static_assert(ResidentCount == 15, "Match the current resident save whitelist");
+static_assert(ResidentCount == 27, "Match the current resident save whitelist");
 
 // Match AMoonfallWorldNPC::GetContractSalvageCost, including the Guide exception.
 constexpr int Cost(int Index) {
