@@ -177,6 +177,49 @@ int main() {
  assert(L::CanRemoveFullCopy(Ring10,RingWorn,24,std::array<int,2>{Ring10,Ring10}));
  assert(!L::CanRemoveFullCopy(Ring10,RingWorn,16,std::array<int,2>{Ring10,Ring10}));
  assert(L::FullUpgradeCode(Ring10,23)==0);
+ // Ring compatibility, explicit assignment, physical copy limits, swaps
+ // and V19 restoration: the same code may occupy two fingers only when two
+ // matching inventory copies actually exist.
+ const int CommonRing=L::EncodeFullItem(8,0,0,1);
+ const int HighRing=L::EncodeFullItem(13,2,5,25);
+ const std::array<int,3> RingBag{{CommonRing,CommonRing,HighRing}};
+ L::FFullLoadout Flexible{},RingResult{};
+ for(int I=0;I<10;++I){
+  const int Target=L::RingSlot(I);
+  assert(L::CanWearFullItem(CommonRing,Target,24));
+  assert(L::CanWearFullItem(Ring10,Target,24));
+  assert(!L::CanWearFullItem(1,Target,24));
+ }
+ assert(!L::CanWearFullItem(CommonRing,0,24));
+ assert(!L::CanWearFullItem(Ring10,8,9));
+ assert(!L::TryAssignFullRing(CommonRing,23,Flexible,24,true,RingBag,RingResult));
+ assert(L::TryAssignFullRing(CommonRing,23,Flexible,24,false,RingBag,RingResult));
+ Flexible=RingResult;
+ assert(L::TryAssignFullRing(CommonRing,16,Flexible,24,false,RingBag,RingResult));
+ Flexible=RingResult;
+ assert(L::FullWornCopies(CommonRing,Flexible,24)==2);
+ assert(!L::TryAssignFullRing(CommonRing,17,Flexible,24,false,RingBag,RingResult));
+ assert(RingResult==Flexible);
+ assert(!L::CanRemoveFullCopy(CommonRing,Flexible,24,RingBag));
+ assert(L::CanRemoveFullCopy(CommonRing,Flexible,24,std::array<int,3>{CommonRing,CommonRing,CommonRing}));
+ assert(L::TryAssignFullRing(HighRing,17,Flexible,24,false,RingBag,RingResult));
+ Flexible=RingResult;
+ assert(!L::TryMoveFullRing(17,0,Flexible,24,false,RingBag,RingResult));
+ assert(!L::TryMoveFullRing(17,23,Flexible,24,true,RingBag,RingResult));
+ assert(L::TryMoveFullRing(17,23,Flexible,24,false,RingBag,RingResult));
+ assert(RingResult[23]==HighRing&&RingResult[17]==CommonRing);
+ Flexible=RingResult;
+ assert(L::TryRestoreFlexibleFullLoadout(Flexible.data(),3,Flexible.data(),24,19,RingBag,RingResult));
+ assert(RingResult==Flexible);
+ assert(!L::TryRestoreFlexibleFullLoadout(Flexible.data(),3,Flexible.data(),24,19,
+      std::array<int,2>{CommonRing,HighRing},RingResult));
+ assert(RingResult==Flexible);
+ auto BadRings=Flexible;BadRings[0]=CommonRing;
+ assert(!L::TryRestoreFlexibleFullLoadout(BadRings.data(),3,BadRings.data(),24,19,RingBag,RingResult));
+ assert(L::FullTotalScore(Flexible)>0);
+ L::FFullPlanner PreserveFlexible(Flexible);
+ PreserveFlexible.Add(L::EncodeFullItem(23,3,5,25),0);
+ assert(PreserveFlexible.Finish().Codes==Flexible&&PreserveFlexible.Finish().Changes==0);
  // Worst case: all 24 matching traits, with all four candidate buckets.
  // High counts exceed the old decimal DP; first and last slots exercise
  // the full 48-bit decision path. Equal items retain the earliest index.
