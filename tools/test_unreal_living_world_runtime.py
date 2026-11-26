@@ -963,6 +963,21 @@ int main(){
         self.assertNotIn("SpawnActor",body)
         self.assertNotIn("Tick(",body)
 
+    def test_wait_options_panel_input_and_pointer_contract(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("if (bOptionsOpen && bCelestialWaitOpen)",hero)
+        self.assertIn("TryWaitCelestialHours(CelestialWaitHours)",hero)
+        self.assertIn("FMath::Clamp(CelestialWaitHours+Direction,1,24)",hero)
+        self.assertIn("if (bOptionsOpen) { if (bCelestialWaitOpen) ConfirmCelestialWait(); else OpenCelestialWait(); return; }",hero)
+        for bounds in ("Center-105.f,MenuTop+90.f,50.f,44.f",
+                       "Center+55.f,MenuTop+90.f,50.f,44.f",
+                       "Center-105.f,MenuTop+170.f,100.f,40.f",
+                       "Center+5.f,MenuTop+170.f,100.f,40.f"):
+            self.assertIn(bounds,hero)
+            self.assertIn(bounds,hud)
+        self.assertIn("Hero->CelestialWaitStatus",hud)
+
     def test_wait_only_advances_clock_and_rolls_back_on_save_failure(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         wait=hero.split("bool AMoonfallHeroPawn::TryWaitCelestialHours(",1)[1].split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[0]
