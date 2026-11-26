@@ -4920,7 +4920,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_five_test_runner(self):
+    def test_native_dungeon_readme_matches_required_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4944,15 +4944,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             for value in required_array.splitlines()
             if value.strip() and not value.strip().startswith("#")
         ]
-        readme_names = [
-            line.split("`", 2)[1]
-            for line in section.splitlines()
-            if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
-                                         "2. `Moonfall.Dungeons.",
-                                         "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons.",
-                                         "5. `Moonfall.Controls."))
-        ]
+        import re
+        readme_names = re.findall(r"^\s*\d+\. `(Moonfall\.[A-Za-z0-9_.]+)`\s*$", section, re.MULTILINE)
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
         self.assertIn("EditorExitCode=0", section)
