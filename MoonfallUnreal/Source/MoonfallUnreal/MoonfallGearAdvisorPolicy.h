@@ -610,4 +610,87 @@ public:
  }
 };
 static_assert(2*FullSlotCount<=64,"Full planner path must fit in uint64");
+// Optimize interchangeable rings while holding non-ring gear fixed. Each bag
+// entry is a physical copy. Keep only the best ten per trait; a count choice
+// needs no other candidates because all members share the same synergy.
+// Never decrease aggregate ring rank or remove an occupied ring unnecessarily.
+template<class Bag>
+FFullPlan PlanFlexibleRings(const FFullLoadout& Worn,int ActiveSlots,bool InCombat,const Bag& Inventory) {
+ FFullPlan Best;Best.Codes=Worn;
+ if(InCombat||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return Best;
+ struct FRingChoice {int Code=0,Index=-1,Rank=0;bool Retained=false;};
+ std::array<std::array<FRingChoice,RingSlotCount>,4> Pool{};
+ std::array<int,4> Sizes{};
+ std::array<bool,RingSlotCount> RetentionClaimed{};
+ int RingCapacity=0,OldRank=0,OldCount=0;
+ for(int R=0;R<RingSlotCount&&RingSlot(R)<ActiveSlots;++R){
+  ++RingCapacity;
+  const int Code=Worn[RingSlot(R)];
+  OldRank+=FullRank(Code);OldCount+=Code!=0;
+ }
+ const auto BetterChoice=[](const FRingChoice& X,const FRingChoice& Y){
+  if(X.Rank!=Y.Rank)return X.Rank>Y.Rank;
+  if(X.Retained!=Y.Retained)return X.Retained;
+  return X.Index<Y.Index;
+ };
+ int BagIndex=0;
+ for(int Code:Inventory){
+  const int Index=BagIndex++;
+  const auto D=DecodeFullItem(Code);
+  if(!IsRingSlot(D.Slot)||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip))continue;
+  FRingChoice Choice{Code,Index,FullRank(Code),false};
+  for(int R=0;R<RingCapacity;++R)
+   if(!RetentionClaimed[R]&&Worn[RingSlot(R)]==Code){
+    RetentionClaimed[R]=true;Choice.Retained=true;break;
+   }
+  auto& Choices=Pool[D.Trait];int& Size=Sizes[D.Trait];
+  int Pos=0;
+  while(Pos<Size&&!BetterChoice(Choice,Choices[Pos]))++Pos;
+  if(Pos>=RingCapacity)continue;
+  if(Size<RingCapacity)++Size;
+  for(int I=Size-1;I>Pos;--I)Choices[I]=Choices[I-1];
+  Choices[Pos]=Choice;
+ }
+ const int Baseline=FullTotalScore(Worn,ActiveSlots);
+ // At most C(14,4)=1001 count distributions for ten fingers, independent
+ // of bag size. Rank prefixes make every fixed-trait count choice optimal.
+ for(int A=0;A<=Sizes[0]&&A<=RingCapacity;++A)
+ for(int B=0;B<=Sizes[1]&&A+B<=RingCapacity;++B)
+ for(int C=0;C<=Sizes[2]&&A+B+C<=RingCapacity;++C)
+ for(int D=0;D<=Sizes[3]&&A+B+C+D<=RingCapacity;++D){
+  if(A+B+C+D<OldCount)continue;
+  const int Counts[4]={A,B,C,D};
+  std::array<FRingChoice,RingSlotCount> Picks{};
+  std::array<bool,RingSlotCount> Used{};
+  int Count=0,Rank=0;
+  for(int Trait=0;Trait<4;++Trait)
+   for(int I=0;I<Counts[Trait];++I){Picks[Count++]=Pool[Trait][I];Rank+=Pool[Trait][I].Rank;}
+  if(Rank<OldRank)continue;
+  FFullPlan Candidate;Candidate.Codes=Worn;
+  // Keep existing fingers when their selected physical code is still present.
+  for(int R=0;R<RingCapacity;++R){
+   const int Slot=RingSlot(R);Candidate.Codes[Slot]=0;
+   for(int I=0;I<Count;++I)
+    if(!Used[I]&&Picks[I].Code==Worn[Slot]){
+     Used[I]=true;Candidate.Codes[Slot]=Picks[I].Code;break;
+    }
+  }
+  // Remaining copies fill empty positions in stable finger order.
+  for(int R=0;R<RingCapacity;++R){
+   const int Slot=RingSlot(R);
+   if(Candidate.Codes[Slot])continue;
+   for(int I=0;I<Count;++I)
+    if(!Used[I]){
+     Used[I]=true;Candidate.Codes[Slot]=Picks[I].Code;
+     Candidate.Indices[Slot]=Picks[I].Index;break;
+    }
+  }
+  for(int R=0;R<RingCapacity;++R)
+   Candidate.Changes+=Candidate.Codes[RingSlot(R)]!=Worn[RingSlot(R)];
+  Candidate.Gain=FullTotalScore(Candidate.Codes,ActiveSlots)-Baseline;
+  if(Candidate.Gain>Best.Gain||(Candidate.Gain>0&&Candidate.Gain==Best.Gain
+      &&Candidate.Changes<Best.Changes))Best=Candidate;
+ }
+ return Best;
+}
 } // namespace MoonfallEquipmentLayout
