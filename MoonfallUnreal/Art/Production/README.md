@@ -39,6 +39,8 @@ During normal local gameplay (not editor PIE or dedicated server), the pawn atte
 ### Reviewing reports on Windows
 Run `MoonfallUnreal/Build/Get-MoonfallBugReports.ps1` with Windows PowerShell. It prints a local JSON index of up to 100 manual and 100 recovery reports, deduplicates recovery snapshots by session identifier, accepts only expected filenames, schema and kind, skips reparse points and oversized files, and classifies valid timing samples as low throughput, intermittent slow frames or no clear timing issue. It does not infer the crash cause, read unrelated files, modify reports, or upload information. The Windows workflow exercises synthetic reports, not a packaged UE5 game.
 
+Installed-game report discovery checks the standard user-data and package locations, and the NSIS installer's per-user InstallLocation registration. A custom local installation is accepted only if its directory is non-reparse and contains the expected non-reparse MoonfallUnreal.exe. Duplicate report roots are skipped. Unregistered copies may be supplied explicitly with -IncludeInstalled -InstallDirectory; arbitrary Saved directory overrides are not searched. The index remains read-only and bounded.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
