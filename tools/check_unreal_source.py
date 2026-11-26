@@ -16,6 +16,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
         log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
+        self.assertIn("MoonfallQuestXP::Preview(Cost,Hero->Level,Hero->Experience,Hero->ExperienceToNextLevel)",log)
+        self.assertIn('TEXT("MAX LEVEL")',log)
+        self.assertIn('Reward.LevelsGained>0?TEXT(" | LEVEL UP")',log)
+        self.assertIn("Cost,*RewardLabel",log)
+        self.assertNotIn("MoonfallQuestXP::Reward(Cost,Hero->Level)",log)
+        self.assertIn("LB/RB: page",log)
+        for side, direction in (("Left", -1), ("Right", 1)):
+            shoulder=self.hero_cpp.split("void AMoonfallHeroPawn::Controller"+side+"Shoulder()",1)[1].split("\n}",1)[0]
+            self.assertIn("StepQuestLogPage("+str(direction)+"); return;",shoulder)
+            self.assertLess(shoulder.index("StepQuestLogPage"),shoulder.index("Cast"+side+"()"))
+        page=self.hero_cpp.split("void AMoonfallHeroPawn::StepQuestLogPage(int32 Direction)",1)[1].split("void AMoonfallHeroPawn::ToggleSelectedQuestTracking()",1)[0]
+        self.assertIn("J::SelectPage(QuestLogSelection,J::PageRows(float(ViewH))",page)
+        self.assertIn("if (ViewW<300 || ViewH<240) return;",page)
+        self.assertIn("Health<=0.f",page)
         self.assertIn('TEXT("AUTO TRACK")',log)
         self.assertIn("J::HeaderButtons(Width)",log)
         self.assertIn("DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f)",log)
@@ -1675,6 +1689,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Planner.Finish()", body)
         self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", body)
         self.assertIn("EquipInventoryItem(Index)", body)
+        loop = body.split("for (int32 Slot = 0; Slot < 3; ++Slot)", 1)[1]
+        self.assertLess(loop.index("if (!IsValid(this) || IsActorBeingDestroyed()) break;"),
+                        loop.index("IsRecentlyInCombatForAmbientAI()"))
+        self.assertLess(loop.index("if (!IsValid(this) || IsActorBeingDestroyed()) break;"),
+                        loop.index("GetEquipmentSlotCode(Slot)"))
+        self.assertLess(loop.index("!bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen"),
+                        loop.index("InventoryItemCodes[Index] != Plan.Codes[Slot]"))
+        self.assertIn("bWorldProgressLoadInProgress || bTalentAllocationInProgress || bEquipmentCraftInProgress) break;", loop)
         self.assertIn("OnBestLoadoutEquipped(UpgradesEquipped);", body)
         self.assertNotIn("SalvageInventoryItem(", body)
         self.assertNotIn("RemoveAt(", body)
