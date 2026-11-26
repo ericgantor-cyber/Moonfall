@@ -1975,6 +1975,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp("),
                         tick.index("OnPostureChanged(Posture, MaxPosture)"))
 
+    def test_spell_visuals_skip_invalid_or_headless_render_work(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[0]
+        cue = cast.split("// Presentation is optional.", 1)[1]
+        guard = "GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()"
+        for call in ("TryPlayAuthoredSpellImpact(", "DrawDebugSphere(", "DrawDebugLine("):
+            self.assertLess(cue.index(guard), cue.index(call))
+        self.assertLess(cue.index("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld())"),
+                        cue.index("DrawDebugSphere("))
+        self.assertLess(cue.index("DrawDebugLine("), cue.index("Mana -= Costs[School] * Multiplier;"))
+        self.assertEqual(cast.count("LineTraceSingleByChannel("), 1)
+        fx = self.hero_cpp.split("bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        post_spawn = fx.split("UNiagaraComponent* FX=UNiagaraFunctionLibrary::SpawnSystemAtLocation(", 1)[1]
+        self.assertLess(post_spawn.index("if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld())"),
+                        post_spawn.index("ActiveSpellImpactFX.Add(FX);"))
+        self.assertLess(post_spawn.index("FX->DestroyComponent();"),
+                        post_spawn.index("GetWorld()->GetTimerManager().SetTimer("))
+
     def test_ai_batch_clamps_chase_and_dash_simulation_steps(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if (!FMath::IsFinite(Now)) return;", tick)
