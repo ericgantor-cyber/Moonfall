@@ -11,6 +11,7 @@
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
 #include "MoonfallEquipmentSlots.h"
+#include "MoonfallSwimming.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -37,6 +38,8 @@ public:
  virtual void BeginPlay() override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
+ bool IsUnderwater() const { return bUnderwater; }
+ float GetOxygen() const { return SwimmingBreath.Air; }
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
@@ -524,6 +527,9 @@ private:
  bool bHasRespawnCheckpointLocation = false;
  // Never write a shrine save before the initial persistent slot has loaded.
  bool bWorldProgressInitialized = false;
+ MoonfallSwimming::FBreath SwimmingBreath{};
+ bool bUnderwater = false;
+ void UpdateSwimmingBreath(float DeltaSeconds);
  double CelestialSavedPhase = 0.0;
  double CelestialSessionAnchor = 0.0;
  bool bCelestialWaitInProgress = false;
