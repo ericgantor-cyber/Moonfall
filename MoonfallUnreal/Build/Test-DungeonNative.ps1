@@ -46,16 +46,10 @@ $required = @(
     'Moonfall.Dungeons.BossVictorySaveRoundTrip',
     'Moonfall.Controls.CurrentInputContract'
 )
-# Fail closed. A test being discovered or started does not count as success.
-$results = @{}
-foreach ($name in $required) {
-    $escaped = [regex]::Escape($name)
-    $passPattern = "(?im)^.*Test Completed\..*$escaped.*Result=\{Passed\}.*$"
-    $altPattern = "(?im)^.*Test Completed\..*Result=\{Passed\}.*$escaped.*$"
-    $results[$name] = [regex]::IsMatch($logText, $passPattern) -or
-                      [regex]::IsMatch($logText, $altPattern)
-}
-$failedMarker = [regex]::IsMatch($logText, '(?im)Test Completed\..*Result=\{Failed\}')
+# Fail closed: exact Test Completed records, not discovery or prefix matches.
+$parsed = & (Join-Path $PSScriptRoot 'Read-NativeAutomationResults.ps1') -LogText $logText -Required $required
+$results = $parsed.Results
+$failedMarker = $parsed.AnyNativeTestFailed
 $summary = @(
     "EditorExitCode=$editorExit",
     "AnyNativeTestFailed=$failedMarker",
