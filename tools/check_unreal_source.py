@@ -4128,9 +4128,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_dual_cast_checks_both_spell_indices(self):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
-        self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
-        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(dual.index("LeftSpell != RightSpell"), dual.index("TryCast(LeftSpell, 0, 2.f)"))
+        # A shared valid school and equality to both equipped spells prove both indices.
+        bounds = "School < 0 || School >= 6 || Hand < 0 || Hand > 1"
+        both = "if (bDualCast && (LeftSpell != School || RightSpell != School"
+        self.assertLess(cast.index(bounds), cast.index("Costs[School]"))
+        self.assertLess(cast.index(bounds), cast.index("Cooldowns[School]"))
+        self.assertLess(cast.index("const bool bDualCast = Hand == 0 && Multiplier == 2.f;"), cast.index(both))
+        self.assertLess(cast.index(both), cast.index("Enemy->TakeSpellDamage("))
+        self.assertLess(cast.index(both), cast.index("Mana -= Costs[School] * Multiplier;"))
 
     def test_spell_cast_validates_health_state(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
