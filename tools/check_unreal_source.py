@@ -1715,8 +1715,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
-        self.assertIn("MoonfallEquipmentSlots::FromLegacy(", salvage)
-        self.assertIn("{EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}", salvage)
+        self.assertIn("const auto WornCodes = BuildEquipmentLoadout();", salvage)
         self.assertIn("!MoonfallEquipmentSlots::CanRemoveCopy(WornCodes, Code,", salvage)
         self.assertIn("InventoryItemCodes.GetData(), InventoryItemCodes.Num())) return false;", salvage)
         self.assertLess(salvage.index("CanRemoveCopy("), salvage.index("Salvage = SafeBalance +"))
@@ -1884,6 +1883,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(load.index(marker), load.index(restore))
             self.assertIn(f"MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[{slot}], {slot})", load)
         self.assertNotIn("RestoreGear(Save->Equipped", load)
+        self.assertIn("ExtraEquippedCodes = MoonfallEquipmentSlots::ToExtra(SavedWornCodes);", load)
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() TArray<int32> ExtraEquippedCodes;", save_h)
         self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
@@ -1892,8 +1892,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
-        self.assertIn("const auto WornCodes = MoonfallEquipmentSlots::FromLegacy(", save)
-        self.assertIn("{EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}", save)
+        self.assertIn("const auto WornCodes = BuildEquipmentLoadout();", save)
+        self.assertIn("MoonfallEquipmentSlots::FExtra ExtraEquippedCodes{};", self.hero_h)
+        builder = self.hero_cpp.split("AMoonfallHeroPawn::BuildEquipmentLoadout()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("MoonfallEquipmentSlots::FromParts(", builder)
+        self.assertIn("{EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}, ExtraEquippedCodes", builder)
+        self.assertIn("if (!MoonfallEquipmentSlots::CanWriteLegacy(WornCodes)) return false;", save)
+        self.assertLess(save.index("CanWriteLegacy("), save.index("UGameplayStatics::SaveGameToSlot("))
         self.assertIn("!MoonfallEquipmentSlots::ValidateOwned(WornCodes, InventoryItemCodes.GetData(),", save)
         self.assertIn("InventoryItemCodes.Num())) return false;", save)
         self.assertLess(save.index("const auto WornCodes"), save.index("UGameplayStatics::SaveGameToSlot("))
