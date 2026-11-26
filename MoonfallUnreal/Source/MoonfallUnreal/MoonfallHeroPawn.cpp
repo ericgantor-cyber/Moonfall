@@ -110,6 +110,18 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 }
 }
 
+namespace {
+// One validated snapshot for previews and batch equip. Inactive slots remain
+// zero until their runtime storage, stats, loot and persistence are enabled.
+MoonfallEquipmentLayout::FLoadout ReadOwnedEquipmentLoadout(const AMoonfallHeroPawn& Hero)
+{
+ MoonfallEquipmentLayout::FLoadout Equipped{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+  Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);
+ return Equipped;
+}
+}
+
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
  if (Slot < 0 || Slot > 2) return 0;
@@ -3661,8 +3673,7 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
  // Only an explicit equip request needs a valid living pawn.
  if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
- const MoonfallEquipmentLayout::FLoadout EquippedCodes = {
-     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
+ const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  return MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,
      MoonfallEquipmentLayout::LegacySlotCount);
 }
@@ -3672,8 +3683,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  // Validate worn ownership once, then scan the inventory once. The candidate
  // is already owned by construction, so no nested bag searches are needed.
  if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
- const MoonfallEquipmentLayout::FLoadout EquippedCodes = {
-     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
+ const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  int32 BestIndex = INDEX_NONE;
  int32 BestImprovement = 0;
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
@@ -3698,9 +3708,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
  // Use validated owned gear and a single inventory pass. Set-aware plan
  // considers matching affixes together without lowering any slot's tier/rarity.
- const MoonfallGearAdvisor::FEquipped EquippedCodes = {
-     GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
- MoonfallEquipmentLayout::FPlanner Planner(MoonfallEquipmentLayout::ExpandLegacy(EquippedCodes),
+ const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
+ MoonfallEquipmentLayout::FPlanner Planner(EquippedCodes,
      IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::LegacySlotCount);
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
   Planner.Add(InventoryItemCodes[Index], Index);
