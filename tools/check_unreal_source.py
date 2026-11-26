@@ -5012,6 +5012,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
             "Moonfall.Controls.CurrentInputContract",
             "Moonfall.Quests.ResidentSaveRoundTrip",
+            "Moonfall.Dungeons.EquipmentSaveRoundTrip",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -5071,6 +5072,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
         self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
         self.assertIn("Moonfall.Quests.ResidentSaveRoundTrip", workflow)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", workflow)
         quest_native = (ROOT / "MoonfallQuestNativeTests.cpp").read_text(encoding="utf-8")
         for token in ("Moonfall.Quests.ResidentSaveRoundTrip", "Hero->SupportsResidentContract(Id)", "UGameplayStatics::SaveGameToMemory(Original,Bytes)", "UGameplayStatics::LoadGameFromMemory(Bytes)", "J::MaxTracked", "J::MaxActive"):
             self.assertIn(token, quest_native)
@@ -5460,7 +5462,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all six required native tests explicitly passed", runner)
+        self.assertIn("all seven required native tests explicitly passed", runner)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", source)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
