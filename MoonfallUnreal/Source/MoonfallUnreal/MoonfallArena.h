@@ -38,6 +38,7 @@ public:
  bool bEnableRegionalLandmarks = true;
  void UpdateRegionWeather(float WorldTime);
  int32 LastRegionWeatherPhase = -1;
+ int32 LastCelestialLightingHour = -1;
  int32 AppliedRegionWeather[6] = {INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE};
  // Artist-facing opt-out. Doesn't affect the physical shrine or world routes.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
