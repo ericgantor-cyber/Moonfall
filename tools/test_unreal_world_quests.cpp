@@ -72,6 +72,18 @@ constexpr bool ManualTracking() {
 }
 static_assert(ManualTracking(), "100 accepted quests support seven independent tracking slots.");
 static_assert(J::CanAccept(99)&&!J::CanAccept(100)&&!J::CanAccept(-1));
+constexpr bool HeaderButtonGeometry() {
+ for(int Width=276;Width<=900;++Width) {
+  const auto B=J::HeaderButtons(float(Width));
+  if(B.AutoX<120.f || B.AutoX+B.Width>=B.MapX || B.MapX+B.Width>Width-14.f) return false;
+  if(!B.HitAuto(B.AutoX,46.f)||!B.HitMap(B.MapX,46.f)) return false;
+  if(B.HitAuto(B.MapX,46.f)||B.HitMap(B.AutoX,46.f)) return false;
+  if(B.HitAuto(B.AutoX+B.Width,46.f)||B.HitMap(B.MapX,66.f)) return false;
+ }
+ return !J::HeaderButtons(275.f).HitAuto(0.f,46.f)
+     && !J::HeaderButtons(901.f).HitMap(0.f,46.f);
+}
+static_assert(HeaderButtonGeometry(), "Compact and wide quest header controls stay separate.");
 static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
 static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
 static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
