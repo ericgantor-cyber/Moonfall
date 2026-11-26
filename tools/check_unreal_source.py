@@ -641,7 +641,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->TryCollect()", pickup)
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(ItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertNotIn("EquippedCode =", collect)
         self.assertNotIn("Salvage =", collect)
@@ -1433,7 +1433,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", set_body)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", decoder)
-        self.assertIn("!MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)", decoder)
+        self.assertIn("!MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)", decoder)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         for guard in ("Code <= 0", "EncodedSlot == Slot", "Affix >= 0 && Affix <= 3",
                       "Rarity >= 0", "Rarity <= 5", "Tier >= 1", "Tier <= 25",
@@ -1442,8 +1442,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, policy)
         self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
         validator = self.hero_cpp.split("bool ValidMoonfallItemCode(int32 Code) {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", validator)
-        self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", validator)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", validator)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", validator)
         self.assertIn("ValidEquippedTier(OwnedWeaponCode, 0)", self.hero_cpp)
         self.assertIn("ValidEquippedTier(OwnedArmorCode, 1)", self.hero_cpp)
         self.assertIn("ValidEquippedTier(OwnedAccessoryCode, 2)", self.hero_cpp)
@@ -1543,8 +1543,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FColor(255,132,32)", ground)
         self.assertIn("FLinearColor(0.23f,0.84f,0.42f)", hud)
         self.assertIn("FLinearColor(1.f,0.52f,0.12f)", hud)
-        self.assertIn("Rarity > 5", ground)
-        self.assertIn("Rarity > 5", self.hero_cpp)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(InItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", ground)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(ItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", self.hero_cpp)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         self.assertIn("Rarity <= 5", policy)
         self.assertIn("case EInventoryOperation::Ascend:return Rarity<5;", policy)
@@ -1757,9 +1757,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
         self.assertIn("Worn[Slot] = GetRawEquipmentSlotCode(Slot);", salvage)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", salvage)
-        self.assertIn("MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,", salvage)
+        self.assertIn("MoonfallEquipmentLayout::CanRemoveFullCopy(Code,Worn,", salvage)
         self.assertIn("MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes", salvage)
-        self.assertLess(salvage.index("MoonfallEquipmentLayout::CanRemoveSelectedCopy("), salvage.index("Salvage = SafeBalance +"))
+        self.assertLess(salvage.index("MoonfallEquipmentLayout::CanRemoveFullCopy("), salvage.index("Salvage = SafeBalance +"))
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         self.assertIn("(Rarity != 0 || Affix == 0)", policy)
         self.assertIn("Tier >= 1 && Tier <= 25", policy)
@@ -1777,7 +1777,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);", save)
         self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
-        self.assertLess(salvage.index("MoonfallEquipmentLayout::CanRemoveSelectedCopy("), salvage.index("Salvage = SafeBalance +"))
+        self.assertLess(salvage.index("MoonfallEquipmentLayout::CanRemoveFullCopy("), salvage.index("Salvage = SafeBalance +"))
         self.assertLess(salvage.index("Salvage = SafeBalance +"), salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
         self.assertIn("Hero->Salvage", self.hud)
         self.assertIn("Delete / X: salvage", self.hud)
