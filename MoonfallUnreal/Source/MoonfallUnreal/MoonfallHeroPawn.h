@@ -679,6 +679,7 @@ private:
  // Six additional slots have fixed native storage. V16 cannot persist them.
  MoonfallEquipmentSlots::FExtra ExtraEquippedCodes{};
  MoonfallEquipmentSlots::FLoadout BuildEquipmentLoadout() const;
+ MoonfallEquipmentSlots::FLoadout BuildOwnedEquipmentLoadout() const;
  bool bEquipmentCraftInProgress = false;
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;
