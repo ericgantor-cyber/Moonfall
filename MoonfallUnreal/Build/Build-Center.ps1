@@ -299,7 +299,7 @@ $bugReports.Add_Click({
                         $instructions = New-Object Windows.Forms.Label
                         $instructions.Dock = 'Top'
                         $instructions.Height = 64
-                        $instructions.Text = 'Review this prompt, add reproduction steps, then copy it and paste into your ChatGPT conversation. Nothing is sent automatically.'
+                        $instructions.Text = 'Review the prompt and add reproduction steps. Choose live analysis or copy into ChatGPT. Nothing is sent without confirmation.'
                         $instructions.AccessibleName = 'ChatGPT sharing instructions'
                         $promptBox = New-Object Windows.Forms.TextBox
                         $promptBox.Multiline = $true
@@ -327,7 +327,96 @@ $bugReports.Add_Click({
                         $back.AccessibleName = 'Return to bug report list'
                         $back.DialogResult = [Windows.Forms.DialogResult]::Cancel
                         $preview.CancelButton = $back
+                        $live = New-Object Windows.Forms.Button
+                        $live.Dock = 'Bottom'
+                        $live.Height = 40
+                        $live.Text = 'ANALYZE WITH LIVE AI'
+                        $live.AccessibleName = 'Send reviewed diagnostic prompt to OpenAI and view the response'
+                        $live.Add_Click({
+                            $apiScript = Join-Path $PSScriptRoot 'Invoke-MoonfallAIAnalysis.ps1'
+                            if (-not (Test-Path -LiteralPath $apiScript -PathType Leaf)) {
+                                [void][Windows.Forms.MessageBox]::Show('Live AI client is missing. Use the manual handoff.','Moonfall live AI')
+                                return
+                            }
+                            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process'))) {
+                                [void][Windows.Forms.MessageBox]::Show('Configure your own OpenAI API key in the local OPENAI_API_KEY environment variable and restart Build Center. API billing is separate. Never paste a key into this report.','Moonfall live AI setup')
+                                return
+                            }
+                            if ([string]::IsNullOrWhiteSpace($promptBox.Text) -or $promptBox.Text.Length -gt 16000) {
+                                [void][Windows.Forms.MessageBox]::Show('Enter a report of 1 to 16000 characters.','Moonfall live AI')
+                                return
+                            }
+                            if ([Windows.Forms.MessageBox]::Show('Send the reviewed text to OpenAI? API usage may incur charges. Do not include passwords or private information. No files or GitHub actions will be executed.','Confirm live AI request','YesNo','Question',[Windows.Forms.MessageBoxDefaultButton]::Button2) -ne [Windows.Forms.DialogResult]::Yes) { return }
+                            $analysisWindow = New-Object Windows.Forms.Form
+                            $worker = $null
+                            $poll = $null
+                            $pending = @{Active=$false;Task=$null}
+                            try {
+                                $analysisWindow.Text = 'Moonfall live AI analysis'
+                                $analysisWindow.Size = New-Object Drawing.Size(760,560)
+                                $analysisWindow.MinimumSize = New-Object Drawing.Size(440,300)
+                                $analysisWindow.StartPosition = 'CenterParent'
+                                $analysisWindow.Font = New-Object Drawing.Font('Segoe UI',11)
+                                $status = New-Object Windows.Forms.Label
+                                $status.Dock = 'Top'
+                                $status.Height = 58
+                                $status.Text = 'Requesting AI analysis. The interface remains responsive.'
+                                $status.AccessibleName = 'Live AI request status'
+                                $answerBox = New-Object Windows.Forms.TextBox
+                                $answerBox.Multiline = $true
+                                $answerBox.ReadOnly = $true
+                                $answerBox.ScrollBars = 'Vertical'
+                                $answerBox.Dock = 'Fill'
+                                $answerBox.AccessibleName = 'AI analysis response'
+                                $done = New-Object Windows.Forms.Button
+                                $done.Dock = 'Bottom'
+                                $done.Height = 40
+                                $done.Text = 'CLOSE'
+                                $done.Enabled = $false
+                                $done.AccessibleName = 'Close AI analysis'
+                                $done.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                                $analysisWindow.CancelButton = $done
+                                $analysisWindow.Controls.Add($answerBox)
+                                $analysisWindow.Controls.Add($done)
+                                $analysisWindow.Controls.Add($status)
+                                $analysisWindow.Add_FormClosing({
+                                    param($sender,$eventArgs)
+                                    if ($pending.Active) { $eventArgs.Cancel = $true }
+                                })
+                                # Dedicated runspace keeps network I/O off the WinForms thread.
+                                $worker = [PowerShell]::Create()
+                                [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$promptBox.Text).AddParameter('Approved',$true)
+                                $pending.Task = $worker.BeginInvoke()
+                                $pending.Active = $true
+                                $poll = New-Object Windows.Forms.Timer
+                                $poll.Interval = 250
+                                $poll.Add_Tick({
+                                    if (-not $pending.Task.IsCompleted) { return }
+                                    $poll.Stop()
+                                    try {
+                                        $answerBox.Text = ($worker.EndInvoke($pending.Task) | Out-String).Trim()
+                                        if ($worker.HadErrors -or -not $answerBox.Text) { throw 'No usable analysis was returned.' }
+                                        $status.Text = 'AI analysis ready. Verify suggestions before applying changes.'
+                                    } catch {
+                                        $answerBox.Text = 'Live analysis did not complete. Check your API key, billing, or network, then retry manually or use the copy handoff.'
+                                        $status.Text = 'Request failed. No automatic retry.'
+                                    } finally {
+                                        $pending.Active = $false
+                                        $done.Enabled = $true
+                                    }
+                                })
+                                $poll.Start()
+                                [void]$analysisWindow.ShowDialog($preview)
+                            } catch {
+                                [void][Windows.Forms.MessageBox]::Show('Unable to complete live analysis. Use the manual handoff.','Moonfall live AI')
+                            } finally {
+                                if ($poll) { $poll.Stop(); $poll.Dispose() }
+                                if ($worker) { $worker.Dispose() }
+                                $analysisWindow.Dispose()
+                            }
+                        })
                         $preview.Controls.Add($promptBox)
+                        $preview.Controls.Add($live)
                         $preview.Controls.Add($copy)
                         $preview.Controls.Add($back)
                         $preview.Controls.Add($instructions)
