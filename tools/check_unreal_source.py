@@ -5686,13 +5686,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[0]
         score = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::GetEquipmentPower(", 1)[1].split(
-            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+            "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
         for expression in ("DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)",
                            "Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0)",
                            "if (Slot < 0 || Slot > 2) return 0;"):
             self.assertIn(expression, item)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
-        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", score)
+        self.assertIn("GetItemPower(GetEquipmentSlotCode(Slot))", score)
+        self.assertNotIn("EquippedWeaponCode", score)
+        self.assertNotIn("InventoryItemCodes.Contains(", score)
         self.assertIn("Hero->GetEquipmentPower()", self.hud)
         self.assertIn("Hero->GetItemPower(Hero->GetEquipmentSlotCode(0))", self.hud)
         self.assertNotIn("SaveWorldProgress()", item + score)
@@ -5709,9 +5711,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
         for code in (delta, projected):
             self.assertIn("InventoryItemCodes.Contains(", code)
-            self.assertIn("DecodeEquippedItem(", code)
             self.assertNotIn("EquipInventoryItem(", code)
             self.assertNotIn("SaveWorldProgress(", code)
+        self.assertIn("CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot))", delta)
+        self.assertNotIn("EquippedWeaponCode", delta)
+        self.assertIn("DecodeEquippedItem(", projected)
         self.assertIn("GetSetPieceCount(Affix)", projected)
         self.assertIn("PreviousRarity >= 1", projected)
         self.assertIn("CandidateRarity >= 1", projected)
