@@ -4399,15 +4399,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
       || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) return false;
   UniqueWorldDrops.Add(Record.DropId);
  }
- for (const int32 Code : InventoryItemCodes)
-  if (!ValidMoonfallItemCode(Code)) return false;
- // Keep the equipped references consistent with the bag; otherwise the loader
- // would silently clear an equipped slot on the next launch.
+ // Validate the whole inventory and choose a format that preserves every slot.
  const auto WornCodes = BuildEquipmentLoadout();
- // Never let a V16 write silently discard the six reserved native slots.
- if (!MoonfallEquipmentSlots::CanWriteLegacy(WornCodes)) return false;
- if (!MoonfallEquipmentSlots::ValidateOwned(WornCodes, InventoryItemCodes.GetData(),
-     InventoryItemCodes.Num())) return false;
+ const int32 EquipmentSaveVersion = MoonfallEquipmentSlots::WriteVersion(
+     WornCodes, InventoryItemCodes.GetData(), InventoryItemCodes.Num());
+ if (EquipmentSaveVersion == 0) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4452,7 +4448,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ Save->Version = EquipmentSaveVersion;
  Save->InventoryItemCodes = InventoryItemCodes;
+ if (EquipmentSaveVersion == MoonfallEquipmentSlots::ExpandedVersion) {
+  const auto Extra = MoonfallEquipmentSlots::ToExtra(WornCodes);
+  Save->ExtraEquippedCodes.Append(Extra.data(), static_cast<int32>(Extra.size()));
+ }
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
@@ -4472,7 +4473,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 16) {
+ if (!Save || Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -4575,7 +4576,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Do not silently discard malformed saved gear then overwrite the original
  // slot during autosave. Leave the slot untouched for backup or repair.
  for (const int32 Code : Save->InventoryItemCodes) {
-  if (!ValidMoonfallItemCode(Code)) {
+  if (!MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) {
    bPersistentSaveWritesBlocked = true;
    UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid equipment; original inventory protected."));
    return false;
@@ -4815,7 +4816,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  const int32 LoadScanCount = FMath::Min(Save->InventoryItemCodes.Num(), 10000);
  for (int32 Index = 0; Index < LoadScanCount; ++Index) {
   const int32 Code = Save->InventoryItemCodes[Index];
-  if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
+  if (MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) InventoryItemCodes.Add(Code);
  }
  const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
   if (ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot && InventoryItemCodes.Contains(Code)) {
