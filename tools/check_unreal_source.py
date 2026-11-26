@@ -260,7 +260,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         packaging = workflow[package:]
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
         self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
-        self.assertIn("$games[0].Length -lt 512", packaging)
+        self.assertIn("$game.Length -lt 512", packaging)
         self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
         self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
         self.assertIn("ReadUInt16() -ne 0x8664", packaging)
@@ -6348,8 +6348,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_packaged_unreal_executable_requires_win64_pe_header(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
-        start = script.index("$gameExe = $games[0].FullName")
-        end = script.index("$gameRoot = $games[0].Directory.FullName", start)
+        start = script.index("$gameExe = $game.FullName")
+        end = script.index("$gameRoot = $game.Directory.FullName", start)
         validation = script[start:end]
         for expected in (
             "[System.IO.File]::OpenRead($gameExe)",
@@ -6365,7 +6365,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "$stream.Dispose()",
         ):
             self.assertIn(expected, validation)
-        self.assertLess(script.index("$games.Count -ne 1"), start)
+        self.assertLess(script.index("Find-PackagedGame.ps1"), start)
         self.assertLess(end, script.index("Building self-contained Windows launcher"))
 
 
