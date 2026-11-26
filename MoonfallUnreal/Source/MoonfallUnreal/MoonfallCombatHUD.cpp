@@ -18,6 +18,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "HAL/PlatformMemory.h"
+#include "HAL/PlatformMisc.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 void AMoonfallCombatHUD::DrawHUD()
@@ -1342,6 +1344,14 @@ void AMoonfallCombatHUD::DrawHUD()
    else if (HelpIndex == 1)
     HelpText = bCompactOptions ? TEXT("4K render scale: quality vs FPS")
       : TEXT("4K render scale: 100% is sharpest; reduce for performance");
+  }
+  // Static hardware inventory only; no per-frame WMI, benchmark or settings change.
+  if (MenuWidth>=480.f && MenuHeight>=460.f) {
+   static const uint64 RAMGiB=FPlatformMemory::GetConstants().TotalPhysical/(1024ull*1024ull*1024ull);
+   static const int32 Threads=FPlatformMisc::NumberOfCoresIncludingHyperthreads();
+   static const FString Audit=FString::Printf(TEXT("PC AUDIT | %llu GiB RAM | %d CPU threads"),
+       static_cast<unsigned long long>(RAMGiB), Threads);
+   DrawText(Audit,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-47.f,nullptr,0.65f);
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
