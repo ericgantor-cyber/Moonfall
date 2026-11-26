@@ -1696,9 +1696,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;", body)
-        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", body)
+        self.assertIn("ReadOwnedEquipmentLoadout(*this)", body)
         self.assertIn("InventoryItemCodes.Num()", body)
-        self.assertIn("MoonfallEquipmentLayout::FPlanner Planner(MoonfallEquipmentLayout::ExpandLegacy(EquippedCodes)", body)
+        self.assertIn("MoonfallEquipmentLayout::FPlanner Planner(EquippedCodes,", body)
         self.assertIn("IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::LegacySlotCount)", body)
         self.assertIn("Planner.Add(InventoryItemCodes[Index], Index)", body)
         self.assertIn("Planner.Finish()", body)
@@ -1940,10 +1940,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("for (const int32 Code : Save->InventoryItemCodes)"),
                         load.index("bWorldProgressLoadInProgress = true;"))
 
+    def test_equipment_preview_and_batch_share_owned_loadout_snapshot(self):
+        snapshot = self.hero_cpp.split("MoonfallEquipmentLayout::FLoadout ReadOwnedEquipmentLoadout(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode", 1)[0]
+        self.assertIn("MoonfallEquipmentLayout::FLoadout Equipped{};", snapshot)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", snapshot)
+        self.assertIn("Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);", snapshot)
+        self.assertIn("return Equipped;", snapshot)
+        self.assertEqual(self.hero_cpp.count("ReadOwnedEquipmentLoadout(*this)"), 3)
+        getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
+        self.assertIn("GetValidatedEquippedTier(Slot) > 0 ? Code : 0", getter)
+        self.assertIn("InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0", getter)
+        self.assertNotIn("InventoryItemCodes.Add(", snapshot)
+        self.assertNotIn("EquipInventoryItem(", snapshot)
+
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
-        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", auto)
+        self.assertIn("ReadOwnedEquipmentLoadout(*this)", auto)
         self.assertIn("Planner.Finish()", auto)
         self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", auto)
         self.assertIn("EquipInventoryItem(Index)", auto)
@@ -4366,7 +4381,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)",
-                         "GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)",
+                         "ReadOwnedEquipmentLoadout(*this)",
                          "MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,"):
             self.assertIn(contract, score)
         for preview in (score, recommendation):
@@ -4375,7 +4390,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertNotIn("Health <=", preview)
             self.assertNotIn("IsFinite(Health)", preview)
         self.assertIn("MoonfallEquipmentLayout::Improvement(InventoryItemCodes[Index], EquippedCodes,", recommendation)
-        self.assertLess(recommendation.index("GetEquipmentSlotCode(0)"), recommendation.index("for (int32 Index"))
+        self.assertLess(recommendation.index("ReadOwnedEquipmentLoadout(*this)"), recommendation.index("for (int32 Index"))
         self.assertNotIn("GetEquipmentUpgradeScore(Index)", recommendation)
         self.assertNotIn("InventoryItemCodes.Contains(", recommendation)
         self.assertIn("Improvement > BestImprovement", recommendation)
