@@ -45,7 +45,8 @@ $required = @(
     'Moonfall.Dungeons.BossVictoryLedgerDefaults',
     'Moonfall.Dungeons.BossVictorySaveRoundTrip',
     'Moonfall.Controls.CurrentInputContract',
-    'Moonfall.Quests.ResidentSaveRoundTrip'
+    'Moonfall.Quests.ResidentSaveRoundTrip',
+    'Moonfall.Dungeons.EquipmentSaveRoundTrip'
 )
 # Fail closed: exact Test Completed records, not discovery or prefix matches.
 $parsed = & (Join-Path $PSScriptRoot 'Read-NativeAutomationResults.ps1') -LogText $logText -Required $required
@@ -62,4 +63,4 @@ $summary | ForEach-Object { Write-Host $_ }
 if ($editorExit -ne 0 -or $failedMarker -or ($results.Values -contains $false)) {
     throw "Native dungeon and control tests NOT verified as passed. Inspect $log and $report."
 }
-Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all six required native tests explicitly passed in UE5.4.'
+Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all seven required native tests explicitly passed in UE5.4.'
