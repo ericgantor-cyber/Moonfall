@@ -119,6 +119,26 @@ int main() {
  assert(L::Improvement(101006,Full,10)==0);
  assert(L::Improvement(181006,Full,L::SlotCount)==1000);
  assert(L::Improvement(181014,Full,L::SlotCount)==9000);
+ // Exhaust all valid encoding combinations for every inventory operation.
+ using Op=L::EInventoryOperation;
+ for(int Slot=0;Slot<L::SlotCount;++Slot)
+  for(int Tier=1;Tier<=25;++Tier)
+   for(int Rarity=0;Rarity<=5;++Rarity)
+    for(int Affix=0;Affix<=3;++Affix){
+     const int Code=Affix*100000+Slot*10000+Rarity*1000+Tier;
+     for(int Active:{L::LegacySlotCount,L::SlotCount}){
+      const bool Valid=Slot<Active&&(Rarity!=0||Affix==0);
+      assert(L::CanOperate(Code,Active,Op::Equip)==Valid);
+      assert(L::CanOperate(Code,Active,Op::Salvage)==Valid);
+      assert(L::CanOperate(Code,Active,Op::Upgrade)==(Valid&&Tier<25));
+      assert(L::CanOperate(Code,Active,Op::Reforge)==(Valid&&Rarity>=2));
+      assert(L::CanOperate(Code,Active,Op::Ascend)==(Valid&&Rarity<5));
+     }
+    }
+ for(int Code:{0,-1,90001,106001,100026,std::numeric_limits<int>::max()})
+  for(Op Action:{Op::Equip,Op::Salvage,Op::Upgrade,Op::Reforge,Op::Ascend})
+   assert(!L::CanOperate(Code,L::SlotCount,Action));
+ assert(!L::CanOperate(101005,4,Op::Equip));
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
