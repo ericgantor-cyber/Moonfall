@@ -43,6 +43,17 @@ constexpr bool ValidateOwned(const FLoadout& Worn,const int* Bag,std::size_t Siz
  }
  return true;
 }
+// A bag copy can be removed only if it is present and a worn copy remains.
+// The code's decoded slot identifies its single possible worn reference.
+constexpr bool CanRemoveCopy(const FLoadout& Worn,int Code,const int* Bag,std::size_t Size) {
+ const auto Item=Decode(Code);
+ if(!Known(Item.Slot)||Size>10000||(!Bag&&Size!=0))return false;
+ const bool IsWorn=Worn[Item.Slot]==Code;
+ int Copies=0;
+ for(std::size_t I=0;I<Size;++I)
+  if(Bag[I]==Code&&++Copies>(IsWorn?1:0))return true;
+ return false;
+}
 // V17 stores only the six additional codes alongside the three existing fields.
 // Reject unknown versions, incomplete arrays, and pre-V17 extra fields rather
 // than silently accepting data that could be lost on a later autosave.
