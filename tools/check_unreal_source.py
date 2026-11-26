@@ -1861,18 +1861,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_load_preflights_worn_item_ownership_before_mutating_progress(self):
         load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
-        self.assertIn("const auto SavedWornCodes = MoonfallEquipmentSlots::FromLegacy(", load)
-        self.assertIn("Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode", load)
-        guard = load.split("const auto SavedWornCodes", 1)[1].split(
+        marker = "MoonfallEquipmentSlots::FLoadout SavedWornCodes"
+        self.assertIn(marker, load)
+        guard = load.split(marker, 1)[1].split(
             "// Validate the V7 discovered-shrine ledger", 1)[0]
-        self.assertIn("!MoonfallEquipmentSlots::ValidateOwned(SavedWornCodes, Save->InventoryItemCodes.GetData(),", guard)
-        self.assertIn("Save->InventoryItemCodes.Num()", guard)
-        self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
-        self.assertIn("return false;", guard)
-        self.assertLess(load.index("const auto SavedWornCodes"),
-                        load.index("bWorldProgressLoadInProgress = true;"))
-        self.assertLess(load.index("const auto SavedWornCodes"),
-                        load.index("RestoreGear(Save->EquippedWeaponCode"))
+        for token in ("!MoonfallEquipmentSlots::ReadSavedLoadout(Save->Version,",
+                      "Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode",
+                      "Save->ExtraEquippedCodes.GetData(), Save->ExtraEquippedCodes.Num()",
+                      "Save->InventoryItemCodes.GetData(), Save->InventoryItemCodes.Num(), SavedWornCodes",
+                      "bPersistentSaveWritesBlocked = true;", "return false;"):
+            self.assertIn(token, guard)
+        self.assertLess(load.index(marker), load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index(marker), load.index("RestoreGear(Save->EquippedWeaponCode"))
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() TArray<int32> ExtraEquippedCodes;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
+        self.assertIn("Save->Version > 16", load)
 
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
