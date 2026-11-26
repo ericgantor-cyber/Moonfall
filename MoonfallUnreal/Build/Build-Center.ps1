@@ -193,7 +193,7 @@ $bugReports.Add_Click({
     }
     try {
         # Use only the local, allowlisted report index. No uploads or raw logs.
-        $index = & $indexScript | ConvertFrom-Json -ErrorAction Stop
+        $index = & $indexScript -IncludeInstalled | ConvertFrom-Json -ErrorAction Stop
         $viewer = New-Object Windows.Forms.Form
         try {
             $viewer.Text = 'Moonfall local bug reports'
@@ -204,7 +204,7 @@ $bugReports.Add_Click({
             $note = New-Object Windows.Forms.Label
             $note.Dock = 'Top'
             $note.Height = 76
-            $note.Text = 'Local checkout reports only. Recovery snapshots may belong to a running session. No report is sent automatically.'
+            $note.Text = 'Local checkout and standard installed-game report folders. Recovery snapshots may belong to a running session. No report is sent automatically.'
             $note.AccessibleName = 'Local report privacy and recovery limitations'
             $body = New-Object Windows.Forms.TextBox
             $body.Multiline = $true
@@ -214,9 +214,9 @@ $bugReports.Add_Click({
             $body.Dock = 'Fill'
             $body.AccessibleName = 'Read-only bug report summaries'
             $body.Text = if ($index.Count -gt 0) {
-                $index.Reports | Format-List File,LastWriteUtc,Kind,Classification,AverageFPS,P95Milliseconds,Hitches | Out-String -Width 160
+                $index.Reports | Format-List Source,File,LastWriteUtc,Kind,Classification,AverageFPS,P95Milliseconds,Hitches | Out-String -Width 160
             } else {
-                'No valid reports found in this checkout. In-game reports from an installed copy may be in a different Saved folder.'
+                'No valid reports found in the checked folders. Custom installation or Saved directory overrides may use another location.'
             }
             $close = New-Object Windows.Forms.Button
             $close.Dock = 'Bottom'
