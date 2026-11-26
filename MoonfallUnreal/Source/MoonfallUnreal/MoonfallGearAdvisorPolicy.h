@@ -102,6 +102,8 @@ namespace MoonfallEquipmentLayout {
 enum class ESlot : int { Weapon=0, Chest=1, Trinket=2, Head=3, Shoulders=4, Hands=5, Legs=6, Feet=7, Ring=8 };
 inline constexpr int SlotCount=9;
 inline constexpr int LegacySlotCount=3;
+// Activation remains gated until the native pawn and HUD support all slots.
+inline constexpr int ActiveSlotCount=LegacySlotCount;
 using FLoadout=std::array<int,SlotCount>;
 constexpr bool Valid(int Code,int Slot) {
  if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
