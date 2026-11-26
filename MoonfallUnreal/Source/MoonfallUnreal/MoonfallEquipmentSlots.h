@@ -23,6 +23,13 @@ constexpr FItem Decode(int Code) {
  return Item;
 }
 constexpr bool Valid(int Code,int Slot) {return Known(Slot)&&Decode(Code).Slot==Slot;}
+// Extra gear contributes at one quarter of legacy primary-stat scaling.
+// Both inputs must be validated, owned tier values at the caller boundary.
+constexpr int SafeTier(int Tier){return Tier>=1&&Tier<=25?Tier:0;}
+constexpr int ExtraPrimaryBonus(int A,int B){return (SafeTier(A)+SafeTier(B)+3)/4;}
+constexpr int ExtraMasteryUnits(int A,int B,int C,int D,int E,int F){
+ return SafeTier(A)+SafeTier(B)+SafeTier(C)+SafeTier(D)+SafeTier(E)+SafeTier(F);
+}
 constexpr FLoadout FromLegacy(const FLegacy& Old) {
  FLoadout Out{};
  for(int Slot=0;Slot<LegacyCount;++Slot)Out[Slot]=Old[Slot];
