@@ -84,8 +84,8 @@ constexpr bool HeaderButtonGeometry() {
      && !J::HeaderButtons(901.f).HitMap(0.f,46.f);
 }
 static_assert(HeaderButtonGeometry(), "Compact and wide quest header controls stay separate.");
-static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
-static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
+static_assert(J::PageRows(240.f)==3 && J::PageRows(1080.f)==17);
+static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==17);
 static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
 static_assert(J::HitRow(28.f,4)==-1 && J::HitRow(30.f,4)==1);
 static_assert(J::HitRow(-1.f,4)==-1 && J::HitRow(120.f,4)==-1);
@@ -97,6 +97,21 @@ constexpr bool SeparateQuestCounts() {
 }
 static_assert(SeparateQuestCounts());
 static_assert(J::PageStart(16,4)==16 && J::PageStart(26,17)==17);
+constexpr bool PageFooterGeometry() {
+ for(int Height=240;Height<=674;++Height) {
+  const int Rows=J::PageRows(float(Height));
+  const auto B=J::PageButtons(276.f,float(Height-24));
+  if(B.Width!=80.f||88.f+(Rows-1)*30.f+28.f>B.Y) return false;
+  if(B.Hit(B.PrevX,B.Y)!=-1||B.Hit(B.NextX,B.Y)!=1) return false;
+  if(B.Hit(B.PrevX+B.Width,B.Y)!=0||B.Hit(B.NextX,B.Y+22.f)!=0) return false;
+ }
+ return J::PageButtons(275.f,216.f).Hit(12.f,188.f)==0;
+}
+static_assert(PageFooterGeometry());
+static_assert(J::SelectPage(1,3,100,1)==3 && J::SelectPage(4,3,100,-1)==0);
+static_assert(J::SelectPage(98,3,100,1)==99 && J::SelectPage(99,3,100,1)==99);
+static_assert(J::SelectPage(0,3,100,-1)==0 && J::SelectPage(5,3,0,1)==0);
+static_assert(J::SelectPage(999,3,5,1)==4 && J::SelectPage(4,0,5,-1)==4);
 constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};
  for (int I=0; I<J::ResidentCount; ++I) States[I]=1;
