@@ -8,6 +8,7 @@
 #include "MoonfallSpellBook.h"
 #include "MoonfallTalentRules.h"
 #include "MoonfallPerformanceAudit.h"
+#include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -490,6 +491,7 @@ private:
  void RefreshGraphicsMemoryAudit();
  void ExportBugReport();
  FString BugReportStatus;
+ MoonfallDiagnostics::FBreadcrumbs BugBreadcrumbs;
  double LastBugReportAt=-1;
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
