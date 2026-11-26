@@ -162,10 +162,17 @@ internal sealed class LaunchWindow : Form
     {
         try
         {
-            return File.Exists(Path.Combine(directory, "MoonfallUnreal.exe")) &&
-                Directory.Exists(Path.Combine(directory, "Engine")) &&
-                Directory.Exists(Path.Combine(directory, "MoonfallUnreal")) &&
-                Directory.EnumerateFiles(Path.Combine(directory, "MoonfallUnreal"), "*", SearchOption.AllDirectories).Any();
+            var game = new FileInfo(Path.Combine(directory, "MoonfallUnreal.exe"));
+            var paks = Path.Combine(directory, "MoonfallUnreal", "Content", "Paks");
+            if (!game.Exists || game.Length == 0 ||
+                !Directory.Exists(Path.Combine(directory, "Engine")) ||
+                !Directory.Exists(paks)) return false;
+            // Match the packaging gate: actual nonempty cooked archives, not
+            // a log file or arbitrary placeholder in the project directory.
+            bool Nonempty(string path) => File.Exists(path) && new FileInfo(path).Length > 0;
+            return Directory.EnumerateFiles(paks, "*.pak", SearchOption.AllDirectories).Any(Nonempty) ||
+                Directory.EnumerateFiles(paks, "*.utoc", SearchOption.AllDirectories)
+                    .Any(index => Nonempty(index) && Nonempty(Path.ChangeExtension(index, ".ucas")));
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
