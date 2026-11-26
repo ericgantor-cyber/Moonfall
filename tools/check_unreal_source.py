@@ -3989,6 +3989,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_melee_callbacks_revalidate_actors_before_followups(self):
+        melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
+        caster = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"
+        target = "!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)"
+        for callback, next_operation in (
+            ("Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));", "const float Dealt"),
+            ("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", "Enemy->SwordGuardAngle ="),
+            ("Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);", "const float Window"),
+            ("Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));", "Enemy->RegisterComboMilestone("),
+        ):
+            section = melee.split(callback, 1)[1].split(next_operation, 1)[0]
+            self.assertIn(caster, section)
+            self.assertIn(target, section)
+
     def test_defeat_rewards_revalidate_actors_after_callbacks(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
         guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"

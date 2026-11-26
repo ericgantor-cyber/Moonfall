@@ -1728,7 +1728,8 @@ void AMoonfallHeroPawn::MeleeAttack()
     Anim->Montage_Play(Montage, 1.f);
   }
  }
- if (!bLivingTarget) {
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+ if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
   ResetMeleeHitCombo(); // Committed misses break the momentum chain.
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
@@ -1767,6 +1768,12 @@ void AMoonfallHeroPawn::MeleeAttack()
  const FVector ResolvedSwordImpact = Hit.ImpactPoint;
  // Shared enemy health, posture, phase and loot resolution. No mana used.
  Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+ if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)) {
+  ResetMeleeHitCombo();
+  OnMeleeSwing(ResolvedSwordAngle, false);
+  return;
+ }
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
  const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;
@@ -1782,6 +1789,8 @@ void AMoonfallHeroPawn::MeleeAttack()
        && ParryCounterPostureDamage > 0.f)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
   }
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)) { ResetMeleeHitCombo(); return; }
   if (Enemy->Health > 0.f && Enemy->bElite && !Enemy->bBoss
       && FMath::IsFinite(Enemy->PostureBrokenUntil) && Now >= Enemy->PostureBrokenUntil) {
    Enemy->SwordGuardAngle = MoonfallOmniattack::AnticipatedGuard(CurrentSwordAngle);
@@ -1790,6 +1799,8 @@ void AMoonfallHeroPawn::MeleeAttack()
   // Low sweeps pressure posture; the original enemy posture-break caps apply.
   if (Enemy->Health > 0.f)
    Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)) { ResetMeleeHitCombo(); return; }
   const float Window = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const bool bContinues = LastHitComboTarget.Get() == Enemy
@@ -1802,7 +1813,10 @@ void AMoonfallHeroPawn::MeleeAttack()
   if (Enemy->Health > 0.f && (HitComboStage == 4 || HitComboStage == 8
       || HitComboStage == 12)) {
    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)) { ResetMeleeHitCombo(); return; }
    Enemy->RegisterComboMilestone(HitComboStage);
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
   }
   // The swing montage already played at attack commitment, even on a
   // missed or lethal strike. Do not restart it upon damage resolution.
@@ -1813,6 +1827,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   // Fully absorbed strikes cannot retain a powered combo.
   ResetMeleeHitCombo();
  }
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
  OnMeleeSwing(CurrentSwordAngle, bConnected);
  if (bEmitSwordImpact && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
   OnMeleeImpact(ResolvedSwordAngle, ResolvedSwordImpact, Dealt,
