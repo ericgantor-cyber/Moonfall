@@ -20,6 +20,8 @@
 #include "Engine/Engine.h"
 #include "HAL/PlatformMemory.h"
 #include "HAL/PlatformMisc.h"
+#include "RHI.h"
+#include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 void AMoonfallCombatHUD::DrawHUD()
@@ -1368,6 +1370,14 @@ void AMoonfallCombatHUD::DrawHUD()
            Sample.AverageFPS,Sample.OnePercentLowFPS,Sample.Hitches,Hint)
       : TEXT("PC AUDIT | Play to collect frame timing");
     DrawText(Timing,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-65.f,nullptr,0.65f);
+    // Report the active RHI, not a guessed adapter from Windows enumeration.
+    // Names are bounded for layout; absence of a renderer is explicitly unknown.
+    if (MenuHeight>=540.f) {
+     const FString Adapter=GRHIAdapterName.IsEmpty()?TEXT("Unknown GPU"):GRHIAdapterName.Left(40);
+     const FString API=GDynamicRHI?FString(GDynamicRHI->GetName()).Left(12):TEXT("Unknown");
+     const FString Renderer=FString::Printf(TEXT("GPU | %s | %s"),*Adapter,*API);
+     DrawText(Renderer,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.60f);
+    }
    }
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
