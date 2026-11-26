@@ -75,16 +75,30 @@ constexpr bool CanWriteLegacy(const FLoadout& Worn) {
   if(Worn[Slot]!=0)return false;
  return true;
 }
+constexpr bool ValidInventoryCode(int Code,int Version) {
+ const auto Item=Decode(Code);
+ return Version>=1&&Version<=ExpandedVersion&&Known(Item.Slot)
+     &&(Version==ExpandedVersion||Legacy(Item.Slot));
+}
+// Keep legacy-only inventories on V16. Expanded bag items also require V17,
+// even when all six additional equipped fields are empty.
+constexpr int WriteVersion(const FLoadout& Worn,const int* Bag,std::size_t Size) {
+ if(!ValidateOwned(Worn,Bag,Size))return 0;
+ int Version=CanWriteLegacy(Worn)?16:ExpandedVersion;
+ for(std::size_t I=0;I<Size;++I){
+  if(!ValidInventoryCode(Bag[I],ExpandedVersion))return 0;
+  if(!Legacy(Decode(Bag[I]).Slot))Version=ExpandedVersion;
+ }
+ return Version;
+}
 constexpr bool ReadSavedLoadout(int Version,const FLegacy& Old,
  const int* Extra,std::size_t ExtraSize,const int* Bag,std::size_t BagSize,FLoadout& Out) {
  if(Version<1||Version>ExpandedVersion)return false;
  if(Version<ExpandedVersion?ExtraSize!=0:ExtraSize!=ExtraCount||!Extra)return false;
  // Validate the whole inventory, including unworn gear, before publishing a loadout.
  if(BagSize>10000||(!Bag&&BagSize!=0))return false;
- for(std::size_t I=0;I<BagSize;++I) {
-  const auto Item=Decode(Bag[I]);
-  if(!Known(Item.Slot)||(Version<ExpandedVersion&&!Legacy(Item.Slot)))return false;
- }
+ for(std::size_t I=0;I<BagSize;++I)
+  if(!ValidInventoryCode(Bag[I],Version))return false;
  FLoadout Candidate=FromLegacy(Old);
  if(Version==ExpandedVersion)
   for(int I=0;I<ExtraCount;++I)Candidate[LegacyCount+I]=Extra[I];
