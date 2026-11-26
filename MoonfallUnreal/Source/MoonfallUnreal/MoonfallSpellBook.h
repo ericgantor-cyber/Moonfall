@@ -22,6 +22,20 @@ inline constexpr FSpell Spells[6] = {
 inline constexpr int SpellCount = 6;
 static_assert(sizeof(Spells) / sizeof(Spells[0]) == SpellCount, "Spell book schools must match TryCast");
 inline constexpr bool IsValid(int index) { return index >= 0 && index < SpellCount; }
+// Shared cooldown calculation for live casts and spellbook previews.
+// Negative last-cast sentinels are allowed; future timestamps are not.
+inline bool TryCooldownRemaining(float base, float now, float lastCast, float haste, float& remaining) {
+ remaining=0.f;
+ if (!std::isfinite(base) || base<=0.f || !std::isfinite(now) || now<0.f
+     || !std::isfinite(lastCast) || lastCast>now || !std::isfinite(haste)
+     || haste<0.f || haste>0.20f) return false;
+ const float elapsed=now-lastCast;
+ if (!std::isfinite(elapsed)) return false;
+ const float wait=base/(1.f+haste)-elapsed;
+ if (!std::isfinite(wait)) return false;
+ remaining=wait>0.f ? wait : 0.f;
+ return true;
+}
 // This is a read-only cast preflight, not a promise that a hostile target exists.
 // TryCast remains the only authority on target LOS, damage, and resource spend.
 enum class EReadiness { Ready, Cooldown, LowMana, FullHealth, Invalid };
@@ -37,11 +51,11 @@ inline FCastState Evaluate(int index, float mana, float maxMana,
   || !std::isfinite(health) || !std::isfinite(maxHealth) || !std::isfinite(power)
   || !std::isfinite(now) || !std::isfinite(lastCast) || !std::isfinite(haste)
   || mana < 0.f || maxMana <= 0.f || health <= 0.f || maxHealth <= 0.f
-  || health > maxHealth || power <= 0.f || haste <= -1.f)
+  || health > maxHealth || power <= 0.f)
   return {EReadiness::Invalid,0.f,0.f};
- const float remaining = Spells[index].Cooldown/(1.f+haste) - (now-lastCast);
- if (!std::isfinite(remaining)) return {EReadiness::Invalid,0.f,0.f};
- const float wait = remaining > 0.f ? remaining : 0.f;
+ float wait=0.f;
+ if (!TryCooldownRemaining(Spells[index].Cooldown,now,lastCast,haste,wait))
+  return {EReadiness::Invalid,0.f,0.f};
  const float shortfall = mana < Spells[index].ManaCost
     ? Spells[index].ManaCost - mana : 0.f;
  if (Spells[index].bHealing && health >= maxHealth)
