@@ -5364,6 +5364,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (PanelW>=480.f && MouseX>=PanelL+PanelW-110.f && MouseX<=PanelL+PanelW-14.f
         && MouseY>=PanelT+46.f && MouseY<PanelT+66.f) { ToggleQuestLog(); return; }
     if(bQuestLogOpen) {
+     if (PanelW>=480.f && MouseX>=PanelL+PanelW-214.f && MouseX<PanelL+PanelW-118.f
+         && MouseY>=PanelT+46.f && MouseY<PanelT+66.f) { ResetQuestTracking(); return; }
      const int Rows=MoonfallQuestJournal::PageRows(float(ViewH));
      const int Count=MoonfallQuestJournal::Count(GetActiveQuestMask());
      const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
