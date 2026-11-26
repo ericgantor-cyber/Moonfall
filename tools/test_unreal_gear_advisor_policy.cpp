@@ -80,6 +80,27 @@ int main() {
  WrongSlot=Full;WrongSlot[8]=-1;
  assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
  assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
+ // The native migration boundary must accept old mirrors, preserve nine
+ // enabled slots, and reject any mismatch without modifying the output.
+ L::FLoadout MirrorResult=Full;
+ assert(L::TryRestoreMirroredLoadout(LegacyCodes,3,nullptr,0,false,3,OwnAll,MirrorResult));
+ assert(MirrorResult==Migrated);
+ assert(L::TryRestoreMirroredLoadout(LegacyCodes,3,nullptr,0,false,9,OwnAll,MirrorResult));
+ assert(MirrorResult==Migrated);
+ assert(L::TryRestoreMirroredLoadout(Full.data(),3,Full.data(),9,true,9,OwnAll,MirrorResult));
+ assert(MirrorResult==Full);
+ assert(!L::TryRestoreMirroredLoadout(Full.data(),3,Full.data(),9,true,3,OwnAll,MirrorResult));
+ assert(MirrorResult==Full);
+ assert(!L::TryRestoreMirroredLoadout(Full.data(),3,Full.data(),8,true,9,OwnAll,MirrorResult));
+ assert(!L::TryRestoreMirroredLoadout(Full.data(),3,Full.data(),9,true,4,OwnAll,MirrorResult));
+ assert(!L::TryRestoreMirroredLoadout(Full.data(),3,Full.data(),9,true,9,
+     [&](int Code){return Code!=Full[8];},MirrorResult));
+ assert(MirrorResult==Full);
+ auto WrongMirror=Full;WrongMirror[0]+=1;
+ assert(!L::TryRestoreMirroredLoadout(Full.data(),3,WrongMirror.data(),9,true,9,OwnAll,MirrorResult));
+ assert(MirrorResult==Full);
+ assert(L::TryRestoreMirroredLoadout(LegacyCodes,3,Migrated.data(),9,true,3,OwnAll,MirrorResult));
+ assert(MirrorResult==Migrated);
  // Shared single-item comparison covers all nine slots without changing legacy weights.
  const auto LegacyExpanded=L::ExpandLegacy(Gear);
  for(int Slot=0;Slot<3;++Slot)
