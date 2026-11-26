@@ -24,12 +24,12 @@ public:
  void Reset() { Count=Next=0; LastTime=PublishedAt=LastObserved=-1; PublishElapsed=0; Snapshot={}; }
  // Negative means unavailable, including a clock discontinuity.
  double SampleAge(double Now) const {
-  if (!Snapshot.Ready || PublishedAt<0 || !std::isfinite(Now) || Now<PublishedAt) return -1;
+  if (!Snapshot.Ready || PublishedAt<0 || !std::isfinite(Now) || Now<PublishedAt || Now<LastObserved) return -1;
   const double Age=Now-PublishedAt;
   return std::isfinite(Age)?Age:-1;
  }
  void Observe(double Now, bool Gameplay) {
-  if (!std::isfinite(Now) || Now<0) { BreakSequence(); return; }
+  if (!std::isfinite(Now) || Now<0) { Reset(); return; }
   // A clock rollback invalidates published data even across a menu break.
   if (LastObserved>=0 && Now<LastObserved) Reset();
   LastObserved=Now;
