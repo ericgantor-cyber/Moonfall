@@ -108,6 +108,24 @@ constexpr bool Valid(int Code,int Slot) {
  // Normalize the slot digit only, then reuse the existing tier/rarity/affix validator.
  return MoonfallGearAdvisor::Valid(Code-Slot*10000,0);
 }
+// Common validation for explicit inventory operations. Reject inactive slots
+// before crafting or equipping; operation-specific limits remain independent.
+enum class EInventoryOperation { Equip, Salvage, Upgrade, Reforge, Ascend };
+constexpr bool CanOperate(int Code,int ActiveSlots,EInventoryOperation Operation) {
+ if(ActiveSlots!=LegacySlotCount&&ActiveSlots!=SlotCount)return false;
+ if(Code<=0)return false;
+ const int Slot=(Code/10000)%10;
+ if(Slot>=ActiveSlots||!Valid(Code,Slot))return false;
+ const int Tier=Code%1000,Rarity=(Code/1000)%10;
+ switch(Operation){
+  case EInventoryOperation::Equip:
+  case EInventoryOperation::Salvage:return true;
+  case EInventoryOperation::Upgrade:return Tier<25;
+  case EInventoryOperation::Reforge:return Rarity>=2;
+  case EInventoryOperation::Ascend:return Rarity<5;
+ }
+ return false;
+}
 // Individual item comparisons preserve the legacy per-piece score semantics.
 // Whole-loadout optimization uses TotalScore below, including both sides of a set pair.
 constexpr int Score(int Code,int Slot,const FLoadout& Equipped,int ActiveSlots=SlotCount) {
