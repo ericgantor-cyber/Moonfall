@@ -6,6 +6,23 @@ SRC = Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Source" / "Moonf
 SOURCE = (SRC / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
 
 class DungeonSpawnLiveness(unittest.TestCase):
+    def test_construction_preallocates_authored_geometry_and_keeps_trigger_queries(self):
+        code = SOURCE.split("void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split(
+            "void AMoonfallDungeonLayout::BeginPlay()", 1)[0]
+        for component, count in (("Floors", "ChamberCount"),
+                                 ("Walls", "6 * ChamberCount + 2 * (ChamberCount - 1) + 1"),
+                                 ("HazardPlates", "3"), ("WallCrownArt", "2 * ChamberCount")):
+            reserve = component + "->PreAllocateInstancesMemory(" + count + ")"
+            self.assertLess(code.index(component + "->ClearInstances();"), code.index(reserve))
+            self.assertLess(code.index(reserve), code.index(component + "->AddInstance("))
+        constructor = SOURCE.split("int32 AMoonfallDungeonLayout::GetEffectiveLayoutSeed", 1)[0]
+        for component in ("EntranceTrigger", "FinalChamberTrigger", "Trigger"):
+            self.assertIn(component + "->SetGenerateOverlapEvents(true);", constructor)
+            self.assertIn(component + "->SetCanEverAffectNavigation(false);", constructor)
+        for component in ("Floors", "Walls"):
+            self.assertIn(component + "->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", constructor)
+        self.assertIn("HazardPlates->SetCanEverAffectNavigation(false);", constructor)
+
     def test_bonus_spawn_does_not_count_invalid_or_dead_actors(self):
         code = SOURCE.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(", 1)[1].split(
             "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel(", 1)[0]
