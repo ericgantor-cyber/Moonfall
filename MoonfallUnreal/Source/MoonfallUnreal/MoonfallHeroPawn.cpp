@@ -3454,7 +3454,8 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  const FVector HeroPosition = GetActorLocation();
  if (HeroPosition.ContainsNaN()) return;
  const float PickupRangeSq = FMath::Square(250.f);
- TArray<AMoonfallGroundLoot*> NearbyLoot;
+ // Most pickups fit on the stack; larger groups still grow without a hard cap.
+ TArray<AMoonfallGroundLoot*, TInlineAllocator<16>> NearbyLoot;
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
