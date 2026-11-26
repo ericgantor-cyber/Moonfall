@@ -38,9 +38,23 @@ class DungeonSpawnLiveness(unittest.TestCase):
                         len(identity))
         self.assertIn("return false;", callback)
 
+    def test_entire_regular_group_is_revalidated_before_commit(self):
+        code = SOURCE.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
+        self.assertIn("TArray<AMoonfallEnemy*, TInlineAllocator<6>> SpawnedActors;", code)
+        check = code.split("bool bAllSurvived = Spawned == Count;", 1)[1]
+        validation, commit = check.split("if (!bAllSurvived)", 1)
+        for guard in ("!IsValid(Enemy)", "Enemy->IsActorBeingDestroyed()",
+                      "Enemy->GetOwner() != this", "!FMath::IsFinite(Enemy->Health)",
+                      "Enemy->Health <= 0.f", "bAllSurvived = false;"):
+            self.assertIn(guard, validation)
+        self.assertLess(commit.index("Enemy->Destroy();"), commit.index("return false;"))
+        self.assertLess(commit.index("return false;"), commit.index("SpawnedEncounterCount += Spawned;"))
+
     def test_authored_counts_saves_and_boss_identity_remain(self):
         for line in ("GroupSize < 5 || GroupSize > 11", "GetOrLockEncounterLevel(Hero)",
-                     "if (Spawned != Count)", "SpawnedEncounterCount += Spawned",
+                     "bool bAllSurvived = Spawned == Count;", "if (!bAllSurvived)",
+                     "SpawnedEncounterCount += Spawned",
                      "if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;",
                      "Boss->DungeonBossTitle = FText::FromString(",
                      "SpawnedBonusGroupsMask |= GroupBit;"):
