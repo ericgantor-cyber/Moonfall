@@ -3804,7 +3804,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Target += Side.GetSafeNormal() * FlankDistance * FlankSign;", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal()", tick)
+        self.assertIn("const FVector ChaseDirection = Direction.GetSafeNormal();", tick)
+        self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", tick)
 
     def test_dungeon_scout_wide_flank_keeps_visibility_and_path_budget(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3821,7 +3822,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Target += Side.GetSafeNormal() * FlankDistance * FlankSign;", movement)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal()", tick)
+        self.assertIn("const FVector ChaseDirection = Direction.GetSafeNormal();", tick)
+        self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", tick)
 
     def test_boss_basic_attack_patterns_randomize_without_immediate_repeats(self):
         self.assertIn("int32 LastBossAttackPattern = -1;", self.enemy_h)
