@@ -821,7 +821,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
             self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
-        self.assertIn("const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),", self.hud)
+        self.assertIn("const int32 Code=Hero->GetEquipmentSlotCode(Slot);", self.hud)
+        self.assertIn("Slot<MoonfallEquipmentSlots::SlotCount", self.hud)
+        self.assertIn("(Slot%3)*(CardWidth+3.f)", self.hud)
+        self.assertIn("(Slot/3)*(CardHeight+3.f)", self.hud)
         self.assertIn("bValid && Code == Hero->GetEquipmentSlotCode(Slot)", self.hud)
         self.assertIn("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
 
@@ -840,7 +843,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TEXT(\"UPGRADE\")", block)
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
-        self.assertIn("MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot)", block)
+        self.assertIn("MoonfallEquipmentSlots::Valid(SelectedCode, SelectedSlot)", block)
         self.assertIn("bValidSelection && SelectedCode == EquippedCode", block)
         self.assertIn('bAlreadyEquipped ? TEXT("EQUIPPED")', block)
         self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
