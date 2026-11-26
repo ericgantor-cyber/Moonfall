@@ -86,7 +86,7 @@ bool FMoonfallDungeonBossVictoryLedgerTest::RunTest(const FString& Parameters)
  const AMoonfallHeroPawn* Hero = GetDefault<AMoonfallHeroPawn>();
  if (!TestNotNull(TEXT("Persistent save default"), Save)
      || !TestNotNull(TEXT("Hero default"), Hero)) return false;
- TestEqual(TEXT("Current save schema is V16"), Save->Version, 16);
+ TestEqual(TEXT("Current save schema is V17"), Save->Version, 17);
  TestEqual(TEXT("Fresh save has no boss victories"),
    Save->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Fresh hero has no boss victories"),
@@ -129,6 +129,11 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    FirstDungeon | MidDungeon | LastDungeon);
  Original->DefeatedDungeonBossMask = static_cast<int32>(
    FirstDungeon | LastDungeon);
+ Original->EquippedWeaponCode = 101005;
+ Original->EquippedArmorCode = 111005;
+ Original->EquippedAccessoryCode = 121005;
+ Original->InventoryItemCodes = {101005,111005,121005};
+ Original->EquippedSlotCodes = {101005,111005,121005,0,0,0,0,0,0};
  Original->Salvage = 4321;
  Original->Level = 17;
  TArray<uint8> Bytes;
@@ -139,7 +144,9 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::LoadGameFromMemory(Bytes));
  if (!TestNotNull(TEXT("Restore current save from bytes"), Restored)) return false;
- TestEqual(TEXT("Current save format survives"), Restored->Version, 16);
+ TestEqual(TEXT("Current save format survives"), Restored->Version, 17);
+ TestTrue(TEXT("Nine equipment slot IDs survive memory serialization"), Restored->EquippedSlotCodes == Original->EquippedSlotCodes);
+ TestEqual(TEXT("Legacy weapon mirror survives"), Restored->EquippedWeaponCode, Original->EquippedWeaponCode);
  TestEqual(TEXT("Discovered first, middle and final dungeons survive"),
    Restored->DiscoveredDungeonMask, Original->DiscoveredDungeonMask);
  TestEqual(TEXT("First and 30th dungeon victories survive"),
