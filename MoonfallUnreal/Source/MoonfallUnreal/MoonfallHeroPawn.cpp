@@ -2511,18 +2511,13 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
- // The final inventory copy of equipped gear is protected. Extra duplicates
- // may be salvaged because the worn code remains represented in the bag.
- const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
- if (bEquippedCode) {
-  int32 Copies = 0;
-  for (const int32 Candidate : InventoryItemCodes)
-   if (Candidate == Code) ++Copies;
-  if (Copies <= 1) return false;
- }
  const auto Item = MoonfallEquipmentSlots::Decode(Code);
  if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;
+ // Protect the last copy of any worn item through the shared slot policy.
+ const auto WornCodes = MoonfallEquipmentSlots::FromLegacy(
+     {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode});
+ if (!MoonfallEquipmentSlots::CanRemoveCopy(WornCodes, Code,
+     InventoryItemCodes.GetData(), InventoryItemCodes.Num())) return false;
  const int32 Rarity = Item.Rarity;
  const int32 Tier = Item.Tier;
  // Keep the same currency limit as SaveWorldProgress. Clamp before
