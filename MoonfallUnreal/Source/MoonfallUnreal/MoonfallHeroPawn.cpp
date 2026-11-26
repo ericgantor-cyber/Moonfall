@@ -4609,10 +4609,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Validate worn references before restoring anything. Otherwise RestoreGear
  // would clear an unowned or wrong-slot item and a later autosave would
  // permanently overwrite the original save with the missing equipment.
- const auto SavedWornCodes = MoonfallEquipmentSlots::FromLegacy(
-     {Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode});
- if (!MoonfallEquipmentSlots::ValidateOwned(SavedWornCodes, Save->InventoryItemCodes.GetData(),
-     Save->InventoryItemCodes.Num())) {
+ MoonfallEquipmentSlots::FLoadout SavedWornCodes{};
+ if (!MoonfallEquipmentSlots::ReadSavedLoadout(Save->Version,
+     {Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode},
+     Save->ExtraEquippedCodes.GetData(), Save->ExtraEquippedCodes.Num(),
+     Save->InventoryItemCodes.GetData(), Save->InventoryItemCodes.Num(), SavedWornCodes)) {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
   return false;
