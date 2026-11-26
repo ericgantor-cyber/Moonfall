@@ -63,6 +63,13 @@ process {
             $api = if (@('D3D11','D3D12','Vulkan') -contains $report.GraphicsAPI) { $report.GraphicsAPI } else { 'Unknown' }
             $lines += ('  Graphics API: '+$api)
             if ($report.ReducedMotion -is [bool]) { $lines += ('  Reduced motion: '+$report.ReducedMotion) }
+            $eventNames = @('options_opened','options_closed','graphics_changed','damage_taken','spell_cast')
+            foreach ($event in @($report.RecentEvents | Select-Object -Last 8)) {
+                $age = Format-Metric $event.SecondsAgo 0 300
+                if ($null -ne $age -and $event.Event -is [string] -and $eventNames -contains $event.Event) {
+                    $lines += ('  Recent event: {0} ({1}s before snapshot)' -f $event.Event,$age)
+                }
+            }
         }
     }
     if ($i -eq 0) { $lines += 'No usable reports were found.' }
