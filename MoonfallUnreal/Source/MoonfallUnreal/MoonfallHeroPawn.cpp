@@ -81,8 +81,8 @@ bool HasVisibleInventoryPointerSurface(const AController* Controller)
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- // Only the three persisted live slots are enabled until the V17 migration.
- if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::LegacySlotCount
+ // Accept only canonical codes for active player equipment slots.
+ if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount
      || !MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)) return false;
  const int32 Trait = Code / 100000;
  const int32 Rarity = (Code / 1000) % 10;
@@ -116,7 +116,7 @@ namespace {
 MoonfallEquipmentLayout::FLoadout ReadOwnedEquipmentLoadout(const AMoonfallHeroPawn& Hero)
 {
  MoonfallEquipmentLayout::FLoadout Equipped{};
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
   Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);
  return Equipped;
 }
@@ -138,14 +138,14 @@ int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
 
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return 0;
+ if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  const int32 Code = GetRawEquipmentSlotCode(Slot);
  return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;
 }
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return 0;
+ if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  const int32 Code = GetRawEquipmentSlotCode(Slot);
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
@@ -162,7 +162,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
  // Use the same strict decoder as equipped combat stats. No save mutations.
  if (ItemCode <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
  return Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0);
@@ -171,7 +171,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
  int32 Total = 0;
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
   Total += GetItemPower(GetEquipmentSlotCode(Slot));
  return Total;
 }
@@ -182,7 +182,7 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  const int32 CandidatePower = GetItemPower(ItemCode);
  if (CandidatePower <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  return CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot));
 }
 
@@ -191,7 +191,7 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  if (Affix < 1 || Affix > 3 || !InventoryItemCodes.Contains(CandidateCode)
      || GetItemPower(CandidateCode) <= 0) return 0;
  const int32 Slot = (CandidateCode / 10000) % 10;
- if (Slot < 0 || Slot > 2) return 0;
+ if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
  if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
   return 0;
@@ -200,7 +200,7 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  const bool bCurrentValid = DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
  return FMath::Clamp(GetSetPieceCount(Affix)
      - (bCurrentValid && PreviousRarity >= 1 && PreviousTrait == Affix ? 1 : 0)
-     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, MoonfallEquipmentLayout::LegacySlotCount);
+     + (CandidateRarity >= 1 && CandidateTrait == Affix ? 1 : 0), 0, MoonfallEquipmentLayout::ActiveSlotCount);
 }
 
 bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
@@ -214,7 +214,7 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
  int32 Pieces = 0;
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
   if (DecodeEquippedItem(GetEquipmentSlotCode(Slot), Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
@@ -258,10 +258,13 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
+ int32 ExtraTierTotal=0;
+ for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+  ExtraTierTotal+=GetValidatedEquippedTier(Slot);
  const float GearMastery = FMath::Clamp(
    (GetValidatedEquippedTier(0)
     + GetValidatedEquippedTier(1)
-    + GetValidatedEquippedTier(2)) * 0.0015f, 0.f, 0.12f);
+    + GetValidatedEquippedTier(2) + ExtraTierTotal) * 0.0015f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
@@ -2535,10 +2538,10 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
  MoonfallEquipmentLayout::FLoadout Worn{};
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
   Worn[Slot] = GetRawEquipmentSlotCode(Slot);
  if (!MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,
-     MoonfallEquipmentLayout::LegacySlotCount,InventoryItemCodes)) return false;
+     MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
  // Keep the same currency limit as SaveWorldProgress. Clamp before
@@ -2568,7 +2571,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Upgrade)) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
@@ -2614,7 +2617,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Reforge)) return false;
  // Unlike normal drops, reforge always yields a nonzero affix different
  // from the old one, including for an originally traitless Rare item.
@@ -2662,7 +2665,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Ascend)) return false;
  // Rising rank requires progressively more materials, but costs remain
  // bounded. Validate the entire transaction before editing inventory.
@@ -3346,8 +3349,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
- // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ // equipment for any of the nine player slots.
+ LastLootSlot = FMath::RandRange(0, MoonfallEquipmentLayout::ActiveSlotCount-1);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -3443,7 +3446,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex >= MoonfallEquipmentLayout::ActiveSlotCount
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
@@ -3670,7 +3673,7 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  return MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,
-     MoonfallEquipmentLayout::LegacySlotCount);
+     MoonfallEquipmentLayout::ActiveSlotCount);
 }
 
 int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
@@ -3683,7 +3686,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  int32 BestImprovement = 0;
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
   const int32 Improvement = MoonfallEquipmentLayout::Improvement(InventoryItemCodes[Index], EquippedCodes,
-      MoonfallEquipmentLayout::LegacySlotCount);
+      MoonfallEquipmentLayout::ActiveSlotCount);
   if (Improvement > BestImprovement) {
    BestImprovement = Improvement;
    BestIndex = Index;
@@ -3705,14 +3708,14 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // considers matching affixes together without lowering any slot's tier/rarity.
  const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  MoonfallEquipmentLayout::FPlanner Planner(EquippedCodes,
-     IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::LegacySlotCount);
+     IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::ActiveSlotCount);
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
   Planner.Add(InventoryItemCodes[Index], Index);
  const auto Plan = Planner.Finish();
  // Blueprint equipment notifications may synchronously invoke Equip Best again.
  TGuardValue<bool> BatchGuard(bEquipBestInProgress, true);
  int32 UpgradesEquipped = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot) {
   // A Blueprint callback may destroy this pawn or close the inventory.
   // Revalidate before reading combat state, equipment, or bag contents.
   if (!IsValid(this) || IsActorBeingDestroyed()) break;
@@ -3756,12 +3759,12 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 Affix = Code / 100000;
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Equip)) return false;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  // Expanded slots have no legacy Blueprint caches or armor HP side effects.
- // The active-slot validation above gates this path until loot/UI integration.
+ // The active-slot validation above rejects out-of-range codes.
  if (SlotIndex >= MoonfallEquipmentLayout::LegacySlotCount) {
   int32& ExtraCode = ExtraEquippedCodes[SlotIndex-MoonfallEquipmentLayout::LegacySlotCount];
   if (ExtraCode == Code) return false;
@@ -3808,8 +3811,8 @@ bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
  const int32 Slot = (Code / 10000) % 10;
- // The existing save format cannot yet restore the six additional slots.
- return Slot < MoonfallEquipmentLayout::LegacySlotCount
+ // The V17 save format supports all active player slots.
+ return Slot < MoonfallEquipmentLayout::ActiveSlotCount
      && MoonfallEquipmentLayout::Valid(Code, Slot);
 }
 // A collision-aware recovery location is safer than reviving at the death site.
@@ -3966,7 +3969,7 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  }
  // Use a deterministic seed, independent of framerate and visit order.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
- const int32 Slot = Stream.RandRange(0, 2);
+ const int32 Slot = Stream.RandRange(0, MoonfallEquipmentLayout::ActiveSlotCount-1);
  const int32 Rarity = Stream.RandRange(2, 5);
  const int32 Affix = Stream.RandRange(0, 3);
  const int32 Tier = FMath::Clamp(Level, 1, 25);
@@ -4448,7 +4451,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // nonempty inactive gear or overwrite the last good save.
  if (!MoonfallEquipmentLayout::TryRestoreMirroredLoadout(
      WornCodes.data(),MoonfallEquipmentLayout::LegacySlotCount,
-     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,true,MoonfallEquipmentLayout::LegacySlotCount,
+     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,true,MoonfallEquipmentLayout::ActiveSlotCount,
      [this](int32 Code){return InventoryItemCodes.Contains(Code);},CheckedWorn)) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
@@ -4634,12 +4637,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
  };
  MoonfallEquipmentLayout::FLoadout CheckedSavedWorn{};
- // V17 mirrors must agree with legacy slots. Inactive gear is rejected
+ // V17 mirrors must agree with legacy slots. Invalid gear is rejected
  // before any live state changes, so autosave cannot erase it.
  if (!MoonfallEquipmentLayout::TryRestoreMirroredLoadout(
      SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),
      Save->EquippedSlotCodes.GetData(),Save->EquippedSlotCodes.Num(),
-     Save->Version>=17,MoonfallEquipmentLayout::LegacySlotCount,
+     Save->Version>=17,MoonfallEquipmentLayout::ActiveSlotCount,
      [Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},CheckedSavedWorn)) {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent or inactive equipped gear; original save protected."));
@@ -4906,7 +4909,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      "Defeated selection must match the equipment layout");
  for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
   const int32 Code=DefeatedEquipmentSelection[Slot];
-  if (MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+  if (MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
       MoonfallEquipmentLayout::EInventoryOperation::Equip)
       && MoonfallEquipmentLayout::Valid(Code,Slot) && InventoryItemCodes.Contains(Code))
    ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
