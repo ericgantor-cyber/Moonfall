@@ -484,9 +484,14 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
      LivingHero->MarkDungeonBossDefeated(this);
     }
    }
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    OnEnemyDefeated(bLastHitWasShatter);
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
+    if (!IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+        || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
     if (bSanctuaryPracticeReward) {
      // Practice grants a small one-time-kill reward per actor, not a full
@@ -495,6 +500,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     } else {
      const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
      Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+     if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+         || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
      Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
     }
    }

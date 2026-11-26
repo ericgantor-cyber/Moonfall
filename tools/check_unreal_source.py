@@ -3989,6 +3989,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_defeat_rewards_revalidate_actors_after_callbacks(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
+        guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"
+        self.assertTrue(damage.split("OnEnemyDefeated(bLastHitWasShatter);", 1)[1].lstrip().startswith(guard))
+        for callback, next_operation in (
+            ("Hero->RegisterFinisherKill(", "const bool bSanctuaryPracticeReward"),
+            ("Hero->AwardExperience(FMath::RoundToInt(", "Hero->SpawnGroundEquipmentDrop("),
+        ):
+            section = damage.split(callback, 1)[1].split(next_operation, 1)[0]
+            self.assertIn("!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()", section)
+            self.assertIn("!IsValid(Hero) || Hero->IsActorBeingDestroyed()", section)
+
     def test_enemy_damage_callbacks_stop_after_actor_teardown(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
         guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;"
