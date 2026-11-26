@@ -1369,6 +1369,11 @@ void AMoonfallCombatHUD::DrawHUD()
       Action==MoonfallPerformance::EAction::AtMinimum?TEXT("Try lower resolution"):
       Action==MoonfallPerformance::EAction::ReviewHitches?TEXT("Review stutters"):
       Action==MoonfallPerformance::EAction::Keep?TEXT("Keep & monitor"):TEXT("Collecting");
+    const auto Stage=MoonfallPerformance::LikelyStage(Hero->GetStageAudit(),Sample);
+    const TCHAR* StageLabel=Stage==MoonfallPerformance::EStage::GPU?TEXT("GPU"):
+      Stage==MoonfallPerformance::EStage::Game?TEXT("Game CPU"):
+      Stage==MoonfallPerformance::EStage::Render?TEXT("Render CPU"):
+      Stage==MoonfallPerformance::EStage::Balanced?TEXT("Mixed"):TEXT("Unknown");
     const FString Timing=Sample.Ready
       ? FString::Printf(TEXT("%.0f FPS | 1%% low %.0f | %u hitches | %s"),
            Sample.AverageFPS,Sample.OnePercentLowFPS,Sample.Hitches,Hint)
@@ -1379,7 +1384,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (MenuHeight>=540.f) {
      const FString Adapter=GRHIAdapterName.IsEmpty()?TEXT("Unknown GPU"):GRHIAdapterName.Left(40);
      const FString API=GDynamicRHI?FString(GDynamicRHI->GetName()).Left(12):TEXT("Unknown");
-     const FString Renderer=FString::Printf(TEXT("GPU | %s | %s"),*Adapter,*API);
+     const FString Renderer=FString::Printf(TEXT("%s | %s | likely: %s"),*Adapter,*API,StageLabel);
      // Texture pool data is available in the audit getters, never presented
      // as total GPU allocation or as evidence of sufficient VRAM.
      DrawText(Renderer,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.60f);
