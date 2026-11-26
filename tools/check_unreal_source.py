@@ -343,14 +343,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("$game.Length -lt 512", packaging)
         self.assertIn("Assert-Win64Executable.ps1 -Executable $game.FullName", packaging)
         self.assertIn("build-tools", packaging)
-        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
-        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
-        self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
-        self.assertIn("Test-Path -LiteralPath $ucasPath -PathType Leaf", packaging)
-        self.assertIn("(Get-Item -LiteralPath $ucasPath).Length -gt 0", packaging)
-        self.assertIn("$hasIoStorePair = $true", packaging)
-        self.assertIn("$pakFiles.Count -eq 0 -and -not $hasIoStorePair", packaging)
-        self.assertIn("matching .utoc/.ucas content archive pair", packaging)
+        self.assertIn("Assert-CookedContent.ps1 -GameRoot $root", packaging)
         diagnostics = workflow[workflow.index("Collect Unreal AutomationTool failure logs"):]
         self.assertIn("if: failure()", diagnostics)
         self.assertIn("'Unreal Engine\\AutomationTool\\Logs'", diagnostics)
@@ -6704,14 +6697,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_windows_installer_requires_real_nonempty_cooked_content_archives(self):
         build = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
-        self.assertIn("MoonfallUnreal\\Content\\Paks", build)
-        self.assertIn("Test-Path -LiteralPath $pakDirectory -PathType Container", build)
-        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak'", build)
-        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc'", build)
-        self.assertIn("[IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')", build)
-        self.assertIn("Where-Object { $_.Length -gt 0 }", build)
-        self.assertIn("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)", build)
-        self.assertLess(build.index("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)"),
+        validator = (ROOT.parents[1] / "Build" / "Assert-CookedContent.ps1").read_text(encoding="utf-8")
+        for expected in (
+            "MoonfallUnreal/Content/Paks",
+            "Test-Path -LiteralPath $pakDirectory -PathType Container",
+            "Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak'",
+            "Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc'",
+            "[IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')",
+            "Where-Object { $_.Length -gt 0 }",
+            "if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)",
+        ):
+            self.assertIn(expected, validator)
+        self.assertIn("Assert-CookedContent.ps1", build)
+        self.assertLess(build.index("Assert-CookedContent.ps1"),
                         build.index("Write-Host 'Building NSIS Windows installer...'"))
         self.assertNotIn("Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File", build)
 
