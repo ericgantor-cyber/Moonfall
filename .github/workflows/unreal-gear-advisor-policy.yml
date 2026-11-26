@@ -6,12 +6,14 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGearAdvisorPolicy.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'tools/test_unreal_gear_advisor_policy.cpp'
+      - 'tools/run_unreal_sanitizer.sh'
       - '.github/workflows/unreal-gear-advisor-policy.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGearAdvisorPolicy.h'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
       - 'tools/test_unreal_gear_advisor_policy.cpp'
+      - 'tools/run_unreal_sanitizer.sh'
       - '.github/workflows/unreal-gear-advisor-policy.yml'
   workflow_dispatch:
 permissions:
@@ -43,10 +45,7 @@ jobs:
         id: clang_sanitized
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && runner.os == 'Linux' }}
         shell: bash
-        run: |
-          set -euo pipefail
-          clang++ -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all tools/test_unreal_gear_advisor_policy.cpp -o /tmp/gear-advisor-sanitized
-          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /tmp/gear-advisor-sanitized
+        run: bash tools/run_unreal_sanitizer.sh tools/test_unreal_gear_advisor_policy.cpp
       - uses: ilammy/msvc-dev-cmd@v1
         id: msvc_setup
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && runner.os == 'Windows' }}
