@@ -31,7 +31,7 @@ $logs.ReadOnly = $true
 $logs.BackColor = [Drawing.Color]::FromArgb(12,12,26)
 $logs.ForeColor = [Drawing.Color]::Gainsboro
 $logs.Font = New-Object Drawing.Font('Consolas',9)
-$logs.SetBounds(16,179,790,323)
+$logs.SetBounds(16,213,790,289)
 $logs.Anchor = 'Top,Bottom,Left,Right'
 $logs.AccessibleName = 'Build progress and diagnostic output'
 $form.Controls.Add($logs)
@@ -177,6 +177,64 @@ $exportLog.Add_Click({
         }
     }
     $dialog.Dispose()
+})
+$bugReports = New-Button 'BUG REPORTS' 16 180
+$bugReports.SetBounds(16,174,180,29)
+$bugReports.AccessibleName = 'Review local Moonfall bug reports and recovery snapshots'
+$bugReports.Add_Click({
+    if ($script:process -and -not $script:process.HasExited) {
+        [void][Windows.Forms.MessageBox]::Show('Finish or cancel the current build before reviewing reports.','Moonfall bug reports')
+        return
+    }
+    $indexScript = Join-Path $PSScriptRoot 'Get-MoonfallBugReports.ps1'
+    if (-not (Test-Path -LiteralPath $indexScript -PathType Leaf)) {
+        [void][Windows.Forms.MessageBox]::Show('The report viewer script is missing from this checkout.','Moonfall bug reports')
+        return
+    }
+    try {
+        # Use only the local, allowlisted report index. No uploads or raw logs.
+        $index = & $indexScript | ConvertFrom-Json -ErrorAction Stop
+        $viewer = New-Object Windows.Forms.Form
+        try {
+            $viewer.Text = 'Moonfall local bug reports'
+            $viewer.Size = New-Object Drawing.Size(760,520)
+            $viewer.MinimumSize = New-Object Drawing.Size(460,320)
+            $viewer.StartPosition = 'CenterParent'
+            $viewer.Font = New-Object Drawing.Font('Segoe UI',11)
+            $note = New-Object Windows.Forms.Label
+            $note.Dock = 'Top'
+            $note.Height = 76
+            $note.Text = 'Local checkout reports only. Recovery snapshots may belong to a running session. No report is sent automatically.'
+            $note.AccessibleName = 'Local report privacy and recovery limitations'
+            $body = New-Object Windows.Forms.TextBox
+            $body.Multiline = $true
+            $body.ReadOnly = $true
+            $body.ScrollBars = 'Both'
+            $body.WordWrap = $false
+            $body.Dock = 'Fill'
+            $body.AccessibleName = 'Read-only bug report summaries'
+            $body.Text = if ($index.Count -gt 0) {
+                $index.Reports | Format-List File,LastWriteUtc,Kind,Classification,AverageFPS,P95Milliseconds,Hitches | Out-String -Width 160
+            } else {
+                'No valid reports found in this checkout. In-game reports from an installed copy may be in a different Saved folder.'
+            }
+            $close = New-Object Windows.Forms.Button
+            $close.Dock = 'Bottom'
+            $close.Height = 34
+            $close.Text = 'CLOSE'
+            $close.AccessibleName = 'Close bug report viewer'
+            $close.DialogResult = [Windows.Forms.DialogResult]::Cancel
+            $viewer.CancelButton = $close
+            $viewer.Controls.Add($body)
+            $viewer.Controls.Add($close)
+            $viewer.Controls.Add($note)
+            [void]$viewer.ShowDialog($form)
+        } finally {
+            $viewer.Dispose()
+        }
+    } catch {
+        [void][Windows.Forms.MessageBox]::Show('Unable to read the local report index. Existing reports have not been modified.','Moonfall bug reports')
+    }
 })
 # Explicit user-controlled opt-in. Auto-upload is never enabled by a build.
 $testUpload = New-Button 'AUTO TEST UPLOAD' 591 230
@@ -352,7 +410,7 @@ $form.Add_Shown({
 })
 if ($SelfTest) {
     # Exercise real WinForms control construction on a hosted Windows runner.
-    $required = @($check, $install, $exportLog, $testUpload, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    $required = @($check, $install, $exportLog, $bugReports, $testUpload, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
     foreach ($control in $required) {
         if ($null -eq $control -or -not $control.IsHandleCreated) {
             if ($null -eq $control) { throw 'Build Center control was not created.' }
