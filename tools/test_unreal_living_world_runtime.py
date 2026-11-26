@@ -888,6 +888,23 @@ int main(){
         self.assertIn("IsRecentlyInCombatForAmbientAI() const",hero)
         self.assertNotIn("GetAllActorsOfClass(",npc)
 
+    def test_regional_geometry_reserves_instances_and_weather_keeps_zone_identity(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        region=arena.split("void AMoonfallArena::CreateRegionalLandmarks()",1)[1].split(
+            "void AMoonfallArena::UpdateRegionWeather(",1)[0]
+        self.assertLess(region.index("Details->PreAllocateInstancesMemory("),
+                        region.index("Details->AddInstance("))
+        self.assertLess(region.index("RegionWeatherLights.SetNum(6);"),
+                        region.index("RegionWeatherLights[Zone]=Light;"))
+        self.assertNotIn("RegionWeatherLights.Add(Light)",region)
+        weather=arena.split("void AMoonfallArena::UpdateRegionWeather(",1)[1].split(
+            "void AMoonfallArena::BeginPlay()",1)[0]
+        self.assertIn("RegionWeatherLights[Zone]",weather)
+        self.assertIn("if (!IsValid(Light)) continue;",weather)
+        self.assertIn("WeatherFor(Zone,Phase)",weather)
+        self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
+                        arena.index("DungeonRoad->AddInstance("))
+
     def test_regional_landmarks_and_weather_hud_are_budgeted(self):
         arena=(SRC/"MoonfallArena.cpp").read_text()
         header=(SRC/"MoonfallArena.h").read_text()

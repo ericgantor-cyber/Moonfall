@@ -105,6 +105,7 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
   Details->SetCastShadow(false);
   Details->SetCanEverAffectNavigation(false);
   Details->SetCullDistances(14000, 22000);
+  Details->PreAllocateInstancesMemory(Count);
   for (int32 Index = 0; Index < Count; ++Index) {
    const FPiece& Piece = Pieces[Index];
    if (IsValid(ImportedColumns) && Pieces==MoonfallSanctuaryArchitecture::GothicStone
@@ -154,6 +155,7 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
     Shields->SetCastShadow(false);
     Shields->SetCanEverAffectNavigation(false);
     Shields->SetCullDistances(8000,12000);
+    Shields->PreAllocateInstancesMemory(8);
     const float Scale=60.f/static_cast<float>(Span);
     const FRotator Rotation(90.f,0.f,0.f);
     const FVector Offset=Rotation.RotateVector(Bounds.GetCenter()*Scale);
@@ -230,6 +232,7 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  Details->SetCastShadow(false);
  Details->SetCanEverAffectNavigation(false);
  Details->SetCullDistances(18000,28000);
+ Details->PreAllocateInstancesMemory(6 * 3 * UE_ARRAY_COUNT(MoonfallRoadLandmarks::Placements));
  for (int32 Zone=0;Zone<6;++Zone) {
   const float CenterX=(static_cast<float>(Zone*5+2)-14.5f)*1350.f;
   // Forest spires, foundry stacks, frost monoliths, fractured ash towers:
@@ -259,6 +262,8 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  Details->RegisterComponent();
  RegionLandmarkDetails=Details;
  // Six bounded, shadow-free weather lights (one per connected region).
+ // Preserve zone identity even if creation of an earlier light fails.
+ RegionWeatherLights.SetNum(6);
  for (int32 Zone=0;Zone<6;++Zone) {
   UPointLightComponent* Light=NewObject<UPointLightComponent>(this);
   if (!IsValid(Light)) continue;
@@ -270,7 +275,7 @@ void AMoonfallArena::CreateRegionalLandmarks() {
   Light->SetIntensity(300.f);
   AddInstanceComponent(Light);
   Light->RegisterComponent();
-  RegionWeatherLights.Add(Light);
+  RegionWeatherLights[Zone]=Light;
  }
  UpdateRegionWeather(0.f);
 }
@@ -344,6 +349,7 @@ void AMoonfallArena::BeginPlay() {
  // the road by 200 units; the south arena bridge joins it at the center.
  // Only 30 mesh instances, not 30 extra actors or dynamic pathfinding ticks.
  DungeonRoad->ClearInstances();
+ DungeonRoad->PreAllocateInstancesMemory(30);
  for (int32 Slot = 0; Slot < 30; ++Slot) {
   const float X = (static_cast<float>(Slot) - 14.5f) * 1350.f;
   DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
@@ -360,6 +366,8 @@ void AMoonfallArena::BeginPlay() {
   if (!IsValid(Sign)) continue;
   Sign->SetupAttachment(GetRootComponent());
   Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetGenerateOverlapEvents(false);
+  Sign->SetCanEverAffectNavigation(false);
   static const TCHAR* RegionNames[6] = {TEXT("ASHEN WILDS"), TEXT("MOONVEIL FOREST"), TEXT("HOLLOW DEPTHS"), TEXT("IRON FOUNDRY"), TEXT("FROSTBOUND REACH"), TEXT("ECLIPSE WASTES")};
   Sign->SetText(FText::FromString(FString::Printf(TEXT("%s | DUNGEONS %d-%d"), RegionNames[Zone], Zone * 5 + 1, Zone * 5 + 5)));
   Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
@@ -413,6 +421,7 @@ void AMoonfallArena::BeginPlay() {
    Sign->SetupAttachment(GetRootComponent());
    Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
    Sign->SetGenerateOverlapEvents(false);
+   Sign->SetCanEverAffectNavigation(false);
    Sign->SetText(FText::FromString(Entry.Message));
    Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
    Sign->SetWorldSize(36.f);
