@@ -139,8 +139,8 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("MoonfallEquipmentSlots::Legacy(MoonfallEquipmentSlots::Decode(Code).Slot)", valid)
         self.assertIn("MoonfallEquipmentSlots::Decode(ItemCode)", pickup)
         self.assertIn("MoonfallEquipmentSlots::Decode(Code)", equip)
-        for body in (pickup, equip):
-            self.assertIn("if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;", body)
+        self.assertIn("if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;", pickup)
+        self.assertIn("if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;", equip)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
         self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
         self.assertIn("if (MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) InventoryItemCodes.Add(Code);", load)
