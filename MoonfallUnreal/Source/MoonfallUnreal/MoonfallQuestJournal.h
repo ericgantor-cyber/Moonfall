@@ -119,9 +119,21 @@ constexpr int EntryAt(FMask Mask,int Row) {
   if(Mask.Has(I)&&Row--==0)return I;
  return -1;
 }
+constexpr int CountContracts(FMask Mask) {
+ int N=0;
+ for(int I=0;I<ResidentCount;++I) if(Mask.Has(I))++N;
+ return N;
+}
 constexpr int PageRows(float Height) {
- const int N=Height>=240.f?static_cast<int>((Height-116.f)/30.f):0;
- return N>17?17:N;
+ // Clamp before converting to int; never convert infinity or NaN.
+ if(!(Height>=240.f))return 0;
+ const float PanelHeight=Height>=674.f?650.f:Height-24.f;
+ return static_cast<int>((PanelHeight-92.f)/30.f);
+}
+constexpr int HitRow(float LocalY,int Rows) {
+ if(!(LocalY>=0.f&&LocalY<Rows*30.f))return -1;
+ const int Row=static_cast<int>(LocalY/30.f);
+ return LocalY-Row*30.f<28.f?Row:-1;
 }
 constexpr int PageStart(int Selected,int Rows) {
  return Rows>0 && Selected>=0?(Selected/Rows)*Rows:0;

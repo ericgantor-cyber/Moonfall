@@ -875,8 +875,13 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("MOONFALL | QUEST LOG"),FLinearColor(0.95f,0.82f,0.58f),Left+18.f,Top+13.f,nullptr,Scale*1.15f);
    DrawRect(FLinearColor(0.37f,0.16f,0.22f),Left+Width-42.f,Top+12.f,28.f,28.f);
    DrawText(TEXT("X"),FLinearColor::White,Left+Width-33.f,Top+16.f,nullptr,0.9f);
-   DrawText(FString::Printf(TEXT("%d ACTIVE | %d/7 TRACKED | %s"),Count,J::Count(Tracked),
-       Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO")),FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+40.f,nullptr,Scale*0.78f);
+   const int Accepted=J::CountContracts(Active);
+   DrawText(FString::Printf(TEXT("%d/%d CONTRACTS | %d REGIONAL | %d/7 TRACKED"),
+       Accepted,J::MaxActive,Count-Accepted,J::Count(Tracked)),
+       FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+36.f,nullptr,Scale*0.72f);
+   DrawText(FString::Printf(TEXT("%s | PAGE %d/%d"),Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO"),
+       Rows>0?Start/Rows+1:1,Rows>0?FMath::Max(1,(Count+Rows-1)/Rows):1),
+       FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+51.f,nullptr,Scale*0.68f);
    if(Width>=480.f) {
     DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
     DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);

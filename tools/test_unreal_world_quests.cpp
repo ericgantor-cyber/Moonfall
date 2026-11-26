@@ -72,7 +72,18 @@ constexpr bool ManualTracking() {
 }
 static_assert(ManualTracking(), "100 accepted quests support seven independent tracking slots.");
 static_assert(J::CanAccept(99)&&!J::CanAccept(100)&&!J::CanAccept(-1));
-static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==17);
+static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
+static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
+static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
+static_assert(J::HitRow(28.f,4)==-1 && J::HitRow(30.f,4)==1);
+static_assert(J::HitRow(-1.f,4)==-1 && J::HitRow(120.f,4)==-1);
+constexpr bool SeparateQuestCounts() {
+ J::FMask Active{};
+ Active.Add(0); Active.Add(J::ResidentCount-1);
+ Active.Add(J::ResidentCount); Active.Add(J::EntryCount-1);
+ return J::Count(Active)==4 && J::CountContracts(Active)==2;
+}
+static_assert(SeparateQuestCounts());
 static_assert(J::PageStart(16,4)==16 && J::PageStart(26,17)==17);
 constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};

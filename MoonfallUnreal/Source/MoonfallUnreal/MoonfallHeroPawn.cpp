@@ -5343,7 +5343,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
      const int Start=MoonfallQuestJournal::PageStart(Selected,Rows);
      if(MouseX>=PanelL+12.f&&MouseX<=PanelL+PanelW-12.f&&MouseY>=PanelT+88.f) {
-      const int Row=FMath::FloorToInt((MouseY-PanelT-88.f)/30.f);
+      const int Row=MoonfallQuestJournal::HitRow(MouseY-PanelT-88.f,Rows);
       if(Row>=0&&Row<Rows&&Start+Row<Count) {
        QuestLogSelection=Start+Row;
        ToggleSelectedQuestTracking();
