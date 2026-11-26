@@ -2440,18 +2440,16 @@ void AMoonfallCombatHUD::DrawHUD()
   // Keep defeated enemies eligible for final-hit feedback, but only retain
   // actors that have a recent visible damage entry. Most idle world enemies
   // never enter the per-frame damage-label projection pass.
-  if (DistSq <= FMath::Square(6000.f)) {
-   bool bHasRecentDamage = false;
-   for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
-    const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
-    const float Age = WorldTime - Hit.Time;
-    if (Age >= 0.f && Age <= 0.8f && FMath::IsFinite(Hit.Amount) && Hit.Amount > 0.f) {
-     bHasRecentDamage = true;
-     break;
-    }
+  bool bHasRecentDamage = false;
+  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize; ++Slot) {
+   const AMoonfallEnemy::FRecentDamageHit& Hit = E->DamageHistory[Slot];
+   const float Age = WorldTime - Hit.Time;
+   if (Age >= 0.f && Age <= 0.8f && FMath::IsFinite(Hit.Amount) && Hit.Amount > 0.f) {
+    bHasRecentDamage = true;
+    break;
    }
-   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   }
+  if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   // No live combat HUD elements are visible beyond the boss alert radius.
   if (DistSq >= FMath::Square(3000.f) || !FMath::IsFinite(E->Health) || E->Health <= 0.f) continue;
   if (DistSq < SwordTellDistanceSq) {
