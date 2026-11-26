@@ -119,3 +119,15 @@ jobs:
           if ($prompt -notmatch 'Report 5:' -or $prompt -notmatch 'AverageFPS: 20' -or $prompt -notmatch 'reproduction steps') { throw 'Prompt missing required evidence' }
           $empty = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex ([pscustomobject]@{Reports=@()})
           if ($empty -notmatch 'No usable reports') { throw 'Empty handoff failed' }
+
+          $guided = [pscustomobject]@{Reports=@(
+            [pscustomobject]@{Kind='Manual report';Classification='Low throughput';AverageFPS=24;P95Milliseconds=60;Hitches=3;OnePercentLowFPS=15;GameThreadMs=12;RenderThreadMs=8;GpuMsEstimate=42;Width=1920;Height=1080;Quality=2;GraphicsAPI='D3D12';ReducedMotion=$true;File='private-file.json';Extra='private-token'},
+            [pscustomobject]@{Kind='Manual report';Classification='Unknown arbitrary text';AverageFPS=$true;P95Milliseconds=-1;Hitches=2.5;GpuMsEstimate='private-token';GraphicsAPI='private-path'}
+          )}
+          $basic = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $guided
+          if ($basic -match 'GpuMsEstimate|Graphics API:|OnePercentLowFPS|private-token|private-path|Hitches: 2.5|AverageFPS: True') { throw 'Basic prompt evidence boundary failed' }
+          $rich = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $guided -Category Performance -Severity Major -Frequency Sometimes -IncludeTechnicalEvidence
+          if ($rich -notmatch 'Bug category: Performance' -or $rich -notmatch 'Severity.*Major' -or $rich -notmatch 'GpuMsEstimate: 42' -or $rich -notmatch 'Graphics API: D3D12') { throw 'Guided evidence failed' }
+          if ($rich -match 'private-token|private-path|private-file|Hitches: 2.5') { throw 'Invalid evidence leaked' }
+          $single = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $fixture -MaximumReports 1
+          if ($single -notmatch 'Report 1:' -or $single -match 'Report 2:') { throw 'Report selection bound failed' }
