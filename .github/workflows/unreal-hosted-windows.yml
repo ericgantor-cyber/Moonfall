@@ -251,25 +251,7 @@ jobs:
             throw 'Packaged MoonfallUnreal.exe is too small to be a valid Windows executable.'
           }
           & .\build-tools\MoonfallUnreal\Build\Assert-Win64Executable.ps1 -Executable $game.FullName
-          # A random config or log file does not prove that Unreal cooked assets.
-          # UE 5.4 may emit legacy .pak archives or paired IoStore .utoc/.ucas.
-          $gameFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -Recurse -File)
-          $pakFiles = @($gameFiles | Where-Object { $_.Extension -eq '.pak' -and $_.Length -gt 0 })
-          $utocFiles = @($gameFiles | Where-Object { $_.Extension -eq '.utoc' -and $_.Length -gt 0 })
-          $hasIoStorePair = $false
-          foreach ($utoc in $utocFiles) {
-            # Two unrelated files are not an IoStore container. The .ucas data
-            # archive must sit beside the .utoc index and share its basename.
-            $ucasPath = [IO.Path]::ChangeExtension($utoc.FullName, '.ucas')
-            if ((Test-Path -LiteralPath $ucasPath -PathType Leaf) -and
-                (Get-Item -LiteralPath $ucasPath).Length -gt 0) {
-              $hasIoStorePair = $true
-              break
-            }
-          }
-          if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
-            throw 'Packaged game has no nonempty cooked .pak or matching .utoc/.ucas content archive pair.'
-          }
+          & .\build-tools\MoonfallUnreal\Build\Assert-CookedContent.ps1 -GameRoot $root
           "Real UE Win64 Development game packaged for source snapshot ${{ inputs.source_snapshot }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
       - name: Upload actual packaged game only after full engine build
         if: ${{ inputs.package_game && success() }}
