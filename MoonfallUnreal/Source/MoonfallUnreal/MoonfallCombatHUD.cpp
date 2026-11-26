@@ -882,13 +882,14 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("%s | PAGE %d/%d"),Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO"),
        Rows>0?Start/Rows+1:1,Rows>0?FMath::Max(1,(Count+Rows-1)/Rows):1),
        FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+51.f,nullptr,Scale*0.68f);
-   if(Width>=480.f) {
-    DrawRect(Hero->bManualQuestTracking?FLinearColor(0.20f,0.24f,0.30f):FLinearColor(0.20f,0.38f,0.28f),Left+Width-214.f,Top+46.f,96.f,20.f);
-    DrawHoverFrame(Left+Width-214.f,Top+46.f,96.f,20.f);
-    DrawText(TEXT("AUTO TRACK"),FLinearColor::White,Left+Width-207.f,Top+48.f,nullptr,0.65f);
-    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
-    DrawHoverFrame(Left+Width-110.f,Top+46.f,96.f,20.f);
-    DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
+   const auto Buttons=J::HeaderButtons(Width);
+   if(Buttons.Width>0.f) {
+    DrawRect(Hero->bManualQuestTracking?FLinearColor(0.20f,0.24f,0.30f):FLinearColor(0.20f,0.38f,0.28f),Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f);
+    DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f);
+    DrawText(Width>=480.f?TEXT("AUTO TRACK"):TEXT("AUTO"),FLinearColor::White,Left+Buttons.AutoX+7.f,Top+48.f,nullptr,0.65f);
+    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f);
+    DrawHoverFrame(Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f);
+    DrawText(TEXT("MAP"),FLinearColor::White,Left+Buttons.MapX+9.f,Top+48.f,nullptr,0.72f);
    }
    const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
    const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
