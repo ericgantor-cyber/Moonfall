@@ -2536,15 +2536,10 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
    if (Candidate == Code) ++Copies;
   if (Copies <= 1) return false;
  }
- const int32 Affix = Code / 100000;
- const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Affix != 0)
-     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
-  return false;
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Salvage)) return false;
  // Keep the same currency limit as SaveWorldProgress. Clamp before
  // adding to avoid overflow and never erase a legitimate saved balance.
  constexpr int32 MaxSalvage = 100000000;
@@ -2572,10 +2567,8 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier >= 25
-     || (Rarity == 0 && Affix != 0)
-     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Upgrade)) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
  const int32 EquippedCode = GetEquipmentSlotCode(Slot);
@@ -2620,9 +2613,8 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 2 || Rarity > 5 || Tier < 1 || Tier > 25
-     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Reforge)) return false;
  // Unlike normal drops, reforge always yields a nonzero affix different
  // from the old one, including for an originally traitless Rare item.
  const int32 Cost = 12 + Tier * 2 + Rarity * 8;
@@ -2669,10 +2661,8 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 0 || Rarity >= 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Affix != 0)
-     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Ascend)) return false;
  // Rising rank requires progressively more materials, but costs remain
  // bounded. Validate the entire transaction before editing inventory.
  const int32 Cost = 20 + Tier * 3 + Rarity * 15;
@@ -3767,13 +3757,9 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  // Validate every decoded field before mutating equipped items or health.
  const int32 Affix = Code / 100000;
  const int32 SlotIndex = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Affix != 0)
-     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
-  return false;
+ if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Equip)) return false;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
