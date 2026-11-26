@@ -53,6 +53,11 @@ inline int CelestialMinute(double Elapsed){
  const double Wrapped=std::fmod(Elapsed,DaySeconds);
  return (720+static_cast<int>(Wrapped/5.0))%1440;
 }
+constexpr bool ValidWaitHours(int Hours){return Hours>=1&&Hours<=24;}
+inline double WaitClock(double Current,int Hours){
+ if(!ValidWaitHours(Hours)||!ValidSavedClock(Current)||Current<0.0)return Current;
+ return std::fmod(Current+static_cast<double>(Hours)*300.0,DaySeconds);
+}
 enum class EDayPhase { Night, Dawn, Day, Dusk };
 constexpr EDayPhase DayPhase(int Minute){
  return Minute>=288&&Minute<504?EDayPhase::Dawn:
