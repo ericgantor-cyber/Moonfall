@@ -109,7 +109,8 @@ jobs:
             'Moonfall.Dungeons.BossVictoryLedgerDefaults',
             'Moonfall.Dungeons.BossVictorySaveRoundTrip',
             'Moonfall.Controls.CurrentInputContract',
-            'Moonfall.Quests.ResidentSaveRoundTrip'
+            'Moonfall.Quests.ResidentSaveRoundTrip',
+            'Moonfall.Dungeons.EquipmentSaveRoundTrip'
           )) {
             if (-not $contents.Contains("$required=True")) {
               throw "Native dungeon test was not verified as passing: $required"
@@ -119,7 +120,7 @@ jobs:
               -not $contents.Contains('AnyNativeTestFailed=False')) {
             throw 'Native dungeon test report does not show a successful Editor run.'
           }
-          "Native UE5.4 dungeon and control automation: all six required tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          "Native UE5.4 dungeon and control automation: all seven required tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
       - name: Preserve native dungeon test evidence
         if: always()
         uses: actions/upload-artifact@v4
