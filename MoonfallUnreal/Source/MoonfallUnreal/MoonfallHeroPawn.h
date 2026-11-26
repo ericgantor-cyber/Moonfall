@@ -21,6 +21,9 @@ public:
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // 0 Weapon, 1 Armor, 2 Accessory retain their original storage.
  // 3 Head, 4 Shoulders, 5 Chest, 6 Hands, 7 Legs, 8 Boots.
+ void SaveEquipmentProfile() const;
+ void LoadEquipmentProfile();
+ bool bRestoringEquipmentProfile = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquippedCodeForSlot(int32 Slot) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") TArray<int32> ExtraEquippedCodes = {0,0,0,0,0,0};
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
