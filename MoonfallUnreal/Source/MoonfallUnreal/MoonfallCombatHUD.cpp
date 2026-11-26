@@ -2121,7 +2121,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
    const int32 Index = DisplayOrder[DisplayPosition];
    const int32 Code = Hero->InventoryItemCodes[Index];
@@ -2221,11 +2221,17 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
-     FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
-     FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
-     nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+  // Give mouse help its own rows rather than painting over advisor/crafting text.
+  // On short panels use the space left by the hidden item detail and forecast.
+  if (PanelHeight >= 420.f) {
+   const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
+   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
+      FLinearColor::White, Left + 18.f, Top + PanelHeight - HelpOffset, nullptr,
+      PanelWidth < 550.f ? 0.55f : 0.75f);
+   DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
+      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - HelpOffset + 20.f,
+      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+  }
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
