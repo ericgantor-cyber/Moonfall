@@ -2395,6 +2395,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DodgeBuffer.Clear();", dodge)
         self.assertIn("RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge)", dodge)
 
+    def test_buffered_dodge_direction_clears_with_pending_action(self):
+        # Every explicit cancellation, including modal entry and real damage,
+        # must discard the saved movement direction along with the deadline.
+        lines = self.hero_cpp.splitlines()
+        clear_sites = [i for i, line in enumerate(lines) if line.strip() == "DodgeBuffer.Clear();"]
+        self.assertGreater(len(clear_sites), 0)
+        for i in clear_sites:
+            self.assertEqual(lines[i + 1].strip(), "BufferedDodgeDirection = FVector::ZeroVector;")
+        tick = self.hero_cpp.split("// Replay one deliberately buffered dodge", 1)[1].split(
+            "// A second click shortly before recovery", 1)[0]
+        self.assertIn("if (DodgeBuffer.ExpiresAt < 0.f) BufferedDodgeDirection = FVector::ZeroVector;", tick)
+        self.assertLess(tick.index("Dodge();"), tick.index("if (DodgeBuffer.ExpiresAt < 0.f)"))
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
+        self.assertLess(dodge.index("const FVector Direction ="), dodge.index("BufferedDodgeDirection = FVector::ZeroVector;"))
+        self.assertIn("LaunchCharacter(Direction *", dodge)
+
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
