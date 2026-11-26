@@ -57,6 +57,12 @@ constexpr bool ReadSavedLoadout(int Version,const FLegacy& Old,
  const int* Extra,std::size_t ExtraSize,const int* Bag,std::size_t BagSize,FLoadout& Out) {
  if(Version<1||Version>ExpandedVersion)return false;
  if(Version<ExpandedVersion?ExtraSize!=0:ExtraSize!=ExtraCount||!Extra)return false;
+ // Validate the whole inventory, including unworn gear, before publishing a loadout.
+ if(BagSize>10000||(!Bag&&BagSize!=0))return false;
+ for(std::size_t I=0;I<BagSize;++I) {
+  const auto Item=Decode(Bag[I]);
+  if(!Known(Item.Slot)||(Version<ExpandedVersion&&!Legacy(Item.Slot)))return false;
+ }
  FLoadout Candidate=FromLegacy(Old);
  if(Version==ExpandedVersion)
   for(int I=0;I<ExtraCount;++I)Candidate[LegacyCount+I]=Extra[I];
