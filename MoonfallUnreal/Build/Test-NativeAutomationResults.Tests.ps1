@@ -18,4 +18,7 @@ Assert-Case ($first.Replace('Result={Passed}', 'Result={Failed}') + $nl + $secon
 Assert-Case ($first.Replace('Result={Passed}', 'Result={Skipped}') + $nl + $second) $false
 Assert-Case ($first + $nl + $second + $nl + 'LogAutomationController: Test Completed. Result={Passed}') $false
 Assert-Case ($first + $nl + $second + $nl + 'LogAutomationController: Test Completed. Result={Failed} Path={Moonfall.Other.Test}') $false
-Write-Host 'Native evidence parser: nine synthetic scenarios passed.'
+Assert-Case ($first.Replace('Path={Moonfall.Controls.CurrentInputContract}', 'Path={moonfall.Controls.CurrentInputContract}') + $nl + $second) $false
+Assert-Case ($first + ' Result={Failed}' + $nl + $second) $false
+Assert-Case ($first + ' Path={Moonfall.Other.Test}' + $nl + $second) $false
+Write-Host 'Native evidence parser: twelve synthetic scenarios passed.'
