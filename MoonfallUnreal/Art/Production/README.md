@@ -44,6 +44,8 @@ Installed-game report discovery checks the standard user-data and package locati
 ### ChatGPT diagnostic handoff
 In Build Center, select BUG REPORTS, then ASK CHATGPT - PREVIEW REPORT. Review the editable prompt, add reproduction steps, and explicitly copy it into your ChatGPT conversation. Only up to five summaries with fixed classification labels and validated numeric timing fields are included by default. No filenames, local paths, report identifiers or raw logs are copied by the generator. User-added text is their choice. No API key, automatic transmission, embedded AI runtime, or automatic code changes are included. The Windows regression tests verify the prompt bounds and allowlisted data; the interactive clipboard still requires a real desktop test.
 
+The guided AI triage dialog adds nine category choices (including unspecified), severity, reproduction frequency, and one-to-five recent report selection. Optional technical evidence is off by default; enabling it adds validated 1% low FPS, CPU/render/GPU timing estimates, resolution, quality, allowlisted graphics API and reduced-motion setting when available. Arbitrary report strings and invalid numeric fields are excluded. The editable preview remains the final review step before copying. This is a manual ChatGPT handoff, not an embedded AI service.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
