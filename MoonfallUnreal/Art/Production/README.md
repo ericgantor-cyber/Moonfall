@@ -28,6 +28,8 @@ The local player collects wall-clock intervals between gameplay ticks, excluding
 
 The full-size Options panel also reports the current Unreal RHI adapter name and backend (rather than assuming the first Windows-enumerated GPU is active). The name is bounded for the header and missing values appear as unknown. This is renderer identification, not a proof of GPU feature support, dedicated VRAM, or GPU timings. The current gameplay diagnostics include average FPS, 1% low FPS and stutter-aware suggestions.
 
+The PC audit now caches the RHI's dedicated-video-memory capacity and reported texture allocation/pool size on Options entry. The HUD displays capacity in GiB when positive, otherwise unknown. Texture allocation and texture pool are separate cached fields, not total GPU memory usage. No renderer memory query runs from the HUD drawing loop. Native UE5.4 compilation and actual adapter testing remain required.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
