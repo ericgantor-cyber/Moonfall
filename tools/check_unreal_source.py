@@ -604,7 +604,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
         selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", rows)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20)", rows)
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
         self.assertIn("FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)))", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -785,7 +785,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(f"FMath::Clamp(CurrentRow {direction}, 0, DisplayOrder.Num() - 1)", method)
             self.assertIn("KeepInventorySelectionVisible();", method)
             self.assertNotIn("EquipInventoryItem(", method)
-        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", self.hud)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);", self.hud)
         hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
         self.assertIn("PanelHeight >= 500.f", hud)
         self.assertIn("bValidDetail", hud)
@@ -807,8 +807,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("const float Left = float(Width) - PanelWidth - 12.f;", method)
             self.assertNotIn("(float(Width) - PanelWidth) * 0.5f", method)
         self.assertNotIn("(Canvas->SizeX - PanelWidth) * 0.5f", inventory)
-        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);", rows)
-        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", inventory)
+        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);", rows)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);", inventory)
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", sort)
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", inventory)
         self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", inventory)
@@ -1476,7 +1476,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", hud)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", self.hero_cpp)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20)", self.hero_cpp)
         self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
@@ -4191,6 +4191,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
         self.assertIn("bCompactAdvisor ? TEXT(\"GEAR: EMPTY BAG\") : TEXT(\"GEAR ADVISOR: find equipment to compare\")", bag)
         self.assertIn("Top + PanelHeight - 50.f", bag)
+        self.assertIn("if (PanelHeight >= 420.f)", bag)
+        self.assertIn("const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;", bag)
+        self.assertIn("Top + PanelHeight - HelpOffset + 20.f", bag)
+        self.assertNotIn("Top + PanelHeight - 51.f", bag)
+        self.assertNotIn("Top + PanelHeight - 68.f", bag)
         self.assertNotIn("GetRecommendedEquipmentIndex(", bag)
         advisor = bag.split("// Cache the read-only selected-row score.", 1)[1].split(
             'DrawText(TEXT("LT: equip best', 1)[0]
