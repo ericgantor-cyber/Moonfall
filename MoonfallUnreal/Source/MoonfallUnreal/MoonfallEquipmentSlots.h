@@ -50,6 +50,25 @@ constexpr bool ValidateOwned(const FLoadout& Worn,const int* Bag,std::size_t Siz
  }
  return true;
 }
+// Build an owned snapshot without repeated full-bag searches. Empty or
+// malformed slots never require a scan. This is read-only and not a cache.
+constexpr FLoadout OwnedSnapshot(const FLoadout& Worn,const int* Bag,std::size_t Size) {
+ FLoadout Out{};
+ if(Size>10000||(!Bag&&Size!=0))return Out;
+ int Remaining=0;
+ FLoadout Wanted{};
+ for(int Slot=0;Slot<SlotCount;++Slot)
+  if(Valid(Worn[Slot],Slot)){Wanted[Slot]=Worn[Slot];++Remaining;}
+ for(std::size_t I=0;I<Size&&Remaining>0;++I){
+  const int Code=Bag[I];
+  if(Code<=0)continue;
+  const int Slot=(Code/10000)%10;
+  if(Known(Slot)&&Wanted[Slot]==Code&&Out[Slot]==0){
+   Out[Slot]=Code;--Remaining;
+  }
+ }
+ return Out;
+}
 // A bag copy can be removed only if it is present and a worn copy remains.
 // Check all worn references, including corrupt wrong-slot state, fail closed.
 constexpr bool CanRemoveCopy(const FLoadout& Worn,int Code,const int* Bag,std::size_t Size) {
@@ -80,6 +99,14 @@ constexpr bool EquipExtra(FExtra& Extra,int Code) {
  if(Current==Code)return false;
  Current=Code;
  return true;
+}
+// Defeated choices may only replace a slot with an item still owned at
+// checkpoint recovery. Never recreate items picked up after that checkpoint.
+constexpr void RestoreExtraChoices(FExtra& Extra,const FLoadout& Choices,
+ const int* Bag,std::size_t Size) {
+ const auto Owned=OwnedSnapshot(Choices,Bag,Size);
+ for(int Slot=LegacyCount;Slot<SlotCount;++Slot)
+  if(Owned[Slot]!=0)Extra[Slot-LegacyCount]=Owned[Slot];
 }
 constexpr FLoadout FromParts(const FLegacy& Old,const FExtra& Extra) {
  FLoadout Out=FromLegacy(Old);
