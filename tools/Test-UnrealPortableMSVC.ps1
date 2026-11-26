@@ -40,6 +40,10 @@ try {
     if ($env:GITHUB_STEP_SUMMARY) {
         $summary | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
     }
+    if ($env:MOONFALL_POLICY_RESULTS) {
+        $results.GetEnumerator() | ForEach-Object { "$($_.Key)`t$($_.Value)" } |
+            Set-Content -LiteralPath $env:MOONFALL_POLICY_RESULTS -Encoding utf8
+    }
     if ($passed -ne $tests.Count) { throw 'One or more portable Windows C++ suites failed.' }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force
