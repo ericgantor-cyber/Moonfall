@@ -836,7 +836,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[0]
         self.assertIn("if (Slot < 0 || Slot > 2) return 0;", getter)
+        self.assertIn("const int32 Code = GetRawEquipmentSlotCode(Slot);", getter)
         self.assertIn("return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;", getter)
+        raw = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
+        for slot, field in enumerate(("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode")):
+            self.assertIn(f"case {slot}: return {field};", raw)
+        self.assertIn("default: return 0;", raw)
+        self.assertNotIn("InventoryItemCodes", raw)
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
             self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
@@ -1744,7 +1751,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
-        self.assertIn("EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode", salvage)
+        self.assertIn("Worn[Slot] = GetRawEquipmentSlotCode(Slot);", salvage)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", salvage)
         self.assertIn("MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,", salvage)
         self.assertIn("MoonfallEquipmentLayout::LegacySlotCount,InventoryItemCodes", salvage)
         self.assertLess(salvage.index("MoonfallEquipmentLayout::CanRemoveSelectedCopy("), salvage.index("Salvage = SafeBalance +"))
@@ -1921,7 +1929,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
-        self.assertIn("const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", save)
+        self.assertIn("const int32 WornCodes[3] = {GetRawEquipmentSlotCode(0), GetRawEquipmentSlotCode(1), GetRawEquipmentSlotCode(2)};", save)
         self.assertIn("TryRestoreLoadout(WornCodes,UE_ARRAY_COUNT(WornCodes),false,", save)
         self.assertIn("[this](int32 Code){return InventoryItemCodes.Contains(Code);}", save)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
