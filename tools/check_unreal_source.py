@@ -19,7 +19,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
         ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
         self.assertEqual(len(ids), len(set(x.casefold() for x in ids)))
-        self.assertEqual(len(ids), 15)
+        self.assertEqual(len(ids), 27)
         catalog = self.hero_cpp.split("const TArray<FName>& NamedMoonfallResidentIds() {", 1)[1].split("bool IsNamedMoonfallResident(FName Id) {", 1)[0]
         self.assertIn("static const TArray<FName> Keys=[]", catalog)
         self.assertIn("Result.Reserve(MoonfallQuestJournal::ResidentCount)", catalog)
