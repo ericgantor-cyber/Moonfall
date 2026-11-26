@@ -1,16 +1,13 @@
 #pragma once
 #include <array>
+#include "MoonfallEquipmentSlots.h"
 namespace MoonfallGearAdvisor {
 using FEquipped = std::array<int, 3>;
 // Identical encoding and scoring weights to the original advisor. Worn
 // ownership is checked once at the Unreal boundary, not per candidate.
 constexpr bool Valid(int Code, int Slot) {
- if (Code <= 0 || Slot < 0 || Slot > 2) return false;
- const int Affix = Code / 100000, EncodedSlot = (Code / 10000) % 10;
- const int Rarity = (Code / 1000) % 10, Tier = Code % 1000;
- return EncodedSlot == Slot && Affix >= 0 && Affix <= 3 && Rarity >= 0
-     && Rarity <= 5 && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
-     && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // The live planner stays three-slot until the complete migration lands.
+ return MoonfallEquipmentSlots::Legacy(Slot)&&MoonfallEquipmentSlots::Valid(Code,Slot);
 }
 constexpr int Score(int Code, int Slot, const FEquipped& Equipped) {
  if (!Valid(Code, Slot)) return 0;
