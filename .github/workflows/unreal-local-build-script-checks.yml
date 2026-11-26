@@ -35,7 +35,8 @@ jobs:
             'Stop-Transcript | Out-Null',
             'finally {',
             'if: always()',
-            'MoonfallUnrealCompile/EditorBuild-Transcript.txt'
+            'MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT',
+            ('MoonfallUnrealCompile-' + [char]36 + '{{ github.run_id }}-' + [char]36 + '{{ github.run_attempt }}/EditorBuild-Transcript.txt')
           )) {
             if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
           }

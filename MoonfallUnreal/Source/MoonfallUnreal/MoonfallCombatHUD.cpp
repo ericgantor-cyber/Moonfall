@@ -882,9 +882,14 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("%s | PAGE %d/%d"),Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO"),
        Rows>0?Start/Rows+1:1,Rows>0?FMath::Max(1,(Count+Rows-1)/Rows):1),
        FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+51.f,nullptr,Scale*0.68f);
-   if(Width>=480.f) {
-    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
-    DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
+   const auto Buttons=J::HeaderButtons(Width);
+   if(Buttons.Width>0.f) {
+    DrawRect(Hero->bManualQuestTracking?FLinearColor(0.20f,0.24f,0.30f):FLinearColor(0.20f,0.38f,0.28f),Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f);
+    DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f);
+    DrawText(Width>=480.f?TEXT("AUTO TRACK"):TEXT("AUTO"),FLinearColor::White,Left+Buttons.AutoX+7.f,Top+48.f,nullptr,0.65f);
+    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f);
+    DrawHoverFrame(Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f);
+    DrawText(TEXT("MAP"),FLinearColor::White,Left+Buttons.MapX+9.f,Top+48.f,nullptr,0.72f);
    }
    const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
    const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
@@ -918,6 +923,17 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     DrawText(FString::Printf(TEXT("%s %s"),bTracked?TEXT("[X]"):TEXT("[ ]"),*Title),Ink,Left+18.f,Y+1.f,nullptr,Scale*0.75f);
     DrawText(Detail,FLinearColor(0.80f,0.84f,0.90f),Left+38.f,Y+15.f,nullptr,Scale*0.66f);
+   }
+   const auto Pages=J::PageButtons(Width,Height);
+   if(Pages.Width>0.f) {
+    const bool CanPrev=Start>0,CanNext=Rows>0&&Rows<Count-Start;
+    const FLinearColor Enabled(0.20f,0.30f,0.40f),Disabled(0.12f,0.13f,0.16f);
+    DrawRect(CanPrev?Enabled:Disabled,Left+Pages.PrevX,Top+Pages.Y,Pages.Width,22.f);
+    DrawRect(CanNext?Enabled:Disabled,Left+Pages.NextX,Top+Pages.Y,Pages.Width,22.f);
+    if(CanPrev) DrawHoverFrame(Left+Pages.PrevX,Top+Pages.Y,Pages.Width,22.f);
+    if(CanNext) DrawHoverFrame(Left+Pages.NextX,Top+Pages.Y,Pages.Width,22.f);
+    DrawText(TEXT("< PREV"),CanPrev?FLinearColor::White:FLinearColor::Gray,Left+Pages.PrevX+8.f,Top+Pages.Y+3.f,nullptr,0.7f);
+    DrawText(TEXT("NEXT >"),CanNext?FLinearColor::White:FLinearColor::Gray,Left+Pages.NextX+8.f,Top+Pages.Y+3.f,nullptr,0.7f);
    }
    DrawLiveMenuHitCue();
    return;
@@ -962,9 +978,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, AtlasCloseX + 9.f, Top + 16.f, nullptr, 0.9f);
-  DrawText(Hero->bAtlasChronicleFocus
-      ? TEXT("J/ESC close | Up/Down: region | Left/Right: chapter")
-      : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom"),
+  const bool bCompactAtlasHeader=Width<480.f;
+  DrawText(bCompactAtlasHeader
+      ? (Hero->bAtlasChronicleFocus ? TEXT("Arrows: region / chapter") : TEXT("Arrows: region / pan"))
+      : (Hero->bAtlasChronicleFocus
+         ? TEXT("J/ESC close | Up/Down: region | Left/Right: chapter")
+         : TEXT("J/ESC close | Arrows: region / pan | Wheel: zoom")),
     FLinearColor(0.82f, 0.77f, 0.67f), Left + 18.f, Top + 49.f,
     nullptr, Scale * 0.75f);
   DrawText(Hero->bAtlasChronicleFocus
@@ -972,10 +991,11 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
     FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
     nullptr, Scale * 0.72f);
-  if(Width>=480.f) {
-   DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
-   DrawHoverFrame(Left+Width-110.f,Top+46.f,96.f,20.f);
-   DrawText(TEXT("QUESTS [L]"),FLinearColor::White,Left+Width-103.f,Top+48.f,nullptr,0.65f);
+  const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(Width);
+  if(QuestButtons.Width>0.f) {
+   DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+QuestButtons.MapX,Top+46.f,QuestButtons.Width,20.f);
+   DrawHoverFrame(Left+QuestButtons.MapX,Top+46.f,QuestButtons.Width,20.f);
+   DrawText(bCompactAtlasHeader?TEXT("QUESTS"):TEXT("QUESTS [L]"),FLinearColor::White,Left+QuestButtons.MapX+7.f,Top+48.f,nullptr,0.65f);
   }
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
   const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);

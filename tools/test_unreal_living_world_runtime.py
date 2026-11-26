@@ -586,8 +586,8 @@ int main(){
         self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
         self.assertIn("CompanionProfiles.Reset();",hero)
         self.assertIn("if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;",hero)
-        self.assertIn("Save->CompanionProfiles.Num()>15",hero)
-        self.assertIn("CompanionProfiles.Num()>15",hero)
+        self.assertIn("Save->CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount",hero)
+        self.assertIn("CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount",hero)
         transaction=hero.split("bool AMoonfallHeroPawn::CommitCompanionProfile(",1)[1].split(
             "bool AMoonfallHeroPawn::ChangeResidentBond(",1)[0]
         self.assertIn("HasAuthority()",transaction)
@@ -659,7 +659,7 @@ int main(){
         self.assertIn("Version = 16",save)
         self.assertIn("TMap<FName,FMoonfallCompanionGearRecord> CompanionGear",save)
         self.assertIn("Save->CompanionGear = CompanionGear;",hero)
-        self.assertIn("Save->CompanionGear.Num()>15",hero)
+        self.assertIn("Save->CompanionGear.Num()>MoonfallQuestJournal::ResidentCount",hero)
         self.assertIn("if(Save->Version>=15)CompanionGear=Save->CompanionGear;",hero)
         trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
             "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
@@ -1144,6 +1144,32 @@ int main(){
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
         self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
+    def test_waystation_contract_catalog_matches_spawned_residents(self):
+        import re
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        journal=(SRC/"MoonfallQuestJournal.h").read_text()
+        sites=arena.split("static const FWaystationSite Sites[6] = {",1)[1].split(
+            "RegionalWaystationFloors->ClearInstances()",1)[0]
+        rows=re.findall(r'\{TEXT\("([^"]+)"\), TEXT\("(waystation_[a-z]+)"\), TEXT\("[^"]+"\),\s*TEXT\("(waystation_[a-z_]+)"\), TEXT\("([^"]+)"\),\s*TEXT\("(waystation_[a-z_]+)"\), TEXT\("([^"]+)"\),[\s\S]*?, (\d+), (\d+)\}',sites)
+        self.assertEqual(len(rows),6)
+        entries=re.findall(r'\{"(waystation_[a-z_]+)", "([^"]+)", "[^"]+", "([^"]+)", (\d+)\}',journal)
+        self.assertEqual(len(entries),12)
+        by_id={key:(name,location.upper(),int(race)) for key,name,location,race in entries}
+        self.assertEqual(len(by_id),12)
+        self.assertEqual(len({row[1] for row in rows}),6)
+        for location,_,scout,scout_name,companion,companion_name,scout_race,companion_race in rows:
+            self.assertEqual(by_id[scout],(scout_name,location,int(scout_race)))
+            self.assertEqual(by_id[companion],(companion_name,location,int(companion_race)))
+        self.assertIn("RegionalWaystationRuins->SetCanEverAffectNavigation(false)",arena)
+        self.assertIn("FVector(ZoneCenterX, -1800.f, -20.f), FVector(7.4f, 9.6f, 0.4f)",arena)
+        self.assertIn("FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)",arena)
+        # The camp floor and road overlap by 230 units and share Z=0.
+        self.assertEqual((-2050)-(-2280),230)
+        # Camp centers are far from the central arena and dungeon chamber strip.
+        for zone in range(6):
+            center=(zone*5+2-14.5)*1350
+            self.assertGreater(abs(center)-370,1500)
+
     def test_story_only_residents_cannot_offer_unsaveable_contracts(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         hero_h=(SRC/"MoonfallHeroPawn.h").read_text()
@@ -1154,8 +1180,14 @@ int main(){
         # The resident allowlist includes both Firstlight sanctuary NPCs.
         validator=hero.split("bool IsNamedMoonfallResident(FName Id) {",1)[1].split(
             "bool AMoonfallHeroPawn::SupportsResidentContract(",1)[0]
+        self.assertIn("return NamedMoonfallResidentIds().Contains(Id);",validator)
+        catalog=(SRC/"MoonfallQuestJournal.h").read_text()
         for name in ("CrossroadsGuide","FirstlightArchivist","FirstlightWatchkeeper"):
-            self.assertIn('FName(TEXT("'+name+'"))',validator)
+            self.assertIn('{"'+name+'",',catalog)
+        builder=hero.split("const TArray<FName>& NamedMoonfallResidentIds() {",1)[1].split(
+            "bool IsNamedMoonfallResident(FName Id) {",1)[0]
+        self.assertIn("for (const auto& Entry : MoonfallQuestJournal::Residents)",builder)
+        self.assertIn("Result.Add(FName(UTF8_TO_TCHAR(Entry.Id)))",builder)
         # Do not present quest offers for unknown editor-spawned or dynamic NPCs.
         talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
             "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]

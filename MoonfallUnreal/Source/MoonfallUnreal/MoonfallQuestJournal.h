@@ -28,9 +28,21 @@ inline constexpr FResident Residents[] = {
  {"Ashscale", "Ashscale", "Ashen Elder's Stock", "Crossroads", 11},
  {"FirstlightArchivist", "Archivist Veyra", "Archive Supplies", "Firstlight", 1},
  {"FirstlightWatchkeeper", "Warden Cael", "Watchkeeper Supplies", "Firstlight", 0},
+ {"waystation_ashen_scout", "Cinder Runner", "Ashen Trail Supplies", "Emberwatch Camp", 5},
+ {"waystation_ashen_artisan", "Ashforge Keeper", "Ashforge Stockpile", "Emberwatch Camp", 3},
+ {"waystation_moonveil_scout", "Mira Fernstep", "Forest Trail Supplies", "Silverleaf Refuge", 2},
+ {"waystation_moonveil_scholar", "Selune Whisper", "Moon-rune Research", "Silverleaf Refuge", 1},
+ {"waystation_hollows_scout", "Nox Tunnelwatch", "Tunnel Lantern Supplies", "Deepstone Haven", 3},
+ {"waystation_hollows_tinker", "Dara Flint", "Workshop Salvage", "Deepstone Haven", 6},
+ {"waystation_foundry_scout", "Kora Spark", "Foundry Patrol Stock", "Sparkfall Relay", 6},
+ {"waystation_foundry_tinker", "Mek Ironhand", "Ironworks Salvage", "Sparkfall Relay", 3},
+ {"waystation_frost_scout", "Eira Froststep", "Frozen Trail Supplies", "Winterglass Lodge", 10},
+ {"waystation_frost_scholar", "Orin Snowbind", "Frozen Archive", "Winterglass Lodge", 1},
+ {"waystation_eclipse_scout", "Sable Nightroad", "Frontier Supplies", "Duskwatch Refuge", 9},
+ {"waystation_eclipse_elder", "Vesper Rune", "Eclipse Remnants", "Duskwatch Refuge", 11},
 };
 inline constexpr int ResidentCount = static_cast<int>(sizeof(Residents) / sizeof(Residents[0]));
-static_assert(ResidentCount == 15, "Match the current resident save whitelist");
+static_assert(ResidentCount == 27, "Match the current resident save whitelist");
 
 // Match AMoonfallWorldNPC::GetContractSalvageCost, including the Guide exception.
 constexpr int Cost(int Index) {
@@ -124,11 +136,27 @@ constexpr int CountContracts(FMask Mask) {
  for(int I=0;I<ResidentCount;++I) if(Mask.Has(I))++N;
  return N;
 }
+// Shared quest header geometry for drawing and pointer routing.
+// Keep both buttons available at the existing 300px minimum viewport.
+struct FHeaderButtons {
+ float AutoX=0.f, MapX=0.f, Width=0.f;
+ constexpr bool HitAuto(float X,float Y) const {
+  return Width>0.f&&X>=AutoX&&X<AutoX+Width&&Y>=46.f&&Y<66.f;
+ }
+ constexpr bool HitMap(float X,float Y) const {
+  return Width>0.f&&X>=MapX&&X<MapX+Width&&Y>=46.f&&Y<66.f;
+ }
+};
+constexpr FHeaderButtons HeaderButtons(float Width) {
+ if(!(Width>=276.f&&Width<=900.f)) return {};
+ const float ButtonWidth=Width>=480.f?96.f:60.f;
+ return {Width-22.f-2.f*ButtonWidth,Width-14.f-ButtonWidth,ButtonWidth};
+}
 constexpr int PageRows(float Height) {
  // Clamp before converting to int; never convert infinity or NaN.
  if(!(Height>=240.f))return 0;
  const float PanelHeight=Height>=674.f?650.f:Height-24.f;
- return static_cast<int>((PanelHeight-92.f)/30.f);
+ return static_cast<int>((PanelHeight-118.f)/30.f);
 }
 constexpr int HitRow(float LocalY,int Rows) {
  if(!(LocalY>=0.f&&LocalY<Rows*30.f))return -1;
@@ -137,5 +165,28 @@ constexpr int HitRow(float LocalY,int Rows) {
 }
 constexpr int PageStart(int Selected,int Rows) {
  return Rows>0 && Selected>=0?(Selected/Rows)*Rows:0;
+}
+// Footer is reserved below the last painted row even at minimum window size.
+struct FPageButtons {
+ float PrevX=0.f, NextX=0.f, Y=0.f, Width=0.f;
+ constexpr int Hit(float X,float LocalY) const {
+  if(!(Width>0.f&&LocalY>=Y&&LocalY<Y+22.f)) return 0;
+  if(X>=PrevX&&X<PrevX+Width) return -1;
+  if(X>=NextX&&X<NextX+Width) return 1;
+  return 0;
+ }
+};
+constexpr FPageButtons PageButtons(float Width,float Height) {
+ if(!(Width>=276.f&&Width<=900.f&&Height>=216.f&&Height<=650.f))return {};
+ return {12.f,Width-92.f,Height-28.f,80.f};
+}
+constexpr int SelectPage(int Selected,int Rows,int Count,int Direction) {
+ if(Count<=0)return 0;
+ const int Safe=Selected<0?0:Selected>=Count?Count-1:Selected;
+ if(Rows<=0)return Safe;
+ const int Start=PageStart(Safe,Rows);
+ if(Direction==-1&&Start>=Rows)return Start-Rows;
+ if(Direction==1&&Rows<Count-Start)return Start+Rows;
+ return Safe;
 }
 } // namespace MoonfallQuestJournal

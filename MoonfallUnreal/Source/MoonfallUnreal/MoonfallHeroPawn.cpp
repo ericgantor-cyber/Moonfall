@@ -3790,6 +3790,7 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
 namespace {
 const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 // Defined with the faction/relationship helpers below; shared by save migration.
+const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
@@ -4399,16 +4400,6 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
- static const FName SaveResidentIds[] = {
-  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale")),
-  FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
- };
  for (const auto& Entry : FactionReputation)
   if (!SaveFactionIds[0].IsNone() &&
       !((Entry.Key == SaveFactionIds[0]) || (Entry.Key == SaveFactionIds[1])
@@ -4416,21 +4407,19 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
        || (Entry.Key == SaveFactionIds[4])) || Entry.Value < -100 || Entry.Value > 100)
    return false;
  for (const auto& Entry : ResidentBonds) {
-  bool bKnownResident = false;
-  for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
-  if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
+  if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) return false;
  }
  if(!MoonfallWorldPolicy::ValidCompanionParty(!CompanionParty.ResidentId.IsNone(),CompanionParty.Stance,
      CompanionParty.Health,CompanionParty.AbilityReadyUtc)
      ||(!CompanionParty.ResidentId.IsNone()&&!IsNamedMoonfallResident(CompanionParty.ResidentId)))return false;
- if(CompanionGear.Num()>15)return false;
+ if(CompanionGear.Num()>MoonfallQuestJournal::ResidentCount)return false;
  for(const auto& Entry:CompanionGear){
   if(!IsNamedMoonfallResident(Entry.Key))return false;
   for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
    if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot))return false;
   }
  }
- if(CompanionProfiles.Num()>15)return false;
+ if(CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount)return false;
  for(const auto& Entry:CompanionProfiles)
   if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
       !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value)))return false;
@@ -4532,7 +4521,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  // V15 validates owned companion gear before loading character state.
  if(Save->Version>=15){
-  if(Save->CompanionGear.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  if(Save->CompanionGear.Num()>MoonfallQuestJournal::ResidentCount){bPersistentSaveWritesBlocked=true;return false;}
   for(const auto& Entry:Save->CompanionGear){
    if(!IsNamedMoonfallResident(Entry.Key)){bPersistentSaveWritesBlocked=true;return false;}
    for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
@@ -4542,7 +4531,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  // V14 companion profiles are validated before any gameplay mutation.
  if(Save->Version>=14){
-  if(Save->CompanionProfiles.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  if(Save->CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount){bPersistentSaveWritesBlocked=true;return false;}
   for(const auto& Entry:Save->CompanionProfiles)
    if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
       !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value))){
@@ -4595,20 +4584,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
  }
  if (Save->Version >= 5) {
-  static const FName AllowedResidentIds[] = {
-   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale")),
-   FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
-  };
   for (const auto& Entry : Save->ResidentBonds) {
-   bool bKnown = false;
-   for (const FName Id : AllowedResidentIds) if (Entry.Key == Id) { bKnown = true; break; }
-   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+   if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident bond; original save protected."));
     return false;
@@ -4820,6 +4797,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
   }
  }
+ // Reconcile transient quest tracking with restored progress before notifying UI.
+ // Keep valid manual choices, but never revive stale selections from another snapshot.
+ const auto RestoredActiveQuests=GetActiveQuestMask();
+ ManualQuestMask=ManualQuestMask&RestoredActiveQuests;
+ QuestLogSelection=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,MoonfallQuestJournal::Count(RestoredActiveQuests)-1));
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
  CompanionParty=Save->Version>=16?Save->CompanionParty:FMoonfallCompanionPartyRecord{};
  CompanionGear.Reset();
@@ -4828,17 +4810,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;
  ResidentBonds.Reset();
  if (Save->Version >= 5) {
-  static const FName ValidIds[] = {
-   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-   FName(TEXT("Ashscale")),
-   FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
-  };
-  for (FName Key : ValidIds) {
+  for (FName Key : NamedMoonfallResidentIds()) {
    if (const int32* Value = Save->ResidentBonds.Find(Key))
     ResidentBonds.Add(Key, FMath::Clamp(*Value, -100, 100));
   }
@@ -5394,13 +5366,22 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      ToggleAtlas();
      return;
     }
-    if (PanelW>=480.f && MouseX>=PanelL+PanelW-110.f && MouseX<=PanelL+PanelW-14.f
-        && MouseY>=PanelT+46.f && MouseY<PanelT+66.f) { ToggleQuestLog(); return; }
+    const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(PanelW);
+    if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)) {
+     ToggleQuestLog(); return;
+    }
     if(bQuestLogOpen) {
+     if (QuestButtons.HitAuto(MouseX-PanelL,MouseY-PanelT)) { ResetQuestTracking(); return; }
      const int Rows=MoonfallQuestJournal::PageRows(float(ViewH));
      const int Count=MoonfallQuestJournal::Count(GetActiveQuestMask());
      const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
      const int Start=MoonfallQuestJournal::PageStart(Selected,Rows);
+     const auto Pages=MoonfallQuestJournal::PageButtons(PanelW,PanelH);
+     const int PageDirection=Pages.Hit(MouseX-PanelL,MouseY-PanelT);
+     if(PageDirection!=0) {
+      QuestLogSelection=MoonfallQuestJournal::SelectPage(Selected,Rows,Count,PageDirection);
+      return;
+     }
      if(MouseX>=PanelL+12.f&&MouseX<=PanelL+PanelW-12.f&&MouseY>=PanelT+88.f) {
       const int Row=MoonfallQuestJournal::HitRow(MouseY-PanelT-88.f,Rows);
       if(Row>=0&&Row<Rows&&Start+Row<Count) {
@@ -5847,19 +5828,18 @@ bool AMoonfallHeroPawn::ChangeFactionReputation(FName Faction, int32 Delta) {
 }
 
 namespace {
+const TArray<FName>& NamedMoonfallResidentIds() {
+ static const TArray<FName> Keys=[] {
+  TArray<FName> Result;
+  Result.Reserve(MoonfallQuestJournal::ResidentCount);
+  for (const auto& Entry : MoonfallQuestJournal::Residents)
+   Result.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
+  return Result;
+ }();
+ return Keys;
+}
 bool IsNamedMoonfallResident(FName Id) {
- static const FName ResidentIds[] = {
-  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
-  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
-  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
-  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
-  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
-  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
-  FName(TEXT("Ashscale")),
-  FName(TEXT("FirstlightArchivist")), FName(TEXT("FirstlightWatchkeeper"))
- };
- for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
- return false;
+ return NamedMoonfallResidentIds().Contains(Id);
 }
 }
 bool AMoonfallHeroPawn::SupportsResidentContract(FName ResidentId) const {
@@ -5989,10 +5969,10 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
  return 0;
 }
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
- if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
-     || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || GetResidentQuestState(ResidentId) != 0) return false;
  int ActiveContracts=0;
  for(const auto& Entry:ResidentQuestStates) if(Entry.Value==1) ++ActiveContracts;
  if(!MoonfallQuestJournal::CanAccept(ActiveContracts)) return false;
@@ -6008,7 +5988,7 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  return true;
 }
 bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
- if (!GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
      || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!FMath::IsFinite(Health) || Health <= 0.f || !FMath::IsFinite(MaxHealth)
      || MaxHealth < Health || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana)

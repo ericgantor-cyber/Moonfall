@@ -72,8 +72,20 @@ constexpr bool ManualTracking() {
 }
 static_assert(ManualTracking(), "100 accepted quests support seven independent tracking slots.");
 static_assert(J::CanAccept(99)&&!J::CanAccept(100)&&!J::CanAccept(-1));
-static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==18);
-static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==18);
+constexpr bool HeaderButtonGeometry() {
+ for(int Width=276;Width<=900;++Width) {
+  const auto B=J::HeaderButtons(float(Width));
+  if(B.AutoX<120.f || B.AutoX+B.Width>=B.MapX || B.MapX+B.Width>Width-14.f) return false;
+  if(!B.HitAuto(B.AutoX,46.f)||!B.HitMap(B.MapX,46.f)) return false;
+  if(B.HitAuto(B.MapX,46.f)||B.HitMap(B.AutoX,46.f)) return false;
+  if(B.HitAuto(B.AutoX+B.Width,46.f)||B.HitMap(B.MapX,66.f)) return false;
+ }
+ return !J::HeaderButtons(275.f).HitAuto(0.f,46.f)
+     && !J::HeaderButtons(901.f).HitMap(0.f,46.f);
+}
+static_assert(HeaderButtonGeometry(), "Compact and wide quest header controls stay separate.");
+static_assert(J::PageRows(240.f)==3 && J::PageRows(1080.f)==17);
+static_assert(J::PageRows(239.f)==0 && J::PageRows(1000000000.f)==17);
 static_assert(J::HitRow(0.f,4)==0 && J::HitRow(27.9f,4)==0);
 static_assert(J::HitRow(28.f,4)==-1 && J::HitRow(30.f,4)==1);
 static_assert(J::HitRow(-1.f,4)==-1 && J::HitRow(120.f,4)==-1);
@@ -85,15 +97,30 @@ constexpr bool SeparateQuestCounts() {
 }
 static_assert(SeparateQuestCounts());
 static_assert(J::PageStart(16,4)==16 && J::PageStart(26,17)==17);
+constexpr bool PageFooterGeometry() {
+ for(int Height=240;Height<=674;++Height) {
+  const int Rows=J::PageRows(float(Height));
+  const auto B=J::PageButtons(276.f,float(Height-24));
+  if(B.Width!=80.f||88.f+(Rows-1)*30.f+28.f>B.Y) return false;
+  if(B.Hit(B.PrevX,B.Y)!=-1||B.Hit(B.NextX,B.Y)!=1) return false;
+  if(B.Hit(B.PrevX+B.Width,B.Y)!=0||B.Hit(B.NextX,B.Y+22.f)!=0) return false;
+ }
+ return J::PageButtons(275.f,216.f).Hit(12.f,188.f)==0;
+}
+static_assert(PageFooterGeometry());
+static_assert(J::SelectPage(1,3,100,1)==3 && J::SelectPage(4,3,100,-1)==0);
+static_assert(J::SelectPage(98,3,100,1)==99 && J::SelectPage(99,3,100,1)==99);
+static_assert(J::SelectPage(0,3,100,-1)==0 && J::SelectPage(5,3,0,1)==0);
+static_assert(J::SelectPage(999,3,5,1)==4 && J::SelectPage(4,0,5,-1)==4);
 constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};
  for (int I=0; I<J::ResidentCount; ++I) States[I]=1;
  const auto Before=J::Summarize(States,J::ResidentCount,25);
- if (Before.Active!=15 || Before.TrackedCount!=7) return false;
+ if (Before.Active!=J::ResidentCount || Before.TrackedCount!=7) return false;
  const int First=Before.TrackedIndices[0];
  States[First]=2;
  const auto After=J::Summarize(States,J::ResidentCount,25);
- if (After.Active!=14 || After.Completed!=1 || After.TrackedCount!=7) return false;
+ if (After.Active!=J::ResidentCount-1 || After.Completed!=1 || After.TrackedCount!=7) return false;
  for (int I=0; I<After.TrackedCount; ++I)
   if (After.TrackedIndices[I]==First) return false;
  return After.TrackedIndices[6]==Before.TrackedIndices[6]+1;

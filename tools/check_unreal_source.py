@@ -14,14 +14,50 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
+        log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
+        self.assertIn('TEXT("AUTO TRACK")',log)
+        self.assertIn("J::HeaderButtons(Width)",log)
+        self.assertIn("DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f)",log)
+        self.assertIn("DrawHoverFrame(Left+Buttons.MapX,Top+46.f,Buttons.Width,20.f)",log)
+        pointer=self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split("const float SidebarWidth",1)[0]
+        self.assertIn("if(bQuestLogOpen) {",pointer)
+        self.assertIn("MoonfallQuestJournal::HeaderButtons(PanelW)",pointer)
+        self.assertIn("if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT))",pointer)
+        atlas=self.hud.split("// Atlas close remains independent",1)[1].split("const float AtlasSidebarWidth",1)[0]
+        self.assertIn("MoonfallQuestJournal::HeaderButtons(Width)",atlas)
+        self.assertIn('bCompactAtlasHeader?TEXT("QUESTS"):TEXT("QUESTS [L]")',atlas)
+        self.assertIn("DrawHoverFrame(Left+QuestButtons.MapX,Top+46.f,QuestButtons.Width,20.f)",atlas)
+        self.assertNotIn("if(Width>=480.f)",atlas)
+        self.assertIn("QuestButtons.HitAuto(MouseX-PanelL,MouseY-PanelT)) { ResetQuestTracking(); return; }",pointer)
+        self.assertLess(pointer.index("ResetQuestTracking(); return;"),pointer.index("MoonfallQuestJournal::HitRow"))
+        self.assertIn("J::PageButtons(Width,Height)",log)
+        self.assertIn("MoonfallQuestJournal::PageButtons(PanelW,PanelH)",pointer)
+        self.assertIn("MoonfallQuestJournal::SelectPage(Selected,Rows,Count,PageDirection)",pointer)
+        self.assertLess(pointer.index("MoonfallQuestJournal::SelectPage"),pointer.index("ToggleSelectedQuestTracking()"))
+        self.assertIn('TEXT("< PREV")',log)
+        self.assertIn('TEXT("NEXT >")',log)
+        load=self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[1].split("\n}\n",1)[0]
+        self.assertIn("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;",load)
+        self.assertIn("QuestLogSelection=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,MoonfallQuestJournal::Count(RestoredActiveQuests)-1));",load)
+        self.assertLess(load.index("ResidentQuestStates.Reset()"),load.index("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;"))
+        self.assertLess(load.index("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;"),load.index("OnHealthChanged(Health, MaxHealth)"))
+        reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
+        self.assertIn("bManualQuestTracking=false;",reset)
+        self.assertIn("ManualQuestMask={};",reset)
+
     def test_combined_quest_journal_matches_resident_save_contract(self):
         import re
         journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
-        allowed = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split("};", 1)[0]
         ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
-        saved_ids = re.findall(r'FName\(TEXT\("([^"]+)"\)\)', allowed)
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(set(ids), set(saved_ids))
+        self.assertEqual(len(ids), len(set(x.casefold() for x in ids)))
+        self.assertEqual(len(ids), 27)
+        catalog = self.hero_cpp.split("const TArray<FName>& NamedMoonfallResidentIds() {", 1)[1].split("bool IsNamedMoonfallResident(FName Id) {", 1)[0]
+        self.assertIn("static const TArray<FName> Keys=[]", catalog)
+        self.assertIn("Result.Reserve(MoonfallQuestJournal::ResidentCount)", catalog)
+        self.assertIn("for (const auto& Entry : MoonfallQuestJournal::Residents)", catalog)
+        self.assertIn("Result.Add(FName(UTF8_TO_TCHAR(Entry.Id)))", catalog)
+        self.assertIn("return NamedMoonfallResidentIds().Contains(Id);", self.hero_cpp)
         tracker = self.hud.split("// World-wide quest tracker", 1)[1].split(
             "// Compact circular resource HUD", 1)[0]
         for required in ("Hero->GetResidentQuestState(ResidentKeys[I])",
@@ -1767,7 +1803,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (const auto& Entry : FactionReputation)", save)
         self.assertIn("Entry.Value < -100 || Entry.Value > 100", save)
         self.assertIn("for (const auto& Entry : ResidentBonds)", save)
-        self.assertIn("if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;", save)
+        self.assertIn("if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100) return false;", save)
+        self.assertIn("if (!IsNamedMoonfallResident(Entry.Key) || Entry.Value < -100 || Entry.Value > 100)", load)
         self.assertIn("Save->FactionReputation", load)
         self.assertIn("Save->ResidentBonds", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
@@ -4920,7 +4957,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_five_test_runner(self):
+    def test_native_dungeon_readme_matches_required_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4934,6 +4971,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
             "Moonfall.Controls.CurrentInputContract",
+            "Moonfall.Quests.ResidentSaveRoundTrip",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4943,15 +4981,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             for value in required_array.splitlines()
             if value.strip() and not value.strip().startswith("#")
         ]
-        readme_names = [
-            line.split("`", 2)[1]
-            for line in section.splitlines()
-            if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
-                                         "2. `Moonfall.Dungeons.",
-                                         "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons.",
-                                         "5. `Moonfall.Controls."))
-        ]
+        import re
+        readme_names = re.findall(r"^\s*\d+\. `(Moonfall\.[A-Za-z0-9_.]+)`\s*$", section, re.MULTILINE)
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
         self.assertIn("EditorExitCode=0", section)
@@ -4999,6 +5030,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
         self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
+        self.assertIn("Moonfall.Quests.ResidentSaveRoundTrip", workflow)
+        quest_native = (ROOT / "MoonfallQuestNativeTests.cpp").read_text(encoding="utf-8")
+        for token in ("Moonfall.Quests.ResidentSaveRoundTrip", "Hero->SupportsResidentContract(Id)", "UGameplayStatics::SaveGameToMemory(Original,Bytes)", "UGameplayStatics::LoadGameFromMemory(Bytes)", "J::MaxTracked", "J::MaxActive"):
+            self.assertIn(token, quest_native)
         native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
         for token in ("GetDefault<UInputSettings>()", "GetActionMappings()", "GetAxisMappings()", "RequireExclusiveAction", "MovementScales", "Moonfall.Controls.CurrentInputContract"):
             self.assertIn(token, native)
@@ -5068,9 +5103,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
         complete = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         for body, mutation in ((accept, "ResidentQuestStates.Add(ResidentId, 1)"), (complete, "Salvage -= Cost;")):
-            for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "!FMath::IsFinite(Health)"):
+            for guard in ("!HasAuthority()", "!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "!FMath::IsFinite(Health)"):
                 self.assertLess(body.index(guard), body.index(mutation))
         self.assertLess(accept.index("ExistingState && *ExistingState != 0"), accept.index("ResidentQuestStates.Add(ResidentId, 1)"))
+        for panel in ("bAtlasOpen", "bTalentWebOpen", "bInventoryOpen", "bOptionsOpen"):
+            self.assertLess(accept.index(panel), accept.index("ResidentQuestStates.Add(ResidentId, 1)"))
         rollback = accept.split("if (!SaveWorldProgress())", 1)[1]
         self.assertIn("if (bHadZeroState) ResidentQuestStates.Add(ResidentId, 0);", rollback)
         self.assertIn("else ResidentQuestStates.Remove(ResidentId);", rollback)
@@ -5344,7 +5381,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
         self.assertIn(name, source)
         self.assertIn(name, runner)
-        self.assertIn('Save->Version, 10', source)
+        self.assertIn('Save->Version, 16', source)
         self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
         self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
@@ -5383,7 +5420,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all five required native tests explicitly passed", runner)
+        self.assertIn("all six required native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -6428,18 +6465,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_world_signs_set_position_before_registering(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
-        zones = arena.split('for (int32 Zone = 0; Zone < 6; ++Zone)', 1)[1].split(
-            'if (bEnableStartingSanctuary) {', 1)[0]
+        zones = arena.split('FName(*FString::Printf(TEXT("DungeonZoneSign_%d"), Zone + 1))', 1)[1].split(
+            'DungeonZoneSigns.Add(Sign);', 1)[0]
         guide = arena.split('for (const FStarterSign& Entry : Signs)', 1)[1].split(
             'if (!GetWorld()) return;', 1)[0]
+        camp = arena.split('TEXT("RegionalWaystationSign_%d")', 1)[1].split(
+            'RegionalWaystationSigns.Add(Sign);', 1)[0]
+        road = arena.split('TEXT("RegionalRoadGuideSign_%d")', 1)[1].split(
+            'RegionalWaystationSigns.Add(RoadGuide);', 1)[0]
         self.assertIn('Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));', zones)
         self.assertIn('Sign->SetRelativeLocation(Entry.Position);', guide)
-        for section in (zones, guide):
-            self.assertEqual(section.count('Sign->RegisterComponent();'), 1)
-            self.assertLess(section.index('Sign->SetRelativeLocation('),
-                            section.index('Sign->RegisterComponent();'))
-            self.assertLess(section.index('Sign->SetTextRenderColor('),
-                            section.index('Sign->RegisterComponent();'))
+        self.assertIn('Sign->SetRelativeLocation(FVector(ZoneCenterX, -1590.f, 155.f));', camp)
+        self.assertIn('RoadGuide->SetRelativeLocation(FVector(ZoneCenterX, -2150.f, 170.f));', road)
+        for section, component in ((zones, 'Sign'), (guide, 'Sign'), (camp, 'Sign'), (road, 'RoadGuide')):
+            register = component + '->RegisterComponent();'
+            self.assertEqual(section.count(register), 1)
+            for setup in ('SetRelativeLocation(', 'SetTextRenderColor(', 'SetCollisionEnabled(', 'SetCanEverAffectNavigation(false)'):
+                self.assertLess(section.index(component + '->' + setup),
+                                section.index(register))
 
     def test_arena_blocks_reuse_loaded_mesh_and_register_once(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
@@ -6582,6 +6625,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("Set-Content -LiteralPath $evidence"))
         self.assertLess(workflow.index("Set-Content -LiteralPath $evidence"),
                         workflow.index("Preserve native Editor and Game compile proof"))
+        # Compiler success evidence must survive a later runtime test failure.
+        self.assertLess(workflow.index("Preserve native Editor and Game compile proof"),
+                        workflow.index("Execute actual UE Editor Gothic Raven ferry component test"))
+        self.assertIn('MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT', workflow)
+        self.assertIn('MoonfallUnrealCompile-${{ github.run_id }}-${{ github.run_attempt }}/NativeCompile-Evidence.txt', workflow)
+        self.assertIn('MoonfallUnrealCompile-${{ github.run_id }}-${{ github.run_attempt }}/EditorBuild-Transcript.txt', workflow)
 
 
     def test_windows_installer_requires_real_nonempty_cooked_content_archives(self):
