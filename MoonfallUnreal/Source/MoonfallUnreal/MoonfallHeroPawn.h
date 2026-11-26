@@ -33,6 +33,7 @@ public:
  UNavigationInvokerComponent* DungeonNavigationInvoker;
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
@@ -493,6 +494,9 @@ private:
  FString BugReportStatus;
  MoonfallDiagnostics::FBreadcrumbs BugBreadcrumbs;
  double LastBugReportAt=-1;
+ double NextRecoverySnapshotAt=-1;
+ FString RecoverySnapshotPath;
+ void UpdateRecoverySnapshot(double Now);
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;
