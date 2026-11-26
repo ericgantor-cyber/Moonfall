@@ -25,6 +25,7 @@
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Engine/Engine.h"
+#include "HAL/PlatformTime.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
@@ -429,6 +430,13 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Wall-clock interval, independent of simulation dilation and clamped timers.
+ // Menus and defeat never pollute the last gameplay sample.
+ if (IsLocallyControlled())
+  PerformanceAudit.Observe(FPlatformTime::Seconds(), GetWorld() && !GetWorld()->IsPaused()
+      && FMath::IsFinite(Health) && Health>0.f && !bOptionsOpen && !bInventoryOpen
+      && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen);
+
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
@@ -2107,6 +2115,7 @@ void AMoonfallHeroPawn::CycleGraphicsQuality() {
  if (!Settings) return;
  const int32 Next = (Settings->GetOverallScalabilityLevel() + 1) % 4;
  Settings->SetOverallScalabilityLevel(Next);
+ PerformanceAudit.Reset();
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2116,6 +2125,7 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  if (!Settings) return;
  const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
  Settings->SetFullscreenMode(Next);
+ PerformanceAudit.Reset();
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2720,6 +2730,7 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
       : NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;
   Settings->SetFullscreenMode(NextMode);
  }
+ PerformanceAudit.Reset();
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
