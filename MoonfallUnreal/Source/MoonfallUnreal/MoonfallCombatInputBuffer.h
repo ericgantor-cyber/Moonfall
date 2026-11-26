@@ -13,6 +13,8 @@ struct FSingleSwing {
  float QueuedAt = -1.f;
 
  void Clear() noexcept { ExpiresAt = -1.f; QueuedAt = -1.f; }
+ // A malformed half-populated slot still requires validation and cleanup.
+ bool HasPending() const noexcept { return ExpiresAt != -1.f || QueuedAt != -1.f; }
 
  // Only a second deliberate press shortly before sword recovery can queue.
  // Repeated presses replace the same single slot, never stack free attacks.
@@ -21,6 +23,8 @@ struct FSingleSwing {
    Clear();
    return false;
   }
+  if (HasPending() && (!std::isfinite(QueuedAt) || !std::isfinite(ExpiresAt)
+      || QueuedAt < 0.f || Now < QueuedAt || Now > ExpiresAt)) Clear();
   const float Remaining = NextReadyAt - Now;
   if (!std::isfinite(Remaining) || Remaining <= 0.f
       || Remaining > EarlyWindowSeconds) return false;
@@ -37,7 +41,7 @@ struct FSingleSwing {
  // Pending input is consumed at most once. Unsafe state or an expired
  // deadline discards it instead of leaking an attack through a closed menu.
  bool Consume(float Now, float NextReadyAt, bool bCanAttack) noexcept {
-  if (ExpiresAt == -1.f && QueuedAt == -1.f) return false;
+  if (!HasPending()) return false;
   if (!bCanAttack || !std::isfinite(Now) || !std::isfinite(NextReadyAt)
       || !std::isfinite(ExpiresAt) || !std::isfinite(QueuedAt)
       || QueuedAt < 0.f || Now < QueuedAt || Now > ExpiresAt) {
