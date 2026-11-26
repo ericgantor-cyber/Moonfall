@@ -96,6 +96,13 @@ int main(){
      std::numeric_limits<float>::quiet_NaN(),100.f,false,false));
  assert(!ShouldRetireAmbient(105.f,
      std::numeric_limits<float>::infinity(),false,false));
+ assert(ValidSavedClock(-1.0)&&ValidSavedClock(0.0)&&ValidSavedClock(7199.9));
+ assert(!ValidSavedClock(7200.0)&&!ValidSavedClock(-2.0));
+ assert(!ValidSavedClock(std::numeric_limits<double>::quiet_NaN()));
+ assert(AdvanceClock(7199.0,100.0,102.0)==1.0);
+ assert(AdvanceClock(100.0,30.0,31.5)==101.5);
+ assert(AdvanceClock(100.0,30.0,20.0)==100.0);
+ assert(AdvanceClock(-1.0,100.0,105.0)==5.0);
  assert(CelestialMinute(0.0)==720);
  assert(CelestialMinute(5.0)==721);
  assert(CelestialMinute(3599.0)==1439);
@@ -928,6 +935,17 @@ int main(){
         self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
                         arena.index("DungeonRoad->AddInstance("))
 
+    def test_celestial_clock_save_validation_and_shared_view(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("double CelestialClockSeconds = -1.0;",save)
+        self.assertIn("Save->CelestialClockSeconds = GetCelestialClockSeconds();",hero)
+        load=hero.split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[1]
+        self.assertLess(load.index("ValidSavedClock(Save->CelestialClockSeconds)"),load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index("bWorldProgressLoadInProgress = true;"),load.index("CelestialSavedPhase ="))
+        self.assertIn("CelestialMinute(Hero->GetCelestialClockSeconds())",hud)
+
     def test_regional_landmarks_and_weather_hud_are_budgeted(self):
         arena=(SRC/"MoonfallArena.cpp").read_text()
         header=(SRC/"MoonfallArena.h").read_text()
@@ -941,7 +959,7 @@ int main(){
         self.assertIn("Light->SetCastShadows(false);",landscape)
         self.assertIn("Light->SetAttenuationRadius(3000.f);",landscape)
         self.assertIn("LastRegionWeatherPhase==Phase && !bCelestialChanged",landscape)
-        self.assertIn("CelestialMinute(WorldTime)",landscape)
+        self.assertIn("CelestialMinute(CelestialTime)",landscape)
         self.assertIn("LastCelestialLightingHour=Hour;",landscape)
         self.assertIn("MoonfallLivingSimulation::WeatherFor(Zone,Phase)",landscape)
         self.assertIn("bEnableRegionalLandmarks = true;",header)
@@ -1083,7 +1101,7 @@ int main(){
         self.assertIn("RegisterLivingResident(*It);",mode)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)
-        self.assertIn("LivingArena->UpdateRegionWeather(Now);",mode)
+        self.assertIn("LivingArena->UpdateRegionWeather(Now, IsValid(Hero)?Hero->GetCelestialClockSeconds():Now);",mode)
         self.assertIn("MoonfallLivingSimulation::MayEncounter(",mode)
         self.assertIn("Hero->IsNearStartingSanctuary()",mode)
         self.assertIn("HeroLocation.Y > -1800.f",mode)
