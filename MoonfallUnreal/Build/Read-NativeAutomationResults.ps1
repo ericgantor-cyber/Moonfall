@@ -4,22 +4,22 @@ param(
     [Parameter(Mandatory=$true)][string[]]$Required
 )
 $ErrorActionPreference = 'Stop'
-$results = @{}
-$counts = @{}
+$results = [hashtable]::new([System.StringComparer]::Ordinal)
+$counts = [hashtable]::new([System.StringComparer]::Ordinal)
 foreach ($name in $Required) { $results[$name] = $false; $counts[$name] = 0 }
 $failed = $false
 foreach ($line in ($LogText -split '\r?\n')) {
     if ($line -notmatch 'Test Completed\.') { continue }
-    $result = [regex]::Match($line, '\bResult=\{([^{}]+)\}')
-    $path = [regex]::Match($line, '\bPath=\{([^{}]+)\}')
+    $result = [regex]::Matches($line, '\bResult=\{([^{}]+)\}')
+    $path = [regex]::Matches($line, '\bPath=\{([^{}]+)\}')
     # An incomplete completion record is not trustworthy evidence.
-    if (-not $result.Success -or -not $path.Success) {
+    if ($result.Count -ne 1 -or $path.Count -ne 1) {
         $failed = $true
         continue
     }
-    $passed = $result.Groups[1].Value -ceq 'Passed'
+    $passed = $result[0].Groups[1].Value -ceq 'Passed'
     if (-not $passed) { $failed = $true }
-    $name = $path.Groups[1].Value
+    $name = $path[0].Groups[1].Value
     if ($counts.ContainsKey($name)) {
         $counts[$name]++
         $results[$name] = ($counts[$name] -eq 1 -and $passed)
