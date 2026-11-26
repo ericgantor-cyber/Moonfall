@@ -14,6 +14,7 @@ on:
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
       - '.github/workflows/windows-unreal-preflight.yml'
+      - '.github/workflows/unreal-compile-windows.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
@@ -28,6 +29,7 @@ on:
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
       - '.github/workflows/windows-unreal-preflight.yml'
+      - '.github/workflows/unreal-compile-windows.yml'
   workflow_dispatch:
 permissions:
   contents: read
