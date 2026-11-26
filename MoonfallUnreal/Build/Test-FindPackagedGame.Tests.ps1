@@ -83,3 +83,42 @@ try {
 } finally {
     Remove-Item -LiteralPath $headerRoot -Recurse -Force
 }
+
+# Cooked archive layout fixtures: these are not real cooked Unreal assets.
+$cookedValidator = Join-Path $PSScriptRoot 'Assert-CookedContent.ps1'
+$cookedRoot = Join-Path ([IO.Path]::GetTempPath()) ('MoonfallCookedFixtures-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $cookedRoot | Out-Null
+function Assert-CookedCase([string]$name,[string[]]$files,[bool]$expected,[bool]$makePaks = $true) {
+    $root = Join-Path $cookedRoot $name
+    New-Item -ItemType Directory -Path $root | Out-Null
+    $paks = Join-Path $root 'MoonfallUnreal/Content/Paks'
+    if ($makePaks) { New-Item -ItemType Directory -Path $paks -Force | Out-Null }
+    foreach ($fixture in $files) {
+        $parts = $fixture.Split('|')
+        $path = Join-Path $root $parts[0]
+        New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($path)) -Force | Out-Null
+        [IO.File]::WriteAllBytes($path,[byte[]]::new([int]$parts[1]))
+    }
+    $accepted = $true
+    try { & $cookedValidator -GameRoot $root } catch { $accepted = $false }
+    if ($accepted -ne $expected) { throw "Incorrect cooked content verdict: $name" }
+}
+try {
+    $p = 'MoonfallUnreal/Content/Paks'
+    Assert-CookedCase 'missing-directory' @() $false $false
+    Assert-CookedCase 'empty-directory' @() $false
+    Assert-CookedCase 'empty-pak' @("$p/a.pak|0") $false
+    Assert-CookedCase 'valid-pak' @("$p/a.pak|1") $true
+    Assert-CookedCase 'misplaced-pak' @('MoonfallUnreal/Other/a.pak|1') $false
+    Assert-CookedCase 'index-only' @("$p/a.utoc|1") $false
+    Assert-CookedCase 'data-only' @("$p/a.ucas|1") $false
+    Assert-CookedCase 'mismatched-pair' @("$p/a.utoc|1","$p/b.ucas|1") $false
+    Assert-CookedCase 'empty-data' @("$p/a.utoc|1","$p/a.ucas|0") $false
+    Assert-CookedCase 'empty-index' @("$p/a.utoc|0","$p/a.ucas|1") $false
+    Assert-CookedCase 'different-directory' @("$p/a.utoc|1","$p/sub/a.ucas|1") $false
+    Assert-CookedCase 'valid-pair' @("$p/a.utoc|1","$p/a.ucas|1") $true
+    Assert-CookedCase 'nested-pair' @("$p/sub/a.utoc|1","$p/sub/a.ucas|1") $true
+    Write-Host 'Cooked content layout fixtures: thirteen scenarios passed.'
+} finally {
+    Remove-Item -LiteralPath $cookedRoot -Recurse -Force
+}
