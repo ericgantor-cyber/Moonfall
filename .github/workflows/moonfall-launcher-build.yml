@@ -33,6 +33,10 @@ jobs:
           New-Item -ItemType Directory -Path 'LauncherOutput/Engine' -Force | Out-Null
           New-Item -ItemType Directory -Path 'LauncherOutput/MoonfallUnreal' -Force | Out-Null
           Set-Content -Path 'LauncherOutput/MoonfallUnreal/content.test' -Value 'test fixture'
+          $incomplete = Start-Process -FilePath $exe -ArgumentList '--check-install' -PassThru -Wait
+          if ($incomplete.ExitCode -ne 2) { throw 'Uncooked placeholder must not count as game content' }
+          New-Item -ItemType Directory -Force -Path 'LauncherOutput/MoonfallUnreal/Content/Paks' | Out-Null
+          Set-Content -Path 'LauncherOutput/MoonfallUnreal/Content/Paks/game.pak' -Value 'test fixture, not cooked game'
           $ready = Start-Process -FilePath $exe -ArgumentList '--check-install' -PassThru -Wait
           if ($ready.ExitCode -ne 0) { throw "Expected complete fixture exit 0, got $($ready.ExitCode)" }
           Remove-Item 'LauncherOutput/MoonfallUnreal.exe' -Force
