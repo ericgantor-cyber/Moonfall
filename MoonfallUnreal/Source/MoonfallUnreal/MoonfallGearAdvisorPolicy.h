@@ -107,6 +107,22 @@ constexpr bool ValidLayout(const FLoadout& Codes) {
  return true;
 }
 static_assert(SlotCount<=10,"Item encoding reserves one decimal slot digit");
+// Strict persistence boundary: legacy records have exactly three codes;
+// expanded records have nine. Unlike preview expansion, never discard invalid
+// saved items. Publish the output only after every slot passes ownership checks.
+template<class Owns>
+bool TryRestoreLoadout(const int* Codes,int Count,bool Expanded,Owns IsOwned,FLoadout& Out) {
+ if(!Codes||Count!=(Expanded?SlotCount:LegacySlotCount))return false;
+ FLoadout Candidate{};
+ for(int Slot=0;Slot<Count;++Slot){
+  const int Code=Codes[Slot];
+  if(Code!=0&&(!Valid(Code,Slot)||!IsOwned(Code)))return false;
+  Candidate[Slot]=Code;
+ }
+ Out=Candidate;
+ return true;
+}
+
 // Exact set-aware optimization by affix counts rather than enumerating 4^9
 // loadouts. A matching pair contributes 80 total (40 per equipped item).
 struct FPlan {
