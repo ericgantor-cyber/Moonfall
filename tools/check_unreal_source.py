@@ -5082,6 +5082,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
+        self.assertIn("MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}", workflow)
+        self.assertIn("-ReportDirectory $env:MOONFALL_NATIVE_REPORT_DIRECTORY", workflow)
+        self.assertIn("NativeAutomation-Provenance.txt", workflow)
+        self.assertIn("Get-FileHash -LiteralPath $report -Algorithm SHA256", workflow)
+        self.assertIn("Get-FileHash -LiteralPath $log -Algorithm SHA256", workflow)
+        self.assertIn("$actual -cne $env:GITHUB_SHA", workflow)
+        self.assertNotIn("MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("EditorExitCode=0", workflow)
         self.assertIn("AnyNativeTestFailed=False", workflow)
         for name in ("All30EntranceLocations", "SeededRoomArchetypes",
