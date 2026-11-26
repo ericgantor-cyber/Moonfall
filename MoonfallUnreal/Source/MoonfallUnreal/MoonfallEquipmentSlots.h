@@ -44,11 +44,12 @@ constexpr bool ValidateOwned(const FLoadout& Worn,const int* Bag,std::size_t Siz
  return true;
 }
 // A bag copy can be removed only if it is present and a worn copy remains.
-// The code's decoded slot identifies its single possible worn reference.
+// Check all worn references, including corrupt wrong-slot state, fail closed.
 constexpr bool CanRemoveCopy(const FLoadout& Worn,int Code,const int* Bag,std::size_t Size) {
  const auto Item=Decode(Code);
  if(!Known(Item.Slot)||Size>10000||(!Bag&&Size!=0))return false;
- const bool IsWorn=Worn[Item.Slot]==Code;
+ bool IsWorn=false;
+ for(const int WornCode:Worn)if(WornCode==Code){IsWorn=true;break;}
  int Copies=0;
  for(std::size_t I=0;I<Size;++I)
   if(Bag[I]==Code&&++Copies>(IsWorn?1:0))return true;
