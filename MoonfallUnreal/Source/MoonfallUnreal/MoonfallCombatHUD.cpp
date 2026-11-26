@@ -2314,62 +2314,67 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 18.f, Top + PanelHeight - 182.f, nullptr,
       PanelWidth < 550.f ? 0.57f : 0.72f);
    }
-   const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
-   DrawText(bReforgeable
-     ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
-         ReforgeCost, Hero->Salvage >= ReforgeCost ? TEXT("READY") : TEXT("NEED MORE"))
-     : TEXT("Reforge trait: requires Rare or better"),
-     bReforgeable && Hero->Salvage >= ReforgeCost
-       ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
-     Left + 18.f, Top + PanelHeight - 156.f, nullptr, 0.70f);
-   const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
-   DrawText(bAscendable
-     ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
-         AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
-     : TEXT("Ascend rarity: LEGENDARY / invalid"),
-     bAscendable && Hero->Salvage >= AscendCost
-       ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
-     Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
-   // Compare the highlighted item against the currently equipped item in
-   // the same slot. This is informational only and never changes gear.
-   const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
-   const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
-   const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
-   const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
-   const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
-   const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
-   // Use the same validated power difference for the label and displayed value.
-   const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;
-   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && PowerDelta > 0;
-   const bool bIsLower = bValidSelection && EquippedCode > 0 && PowerDelta < 0;
-   const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
-     : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
-     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
-   const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-     TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
-   const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
-     : EquippedCode <= 0
-     ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
-     : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-       CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
-       CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
-       EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
-       CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
-   const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
-     FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
-   DrawText(PowerCompareLine,
-     bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
-       : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
-       : FLinearColor(0.78f,0.86f,1.f),
-     Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
-   const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
-   const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
-     : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
-       NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
-   DrawText(ForgeStatus, bForgeable && Hero->Salvage >= NextCost
-     ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
-     Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
+   // Keep minimum-height inventory rows clear of optional crafting previews.
+   if (PanelHeight >= 360.f) {
+    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
+    DrawText(bReforgeable
+      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
+          ReforgeCost, Hero->Salvage >= ReforgeCost ? TEXT("READY") : TEXT("NEED MORE"))
+      : TEXT("Reforge trait: requires Rare or better"),
+      bReforgeable && Hero->Salvage >= ReforgeCost
+        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
+      Left + 18.f, Top + PanelHeight - 156.f, nullptr, 0.70f);
+    const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
+    DrawText(bAscendable
+      ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
+          AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
+      : TEXT("Ascend rarity: LEGENDARY / invalid"),
+      bAscendable && Hero->Salvage >= AscendCost
+        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
+      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
+   }
+   if (PanelHeight >= 320.f) {
+    // Compare the highlighted item against the currently equipped item in
+    // the same slot. This is informational only and never changes gear.
+    const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);
+    const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
+    const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
+    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
+    const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
+    const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
+    // Use the same validated power difference for the label and displayed value.
+    const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;
+    const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && PowerDelta > 0;
+    const bool bIsLower = bValidSelection && EquippedCode > 0 && PowerDelta < 0;
+    const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
+      : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
+    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+    const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
+      : EquippedCode <= 0
+      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
+      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
+        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
+        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
+        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
+        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
+    const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
+      FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
+    DrawText(PowerCompareLine,
+      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
+        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
+        : FLinearColor(0.78f,0.86f,1.f),
+      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
+    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
+    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
+      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
+        NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
+    DrawText(ForgeStatus, bForgeable && Hero->Salvage >= NextCost
+      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
+      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
+   }
   }
   // Cache the read-only selected-row score. Ownership validation searches the
   // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
