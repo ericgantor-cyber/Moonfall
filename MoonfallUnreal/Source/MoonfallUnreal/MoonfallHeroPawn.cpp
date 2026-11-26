@@ -1180,6 +1180,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  // Capture presentation data before combo/posture callbacks can mutate the
  // target. Emit after committing mana and cooldown, without retaining it.
  FVector ResolvedImpactPoint = FVector::ZeroVector;
+ FVector ResolvedImpactOrigin = FVector::ZeroVector;
  float ResolvedImpactDamage = 0.f;
  bool bResolvedCritical = false;
  bool bResolvedKill = false;
@@ -1258,6 +1259,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (ActualSpellDamage > 0.f) {
    if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
     ResolvedImpactPoint = Hit.ImpactPoint;
+    ResolvedImpactOrigin = Origin;
     ResolvedImpactDamage = ActualSpellDamage;
     bResolvedCritical = bCriticalSpell;
     bResolvedKill = Enemy->Health <= 0.f;
@@ -1304,18 +1306,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
    ParryCounterUntil = -1.f;
   }
-  // Presentation is optional. Never allocate debug geometry on a server,
-  // after a callback tears down the caster, or for a corrupt impact point.
-  if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld()
-      && GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()) {
-   static const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
-   const FColor ImpactColor = SpellColors[School];
-   if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)
-       && IsValid(this) && !IsActorBeingDestroyed() && GetWorld()) {
-    DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-    DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
-   }
-  }
+
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
@@ -1323,6 +1314,21 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  if (School == 3) {
   Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
+ }
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+ // Presentation is optional. Only a committed, confirmed hostile hit may
+ // emit effects, and reduced motion suppresses both authored and fallback FX.
+ if (ResolvedImpactDamage > 0.f && !bReduceMotion
+     && GetNetMode()!=NM_DedicatedServer && !ResolvedImpactPoint.ContainsNaN()
+     && !ResolvedImpactOrigin.ContainsNaN()) {
+  static const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
+  const FColor ImpactColor = SpellColors[School];
+  if (!TryPlayAuthoredSpellImpact(School, ResolvedImpactPoint, Multiplier)
+      && IsValid(this) && !IsActorBeingDestroyed() && GetWorld()
+      && !bReduceMotion && GetNetMode()!=NM_DedicatedServer) {
+   DrawDebugSphere(GetWorld(), ResolvedImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+   DrawDebugLine(GetWorld(), ResolvedImpactOrigin, ResolvedImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  }
  }
  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
  BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::SpellCast,FPlatformTime::Seconds());
