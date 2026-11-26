@@ -1,5 +1,8 @@
 #pragma once
 #include <array>
+#include <algorithm>
+#include <cstdint>
+#include <vector>
 namespace MoonfallEquipmentScoring {
 // Both legacy and expanded comparisons use identical rank and set weights.
 // Callers supply only validated owned equipped codes (or zero).
@@ -371,4 +374,152 @@ static_assert(EncodeFullItem(8,1,1,5)==181005,"V17 ID stability");
 static_assert(EncodeFullItem(15,3,5,25)==1365025,"V18 off-hand ID stability");
 static_assert(DecodeFullItem(EncodeFullItem(23,3,5,25)).Slot==23,"Tenth ring round trip");
 static_assert(RingSlot(0)==8&&RingSlot(9)==23&&RingIndex(13)==1,"Ring order stability");
+// Shared 24-slot operation boundary. Legacy runtime can explicitly retain
+// its smaller active layout while migrating callers to the full codec.
+constexpr bool ValidFullActiveCount(int Count) {
+ return Count==LegacySlotCount||Count==SlotCount||Count==SixteenSlotCount||Count==FullSlotCount;
+}
+constexpr bool CanOperateFull(int Code,int ActiveSlots,EInventoryOperation Operation) {
+ const auto Item=DecodeFullItem(Code);
+ if(!ValidFullActiveCount(ActiveSlots)||!Item.IsValid()||Item.Slot>=ActiveSlots)return false;
+ switch(Operation){
+  case EInventoryOperation::Equip:
+  case EInventoryOperation::Salvage:return true;
+  case EInventoryOperation::Upgrade:return Item.Tier<25;
+  case EInventoryOperation::Reforge:return Item.Rarity>=2;
+  case EInventoryOperation::Ascend:return Item.Rarity<5;
+ }
+ return false;
+}
+// Crafting never loses the bank/slot identity. Reforge RNG is supplied by
+// the caller, keeping this policy deterministic and transaction-independent.
+constexpr int FullUpgradeCode(int Code,int ActiveSlots) {
+ const auto D=DecodeFullItem(Code);
+ return CanOperateFull(Code,ActiveSlots,EInventoryOperation::Upgrade)
+  ?EncodeFullItem(D.Slot,D.Trait,D.Rarity,D.Tier+1):0;
+}
+constexpr int FullAscendCode(int Code,int ActiveSlots) {
+ const auto D=DecodeFullItem(Code);
+ return CanOperateFull(Code,ActiveSlots,EInventoryOperation::Ascend)
+  ?EncodeFullItem(D.Slot,D.Trait,D.Rarity+1,D.Tier):0;
+}
+constexpr int FullReforgeCode(int Code,int NewTrait,int ActiveSlots) {
+ const auto D=DecodeFullItem(Code);
+ return CanOperateFull(Code,ActiveSlots,EInventoryOperation::Reforge)
+     &&NewTrait>=1&&NewTrait<=3&&NewTrait!=D.Trait
+  ?EncodeFullItem(D.Slot,NewTrait,D.Rarity,D.Tier):0;
+}
+template<class Bag>
+bool CanRemoveFullCopy(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ if(!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Salvage))return false;
+ const auto Item=DecodeFullItem(Code);
+ if(Worn[Item.Slot]!=Code)return true;
+ int Copies=0;
+ for(int Candidate:Inventory)if(Candidate==Code&&++Copies>=2)return true;
+ return false;
+}
+constexpr int FullRank(int Code) {
+ const auto D=DecodeFullItem(Code);
+ return D.IsValid()?D.Tier*10+D.Rarity:0;
+}
+// Planner value only, not combat stat modifiers. Preserve previous rank
+// and pair weights; the actual combat bonus thresholds remain separate.
+constexpr int FullTotalScore(const FFullLoadout& Codes,int ActiveSlots=FullSlotCount) {
+ if(!ValidFullActiveCount(ActiveSlots))return 0;
+ int Score=0,Counts[4]{};
+ for(int Slot=0;Slot<ActiveSlots;++Slot){
+  const auto D=DecodeFullItem(Codes[Slot]);
+  if(D.Slot!=Slot)continue;
+  Score+=FullRank(Codes[Slot])*100+(D.Trait?10+80*Counts[D.Trait]:0);
+  if(D.Trait)++Counts[D.Trait];
+ }
+ return Score;
+}
+constexpr int FullImprovement(int Candidate,const FFullLoadout& Worn,int ActiveSlots=FullSlotCount) {
+ if(!CanOperateFull(Candidate,ActiveSlots,EInventoryOperation::Equip))return 0;
+ const auto D=DecodeFullItem(Candidate);
+ if(Candidate==Worn[D.Slot])return 0;
+ auto Next=Worn;
+ Next[D.Slot]=Candidate;
+ return FullTotalScore(Next,ActiveSlots)-FullTotalScore(Worn,ActiveSlots);
+}
+struct FFullPlan {
+ FFullLoadout Codes{};
+ std::array<int,FullSlotCount> Indices{};
+ int Gain=0,Changes=0;
+ FFullPlan(){Indices.fill(-1);}
+};
+// Exact dynamic program, one candidate per affix per slot. Counts use
+// base 25, not decimal, so 10+ matching pieces cannot alias other traits.
+// Buffers live on the heap, and only reachable triangular count states
+// are visited. 48 path bits encode all 24 choices without truncation.
+class FFullPlanner {
+ using FChoice=MoonfallGearAdvisor::FChoice;
+ FFullLoadout Worn{};
+ std::array<std::array<FChoice,4>,FullSlotCount> Candidates{};
+ bool WeaponsOnly=false;
+ int ActiveSlots=0;
+ static constexpr int Base=FullSlotCount+1,States=Base*Base*Base;
+ static constexpr int Weights[4]={0,1,Base,Base*Base};
+ struct FState {int Score=-1,Changes=0;std::uint64_t Path=0;};
+ static bool Better(const FState& A,const FState& B){
+  return A.Score>B.Score||(A.Score==B.Score&&(A.Changes<B.Changes
+      ||(A.Changes==B.Changes&&A.Path<B.Path)));
+ }
+public:
+ explicit FFullPlanner(const FFullLoadout& Equipped,bool CombatOnly=false,int EnabledSlots=FullSlotCount)
+     :WeaponsOnly(CombatOnly),ActiveSlots(ValidFullActiveCount(EnabledSlots)?EnabledSlots:0) {
+  for(int Slot=0;Slot<ActiveSlots;++Slot){
+   Worn[Slot]=ValidFullItem(Equipped[Slot],Slot)?Equipped[Slot]:0;
+   const auto D=DecodeFullItem(Worn[Slot]);
+   Candidates[Slot][D.Trait]={Worn[Slot],-1};
+  }
+ }
+ void Add(int Code,int Index){
+  if(Index<0||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip))return;
+  const auto D=DecodeFullItem(Code);
+  if((WeaponsOnly&&D.Slot!=0)||FullRank(Code)<FullRank(Worn[D.Slot]))return;
+  auto& Choice=Candidates[D.Slot][D.Trait];
+  if(!Choice.Code||FullRank(Code)>FullRank(Choice.Code))Choice={Code,Index};
+ }
+ FFullPlan Finish()const{
+  FFullPlan Result;Result.Codes=Worn;
+  if(!ActiveSlots)return Result;
+  std::vector<FState> Current(States),Next(States);
+  Current[0].Score=0;
+  for(int Slot=0;Slot<ActiveSlots;++Slot){
+   std::fill(Next.begin(),Next.end(),FState{});
+   for(int A=0;A<=Slot;++A)
+   for(int B=0;B<=Slot-A;++B)
+   for(int C=0;C<=Slot-A-B;++C){
+    const int Key=A+B*Base+C*Base*Base;
+    const auto& Prior=Current[Key];
+    if(Prior.Score<0)continue;
+    for(int Trait=0;Trait<4;++Trait){
+     const auto& Choice=Candidates[Slot][Trait];
+     if(!Choice.Code&&(Trait!=0||Worn[Slot]!=0))continue;
+     const int Weight=Weights[Trait];
+     const int Matching=Trait?(Key/Weight)%Base:0;
+     const int Dest=Key+Weight;
+     const FState New{Prior.Score+FullRank(Choice.Code)*100+(Trait?10+80*Matching:0),
+       Prior.Changes+(Choice.Code!=Worn[Slot]),(Prior.Path<<2)|static_cast<std::uint64_t>(Trait)};
+     if(Better(New,Next[Dest]))Next[Dest]=New;
+    }
+   }
+   Current.swap(Next);
+  }
+  FState Best;
+  for(const auto& State:Current)if(State.Score>=0&&Better(State,Best))Best=State;
+  const int Baseline=FullTotalScore(Worn,ActiveSlots);
+  if(Best.Score<=Baseline)return Result;
+  Result.Gain=Best.Score-Baseline;Result.Changes=Best.Changes;
+  auto Path=Best.Path;
+  for(int Slot=ActiveSlots-1;Slot>=0;--Slot){
+   const auto& Choice=Candidates[Slot][Path&3u];
+   Result.Codes[Slot]=Choice.Code;Result.Indices[Slot]=Choice.Index;Path>>=2;
+  }
+  return Result;
+ }
+};
+static_assert(2*FullSlotCount<=64,"Full planner path must fit in uint64");
 } // namespace MoonfallEquipmentLayout
