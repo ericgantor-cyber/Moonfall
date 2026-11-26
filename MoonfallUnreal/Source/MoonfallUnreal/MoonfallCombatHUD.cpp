@@ -2424,19 +2424,19 @@ void AMoonfallCombatHUD::DrawHUD()
  const AMoonfallEnemy* PostureTarget = nullptr;
  int32 NearbySwordTell = -1;
  float SwordTellDistanceSq = FMath::Square(650.f);
- float BossDistanceSq = TNumericLimits<float>::Max();
+ float BossDistanceSq = FMath::Square(3000.f);
  float PostureDistanceSq = FMath::Square(1200.f);
  TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;
  const FVector HeroLocation = Hero->GetActorLocation();
  const bool bHeroLocationValid = !HeroLocation.ContainsNaN();
  const float WorldTime = GetWorld()->GetTimeSeconds();
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); bHeroLocationValid && It; ++It) {
   const AMoonfallEnemy* E = *It;
-  if (!IsValid(E) || !bHeroLocationValid) continue;
+  if (!IsValid(E) || E->IsActorBeingDestroyed()) continue;
   const FVector EnemyLocation = E->GetActorLocation();
   if (EnemyLocation.ContainsNaN()) continue;
   const float DistSq = FVector::DistSquared(EnemyLocation, HeroLocation);
-  if (!FMath::IsFinite(DistSq)) continue;
+  if (!FMath::IsFinite(DistSq) || DistSq > FMath::Square(6000.f)) continue;
   // Keep defeated enemies eligible for final-hit feedback, but only retain
   // actors that have a recent visible damage entry. Most idle world enemies
   // never enter the per-frame damage-label projection pass.
@@ -2452,7 +2452,8 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   }
-  if (E->Health <= 0.f) continue;
+  // No live combat HUD elements are visible beyond the boss alert radius.
+  if (DistSq >= FMath::Square(3000.f) || !FMath::IsFinite(E->Health) || E->Health <= 0.f) continue;
   if (DistSq < SwordTellDistanceSq) {
    const int32 Tell = E->GetDirectionalWindup(WorldTime, HeroLocation);
    if (MoonfallOmniattack::ValidAngle(Tell)) {
