@@ -81,16 +81,12 @@ bool HasVisibleInventoryPointerSurface(const AController* Controller)
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ // Only the three persisted live slots are enabled until the V17 migration.
+ if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::LegacySlotCount
+     || !MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)) return false;
  const int32 Trait = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Trait != 0)
-     || Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
-  return false;
  OutTrait = Trait;
  OutRarity = Rarity;
  OutTier = Tier;
@@ -3814,17 +3810,10 @@ const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
- const int32 Trait = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- // Match RollEquipmentCode, ground pickup and manual equip. Common gear
- // has no trait; uncommon gear may be traitless. Reject only malformed codes,
- // not legitimately collected rewards that must persist through respawning.
- return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
-     && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
-     && (Rarity != 0 || Trait == 0)
-     && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // The existing save format cannot yet restore the six additional slots.
+ return Slot < MoonfallEquipmentLayout::LegacySlotCount
+     && MoonfallEquipmentLayout::Valid(Code, Slot);
 }
 // A collision-aware recovery location is safer than reviving at the death site.
 // The level generator supplies a PlayerStart; authored worlds can supply more.
