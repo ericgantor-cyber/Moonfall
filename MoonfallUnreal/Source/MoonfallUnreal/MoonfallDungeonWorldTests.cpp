@@ -215,7 +215,7 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
 
  // Exercise the reflected equipment fields in real Unreal serialization.
- // V17 is a fixture only: the live writer/loader still uses V16.
+ // V17 preserves expanded inventory; legacy-only characters keep V16.
  namespace S = MoonfallEquipmentSlots;
  Original->Version = 16;
  Original->InventoryItemCodes = {1001, 11002, 21003};
