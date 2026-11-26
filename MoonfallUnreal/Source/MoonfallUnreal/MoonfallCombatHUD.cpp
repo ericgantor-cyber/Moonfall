@@ -1840,8 +1840,8 @@ void AMoonfallCombatHUD::DrawHUD()
     }
    } else {
    const FString CharacterLines[] = {
-     FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
-       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
+     FString::Printf(TEXT("Equipment power: %d  |  Luck %d/40  |  W %d / A %d / T %d"),
+       Hero->GetEquipmentPower(), Hero->GetLuck(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
        Hero->GetItemPower(Hero->GetEquipmentSlotCode(1)),
        Hero->GetItemPower(Hero->GetEquipmentSlotCode(2))),
      TEXT("PRIMARY ATTRIBUTES"),

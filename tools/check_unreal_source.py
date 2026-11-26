@@ -1522,8 +1522,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!MoonfallEquipmentSlots::Known(Item.Slot) || Item.Rarity >= 5", ascend)
         self.assertIn("SelectedRarity < 5", hud)
         self.assertIn("Rarity <= 5", hud)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
+        self.assertIn("MoonfallLootLuck::Rarity(LootRoll, Level, bEliteEnemy, bBossEnemy, GetLuck())", self.hero_cpp)
         self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
@@ -2037,15 +2036,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
+        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 999);", loot)
         self.assertIn("LastLootSlot = FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);", loot)
-        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
-        self.assertIn("LastLootRarity = bBossEnemy", loot)
-        self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
-        self.assertIn("Level >= 30 && LootRoll < 40 ? 4", loot)
-        self.assertIn("LootRoll < 3 + RarityBias / 3 ? 3", loot)
-        self.assertIn("LootRoll < 18 + RarityBias ? 2", loot)
-        self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
+        self.assertIn("MoonfallLootLuck::Rarity(LootRoll, Level, bEliteEnemy, bBossEnemy, GetLuck())", loot)
+        self.assertIn("MoonfallLootLuck::Luck(BuildOwnedEquipmentLoadout())", self.hero_cpp)
+        self.assertIn("Hero->GetLuck()", self.hud)
+        policy = (ROOT / "MoonfallLootLuck.h").read_text(encoding="utf-8")
+        for token in ("MaxLuck=40", "Level>=60&&Roll<120+L/2", "Level>=30&&Roll<400+L", "return 3;", "return Roll<270+2*L?3:2;"):
+            self.assertIn(token, policy)
         self.assertIn("FMath::Clamp(Level / 5", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)

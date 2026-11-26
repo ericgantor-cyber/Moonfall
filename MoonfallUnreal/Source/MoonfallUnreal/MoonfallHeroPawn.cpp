@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallLootLuck.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallEquipmentSlots.h"
@@ -3325,6 +3326,11 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level != PreviousLevel) OnHealthChanged(Health, MaxHealth);
 }
 
+int32 AMoonfallHeroPawn::GetLuck() const
+{
+ return MoonfallLootLuck::Luck(BuildOwnedEquipmentLoadout());
+}
+
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f || Level < 1 || Level > 100) return 0;
@@ -3332,20 +3338,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
- const int32 LootRoll = FMath::RandRange(0, 99);
- const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
- // Existing rarity codes 0-3 are stable for compatibility.
- // 4 Emerald and 5 Legendary add special high-end reward targets.
- // Bosses always roll at least Epic; max-level bosses can yield Legendary.
- LastLootRarity = bBossEnemy
-   ? (Level >= 60 && LootRoll < 12 ? 5 : (Level >= 30 && LootRoll < 40 ? 4 : 3))
-   : (bEliteEnemy
-     ? (Level >= 50 && LootRoll < 3 ? 5 : (Level >= 20 && LootRoll < 12 ? 4
-       : (LootRoll < 27 ? 3 : 2)))
-     : (Level >= 60 && LootRoll < 1 ? 5 : (Level >= 40 && LootRoll < 3 ? 4
-       : (LootRoll < 3 + RarityBias / 3 ? 3
-       : (LootRoll < 18 + RarityBias ? 2
-       : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
+ const int32 LootRoll = FMath::RandRange(0, 999);
+ LastLootRarity = MoonfallLootLuck::Rarity(LootRoll, Level, bEliteEnemy, bBossEnemy, GetLuck());
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // gear for any of the nine slots.
