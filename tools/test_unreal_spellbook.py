@@ -62,7 +62,7 @@ int main() {
  const auto cooldown = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.2f,0.f,0.f);
  if (cooldown.State!=EReadiness::Cooldown ||
      std::fabs(cooldown.CooldownRemaining-0.6f)>0.001f) return 13;
- const auto withHaste = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.6f,0.f,1.f);
+ const auto withHaste = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.7f,0.f,0.20f);
  if (withHaste.State!=EReadiness::Ready) return 14;
  const auto noMana = Evaluate(0,5.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
  if (noMana.State!=EReadiness::LowMana || noMana.ManaShortfall!=11.f) return 15;
@@ -77,6 +77,15 @@ int main() {
  if (invalidMana.State!=EReadiness::Invalid) return 19;
  const auto invalidHaste = Evaluate(1,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,-1.f);
  if (invalidHaste.State!=EReadiness::Invalid) return 20;
+ const auto future = Evaluate(0,100.f,100.f,70.f,100.f,1.f,5.f,6.f,0.f);
+ if (future.State!=EReadiness::Invalid) return 24;
+ float wait=0.f;
+ if (!TryCooldownRemaining(0.8f,0.7f,0.f,0.20f,wait) || wait!=0.f) return 25;
+ if (!TryCooldownRemaining(0.8f,0.5f,0.f,0.20f,wait) || wait<=0.f) return 26;
+ if (TryCooldownRemaining(0.8f,0.7f,0.f,0.21f,wait)) return 27;
+ if (TryCooldownRemaining(0.8f,0.7f,0.f,-0.01f,wait)) return 28;
+ if (TryCooldownRemaining(0.8f,0.7f,0.f,std::numeric_limits<float>::quiet_NaN(),wait)) return 29;
+ if (TryCooldownRemaining(0.8f,-1.f,-2.f,0.f,wait)) return 30;
  return 0;
 }
 """
@@ -107,6 +116,11 @@ int main() {
             self.assertEqual(actual, expected)
         self.assertIn('{"Mending Light", "Restoration",', book)
         self.assertIn("static_assert(sizeof(Spells)", book)
+        for hand in ("Hand", "1"):
+            self.assertIn(f"TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[{hand}], Haste, Remaining)", cast)
+        dual = hero.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        self.assertNotIn("Cooldowns[", dual)
+        self.assertIn("TryCast(LeftSpell, 0, 2.f);", dual)
 
     def test_cast_state_policy_is_read_only_and_uses_real_per_hand_timers(self):
         book = (SRC / "MoonfallSpellBook.h").read_text()
