@@ -825,6 +825,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Slot<MoonfallEquipmentSlots::SlotCount", self.hud)
         self.assertIn("(Slot%3)*(CardWidth+3.f)", self.hud)
         self.assertIn("(Slot/3)*(CardHeight+3.f)", self.hud)
+        self.assertIn("CardsAvailable>=120.f ? 60.f : 0.f", self.hud)
+        self.assertIn("if (CardsAvailable >= 36.f)", self.hud)
         self.assertIn("bValid && Code == Hero->GetEquipmentSlotCode(Slot)", self.hud)
         self.assertIn("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
 
@@ -1910,6 +1912,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Save->Version = EquipmentSaveVersion;", save)
         self.assertIn("if (EquipmentSaveVersion == MoonfallEquipmentSlots::ExpandedVersion)", save)
         self.assertIn("Save->ExtraEquippedCodes.Append(Extra.data(),", save)
+        for collection in ("PendingWorldLoot", "DungeonTreasureStates"):
+            self.assertIn(collection, save.split("WriteVersion(", 1)[1].split("CreateSaveGameObject", 1)[0])
+        self.assertIn("EquipmentSaveVersion = MoonfallEquipmentSlots::ExpandedVersion;", save)
+        self.assertIn("MoonfallEquipmentSlots::ValidInventoryCode(Record.ItemCode, Save->Version)", self.hero_cpp)
+        self.assertIn("MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)", self.hero_cpp)
         self.assertLess(save.index("const auto WornCodes"), save.index("UGameplayStatics::SaveGameToSlot("))
 
     def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
