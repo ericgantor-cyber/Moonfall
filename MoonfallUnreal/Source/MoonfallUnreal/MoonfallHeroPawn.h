@@ -242,6 +242,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
  const MoonfallPerformance::FSnapshot& GetPerformanceAudit() const { return PerformanceAudit.Snapshot; }
+ // Cached RHI-reported bytes; negative means unavailable.
+ int64 GetAuditDedicatedVideoMemory() const { return AuditDedicatedVideoMemory; }
+ int64 GetAuditTextureMemory() const { return AuditTextureMemory; }
+ int64 GetAuditTexturePool() const { return AuditTexturePool; }
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -475,6 +479,10 @@ public:
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  MoonfallPerformance::FAudit PerformanceAudit;
+ int64 AuditDedicatedVideoMemory=-1;
+ int64 AuditTextureMemory=-1;
+ int64 AuditTexturePool=-1;
+ void RefreshGraphicsMemoryAudit();
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;
