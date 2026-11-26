@@ -9,6 +9,7 @@ trap 'rm -rf -- "$workdir"' EXIT
 total=0
 passed=0
 rows=()
+evidence=()
 for test in "${tests[@]}"; do
   [[ "$test" == tools/test_unreal_gear_advisor_policy.cpp ]] && continue
   total=$((total + 1))
@@ -26,6 +27,7 @@ for test in "${tests[@]}"; do
     result="Compile failed ($?)"
   fi
   rows+=("| $test | $result |")
+  evidence+=("$(basename "$test")"$'\t'"$result")
 done
 {
   echo '### Additional GCC portable policy tests'
@@ -36,4 +38,7 @@ done
   echo '| --- | --- |'
   printf '%s\n' "${rows[@]}"
 } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+if [[ -n "${MOONFALL_POLICY_RESULTS:-}" ]]; then
+  printf '%s\n' "${evidence[@]}" > "$MOONFALL_POLICY_RESULTS"
+fi
 [[ "$total" -gt 0 && "$passed" -eq "$total" ]]
