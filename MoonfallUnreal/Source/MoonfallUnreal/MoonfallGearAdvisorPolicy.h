@@ -1,5 +1,27 @@
 #pragma once
 #include <array>
+namespace MoonfallEquipmentScoring {
+// Both legacy and expanded comparisons use identical rank and set weights.
+// Callers supply only validated owned equipped codes (or zero).
+template<class Loadout,class Validator>
+constexpr int Score(int Code,int Slot,const Loadout& Equipped,Validator Valid) {
+ if(Slot<0||Slot>=static_cast<int>(Equipped.size())||!Valid(Code,Slot))return 0;
+ const int Affix=Code/100000;
+ int Matching=0;
+ for(int Other=0;Other<static_cast<int>(Equipped.size());++Other)
+  if(Affix>0&&Other!=Slot&&Valid(Equipped[Other],Other)
+      &&Equipped[Other]/100000==Affix)++Matching;
+ return (Code%1000)*1000+((Code/1000)%10)*100+(Affix>0?10:0)+Matching*40;
+}
+template<class Loadout,class Validator>
+constexpr int Improvement(int Candidate,const Loadout& Equipped,Validator Valid) {
+ if(Candidate<=0)return 0;
+ const int Slot=(Candidate/10000)%10;
+ if(Slot<0||Slot>=static_cast<int>(Equipped.size())||!Valid(Candidate,Slot)
+     ||Candidate==Equipped[Slot])return 0;
+ return Score(Candidate,Slot,Equipped,Valid)-Score(Equipped[Slot],Slot,Equipped,Valid);
+}
+}
 namespace MoonfallGearAdvisor {
 using FEquipped = std::array<int, 3>;
 // Identical encoding and scoring weights to the original advisor. Worn
@@ -13,20 +35,10 @@ constexpr bool Valid(int Code, int Slot) {
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
 }
 constexpr int Score(int Code, int Slot, const FEquipped& Equipped) {
- if (!Valid(Code, Slot)) return 0;
- const int Affix = Code / 100000;
- int Matching = 0;
- for (int Other = 0; Other < 3; ++Other)
-  if (Affix > 0 && Other != Slot && Valid(Equipped[Other], Other)
-      && Equipped[Other] / 100000 == Affix) ++Matching;
- return (Code % 1000) * 1000 + ((Code / 1000) % 10) * 100
-     + (Affix > 0 ? 10 : 0) + Matching * 40;
+ return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid);
 }
 constexpr int Improvement(int Candidate, const FEquipped& Equipped) {
- if (Candidate <= 0) return 0;
- const int Slot = (Candidate / 10000) % 10;
- if (!Valid(Candidate, Slot) || Candidate == Equipped[Slot]) return 0;
- return Score(Candidate, Slot, Equipped) - Score(Equipped[Slot], Slot, Equipped);
+ return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid);
 }
 
  // Keep tier and rarity progression primary; affix changes may improve sets.
@@ -94,6 +106,14 @@ constexpr bool Valid(int Code,int Slot) {
  if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
  // Normalize the slot digit only, then reuse the existing tier/rarity/affix validator.
  return MoonfallGearAdvisor::Valid(Code-Slot*10000,0);
+}
+// Individual item comparisons preserve the legacy per-piece score semantics.
+// Whole-loadout optimization uses TotalScore below, including both sides of a set pair.
+constexpr int Score(int Code,int Slot,const FLoadout& Equipped) {
+ return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid);
+}
+constexpr int Improvement(int Candidate,const FLoadout& Equipped) {
+ return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid);
 }
 constexpr FLoadout ExpandLegacy(const MoonfallGearAdvisor::FEquipped& Old) {
  FLoadout Out{};
