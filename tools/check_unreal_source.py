@@ -31,6 +31,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("if(Width>=480.f)",atlas)
         self.assertIn("QuestButtons.HitAuto(MouseX-PanelL,MouseY-PanelT)) { ResetQuestTracking(); return; }",pointer)
         self.assertLess(pointer.index("ResetQuestTracking(); return;"),pointer.index("MoonfallQuestJournal::HitRow"))
+        self.assertIn("J::PageButtons(Width,Height)",log)
+        self.assertIn("MoonfallQuestJournal::PageButtons(PanelW,PanelH)",pointer)
+        self.assertIn("MoonfallQuestJournal::SelectPage(Selected,Rows,Count,PageDirection)",pointer)
+        self.assertLess(pointer.index("MoonfallQuestJournal::SelectPage"),pointer.index("ToggleSelectedQuestTracking()"))
+        self.assertIn('TEXT("< PREV")',log)
+        self.assertIn('TEXT("NEXT >")',log)
         reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
         self.assertIn("bManualQuestTracking=false;",reset)
         self.assertIn("ManualQuestMask={};",reset)
