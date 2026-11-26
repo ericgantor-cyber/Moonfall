@@ -28,7 +28,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                          "MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount",
                          "VisibleRows(Available,TotalRows)",
                          "Goals.Indices[Row-Contracts.TrackedCount]",
-                         "MoonfallQuestXP::Reward(Cost,Hero->Level)"):
+                         "MoonfallQuestXP::Preview(Cost,Hero->Level,",
+                         "Hero->Experience,Hero->ExperienceToNextLevel)",
+                         'TEXT("MAX LEVEL")', 'TEXT(" | LEVEL UP")',
+                         "Rows,TotalRows,Contracts.Active"):
             self.assertIn(required, tracker)
         for forbidden in ("TActorIterator", "GetAllActorsOfClass", "SaveWorldProgress(",
                           "AwardExperience(", "ResidentQuestStates.Add("):

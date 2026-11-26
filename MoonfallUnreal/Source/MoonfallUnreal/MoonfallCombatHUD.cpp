@@ -2803,7 +2803,7 @@ void AMoonfallCombatHUD::DrawHUD()
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("QUEST JOURNAL  |  %d/%d SHOWN"),Rows,TotalRows),
+    DrawText(FString::Printf(TEXT("QUEST JOURNAL | %d/%d SHOWN | %d CONTRACTS"),Rows,TotalRows,Contracts.Active),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
@@ -2818,8 +2818,12 @@ void AMoonfallCombatHUD::DrawHUD()
       DrawText(FString::Printf(TEXT("%s | %s | %s"),UTF8_TO_TCHAR(Entry.Name),
           UTF8_TO_TCHAR(Entry.Location),bReady?TEXT("TURN IN"):TEXT("ACTIVE")),
          Tint,Left+14.f,Y+1.f,nullptr,0.68f);
-      const int Reward=MoonfallQuestXP::Reward(Cost,Hero->Level);
-      DrawText(FString::Printf(TEXT("Salvage %d/%d | +%d XP"),Salvage,Cost,Reward),
+      const auto Reward=MoonfallQuestXP::Preview(Cost,Hero->Level,
+          Hero->Experience,Hero->ExperienceToNextLevel);
+      const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
+        : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
+            Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
+      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel),
          FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+12.f,nullptr,0.64f);
       continue;
      }
