@@ -383,35 +383,131 @@ $bugReports.Add_Click({
                                     param($sender,$eventArgs)
                                     if ($pending.Active) { $eventArgs.Cancel = $true }
                                 })
-                                # Dedicated runspace keeps network I/O off the WinForms thread.
-                                $worker = [PowerShell]::Create()
-                                [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$promptBox.Text).AddParameter('Approved',$true)
-                                $pending.Task = $worker.BeginInvoke()
-                                $pending.Active = $true
-                                $poll = New-Object Windows.Forms.Timer
-                                $poll.Interval = 250
-                                $poll.Add_Tick({
-                                    if (-not $pending.Task.IsCompleted) { return }
-                                    $poll.Stop()
-                                    try {
-                                        $answerBox.Text = ($worker.EndInvoke($pending.Task) | Out-String).Trim()
-                                        if ($worker.HadErrors -or -not $answerBox.Text) { throw 'No usable analysis was returned.' }
-                                        $status.Text = 'AI analysis ready. Verify suggestions before applying changes.'
-                                    } catch {
-                                        $answerBox.Text = 'Live analysis did not complete. Check your API key, billing, or network, then retry manually or use the copy handoff.'
-                                        $status.Text = 'Request failed. No automatic retry.'
-                                    } finally {
-                                        $pending.Active = $false
-                                        $done.Enabled = $true
+                                $originalReport = $promptBox.Text
+                                $session = @{ Worker=$null; Task=$null; LastAnswer=''; Requests=0 }
+                                $question = New-Object Windows.Forms.TextBox
+                                $question.Dock = 'Bottom'
+                                $question.Multiline = $true
+                                $question.Height = 70
+                                $question.MaxLength = 2000
+                                $question.AccessibleName = 'Ask a follow-up question about this bug'
+                                $question.Enabled = $false
+                                $follow = New-Object Windows.Forms.Button
+                                $follow.Dock = 'Bottom'
+                                $follow.Height = 40
+                                $follow.Text = 'REVIEW FOLLOW-UP'
+                                $follow.AccessibleName = 'Review the next AI question and its context before sending'
+                                $follow.Enabled = $false
+                                $copyAnswer = New-Object Windows.Forms.Button
+                                $copyAnswer.Dock = 'Bottom'
+                                $copyAnswer.Height = 36
+                                $copyAnswer.Text = 'COPY LATEST ANALYSIS'
+                                $copyAnswer.AccessibleName = 'Copy latest AI analysis to clipboard'
+                                $copyAnswer.Enabled = $false
+                                $analysisWindow.Controls.Add($follow)
+                                $analysisWindow.Controls.Add($question)
+                                $analysisWindow.Controls.Add($copyAnswer)
+                                $copyAnswer.Add_Click({
+                                    if ($session.LastAnswer) {
+                                        try { [Windows.Forms.Clipboard]::SetText($session.LastAnswer); $status.Text = 'Latest analysis copied.' }
+                                        catch { $status.Text = 'Clipboard unavailable. Select and copy the response manually.' }
                                     }
                                 })
-                                $poll.Start()
+                                $poll = New-Object Windows.Forms.Timer
+                                $poll.Interval = 250
+                                $startRequest = {
+                                    param([string]$request)
+                                    if ($pending.Active -or $session.Requests -ge 10) { return }
+                                    $worker = [PowerShell]::Create()
+                                    try {
+                                        [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$request).AddParameter('Approved',$true)
+                                        $session.Task = $worker.BeginInvoke()
+                                        $session.Worker = $worker
+                                        $session.Requests++
+                                        $pending.Active = $true
+                                        $done.Enabled = $false
+                                        $question.Enabled = $false
+                                        $follow.Enabled = $false
+                                        $status.Text = ('Request {0}/10 in progress. No automatic retry.' -f $session.Requests)
+                                        $poll.Start()
+                                    } catch {
+                                        $worker.Dispose()
+                                        $status.Text = 'Unable to start request. No automatic retry.'
+                                        $done.Enabled = $true
+                                        $question.Enabled = [bool]$session.LastAnswer
+                                        $follow.Enabled = [bool]$session.LastAnswer
+                                    }
+                                }
+                                $poll.Add_Tick({
+                                    if (-not $session.Task.IsCompleted) { return }
+                                    $poll.Stop()
+                                    try {
+                                        $reply = ($session.Worker.EndInvoke($session.Task) | Out-String).Trim()
+                                        if ($session.Worker.HadErrors -or -not $reply) { throw 'No usable analysis was returned.' }
+                                        $session.LastAnswer = $reply
+                                        $answerBox.Text = $reply
+                                        $question.Clear()
+                                        $status.Text = ('AI analysis ready. {0}/10 requests used. Verify suggestions before applying changes.' -f $session.Requests)
+                                    } catch {
+                                        $status.Text = 'Request failed. Check local API configuration or billing. Previous analysis retained.'
+                                    } finally {
+                                        $session.Worker.Dispose()
+                                        $session.Worker = $null
+                                        $session.Task = $null
+                                        $pending.Active = $false
+                                        $done.Enabled = $true
+                                        $copyAnswer.Enabled = [bool]$session.LastAnswer
+                                        $question.Enabled = [bool]$session.LastAnswer -and $session.Requests -lt 10
+                                        $follow.Enabled = $question.Enabled
+                                    }
+                                })
+                                $follow.Add_Click({
+                                    if ($pending.Active -or $session.Requests -ge 10) { return }
+                                    if ([string]::IsNullOrWhiteSpace($question.Text)) { $status.Text = 'Enter a follow-up question first.'; return }
+                                    try {
+                                        $builder = Join-Path $PSScriptRoot 'New-MoonfallAIFollowup.ps1'
+                                        $request = & $builder -OriginalReport $originalReport -PreviousAnswer $session.LastAnswer -Question $question.Text
+                                        $review = New-Object Windows.Forms.Form
+                                        try {
+                                            $review.Text = 'Review exact follow-up request to OpenAI'
+                                            $review.Size = New-Object Drawing.Size(690,480)
+                                            $review.StartPosition = 'CenterParent'
+                                            $review.Font = New-Object Drawing.Font('Segoe UI',11)
+                                            $text = New-Object Windows.Forms.TextBox
+                                            $text.Multiline = $true
+                                            $text.ReadOnly = $true
+                                            $text.ScrollBars = 'Vertical'
+                                            $text.Dock = 'Fill'
+                                            $text.Text = $request
+                                            $text.AccessibleName = 'Exact follow-up text including original report and prior response'
+                                            $send = New-Object Windows.Forms.Button
+                                            $send.Dock = 'Bottom'
+                                            $send.Height = 40
+                                            $send.Text = 'SEND PAID API REQUEST'
+                                            $send.AccessibleName = 'Explicitly approve sending this follow-up to OpenAI'
+                                            $send.DialogResult = [Windows.Forms.DialogResult]::OK
+                                            $cancelReview = New-Object Windows.Forms.Button
+                                            $cancelReview.Dock = 'Bottom'
+                                            $cancelReview.Height = 38
+                                            $cancelReview.Text = 'CANCEL'
+                                            $cancelReview.AccessibleName = 'Cancel follow-up without sending'
+                                            $cancelReview.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                                            $review.CancelButton = $cancelReview
+                                            $review.Controls.Add($text)
+                                            $review.Controls.Add($send)
+                                            $review.Controls.Add($cancelReview)
+                                            $review.ActiveControl = $cancelReview
+                                            if ($review.ShowDialog($analysisWindow) -eq [Windows.Forms.DialogResult]::OK) { & $startRequest $request }
+                                        } finally { $review.Dispose() }
+                                    } catch { $status.Text = 'Unable to prepare follow-up. No new request was made.' }
+                                })
+                                & $startRequest $originalReport
                                 [void]$analysisWindow.ShowDialog($preview)
                             } catch {
                                 [void][Windows.Forms.MessageBox]::Show('Unable to complete live analysis. Use the manual handoff.','Moonfall live AI')
                             } finally {
                                 if ($poll) { $poll.Stop(); $poll.Dispose() }
-                                if ($worker) { $worker.Dispose() }
+                                if ($session -and $session.Worker) { $session.Worker.Dispose() }
                                 $analysisWindow.Dispose()
                             }
                         })
