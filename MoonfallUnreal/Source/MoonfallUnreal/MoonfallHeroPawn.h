@@ -220,6 +220,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
  UFUNCTION(BlueprintPure, Category="Moonfall|World") double GetCelestialClockSeconds() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|World") bool TryWaitCelestialHours(int32 Hours);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") void RespawnAtCheckpoint();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
@@ -522,6 +523,7 @@ private:
  bool bWorldProgressInitialized = false;
  double CelestialSavedPhase = 0.0;
  double CelestialSessionAnchor = 0.0;
+ bool bCelestialWaitInProgress = false;
  // Mark the occupied XY cell; routine two-second autosave persists discovery.
  void RevealAtlasAtWorldLocation();
  // Collision-aware teleport during load can fire shrine overlaps before all
