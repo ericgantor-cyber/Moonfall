@@ -674,7 +674,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (!FMath::IsFinite(Distance)) return;
  // Sanctuary practice sentries never pursue players through the safe village.
  // Only deliberate close-range approaches activate their forgiving attacks.
- const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ static const FName PracticeSimulationTag(TEXT("MoonfallSanctuaryPractice"));
+ const bool bSanctuaryPractice = ActorHasTag(PracticeSimulationTag);
  if (bSanctuaryPractice && Distance > 450.f) {
   // A trainee may freely retreat: no lingering aim, tells or instant strike.
   WindupEndsAt = -1.f;
@@ -707,8 +708,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // but wake nearby combat immediately and check distant dungeon mobs less often.
  // No enemy is removed, respawned, or granted free attacks by this optimization.
  // Bosses and elite encounters keep their existing responsiveness.
+ static const FName DungeonSimulationTag(TEXT("MoonfallDungeonEncounter"));
+ const bool bDungeonSimulationMember = ActorHasTag(DungeonSimulationTag);
  const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea
-   && Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")));
+   && bDungeonSimulationMember;
  const float DesiredTickInterval = bDashing ? 0.03f
    : (bInCombatArea ? 0.1f
       : (bDistantDungeonMob ? (Distance >= 10000.f ? 2.0f : 1.0f) : 0.4f));
@@ -720,11 +723,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // The longer out-of-combat tick interval must not slow return travel to a crawl.
  const auto ReturnToDungeonPost = [&]() {
   if (bBoss || bElite
-      || !ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))
+      || !bDungeonSimulationMember
       || DungeonHomePosition.ContainsNaN()) return;
   FVector ToHome = DungeonHomePosition - GetActorLocation();
   ToHome.Z = 0.f;
-  const float HomeDistance = ToHome.Size();
+  // Most distant guards are already at their post. Skip square roots there.
+  const double HomeDistanceSq = ToHome.SizeSquared();
+  if (!FMath::IsFinite(HomeDistanceSq) || HomeDistanceSq <= FMath::Square(85.0)) return;
+  const float HomeDistance = static_cast<float>(FMath::Sqrt(HomeDistanceSq));
   if (!FMath::IsFinite(HomeDistance) || HomeDistance <= 85.f) return;
   const float SafeReturnSpeed = FMath::Clamp(
     FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
