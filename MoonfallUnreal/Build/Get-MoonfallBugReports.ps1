@@ -1,6 +1,6 @@
 # Local report index. Does not upload, delete, open arbitrary paths or read saves.
 [CmdletBinding()]
-param([switch]$IncludeInstalled)
+param([switch]$IncludeInstalled, [string]$InstallDirectory)
 $ErrorActionPreference = 'Stop'
 $root = Join-Path (Split-Path $PSScriptRoot -Parent) 'Saved\BugReports'
 $roots = @([pscustomobject]@{ Path=$root; Source='Development checkout' })
@@ -17,6 +17,28 @@ function Test-PlainDirectory([string]$Directory) {
         $item = $item.Parent
     }
     return $true
+}
+# Accept only local, absolute installation roots with the expected game exe.
+# Registry data is a hint, never executed or used to scan arbitrary trees.
+function Add-InstallReportRoot([string]$InstallPath) {
+    if ([string]::IsNullOrWhiteSpace($InstallPath) -or $InstallPath -notmatch '^[A-Za-z]:[\\/]') { return }
+    try {
+        $full = [IO.Path]::GetFullPath($InstallPath)
+        if (-not (Test-PlainDirectory $full)) { return }
+        $game = Join-Path $full 'MoonfallUnreal.exe'
+        if (-not (Test-Path -LiteralPath $game -PathType Leaf)) { return }
+        if ((Get-Item -LiteralPath $game -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { return }
+        [pscustomobject]@{ Path=(Join-Path $full 'MoonfallUnreal\Saved\BugReports'); Source='Custom installation' }
+    } catch { Write-Warning 'Moonfall installation location could not be verified.' }
+}
+if ($IncludeInstalled -and -not $InstallDirectory) {
+    try {
+        $registration = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal' -Name InstallLocation -ErrorAction Stop
+        $InstallDirectory = $registration.InstallLocation
+    } catch { }
+}
+if ($IncludeInstalled -and $InstallDirectory) {
+    $roots += @(Add-InstallReportRoot $InstallDirectory)
 }
 function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Pattern, [string]$Source) {
     if (-not (Test-PlainDirectory $Directory)) { return }
@@ -67,7 +89,11 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
     }
 }
 $reports = @()
+$seenRoots = @{}
 foreach ($entry in $roots) {
+    $normalized = [IO.Path]::GetFullPath($entry.Path).TrimEnd('\','/')
+    if ($seenRoots.ContainsKey($normalized)) { continue }
+    $seenRoots[$normalized] = $true
     if (Test-PlainDirectory $entry.Path) {
         $reports += @(Read-ReportDirectory $entry.Path 'moonfall_manual_bug_diagnostics' '^[0-9a-fA-F]{32}\.json$' $entry.Source)
         $reports += @(Read-ReportDirectory (Join-Path $entry.Path 'Recovery') 'moonfall_recovery_snapshot' '^[0-9a-fA-F]{32}\.json\.(next|previous)\.json$' $entry.Source)
