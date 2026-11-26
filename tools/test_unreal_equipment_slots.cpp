@@ -91,6 +91,20 @@ constexpr bool WriteVersions() {
      && S::WriteVersion(Migrated,Bag,10001)==0;
 }
 static_assert(WriteVersions());
+constexpr bool ExtraEquip() {
+ S::FExtra Extra{};
+ for(int Slot=S::LegacyCount;Slot<S::SlotCount;++Slot){
+  const int Code=Slot*10000+1001;
+  if(!S::EquipExtra(Extra,Code)||S::EquipExtra(Extra,Code))return false;
+  if(Extra[Slot-S::LegacyCount]!=Code)return false;
+  if(!S::EquipExtra(Extra,Code+1))return false;
+ }
+ const auto Before=Extra;
+ return !S::EquipExtra(Extra,1001)&&!S::EquipExtra(Extra,0)
+     &&!S::EquipExtra(Extra,91001)&&!S::EquipExtra(Extra,100001)
+     &&Extra[0]==Before[0]&&Extra[5]==Before[5];
+}
+static_assert(ExtraEquip());
 constexpr bool Removal() {
  S::FLoadout Worn{};
  int Bag[10]{};
