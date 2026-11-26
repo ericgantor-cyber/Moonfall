@@ -1154,8 +1154,14 @@ int main(){
         # The resident allowlist includes both Firstlight sanctuary NPCs.
         validator=hero.split("bool IsNamedMoonfallResident(FName Id) {",1)[1].split(
             "bool AMoonfallHeroPawn::SupportsResidentContract(",1)[0]
+        self.assertIn("return NamedMoonfallResidentIds().Contains(Id);",validator)
+        catalog=(SRC/"MoonfallQuestJournal.h").read_text()
         for name in ("CrossroadsGuide","FirstlightArchivist","FirstlightWatchkeeper"):
-            self.assertIn('FName(TEXT("'+name+'"))',validator)
+            self.assertIn('{"'+name+'",',catalog)
+        builder=hero.split("const TArray<FName>& NamedMoonfallResidentIds() {",1)[1].split(
+            "bool IsNamedMoonfallResident(FName Id) {",1)[0]
+        self.assertIn("for (const auto& Entry : MoonfallQuestJournal::Residents)",builder)
+        self.assertIn("Result.Add(FName(UTF8_TO_TCHAR(Entry.Id)))",builder)
         # Do not present quest offers for unknown editor-spawned or dynamic NPCs.
         talk=npc.split("bool AMoonfallWorldNPC::TryTalk(",1)[1].split(
             "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
