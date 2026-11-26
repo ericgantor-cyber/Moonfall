@@ -337,13 +337,17 @@ class ProductionArtTests(unittest.TestCase):
                       "Now+10.0", "Now+60.0", 'TEXT("Recovery")',
                       "RecoverySnapshotPath.IsEmpty()", "FGuid::NewGuid()",
                       "Json.Len()<=32768", "FJsonSerializer::Serialize",
-                      "Files.Move(*RecoverySnapshotPath,*Temp,true)",
+                      "Files.Move(*Previous,*Next,false)", "Files.Move(*Next,*Temp,false)",
+                      'TEXT(".previous.json")', 'TEXT(".next.json")',
                       "Super::EndPlay(EndPlayReason)"):
             self.assertIn(token, recovery)
         for token in ("HttpModule", "LaunchURL", "LoadFileToString",
                       "SaveGameToSlot", "GetUserName", "GetComputerName"):
             self.assertNotIn(token, recovery)
         self.assertIn("if (bGameplay) UpdateRecoverySnapshot(Now);", pawn)
+        self.assertIn("StageAuditWarmupUntil=-1;", pawn)
+        self.assertIn("StageAudit.Reset();", pawn)
+        self.assertNotIn("Files.Move(*RecoverySnapshotPath,*Temp,true)", recovery)
 
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
