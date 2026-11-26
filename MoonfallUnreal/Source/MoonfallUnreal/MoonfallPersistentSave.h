@@ -73,6 +73,8 @@ public:
  UPROPERTY() int32 EquippedWeaponCode = 0;
  UPROPERTY() int32 EquippedArmorCode = 0;
  UPROPERTY() int32 EquippedAccessoryCode = 0;
+ // Reserved for V17; V16 writers leave empty and loaders reject populated data.
+ UPROPERTY() TArray<int32> ExtraEquippedCodes;
  UPROPERTY() int32 LeftSpell = 0;
  UPROPERTY() int32 RightSpell = 1;
 };
