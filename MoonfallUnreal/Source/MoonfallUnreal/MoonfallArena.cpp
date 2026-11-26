@@ -7,6 +7,9 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Engine/DirectionalLight.h"
+#include "EngineUtils.h"
 #include "MoonfallSanctuaryArchitecture.h"
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallRoadLandmarks.h"
@@ -298,10 +301,60 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  }
  UpdateRegionWeather(0.f);
 }
+void AMoonfallArena::UpdateCelestialGlobalLighting(int32 Minute) {
+ if (!bEnableCelestialGlobalLighting || !GetWorld()) return;
+ if (!bCelestialLightResolved) {
+  bCelestialLightResolved=true;
+  bool bHasAuthoredLight=false;
+  UDirectionalLightComponent* Selected=nullptr;
+  int32 TaggedCount=0;
+  // Once per arena: use only a unique explicitly opted-in movable light.
+  // An untagged or static authored sun blocks automatic fallback creation.
+  for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It) {
+   if (!IsValid(*It) || It->IsActorBeingDestroyed()) continue;
+   bHasAuthoredLight=true;
+   auto* Light=Cast<UDirectionalLightComponent>(It->GetLightComponent());
+   if (IsValid(Light) && Light->Mobility==EComponentMobility::Movable
+       && It->ActorHasTag(FName(TEXT("MoonfallCelestial")))) {
+    ++TaggedCount; Selected=Light;
+   }
+  }
+  if (TaggedCount==1) CelestialDirectionalLight=Selected;
+  else if (!bHasAuthoredLight) {
+   OwnedCelestialLight=NewObject<UDirectionalLightComponent>(this,TEXT("CelestialDirectionalLight"));
+   if (IsValid(OwnedCelestialLight)) {
+    OwnedCelestialLight->SetupAttachment(GetRootComponent());
+    OwnedCelestialLight->SetMobility(EComponentMobility::Movable);
+    OwnedCelestialLight->SetRelativeRotation(FRotator(-50.f,-35.f,0.f));
+    OwnedCelestialLight->SetCastShadows(false);
+    OwnedCelestialLight->SetIntensity(3.f);
+    AddInstanceComponent(OwnedCelestialLight);
+    OwnedCelestialLight->RegisterComponent();
+    CelestialDirectionalLight=OwnedCelestialLight.Get();
+   }
+  }
+  if (auto* Light=CelestialDirectionalLight.Get()) {
+   CelestialBaseIntensity=Light->Intensity;
+   CelestialBaseColor=Light->GetLightColor();
+  }
+ }
+ auto* Light=CelestialDirectionalLight.Get();
+ if (!IsValid(Light) || !FMath::IsFinite(CelestialBaseIntensity)
+     || CelestialBaseIntensity<0.f || CelestialBaseColor.ContainsNaN()) return;
+ const int32 Bucket=MoonfallLivingSimulation::CelestialLightBucket(Minute);
+ if (LastGlobalLightBucket==Bucket) return;
+ LastGlobalLightBucket=Bucket;
+ const float Day=MoonfallLivingSimulation::SunlightAmount(Bucket);
+ const FLinearColor Tint=FMath::Lerp(FLinearColor(0.56f,0.68f,1.f),
+     FLinearColor(1.f,0.94f,0.84f),Day);
+ Light->SetLightColor(CelestialBaseColor*Tint);
+ Light->SetIntensity(CelestialBaseIntensity*MoonfallLivingSimulation::GlobalLightScale(Bucket));
+}
 void AMoonfallArena::UpdateRegionWeather(float WorldTime, double CelestialTime) {
  if (!FMath::IsFinite(WorldTime) || WorldTime<0.f) return;
  const int32 Phase=MoonfallLivingSimulation::Phase(WorldTime,360.f);
  const int32 Hour=MoonfallLivingSimulation::LightingHour(MoonfallLivingSimulation::CelestialMinute(CelestialTime));
+ UpdateCelestialGlobalLighting(MoonfallLivingSimulation::CelestialMinute(CelestialTime));
  const bool bCelestialChanged=Hour!=LastCelestialLightingHour;
  if (LastRegionWeatherPhase==Phase && !bCelestialChanged) return;
  LastRegionWeatherPhase=Phase;
