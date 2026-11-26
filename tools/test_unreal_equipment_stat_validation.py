@@ -9,7 +9,7 @@ class EquipmentStatSafety(unittest.TestCase):
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", body)
-        self.assertIn("!MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)", body)
+        self.assertIn("!MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)", body)
         policy = SOURCE.with_name("MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         for token in ("Code <= 0", "EncodedSlot == Slot", "Affix >= 0 && Affix <= 3",
                       "Rarity >= 0", "Rarity <= 5", "Tier >= 1", "Tier <= 25",
