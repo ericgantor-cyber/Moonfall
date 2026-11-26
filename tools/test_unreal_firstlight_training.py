@@ -129,7 +129,7 @@ int main() {
     def test_training_ai_limits_and_no_extra_world_scans(self):
         e=self.enemy
         self.assertIn('#include "MoonfallPracticeAI.h"',e)
-        self.assertIn('const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));',e)
+        self.assertIn('const bool bSanctuaryPractice = ActorHasTag(PracticeSimulationTag);',e)
         far=e.split("if (bSanctuaryPractice && Distance > 450.f) {",1)[1].split(
             "// Far-away enemies use a slower think rate",1)[0]
         for required in ("LockedAttackDirection = FVector::ZeroVector;",
