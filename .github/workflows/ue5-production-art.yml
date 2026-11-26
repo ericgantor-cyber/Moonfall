@@ -13,6 +13,7 @@ on:
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
       - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
       - 'MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1'
       - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
@@ -35,6 +36,7 @@ on:
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
       - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
       - 'MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1'
       - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
@@ -64,7 +66,7 @@ jobs:
       - shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('Get-MoonfallBugReports.ps1','New-MoonfallAIBugPrompt.ps1','Build-Center.ps1','Invoke-MoonfallAIAnalysis.ps1')) {
+          foreach ($script in @('Get-MoonfallBugReports.ps1','New-MoonfallAIBugPrompt.ps1','Build-Center.ps1','Invoke-MoonfallAIAnalysis.ps1','New-MoonfallAIFollowup.ps1')) {
             $tokens=$null; $errors=$null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Resolve-Path 'MoonfallUnreal/Build').Path $script),[ref]$tokens,[ref]$errors)
             if ($errors.Count -gt 0) { throw ("PowerShell parse failure in " + $script + ": " + ($errors | Out-String)) }
@@ -165,3 +167,11 @@ jobs:
             try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt ('x'*16001) -Approved } catch { $blocked = $true }
             if (-not $blocked) { throw 'Request size gate failed' }
           } finally { [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$oldKey,'Process') }
+
+          $followup = & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport ('r'*16000) -PreviousAnswer ('a'*24000) -Question ('q'*2000)
+          if ($followup.Length -gt 16000 -or $followup -notmatch 'context truncated locally' -or $followup -notmatch 'PLAYER FOLLOW-UP QUESTION:') { throw 'Follow-up context bounds failed' }
+          $followup = & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport 'test report' -PreviousAnswer 'test answer' -Question 'What should I test next?'
+          if ($followup -notmatch 'test report' -or $followup -notmatch 'test answer' -or $followup -notmatch 'What should I test next') { throw 'Follow-up context missing' }
+          $blocked = $false
+          try { & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport 'test' -PreviousAnswer 'test' -Question '   ' } catch { $blocked = $true }
+          if (-not $blocked) { throw 'Blank follow-up accepted' }
