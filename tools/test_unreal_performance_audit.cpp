@@ -2,7 +2,23 @@
 #include <cassert>
 #include <limits>
 using namespace MoonfallPerformance;
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallBugBreadcrumbs.h"
 int main() {
+ using MoonfallDiagnostics::FBreadcrumbs;
+ using MoonfallDiagnostics::EEvent;
+ FBreadcrumbs events;
+ events.Record(EEvent::SpellCast,1.0);
+ events.Record(EEvent::SpellCast,1.1);
+ assert(events.Size()==1);
+ events.Record(EEvent::DamageTaken,1.2);
+ assert(events.Size()==2 && events.At(1).Kind==EEvent::DamageTaken);
+ events.Record(EEvent::OptionsOpened,std::numeric_limits<double>::quiet_NaN());
+ assert(events.Size()==2);
+ for(int i=0;i<40;++i) events.Record(EEvent::GraphicsChanged,2.0+i);
+ assert(events.Size()==32 && events.At(0).At==10.0 && events.At(31).At==41.0);
+ events.Record(EEvent::OptionsClosed,0.5);
+ assert(events.Size()==1 && events.At(0).Kind==EEvent::OptionsClosed);
+
  FAudit audit;
  double now=0;
  audit.Observe(now,true);
