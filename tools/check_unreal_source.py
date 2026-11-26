@@ -4794,7 +4794,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return", retrofit)
 
 
-    def test_native_dungeon_readme_matches_safe_four_test_runner(self):
+    def test_native_dungeon_readme_matches_safe_five_test_runner(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
         section = readme.split("## Native UE5.4 dungeon verification", 1)[1].split(
             "The **new startup map generator**", 1)[0]
@@ -4807,6 +4807,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.SeededRoomArchetypes",
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
+            "Moonfall.Controls.CurrentInputContract",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4822,7 +4823,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             if line.lstrip().startswith(("1. `Moonfall.Dungeons.",
                                          "2. `Moonfall.Dungeons.",
                                          "3. `Moonfall.Dungeons.",
-                                         "4. `Moonfall.Dungeons."))
+                                         "4. `Moonfall.Dungeons.",
+                                         "5. `Moonfall.Controls."))
         ]
         self.assertEqual(runner_names, expected)
         self.assertEqual(readme_names, expected)
@@ -4846,7 +4848,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UnrealEditor-Cmd.exe", script)
         self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
-        self.assertIn("-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit", script)
+        self.assertIn("-ExecCmds=Automation RunTests Moonfall; Quit", script)
         self.assertIn("-TestExit=Automation Test Queue Empty", script)
         self.assertIn("Test Completed", script)
         self.assertIn("Passed", script)
@@ -4869,6 +4871,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("name: Run real UE5.4 dungeon automation tests", workflow)
         self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
+        self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
+        native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
+        for token in ("GetDefault<UInputSettings>()", "GetActionMappings()", "GetAxisMappings()", "RequireExclusiveAction", "MovementScales", "Moonfall.Controls.CurrentInputContract"):
+            self.assertIn(token, native)
         self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
@@ -5250,7 +5256,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all four native tests explicitly passed", runner)
+        self.assertIn("all five required native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
