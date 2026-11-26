@@ -18,10 +18,17 @@ class EquipmentStatSafety(unittest.TestCase):
                       "MoonfallGearAdvisor::Valid(Code-Slot*10000,0)"):
             self.assertIn(token, policy)
     def test_stat_bonuses_validate_ownership(self):
-        for token in ("InventoryItemCodes.Contains(EquippedWeaponCode)",
-                      "InventoryItemCodes.Contains(EquippedAccessoryCode)",
-                      "InventoryItemCodes.Contains(EquippedArmorCode)",
-                      "ValidEquippedTier(", "ValidEquippedTraitRarity("):
-            self.assertIn(token, self.source)
+        getter = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[1].split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[0]
+        tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split("int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
+        self.assertIn("GetValidatedEquippedTier(Slot) > 0 ? Code : 0", getter)
+        self.assertIn("InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0", tier)
+        self.assertIn("Slot < 0 || Slot > 2", tier)
+        for token in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
+            self.assertIn(token, tier)
+        for name, slot, trait in (("Weapon", 0, 1), ("Armor", 1, 2), ("Accessory", 2, 3)):
+            self.assertIn(f"Owned{name}Code = GetEquipmentSlotCode({slot})", self.source)
+            self.assertIn(f"ValidEquippedTraitRarity(Owned{name}Code, {slot}, {trait})", self.source)
+            self.assertIn(f"ValidEquippedTier(Owned{name}Code, {slot})", self.source)
+        self.assertIn("const float Tier = static_cast<float>(GetValidatedEquippedTier(0));", self.source)
 if __name__ == "__main__":
     unittest.main()
