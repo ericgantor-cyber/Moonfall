@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Containers/ArrayView.h"
 #include "GameFramework/GameModeBase.h"
 #include "TimerManager.h"
 class AMoonfallArena;
@@ -143,7 +144,7 @@ private:
  bool IsLocalCompanionOwner(const AMoonfallHeroPawn* Hero) const;
  int32 SocialSpeakerCursor = 0;
  int32 LastSocialCombatPhase = -1;
- void ShareNearbyResidentRumor(const TArray<TWeakObjectPtr<AMoonfallWorldNPC>>& Candidates);
+ void ShareNearbyResidentRumor(TArrayView<const TWeakObjectPtr<AMoonfallWorldNPC>> Candidates);
  TWeakObjectPtr<AActor> ActiveAmbientEncounter;
  // World-pulse ownership prevents the sole active encounter despawning
  // during an open NPC conversation or an active nearby monster battle.
