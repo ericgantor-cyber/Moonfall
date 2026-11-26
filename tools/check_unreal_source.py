@@ -1675,6 +1675,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Planner.Finish()", body)
         self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", body)
         self.assertIn("EquipInventoryItem(Index)", body)
+        loop = body.split("for (int32 Slot = 0; Slot < 3; ++Slot)", 1)[1]
+        self.assertLess(loop.index("if (!IsValid(this) || IsActorBeingDestroyed()) break;"),
+                        loop.index("IsRecentlyInCombatForAmbientAI()"))
+        self.assertLess(loop.index("if (!IsValid(this) || IsActorBeingDestroyed()) break;"),
+                        loop.index("GetEquipmentSlotCode(Slot)"))
+        self.assertLess(loop.index("!bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen"),
+                        loop.index("InventoryItemCodes[Index] != Plan.Codes[Slot]"))
+        self.assertIn("bWorldProgressLoadInProgress || bTalentAllocationInProgress || bEquipmentCraftInProgress) break;", loop)
         self.assertIn("OnBestLoadoutEquipped(UpgradesEquipped);", body)
         self.assertNotIn("SalvageInventoryItem(", body)
         self.assertNotIn("RemoveAt(", body)
