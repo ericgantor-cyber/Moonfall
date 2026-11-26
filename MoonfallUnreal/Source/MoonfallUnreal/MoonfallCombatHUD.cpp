@@ -2902,7 +2902,7 @@ void AMoonfallCombatHUD::DrawHUD()
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active,TotalRows,Rows),
+    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active+MoonfallWorldQuest::ActiveCount(Seen,Defeated),TotalRows,Rows),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
