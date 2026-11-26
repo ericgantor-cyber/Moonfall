@@ -179,6 +179,26 @@ bool TryRestoreLoadout(const int* Codes,int Count,bool Expanded,Owns IsOwned,FLo
  return true;
 }
 
+// Validate legacy mirrors and expanded records as one transaction. Inactive
+// slots must be empty; when enabled, owned expanded gear survives migration.
+template<class Owns>
+bool TryRestoreMirroredLoadout(const int* Legacy,int LegacyCount,
+    const int* Expanded,int ExpandedCount,bool HasExpanded,int ActiveSlots,
+    Owns IsOwned,FLoadout& Out) {
+ if(ActiveSlots!=LegacySlotCount&&ActiveSlots!=SlotCount)return false;
+ FLoadout Mirrors{};
+ if(!TryRestoreLoadout(Legacy,LegacyCount,false,IsOwned,Mirrors))return false;
+ if(!HasExpanded){Out=Mirrors;return true;}
+ FLoadout Candidate{};
+ if(!TryRestoreLoadout(Expanded,ExpandedCount,true,IsOwned,Candidate))return false;
+ for(int Slot=0;Slot<LegacySlotCount;++Slot)
+  if(Candidate[Slot]!=Mirrors[Slot])return false;
+ for(int Slot=ActiveSlots;Slot<SlotCount;++Slot)
+  if(Candidate[Slot]!=0)return false;
+ Out=Candidate;
+ return true;
+}
+
 // Exact set-aware optimization by affix counts rather than enumerating 4^9
 // loadouts. A matching pair contributes 80 total (40 per equipped item).
 struct FPlan {
