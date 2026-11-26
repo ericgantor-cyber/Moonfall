@@ -36,7 +36,7 @@ public:
  UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> RegionWeatherLights;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|World")
  bool bEnableRegionalLandmarks = true;
- void UpdateRegionWeather(float WorldTime);
+ void UpdateRegionWeather(float WorldTime, double CelestialTime = 0.0);
  int32 LastRegionWeatherPhase = -1;
  int32 LastCelestialLightingHour = -1;
  int32 AppliedRegionWeather[6] = {INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE};
