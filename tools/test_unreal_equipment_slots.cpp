@@ -65,4 +65,25 @@ constexpr bool Migration() {
  return true;
 }
 static_assert(Migration());
-int main(){return AllSlots()&&Migration()?0:1;}
+constexpr bool Removal() {
+ S::FLoadout Worn{};
+ int Bag[10]{};
+ for(int Slot=0;Slot<S::SlotCount;++Slot)
+  Bag[Slot]=Worn[Slot]=Slot*10000+1001;
+ for(int Slot=0;Slot<S::SlotCount;++Slot) {
+  const int Code=Bag[Slot];
+  if(S::CanRemoveCopy(Worn,Code,Bag,9))return false;
+  Bag[9]=Code;
+  if(!S::CanRemoveCopy(Worn,Code,Bag,10))return false;
+  auto Unequipped=Worn;
+  Unequipped[Slot]=0;
+  if(!S::CanRemoveCopy(Unequipped,Code,Bag,9))return false;
+ }
+ return !S::CanRemoveCopy(Worn,1002,Bag,10)
+     && !S::CanRemoveCopy(Worn,0,Bag,10)
+     && !S::CanRemoveCopy(Worn,100001,Bag,10)
+     && !S::CanRemoveCopy(Worn,1001,nullptr,10)
+     && !S::CanRemoveCopy(Worn,1001,Bag,10001);
+}
+static_assert(Removal());
+int main(){return AllSlots()&&Migration()&&Removal()?0:1;}
