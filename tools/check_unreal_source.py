@@ -31,8 +31,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                          "MoonfallQuestXP::Preview(Cost,Hero->Level,",
                          "Hero->Experience,Hero->ExperienceToNextLevel)",
                          'TEXT("MAX LEVEL")', 'TEXT(" | LEVEL UP")',
-                         "Rows,TotalRows,Contracts.Active"):
+                         "Contracts.Active,TotalRows,Rows",
+                         "2.28f*OrbRadius-40.f-ExtraTop",
+                         'TEXT("SALVAGE READY")', 'TEXT("GATHER SALVAGE")'):
             self.assertIn(required, tracker)
+        accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
+        self.assertIn("ResidentQuestStates.Add(ResidentId, 1);", accept)
+        for cap in ("MaxTracked", "MaxVisible", "TrackedCount", "ResidentQuestStates.Num()"):
+            self.assertNotIn(cap, accept)
         for forbidden in ("TActorIterator", "GetAllActorsOfClass", "SaveWorldProgress(",
                           "AwardExperience(", "ResidentQuestStates.Add("):
             self.assertNotIn(forbidden, tracker)

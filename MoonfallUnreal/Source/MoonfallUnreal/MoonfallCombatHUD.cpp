@@ -2795,7 +2795,8 @@ void AMoonfallCombatHUD::DrawHUD()
    static_assert(MoonfallQuestJournal::MaxTracked==MoonfallWorldQuest::MaxVisible);
    const float ExtraTop=Top+132.f;
    const float OrbRadius=FMath::Clamp(FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.092f,50.f,80.f);
-   const float Available=Canvas->SizeY-2.f*OrbRadius-33.f-ExtraTop;
+   // Reserve the resource medallion above the orb, not just the orb itself.
+   const float Available=Canvas->SizeY-2.28f*OrbRadius-40.f-ExtraTop;
    const int Rows=MoonfallWorldQuest::VisibleRows(Available,TotalRows);
    if (Rows>0) {
     const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
@@ -2803,7 +2804,7 @@ void AMoonfallCombatHUD::DrawHUD()
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("QUEST JOURNAL | %d/%d SHOWN | %d CONTRACTS"),Rows,TotalRows,Contracts.Active),
+    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active,TotalRows,Rows),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
@@ -2816,7 +2817,7 @@ void AMoonfallCombatHUD::DrawHUD()
       const FLinearColor Tint=bReady?FLinearColor(0.48f,0.93f,0.65f)
          :FLinearColor(0.95f,0.78f,0.45f);
       DrawText(FString::Printf(TEXT("%s | %s | %s"),UTF8_TO_TCHAR(Entry.Name),
-          UTF8_TO_TCHAR(Entry.Location),bReady?TEXT("TURN IN"):TEXT("ACTIVE")),
+          UTF8_TO_TCHAR(Entry.Location),bReady?TEXT("SALVAGE READY"):TEXT("GATHER SALVAGE")),
          Tint,Left+14.f,Y+1.f,nullptr,0.68f);
       const auto Reward=MoonfallQuestXP::Preview(Cost,Hero->Level,
           Hero->Experience,Hero->ExperienceToNextLevel);
