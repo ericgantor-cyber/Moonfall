@@ -129,6 +129,26 @@ constexpr bool Removal() {
      && !S::CanRemoveCopy(Worn,1001,Bag,10001);
 }
 static_assert(Removal());
+constexpr bool SnapshotAndRecovery() {
+ const int Bag[9]={1001,11002,21003,31004,41005,51006,61007,71008,81009};
+ auto Worn=Combined;
+ Worn[2]=11002; // wrong slot cannot borrow ownership
+ auto Owned=S::OwnedSnapshot(Worn,Bag,8);
+ if(Owned[0]!=1001||Owned[2]!=0||Owned[7]!=71008||Owned[8]!=0)return false;
+ auto Extra=S::ToExtra(Combined);
+ S::FLoadout Choice{};
+ Choice[3]=31005; // not owned by checkpoint
+ Choice[4]=41005; // still owned
+ Choice[5]=61007; // wrong slot
+ Choice[8]=81009;
+ Extra[0]=31004;Extra[1]=0;Extra[2]=51006;Extra[5]=0;
+ S::RestoreExtraChoices(Extra,Choice,Bag,9);
+ if(Extra[0]!=31004||Extra[1]!=41005||Extra[2]!=51006||Extra[5]!=81009)return false;
+ auto Invalid=S::OwnedSnapshot(Combined,nullptr,9);
+ for(int Code:Invalid)if(Code!=0)return false;
+ return true;
+}
+static_assert(SnapshotAndRecovery());
 static_assert(S::ExtraPrimaryBonus(0,0)==0);
 static_assert(S::ExtraPrimaryBonus(1,0)==1);
 static_assert(S::ExtraPrimaryBonus(25,25)==13);
