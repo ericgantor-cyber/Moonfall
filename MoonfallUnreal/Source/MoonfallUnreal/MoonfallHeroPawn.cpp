@@ -28,6 +28,7 @@
 #include "HAL/PlatformTime.h"
 #include "RHI.h"
 #include "DynamicRHI.h"
+#include "RenderingThread.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
@@ -434,10 +435,22 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Wall-clock interval, independent of simulation dilation and clamped timers.
  // Menus and defeat never pollute the last gameplay sample.
- if (IsLocallyControlled())
-  PerformanceAudit.Observe(FPlatformTime::Seconds(), GetWorld() && !GetWorld()->IsPaused()
+ if (IsLocallyControlled()) {
+  const double Now=FPlatformTime::Seconds();
+  const bool bGameplay=GetWorld() && !GetWorld()->IsPaused()
       && FMath::IsFinite(Health) && Health>0.f && !bOptionsOpen && !bInventoryOpen
-      && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen);
+      && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen;
+  PerformanceAudit.Observe(Now,bGameplay);
+  // Throttled estimates from the engine; no GPU flush or profiler capture.
+  if (!bGameplay) { StageAuditWarmupUntil=Now+1.0; }
+  else if (GDynamicRHI && GetNetMode()!=NM_DedicatedServer
+       && Now>=StageAuditWarmupUntil && Now>=NextStageAuditAt) {
+   NextStageAuditAt=Now+0.25;
+   StageAudit.Observe(FPlatformTime::ToMilliseconds(GGameThreadTime),
+       FPlatformTime::ToMilliseconds(GRenderThreadTime),
+       FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
+  }
+ }
 
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
@@ -2118,6 +2131,8 @@ void AMoonfallHeroPawn::CycleGraphicsQuality() {
  const int32 Next = (Settings->GetOverallScalabilityLevel() + 1) % 4;
  Settings->SetOverallScalabilityLevel(Next);
  PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2128,6 +2143,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
  Settings->SetFullscreenMode(Next);
  PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2745,6 +2762,8 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   Settings->SetFullscreenMode(NextMode);
  }
  PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
