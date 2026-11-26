@@ -494,6 +494,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
         self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
 
+    def test_self_hosted_windows_package_rejects_stale_outputs_and_wrong_architecture(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows" / "unreal-windows-build.yml").read_text(encoding="utf-8")
+        self.assertLess(workflow.index("Refusing stale build output"), workflow.index("Compile Unreal Editor Win64 Development"))
+        self.assertLess(workflow.index("Refusing to reuse a previous Windows package"), workflow.index("& $uat BuildCookRun"))
+        package = workflow[workflow.index("Package Windows game using AutomationTool"):workflow.index("Smoke-test packaged Unreal game launch")]
+        for token in ("0x5A4D", "0x00004550", "0x8664", "0x20B", "$reader.Dispose()", "$stream.Dispose()"):
+            self.assertIn(token, package)
+        self.assertLess(workflow.index("Refusing to overwrite a previous installer"), workflow.index("& $nsis.Source"))
+        self.assertLess(workflow.index("Confirm installer provenance before publication"), workflow.index("Upload Windows installer"))
+        self.assertIn("Installer checksum changed after verification", workflow)
+        self.assertIn("$actual -cne $env:GITHUB_SHA", workflow)
+
     def test_windows_package_requires_project_startup_level(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
         self.assertIn("MoonfallStart.umap", script)
