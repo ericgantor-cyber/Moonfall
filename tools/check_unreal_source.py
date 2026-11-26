@@ -4162,7 +4162,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Nearest living boss", 1)[0]
         self.assertIn("CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0", bag)
         self.assertIn("if (bRefreshAdvisor) {", bag)
-        self.assertIn("AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f", bag)
+        self.assertIn("const double AdvisorNow = FPlatformTime::Seconds();", bag)
+        self.assertIn("FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0", bag)
+        self.assertIn("!bAdvisorClockValid || !bAdvisorScoreCached", bag)
+        self.assertIn("AdvisorNow < AdvisorScoreUpdatedAt", bag)
+        self.assertIn("AdvisorNow - AdvisorScoreUpdatedAt >= 0.25", bag)
+        self.assertIn("bAdvisorScoreCached = bAdvisorClockValid;", bag)
+        self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
         for field in ("CachedAdvisorCount != Count", "CachedAdvisorSelected != Selected",
                       "CachedAdvisorSelectedCode != AdvisorCode",
                       "CachedAdvisorWeapon != Hero->EquippedWeaponCode",
