@@ -11,6 +11,14 @@
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Guid.h"
+#include "Misc/EngineVersion.h"
+#include "HAL/FileManager.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -721,6 +729,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHeroPawn::ControllerRightStickRelease);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
+ Input->BindAction(TEXT("BugReport"), IE_Pressed, this, &AMoonfallHeroPawn::ExportBugReport);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
@@ -1762,6 +1771,7 @@ void AMoonfallHeroPawn::BreakGuard()
 void AMoonfallHeroPawn::ControllerRightStickPress()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen) { ExportBugReport(); return; }
  if (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
  if (bGuarding) return;
@@ -2564,6 +2574,56 @@ void AMoonfallHeroPawn::OpenOptions() {
  // Match the inventory close workflow and allow the Options X to be clicked.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen;
+}
+void AMoonfallHeroPawn::ExportBugReport() {
+ // Explicit local action only. No raw logs, saves, account data or network.
+ if (!bOptionsOpen || !IsLocallyControlled() || !GetWorld() || IsActorBeingDestroyed()
+     || GetNetMode()==NM_DedicatedServer) return;
+ const double Now=FPlatformTime::Seconds();
+ if (!FMath::IsFinite(Now) || (LastBugReportAt>=0 && Now-LastBugReportAt<5.0)) return;
+ LastBugReportAt=Now;
+ RefreshGraphicsMemoryAudit();
+ const auto& Sample=PerformanceAudit.Snapshot;
+ const auto& Stages=StageAudit;
+ TSharedRef<FJsonObject> Report=MakeShared<FJsonObject>();
+ Report->SetNumberField(TEXT("schema"),1);
+ Report->SetStringField(TEXT("kind"),TEXT("moonfall_manual_bug_diagnostics"));
+ Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
+ Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
+ Report->SetStringField(TEXT("gpu"),GRHIAdapterName.Left(128));
+ Report->SetStringField(TEXT("rhi"),GDynamicRHI?FString(GDynamicRHI->GetName()).Left(32):TEXT("Unknown"));
+ Report->SetBoolField(TEXT("reduced_motion"),bReduceMotion);
+ Report->SetNumberField(TEXT("dedicated_video_bytes"),double(AuditDedicatedVideoMemory));
+ Report->SetNumberField(TEXT("texture_allocation_bytes"),double(AuditTextureMemory));
+ Report->SetNumberField(TEXT("texture_pool_bytes"),double(AuditTexturePool));
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ Report->SetNumberField(TEXT("frame_samples"),Sample.Samples);
+ if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS) && FMath::IsFinite(Sample.P95Ms)
+     && FMath::IsFinite(Sample.OnePercentLowFPS)) {
+  Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
+  Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
+  Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
+  Report->SetNumberField(TEXT("hitches"),Sample.Hitches);
+ }
+ if (Stages.Ready()) {
+  Report->SetNumberField(TEXT("game_thread_ms"),Stages.Mean[0]);
+  Report->SetNumberField(TEXT("render_thread_ms"),Stages.Mean[1]);
+  Report->SetNumberField(TEXT("gpu_ms_estimate"),Stages.Mean[2]);
+ }
+ if (const UGameUserSettings* Settings=GEngine?GEngine->GetGameUserSettings():nullptr) {
+  const FIntPoint Resolution=Settings->GetScreenResolution();
+  Report->SetNumberField(TEXT("width"),Resolution.X);
+  Report->SetNumberField(TEXT("height"),Resolution.Y);
+  Report->SetNumberField(TEXT("quality"),Settings->GetOverallScalabilityLevel());
+ }
+ FString Json;
+ const auto Writer=TJsonWriterFactory<>::Create(&Json);
+ const FString Directory=FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("BugReports"));
+ const FString File=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
+ const bool bSaved=FJsonSerializer::Serialize(Report,Writer)
+     && IFileManager::Get().MakeDirectory(*Directory,true)
+     && FFileHelper::SaveStringToFile(Json,*File,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+ BugReportStatus=bSaved?TEXT("REPORT SAVED"):TEXT("SAVE FAILED");
 }
 void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  AuditDedicatedVideoMemory=AuditTextureMemory=AuditTexturePool=-1;
@@ -5100,6 +5160,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
+    } else if (MouseX>=MenuLeft+MenuWidth-150.f && MouseX<=MenuLeft+MenuWidth-10.f
+        && MouseY>=MenuTop+42.f && MouseY<=MenuTop+60.f) {
+     ExportBugReport();
     } else {
      // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
      const float RowGap = (MenuHeight - 130.f) / 8.f;
