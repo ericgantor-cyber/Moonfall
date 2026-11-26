@@ -101,6 +101,50 @@ int main() {
  assert(MirrorResult==Full);
  assert(L::TryRestoreMirroredLoadout(LegacyCodes,3,Migrated.data(),9,true,3,OwnAll,MirrorResult));
  assert(MirrorResult==Migrated);
+ // V18 codec: exercise every slot/trait/rarity/tier, retain old IDs,
+ // and reject cross-bank aliases, invalid slot digits and malformed codes.
+ L::FFullLoadout Sixteen{};
+ int ValidFullCases=0;
+ for(int Slot=0;Slot<L::FullSlotCount;++Slot){
+  Sixteen[Slot]=L::EncodeFullItem(Slot,1,1,5);
+  for(int Trait=0;Trait<=3;++Trait)
+   for(int Rarity=0;Rarity<=5;++Rarity)
+    for(int Tier=1;Tier<=25;++Tier){
+     const int Code=L::EncodeFullItem(Slot,Trait,Rarity,Tier);
+     if(Trait!=0&&Rarity==0){assert(Code==0);continue;}
+     ++ValidFullCases;
+     const auto Decoded=L::DecodeFullItem(Code);
+     assert(Decoded.Slot==Slot&&Decoded.Trait==Trait&&Decoded.Rarity==Rarity&&Decoded.Tier==Tier);
+     assert(L::ValidFullItem(Code,Slot));
+     assert(!L::ValidFullItem(Code,(Slot+1)%L::FullSlotCount));
+     if(Slot<9)assert(Code==Trait*100000+Slot*10000+Rarity*1000+Tier);
+     else assert(Code>=L::ExtendedCodeBank&&!L::Valid(Code,(Code/10000)%10));
+    }
+ }
+ assert(ValidFullCases==8400);
+ for(int Code:{-1,0,90001,100001,1070001,1090001,1400001,2000000,
+      std::numeric_limits<int>::max(),std::numeric_limits<int>::min()})
+  assert(!L::DecodeFullItem(Code).IsValid());
+ assert(L::EncodeFullItem(-1,0,0,1)==0&&L::EncodeFullItem(16,0,0,1)==0);
+ assert(L::EncodeFullItem(15,4,1,1)==0&&L::EncodeFullItem(15,0,6,1)==0);
+ assert(L::EncodeFullItem(15,0,0,26)==0);
+ L::FFullLoadout FullRestore{};
+ assert(L::TryRestoreFullLoadout(Sixteen.data(),3,nullptr,0,16,OwnAll,FullRestore));
+ for(int Slot=0;Slot<16;++Slot)assert(FullRestore[Slot]==(Slot<3?Sixteen[Slot]:0));
+ assert(L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),9,17,OwnAll,FullRestore));
+ for(int Slot=0;Slot<16;++Slot)assert(FullRestore[Slot]==(Slot<9?Sixteen[Slot]:0));
+ assert(L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),16,18,OwnAll,FullRestore));
+ assert(FullRestore==Sixteen);
+ auto BadFull=Sixteen;BadFull[15]=Sixteen[14];
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,BadFull.data(),16,18,OwnAll,FullRestore));
+ BadFull=Sixteen;BadFull[0]+=1;
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,BadFull.data(),16,18,OwnAll,FullRestore));
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),16,18,
+     [&](int Code){return Code!=Sixteen[15];},FullRestore));
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),9,18,OwnAll,FullRestore));
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),16,17,OwnAll,FullRestore));
+ assert(!L::TryRestoreFullLoadout(Sixteen.data(),3,Sixteen.data(),16,19,OwnAll,FullRestore));
+ assert(FullRestore==Sixteen);
  // Shared single-item comparison covers all nine slots without changing legacy weights.
  const auto LegacyExpanded=L::ExpandLegacy(Gear);
  for(int Slot=0;Slot<3;++Slot)
