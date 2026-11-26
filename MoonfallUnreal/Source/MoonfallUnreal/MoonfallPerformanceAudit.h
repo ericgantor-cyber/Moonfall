@@ -15,15 +15,25 @@ class FAudit {
  static constexpr std::size_t Capacity=240;
  std::array<double,Capacity> Frames{};
  std::size_t Count=0, Next=0;
- double LastTime=-1, PublishElapsed=0;
+ double LastTime=-1, PublishElapsed=0, PublishedAt=-1, LastObserved=-1;
 public:
  FSnapshot Snapshot{};
  // Keep the last published reading visible in menus, but do not mix
  // pre-menu frames with a fresh gameplay window when sampling resumes.
  void BreakSequence() { LastTime=-1; Count=Next=0; PublishElapsed=0; }
- void Reset() { Count=Next=0; LastTime=-1; PublishElapsed=0; Snapshot={}; }
+ void Reset() { Count=Next=0; LastTime=PublishedAt=LastObserved=-1; PublishElapsed=0; Snapshot={}; }
+ // Negative means unavailable, including a clock discontinuity.
+ double SampleAge(double Now) const {
+  if (!Snapshot.Ready || PublishedAt<0 || !std::isfinite(Now) || Now<PublishedAt || Now<LastObserved) return -1;
+  const double Age=Now-PublishedAt;
+  return std::isfinite(Age)?Age:-1;
+ }
  void Observe(double Now, bool Gameplay) {
-  if (!Gameplay || !std::isfinite(Now)) { BreakSequence(); return; }
+  if (!std::isfinite(Now) || Now<0) { Reset(); return; }
+  // A clock rollback invalidates published data even across a menu break.
+  if (LastObserved>=0 && Now<LastObserved) Reset();
+  LastObserved=Now;
+  if (!Gameplay) { BreakSequence(); return; }
   if (LastTime<0) { LastTime=Now; return; }
   const double Seconds=Now-LastTime;
   LastTime=Now;
@@ -60,6 +70,7 @@ private:
   Snapshot={1000.0/Mean,Mean,Sorted[P95Index],Sorted[Count-1],
             1000.0*static_cast<double>(TailCount)/TailSum,
             static_cast<unsigned>(Count),Slow,Hitch,true};
+  PublishedAt=LastTime;
  }
 };
 // Engine-provided stage times are delayed estimates, not synchronized GPU

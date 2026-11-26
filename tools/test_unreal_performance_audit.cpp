@@ -54,6 +54,35 @@ int main() {
  for(int i=0;i<65;++i) { resumeNow+=1.0/60; resumed.Observe(resumeNow,true); }
  assert(resumed.Snapshot.Ready && resumed.Snapshot.Samples<=65);
  assert(std::abs(resumed.Snapshot.AverageFPS-60)<.001);
+ // Exported age refers to the last published sample, not the report time.
+ assert(audit.SampleAge(now)>=0 && audit.SampleAge(now)<1.01);
+ assert(audit.SampleAge(now+30)>=30);
+ assert(audit.SampleAge(-1)==-1);
+ assert(audit.SampleAge(std::numeric_limits<double>::quiet_NaN())==-1);
+ FAudit empty;
+ assert(empty.SampleAge(now)==-1);
+ empty.Observe(0,true);
+ for(int i=1;i<=120;++i) empty.Observe(i/60.0,true);
+ assert(empty.Snapshot.Ready);
+ const double ageBefore=empty.SampleAge(2);
+ empty.Observe(10,false);
+ assert(std::abs(empty.SampleAge(10)-(ageBefore+8))<.001);
+ // An export can occur before the next Observe detects a rollback.
+ assert(empty.SampleAge(9)==-1);
+ // Clock rollback across a menu must not resurrect a stale sample.
+ empty.Observe(9,true);
+ assert(!empty.Snapshot.Ready && empty.SampleAge(100)==-1);
+ for(int i=1;i<=120;++i) empty.Observe(9+i/60.0,true);
+ assert(empty.Snapshot.Ready && empty.SampleAge(11)>=0);
+ // Rollback during uninterrupted gameplay also invalidates the sample.
+ empty.Observe(10.5,true);
+ assert(!empty.Snapshot.Ready && empty.SampleAge(100)==-1);
+ for(int i=1;i<=120;++i) empty.Observe(10.5+i/60.0,true);
+ assert(empty.Snapshot.Ready);
+ empty.Observe(std::numeric_limits<double>::quiet_NaN(),true);
+ assert(!empty.Snapshot.Ready && empty.SampleAge(100)==-1);
+ empty.Reset();
+ assert(empty.SampleAge(10)==-1);
  auto previous=audit.Snapshot;
  audit.Observe(now+100,false);
  audit.Observe(now+200,true);

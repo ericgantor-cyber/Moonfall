@@ -6,6 +6,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_unreal_performance_audit.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
@@ -17,6 +18,7 @@ on:
       - 'tools/check_unreal_source.py'
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
+      - 'tools/test_unreal_performance_audit.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
@@ -107,6 +109,13 @@ jobs:
           set -euo pipefail
           g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_talent_rules.cpp -o /tmp/moonfall_talent_rules
           /tmp/moonfall_talent_rules
+
+      - name: Compile and run performance audit and bug reporter regressions (C++17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_performance_audit.cpp -o /tmp/moonfall_performance_audit
+          /tmp/moonfall_performance_audit
 
       - name: Verify every UE5 talent matches the canonical 141-node catalog
         shell: bash
