@@ -89,11 +89,11 @@ constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};
  for (int I=0; I<J::ResidentCount; ++I) States[I]=1;
  const auto Before=J::Summarize(States,J::ResidentCount,25);
- if (Before.Active!=15 || Before.TrackedCount!=7) return false;
+ if (Before.Active!=J::ResidentCount || Before.TrackedCount!=7) return false;
  const int First=Before.TrackedIndices[0];
  States[First]=2;
  const auto After=J::Summarize(States,J::ResidentCount,25);
- if (After.Active!=14 || After.Completed!=1 || After.TrackedCount!=7) return false;
+ if (After.Active!=J::ResidentCount-1 || After.Completed!=1 || After.TrackedCount!=7) return false;
  for (int I=0; I<After.TrackedCount; ++I)
   if (After.TrackedIndices[I]==First) return false;
  return After.TrackedIndices[6]==Before.TrackedIndices[6]+1;
