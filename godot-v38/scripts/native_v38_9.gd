@@ -12,9 +12,79 @@ var rhythm_dodge_rewarded:bool=false
 var rhythm_counter_until:float=-999.0
 const RHYTHM_COUNTER_MULTIPLIER:float=1.25
 const RHYTHM_COUNTER_SECONDS:float=1.0
+const MENU_HIT_FLASH_MS:int=280
+var menu_hit_flash_until_ms:int=0
+var menu_hit_flash_layer:CanvasLayer
+var menu_hit_flash_rect:ColorRect
+var menu_hit_last_hp:float=-1.0
+
+func _ready()->void:
+ super._ready()
+ # Render above every existing menu (including inventory and the talent web).
+ # This overlay never captures pointer, controller, or keyboard input.
+ menu_hit_flash_layer=CanvasLayer.new()
+ menu_hit_flash_layer.name="MenuHitFlashLayer"
+ menu_hit_flash_layer.layer=40
+ add_child(menu_hit_flash_layer)
+ menu_hit_flash_rect=ColorRect.new()
+ menu_hit_flash_rect.name="MenuHitFlash"
+ menu_hit_flash_rect.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ menu_hit_flash_layer.add_child(menu_hit_flash_rect)
+ menu_hit_flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ menu_hit_flash_rect.color=Color(0.94,0.07,0.11,0.0)
+ menu_hit_flash_rect.visible=false
+ menu_hit_last_hp=hp
+
+func _menu_hit_flash_panel_open()->bool:
+ return hero_playing and not death_active and (menu_open or wait_open or wait_transition_active
+  or (is_instance_valid(atlas_panel) and atlas_panel.visible)
+  or (is_instance_valid(v398_panel) and v398_panel.visible))
+
+func _menu_hit_flash_begin()->void:
+ if not _menu_hit_flash_panel_open():return
+ menu_hit_flash_until_ms=Time.get_ticks_msec()+MENU_HIT_FLASH_MS
+ _menu_hit_flash_draw()
+
+func _menu_hit_flash_draw()->void:
+ if not is_instance_valid(menu_hit_flash_rect):return
+ # This runs every frame; avoid clock reads and repeated UI writes when idle.
+ if menu_hit_flash_until_ms<=0:
+  if menu_hit_flash_rect.visible:menu_hit_flash_rect.visible=false
+  return
+ var remaining_ms:int=menu_hit_flash_until_ms-Time.get_ticks_msec()
+ if remaining_ms<=0 or not _menu_hit_flash_panel_open():
+  # Never resurrect an old hit if the player closes and reopens a menu.
+  menu_hit_flash_until_ms=0
+  if menu_hit_flash_rect.visible:menu_hit_flash_rect.visible=false
+  return
+ # A single soft fade, not a repeated strobe or warning text.
+ var portion:float=clampf(float(remaining_ms)/float(MENU_HIT_FLASH_MS),0.0,1.0)
+ menu_hit_flash_rect.color=Color(0.94,0.07,0.11,0.16*portion)
+ menu_hit_flash_rect.visible=true
+
+func _menu_hit_flash_reset()->void:
+ menu_hit_flash_until_ms=0
+ menu_hit_last_hp=hp if is_finite(hp) else -1.0
+ if is_instance_valid(menu_hit_flash_rect):menu_hit_flash_rect.visible=false
+
+func _apply_incoming_damage(raw:float)->void:
+ var before_hp:float=hp
+ super._apply_incoming_damage(raw)
+ # Count only real HP lost, after dodge, mitigation, wards and pet interception.
+ if is_finite(before_hp) and is_finite(hp) and hp<before_hp and not death_active:
+  _menu_hit_flash_begin()
+ menu_hit_last_hp=hp if is_finite(hp) else -1.0
+
 
 func _process(delta:float)->void:
  super._process(delta)
+ # Also observe direct environmental HP loss that does not enter the
+ # inherited _apply_incoming_damage pipeline. Avoid duplicate hit pulses.
+ if hero_playing and not death_active and is_finite(hp):
+  if menu_hit_last_hp>=0.0 and hp<menu_hit_last_hp:
+   _menu_hit_flash_begin()
+  menu_hit_last_hp=hp
+ _menu_hit_flash_draw()
  # Keep the visible and saved-in-memory combo stage in sync with its window.
  # No extra work on enemies, no extra allocations, and no input changes.
  if rhythm_chain>0 and RHYTHM.chain_expired(rhythm_chain,map_time-rhythm_last_strike_at):
@@ -120,17 +190,21 @@ func _start_game(selected_hero:String)->void:
  _rhythm_reset_transient_combat()
  super._start_game(selected_hero)
  _rhythm_reset_transient_combat()
+ _menu_hit_flash_reset()
 
 func _restore_data(data:Dictionary)->void:
  _rhythm_reset_transient_combat()
  super._restore_data(data)
  _rhythm_reset_transient_combat()
+ _menu_hit_flash_reset()
 
 func _respawn_player()->void:
  _rhythm_reset_transient_combat()
  super._respawn_player()
  _rhythm_reset_transient_combat()
+ _menu_hit_flash_reset()
 
 func _death_return_to_title()->void:
  _rhythm_reset_transient_combat()
  super._death_return_to_title()
+ _menu_hit_flash_reset()

@@ -73,6 +73,8 @@ SUITES={
  'v38_0_overhaul':'MOONFALL v38.0 OVERHAUL PASS',
  'v38_2_procedural':'MOONFALL v38.2 PROCEDURAL PASS',
  'aim_scene_runtime':'MOONFALL AIM SCENE RUNTIME PASS',
+ 'talent_world_live':'MOONFALL LIVE TALENT WORLD PASS',
+ 'panels_world_live':'MOONFALL ALL PANELS LIVE PASS',
  'navigation_atlas_integration':'MOONFALL ATLAS PASS',
 }
 def main():

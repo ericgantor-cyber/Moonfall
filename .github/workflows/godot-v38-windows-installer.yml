@@ -133,10 +133,59 @@ jobs:
       - name: Diagnose entire Godot inheritance chain root-first
         shell: pwsh
         run: |
-          $engine = Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe' -Recurse -File | Select-Object -First 1
-          if (-not $engine) { throw 'Godot engine executable missing' }
-          & $engine.FullName --headless --editor --path . --import 2>&1 | Out-String | Write-Host
-          $script = 'scripts/native_v38_0.gd'
+          $ErrorActionPreference = 'Stop'
+          # Use the exact SHA-verified engine installed above; never select an
+          # arbitrary Godot*.exe (for example the alternate console binary).
+          $enginePath = Join-Path (Get-Location).Path 'Godot_4.7.2\Godot_v4.7.2-stable_win64.exe'
+          if (-not (Test-Path -LiteralPath $enginePath -PathType Leaf)) { throw "Verified Godot engine executable missing: $enginePath" }
+          $engine = Get-Item -LiteralPath $enginePath
+          # Make the later BUILD_WINDOWS.bat choose this same executable, even
+          # when a runner has a stale MoonfallDev active_godot.txt preference.
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MOONFALL_GODOT_EXE=$($engine.FullName)"
+          # Bound each Godot child process and capture output without waiting
+          # indefinitely for a hung native import, parser, or engine startup.
+          function Invoke-GodotChecked {
+            param([string[]] $GodotArgs, [int] $TimeoutSeconds = 120)
+            $logOut = Join-Path $env:RUNNER_TEMP ("moonfall-" + [guid]::NewGuid().ToString('N') + ".stdout")
+            $logErr = "$logOut.stderr"
+            $process = $null
+            try {
+              $process = Start-Process -FilePath $engine.FullName -ArgumentList $GodotArgs -PassThru -NoNewWindow -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+              if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+                $process.Kill($true)
+                $process.WaitForExit()
+                throw "Godot timed out after $TimeoutSeconds seconds: $($GodotArgs -join ' ')"
+              }
+              $output = [IO.File]::ReadAllText($logOut) + [Environment]::NewLine + [IO.File]::ReadAllText($logErr)
+              Write-Host $output
+              if ($process.ExitCode -ne 0 -or $output -match 'SCRIPT ERROR|Parse Error|Failed to load script') {
+                throw "Godot failed (exit $($process.ExitCode)): $($GodotArgs -join ' ')"
+              }
+            } finally {
+              if ($process) { $process.Dispose() }
+              Remove-Item $logOut, $logErr -ErrorAction SilentlyContinue
+            }
+          }
+          try {
+            Invoke-GodotChecked -GodotArgs @('--headless','--editor','--path','.','--import','--quit') -TimeoutSeconds 600
+          } catch {
+            throw "Godot resource import failed before script-chain validation: $_"
+          }
+          # Resolve the executable scene's *actual* root script instead of a
+          # hardcoded earlier v38 ancestor. Future gameplay subclasses must be checked.
+          $scene = Get-Content 'scenes/main.tscn' -Raw -Encoding utf8
+          $rootScript = [regex]::Match($scene, '(?m)^script\s*=\s*ExtResource\("([^"]+)"\)')
+          if (-not $rootScript.Success) { throw 'Playable scene has no root script reference' }
+          $resourceId = $rootScript.Groups[1].Value
+          $script = $null
+          foreach ($resource in [regex]::Matches($scene, '(?m)^\[ext_resource\s+type="Script"\s+path="res://([^"]+)"\s+id="([^"]+)"\]')) {
+            if ($resource.Groups[2].Value -eq $resourceId) {
+              $script = $resource.Groups[1].Value
+              break
+            }
+          }
+          if (-not $script) { throw "Playable scene script resource not found: $resourceId" }
+          Write-Host "VALIDATING PLAYABLE ROOT SCRIPT: $script"
           $chain = [System.Collections.Generic.List[string]]::new()
           while ($script -and -not $chain.Contains($script)) {
             if (-not (Test-Path $script)) { throw "Missing inherited script: $script" }
@@ -145,19 +194,33 @@ jobs:
             $m = [regex]::Match($content, '(?m)^extends\s+"res://([^"]+)"')
             if ($m.Success) { $script = $m.Groups[1].Value } else { $script = $null }
           }
+          if ($script) { throw "Circular script inheritance detected at $script" }
           $chain.Reverse()
-          $firstFailure = $null
-          foreach ($script in $chain) {
-            Write-Host "=== ROOT-FIRST PARSING $script ==="
-            $output = (& $engine.FullName --headless --path . --check-only --script $script 2>&1 | Out-String)
-            Write-Host $output
-            if (-not $firstFailure -and ($LASTEXITCODE -ne 0 -or $output -match 'SCRIPT ERROR|Parse Error|Failed to load script')) {
-              $firstFailure = $script
-              Write-Host "FIRST FAILING SCRIPT: $firstFailure"
-              break
+          # Compiling the playable leaf recursively compiles its inherited
+          # ancestors. Avoid N separate increasingly deep Godot launches on
+          # every successful Windows build; root-first pinpointing is fallback.
+          $playableScript = $chain[$chain.Count - 1]
+          Write-Host "VERIFY FULL PLAYABLE SCRIPT CHAIN: $playableScript ($($chain.Count) scripts)"
+          try {
+            Invoke-GodotChecked -GodotArgs @('--headless','--path','.','--check-only','--script',$playableScript) -TimeoutSeconds 180
+          } catch {
+            Write-Warning "Full playable script check failed: $_"
+            $firstFailure = $null
+            foreach ($ancestor in $chain) {
+              Write-Host "=== ROOT-FIRST PARSING $ancestor ==="
+              try {
+                Invoke-GodotChecked -GodotArgs @('--headless','--path','.','--check-only','--script',$ancestor) -TimeoutSeconds 120
+              } catch {
+                $firstFailure = $ancestor
+                Write-Host "FIRST FAILING SCRIPT: $firstFailure"
+                Write-Warning $_
+                break
+              }
             }
+            if ($firstFailure) { throw "Godot inheritance chain fails first at $firstFailure" }
+            throw 'Playable script failed full-chain compilation despite clean ancestor checks'
           }
-          if ($firstFailure) { throw "Godot inheritance chain fails first at $firstFailure" }
+          Write-Host "PASS: playable inheritance chain checked ($($chain.Count) scripts)"
       - name: Build and test single-file Windows game
         shell: cmd
         run: BUILD_WINDOWS.bat

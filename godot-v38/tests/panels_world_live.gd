@@ -32,6 +32,7 @@ func _run()->void:
  var player:CharacterBody3D=game.get("player") as CharacterBody3D
  var menu:Control=game.get("menu_panel") as Control
  var atlas:Control=game.get("atlas_panel") as Control
+ var flash:ColorRect=game.get("menu_hit_flash_rect") as ColorRect
  if not is_instance_valid(player) or not is_instance_valid(menu) or not is_instance_valid(atlas):
   check(false,"Hero, Raven Atlas menu, and map overlay exist")
   game.queue_free()
@@ -73,6 +74,52 @@ func _run()->void:
 
  check(float(game.get("v385_mana"))>15.0,"Mana recovers across all Raven Atlas tabs")
  check(float(game.get("v387_stamina"))>15.0,"Stamina recovers across all Raven Atlas tabs")
+ check(is_instance_valid(flash),"Topmost red hit flash exists without new art assets")
+ if is_instance_valid(flash):
+  check(flash.mouse_filter==Control.MOUSE_FILTER_IGNORE,"Hit flash never blocks mouse or switch accessibility")
+  check(flash.anchor_right==1.0 and flash.anchor_bottom==1.0,"Hit flash fills the current viewport")
+  game.set("hp",float(game.get("max_hp")))
+  game.set("companion",{}) # deterministic: no companion interception.
+  game.call("_menu_hit_flash_reset")
+  game.call("_apply_incoming_damage",0.0)
+  check(not flash.visible and int(game.get("menu_hit_flash_until_ms"))==0,"Blocked or zero HP loss does not flash")
+  # Every tab uses the same informational menu overlay. Hits still land and
+  # flash without hiding that tab or cancelling the world encounter.
+  for tab in tabs:
+   game.call("_menu_tab",tab)
+   game.set("hp",float(game.get("max_hp")))
+   game.call("_menu_hit_flash_reset")
+   game.call("_apply_incoming_damage",10.0)
+   check(flash.visible and flash.color.a>0.0,"Red flash visible over "+tab)
+   check(menu.visible and bool(game.get("menu_open")),"Hit flash preserves open tab "+tab)
+  game.set("menu_hit_flash_until_ms",Time.get_ticks_msec()-1)
+  game.call("_menu_hit_flash_draw")
+  check(not flash.visible,"Damage flash expires without a permanent red tint")
+  # Environmental HP loss may bypass the central incoming-hit function.
+  # Observing it in _process should pulse once, not on every subsequent frame.
+  game.set("hp",float(game.get("max_hp")))
+  game.call("_menu_hit_flash_reset")
+  game.set("hp",float(game.get("hp"))-7.0)
+  game.call("_process",0.0)
+  check(flash.visible and flash.color.a>0.0,"Direct environmental HP loss flashes on the live menu")
+  var first_hazard_flash_until:int=int(game.get("menu_hit_flash_until_ms"))
+  game.call("_process",0.0)
+  check(int(game.get("menu_hit_flash_until_ms"))==first_hazard_flash_until,"One environmental hit does not retrigger the flash every frame")
+  # The remaining tint is retired on menu exit, not resurrected on return.
+  game.call("_toggle_menu")
+  check(not menu.visible,"Main menu closes during pending damage flash")
+  game.call("_menu_hit_flash_draw")
+  check(not flash.visible and int(game.get("menu_hit_flash_until_ms"))==0,"Leaving menu clears pending damage overlay")
+  game.call("_toggle_menu")
+  game.call("_menu_hit_flash_draw")
+  check(menu.visible and not flash.visible,"Reopening a menu never revives a stale injury flash")
+  # Idle frames must not restart a flash or change a hidden tint.
+  game.call("_menu_hit_flash_reset")
+  var idle_color:Color=flash.color
+  for idle_frame in range(12):
+   game.call("_menu_hit_flash_draw")
+  check(not flash.visible and int(game.get("menu_hit_flash_until_ms"))==0,"Idle frames keep menu damage overlay inactive")
+  check(flash.color==idle_color,"Idle flash updates leave overlay color unchanged")
 
  # The two divine world bosses must not lose queued signature windups just
  # because a player is browsing a regular menu.
@@ -131,6 +178,8 @@ func _run()->void:
  hp_before=float(game.get("hp"))
  game.call("_apply_incoming_damage",12.0)
  check(float(game.get("hp"))<hp_before,"Incoming damage applies under the map")
+ if is_instance_valid(flash):
+  check(flash.visible and flash.color.a>0.0,"Atlas shows red HP-loss flash above the map")
  game.call("_toggle_atlas")
  check(not atlas.visible,"Separate map closes")
  check(is_equal_approx(float(enemy.get("v404_tell_next",-1.0)),planned),"Closing overlays does not postpone enemy attacks")
@@ -141,6 +190,11 @@ func _run()->void:
  if is_instance_valid(talents):
   game.call("_v398_toggle_tree")
   check(talents.visible,"Talent overlay opens before Raven Atlas")
+  game.set("hp",float(game.get("max_hp")))
+  game.call("_menu_hit_flash_reset")
+  game.call("_apply_incoming_damage",10.0)
+  if is_instance_valid(flash):
+   check(flash.visible and flash.color.a>0.0,"Talent overlay shows red HP-loss flash")
   game.call("_toggle_menu")
   check(menu.visible and not talents.visible,"Raven Atlas immediately closes talent overlay")
   game.call("_toggle_menu")
@@ -157,6 +211,9 @@ func _run()->void:
  game.call("_apply_incoming_damage",100000.0)
  check(bool(game.get("death_active")),"Fatal damage in main menu reaches death UI")
  check(not menu.visible,"Main menu cannot conceal death UI")
+ if is_instance_valid(flash):
+  game.call("_menu_hit_flash_draw")
+  check(not flash.visible,"Death cannot leave hit flash over death UI")
  game.queue_free()
  print("MOONFALL ALL PANELS LIVE "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)

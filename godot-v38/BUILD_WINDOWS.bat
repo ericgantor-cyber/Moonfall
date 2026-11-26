@@ -12,6 +12,10 @@ if not exist "%ENGINE%" (
  echo ERROR: Copy official Godot_v4.7.2-stable_win64.exe into Godot_4.7.2 next to this script.
  exit /b 1
 )
+rem Use the same verified engine for the batch and supervised Python scene tests.
+rem Otherwise an override via MOONFALL_GODOT_EXE or active_godot.txt can
+rem produce a release tested against a different Godot executable.
+set "GODOT_BIN=%ENGINE%"
 python tests\verify_official_windows_export.py
 if errorlevel 1 goto failed
 python tests\verify_build_test_manifest.py
@@ -362,6 +366,30 @@ rem Exercise active aiming scene, not only script source checks.
 if errorlevel 1 goto failed
 findstr /c:"MOONFALL AIM SCENE RUNTIME PASS" GODOT_AIM_SCENE_LOG.txt >nul
 if errorlevel 1 goto failed
+rem The live 141-node talent web and every panel must keep enemy AI/damage active.
+rem Run both actual scenes through the existing isolated test runner on Windows.
+rem Its 90-second import/test subprocess limits fail closed on hangs and parse errors.
+echo MOONFALL: Verifying live talent combat and panel damage flashes on Windows.
+python tools\run_tests.py --script res://tests/talent_world_live.gd > GODOT_TALENT_WORLD_LIVE_LOG.txt 2>&1
+if errorlevel 1 (
+ type GODOT_TALENT_WORLD_LIVE_LOG.txt
+ goto failed
+)
+findstr /c:"PASS talent_world_live" GODOT_TALENT_WORLD_LIVE_LOG.txt >nul
+if errorlevel 1 (
+ type GODOT_TALENT_WORLD_LIVE_LOG.txt
+ goto failed
+)
+python tools\run_tests.py --script res://tests/panels_world_live.gd > GODOT_PANELS_WORLD_LIVE_LOG.txt 2>&1
+if errorlevel 1 (
+ type GODOT_PANELS_WORLD_LIVE_LOG.txt
+ goto failed
+)
+findstr /c:"PASS panels_world_live" GODOT_PANELS_WORLD_LIVE_LOG.txt >nul
+if errorlevel 1 (
+ type GODOT_PANELS_WORLD_LIVE_LOG.txt
+ goto failed
+)
 rem Verify navigation map remains safe with malformed saves and many discovered locations.
 echo MOONFALL: Running navigation atlas integration with bounded import and test timeouts.
 python tools\run_tests.py --script res://tests/navigation_atlas_integration.gd > GODOT_ATLAS_INTEGRATION_LOG.txt 2>&1
