@@ -43,5 +43,26 @@ constexpr bool ValidateOwned(const FLoadout& Worn,const int* Bag,std::size_t Siz
  }
  return true;
 }
+// V17 stores only the six additional codes alongside the three existing fields.
+// Reject unknown versions, incomplete arrays, and pre-V17 extra fields rather
+// than silently accepting data that could be lost on a later autosave.
+inline constexpr int ExpandedVersion=17, ExtraCount=SlotCount-LegacyCount;
+using FExtra=std::array<int,ExtraCount>;
+constexpr FExtra ToExtra(const FLoadout& Worn) {
+ FExtra Out{};
+ for(int I=0;I<ExtraCount;++I)Out[I]=Worn[LegacyCount+I];
+ return Out;
+}
+constexpr bool ReadSavedLoadout(int Version,const FLegacy& Old,
+ const int* Extra,std::size_t ExtraSize,const int* Bag,std::size_t BagSize,FLoadout& Out) {
+ if(Version<1||Version>ExpandedVersion)return false;
+ if(Version<ExpandedVersion?ExtraSize!=0:ExtraSize!=ExtraCount||!Extra)return false;
+ FLoadout Candidate=FromLegacy(Old);
+ if(Version==ExpandedVersion)
+  for(int I=0;I<ExtraCount;++I)Candidate[LegacyCount+I]=Extra[I];
+ if(!ValidateOwned(Candidate,Bag,BagSize))return false;
+ Out=Candidate;
+ return true;
+}
 static_assert(Weapon==0&&Armor==1&&Accessory==2&&Ring==8&&SlotCount==9);
 }
