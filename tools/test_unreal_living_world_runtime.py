@@ -1013,6 +1013,18 @@ int main(){
         self.assertIn("DrawText(Objective,",tracker)
         self.assertNotIn("TActorIterator",tracker)
 
+    def test_ambient_spawn_gate_includes_every_modal_without_freezing_existing_events(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1]
+        gate=pulse.split("const bool bModal=",1)[1].split("if (!MoonfallLivingSimulation::MayEncounter(",1)[0]
+        for modal in ("bInventoryOpen","bOptionsOpen","bAtlasOpen","bCharacterStatsOpen",
+                      "bSpellBookOpen","bResidentContextOpen","bTalentWebOpen"):
+            self.assertIn("Hero->"+modal,gate)
+        self.assertIn("Hero->FocusedResident.IsValid()",gate)
+        self.assertIn("bCombatNearby",gate)
+        self.assertLess(pulse.index("ShouldRetireAmbient("),pulse.index("const bool bModal="))
+        self.assertLess(pulse.index("MayEncounter("),pulse.index("World->LineTraceSingleByChannel("))
+
     def test_one_global_pulse_and_bounded_roadside_encounters(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         header=(SRC/"MoonfallUnrealGameMode.h").read_text()

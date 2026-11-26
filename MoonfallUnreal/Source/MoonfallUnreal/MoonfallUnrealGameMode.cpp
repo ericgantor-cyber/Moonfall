@@ -710,7 +710,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  // and never surprise the player while fighting an existing enemy.
  const bool bModal=Hero->bInventoryOpen || Hero->bOptionsOpen ||
      Hero->bAtlasOpen || Hero->bCharacterStatsOpen ||
-     Hero->bSpellBookOpen || Hero->bResidentContextOpen ||
+     Hero->bSpellBookOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen ||
      Hero->FocusedResident.IsValid() || bCombatNearby;
  if (!MoonfallLivingSimulation::MayEncounter(Region,bSafeZone,bNearRoad,
      bModal,ActiveAmbientEncounter.IsValid())) return;
