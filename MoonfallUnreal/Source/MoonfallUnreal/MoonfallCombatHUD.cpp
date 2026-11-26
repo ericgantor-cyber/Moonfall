@@ -883,7 +883,11 @@ void AMoonfallCombatHUD::DrawHUD()
        Rows>0?Start/Rows+1:1,Rows>0?FMath::Max(1,(Count+Rows-1)/Rows):1),
        FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+51.f,nullptr,Scale*0.68f);
    if(Width>=480.f) {
+    DrawRect(Hero->bManualQuestTracking?FLinearColor(0.20f,0.24f,0.30f):FLinearColor(0.20f,0.38f,0.28f),Left+Width-214.f,Top+46.f,96.f,20.f);
+    DrawHoverFrame(Left+Width-214.f,Top+46.f,96.f,20.f);
+    DrawText(TEXT("AUTO TRACK"),FLinearColor::White,Left+Width-207.f,Top+48.f,nullptr,0.65f);
     DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
+    DrawHoverFrame(Left+Width-110.f,Top+46.f,96.f,20.f);
     DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
    }
    const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
