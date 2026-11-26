@@ -53,7 +53,15 @@ bool FMoonfallQuestSaveContractTest::RunTest(const FString& Parameters)
  Tracked=J::Toggle(Tracked,Active,0);
  Tracked=J::Toggle(Tracked,Active,99);
  TestTrue(TEXT("Last active slot can be tracked"),Tracked.Has(99));
- TestFalse(TEXT("Completed quest no longer tracked"),(Tracked & J::FMask{}).Has(99));
+ Active.Remove(99);
+ const auto Reconciled=Tracked&Active;
+ TestFalse(TEXT("Completed quest no longer tracked"),Reconciled.Has(99));
+ TestTrue(TEXT("Unrelated active quest remains tracked"),Reconciled.Has(1));
+ TestEqual(TEXT("Only completed quest leaves tracking"),J::Count(Reconciled),6);
+ TestTrue(TEXT("99 active contracts permits acceptance"),J::CanAccept(99));
+ TestFalse(TEXT("100 active contracts blocks acceptance"),J::CanAccept(100));
+ TestEqual(TEXT("Final partial page remains reachable"),J::SelectPage(98,3,100,1),99);
+ TestEqual(TEXT("Next on final page retains selection"),J::SelectPage(99,3,100,1),99);
  return !HasAnyErrors();
 }
 #endif
