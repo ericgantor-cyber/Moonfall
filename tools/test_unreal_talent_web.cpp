@@ -4,6 +4,15 @@
 #include <limits>
 using namespace MoonfallTalentWeb;
 int main() {
+ assert(ResetConfirmationSeconds==3.0);
+ assert(!ResetConfirmationActive(false,10.0,11.0));
+ assert(ResetConfirmationActive(true,10.0,10.0));
+ assert(ResetConfirmationActive(true,10.0,13.0));
+ assert(!ResetConfirmationActive(true,10.0,13.001));
+ assert(!ResetConfirmationActive(true,10.0,9.9));
+ assert(!ResetConfirmationActive(true,-1.0,0.0));
+ assert(!ResetConfirmationActive(true,10.0,std::numeric_limits<double>::infinity()));
+ assert(!ResetConfirmationActive(true,std::numeric_limits<double>::quiet_NaN(),10.0));
  const auto Normal=ForViewport(1280.0,800.0,1);
  assert(Normal.Valid && Normal.VisibleTiers==5 && Normal.FirstTier==1);
  assert(Normal.Panel.W<=1020 && Normal.Panel.H<=690);
