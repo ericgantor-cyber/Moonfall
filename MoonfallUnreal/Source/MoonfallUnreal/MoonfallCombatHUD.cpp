@@ -2362,7 +2362,9 @@ void AMoonfallCombatHUD::DrawHUD()
         CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
     const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
       FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
-    DrawText(PowerCompareLine,
+    const FString CompactPowerCompareLine = !bValidSelection ? FString(TEXT("INVALID GEAR"))
+      : FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta);
+    DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,
       bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
         : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
         : FLinearColor(0.78f,0.86f,1.f),
