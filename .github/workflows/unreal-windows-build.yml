@@ -103,22 +103,7 @@ jobs:
           & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
           if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
           $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory $destination
-          # Reject a corrupt or wrong-architecture bootstrap before smoke tests.
-          $stream = [IO.File]::OpenRead($exe.FullName)
-          $reader = [IO.BinaryReader]::new($stream)
-          try {
-            if ($stream.Length -lt 128 -or $reader.ReadUInt16() -ne 0x5A4D) { throw 'Invalid Windows executable header.' }
-            $stream.Position = 0x3C
-            $peOffset = $reader.ReadInt32()
-            if ($peOffset -lt 0x40 -or $peOffset -gt $stream.Length - 26) { throw 'Invalid Windows PE offset.' }
-            $stream.Position = $peOffset
-            if ($reader.ReadUInt32() -ne 0x00004550 -or $reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game is not an AMD64 PE executable.' }
-            $stream.Position = $peOffset + 24
-            if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game is not a PE32+ executable.' }
-          } finally {
-            $reader.Dispose()
-            $stream.Dispose()
-          }
+          & .\MoonfallUnreal\Build\Assert-Win64Executable.ps1 -Executable $exe.FullName
           # A successful UAT exit and .exe alone do not prove cooked game data exists.
           $pakDir = Join-Path $exe.Directory.FullName "MoonfallUnreal\Content\Paks"
           if (-not (Test-Path -LiteralPath $pakDir -PathType Container)) { throw "Missing cooked content directory: $pakDir" }
