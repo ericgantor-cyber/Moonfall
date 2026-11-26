@@ -1724,8 +1724,10 @@ void AMoonfallHeroPawn::BreakGuard()
 void AMoonfallHeroPawn::ControllerRightStickPress()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (bTalentWebOpen || bOptionsOpen || bInventoryOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
+ if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
+ // R3 opens the Atlas from the bag or its subpages, never from live combat.
+ if (bInventoryOpen) { ToggleAtlas(); return; }
  if (bGuarding) return;
  BeginGuard();
  bControllerGuardStarted = bGuarding;

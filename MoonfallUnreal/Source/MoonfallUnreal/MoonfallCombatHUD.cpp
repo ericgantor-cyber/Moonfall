@@ -1745,7 +1745,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
-   DrawText(TEXT("A / K: talents   Esc / Pad B: back   Select: close"),
+   DrawText(TEXT("A/K: talents   J/R3: atlas   Esc/Pad B: back   Select: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    DrawLiveMenuHitCue();
@@ -1895,7 +1895,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Book.EquipRightX+7.f,Book.EquipY+5.f,nullptr,
       Book.Width<500.f ? 0.62f : 0.85f);
    if (Book.Width >= 440.f)
-    DrawText(TEXT("P: CLOSE  |  Y: BAG  |  D-PAD UP/DOWN: SELECT  |  LEFT/RIGHT: EQUIP"),
+    DrawText(TEXT("P: CLOSE | Y: BAG | J/R3: ATLAS | UP/DOWN: SELECT | LEFT/RIGHT: EQUIP"),
        FLinearColor(0.64f,0.76f,0.88f),Book.Left+18.f,
        Book.Top+Book.Height-14.f,nullptr,Book.Width<650.f ? 0.49f : 0.66f);
    DrawLiveMenuHitCue();
@@ -2254,7 +2254,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("LT: equip best  |  Crafting and salvage unavailable"), FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   else DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / A: character stats    P: spell book    B / I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C/A: stats   P: spell book / Y   J/R3: atlas   B/I/Select/Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   DrawLiveMenuHitCue();
   return;
