@@ -40,7 +40,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 16", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -143,7 +143,7 @@ class TestRacialPersistence(unittest.TestCase):
             self.assertIn("if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;", body)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
         self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
-        self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", load)
+        self.assertIn("if (MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) InventoryItemCodes.Add(Code);", load)
         self.assertIn("ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot", load)
 
         def valid_item_code(code):
@@ -289,7 +289,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
