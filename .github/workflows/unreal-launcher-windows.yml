@@ -59,9 +59,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Join-Path $work 'Engine'), (Join-Path $work 'MoonfallUnreal') | Out-Null
           Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal.exe') -Value 'not a real executable'
           Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal\placeholder.dat') -Value 'synthetic'
+          $paks = Join-Path $work 'MoonfallUnreal\Content\Paks'
+          New-Item -ItemType Directory -Force -Path $paks | Out-Null
+          $launcher = Join-Path $work 'MoonfallLauncher.exe'
+          function Assert-Layout([int]$expected) {
+            $result = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
+            if ($result.ExitCode -ne $expected) { throw "Expected $expected, got $($result.ExitCode)" }
+          }
+          Assert-Layout 2
+          New-Item -ItemType File -Path (Join-Path $paks 'empty.pak') | Out-Null
+          Assert-Layout 2
+          Set-Content -LiteralPath (Join-Path $paks 'game.utoc') -Value 'synthetic'
+          Assert-Layout 2
+          Set-Content -LiteralPath (Join-Path $paks 'unrelated.ucas') -Value 'synthetic'
+          Assert-Layout 2
+          Set-Content -LiteralPath (Join-Path $paks 'game.ucas') -Value 'synthetic'
+          Assert-Layout 0
+          Remove-Item -LiteralPath (Join-Path $paks 'game.ucas')
+          Set-Content -LiteralPath (Join-Path $paks 'game.pak') -Value 'synthetic'
           $result = Start-Process -FilePath (Join-Path $work 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
           if ($result.ExitCode -ne 0) { throw "Expected exit 0 for structurally complete test layout, got $($result.ExitCode)" }
-          "Two launcher file-structure tests passed (synthetic layout; NOT Unreal gameplay)." >> $env:GITHUB_STEP_SUMMARY
+          "Launcher missing, empty, unmatched and complete cooked-content structure tests passed (synthetic layout; NOT Unreal gameplay)." >> $env:GITHUB_STEP_SUMMARY
       - name: Compile NSIS installer template using test-only files
         run: |
           $ErrorActionPreference = 'Stop'
