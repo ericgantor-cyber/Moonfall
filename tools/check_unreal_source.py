@@ -3329,8 +3329,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         scope = tick.split("// Small-pack coordination:", 1)[1].split(
             "// Alternate quick strikes", 1)[0]
-        for guard in ('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
-                      'Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
+        for guard in ('static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));',
+                      'const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);',
+                      'const bool bOtherDungeonMember = Other->ActorHasTag(DungeonEncounterTag);',
                       '!bDungeonMember || !bOtherDungeonMember',
                       '!IsValid(GetOwner())', 'Other->GetOwner() != GetOwner()'):
             self.assertIn(guard, scope)
