@@ -22,11 +22,15 @@ permissions:
 jobs:
   windows-preflight:
     runs-on: windows-2022
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        id: checkout
         with:
           persist-credentials: false
       - name: Detect Unreal Engine 5.4 installation
+        id: prerequisites
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $engine = 'C:\Program Files\Epic Games\UE_5.4'
@@ -37,13 +41,16 @@ jobs:
             'Windows preflight: Unreal 5.4 packaging prerequisites verified. Native C++ compilation was NOT performed.' >> $env:GITHUB_STEP_SUMMARY
           } else {
             Write-Host 'Unreal Engine 5.4 is not installed on this hosted runner.'
-            Write-Host 'This job validates PowerShell syntax and prerequisite discovery only.'
-            'Windows preflight: PowerShell syntax only; Unreal 5.4 is not installed. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
+            Write-Host 'This job validates PowerShell syntax, prerequisite discovery and synthetic build fixtures.'
+            'Windows preflight: no Unreal 5.4 installed; syntax and synthetic fixtures are not native compilation. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
             'To compile, dispatch this workflow on the PR branch with compile_on_self_hosted=true and an authorized Unreal 5.4 Windows runner.' >> $env:GITHUB_STEP_SUMMARY
           }
       - name: Parse Windows scripts on Windows
+        id: syntax
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $scripts = @(Get-ChildItem MoonfallUnreal/Build -Filter '*.ps1' -Recurse -File)
           if ($scripts.Count -eq 0) { throw 'No build scripts found' }
           foreach ($script in $scripts) {
@@ -53,6 +60,63 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error: $($script.Name)" }
           }
           Write-Host "Parsed $($scripts.Count) build scripts on Windows."
+
+      - name: Execute package root discovery fixtures on Windows
+        id: package_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
+      - name: Execute native evidence parser fixtures on Windows
+        id: evidence_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-NativeAutomationResults.Tests.ps1
+      - name: Execute engine version guard fixtures on Windows
+        id: engine_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1
+      - name: Publish Windows verification results
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          CHECKOUT_RESULT: ${{ steps.checkout.outcome }}
+          PREREQUISITES_RESULT: ${{ steps.prerequisites.outcome }}
+          SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          PACKAGE_RESULT: ${{ steps.package_fixtures.outcome }}
+          EVIDENCE_RESULT: ${{ steps.evidence_fixtures.outcome }}
+          ENGINE_RESULT: ${{ steps.engine_fixtures.outcome }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $checks = [ordered]@{
+            'Checkout' = $env:CHECKOUT_RESULT
+            'Prerequisite discovery' = $env:PREREQUISITES_RESULT
+            'PowerShell syntax' = $env:SYNTAX_RESULT
+            'Synthetic package layout' = $env:PACKAGE_RESULT
+            'Synthetic native evidence parser' = $env:EVIDENCE_RESULT
+            'Synthetic engine version guard' = $env:ENGINE_RESULT
+          }
+          '### Windows preflight results' >> $env:GITHUB_STEP_SUMMARY
+          if ($env:CHECKOUT_RESULT -ceq 'success') {
+            $actual = (& git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve checked-out revision.' }
+            "Checked-out commit: $actual" >> $env:GITHUB_STEP_SUMMARY
+          }
+          '| Check | Outcome |' >> $env:GITHUB_STEP_SUMMARY
+          '| --- | --- |' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($entry in $checks.GetEnumerator()) {
+            "| $($entry.Key) | $($entry.Value) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+          'Scope: real Windows PowerShell execution with synthetic fixtures; no native Unreal compilation, packaging or gameplay.' >> $env:GITHUB_STEP_SUMMARY
+          if (@($checks.Values | Where-Object { $_ -cne 'success' }).Count -ne 0) {
+            throw 'One or more required Windows preflight checks did not pass.'
+          }
 
   unreal-editor-compile:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
