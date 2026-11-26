@@ -2329,14 +2329,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
    const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
-   const int32 TierDelta = SelectedTier - EquippedTier;
-   const int32 RarityDelta = SelectedRarity - EquippedRarity;
    const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
    const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
-   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && (EquippedCode <= 0 || TierDelta > 0
-     || (TierDelta == 0 && RarityDelta > 0));
-   const bool bIsLower = bValidSelection && EquippedCode > 0 && (TierDelta < 0
-     || (TierDelta == 0 && RarityDelta < 0));
+   // Use the same validated power difference for the label and displayed value.
+   const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;
+   const bool bIsUpgrade = bValidSelection && !bAlreadyEquipped && PowerDelta > 0;
+   const bool bIsLower = bValidSelection && EquippedCode > 0 && PowerDelta < 0;
    const TCHAR* CompareWord = !bValidSelection ? TEXT("INVALID GEAR")
      : bAlreadyEquipped ? TEXT("EQUIPPED") : EquippedCode <= 0 ? TEXT("EMPTY SLOT")
      : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
@@ -2352,7 +2350,7 @@ void AMoonfallCombatHUD::DrawHUD()
        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
    const FString PowerCompareLine = !bValidSelection ? CompareLine : CompareLine +
-     FString::Printf(TEXT("  |  %+d gear power"), Hero->GetItemPowerDelta(SelectedCode));
+     FString::Printf(TEXT("  |  %+d gear power"), PowerDelta);
    DrawText(PowerCompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
