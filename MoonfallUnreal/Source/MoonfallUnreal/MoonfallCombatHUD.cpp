@@ -895,7 +895,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
    DrawText(bSlotsFull&&!bSelectedTracked
        ? TEXT("7/7 TRACKED | Untrack another quest first | Home: auto")
-       : TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto"),
+       : TEXT("PgUp/PgDn or D-pad: row | LB/RB: page | A/End/click: track"),
        bSlotsFull&&!bSelectedTracked?FLinearColor(0.95f,0.78f,0.45f):FLinearColor(0.75f,0.79f,0.85f),
        Left+18.f,Top+67.f,nullptr,Scale*0.60f);
    if(Count==0) DrawText(TEXT("No active quests."),FLinearColor::White,Left+18.f,Top+93.f,nullptr,Scale);
