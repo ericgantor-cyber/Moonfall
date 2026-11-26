@@ -6582,6 +6582,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("Set-Content -LiteralPath $evidence"))
         self.assertLess(workflow.index("Set-Content -LiteralPath $evidence"),
                         workflow.index("Preserve native Editor and Game compile proof"))
+        # Compiler success evidence must survive a later runtime test failure.
+        self.assertLess(workflow.index("Preserve native Editor and Game compile proof"),
+                        workflow.index("Execute actual UE Editor Gothic Raven ferry component test"))
+        self.assertIn('MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT', workflow)
+        self.assertIn('MoonfallUnrealCompile-${{ github.run_id }}-${{ github.run_attempt }}/NativeCompile-Evidence.txt', workflow)
+        self.assertIn('MoonfallUnrealCompile-${{ github.run_id }}-${{ github.run_attempt }}/EditorBuild-Transcript.txt', workflow)
 
 
     def test_windows_installer_requires_real_nonempty_cooked_content_archives(self):
