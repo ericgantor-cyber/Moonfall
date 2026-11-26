@@ -30,6 +30,9 @@ The full-size Options panel also reports the current Unreal RHI adapter name and
 
 The PC audit now caches the RHI's dedicated-video-memory capacity and reported texture allocation/pool size on Options entry. The HUD displays capacity in GiB when positive, otherwise unknown. Texture allocation and texture pool are separate cached fields, not total GPU memory usage. No renderer memory query runs from the HUD drawing loop. Native UE5.4 compilation and actual adapter testing remain required.
 
+## Local bug reports
+Open Options and click REPORT, press F8, or press the controller right stick (R3). Each explicit action creates a unique JSON diagnostic report under the Unreal project's Saved/BugReports directory, with a five-second rate limit. The button shows REPORT SAVED or SAVE FAILED. Reports contain the engine version, UTC timestamp, active adapter/backend, memory readings, current resolution/quality/reduced-motion setting and available recent gameplay timing estimates. They do not read raw logs, saves, personal files, account names or credentials, and never upload automatically. A tester can review the JSON and attach it manually to a bug report with reproduction steps. This is not a crash-dump collector; it requires the game to be responsive. Existing opt-in Build Center test-summary upload is unchanged. Native validation is required for the keyboard, pointer, controller and file-writing paths.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
