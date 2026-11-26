@@ -330,6 +330,21 @@ class ProductionArtTests(unittest.TestCase):
         self.assertIn('REPORT [F8/R3]', hud)
         self.assertIn('MenuTop+42.f,140.f,18.f', hud)
 
+    def test_crash_recovery_snapshots_are_local_throttled_and_lifecycle_scoped(self):
+        pawn = (ROOT / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text()
+        recovery = pawn.split("void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now)",1)[1].split("void AMoonfallHeroPawn::ExportBugReport()",1)[0]
+        for token in ("EWorldType::Game", "NM_DedicatedServer", "!IsLocallyControlled()",
+                      "Now+10.0", "Now+60.0", 'TEXT("Recovery")',
+                      "RecoverySnapshotPath.IsEmpty()", "FGuid::NewGuid()",
+                      "Json.Len()<=32768", "FJsonSerializer::Serialize",
+                      "Files.Move(*RecoverySnapshotPath,*Temp,true)",
+                      "Super::EndPlay(EndPlayReason)"):
+            self.assertIn(token, recovery)
+        for token in ("HttpModule", "LaunchURL", "LoadFileToString",
+                      "SaveGameToSlot", "GetUserName", "GetComputerName"):
+            self.assertNotIn(token, recovery)
+        self.assertIn("if (bGameplay) UpdateRecoverySnapshot(Now);", pawn)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
