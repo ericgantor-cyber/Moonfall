@@ -3714,7 +3714,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // considers matching affixes together without lowering any slot's tier/rarity.
  const MoonfallGearAdvisor::FEquipped EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
- MoonfallGearAdvisor::FPlanner Planner(EquippedCodes, IsRecentlyInCombatForAmbientAI());
+ MoonfallEquipmentLayout::FPlanner Planner(MoonfallEquipmentLayout::ExpandLegacy(EquippedCodes),
+     IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::LegacySlotCount);
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
   Planner.Add(InventoryItemCodes[Index], Index);
  const auto Plan = Planner.Finish();
