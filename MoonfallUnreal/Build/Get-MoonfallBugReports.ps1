@@ -67,23 +67,38 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
             $classification = 'Insufficient timing evidence'
             if ($report.gameplay_sample_ready -is [bool] -and $report.gameplay_sample_ready -and
                 $report.average_fps -is [ValueType] -and $report.p95_ms -is [ValueType]) {
-                $f = [double]$report.average_fps
-                $p = [double]$report.p95_ms
-                if (-not [double]::IsNaN($f) -and -not [double]::IsInfinity($f) -and
+                $f = Get-ReportMetric $report.average_fps 0.001 100000
+                $p = Get-ReportMetric $report.p95_ms 0.001 2000
+                if ($null -ne $f -and $null -ne $p -and -not [double]::IsNaN($f) -and -not [double]::IsInfinity($f) -and
                     -not [double]::IsNaN($p) -and -not [double]::IsInfinity($p) -and
                     $f -gt 0 -and $f -le 100000 -and $p -gt 0 -and $p -le 2000) {
                     $fps = [math]::Round($f,2)
                     $p95 = [math]::Round($p,2)
-                    if ($report.hitches -is [ValueType] -and $report.hitches -ge 0 -and $report.hitches -le 240) {
-                        $hitches = [int]$report.hitches
-                    }
+                    $hitches = Get-ReportMetric $report.hitches 0 240 -Integer
                     $classification = if ($f -lt 30 -or $p -gt 50) { 'Low throughput' }
                         elseif ($hitches -gt 0 -or $p -gt 33.334) { 'Intermittent slow frames' }
                         else { 'No clear timing issue in sample' }
                 }
             }
+            $events = @()
+            $eventNames = @('options_opened','options_closed','graphics_changed','damage_taken','spell_cast')
+            foreach ($event in @($report.recent_events | Select-Object -Last 8)) {
+                $age = Get-ReportMetric $event.seconds_ago 0 300
+                if ($null -eq $age) { continue }
+                $name = $null
+                if ($event.event -is [string] -and $eventNames -contains $event.event) {
+                    $name = $event.event
+                } elseif ($Kind -eq 'moonfall_recovery_snapshot') {
+                    $code = Get-ReportMetric $event.event_code 0 4 -Integer
+                    if ($null -ne $code) { $name = $eventNames[[int]$code] }
+                }
+                if ($null -ne $name) {
+                    $events += [pscustomobject]@{ Event=$name; SecondsAgo=$age }
+                }
+            }
             [pscustomobject]@{
                 Source = $Source
+                RecentEvents = @($events)
                 File = $file.Name
                 LastWriteUtc = $file.LastWriteTimeUtc.ToString('o')
                 Kind = $(if ($Kind -eq 'moonfall_recovery_snapshot') { 'Recovery snapshot; session status and crash not established' } else { 'Manual report' })
