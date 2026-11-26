@@ -79,6 +79,9 @@ constexpr bool Removal() {
   Unequipped[Slot]=0;
   if(!S::CanRemoveCopy(Unequipped,Code,Bag,9))return false;
  }
+ auto Corrupt=Worn;
+ Corrupt[0]=Bag[1]; Corrupt[1]=0;
+ if(S::CanRemoveCopy(Corrupt,Bag[1],Bag,9))return false;
  return !S::CanRemoveCopy(Worn,1002,Bag,10)
      && !S::CanRemoveCopy(Worn,0,Bag,10)
      && !S::CanRemoveCopy(Worn,100001,Bag,10)
