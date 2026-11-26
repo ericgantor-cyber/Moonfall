@@ -23,6 +23,9 @@ The standalone Rigs/SK_MF_FirstlightWarden.gltf contains a 17-joint hierarchy, i
 ## PC audit
 The full-size Options panel displays cached RAM and logical CPU thread count. For more detail, execute `MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1` in Windows PowerShell. The script prints local JSON with OS version, CPU, visible RAM, graphics adapters, driver versions and conservative starting settings. It does not run a benchmark, change settings, identify the active rendering adapter, test DX12 capability, infer dedicated VRAM from truncated WMI fields, collect personal identifiers or transmit the report. FPS and advanced rendering capability require native verification.
 
+### Live gameplay timing
+The local player collects wall-clock intervals between gameplay ticks, excluding menus, defeat, paused gameplay and gaps longer than two seconds. A fixed 240-sample ring publishes average FPS, mean/p95/worst frame interval, slow frames and hitches (100 ms or greater) at most once per accumulated second after 30 samples. Full-size options show the recent gameplay FPS, p95 and hitch count with conservative advice; graphics changes reset the sample. This is CPU-side gameplay interval timing, not GPU timing, a renderer benchmark, or a guarantee of displayed FPS. No automatic settings changes, network transmission or additional ticking actor. Native verification must confirm layout and performance.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
