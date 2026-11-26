@@ -1401,10 +1401,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(signature, self.hero_h)
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
-        self.assertIn("const auto Codes = BuildEquipmentLoadout();", sets)
+        self.assertIn("const auto Codes = BuildOwnedEquipmentLoadout();", sets)
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", sets)
         self.assertIn("Rarity >= 1", sets)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        self.assertIn("BuildOwnedEquipmentLoadout()", sets)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         for guard in ("MoonfallEquipmentSlots::Known(ExpectedSlot)",
                       "MoonfallEquipmentSlots::Decode(Code)", "Item.Slot!=ExpectedSlot",
@@ -1427,10 +1427,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
         for code in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
             self.assertGreaterEqual(stats.count(f"InventoryItemCodes.Contains({code})"), 2)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        self.assertIn("BuildOwnedEquipmentLoadout()", sets)
 
         # Inventory is used only as proof of ownership, never as a source of worn stats.
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        self.assertIn("BuildOwnedEquipmentLoadout()", sets)
         self.assertNotIn("for (int32 Code : InventoryItemCodes)", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
@@ -1757,7 +1757,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MoonfallEquipmentSlots::Decode(Code)", equip)
         self.assertIn("!MoonfallEquipmentSlots::Known(Item.Slot)", equip)
         self.assertIn("MoonfallEquipmentSlots::EquipExtra(ExtraEquippedCodes, Code)", equip)
-        self.assertIn("if (Health <= 0.f) return false;", equip)
+        self.assertIn("if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;", equip)
+        self.assertIn("MoonfallEquipmentSlots::FLoadout DefeatedEquipmentSelection{};", self.hero_h)
+        self.assertIn("MoonfallEquipmentSlots::RestoreExtraChoices(ExtraEquippedCodes, DefeatedEquipmentSelection,", self.hero_cpp)
         self.assertLess(equip.index("EquipExtra(ExtraEquippedCodes, Code)"), equip.index("*EquippedTier = Tier;"))
         self.assertIn("*EquippedTier = Tier;", equip)
         self.assertIn("*EquippedAffix = Affix;", equip)
@@ -1892,6 +1894,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(f"MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[{slot}], {slot})", load)
         self.assertNotIn("RestoreGear(Save->Equipped", load)
         self.assertIn("ExtraEquippedCodes = MoonfallEquipmentSlots::ToExtra(SavedWornCodes);", load)
+        self.assertLess(load.index("ExtraEquippedCodes = MoonfallEquipmentSlots::ToExtra"), load.index("RestoreExtraChoices("))
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() TArray<int32> ExtraEquippedCodes;", save_h)
         self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
@@ -5650,7 +5653,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                            "Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0)",
                            "if (!MoonfallEquipmentSlots::Known(Slot)) return 0;"):
             self.assertIn(expression, item)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", score)
+        self.assertIn("BuildOwnedEquipmentLoadout()", score)
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", score)
         self.assertIn("Hero->GetEquipmentPower()", self.hud)
         self.assertIn("Hero->GetItemPower(Hero->GetEquipmentSlotCode(0))", self.hud)
