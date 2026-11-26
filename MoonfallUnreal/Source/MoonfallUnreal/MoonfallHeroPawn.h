@@ -494,6 +494,8 @@ public:
  void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
+ // Raw worn references are for validation and ownership protection only.
+ int32 GetRawEquipmentSlotCode(int32 Slot) const;
  MoonfallPerformance::FAudit PerformanceAudit;
  MoonfallPerformance::FStageAudit StageAudit;
  double NextStageAuditAt=-1;
