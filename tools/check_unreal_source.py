@@ -14,6 +14,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_combined_quest_journal_matches_resident_save_contract(self):
+        import re
+        journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
+        allowed = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split("};", 1)[0]
+        ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
+        saved_ids = re.findall(r'FName\(TEXT\("([^"]+)"\)\)', allowed)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(set(ids), set(saved_ids))
+        tracker = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        for required in ("Hero->GetResidentQuestState(ResidentKeys[I])",
+                         "MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount",
+                         "VisibleRows(Available,TotalRows)",
+                         "Goals.Indices[Row-Contracts.TrackedCount]",
+                         "MoonfallQuestXP::Reward(Cost,Hero->Level)"):
+            self.assertIn(required, tracker)
+        for forbidden in ("TActorIterator", "GetAllActorsOfClass", "SaveWorldProgress(",
+                          "AwardExperience(", "ResidentQuestStates.Add("):
+            self.assertNotIn(forbidden, tracker)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
