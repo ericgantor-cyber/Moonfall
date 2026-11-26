@@ -3989,6 +3989,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_enemy_damage_callbacks_stop_after_actor_teardown(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1].split("\nvoid AMoonfallEnemy::", 1)[0]
+        guard = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;"
+        for callback in ("OnShatterFinisher(ActualDamage);",
+                         "ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));",
+                         "OnBossPhaseChanged(BossPhase);",
+                         "OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);",
+                         "OnHitFeedback(ActualDamage, Health);"):
+            with self.subTest(callback=callback):
+                self.assertTrue(damage.split(callback, 1)[1].lstrip().startswith(guard))
+
     def test_spell_callbacks_revalidate_destroyed_targets_before_followups(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         damage = cast.index("Enemy->TakeSpellDamage(SpellDamage);")

@@ -378,11 +378,13 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   }
   if (bShatterFinisher && ActualDamage > 0.f)
     OnShatterFinisher(ActualDamage);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   // Offensive pressure builds posture, but an already broken enemy cannot
   // immediately be rebroken by damage dealt during its vulnerability window.
   if (ActualDamage > 0.f && Health > 0.f && FMath::IsFinite(SpellPostureScale)
       && SpellPostureScale > 0.f && !bPostureExposed)
     ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
@@ -411,10 +413,13 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
    }
   }
   OnHitFeedback(ActualDamage, Health);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
   bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;
