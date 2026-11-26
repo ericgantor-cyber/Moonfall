@@ -4168,7 +4168,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AdvisorNow < AdvisorScoreUpdatedAt", bag)
         self.assertIn("AdvisorNow - AdvisorScoreUpdatedAt >= 0.25", bag)
         self.assertIn("bAdvisorScoreCached = bAdvisorClockValid;", bag)
-        self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
         for field in ("CachedAdvisorCount != Count", "CachedAdvisorSelected != Selected",
                       "CachedAdvisorSelectedCode != AdvisorCode",
                       "CachedAdvisorWeapon != Hero->EquippedWeaponCode",
@@ -4176,6 +4175,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "CachedAdvisorAccessory != Hero->EquippedAccessoryCode"):
             self.assertIn(field, bag)
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
         self.assertIn("bool bAdvisorScoreCached = false;", hud_header)
         self.assertIn("TWeakObjectPtr<const AMoonfallHeroPawn> CachedAdvisorHero;", hud_header)
         self.assertIn("CachedAdvisorHero.Get() != Hero", bag)
