@@ -181,7 +181,7 @@ jobs:
             throw 'Native dungeon test report is missing.'
           }
           $contents = @(Get-Content -LiteralPath $report)
-          foreach ($required in @(
+          $requiredTests = @(
             'Moonfall.Dungeons.All30EntranceLocations',
             'Moonfall.Dungeons.SeededRoomArchetypes',
             'Moonfall.Dungeons.BossVictoryLedgerDefaults',
@@ -189,15 +189,9 @@ jobs:
             'Moonfall.Controls.CurrentInputContract',
             'Moonfall.Quests.ResidentSaveRoundTrip',
             'Moonfall.Dungeons.EquipmentSaveRoundTrip'
-          )) {
-            if (@($contents | Where-Object { $_ -ceq "$required=True" }).Count -ne 1) {
-              throw "Native dungeon test was not verified as passing: $required"
-            }
-          }
-          if (@($contents | Where-Object { $_ -ceq 'EditorExitCode=0' }).Count -ne 1 -or
-              @($contents | Where-Object { $_ -ceq 'AnyNativeTestFailed=False' }).Count -ne 1) {
-            throw 'Native dungeon test report does not show a successful Editor run.'
-          }
+          )
+          & ./MoonfallUnreal/Build/Assert-NativeAutomationReport.ps1 -Lines $contents -Required $requiredTests
+          # The strict validator requires EditorExitCode=0 and AnyNativeTestFailed=False.
           $actual = (& git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native test checkout changed during verification.' }
           $log = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'Moonfall-Dungeon-UE54.log'
