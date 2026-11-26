@@ -776,6 +776,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, block)
 
+    def test_inventory_optional_previews_clear_minimum_height_rows(self):
+        bag = self.hud.split("if (Hero->bInventoryOpen)", 1)[1]
+        self.assertIn("if (PanelHeight >= 360.f) {", bag)
+        self.assertIn("if (PanelHeight >= 320.f) {", bag)
+        self.assertLess(bag.index("if (PanelHeight >= 360.f) {"), bag.index("const int32 ReforgeCost"))
+        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);"))
+        # Match the shared inventory drawing and mouse hit-test geometry.
+        for height in range(280, 861):
+            room = height - (430 if height >= 500 else 390)
+            rows = max(2, min(20, room // 25))
+            row_end = 145 + rows * max(21, room / rows)
+            first_footer = (height - 270 if height >= 500 else
+                            height - 230 if height >= 420 else
+                            height - 156 if height >= 360 else
+                            height - 110 if height >= 320 else height - 70)
+            self.assertGreaterEqual(first_footer, row_end, height)
+
     def test_rarity_item_details_and_sorted_controller_selection_are_safe(self):
         up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
         down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
