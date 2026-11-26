@@ -11,6 +11,7 @@ on:
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
       - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
@@ -31,6 +32,7 @@ on:
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
       - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
@@ -106,3 +108,14 @@ jobs:
             $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled -InstallDirectory $custom | ConvertFrom-Json
             if ($combined.Count -ne 4) { throw 'Unverified installation was accepted' }
           } finally { $env:LOCALAPPDATA = $oldLocal }
+
+          $fixture = [pscustomobject]@{Reports=@(
+            1..8 | ForEach-Object {
+              [pscustomobject]@{ LastWriteUtc=('2026-01-0{0}' -f $_); Kind='Manual report'; Classification='Low throughput'; AverageFPS=20; P95Milliseconds=60; Hitches=4; File='private-file.json'; Source='private-path'; Extra='private-token' }
+            }
+          )}
+          $prompt = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $fixture
+          if ($prompt -match 'private-file|private-path|private-token|Report 6:') { throw 'Prompt privacy or size limit failed' }
+          if ($prompt -notmatch 'Report 5:' -or $prompt -notmatch 'AverageFPS: 20' -or $prompt -notmatch 'reproduction steps') { throw 'Prompt missing required evidence' }
+          $empty = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex ([pscustomobject]@{Reports=@()})
+          if ($empty -notmatch 'No usable reports') { throw 'Empty handoff failed' }
