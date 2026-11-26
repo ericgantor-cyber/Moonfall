@@ -2528,18 +2528,12 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
- const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
- if (bEquippedCode) {
-  int32 Copies = 0;
-  for (const int32 Candidate : InventoryItemCodes)
-   if (Candidate == Code) ++Copies;
-  if (Copies <= 1) return false;
- }
+ const MoonfallEquipmentLayout::FLoadout Worn = {
+     EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ if (!MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,
+     MoonfallEquipmentLayout::LegacySlotCount,InventoryItemCodes)) return false;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
-     MoonfallEquipmentLayout::EInventoryOperation::Salvage)) return false;
  // Keep the same currency limit as SaveWorldProgress. Clamp before
  // adding to avoid overflow and never erase a legitimate saved balance.
  constexpr int32 MaxSalvage = 100000000;
