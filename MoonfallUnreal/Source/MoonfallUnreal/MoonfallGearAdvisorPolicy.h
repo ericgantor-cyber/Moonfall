@@ -4,22 +4,23 @@ namespace MoonfallEquipmentScoring {
 // Both legacy and expanded comparisons use identical rank and set weights.
 // Callers supply only validated owned equipped codes (or zero).
 template<class Loadout,class Validator>
-constexpr int Score(int Code,int Slot,const Loadout& Equipped,Validator Valid) {
- if(Slot<0||Slot>=static_cast<int>(Equipped.size())||!Valid(Code,Slot))return 0;
+constexpr int Score(int Code,int Slot,const Loadout& Equipped,Validator Valid,int ActiveSlots) {
+ if(ActiveSlots<0||ActiveSlots>static_cast<int>(Equipped.size())
+     ||Slot<0||Slot>=ActiveSlots||!Valid(Code,Slot))return 0;
  const int Affix=Code/100000;
  int Matching=0;
- for(int Other=0;Other<static_cast<int>(Equipped.size());++Other)
+ for(int Other=0;Other<ActiveSlots;++Other)
   if(Affix>0&&Other!=Slot&&Valid(Equipped[Other],Other)
       &&Equipped[Other]/100000==Affix)++Matching;
  return (Code%1000)*1000+((Code/1000)%10)*100+(Affix>0?10:0)+Matching*40;
 }
 template<class Loadout,class Validator>
-constexpr int Improvement(int Candidate,const Loadout& Equipped,Validator Valid) {
- if(Candidate<=0)return 0;
+constexpr int Improvement(int Candidate,const Loadout& Equipped,Validator Valid,int ActiveSlots) {
+ if(Candidate<=0||ActiveSlots<0||ActiveSlots>static_cast<int>(Equipped.size()))return 0;
  const int Slot=(Candidate/10000)%10;
- if(Slot<0||Slot>=static_cast<int>(Equipped.size())||!Valid(Candidate,Slot)
+ if(Slot<0||Slot>=ActiveSlots||!Valid(Candidate,Slot)
      ||Candidate==Equipped[Slot])return 0;
- return Score(Candidate,Slot,Equipped,Valid)-Score(Equipped[Slot],Slot,Equipped,Valid);
+ return Score(Candidate,Slot,Equipped,Valid,ActiveSlots)-Score(Equipped[Slot],Slot,Equipped,Valid,ActiveSlots);
 }
 }
 namespace MoonfallGearAdvisor {
@@ -35,10 +36,10 @@ constexpr bool Valid(int Code, int Slot) {
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
 }
 constexpr int Score(int Code, int Slot, const FEquipped& Equipped) {
- return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid);
+ return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid,3);
 }
 constexpr int Improvement(int Candidate, const FEquipped& Equipped) {
- return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid);
+ return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid,3);
 }
 
  // Keep tier and rarity progression primary; affix changes may improve sets.
@@ -109,11 +110,13 @@ constexpr bool Valid(int Code,int Slot) {
 }
 // Individual item comparisons preserve the legacy per-piece score semantics.
 // Whole-loadout optimization uses TotalScore below, including both sides of a set pair.
-constexpr int Score(int Code,int Slot,const FLoadout& Equipped) {
- return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid);
+constexpr int Score(int Code,int Slot,const FLoadout& Equipped,int ActiveSlots=SlotCount) {
+ if(ActiveSlots!=LegacySlotCount&&ActiveSlots!=SlotCount)return 0;
+ return MoonfallEquipmentScoring::Score(Code,Slot,Equipped,Valid,ActiveSlots);
 }
-constexpr int Improvement(int Candidate,const FLoadout& Equipped) {
- return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid);
+constexpr int Improvement(int Candidate,const FLoadout& Equipped,int ActiveSlots=SlotCount) {
+ if(ActiveSlots!=LegacySlotCount&&ActiveSlots!=SlotCount)return 0;
+ return MoonfallEquipmentScoring::Improvement(Candidate,Equipped,Valid,ActiveSlots);
 }
 constexpr FLoadout ExpandLegacy(const MoonfallGearAdvisor::FEquipped& Old) {
  FLoadout Out{};

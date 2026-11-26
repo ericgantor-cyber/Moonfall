@@ -103,6 +103,22 @@ int main() {
  assert(L::Improvement(std::numeric_limits<int>::max(),EmptyNine)==0);
  auto InvalidMatching=Full;InvalidMatching[7]=Full[6];
  assert(L::Score(Full[8],8,InvalidMatching)==5390);
+ // The native advisor must ignore inactive slots and their set bonuses.
+ for(int Slot=0;Slot<3;++Slot){
+  const int Code=Full[Slot];
+  assert(L::Score(Code,Slot,Full,L::LegacySlotCount)==G::Score(Code,Slot,Gear));
+  assert(L::Improvement(Code+100000,Full,L::LegacySlotCount)==G::Improvement(Code+100000,Gear));
+ }
+ for(int Slot=3;Slot<L::SlotCount;++Slot){
+  assert(L::Score(Full[Slot],Slot,Full,L::LegacySlotCount)==0);
+  assert(L::Improvement(Full[Slot]+1,Full,L::LegacySlotCount)==0);
+ }
+ assert(L::Improvement(101006,Full,0)==0);
+ assert(L::Improvement(101006,Full,-1)==0);
+ assert(L::Improvement(101006,Full,4)==0);
+ assert(L::Improvement(101006,Full,10)==0);
+ assert(L::Improvement(181006,Full,L::SlotCount)==1000);
+ assert(L::Improvement(181014,Full,L::SlotCount)==9000);
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
