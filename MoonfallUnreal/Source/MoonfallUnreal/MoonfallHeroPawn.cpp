@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
 #include "MoonfallImpactFeedback.h"
@@ -81,19 +82,13 @@ bool HasVisibleInventoryPointerSurface(const AController* Controller)
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
- const int32 Trait = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Trait != 0)
-     || Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
-  return false;
- OutTrait = Trait;
- OutRarity = Rarity;
- OutTier = Tier;
+ // Keep current gameplay and V16 saves three-slot until migration is complete.
+ if (!MoonfallEquipmentSlots::Legacy(ExpectedSlot)) return false;
+ const auto Item=MoonfallEquipmentSlots::Decode(Code);
+ if (Item.Slot!=ExpectedSlot) return false;
+ OutTrait=Item.Affix;
+ OutRarity=Item.Rarity;
+ OutTier=Item.Tier;
  return true;
 }
 int32 ValidEquippedTier(int32 Code, int32 Slot)
