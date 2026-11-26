@@ -33,6 +33,9 @@ The PC audit now caches the RHI's dedicated-video-memory capacity and reported t
 ## Local bug reports
 Open Options and click REPORT, press F8, or press the controller right stick (R3). Each explicit action creates a unique JSON diagnostic report under the Unreal project's Saved/BugReports directory, with a five-second rate limit. The button shows REPORT SAVED or SAVE FAILED. Reports contain the engine version, UTC timestamp, active adapter/backend, memory readings, current resolution/quality/reduced-motion setting and available recent gameplay timing estimates. They do not read raw logs, saves, personal files, account names or credentials, and never upload automatically. A tester can review the JSON and attach it manually to a bug report with reproduction steps. This is not a crash-dump collector; it requires the game to be responsive. Existing opt-in Build Center test-summary upload is unchanged. Native validation is required for the keyboard, pointer, controller and file-writing paths.
 
+### Interrupted-session recovery
+During normal local gameplay (not editor PIE or dedicated server), the pawn attempts a small recovery snapshot after ten seconds, then at most once per minute. It stores only timestamp, engine version, available gameplay frame metrics and recent allowlisted event codes in Saved/BugReports/Recovery. The rolling file is removed on normal pawn teardown. Leftover files indicate an incomplete lifecycle, not necessarily a crash; termination before the first snapshot may leave nothing. No crash-handler code, crash dumps, automatic uploads or personal file access is involved. Native testing must verify normal teardown, forced termination, directory permissions and file replacement behavior.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
