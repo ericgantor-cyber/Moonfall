@@ -156,7 +156,7 @@ constexpr int PageRows(float Height) {
  // Clamp before converting to int; never convert infinity or NaN.
  if(!(Height>=240.f))return 0;
  const float PanelHeight=Height>=674.f?650.f:Height-24.f;
- return static_cast<int>((PanelHeight-92.f)/30.f);
+ return static_cast<int>((PanelHeight-118.f)/30.f);
 }
 constexpr int HitRow(float LocalY,int Rows) {
  if(!(LocalY>=0.f&&LocalY<Rows*30.f))return -1;
@@ -165,5 +165,28 @@ constexpr int HitRow(float LocalY,int Rows) {
 }
 constexpr int PageStart(int Selected,int Rows) {
  return Rows>0 && Selected>=0?(Selected/Rows)*Rows:0;
+}
+// Footer is reserved below the last painted row even at minimum window size.
+struct FPageButtons {
+ float PrevX=0.f, NextX=0.f, Y=0.f, Width=0.f;
+ constexpr int Hit(float X,float LocalY) const {
+  if(!(Width>0.f&&LocalY>=Y&&LocalY<Y+22.f)) return 0;
+  if(X>=PrevX&&X<PrevX+Width) return -1;
+  if(X>=NextX&&X<NextX+Width) return 1;
+  return 0;
+ }
+};
+constexpr FPageButtons PageButtons(float Width,float Height) {
+ if(!(Width>=276.f&&Width<=900.f&&Height>=216.f&&Height<=650.f))return {};
+ return {12.f,Width-92.f,Height-28.f,80.f};
+}
+constexpr int SelectPage(int Selected,int Rows,int Count,int Direction) {
+ if(Count<=0)return 0;
+ const int Safe=Selected<0?0:Selected>=Count?Count-1:Selected;
+ if(Rows<=0)return Safe;
+ const int Start=PageStart(Safe,Rows);
+ if(Direction==-1&&Start>=Rows)return Start-Rows;
+ if(Direction==1&&Rows<Count-Start)return Start+Rows;
+ return Safe;
 }
 } // namespace MoonfallQuestJournal
