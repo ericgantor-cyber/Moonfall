@@ -5085,6 +5085,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}", workflow)
         self.assertIn("-ReportDirectory $env:MOONFALL_NATIVE_REPORT_DIRECTORY", workflow)
         self.assertIn("NativeAutomation-Provenance.txt", workflow)
+        self.assertIn("Assert-NativeAutomationReport.ps1 -Lines $contents -Required $requiredTests", workflow)
+        report_validator = (ROOT.parents[1] / "Build" / "Assert-NativeAutomationReport.ps1").read_text(encoding="utf-8")
+        for token in ("$seen.Add($key)", "$value -cne $expected[$key]", "$seen.Contains($key)", "EditorExitCode", "AnyNativeTestFailed"):
+            self.assertIn(token, report_validator)
         self.assertIn("Get-FileHash -LiteralPath $report -Algorithm SHA256", workflow)
         self.assertIn("Get-FileHash -LiteralPath $log -Algorithm SHA256", workflow)
         self.assertIn("$actual -cne $env:GITHUB_SHA", workflow)
