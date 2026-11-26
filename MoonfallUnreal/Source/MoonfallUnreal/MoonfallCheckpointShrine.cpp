@@ -69,6 +69,8 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  }
  ShrineBase->SetGenerateOverlapEvents(false);
  ShrineBeacon->SetGenerateOverlapEvents(false);
+ ShrineBase->SetCanEverAffectNavigation(false);
+ ShrineBeacon->SetCanEverAffectNavigation(false);
 
  // Dark-fantasy beacon lighting without Tick, dynamic shadow casting,
  // extra animated effects, or changes to Z and Nyra's original artwork.
@@ -85,6 +87,9 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  ShrineLabel->SetWorldSize(26.f);
  ShrineLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
  ShrineLabel->SetText(FText::FromString(TEXT("UNDISCOVERED SHRINE")));
+ ShrineLabel->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ ShrineLabel->SetGenerateOverlapEvents(false);
+ ShrineLabel->SetCanEverAffectNavigation(false);
 
  DiscoveryRange = CreateDefaultSubobject<USphereComponent>(TEXT("DiscoveryRange"));
  DiscoveryRange->SetupAttachment(SceneRoot);
