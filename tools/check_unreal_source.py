@@ -37,6 +37,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(pointer.index("MoonfallQuestJournal::SelectPage"),pointer.index("ToggleSelectedQuestTracking()"))
         self.assertIn('TEXT("< PREV")',log)
         self.assertIn('TEXT("NEXT >")',log)
+        load=self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[1].split("\n}\n",1)[0]
+        self.assertIn("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;",load)
+        self.assertIn("QuestLogSelection=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,MoonfallQuestJournal::Count(RestoredActiveQuests)-1));",load)
+        self.assertLess(load.index("ResidentQuestStates.Reset()"),load.index("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;"))
+        self.assertLess(load.index("ManualQuestMask=ManualQuestMask&RestoredActiveQuests;"),load.index("OnHealthChanged(Health, MaxHealth)"))
         reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
         self.assertIn("bManualQuestTracking=false;",reset)
         self.assertIn("ManualQuestMask={};",reset)
