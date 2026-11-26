@@ -24,6 +24,8 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonHazardPlates"));
  HazardPlates->SetupAttachment(Root);
  HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ HazardPlates->SetGenerateOverlapEvents(false);
+ HazardPlates->SetCanEverAffectNavigation(false);
  WallCrownArt = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonWallCrownArt"));
  WallCrownArt->SetupAttachment(Root);
  WallCrownArt->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -62,6 +64,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
   Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
   Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
   Trigger->SetGenerateOverlapEvents(true);
+  Trigger->SetCanEverAffectNavigation(false);
  }
 
  EntranceTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("EntranceTrigger"));
@@ -72,6 +75,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  EntranceTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
  EntranceTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  EntranceTrigger->SetGenerateOverlapEvents(true);
+ EntranceTrigger->SetCanEverAffectNavigation(false);
 
  FinalChamberTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("FinalChamberTrigger"));
  FinalChamberTrigger->SetupAttachment(Root);
@@ -82,6 +86,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  FinalChamberTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
  FinalChamberTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  FinalChamberTrigger->SetGenerateOverlapEvents(true);
+ FinalChamberTrigger->SetCanEverAffectNavigation(false);
  // Twelve interior room triggers, never entrance or final boss. Component
  // indices correspond to chamber 1..12 and do not Tick.
  for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
@@ -94,6 +99,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
   Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
   Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
   Trigger->SetGenerateOverlapEvents(true);
+  Trigger->SetCanEverAffectNavigation(false);
   ChamberTriggers.Add(Trigger);
  }
 }
@@ -152,6 +158,12 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  Walls->ClearInstances();
  HazardPlates->ClearInstances();
  WallCrownArt->ClearInstances();
+ // Reserve exactly the authored instance counts before building geometry.
+ Floors->PreAllocateInstancesMemory(ChamberCount);
+ Walls->PreAllocateInstancesMemory(6 * ChamberCount + 2 * (ChamberCount - 1) + 1);
+ HazardPlates->PreAllocateInstancesMemory(3);
+ if (bEnableWallCrownArt && WallCrownArt->GetStaticMesh() && ZoneIndex>=0 && ZoneIndex<6)
+  WallCrownArt->PreAllocateInstancesMemory(2 * ChamberCount);
  int32 HazardChambers[3];
  BuildHazardChambers(HazardChambers);
  FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
@@ -264,7 +276,7 @@ void AMoonfallDungeonLayout::PlanBonusEncounter()
   // generation and reward RNG, and prefer non-combat rooms before combat.
   FRandomStream PlacementRandom(GetEffectiveLayoutSeed() ^ 0x6D92F1);
   for (const int32 PreferredType : {4, 3, 2, 1}) {
-   TArray<int32> Candidates;
+   TArray<int32, TInlineAllocator<ChamberCount - 2>> Candidates;
    for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber)
     if (GetChamberType(Chamber) == PreferredType) Candidates.Add(Chamber);
    for (int32 Index = 0; Index < Candidates.Num(); ++Index) {
