@@ -194,3 +194,9 @@ jobs:
             $source.Dispose()
             [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$previousKey,'Process')
           }
+
+          # Source contract for retry gating and startup rollback. Desktop behavior still needs a native smoke test.
+          $ui = Get-Content -LiteralPath 'MoonfallUnreal/Build/Build-Center.ps1' -Raw
+          foreach ($marker in @('RETRY INITIAL ANALYSIS','Confirm retry','-not $session.LastAnswer -and $session.Requests -lt 10','if (-not $pending.Active -or -not $session.Task -or -not $session.Task.IsCompleted)','Resend the same reviewed original report')) {
+            if (-not $ui.Contains($marker)) { throw ('Missing live AI recovery guard: '+$marker) }
+          }
