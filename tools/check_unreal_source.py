@@ -520,7 +520,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
         self.assertIn("Hero->EquippedAccessoryCode", self.hud)
-        self.assertIn("C/A: stats   P/Y: spells   J/R3: atlas   B/I/Select/Esc: close", self.hud)
+        self.assertIn("C/A: stats   P: spell book / Y   J/R3: atlas   B/I/Select/Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_diablo_style_ground_loot_requires_explicit_pickup(self):
@@ -1254,7 +1254,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return;", sheet_back)
         self.assertNotIn("ToggleInventory();", sheet_back)
         self.assertIn("P: spell book", hud)
-        self.assertIn("C / A: character stats", hud)
+        self.assertIn("C/A: stats", hud)
         self.assertIn("A/K: talents   J/R3: atlas   Esc/Pad B: back   Select: close", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
