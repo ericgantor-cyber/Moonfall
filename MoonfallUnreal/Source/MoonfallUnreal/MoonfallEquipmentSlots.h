@@ -65,6 +65,16 @@ constexpr FExtra ToExtra(const FLoadout& Worn) {
  for(int I=0;I<ExtraCount;++I)Out[I]=Worn[LegacyCount+I];
  return Out;
 }
+constexpr FLoadout FromParts(const FLegacy& Old,const FExtra& Extra) {
+ FLoadout Out=FromLegacy(Old);
+ for(int I=0;I<ExtraCount;++I)Out[LegacyCount+I]=Extra[I];
+ return Out;
+}
+constexpr bool CanWriteLegacy(const FLoadout& Worn) {
+ for(int Slot=LegacyCount;Slot<SlotCount;++Slot)
+  if(Worn[Slot]!=0)return false;
+ return true;
+}
 constexpr bool ReadSavedLoadout(int Version,const FLegacy& Old,
  const int* Extra,std::size_t ExtraSize,const int* Bag,std::size_t BagSize,FLoadout& Out) {
  if(Version<1||Version>ExpandedVersion)return false;
