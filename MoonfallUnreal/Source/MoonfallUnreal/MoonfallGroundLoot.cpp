@@ -57,6 +57,16 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
  RarityBeacon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  PickupDetailA->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  PickupDetailB->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // Render-only pickup pieces must never enter navmesh or overlap processing.
+ for (UPrimitiveComponent* Visual : {static_cast<UPrimitiveComponent*>(PickupMesh),
+      static_cast<UPrimitiveComponent*>(RarityBeacon), static_cast<UPrimitiveComponent*>(PickupDetailA),
+      static_cast<UPrimitiveComponent*>(PickupDetailB), static_cast<UPrimitiveComponent*>(ItemLabel)}) {
+  Visual->SetCanEverAffectNavigation(false);
+  Visual->SetGenerateOverlapEvents(false);
+ }
+ ItemLabel->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // The rarity beam is a marker, not a physical shadow caster.
+ RarityBeacon->SetCastShadow(false);
  PickupDetailA->SetCastShadow(false);
  PickupDetailB->SetCastShadow(false);
  PickupDetailA->SetHiddenInGame(true);
