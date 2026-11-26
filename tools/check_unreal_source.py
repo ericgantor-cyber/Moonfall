@@ -2405,8 +2405,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertEqual(lines[i + 1].strip(), "BufferedDodgeDirection = FVector::ZeroVector;")
         tick = self.hero_cpp.split("// Replay one deliberately buffered dodge", 1)[1].split(
             "// A second click shortly before recovery", 1)[0]
-        self.assertIn("if (DodgeBuffer.ExpiresAt < 0.f) BufferedDodgeDirection = FVector::ZeroVector;", tick)
-        self.assertLess(tick.index("Dodge();"), tick.index("if (DodgeBuffer.ExpiresAt < 0.f)"))
+        self.assertIn("if (DodgeBuffer.HasPending()) {", tick)
+        self.assertIn("if (!DodgeBuffer.HasPending()) BufferedDodgeDirection = FVector::ZeroVector;", tick)
+        self.assertLess(tick.index("Dodge();"), tick.index("if (!DodgeBuffer.HasPending())"))
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
         self.assertLess(dodge.index("const FVector Direction ="), dodge.index("BufferedDodgeDirection = FVector::ZeroVector;"))
