@@ -7,7 +7,7 @@
 // Portable bounded CPU-side frame-interval diagnostics. Not GPU timing.
 namespace MoonfallPerformance {
 struct FSnapshot {
- double AverageFPS=0, MeanMs=0, P95Ms=0, WorstMs=0;
+ double AverageFPS=0, MeanMs=0, P95Ms=0, WorstMs=0, OnePercentLowFPS=0;
  unsigned Samples=0, SlowFrames=0, Hitches=0;
  bool Ready=false;
 };
@@ -51,7 +51,12 @@ private:
   }
   const double Mean=Sum/static_cast<double>(Count);
   const auto P95Index=(95*Count+99)/100-1;
+  // Average of the slowest ceil(1%) frame intervals, expressed as FPS.
+  const std::size_t TailCount=(Count+99)/100;
+  double TailSum=0;
+  for (std::size_t I=Count-TailCount;I<Count;++I) TailSum+=Sorted[I];
   Snapshot={1000.0/Mean,Mean,Sorted[P95Index],Sorted[Count-1],
+            1000.0*static_cast<double>(TailCount)/TailSum,
             static_cast<unsigned>(Count),Slow,Hitch,true};
  }
 };
@@ -63,5 +68,23 @@ inline EAdvice Advice(const FSnapshot& S) {
  if (S.AverageFPS<30 || S.P95Ms>50) return EAdvice::ReduceQuality;
  if (S.AverageFPS>=55 && S.P95Ms<=25 && S.Hitches==0) return EAdvice::Smooth;
  return EAdvice::Monitor;
+}
+enum class EAction { Collect, LowerPreset, LowerRenderScale, ReviewHitches, AtMinimum, Keep };
+inline EAction Recommend(const FSnapshot& S, int Quality, double Scale, double MinimumScale) {
+ const auto State=Advice(S);
+ if (State==EAdvice::Collecting || Quality<0 || Quality>3 ||
+     !std::isfinite(Scale) || !std::isfinite(MinimumScale) ||
+     MinimumScale<=0 || Scale<MinimumScale || Scale>100) return EAction::Collect;
+ // CPU intervals alone cannot identify a GPU bottleneck. Try a single
+ // reversible change and measure again rather than promising a speedup.
+ if (State==EAdvice::ReduceQuality) {
+  if (Quality>0) return EAction::LowerPreset;
+  if (Scale>MinimumScale+0.5) return EAction::LowerRenderScale;
+  return EAction::AtMinimum;
+ }
+ if (S.Hitches>0 || S.P95Ms>33.3334 ||
+     (std::isfinite(S.OnePercentLowFPS) && S.OnePercentLowFPS>0 && S.OnePercentLowFPS<30))
+  return EAction::ReviewHitches;
+ return EAction::Keep;
 }
 }
