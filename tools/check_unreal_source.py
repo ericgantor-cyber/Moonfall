@@ -499,8 +499,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(workflow.index("Refusing stale build output"), workflow.index("Compile Unreal Editor Win64 Development"))
         self.assertLess(workflow.index("Refusing to reuse a previous Windows package"), workflow.index("& $uat BuildCookRun"))
         package = workflow[workflow.index("Package Windows game using AutomationTool"):workflow.index("Smoke-test packaged Unreal game launch")]
+        self.assertIn("Assert-Win64Executable.ps1 -Executable $exe.FullName", package)
+        validator = (ROOT.parents[1] / "Build" / "Assert-Win64Executable.ps1").read_text(encoding="utf-8")
         for token in ("0x5A4D", "0x00004550", "0x8664", "0x20B", "$reader.Dispose()", "$stream.Dispose()"):
-            self.assertIn(token, package)
+            self.assertIn(token, validator)
+        fixtures = (ROOT.parents[1] / "Build" / "Test-FindPackagedGame.Tests.ps1").read_text(encoding="utf-8")
+        self.assertIn("Assert-Win64Executable.ps1", fixtures)
         self.assertLess(workflow.index("Refusing to overwrite a previous installer"), workflow.index("& $nsis.Source"))
         self.assertLess(workflow.index("Confirm installer provenance before publication"), workflow.index("Upload Windows installer"))
         self.assertIn("Installer checksum changed after verification", workflow)
