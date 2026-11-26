@@ -57,6 +57,20 @@ int main() {
   if (Hit(bag,bag.CloseX+14.f,bag.CloseY+14.f,false)!=None) return 22;
   if (g.CloseX+g.CloseSize>g.Left+g.Width || g.CloseY+g.CloseSize>=g.TabY) return 23;
  }
+ for (int width : {320,480,760,1280,1920}) {
+  for (int height : {360,400,480,540,600,720,1080}) {
+   const auto g = Layout(static_cast<float>(width),static_cast<float>(height),true);
+   if (!HasCompactReadiness(g)) return 31;
+   if (height>=480 && !HasFullDetails(g)) return 32;
+   if (ReadinessY(g)<g.RowY+5.f*g.RowGap+g.RowHeight) return 33;
+   if (ReadinessY(g)+ReadinessLineGap(g)+16.f>g.EquipY) return 34;
+   for (int i=0;i<SpellCount;++i) {
+    if (Hit(g,g.RowX+4.f,g.RowY+i*g.RowGap+g.RowHeight*0.5f,true)!=i) return 35;
+   }
+   if (Hit(g,g.EquipLeftX+4.f,g.EquipY+4.f,true)!=EquipLeft) return 36;
+   if (Hit(g,g.EquipRightX+4.f,g.EquipY+4.f,true)!=EquipRight) return 37;
+  }
+ }
  const auto ready = Evaluate(0,100.f,100.f,70.f,100.f,1.f,5.f,-100.f,0.f);
  if (ready.State!=EReadiness::Ready || ready.CooldownRemaining!=0.f) return 12;
  const auto cooldown = Evaluate(0,100.f,100.f,70.f,100.f,1.f,0.2f,0.f,0.f);
@@ -247,6 +261,12 @@ int main() {
         self.assertIn('TEXT("FULL HEALTH")', hud)
         self.assertIn('TEXT("COOLDOWN %.1fs")', hud)
         self.assertIn('TEXT("NEED %.0f MANA")', hud)
+        self.assertIn("FMath::CeilToFloat(State.ManaShortfall)", hud)
+        self.assertIn("FMath::Max(0.1f,State.CooldownRemaining)", hud)
+        self.assertIn("MoonfallSpellBook::HasFullDetails(Book)", hud)
+        self.assertIn("MoonfallSpellBook::HasCompactReadiness(Book)", hud)
+        self.assertIn("MoonfallSpellBook::ReadinessY(Book)", hud)
+        self.assertIn("MoonfallSpellBook::ReadinessLineGap(Book)", hud)
         self.assertIn("MoonfallSpellBook::Spells[School]", hud)
         self.assertIn("MoonfallSpellBook::Spells[SelectedSpell]", hud)
         self.assertIn("Book.RowY + School*Book.RowGap", hud)

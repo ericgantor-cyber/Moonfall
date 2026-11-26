@@ -2008,9 +2008,9 @@ void AMoonfallCombatHUD::DrawHUD()
     switch (State.State) {
      case MoonfallSpellBook::EReadiness::Ready: return bHealing ? TEXT("READY TO HEAL") : TEXT("READY TO AIM");
      case MoonfallSpellBook::EReadiness::Cooldown:
-      return FString::Printf(TEXT("COOLDOWN %.1fs"),State.CooldownRemaining);
+      return FString::Printf(TEXT("COOLDOWN %.1fs"),FMath::Max(0.1f,State.CooldownRemaining));
      case MoonfallSpellBook::EReadiness::LowMana:
-      return FString::Printf(TEXT("NEED %.0f MANA"),State.ManaShortfall);
+      return FString::Printf(TEXT("NEED %.0f MANA"),FMath::CeilToFloat(State.ManaShortfall));
      case MoonfallSpellBook::EReadiness::FullHealth: return TEXT("FULL HEALTH");
      default: return TEXT("UNAVAILABLE");
     }
@@ -2020,7 +2020,7 @@ void AMoonfallCombatHUD::DrawHUD()
       ? FLinearColor(0.52f,0.94f,0.66f)
       : FLinearColor(0.95f,0.70f,0.42f);
    };
-   if (Book.DetailsY+33.f < Book.EquipY) {
+   if (MoonfallSpellBook::HasFullDetails(Book)) {
     DrawText(FString::Printf(TEXT("%s  |  %.0f MANA  |  %.2fs BASE COOLDOWN"),
       ANSI_TO_TCHAR(Selected.School),Selected.ManaCost,Selected.Cooldown),
       FLinearColor(0.94f,0.82f,0.54f),Book.RowX,Book.DetailsY,nullptr,
@@ -2031,16 +2031,17 @@ void AMoonfallCombatHUD::DrawHUD()
        Book.RowX,Book.DetailsY+23.f,nullptr,
        Book.Width<500.f ? 0.60f : 0.80f);
    }
-   if (Book.DetailsY+80.f < Book.EquipY) {
+   if (MoonfallSpellBook::HasCompactReadiness(Book)) {
+    const float StatusY = MoonfallSpellBook::ReadinessY(Book);
+    const float StatusGap = MoonfallSpellBook::ReadinessLineGap(Book);
+    const float StatusScale = Book.Width<500.f || !MoonfallSpellBook::HasFullDetails(Book) ? 0.59f : 0.78f;
     DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus,Selected.bHealing),
       Hero->LeftSpell==SelectedSpell ? TEXT("  [EQUIPPED]") : TEXT("")),
-      StatusColor(LeftStatus.State),Book.RowX,Book.DetailsY+49.f,nullptr,
-      Book.Width<500.f ? 0.59f : 0.78f);
+      StatusColor(LeftStatus.State),Book.RowX,StatusY,nullptr,StatusScale);
     DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus,Selected.bHealing),
       Hero->bRightHandSpellReadied && Hero->RightSpell==SelectedSpell
        ? TEXT("  [EQUIPPED]") : TEXT("")),
-      StatusColor(RightStatus.State),Book.RowX,Book.DetailsY+72.f,nullptr,
-      Book.Width<500.f ? 0.59f : 0.78f);
+      StatusColor(RightStatus.State),Book.RowX,StatusY+StatusGap,nullptr,StatusScale);
    }
    DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.98f),
       Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
