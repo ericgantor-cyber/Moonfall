@@ -1879,7 +1879,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "bPersistentSaveWritesBlocked = true;", "return false;"):
             self.assertIn(token, guard)
         self.assertLess(load.index(marker), load.index("bWorldProgressLoadInProgress = true;"))
-        self.assertLess(load.index(marker), load.index("RestoreGear(Save->EquippedWeaponCode"))
+        for slot, field in enumerate(("Weapon", "Armor", "Accessory")):
+            restore = f"RestoreGear(SavedWornCodes[{slot}], {slot}, Equipped{field}Code"
+            self.assertLess(load.index(marker), load.index(restore))
+            self.assertIn(f"MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[{slot}], {slot})", load)
+        self.assertNotIn("RestoreGear(Save->Equipped", load)
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() TArray<int32> ExtraEquippedCodes;", save_h)
         self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
