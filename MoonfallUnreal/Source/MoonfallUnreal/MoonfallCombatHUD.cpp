@@ -924,6 +924,17 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s %s"),bTracked?TEXT("[X]"):TEXT("[ ]"),*Title),Ink,Left+18.f,Y+1.f,nullptr,Scale*0.75f);
     DrawText(Detail,FLinearColor(0.80f,0.84f,0.90f),Left+38.f,Y+15.f,nullptr,Scale*0.66f);
    }
+   const auto Pages=J::PageButtons(Width,Height);
+   if(Pages.Width>0.f) {
+    const bool CanPrev=Start>0,CanNext=Rows>0&&Rows<Count-Start;
+    const FLinearColor Enabled(0.20f,0.30f,0.40f),Disabled(0.12f,0.13f,0.16f);
+    DrawRect(CanPrev?Enabled:Disabled,Left+Pages.PrevX,Top+Pages.Y,Pages.Width,22.f);
+    DrawRect(CanNext?Enabled:Disabled,Left+Pages.NextX,Top+Pages.Y,Pages.Width,22.f);
+    if(CanPrev) DrawHoverFrame(Left+Pages.PrevX,Top+Pages.Y,Pages.Width,22.f);
+    if(CanNext) DrawHoverFrame(Left+Pages.NextX,Top+Pages.Y,Pages.Width,22.f);
+    DrawText(TEXT("< PREV"),CanPrev?FLinearColor::White:FLinearColor::Gray,Left+Pages.PrevX+8.f,Top+Pages.Y+3.f,nullptr,0.7f);
+    DrawText(TEXT("NEXT >"),CanNext?FLinearColor::White:FLinearColor::Gray,Left+Pages.NextX+8.f,Top+Pages.Y+3.f,nullptr,0.7f);
+   }
    DrawLiveMenuHitCue();
    return;
   }
