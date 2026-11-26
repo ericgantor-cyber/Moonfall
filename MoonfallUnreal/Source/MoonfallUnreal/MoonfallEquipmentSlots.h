@@ -65,6 +65,15 @@ constexpr FExtra ToExtra(const FLoadout& Worn) {
  for(int I=0;I<ExtraCount;++I)Out[I]=Worn[LegacyCount+I];
  return Out;
 }
+// Only expanded slots can be changed here; legacy fields retain their API.
+constexpr bool EquipExtra(FExtra& Extra,int Code) {
+ const auto Item=Decode(Code);
+ if(!Known(Item.Slot)||Legacy(Item.Slot))return false;
+ auto& Current=Extra[Item.Slot-LegacyCount];
+ if(Current==Code)return false;
+ Current=Code;
+ return true;
+}
 constexpr FLoadout FromParts(const FLegacy& Old,const FExtra& Extra) {
  FLoadout Out=FromLegacy(Old);
  for(int I=0;I<ExtraCount;++I)Out[LegacyCount+I]=Extra[I];
