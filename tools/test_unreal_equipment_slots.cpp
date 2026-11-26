@@ -129,4 +129,12 @@ constexpr bool Removal() {
      && !S::CanRemoveCopy(Worn,1001,Bag,10001);
 }
 static_assert(Removal());
+static_assert(S::ExtraPrimaryBonus(0,0)==0);
+static_assert(S::ExtraPrimaryBonus(1,0)==1);
+static_assert(S::ExtraPrimaryBonus(25,25)==13);
+static_assert(S::ExtraPrimaryBonus(INT_MAX,-1)==0);
+static_assert(S::ExtraPrimaryBonus(25,26)==7);
+static_assert(S::ExtraMasteryUnits(25,25,25,25,25,25)==150);
+static_assert(S::ExtraMasteryUnits(0,0,0,0,0,0)==0);
+static_assert(S::ExtraMasteryUnits(-1,26,INT_MAX,1,2,3)==6);
 int main(){return AllSlots()&&Migration()&&Removal()?0:1;}
