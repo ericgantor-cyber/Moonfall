@@ -3738,7 +3738,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DungeonHomePosition = FVector::ZeroVector;", self.enemy_h)
         self.assertIn("ActorHasTag(FName(TEXT(\"MoonfallDungeonEncounter\"))", tick)
         self.assertIn("const auto ReturnToDungeonPost = [&]()", tick)
-        self.assertIn("const float HomeDistance = ToHome.Size();", tick)
+        self.assertIn("const double HomeDistanceSq = ToHome.SizeSquared();", tick)
+        self.assertIn("HomeDistanceSq <= FMath::Square(85.0)", tick)
+        self.assertIn("const float HomeDistance = static_cast<float>(FMath::Sqrt(HomeDistanceSq));", tick)
+        self.assertLess(tick.index("HomeDistanceSq <= FMath::Square(85.0)"),
+                        tick.index("FMath::Sqrt(HomeDistanceSq)"))
+        self.assertIn("const bool bDungeonSimulationMember = ActorHasTag(DungeonSimulationTag);", tick)
+        self.assertIn("|| !bDungeonSimulationMember", tick)
         self.assertIn("AddActorWorldOffset(ReturnDirection * Step, true, &ReturnHit);", tick)
         self.assertIn("if (ReturnHit.bBlockingHit && Now >= NextObstacleSidestepAt)", tick)
         self.assertIn("NextObstacleSidestepAt = Now + 0.6f;", tick)
@@ -6182,7 +6188,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", section)
         self.assertLess(section.index("PracticeEnemy->AttackDamage = 2.f;"),
                         section.index("PracticeEnemy->FinishSpawning(PracticeTransform);"))
-        self.assertIn('const bool bSanctuaryPractice = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));', enemy)
+        self.assertIn('static const FName PracticeSimulationTag(TEXT("MoonfallSanctuaryPractice"));', enemy)
+        self.assertIn('const bool bSanctuaryPractice = ActorHasTag(PracticeSimulationTag);', enemy)
         self.assertIn("if (bSanctuaryPractice && Distance > 450.f)", enemy)
         self.assertIn("if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero())", enemy)
 
