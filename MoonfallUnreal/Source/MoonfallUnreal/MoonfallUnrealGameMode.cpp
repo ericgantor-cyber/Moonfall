@@ -585,7 +585,6 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    }
   }
  }
- if (LivingArena.IsValid()) LivingArena->UpdateRegionWeather(Now);
  if (!bLivingResidentCacheInitialized) {
   // One small setup scan for the permanent Firstlight/Crossroads residents.
   bLivingResidentCacheInitialized=true;
@@ -598,6 +597,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  }
  AMoonfallHeroPawn* Hero=Cast<AMoonfallHeroPawn>(
      UGameplayStatics::GetPlayerPawn(this,0));
+ if (LivingArena.IsValid()) LivingArena->UpdateRegionWeather(Now, IsValid(Hero)?Hero->GetCelestialClockSeconds():Now);
  // Even if the player dies, disconnects, or has no valid pawn this pulse,
  // the director must retire old actors. Otherwise one invalid hero could
  // permanently occupy the one-event slot after SetLifeSpan(0.f).
