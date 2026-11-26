@@ -300,6 +300,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
  void TalentSpendSelected();
  void TalentConfirmRespec();
+ bool IsTalentResetConfirmationActive() const;
+ double TalentRespecArmedAt = -1.0;
  void TalentCloseWeb();
  void TalentNextBranch();
  void TalentPreviousBranch();
