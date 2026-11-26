@@ -274,10 +274,10 @@ int main() {
   const int Baseline=IndependentTotal(Worn);
   int Best=Baseline,Fewest=0;
   for(int N=0;N<2187;++N){
-   auto Gear=Worn;int Digits=N,Changes=0;
-   for(int I=0;I<7;++I){Gear[Varied[I]]=Choices[I][Digits%3];Digits/=3;
-    Changes+=Gear[Varied[I]]!=Worn[Varied[I]];}
-   const int Score=IndependentTotal(Gear);
+   auto TrialLoadout=Worn;int Digits=N,Changes=0;
+   for(int I=0;I<7;++I){TrialLoadout[Varied[I]]=Choices[I][Digits%3];Digits/=3;
+    Changes+=TrialLoadout[Varied[I]]!=Worn[Varied[I]];}
+   const int Score=IndependentTotal(TrialLoadout);
    if(Score>Best||(Score==Best&&Changes<Fewest)){Best=Score;Fewest=Changes;}
   }
   const auto Plan24=Planner24.Finish();
