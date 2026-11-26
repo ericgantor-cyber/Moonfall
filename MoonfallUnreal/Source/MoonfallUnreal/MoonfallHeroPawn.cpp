@@ -27,6 +27,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PhysicsVolume.h"
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
@@ -405,6 +406,8 @@ void AMoonfallHeroPawn::BeginPlay() {
   NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
       ? AuthoredWalkSpeed : 600.f;
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  GetCharacterMovement()->GetNavAgentPropertiesRef().bCanSwim = true;
+  GetCharacterMovement()->MaxSwimSpeed = NormalWalkSpeed*MoonfallSwimming::SpeedMultiplier;
  }
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
@@ -462,9 +465,31 @@ void AMoonfallHeroPawn::BeginPlay() {
    if (IsValid(*It)) It->CheckHeroAtSpawn(this);
  }
 }
+void AMoonfallHeroPawn::UpdateSwimmingBreath(float DeltaSeconds)
+{
+ if (!HasAuthority() || !GetWorld() || GetWorld()->IsPaused()) return;
+ const auto* Volume=GetPhysicsVolume();
+ const bool InWater=IsValid(Volume) && Volume->bWaterVolume;
+ bUnderwater=false;
+ // For authored flat-surface water volumes, measure actual eye height against
+ // the volume's upper bound. No teleport, custom collision bypass or new timer.
+ if (InWater) {
+  const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+  const FVector Eye=GetPawnViewLocation();
+  bUnderwater=Bounds.IsValid && !Eye.ContainsNaN() &&
+      MoonfallSwimming::Submerged(Eye.Z,Bounds.Max.Z);
+ }
+ const bool Alive=FMath::IsFinite(Health)&&Health>0.f;
+ if (MoonfallSwimming::Advance(SwimmingBreath,DeltaSeconds,InWater,bUnderwater,Alive)) {
+  EndGuard();
+  ApplyMoonfallDamage(5.f);
+ }
+}
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ UpdateSwimmingBreath(DeltaSeconds);
+ if (IsActorBeingDestroyed()) return;
  // Wall-clock interval, independent of simulation dilation and clamped timers.
  // Menus and defeat never pollute the last gameplay sample.
  if (IsLocallyControlled()) {

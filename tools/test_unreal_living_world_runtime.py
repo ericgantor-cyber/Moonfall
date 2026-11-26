@@ -8,11 +8,25 @@ class LivingWorldPolicyTests(unittest.TestCase):
         if not compiler:self.skipTest("C++17 compiler unavailable")
         code=r'''
 #include "MoonfallLivingSimulation.h"
+#include "MoonfallSwimming.h"
 #include "MoonfallRoadLandmarks.h"
 #include <cassert>
 #include <limits>
 using namespace MoonfallLivingSimulation;
 int main(){
+ MoonfallSwimming::FBreath Breath;
+ for(int I=0;I<100;++I)assert(!MoonfallSwimming::Advance(Breath,0.25f,true,true,true));
+ assert(Breath.Air==0.f);
+ for(int I=0;I<3;++I)assert(!MoonfallSwimming::Advance(Breath,0.25f,true,true,true));
+ assert(MoonfallSwimming::Advance(Breath,0.25f,true,true,true));
+ for(int I=0;I<16;++I)assert(!MoonfallSwimming::Advance(Breath,0.25f,true,false,true));
+ assert(Breath.Air==100.f);
+ assert(!MoonfallSwimming::Advance(Breath,std::numeric_limits<float>::quiet_NaN(),true,true,true));
+ assert(Breath.Air==100.f);
+ assert(MoonfallSwimming::Submerged(-10.0,0.0)&&!MoonfallSwimming::Submerged(0.0,0.0));
+ assert(!MoonfallSwimming::Submerged(std::numeric_limits<double>::infinity(),0.0));
+ Breath.Air=0.f;
+ assert(!MoonfallSwimming::Advance(Breath,0.25f,false,false,true)&&Breath.Air==100.f);
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ArtProfilesSafe());
  static_assert(sizeof(MoonfallRoadLandmarks::ArtProfiles)/sizeof(MoonfallRoadLandmarks::ArtProfiles[0])==6);
