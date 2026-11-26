@@ -5,6 +5,7 @@ public class MoonfallUnreal : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PrivateDependencyModuleNames.Add("Niagara");
+        PrivateDependencyModuleNames.Add("RHI");
         PublicDependencyModuleNames.AddRange(new[] { "Core", "CoreUObject", "Engine", "InputCore", "NavigationSystem", "Projects", "UMG", "Slate", "SlateCore" });
     }
 }
