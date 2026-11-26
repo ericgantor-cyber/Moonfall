@@ -36,6 +36,59 @@ int ProcessNearbyResidents(int cursor,int registered,
  return (start+inspected)%registered;
 }
 constexpr float PulseSeconds=4.f;
+// Two real hours per celestial day, beginning at noon for a fresh session.
+// Sample the existing world clock; do not introduce another ticking actor.
+constexpr double DaySeconds=7200.0;
+// V17 was introduced by the stacked equipment PR and is not released.
+// -1 means a legacy save with no celestial state.
+inline bool ValidSavedClock(double Clock){return Clock==-1.0||(std::isfinite(Clock)&&Clock>=0.0&&Clock<DaySeconds);}
+inline double SavedClock(double Clock){return ValidSavedClock(Clock)&&Clock>=0.0?Clock:0.0;}
+inline double AdvanceClock(double Saved,double Anchor,double Now){
+ const double Base=SavedClock(Saved);
+ if(!std::isfinite(Anchor)||!std::isfinite(Now)||Anchor<0.0||Now<Anchor)return Base;
+ return std::fmod(Base+std::fmod(Now-Anchor,DaySeconds),DaySeconds);
+}
+inline int CelestialMinute(double Elapsed){
+ if(!std::isfinite(Elapsed)||Elapsed<0.0)return 720;
+ const double Wrapped=std::fmod(Elapsed,DaySeconds);
+ return (720+static_cast<int>(Wrapped/5.0))%1440;
+}
+constexpr bool ValidWaitHours(int Hours){return Hours>=1&&Hours<=24;}
+inline double WaitClock(double Current,int Hours){
+ if(!ValidWaitHours(Hours)||!ValidSavedClock(Current)||Current<0.0)return Current;
+ return std::fmod(Current+static_cast<double>(Hours)*300.0,DaySeconds);
+}
+enum class EDayPhase { Night, Dawn, Day, Dusk };
+constexpr EDayPhase DayPhase(int Minute){
+ return Minute>=288&&Minute<504?EDayPhase::Dawn:
+  Minute>=504&&Minute<936?EDayPhase::Day:
+  Minute>=936&&Minute<1152?EDayPhase::Dusk:EDayPhase::Night;
+}
+constexpr const char* DayPhaseName(EDayPhase Phase){
+ switch(Phase){
+ case EDayPhase::Dawn:return "DAWN";
+ case EDayPhase::Day:return "DAY";
+ case EDayPhase::Dusk:return "DUSK";
+ default:return "NIGHT";
+ }
+}
+constexpr int LightingHour(int Minute){return Minute>=0&&Minute<1440?Minute/60:12;}
+// Ten in-game minute buckets prevent per-frame changes to global light.
+constexpr int CelestialLightBucket(int Minute){return Minute>=0&&Minute<1440?Minute/10:72;}
+constexpr float SunlightAmount(int Bucket){
+ if(Bucket<0||Bucket>=144)return 1.f;
+ const int Distance=Bucket>=72?Bucket-72:72-Bucket;
+ if(Distance>=48)return 0.f;
+ const float T=1.f-static_cast<float>(Distance)/48.f;
+ return T*T*(3.f-2.f*T);
+}
+constexpr float GlobalLightScale(int Bucket){return 0.28f+0.72f*SunlightAmount(Bucket);}
+// Never extinguish weather lighting or alter authored sanctuary lighting.
+constexpr float CelestialLightScale(int Hour){
+ if(Hour<0||Hour>23)return 1.f;
+ const int Distance=Hour>12?Hour-12:12-Hour;
+ return 1.f-0.025f*static_cast<float>(Distance);
+}
 enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };
 enum class EEvent { Merchant, Patrol, Rescue, Dispute, Monster };
 enum class EActivity { Work, Patrol, Travel, Rest, Shelter };

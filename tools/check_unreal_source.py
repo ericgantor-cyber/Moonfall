@@ -712,6 +712,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Quest log has its own keyboard browsing controls, not bag paging.
         inventory_hud = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[0] + self.hud.split(
             "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[1]
+        # Wait is an Options subpage, not inventory paging. Remove only its
+        # explicitly delimited rendering branch from this legacy assertion.
+        wait_start = inventory_hud.index("if (Hero->bCelestialWaitOpen) {")
+        wait_end = inventory_hud.index('DrawText(TEXT("WAIT"),', wait_start)
+        inventory_hud = inventory_hud[:wait_start] + inventory_hud[wait_end:]
         self.assertNotIn("PgUp/PgDn", inventory_hud)
         self.assertNotIn("Home/End", inventory_hud)
         log = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[1].split(

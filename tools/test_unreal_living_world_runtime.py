@@ -96,6 +96,45 @@ int main(){
      std::numeric_limits<float>::quiet_NaN(),100.f,false,false));
  assert(!ShouldRetireAmbient(105.f,
      std::numeric_limits<float>::infinity(),false,false));
+ assert(ValidSavedClock(-1.0)&&ValidSavedClock(0.0)&&ValidSavedClock(7199.9));
+ assert(!ValidSavedClock(7200.0)&&!ValidSavedClock(-2.0));
+ assert(!ValidSavedClock(std::numeric_limits<double>::quiet_NaN()));
+ assert(AdvanceClock(7199.0,100.0,102.0)==1.0);
+ assert(AdvanceClock(100.0,30.0,31.5)==101.5);
+ assert(AdvanceClock(100.0,30.0,20.0)==100.0);
+ assert(AdvanceClock(-1.0,100.0,105.0)==5.0);
+ assert(!ValidWaitHours(0)&&!ValidWaitHours(25));
+ for(int Hours=1;Hours<=24;++Hours){
+  assert(ValidWaitHours(Hours));
+  assert(WaitClock(7100.0,Hours)==std::fmod(7100.0+Hours*300.0,DaySeconds));
+ }
+ assert(WaitClock(123.0,24)==123.0);
+ assert(WaitClock(123.0,0)==123.0);
+ assert(WaitClock(123.0,25)==123.0);
+ assert(CelestialMinute(0.0)==720);
+ assert(CelestialMinute(5.0)==721);
+ assert(CelestialMinute(3599.0)==1439);
+ assert(CelestialMinute(3600.0)==0);
+ assert(CelestialMinute(7200.0)==720);
+ assert(CelestialMinute(7200.0*100+5.0)==721);
+ assert(CelestialMinute(-1.0)==720);
+ assert(CelestialMinute(std::numeric_limits<double>::infinity())==720);
+ assert(DayPhase(288)==EDayPhase::Dawn&&DayPhase(504)==EDayPhase::Day);
+ assert(DayPhase(936)==EDayPhase::Dusk&&DayPhase(1152)==EDayPhase::Night);
+ assert(CelestialLightScale(0)>=0.69f&&CelestialLightScale(12)==1.f);
+ assert(CelestialLightBucket(0)==0&&CelestialLightBucket(1439)==143);
+ assert(SunlightAmount(0)==0.f&&SunlightAmount(72)==1.f);
+ assert(GlobalLightScale(72)==1.f&&GlobalLightScale(0)>=0.27f);
+ for(int Bucket=0;Bucket<144;++Bucket){
+  assert(GlobalLightScale(Bucket)>=0.27f&&GlobalLightScale(Bucket)<=1.f);
+  if(Bucket<72)assert(SunlightAmount(Bucket)<=SunlightAmount(Bucket+1));
+  if(Bucket>72)assert(SunlightAmount(Bucket)<=SunlightAmount(Bucket-1));
+ }
+ for(int Minute=0;Minute<1440;++Minute){
+  const int Hour=LightingHour(Minute);
+  assert(Hour>=0&&Hour<24);
+  assert(CelestialLightScale(Hour)>=0.69f&&CelestialLightScale(Hour)<=1.f);
+ }
  assert(Phase(-1.f,360.f)==0);
  assert(Phase(std::numeric_limits<float>::infinity(),360.f)==0);
  assert(WeatherFor(4,0)==EWeather::Snow||WeatherFor(4,0)==EWeather::Fog);
@@ -904,13 +943,65 @@ int main(){
         self.assertIn("WeatherFor(Zone,Phase)",weather)
         self.assertIn("LastRegionWeatherPhase=-1;", region)
         self.assertIn("for (int32& WeatherId : AppliedRegionWeather) WeatherId=INDEX_NONE;", region)
-        self.assertLess(weather.index("if (AppliedRegionWeather[Zone]==WeatherId) continue;"),
+        self.assertLess(weather.index("if (AppliedRegionWeather[Zone]==WeatherId && !bCelestialChanged) continue;"),
                         weather.index("Light->SetLightColor(Tint);"))
-        self.assertLess(weather.index("Light->SetIntensity(Intensity);"),
+        self.assertLess(weather.index("Light->SetIntensity(Intensity*MoonfallLivingSimulation::CelestialLightScale(Hour));"),
                         weather.index("AppliedRegionWeather[Zone]=WeatherId;"))
         self.assertIn("const int32 WeatherId=static_cast<int32>(Weather);", weather)
         self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
                         arena.index("DungeonRoad->AddInstance("))
+
+    def test_global_celestial_light_reuses_authored_scene_without_tick(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        body=arena.split("void AMoonfallArena::UpdateCelestialGlobalLighting(",1)[1].split("void AMoonfallArena::UpdateRegionWeather(",1)[0]
+        self.assertIn("if (!bCelestialLightResolved)",body)
+        self.assertIn("TaggedCount==1",body)
+        self.assertIn('ActorHasTag(FName(TEXT("MoonfallCelestial")))',body)
+        self.assertIn("else if (!bHasAuthoredLight)",body)
+        self.assertIn("LastGlobalLightBucket==Bucket",body)
+        self.assertIn("CelestialBaseIntensity*MoonfallLivingSimulation::GlobalLightScale(Bucket)",body)
+        self.assertNotIn("SpawnActor",body)
+        self.assertNotIn("Tick(",body)
+
+    def test_wait_options_panel_input_and_pointer_contract(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("if (bOptionsOpen && bCelestialWaitOpen)",hero)
+        self.assertIn("TryWaitCelestialHours(CelestialWaitHours)",hero)
+        self.assertIn("FMath::Clamp(CelestialWaitHours+Direction,1,24)",hero)
+        self.assertIn("if (bOptionsOpen) { if (bCelestialWaitOpen) ConfirmCelestialWait(); else OpenCelestialWait(); return; }",hero)
+        for bounds in ("Center-105.f,MenuTop+90.f,50.f,44.f",
+                       "Center+55.f,MenuTop+90.f,50.f,44.f",
+                       "Center-105.f,MenuTop+170.f,100.f,40.f",
+                       "Center+5.f,MenuTop+170.f,100.f,40.f"):
+            self.assertIn(bounds,hero)
+            self.assertIn(bounds,hud)
+        self.assertIn("Hero->CelestialWaitStatus",hud)
+
+    def test_wait_only_advances_clock_and_rolls_back_on_save_failure(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        wait=hero.split("bool AMoonfallHeroPawn::TryWaitCelestialHours(",1)[1].split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[0]
+        for token in ("ValidWaitHours(Hours)", "IsRecentlyInCombatForAmbientAI()", "IsMovingOnGround()",
+                      "TActorIterator<AMoonfallEnemy>", "bCelestialWaitInProgress", "TGuardValue<bool>",
+                      "WaitClock(GetCelestialClockSeconds(),Hours)", "CelestialSavedPhase=PreviousPhase;",
+                      "CelestialSessionAnchor=PreviousAnchor;"):
+            self.assertIn(token,wait)
+        self.assertLess(wait.index("IsRecentlyInCombatForAmbientAI()"),wait.index("WaitClock("))
+        self.assertLess(wait.index("TActorIterator<AMoonfallEnemy>"),wait.index("WaitClock("))
+        self.assertLess(wait.index("if (!SaveWorldProgress())"),wait.index("CelestialSavedPhase=PreviousPhase;"))
+        for token in ("SetTimeDilation", "AwardExperience(", "AwardEquipmentDrop(", "Health =", "Mana =", "Stamina ="):
+            self.assertNotIn(token,wait)
+
+    def test_celestial_clock_save_validation_and_shared_view(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        save=(SRC/"MoonfallPersistentSave.h").read_text()
+        hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
+        self.assertIn("double CelestialClockSeconds = -1.0;",save)
+        self.assertIn("Save->CelestialClockSeconds = GetCelestialClockSeconds();",hero)
+        load=hero.split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[1]
+        self.assertLess(load.index("ValidSavedClock(Save->CelestialClockSeconds)"),load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index("bWorldProgressLoadInProgress = true;"),load.index("CelestialSavedPhase ="))
+        self.assertIn("CelestialMinute(Hero->GetCelestialClockSeconds())",hud)
 
     def test_regional_landmarks_and_weather_hud_are_budgeted(self):
         arena=(SRC/"MoonfallArena.cpp").read_text()
@@ -924,7 +1015,9 @@ int main(){
         self.assertIn("Details->SetCullDistances(18000,28000);",landscape)
         self.assertIn("Light->SetCastShadows(false);",landscape)
         self.assertIn("Light->SetAttenuationRadius(3000.f);",landscape)
-        self.assertIn("LastRegionWeatherPhase==Phase",landscape)
+        self.assertIn("LastRegionWeatherPhase==Phase && !bCelestialChanged",landscape)
+        self.assertIn("CelestialMinute(CelestialTime)",landscape)
+        self.assertIn("LastCelestialLightingHour=Hour;",landscape)
         self.assertIn("MoonfallLivingSimulation::WeatherFor(Zone,Phase)",landscape)
         self.assertIn("bEnableRegionalLandmarks = true;",header)
         self.assertIn("CreateRegionalLandmarks();",arena)
@@ -1065,7 +1158,7 @@ int main(){
         self.assertIn("RegisterLivingResident(*It);",mode)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
         self.assertIn("NPC->WitnessNearbyDanger(Now);",mode)
-        self.assertIn("LivingArena->UpdateRegionWeather(Now);",mode)
+        self.assertIn("LivingArena->UpdateRegionWeather(Now, IsValid(Hero)?Hero->GetCelestialClockSeconds():Now);",mode)
         self.assertIn("MoonfallLivingSimulation::MayEncounter(",mode)
         self.assertIn("Hero->IsNearStartingSanctuary()",mode)
         self.assertIn("HeroLocation.Y > -1800.f",mode)

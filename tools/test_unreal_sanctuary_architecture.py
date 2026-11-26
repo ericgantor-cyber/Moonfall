@@ -54,7 +54,7 @@ int main() {
     def test_instanced_geometry_has_no_collision_ticking_or_excessive_lights(self):
         arena = self.arena
         method = arena.split("void AMoonfallArena::CreateSanctuaryAtmosphere()",1)[1].split(
-            "void AMoonfallArena::BeginPlay()",1)[0]
+            "void AMoonfallArena::CreateRegionalLandmarks()",1)[0]
         for required in (
             "NewObject<UInstancedStaticMeshComponent>", "Details->AddInstance(FTransform(",
             "Details->SetCollisionEnabled(ECollisionEnabled::NoCollision);",
@@ -83,7 +83,7 @@ int main() {
 
     def test_lore_signs_are_nonblocking_and_readable(self):
         method = self.arena.split("void AMoonfallArena::CreateSanctuaryAtmosphere()",1)[1].split(
-            "void AMoonfallArena::BeginPlay()",1)[0]
+            "void AMoonfallArena::CreateRegionalLandmarks()",1)[0]
         for phrase in ("FirstlightOath","FirstlightWarden","FirstlightMoon",
                        "THE SIX ROADS HOLD DIFFERENT TRUTHS",
                        "FOLLOW THE SOUTHERN PASS","LET THE WITNESSES SPEAK"):

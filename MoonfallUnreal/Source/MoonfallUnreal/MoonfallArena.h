@@ -6,6 +6,7 @@ class UInstancedStaticMeshComponent;
 class UStaticMesh;
 class UTextRenderComponent;
 class UPointLightComponent;
+class UDirectionalLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
@@ -36,8 +37,12 @@ public:
  UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> RegionWeatherLights;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|World")
  bool bEnableRegionalLandmarks = true;
- void UpdateRegionWeather(float WorldTime);
+ void UpdateRegionWeather(float WorldTime, double CelestialTime = 0.0);
  int32 LastRegionWeatherPhase = -1;
+ int32 LastCelestialLightingHour = -1;
+ // Existing authored lights require explicit opt-in; never stack a second sun.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|World|Lighting")
+ bool bEnableCelestialGlobalLighting = true;
  int32 AppliedRegionWeather[6] = {INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE};
  // Artist-facing opt-out. Doesn't affect the physical shrine or world routes.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Starting Zone")
@@ -56,4 +61,11 @@ private:
  void CreateBlock(FVector Position, FVector Scale);
  void CreateSanctuaryAtmosphere();
  void CreateRegionalLandmarks();
+ void UpdateCelestialGlobalLighting(int32 Minute);
+ TWeakObjectPtr<UDirectionalLightComponent> CelestialDirectionalLight;
+ UPROPERTY(Transient) TObjectPtr<UDirectionalLightComponent> OwnedCelestialLight = nullptr;
+ bool bCelestialLightResolved = false;
+ int32 LastGlobalLightBucket = -1;
+ float CelestialBaseIntensity = 0.f;
+ FLinearColor CelestialBaseColor = FLinearColor::White;
 };

@@ -1446,6 +1446,35 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawModalChrome(MenuLeft,MenuTop,MenuWidth,MenuHeight,FLinearColor(0.35f,0.52f,0.70f,0.98f));
   if (MenuWidth>=480.f) DrawMoonfallSigil(MenuLeft+MenuWidth-66.f,MenuTop+25.f,10.f,FLinearColor(0.52f,0.77f,0.95f),2);
   const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;
+  if (Hero->bCelestialWaitOpen) {
+   const float Center=MenuLeft+MenuWidth*0.5f;
+   DrawText(TEXT("CELESTIAL WAIT"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,0.94f);
+   const int32 Current=MoonfallLivingSimulation::CelestialMinute(Hero->GetCelestialClockSeconds());
+   const int32 Target=(Current+Hero->CelestialWaitHours*60)%1440;
+   DrawText(FString::Printf(TEXT("%02d:%02d  >  %02d:%02d"),Current/60,Current%60,Target/60,Target%60),
+     FLinearColor(0.83f,0.91f,1.f),Center-91.f,MenuTop+54.f,nullptr,0.86f);
+   const auto WaitButton=[&](float X,float Y,float W,float H,const TCHAR* Text) {
+    DrawRect(FLinearColor(0.20f,0.29f,0.41f,0.98f),X,Y,W,H);
+    DrawHoverFrame(X,Y,W,H);
+    DrawText(Text,FLinearColor::White,X+10.f,Y+10.f,nullptr,0.90f);
+   };
+   WaitButton(Center-105.f,MenuTop+90.f,50.f,44.f,TEXT("-"));
+   WaitButton(Center+55.f,MenuTop+90.f,50.f,44.f,TEXT("+"));
+   DrawText(FString::Printf(TEXT("%d h"),Hero->CelestialWaitHours),FLinearColor(1.f,0.89f,0.63f),
+     Center-30.f,MenuTop+101.f,nullptr,1.1f);
+   WaitButton(Center-105.f,MenuTop+170.f,100.f,40.f,TEXT("WAIT"));
+   WaitButton(Center+5.f,MenuTop+170.f,100.f,40.f,TEXT("CANCEL"));
+   WaitButton(OptionsCloseX,MenuTop+12.f,28.f,28.f,TEXT("X"));
+   DrawText(TEXT("Home/End or D-pad: hours"),FLinearColor::White,MenuLeft+14.f,MenuTop+218.f,nullptr,0.68f);
+   DrawText(TEXT("Enter/A: wait | Esc/B: back"),FLinearColor::White,MenuLeft+14.f,MenuTop+238.f,nullptr,0.68f);
+   if (!Hero->CelestialWaitStatus.IsEmpty())
+    DrawText(Hero->CelestialWaitStatus,FLinearColor(1.f,0.63f,0.48f),MenuLeft+14.f,MenuTop+258.f,nullptr,0.62f);
+   DrawLiveMenuHitCue();
+   return;
+  }
+  DrawRect(FLinearColor(0.18f,0.29f,0.37f,0.98f),MenuLeft+14.f,MenuTop+42.f,64.f,18.f);
+  DrawHoverFrame(MenuLeft+14.f,MenuTop+42.f,64.f,18.f);
+  DrawText(TEXT("WAIT"),FLinearColor::White,MenuLeft+19.f,MenuTop+43.f,nullptr,0.65f);
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), OptionsCloseX, MenuTop + 12.f, 28.f, 28.f);
   DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);
   DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
@@ -2831,8 +2860,9 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.53f,0.77f,0.92f));
   const auto Climate=MoonfallLivingSimulation::WeatherFor(ClimateRegion,
       MoonfallLivingSimulation::Phase(GetWorld()->GetTimeSeconds(),360.f));
-  DrawText(FString::Printf(TEXT("%s  |  %s"),
-      bSanctuaryObjective?TEXT("FIRSTLIGHT"):TEXT("WEATHER"),
+  const int32 CelestialMinute=MoonfallLivingSimulation::CelestialMinute(Hero->GetCelestialClockSeconds());
+  DrawText(FString::Printf(TEXT("%02d:%02d | %s"),
+      CelestialMinute/60,CelestialMinute%60,
       UTF8_TO_TCHAR(MoonfallLivingSimulation::WeatherName(Climate))),
     FLinearColor(0.7f,0.85f,0.96f),Left+Width-160.f,Top+7.f,nullptr,0.64f);
   DrawText(Objective, FLinearColor::White,

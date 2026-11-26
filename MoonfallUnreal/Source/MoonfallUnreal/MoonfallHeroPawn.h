@@ -219,6 +219,8 @@ public:
  // A single permanent world checkpoint. Death never erases experience or items.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
+ UFUNCTION(BlueprintPure, Category="Moonfall|World") double GetCelestialClockSeconds() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|World") bool TryWaitCelestialHours(int32 Hours);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") void RespawnAtCheckpoint();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
@@ -255,6 +257,9 @@ public:
  const FString& GetBugReportStatus() const { return BugReportStatus; }
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
+ bool bCelestialWaitOpen = false;
+ int32 CelestialWaitHours = 1;
+ FString CelestialWaitStatus;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationAvailable = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationPluginDetected = false;
@@ -519,6 +524,9 @@ private:
  bool bHasRespawnCheckpointLocation = false;
  // Never write a shrine save before the initial persistent slot has loaded.
  bool bWorldProgressInitialized = false;
+ double CelestialSavedPhase = 0.0;
+ double CelestialSessionAnchor = 0.0;
+ bool bCelestialWaitInProgress = false;
  // Mark the occupied XY cell; routine two-second autosave persists discovery.
  void RevealAtlasAtWorldLocation();
  // Collision-aware teleport during load can fire shrine overlaps before all
@@ -662,6 +670,9 @@ private:
  bool bControllerJumpStarted = false;
  void InventorySalvage();
  void OpenOptions();
+ void OpenCelestialWait();
+ void ConfirmCelestialWait();
+ void AdjustCelestialWait(int32 Direction);
  void OptionsUp();
  void OptionsDown();
  void OptionsLeft();
