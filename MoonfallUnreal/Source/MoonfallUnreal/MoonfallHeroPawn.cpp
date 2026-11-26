@@ -1304,11 +1304,17 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
    ParryCounterUntil = -1.f;
   }
-  const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
-  const FColor ImpactColor = SpellColors[School];
-  if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)) {
-   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  // Presentation is optional. Never allocate debug geometry on a server,
+  // after a callback tears down the caster, or for a corrupt impact point.
+  if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld()
+      && GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()) {
+   static const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
+   const FColor ImpactColor = SpellColors[School];
+   if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)
+       && IsValid(this) && !IsActorBeingDestroyed() && GetWorld()) {
+    DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+    DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+   }
   }
  }
  Mana -= Costs[School] * Multiplier;
@@ -1344,6 +1350,12 @@ bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(int32 School, const FVector& 
      this,System,Point,FRotator::ZeroRotator,FVector(FMath::Clamp(Multiplier,0.5f,2.f)),
      true,true,ENCPoolMethod::None,true);
  if (!IsValid(FX)) return false;
+ // Niagara activation can synchronously notify external code. Do not
+ // retain a component or schedule a cleanup timer on a torn-down caster.
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) {
+  FX->DestroyComponent();
+  return false;
+ }
  ActiveSpellImpactFX.Add(FX);
  // Even an incorrectly authored looping system is removed after two seconds.
  TWeakObjectPtr<UNiagaraComponent> WeakFX(FX);
