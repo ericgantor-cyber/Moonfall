@@ -263,17 +263,19 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
+ // One ownership scan supplies every tier; never trust bag codes or cached
+ // Blueprint tiers independently of the actual equipped snapshot.
+ const auto Codes = BuildOwnedEquipmentLoadout();
+ const auto Tier = [&Codes](int32 Slot) { return ValidEquippedTier(Codes[Slot], Slot); };
  const int32 ExtraUnits = MoonfallEquipmentSlots::ExtraMasteryUnits(
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Head),
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Shoulders),
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Hands),
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Legs),
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Feet),
-   GetValidatedEquippedTier(MoonfallEquipmentSlots::Ring));
+   Tier(MoonfallEquipmentSlots::Head),
+   Tier(MoonfallEquipmentSlots::Shoulders),
+   Tier(MoonfallEquipmentSlots::Hands),
+   Tier(MoonfallEquipmentSlots::Legs),
+   Tier(MoonfallEquipmentSlots::Feet),
+   Tier(MoonfallEquipmentSlots::Ring));
  const float GearMastery = FMath::Clamp(
-   ((InventoryItemCodes.Contains(EquippedWeaponCode) ? ValidEquippedTier(EquippedWeaponCode, 0) : 0)
-    + (InventoryItemCodes.Contains(EquippedArmorCode) ? ValidEquippedTier(EquippedArmorCode, 1) : 0)
-    + (InventoryItemCodes.Contains(EquippedAccessoryCode) ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0)) * 0.0015f + ExtraUnits * 0.000375f, 0.f, 0.12f);
+   (Tier(0) + Tier(1) + Tier(2)) * 0.0015f + ExtraUnits * 0.000375f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
