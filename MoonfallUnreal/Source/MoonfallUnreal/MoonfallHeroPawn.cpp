@@ -450,6 +450,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       && FMath::IsFinite(Health) && Health>0.f && !bOptionsOpen && !bInventoryOpen
       && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen;
   PerformanceAudit.Observe(Now,bGameplay);
+  if (bGameplay) UpdateRecoverySnapshot(Now);
   // Throttled estimates from the engine; no GPU flush or profiler capture.
   if (!bGameplay) { StageAuditWarmupUntil=Now+1.0; }
   else if (GDynamicRHI && GetNetMode()!=NM_DedicatedServer
@@ -2581,6 +2582,65 @@ void AMoonfallHeroPawn::OpenOptions() {
  // Match the inventory close workflow and allow the Options X to be clicked.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen;
+}
+void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
+ // Local recovery evidence only. No crash-handler allocations or uploads.
+ // Exclude PIE and dedicated servers; one rolling snapshot per local pawn.
+ if (!GetWorld() || GetWorld()->WorldType!=EWorldType::Game
+     || GetNetMode()==NM_DedicatedServer || !IsLocallyControlled()
+     || !FMath::IsFinite(Now)) return;
+ if (NextRecoverySnapshotAt<0) { NextRecoverySnapshotAt=Now+10.0; return; }
+ if (Now<NextRecoverySnapshotAt) return;
+ NextRecoverySnapshotAt=Now+60.0;
+ const FString Directory=FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("BugReports"),TEXT("Recovery"));
+ IFileManager& Files=IFileManager::Get();
+ if (!Files.MakeDirectory(*Directory,true)) return;
+ if (RecoverySnapshotPath.IsEmpty()) {
+  RecoverySnapshotPath=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
+ }
+ const auto& Sample=PerformanceAudit.Snapshot;
+ TSharedRef<FJsonObject> Report=MakeShared<FJsonObject>();
+ Report->SetNumberField(TEXT("schema"),1);
+ Report->SetStringField(TEXT("kind"),TEXT("moonfall_recovery_snapshot"));
+ Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
+ Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS)
+     && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms)) {
+  Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
+  Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
+  Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
+  Report->SetNumberField(TEXT("hitches"),Sample.Hitches);
+ }
+ TArray<TSharedPtr<FJsonValue>> Recent;
+ for (std::size_t Index=0;Index<BugBreadcrumbs.Size();++Index) {
+  const auto Event=BugBreadcrumbs.At(Index);
+  const double Age=Now-Event.At;
+  if (!FMath::IsFinite(Age) || Age<0 || Age>300.0) continue;
+  TSharedRef<FJsonObject> Item=MakeShared<FJsonObject>();
+  Item->SetNumberField(TEXT("event_code"),static_cast<int>(Event.Kind));
+  Item->SetNumberField(TEXT("seconds_ago"),Age);
+  Recent.Add(MakeShared<FJsonValueObject>(Item));
+ }
+ Report->SetArrayField(TEXT("recent_events"),Recent);
+ FString Json;
+ const auto Writer=TJsonWriterFactory<>::Create(&Json);
+ const FString Temp=RecoverySnapshotPath+TEXT(".tmp");
+ if (FJsonSerializer::Serialize(Report,Writer) && Json.Len()<=32768
+     && FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)) {
+  // A prior checkpoint remains useful if serialization or writing fails.
+  Files.Move(*RecoverySnapshotPath,*Temp,true);
+ }
+ if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
+}
+void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ // Normal teardown removes only this pawn's own recovery snapshot.
+ // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
+ if (!RecoverySnapshotPath.IsEmpty()) {
+  IFileManager::Get().Delete(*RecoverySnapshotPath,false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".tmp")),false,true,true);
+ }
+ Super::EndPlay(EndPlayReason);
 }
 void AMoonfallHeroPawn::ExportBugReport() {
  // Explicit local action only. No raw logs, saves, account data or network.
