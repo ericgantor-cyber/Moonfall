@@ -126,6 +126,21 @@ constexpr bool CanOperate(int Code,int ActiveSlots,EInventoryOperation Operation
  }
  return false;
 }
+// The caller has already validated the selected bag index. Keep raw worn
+// references (even inconsistent ones) protected until the save is repaired.
+// Unworn items require no bag scan; worn items stop at the second copy.
+template<class Bag>
+bool CanRemoveSelectedCopy(int Code,const FLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ if(!CanOperate(Code,ActiveSlots,EInventoryOperation::Salvage))return false;
+ bool Referenced=false;
+ for(int Slot=0;Slot<ActiveSlots;++Slot)
+  if(Worn[Slot]==Code){Referenced=true;break;}
+ if(!Referenced)return true;
+ int Copies=0;
+ for(const int Candidate:Inventory)
+  if(Candidate==Code&&++Copies>=2)return true;
+ return false;
+}
 // Individual item comparisons preserve the legacy per-piece score semantics.
 // Whole-loadout optimization uses TotalScore below, including both sides of a set pair.
 constexpr int Score(int Code,int Slot,const FLoadout& Equipped,int ActiveSlots=SlotCount) {
