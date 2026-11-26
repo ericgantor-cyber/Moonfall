@@ -36,17 +36,7 @@ jobs:
             'finally {',
             'if: always()',
             'MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT',
-            ('MoonfallUnrealCompile-' + '
-          )) {
-            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
-          }
-          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'
- + '{{ github.run_id }}-' + '
-          )) {
-            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
-          }
-          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'
- + '{{ github.run_attempt }}/EditorBuild-Transcript.txt')
+            ('MoonfallUnrealCompile-' + [char]36 + '{{ github.run_id }}-' + [char]36 + '{{ github.run_attempt }}/EditorBuild-Transcript.txt')
           )) {
             if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
           }
