@@ -215,7 +215,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawMoonfallSigil(Book.Left+Book.Width-26.f",  # book
             "DrawMoonfallSigil(float(Tab.X+Tab.W-13)",  # talents
             "DrawFactionCrest(Left+PanelWidth-30.f,Y+13.f",  # actual faction art
-            "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",  # real gear icons
+            "DrawGearGlyph(X+CardWidth-14.f,Y+CardHeight*0.5f",  # real gear icons
             "DrawMoonfallSigil(X+Width-13.f,Y+40.f",  # boss
             "DrawRegionEmblem(Left+Width-16.f,Top+109.f",  # quest current region
             "DrawMoonfallSigil(CX,CY-Radius*1.28f",  # resource orb
@@ -255,7 +255,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "case 3:", "case 4:", "default:", "Canvas->K2_DrawLine",
         ):
             self.assertIn(token, spell)
-        for token in ("Slot<0 || Slot>2", "R<4.f || R>19.f",
+        for token in ("!MoonfallEquipmentSlots::Known(Slot)", "R<4.f || R>19.f",
                       "switch (Slot)", "case 0:", "case 1:", "default:"):
             self.assertIn(token, gear)
         for forbidden in ("GetAllActorsOfClass", "TActorIterator",
@@ -268,7 +268,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "School);",
             "Book.RowX+(bDrawSchoolIcon?37.f:12.f)",
             "DrawGearGlyph(Left+PanelWidth-29.f,Y+FMath::Min(11.f,RowSpacing*0.40f)",
-            "DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f",
+            "DrawGearGlyph(X+CardWidth-14.f,Y+CardHeight*0.5f",
             "const bool bDrawSchoolIcon=Book.RowHeight>=25.f && Book.RowWidth>=350.f;",
             "if (bValid && PanelWidth>=440.f && RowSpacing>=23.f)",
             "DrawMoonfallSigil(CompassX,CompassY,13.f,",
