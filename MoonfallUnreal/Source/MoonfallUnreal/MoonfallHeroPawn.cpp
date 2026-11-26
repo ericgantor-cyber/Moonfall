@@ -4797,6 +4797,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
   }
  }
+ // Reconcile transient quest tracking with restored progress before notifying UI.
+ // Keep valid manual choices, but never revive stale selections from another snapshot.
+ const auto RestoredActiveQuests=GetActiveQuestMask();
+ ManualQuestMask=ManualQuestMask&RestoredActiveQuests;
+ QuestLogSelection=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,MoonfallQuestJournal::Count(RestoredActiveQuests)-1));
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
  CompanionParty=Save->Version>=16?Save->CompanionParty:FMoonfallCompanionPartyRecord{};
  CompanionGear.Reset();
@@ -5371,6 +5376,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const int Count=MoonfallQuestJournal::Count(GetActiveQuestMask());
      const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
      const int Start=MoonfallQuestJournal::PageStart(Selected,Rows);
+     const auto Pages=MoonfallQuestJournal::PageButtons(PanelW,PanelH);
+     const int PageDirection=Pages.Hit(MouseX-PanelL,MouseY-PanelT);
+     if(PageDirection!=0) {
+      QuestLogSelection=MoonfallQuestJournal::SelectPage(Selected,Rows,Count,PageDirection);
+      return;
+     }
      if(MouseX>=PanelL+12.f&&MouseX<=PanelL+PanelW-12.f&&MouseY>=PanelT+88.f) {
       const int Row=MoonfallQuestJournal::HitRow(MouseY-PanelT-88.f,Rows);
       if(Row>=0&&Row<Rows&&Start+Row<Count) {
@@ -5958,10 +5969,10 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
  return 0;
 }
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
- if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
-     || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || GetResidentQuestState(ResidentId) != 0) return false;
  int ActiveContracts=0;
  for(const auto& Entry:ResidentQuestStates) if(Entry.Value==1) ++ActiveContracts;
  if(!MoonfallQuestJournal::CanAccept(ActiveContracts)) return false;
@@ -5977,7 +5988,7 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  return true;
 }
 bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
- if (!GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
      || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!FMath::IsFinite(Health) || Health <= 0.f || !FMath::IsFinite(MaxHealth)
      || MaxHealth < Health || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana)
