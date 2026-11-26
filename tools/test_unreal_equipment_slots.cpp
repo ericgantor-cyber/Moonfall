@@ -38,13 +38,20 @@ constexpr bool Migration() {
  const S::FExtra Extra{31004,41005,51006,61007,71008,81009};
  S::FLoadout Worn{};
  for(int V=1;V<17;++V) {
-  if(!S::ReadSavedLoadout(V,Old,nullptr,0,Bag,9,Worn))return false;
+  if(!S::ReadSavedLoadout(V,Old,nullptr,0,Bag,3,Worn))return false;
+  if(S::ReadSavedLoadout(V,Old,nullptr,0,Bag,9,Worn))return false;
   for(int I=0;I<9;++I)if(Worn[I]!=Migrated[I])return false;
   if(S::ReadSavedLoadout(V,Old,Extra.data(),Extra.size(),Bag,9,Worn))return false;
  }
  if(!S::ReadSavedLoadout(17,Old,Extra.data(),Extra.size(),Bag,9,Worn))return false;
  for(int I=0;I<9;++I)if(Worn[I]!=Bag[I])return false;
  const auto Before=Worn;
+ const int CorruptBag[10]={1001,11002,21003,31004,41005,51006,61007,71008,81009,100001};
+ if(S::ReadSavedLoadout(17,Old,Extra.data(),6,CorruptBag,10,Worn))return false;
+ const int InvalidLegacyBag[4]={1001,11002,21003,0};
+ if(S::ReadSavedLoadout(16,Old,nullptr,0,InvalidLegacyBag,4,Worn))return false;
+ if(S::ReadSavedLoadout(17,Old,Extra.data(),6,Bag,10001,Worn))return false;
+ if(S::ReadSavedLoadout(17,Old,Extra.data(),6,nullptr,9,Worn))return false;
  if(S::ReadSavedLoadout(17,Old,Extra.data(),5,Bag,9,Worn))return false;
  if(S::ReadSavedLoadout(17,Old,nullptr,6,Bag,9,Worn))return false;
  if(S::ReadSavedLoadout(17,Old,Extra.data(),6,Bag,8,Worn))return false;
