@@ -298,10 +298,10 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  }
  UpdateRegionWeather(0.f);
 }
-void AMoonfallArena::UpdateRegionWeather(float WorldTime) {
+void AMoonfallArena::UpdateRegionWeather(float WorldTime, double CelestialTime) {
  if (!FMath::IsFinite(WorldTime) || WorldTime<0.f) return;
  const int32 Phase=MoonfallLivingSimulation::Phase(WorldTime,360.f);
- const int32 Hour=MoonfallLivingSimulation::LightingHour(MoonfallLivingSimulation::CelestialMinute(WorldTime));
+ const int32 Hour=MoonfallLivingSimulation::LightingHour(MoonfallLivingSimulation::CelestialMinute(CelestialTime));
  const bool bCelestialChanged=Hour!=LastCelestialLightingHour;
  if (LastRegionWeatherPhase==Phase && !bCelestialChanged) return;
  LastRegionWeatherPhase=Phase;
