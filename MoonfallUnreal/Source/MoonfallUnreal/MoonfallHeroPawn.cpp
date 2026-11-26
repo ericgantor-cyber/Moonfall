@@ -591,16 +591,16 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ? (FMath::IsFinite(CombatManaRegenMultiplier)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
-     && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
+     && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana) {
+  const int32 OwnedAccessoryCode = GetEquipmentSlotCode(2);
   Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost * CombatManaFactor
-      * (1.f + (InventoryItemCodes.Contains(EquippedAccessoryCode)
-          ? FMath::Clamp(ValidEquippedTier(EquippedAccessoryCode, 2) * 0.012f, 0.f, 0.25f) : 0.f)
-        + (InventoryItemCodes.Contains(EquippedAccessoryCode) && ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) > 0.f ? 0.08f : 0.f)
-        + (InventoryItemCodes.Contains(EquippedAccessoryCode)
-          ? FMath::Clamp(ValidEquippedRarity(EquippedAccessoryCode, 2) * 0.02f, 0.f, 0.10f) : 0.f)
+      * (1.f + FMath::Clamp(ValidEquippedTier(OwnedAccessoryCode, 2) * 0.012f, 0.f, 0.25f)
+        + (ValidEquippedTraitRarity(OwnedAccessoryCode, 2, 3) > 0.f ? 0.08f : 0.f)
+        + FMath::Clamp(ValidEquippedRarity(OwnedAccessoryCode, 2) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
+ }
  // Recovery in any menu, including the Atlas, is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen || bAtlasOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
@@ -1204,11 +1204,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // depend on real health damage and stop when the target dies.
   static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
   // Force weapon affix adds a modest spell damage bonus, independent of tiers.
-  const bool bOwnedWeapon = InventoryItemCodes.Contains(EquippedWeaponCode);
+  const int32 OwnedWeaponCode = GetEquipmentSlotCode(0);
   const float WeaponDamageBonus = 1.f
-      + (bOwnedWeapon ? FMath::Clamp(0.018f * ValidEquippedTier(EquippedWeaponCode, 0), 0.f, 0.35f) : 0.f)
-      + (bOwnedWeapon && ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f)
-      + (bOwnedWeapon ? FMath::Clamp(ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f) : 0.f);
+      + FMath::Clamp(0.018f * ValidEquippedTier(OwnedWeaponCode, 0), 0.f, 0.35f)
+      + (ValidEquippedTraitRarity(OwnedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f)
+      + FMath::Clamp(ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f, 0.f, 0.075f);
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
@@ -1729,9 +1729,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   OnMeleeSwing(CurrentSwordAngle, false);
   return;
  }
- const bool bWeaponOwned = InventoryItemCodes.Contains(EquippedWeaponCode);
- const float Tier = bWeaponOwned
-     ? static_cast<float>(ValidEquippedTier(EquippedWeaponCode, 0)) : 0.f;
+ const float Tier = static_cast<float>(GetValidatedEquippedTier(0));
  const float Might = static_cast<float>(GetMight());
  // Might MELEE bonuses apply to every connected melee attack, including
  // unarmed hits (Tier 0), not just sword-equipped attacks. Existing angle,
@@ -2058,11 +2056,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  // Measure this impact at its actual health mutation, after synchronous defense callbacks.
  // Ward armor affix provides a small, capped flat mitigation bonus.
- const bool bOwnedArmor = InventoryItemCodes.Contains(EquippedArmorCode);
+ const int32 OwnedArmorCode = GetEquipmentSlotCode(1);
  const float ArmorMitigation = FMath::Min(0.34f,
-   (bOwnedArmor ? FMath::Min(0.28f, ValidEquippedTier(EquippedArmorCode, 1) * 0.01f) : 0.f)
-   + (bOwnedArmor && ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f)
-   + (bOwnedArmor ? FMath::Clamp(ValidEquippedRarity(EquippedArmorCode, 1) * 0.005f, 0.f, 0.025f) : 0.f)
+   FMath::Min(0.28f, ValidEquippedTier(OwnedArmorCode, 1) * 0.01f)
+   + (ValidEquippedTraitRarity(OwnedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f)
+   + FMath::Clamp(ValidEquippedRarity(OwnedArmorCode, 1) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
    + (HasLegendaryPerk(1) ? 0.015f : 0.f));
