@@ -234,7 +234,61 @@ $bugReports.Add_Click({
                 $promptScript = Join-Path $PSScriptRoot 'New-MoonfallAIBugPrompt.ps1'
                 try {
                     if (-not (Test-Path -LiteralPath $promptScript -PathType Leaf)) { throw 'Missing prompt generator.' }
-                    $prompt = & $promptScript -ReportIndex $index
+                    $triage = New-Object Windows.Forms.Form
+                    try {
+                        $triage.Text = 'Moonfall AI bug triage'
+                        $triage.ClientSize = New-Object Drawing.Size(500,350)
+                        $triage.FormBorderStyle = 'FixedDialog'
+                        $triage.StartPosition = 'CenterParent'
+                        $triage.Font = New-Object Drawing.Font('Segoe UI',11)
+                        $triage.MaximizeBox = $false
+                        $triage.MinimizeBox = $false
+                        $definitions = @(
+                            @{Label='Bug category'; Items=@('Unspecified','Crash or freeze','Performance','Combat','Controller or keyboard','UI or accessibility','Quest or world','Save or progression','Graphics or audio')},
+                            @{Label='Severity'; Items=@('Unknown','Critical','Major','Minor')},
+                            @{Label='Reproduction frequency'; Items=@('Unknown','Every time','Sometimes','Once')},
+                            @{Label='Number of recent reports'; Items=@('1','2','3','4','5')}
+                        )
+                        $choices = @()
+                        $y = 12
+                        foreach ($definition in $definitions) {
+                            $label = New-Object Windows.Forms.Label
+                            $label.Text = $definition.Label
+                            $label.SetBounds(12,$y,465,23)
+                            $combo = New-Object Windows.Forms.ComboBox
+                            $combo.SetBounds(12,($y+23),465,30)
+                            $combo.AccessibleName = $definition.Label
+                            $combo.DropDownStyle = 'DropDownList'
+                            [void]$combo.Items.AddRange([object[]]$definition.Items)
+                            $combo.SelectedIndex = 0
+                            $triage.Controls.Add($label)
+                            $triage.Controls.Add($combo)
+                            $choices += $combo
+                            $y += 57
+                        }
+                        $details = New-Object Windows.Forms.CheckBox
+                        $details.SetBounds(12,248,465,40)
+                        $details.Text = 'Include extra graphics and CPU/GPU timing evidence'
+                        $details.AccessibleName = 'Include extra technical diagnostic evidence'
+                        $details.Checked = $false
+                        $triage.Controls.Add($details)
+                        $next = New-Object Windows.Forms.Button
+                        $next.SetBounds(12,302,275,36)
+                        $next.Text = 'PREVIEW PROMPT'
+                        $next.AccessibleName = 'Review generated diagnostic prompt'
+                        $next.DialogResult = [Windows.Forms.DialogResult]::OK
+                        $abort = New-Object Windows.Forms.Button
+                        $abort.SetBounds(300,302,177,36)
+                        $abort.Text = 'CANCEL'
+                        $abort.AccessibleName = 'Cancel AI report preparation'
+                        $abort.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                        $triage.Controls.Add($next)
+                        $triage.Controls.Add($abort)
+                        $triage.AcceptButton = $next
+                        $triage.CancelButton = $abort
+                        if ($triage.ShowDialog($viewer) -ne [Windows.Forms.DialogResult]::OK) { return }
+                        $prompt = & $promptScript -ReportIndex $index -Category ([string]$choices[0].SelectedItem) -Severity ([string]$choices[1].SelectedItem) -Frequency ([string]$choices[2].SelectedItem) -MaximumReports ([int]$choices[3].SelectedItem) -IncludeTechnicalEvidence:$details.Checked
+                    } finally { $triage.Dispose() }
                     $preview = New-Object Windows.Forms.Form
                     try {
                         $preview.Text = 'Review diagnostic handoff before sharing'
