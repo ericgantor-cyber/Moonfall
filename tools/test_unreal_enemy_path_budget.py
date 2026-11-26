@@ -338,17 +338,27 @@ class EnemyPathBudgetTests(unittest.TestCase):
         )[0]
         self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", chase)
         self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", chase)
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", chase)
+        self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", chase)
         self.assertLess(chase.index("const float ChaseStep"), chase.index("AddActorWorldOffset("))
         # This is purely movement budgeting; no second collision sweep or solve.
         self.assertEqual(chase.count("AddActorWorldOffset("), 1)
         self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(self.source.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_stationary_or_invalid_chase_does_not_issue_collision_sweeps(self):
+        chase = self.source.split("FVector Direction = Target - GetActorLocation();", 1)[1].split(
+            "// Collision can trap packs at tight doorways.", 1)[0]
+        for guard in ("if (Direction.ContainsNaN()) return;",
+                      "if (!FMath::IsFinite(ChaseStep) || ChaseStep <= 0.f) return;",
+                      "if (ChaseDirection.ContainsNaN() || ChaseDirection.IsZero()) return;"):
+            self.assertLess(chase.index(guard), chase.index("AddActorWorldOffset("))
+        self.assertNotIn("NextPathRefreshAt =", chase)
+        self.assertNotIn("FindPathToLocationSynchronously(", chase)
+
     def test_combat_safety_and_existing_sweep_remain(self):
         self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", self.source)
         self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", self.source)
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", self.source)
+        self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
         self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier", self.source)
         self.assertNotIn("bWithinAttackArc && Difference.Size() <=", self.source)
