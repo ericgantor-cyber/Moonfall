@@ -58,20 +58,21 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
     runs-on: [self-hosted, Windows, X64, unreal-5-4]
     timeout-minutes: 120
-    env:
-      MOONFALL_NATIVE_REPORT_DIRECTORY: ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Verify Unreal compiler prerequisites
+        id: native_preflight
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $actual = (& git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native checkout does not match the requested revision.' }
-          if (Test-Path -LiteralPath $env:MOONFALL_NATIVE_REPORT_DIRECTORY) { throw 'Native evidence directory already exists; refusing to reuse it.' }
-          New-Item -ItemType Directory -Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY | Out-Null
+          $directory = Join-Path $env:RUNNER_TEMP "MoonfallNative-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          if (Test-Path -LiteralPath $directory) { throw 'Native evidence directory already exists; refusing to reuse it.' }
+          New-Item -ItemType Directory -Path $directory | Out-Null
+          "MOONFALL_NATIVE_REPORT_DIRECTORY=$directory" >> $env:GITHUB_ENV
           if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
           $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
           if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
@@ -101,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: moonfall-unreal-native-compile-evidence
-          path: ${{ env.MOONFALL_NATIVE_REPORT_DIRECTORY }}/moonfall-unreal-native-compile.txt
+          path: ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/moonfall-unreal-native-compile.txt
           if-no-files-found: error
           retention-days: 30
       - name: Run real UE5.4 dungeon automation tests
@@ -147,14 +148,14 @@ jobs:
           ) | Set-Content -LiteralPath $proof -Encoding UTF8
           "Native UE5.4 dungeon and control automation: all seven required tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
       - name: Preserve native dungeon test evidence
-        if: always()
+        if: ${{ always() && steps.native_preflight.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: moonfall-unreal-native-dungeon-test-evidence
           path: |
-            ${{ env.MOONFALL_NATIVE_REPORT_DIRECTORY }}/Moonfall-Dungeon-TestResult.txt
-            ${{ env.MOONFALL_NATIVE_REPORT_DIRECTORY }}/Moonfall-Dungeon-UE54.log
-            ${{ env.MOONFALL_NATIVE_REPORT_DIRECTORY }}/NativeAutomation-Provenance.txt
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/Moonfall-Dungeon-TestResult.txt
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/Moonfall-Dungeon-UE54.log
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/NativeAutomation-Provenance.txt
           if-no-files-found: warn
           retention-days: 30
       - name: Save Unreal compilation diagnostics
