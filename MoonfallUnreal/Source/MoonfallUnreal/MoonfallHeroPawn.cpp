@@ -1637,9 +1637,15 @@ void AMoonfallHeroPawn::SaveEquipmentProfile() const
  for (int32 Slot = 0; Slot < 9; ++Slot)
   GConfig->SetInt(Section, *FString::Printf(TEXT("Slot%d"), Slot),
     Worn[Slot], GGameUserSettingsIni);
+ // Count distinguishes an intentionally empty inventory from a truncated
+ // array in a partially written profile. The legacy V1 format had no count.
+ GConfig->SetInt(Section, TEXT("ItemCount"), ProfileBag.Num(), GGameUserSettingsIni);
  GConfig->SetInt(Section, TEXT("Salvage"), ProfileSalvage, GGameUserSettingsIni);
  GConfig->SetString(Section, TEXT("Checksum"),
    *FString::Printf(TEXT("%u"), ProfileChecksum), GGameUserSettingsIni);
+ // New writes require both metadata fields. Older V1 profiles without this
+ // marker are accepted by the compatibility loader.
+ GConfig->SetBool(Section, TEXT("IntegrityRequired"), true, GGameUserSettingsIni);
  GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
  GConfig->Flush(false, GGameUserSettingsIni);
 }
@@ -1654,6 +1660,15 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
  TArray<FString> StoredBag;
  GConfig->GetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
  if (StoredBag.Num() > 512) return;
+ bool bIntegrityRequired = false;
+ GConfig->GetBool(Section, TEXT("IntegrityRequired"),
+   bIntegrityRequired, GGameUserSettingsIni);
+ int32 ExpectedCount = 0;
+ const bool bHasCount = GConfig->GetInt(Section, TEXT("ItemCount"),
+   ExpectedCount, GGameUserSettingsIni);
+ if ((bIntegrityRequired && !bHasCount)
+     || (bHasCount && (ExpectedCount < 0 || ExpectedCount > 512
+                      || ExpectedCount != StoredBag.Num()))) return;
  TArray<int32> ValidBag;
  ValidBag.Reserve(StoredBag.Num());
  for (const FString& Token : StoredBag) {
@@ -1675,7 +1690,10 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
  // Older V1 profiles without a checksum remain readable. Any present
  // checksum must match the entire nine-slot loadout before anything mutates.
  FString StoredChecksum;
- if (GConfig->GetString(Section, TEXT("Checksum"), StoredChecksum, GGameUserSettingsIni)) {
+ const bool bHasChecksum = GConfig->GetString(Section, TEXT("Checksum"),
+   StoredChecksum, GGameUserSettingsIni);
+ if (bIntegrityRequired && !bHasChecksum) return;
+ if (bHasChecksum) {
   uint32 ExpectedChecksum = 0;
   if (!LexTryParseString(ExpectedChecksum, *StoredChecksum) ||
       ExpectedChecksum != MoonfallEquipmentProfileChecksum(ValidBag, Worn, SavedSalvage))
