@@ -67,6 +67,14 @@ int main() {
  const double ageBefore=empty.SampleAge(2);
  empty.Observe(10,false);
  assert(std::abs(empty.SampleAge(10)-(ageBefore+8))<.001);
+ // Clock rollback across a menu must not resurrect a stale sample.
+ empty.Observe(9,true);
+ assert(!empty.Snapshot.Ready && empty.SampleAge(100)==-1);
+ for(int i=1;i<=120;++i) empty.Observe(9+i/60.0,true);
+ assert(empty.Snapshot.Ready && empty.SampleAge(11)>=0);
+ // Rollback during uninterrupted gameplay also invalidates the sample.
+ empty.Observe(10.5,true);
+ assert(!empty.Snapshot.Ready && empty.SampleAge(100)==-1);
  empty.Reset();
  assert(empty.SampleAge(10)==-1);
  auto previous=audit.Snapshot;
