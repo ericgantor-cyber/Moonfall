@@ -40,6 +40,13 @@ if ($IncludeInstalled -and -not $InstallDirectory) {
 if ($IncludeInstalled -and $InstallDirectory) {
     $roots += @(Add-InstallReportRoot $InstallDirectory)
 }
+function Get-ReportMetric($Value,[double]$Minimum,[double]$Maximum,[switch]$Integer) {
+    if ($Value -isnot [double] -and $Value -isnot [single] -and $Value -isnot [int] -and $Value -isnot [long] -and $Value -isnot [decimal]) { return }
+    $number=[double]$Value
+    if ([double]::IsNaN($number) -or [double]::IsInfinity($number) -or $number -lt $Minimum -or $number -gt $Maximum) { return }
+    if ($Integer -and $number -ne [math]::Truncate($number)) { return }
+    [math]::Round($number,3)
+}
 function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Pattern, [string]$Source) {
     if (-not (Test-PlainDirectory $Directory)) { return }
     $files = @(Get-ChildItem -LiteralPath $Directory -File -Filter '*.json' |
@@ -84,6 +91,15 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
                 AverageFPS = $fps
                 P95Milliseconds = $p95
                 Hitches = $hitches
+                OnePercentLowFPS = if ($report.gameplay_sample_ready -is [bool] -and $report.gameplay_sample_ready) { Get-ReportMetric $report.one_percent_low_fps 0.001 100000 }
+                GameThreadMs = Get-ReportMetric $report.game_thread_ms 0.001 2000
+                RenderThreadMs = Get-ReportMetric $report.render_thread_ms 0.001 2000
+                GpuMsEstimate = Get-ReportMetric $report.gpu_ms_estimate 0.001 2000
+                Width = Get-ReportMetric $report.width 1 16384 -Integer
+                Height = Get-ReportMetric $report.height 1 16384 -Integer
+                Quality = Get-ReportMetric $report.quality -1 4 -Integer
+                GraphicsAPI = if (@('D3D11','D3D12','Vulkan') -contains $report.rhi) { [string]$report.rhi }
+                ReducedMotion = if ($report.reduced_motion -is [bool]) { $report.reduced_motion }
             }
         } catch { Write-Warning ('Invalid or unreadable report: ' + $file.Name) }
     }
