@@ -2019,12 +2019,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[0]
         cue = cast.split("// Presentation is optional.", 1)[1]
-        guard = "GetNetMode()!=NM_DedicatedServer && !Hit.ImpactPoint.ContainsNaN()"
+        guard = "GetNetMode()!=NM_DedicatedServer && !ResolvedImpactPoint.ContainsNaN()"
         for call in ("TryPlayAuthoredSpellImpact(", "DrawDebugSphere(", "DrawDebugLine("):
             self.assertLess(cue.index(guard), cue.index(call))
-        self.assertLess(cue.index("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld())"),
+            self.assertLess(cue.index("ResolvedImpactDamage > 0.f && !bReduceMotion"), cue.index(call))
+        self.assertLess(cue.index("&& IsValid(this) && !IsActorBeingDestroyed() && GetWorld()"),
                         cue.index("DrawDebugSphere("))
-        self.assertLess(cue.index("DrawDebugLine("), cue.index("Mana -= Costs[School] * Multiplier;"))
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "if (bDualCast) LastCastTime[1] = Time;"):
+            self.assertLess(cast.index(committed), cast.index("TryPlayAuthoredSpellImpact("))
+        self.assertLess(cast.index("ResolvedImpactOrigin = Origin;"), cast.index("TryPlayAuthoredSpellImpact("))
         self.assertEqual(cast.count("LineTraceSingleByChannel("), 1)
         fx = self.hero_cpp.split("bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
