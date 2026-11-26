@@ -622,7 +622,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("MoonfallEquipmentSlots::Decode(ItemCode)", collect)
-        self.assertIn("!MoonfallEquipmentSlots::Legacy(Item.Slot)", collect)
+        self.assertIn("!MoonfallEquipmentSlots::Known(Item.Slot)", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertNotIn("EquippedCode =", collect)
         self.assertNotIn("Salvage =", collect)
@@ -2028,7 +2028,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
+        self.assertIn("LastLootSlot = FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
         self.assertIn("LastLootRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
