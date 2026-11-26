@@ -139,6 +139,22 @@ int main() {
   for(Op Action:{Op::Equip,Op::Salvage,Op::Upgrade,Op::Reforge,Op::Ascend})
    assert(!L::CanOperate(Code,L::SlotCount,Action));
  assert(!L::CanOperate(101005,4,Op::Equip));
+ // A last worn copy is never removable, including all six future slots.
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  const int Code=Full[Slot];
+  const std::array<int,1> Single={Code};
+  const std::array<int,3> Duplicate={Code,1,Code};
+  const std::array<int,2> Unrelated={1,2};
+  assert(!L::CanRemoveSelectedCopy(Code,Full,L::SlotCount,Single));
+  assert(!L::CanRemoveSelectedCopy(Code,Full,L::SlotCount,Unrelated));
+  assert(L::CanRemoveSelectedCopy(Code,Full,L::SlotCount,Duplicate));
+  assert(L::CanRemoveSelectedCopy(Code,L::FLoadout{},L::SlotCount,Single));
+  assert(L::CanRemoveSelectedCopy(Code,Full,L::LegacySlotCount,Duplicate)==(Slot<L::LegacySlotCount));
+ }
+ auto WrongWorn=Full;WrongWorn[0]=111005;WrongWorn[1]=0;
+ assert(!L::CanRemoveSelectedCopy(111005,WrongWorn,L::SlotCount,std::array<int,1>{111005}));
+ assert(!L::CanRemoveSelectedCopy(0,Full,L::SlotCount,std::array<int,2>{0,0}));
+ assert(!L::CanRemoveSelectedCopy(101005,Full,4,std::array<int,2>{101005,101005}));
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
