@@ -7,6 +7,11 @@ on:
       - 'tools/test_unreal_gear_advisor_policy.cpp'
       - '.github/workflows/unreal-gear-advisor-policy.yml'
   workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: moonfall-gear-policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   policy:
     strategy:
@@ -14,13 +19,23 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: GCC
         if: runner.os == 'Linux'
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tools/test_unreal_gear_advisor_policy.cpp -o /tmp/gear-advisor
           /tmp/gear-advisor
+      - name: Clang address and undefined behavior sanitizers
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O1 -g -Wall -Wextra -Werror -pedantic -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all tools/test_unreal_gear_advisor_policy.cpp -o /tmp/gear-advisor-sanitized
+          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /tmp/gear-advisor-sanitized
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: MSVC
@@ -31,3 +46,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./gear-advisor.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Record test scope and checked-out revision
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '### Equipment policy verification'
+            echo "Checked-out revision: $(git rev-parse HEAD)"
+            echo "Runner: $RUNNER_OS"
+            echo 'Scope: standalone C++17 policy, not Unreal Engine compilation or gameplay.'
+            echo 'Linux runs GCC and Clang ASan/UBSan; Windows runs MSVC.'
+            echo 'Job status: ${{ job.status }}'
+          } >> "$GITHUB_STEP_SUMMARY"
