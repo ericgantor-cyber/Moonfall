@@ -6468,6 +6468,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("CrimsonSails", tracery)
         self.assertNotIn("PassengerDeck", tracery)
 
+    def test_enemy_heraldry_is_native_visual_only_and_preserves_authored_heroes(self):
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        art = enemy.split("// Native regional bosses and elites receive", 1)[1].split("// Scale only at spawn", 1)[0]
+        for token in ("GetClass()==AMoonfallEnemy::StaticClass()", "DivineBossId.IsNone()", "MoonfallDungeonBoss",
+                      "MoonfallSanctuaryPractice", "/Engine/BasicShapes/Sphere.Sphere",
+                      "Crest->SetCollisionEnabled(ECollisionEnabled::NoCollision)",
+                      "Crest->SetCollisionResponseToAllChannels(ECR_Ignore)",
+                      "Crest->SetGenerateOverlapEvents(false)", "Crest->SetCastShadow(false)",
+                      "Crest->SetCanEverAffectNavigation(false)", "FMath::Clamp(DungeonBossRank,1,5)",
+                      "Crest->SetCullDistances(4500,6500)"):
+            self.assertIn(token, art)
+        self.assertIn("RaceId>=0 && RaceId<MoonfallRaces::Count", art)
+        self.assertIn("RaceOrnaments[MoonfallRaces::Count]", art)
+        self.assertIn("RaceOrnaments[RaceId]", art)
+        for name in ("Human:", "High Elf:", "Wood Elf:", "Dwarf:", "Halfling:",
+                     "Orc:", "Goblin:", "Troll:", "Entkin:", "Shadowborn:",
+                     "Moonborn:", "Draconid:"):
+            self.assertIn(name, art)
+        self.assertNotIn("Body->SetStaticMesh", art)
+        self.assertNotIn("Health =", art)
+        self.assertNotIn("SetTimer", art)
+
     def test_talent_menu_guards_load_and_clears_confirmation_before_callbacks(self):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
