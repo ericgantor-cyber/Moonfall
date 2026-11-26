@@ -65,6 +65,19 @@ constexpr bool Migration() {
  return true;
 }
 static_assert(Migration());
+constexpr S::FExtra Reserved{31004,41005,51006,61007,71008,81009};
+constexpr auto Combined=S::FromParts(Old,Reserved);
+static_assert(Combined[0]==1001&&Combined[2]==21003&&Combined[3]==31004&&Combined[8]==81009);
+static_assert(S::CanWriteLegacy(Migrated));
+static_assert(!S::CanWriteLegacy(Combined));
+constexpr bool EachExtraBlocksLegacy() {
+ for(int I=0;I<S::ExtraCount;++I){
+  S::FExtra One{}; One[I]=Reserved[I];
+  if(S::CanWriteLegacy(S::FromParts(Old,One)))return false;
+ }
+ return true;
+}
+static_assert(EachExtraBlocksLegacy());
 constexpr bool Removal() {
  S::FLoadout Worn{};
  int Bag[10]{};
