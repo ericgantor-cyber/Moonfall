@@ -2606,7 +2606,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_enemy_ai_uses_distance_based_tick_intervals(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea", tick)
-        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")))', tick)
+        self.assertIn('static const FName DungeonSimulationTag(TEXT("MoonfallDungeonEncounter"));', tick)
+        self.assertIn("const bool bDungeonSimulationMember = ActorHasTag(DungeonSimulationTag);", tick)
+        self.assertIn("&& bDungeonSimulationMember;", tick)
         self.assertIn("bDistantDungeonMob ? (Distance >= 10000.f ? 2.0f : 1.0f) : 0.4f", tick)
         self.assertIn("Distance >= 10000.f ? 2.0f : 1.0f", tick)
         self.assertIn("bInCombatArea ? 0.1f", tick)
