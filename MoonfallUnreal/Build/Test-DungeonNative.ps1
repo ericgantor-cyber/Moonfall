@@ -7,6 +7,16 @@ Set-StrictMode -Version Latest
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $project = Join-Path $repoRoot 'MoonfallUnreal\MoonfallUnreal.uproject'
+# Invalidate previous local evidence before any engine or compiler validation.
+if (-not $ReportDirectory) {
+    $ReportDirectory = Join-Path $repoRoot 'MoonfallUnrealLocalBuild\DungeonAutomation'
+}
+$ReportDirectory = [IO.Path]::GetFullPath($ReportDirectory)
+$log = Join-Path $ReportDirectory 'Moonfall-Dungeon-UE54.log'
+$report = Join-Path $ReportDirectory 'Moonfall-Dungeon-TestResult.txt'
+New-Item -ItemType Directory -Force -Path $ReportDirectory | Out-Null
+if (Test-Path -LiteralPath $log) { Remove-Item -LiteralPath $log -Force }
+if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
 if ([string]::IsNullOrWhiteSpace($UnrealRoot)) {
     throw 'Unreal Engine 5.4 is required. Supply -UnrealRoot or set UE54_ROOT.'
 }
@@ -23,15 +33,6 @@ if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
 & (Join-Path $PSScriptRoot 'Build-Windows.ps1') -UnrealRoot $UnrealRoot -CompileOnly
 if (-not $?) { throw 'Native UE5 Win64 compilation command failed.' }
 if ($LASTEXITCODE -ne 0) { throw "Native UE5 Win64 compilation failed: $LASTEXITCODE" }
-if (-not $ReportDirectory) {
-    $ReportDirectory = Join-Path $repoRoot 'MoonfallUnrealLocalBuild\DungeonAutomation'
-}
-$ReportDirectory = [IO.Path]::GetFullPath($ReportDirectory)
-$log = Join-Path $ReportDirectory 'Moonfall-Dungeon-UE54.log'
-$report = Join-Path $ReportDirectory 'Moonfall-Dungeon-TestResult.txt'
-New-Item -ItemType Directory -Force -Path $ReportDirectory | Out-Null
-if (Test-Path -LiteralPath $log) { Remove-Item -LiteralPath $log -Force }
-if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
 Write-Host 'Running real UE5.4 native dungeon and control tests (not GitHub source checks).'
 & $editor $project -unattended -nop4 -NullRHI '-ExecCmds=Automation RunTests Moonfall; Quit' '-TestExit=Automation Test Queue Empty' "-abslog=$log"
 $editorExit = $LASTEXITCODE
@@ -63,4 +64,5 @@ $summary | ForEach-Object { Write-Host $_ }
 if ($editorExit -ne 0 -or $failedMarker -or ($results.Values -contains $false)) {
     throw "Native dungeon and control tests NOT verified as passed. Inspect $log and $report."
 }
+& (Join-Path $PSScriptRoot 'Assert-NativeAutomationReport.ps1') -Lines @(Get-Content -LiteralPath $report) -Required $required
 Write-Host 'MOONFALL_NATIVE_DUNGEON_TESTS_PASS: all seven required native tests explicitly passed in UE5.4.'
