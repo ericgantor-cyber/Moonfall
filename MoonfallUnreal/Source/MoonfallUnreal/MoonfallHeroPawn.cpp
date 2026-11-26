@@ -2322,9 +2322,16 @@ void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
  namespace J=MoonfallQuestJournal;
  const uint32 Active=GetActiveQuestMask();
+ const int Count=J::Count(Active);
+ if(Count<=0) return;
+ QuestLogSelection=FMath::Clamp(QuestLogSelection,0,Count-1);
  const int Id=J::EntryAt(Active,QuestLogSelection);
  if(Id<0) return;
- ManualQuestMask=J::Toggle(GetTrackedQuestMask(),Active,Id);
+ const uint32 Before=GetTrackedQuestMask();
+ const uint32 After=J::Toggle(Before,Active,Id);
+ // An unsuccessful attempt to track an eighth quest must not disable auto tracking.
+ if(After==Before) return;
+ ManualQuestMask=After;
  bManualQuestTracking=true;
 }
 void AMoonfallHeroPawn::ResetQuestTracking() {

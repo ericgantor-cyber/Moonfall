@@ -672,8 +672,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertIn("Left click: select", self.hud)
         self.assertIn("Right click: equip", self.hud)
-        self.assertNotIn("PgUp/PgDn", self.hud)
-        self.assertNotIn("Home/End", self.hud)
+        # Quest log has its own keyboard browsing controls, not bag paging.
+        inventory_hud = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[0] + self.hud.split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[1]
+        self.assertNotIn("PgUp/PgDn", inventory_hud)
+        self.assertNotIn("Home/End", inventory_hud)
+        log = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[1].split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[0]
+        self.assertIn("PgUp/PgDn", log)
+        self.assertIn("GetTrackedQuestMask()", log)
+        self.assertIn("ToggleSelectedQuestTracking()", left)
 
     def test_resident_dialogue_entry_validates_player_without_forcing_motion_stop(self):
         for method in ("OpenFocusedResidentContext", "CastRightMouse"):
