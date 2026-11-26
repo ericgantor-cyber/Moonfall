@@ -54,6 +54,21 @@ int main() {
  for(int i=0;i<65;++i) { resumeNow+=1.0/60; resumed.Observe(resumeNow,true); }
  assert(resumed.Snapshot.Ready && resumed.Snapshot.Samples<=65);
  assert(std::abs(resumed.Snapshot.AverageFPS-60)<.001);
+ // Exported age refers to the last published sample, not the report time.
+ assert(audit.SampleAge(now)>=0 && audit.SampleAge(now)<1.01);
+ assert(audit.SampleAge(now+30)>=30);
+ assert(audit.SampleAge(-1)==-1);
+ assert(audit.SampleAge(std::numeric_limits<double>::quiet_NaN())==-1);
+ FAudit empty;
+ assert(empty.SampleAge(now)==-1);
+ empty.Observe(0,true);
+ for(int i=1;i<=120;++i) empty.Observe(i/60.0,true);
+ assert(empty.Snapshot.Ready);
+ const double ageBefore=empty.SampleAge(2);
+ empty.Observe(10,false);
+ assert(std::abs(empty.SampleAge(10)-(ageBefore+8))<.001);
+ empty.Reset();
+ assert(empty.SampleAge(10)==-1);
  auto previous=audit.Snapshot;
  audit.Observe(now+100,false);
  audit.Observe(now+200,true);
