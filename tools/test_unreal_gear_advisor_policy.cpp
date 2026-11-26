@@ -80,6 +80,29 @@ int main() {
  WrongSlot=Full;WrongSlot[8]=-1;
  assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
  assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
+ // Shared single-item comparison covers all nine slots without changing legacy weights.
+ const auto LegacyExpanded=L::ExpandLegacy(Gear);
+ for(int Slot=0;Slot<3;++Slot)
+  for(int Affix=0;Affix<=3;++Affix)
+   for(int Rarity=0;Rarity<=5;++Rarity)
+    for(int Tier=1;Tier<=25;++Tier){
+     const int Code=Affix*100000+Slot*10000+Rarity*1000+Tier;
+     assert(L::Improvement(Code,LegacyExpanded)==G::Improvement(Code,Gear));
+    }
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  assert(L::Score(Full[Slot],Slot,Full)==5430);
+  assert(L::Improvement(Full[Slot],Full)==0);
+  assert(L::Improvement(Full[Slot]+1,Full)==1000);
+  assert(L::Improvement(Full[Slot]+100000,Full)==-320);
+  assert(L::Score(Full[Slot],(Slot+1)%L::SlotCount,Full)==0);
+ }
+ L::FLoadout EmptyNine{};
+ assert(L::Improvement(80001,EmptyNine)==1000);
+ assert(L::Improvement(90001,EmptyNine)==0);
+ assert(L::Improvement(-1,EmptyNine)==0);
+ assert(L::Improvement(std::numeric_limits<int>::max(),EmptyNine)==0);
+ auto InvalidMatching=Full;InvalidMatching[7]=Full[6];
+ assert(L::Score(Full[8],8,InvalidMatching)==5390);
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
