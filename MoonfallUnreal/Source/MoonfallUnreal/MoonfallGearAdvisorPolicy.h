@@ -285,15 +285,31 @@ public:
  }
 };
 static_assert(SlotCount==9,"Affix count encoding and path capacity assume nine slots");
-// V18 expansion keeps every V1–V17 item code byte-for-byte unchanged.
-// Extended item IDs use a separate decimal bank; slot digits 0–6 in that
-// bank mean stable slot IDs 9–15, not the original weapon through legs.
+// V19 expansion preserves every V1–V18 item code byte-for-byte.
+// Bank 0 stores slots 0–8, bank 1 stores slots 9–15, and bank 2 stores
+// slots 16–23. Unused digits in each bank remain invalid.
 enum class EFullSlot : int {
  MainHand=0, Chest=1, Trinket1=2, Head=3, Shoulders=4, Hands=5,
  Legs=6, Feet=7, Ring1=8, Neck=9, Back=10, Wrists=11, Waist=12,
- Ring2=13, Trinket2=14, OffHand=15
+ Ring2=13, Trinket2=14, OffHand=15,
+ Ring3=16, Ring4=17, Ring5=18, Ring6=19, Ring7=20,
+ Ring8=21, Ring9=22, Ring10=23
 };
-inline constexpr int FullSlotCount=16;
+inline constexpr int SixteenSlotCount=16;
+inline constexpr int FullSlotCount=24;
+inline constexpr int RingSlotCount=10;
+inline constexpr std::array<int,RingSlotCount> RingSlots{{8,13,16,17,18,19,20,21,22,23}};
+constexpr int RingSlot(int Index) {
+ return Index>=0&&Index<RingSlotCount?RingSlots[Index]:-1;
+}
+constexpr bool IsRingSlot(int Slot) {
+ return Slot==8||Slot==13||(Slot>=SixteenSlotCount&&Slot<FullSlotCount);
+}
+constexpr int RingIndex(int Slot) {
+ for(int Index=0;Index<RingSlotCount;++Index)
+  if(RingSlots[Index]==Slot)return Index;
+ return -1;
+}
 inline constexpr int ExtendedCodeBank=1000000;
 using FFullLoadout=std::array<int,FullSlotCount>;
 struct FDecodedItem {
@@ -303,17 +319,20 @@ struct FDecodedItem {
 constexpr int EncodeFullItem(int Slot,int Trait,int Rarity,int Tier) {
  if(Slot<0||Slot>=FullSlotCount||Trait<0||Trait>3||Rarity<0||Rarity>5
      ||Tier<1||Tier>25||(Rarity==0&&Trait!=0))return 0;
- const bool Extended=Slot>=SlotCount;
- return (Extended?ExtendedCodeBank:0)+Trait*100000+
-     (Extended?Slot-SlotCount:Slot)*10000+Rarity*1000+Tier;
+ const int Bank=Slot<SixteenSlotCount?(Slot<SlotCount?0:1):2;
+ const int Start=Bank==0?0:Bank==1?SlotCount:SixteenSlotCount;
+ return Bank*ExtendedCodeBank+Trait*100000+
+     (Slot-Start)*10000+Rarity*1000+Tier;
 }
 constexpr FDecodedItem DecodeFullItem(int Code) {
- if(Code<=0||Code>=2*ExtendedCodeBank)return {};
- const bool Extended=Code>=ExtendedCodeBank;
- const int Payload=Extended?Code-ExtendedCodeBank:Code;
+ if(Code<=0||Code>=3*ExtendedCodeBank)return {};
+ const int Bank=Code/ExtendedCodeBank;
+ const int Payload=Code%ExtendedCodeBank;
  const int Digit=(Payload/10000)%10;
- const int Slot=Extended?Digit+SlotCount:Digit;
- if((!Extended&&Slot>=SlotCount)||(Extended&&Slot>=FullSlotCount))return {};
+ const int Start=Bank==0?0:Bank==1?SlotCount:SixteenSlotCount;
+ const int End=Bank==0?SlotCount:Bank==1?SixteenSlotCount:FullSlotCount;
+ const int Slot=Start+Digit;
+ if(Slot>=End)return {};
  const int Trait=Payload/100000,Rarity=(Payload/1000)%10,Tier=Payload%1000;
  if(EncodeFullItem(Slot,Trait,Rarity,Tier)!=Code)return {};
  return {Slot,Trait,Rarity,Tier};
@@ -323,17 +342,17 @@ constexpr bool ValidFullItem(int Code,int Slot) {
 }
 // Future native loader: older records restore exact original slots and
 // zero-fill only the newly introduced slots. Invalid data never publishes
-// a partial loadout. V17 has nine entries; V18 has sixteen.
+// a partial loadout. V17 has nine entries; V18 has sixteen; V19 has 24.
 template<class Owns>
 bool TryRestoreFullLoadout(const int* Legacy,int LegacyCount,
     const int* Record,int RecordCount,int Version,Owns IsOwned,FFullLoadout& Out) {
- if(Version<1||Version>18)return false;
+ if(Version<1||Version>19)return false;
  FLoadout Mirrors{};
  if(!TryRestoreLoadout(Legacy,LegacyCount,false,IsOwned,Mirrors))return false;
  FFullLoadout Candidate{};
  for(int Slot=0;Slot<LegacySlotCount;++Slot)Candidate[Slot]=Mirrors[Slot];
  if(Version>=17){
-  const int ExpectedCount=Version==17?SlotCount:FullSlotCount;
+  const int ExpectedCount=Version==17?SlotCount:Version==18?SixteenSlotCount:FullSlotCount;
   if(!Record||RecordCount!=ExpectedCount)return false;
   for(int Slot=0;Slot<ExpectedCount;++Slot){
    const int Code=Record[Slot];
@@ -345,8 +364,11 @@ bool TryRestoreFullLoadout(const int* Legacy,int LegacyCount,
  Out=Candidate;
  return true;
 }
-static_assert(FullSlotCount-SlotCount<=10,"Extended bank reserves one slot digit");
+static_assert(SixteenSlotCount-SlotCount<=10&&FullSlotCount-SixteenSlotCount<=10,
+    "Each decimal bank reserves one slot digit");
 static_assert(EncodeFullItem(0,1,1,5)==101005,"Legacy ID stability");
 static_assert(EncodeFullItem(8,1,1,5)==181005,"V17 ID stability");
-static_assert(DecodeFullItem(EncodeFullItem(15,3,5,25)).Slot==15,"Off-hand round trip");
+static_assert(EncodeFullItem(15,3,5,25)==1365025,"V18 off-hand ID stability");
+static_assert(DecodeFullItem(EncodeFullItem(23,3,5,25)).Slot==23,"Tenth ring round trip");
+static_assert(RingSlot(0)==8&&RingSlot(9)==23&&RingIndex(13)==1,"Ring order stability");
 } // namespace MoonfallEquipmentLayout
