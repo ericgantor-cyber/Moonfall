@@ -122,19 +122,27 @@ MoonfallEquipmentLayout::FLoadout ReadOwnedEquipmentLoadout(const AMoonfallHeroP
 }
 }
 
+int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
+{
+ switch (Slot) {
+  case 0: return EquippedWeaponCode;
+  case 1: return EquippedArmorCode;
+  case 2: return EquippedAccessoryCode;
+  default: return 0; // Inactive and out-of-range slots never alias legacy gear.
+ }
+}
+
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
  if (Slot < 0 || Slot > 2) return 0;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 Code = GetRawEquipmentSlotCode(Slot);
  return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;
 }
 
 int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
  if (Slot < 0 || Slot > 2) return 0;
- const int32 Code = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 Code = GetRawEquipmentSlotCode(Slot);
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
@@ -2515,8 +2523,9 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
- const MoonfallEquipmentLayout::FLoadout Worn = {
-     EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ MoonfallEquipmentLayout::FLoadout Worn{};
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+  Worn[Slot] = GetRawEquipmentSlotCode(Slot);
  if (!MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,
      MoonfallEquipmentLayout::LegacySlotCount,InventoryItemCodes)) return false;
  const int32 Rarity = (Code / 1000) % 10;
@@ -4410,7 +4419,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
  // would silently clear an equipped slot on the next launch.
- const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ const int32 WornCodes[3] = {GetRawEquipmentSlotCode(0), GetRawEquipmentSlotCode(1), GetRawEquipmentSlotCode(2)};
  MoonfallEquipmentLayout::FLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreLoadout(WornCodes,UE_ARRAY_COUNT(WornCodes),false,
      [this](int32 Code){return InventoryItemCodes.Contains(Code);},CheckedWorn)) return false;
