@@ -2643,6 +2643,8 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
  Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
  Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ const double SampleAge=PerformanceAudit.SampleAge(Now);
+ if (SampleAge>=0) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
  if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS)
      && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms)) {
   Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
@@ -2710,6 +2712,8 @@ void AMoonfallHeroPawn::ExportBugReport() {
  Report->SetNumberField(TEXT("texture_allocation_bytes"),double(AuditTextureMemory));
  Report->SetNumberField(TEXT("texture_pool_bytes"),double(AuditTexturePool));
  Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ const double SampleAge=PerformanceAudit.SampleAge(Now);
+ if (SampleAge>=0) Report->SetNumberField(TEXT("gameplay_sample_age_seconds"),SampleAge);
  Report->SetNumberField(TEXT("frame_samples"),Sample.Samples);
  if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS) && FMath::IsFinite(Sample.P95Ms)
      && FMath::IsFinite(Sample.OnePercentLowFPS)) {
