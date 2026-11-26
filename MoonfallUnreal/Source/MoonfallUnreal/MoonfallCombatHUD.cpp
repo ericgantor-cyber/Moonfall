@@ -625,8 +625,8 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Page keys: row  Home or End: tier  D-pad: move  Wheel: pan"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-91.f,nullptr,
      W<760.f?0.54f:0.69f);
-  const bool Arm=Hero->bTalentRespecArmed;
-  DrawText(Arm?TEXT("Reset all talents? Enter/A: confirm   LT: cancel"):TEXT("K/ESC: close   Enter/A: spend   LT: reset"),
+  const bool Arm=Hero->IsTalentResetConfirmationActive();
+  DrawText(Arm?TEXT("Reset again within 3s: Backspace / LT / button"):TEXT("K/ESC: close | Enter/A: spend | Backspace/LT: reset"),
      FLinearColor(0.75f,0.74f,0.84f),L+20.f,T+H-69.f,nullptr,
      W<760.f?0.54f:0.69f);
   const auto Spend=MoonfallTalentWeb::SpendRect(P);
@@ -634,13 +634,13 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f):FLinearColor(0.16f,0.36f,0.27f,0.98f),
       float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
   DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));
-  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("SPEND POINT"),FLinearColor::White,
+  DrawText(Arm?TEXT("CANCEL RESET"):TEXT("SPEND POINT"),FLinearColor::White,
       float(Spend.X+15),float(Spend.Y+6),nullptr,0.75f);
   DrawRect(Arm?FLinearColor(0.56f,0.26f,0.18f,0.96f)
       :FLinearColor(0.28f,0.18f,0.26f,0.96f),
       float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
   DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));
-  DrawText(Arm?TEXT("CANCEL"):TEXT("RESET TALENTS"),
+  DrawText(Arm?TEXT("CONFIRM RESET"):TEXT("RESET TALENTS"),
       FLinearColor::White,float(Respec.X+13),float(Respec.Y+6),nullptr,0.75f);
   DrawLiveMenuHitCue();
   return;
