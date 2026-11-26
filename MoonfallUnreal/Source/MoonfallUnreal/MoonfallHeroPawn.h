@@ -398,6 +398,7 @@ public:
  MoonfallQuestJournal::FMask GetTrackedQuestMask() const;
  void ToggleQuestLog();
  void StepQuestLog(int32 Direction);
+ void StepQuestLogPage(int32 Direction);
  void ToggleSelectedQuestTracking();
  void ResetQuestTracking();
  void ToggleAtlasChronicleFocus();
