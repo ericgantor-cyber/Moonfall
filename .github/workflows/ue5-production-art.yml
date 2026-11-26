@@ -89,4 +89,15 @@ jobs:
             if ($combined.Count -ne 4) { throw 'Installed report discovery failed' }
             $found = @($combined.Reports | Where-Object { $_.Source -eq 'Installed game (user data)' })
             if ($found.Count -ne 1 -or $found[0].Classification -ne 'Low throughput') { throw 'Installed report label failed' }
+            $custom = Join-Path $env:RUNNER_TEMP 'MoonfallCustomInstall'
+            $customReports = Join-Path $custom 'MoonfallUnreal/Saved/BugReports'
+            New-Item -ItemType Directory -Path $customReports -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $custom 'MoonfallUnreal.exe') -Force | Out-Null
+            Set-Content -Path (Join-Path $customReports 'ffffffffffffffffffffffffffffffff.json') -Value $manual -Encoding UTF8
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled -InstallDirectory $custom | ConvertFrom-Json
+            $found = @($combined.Reports | Where-Object { $_.Source -eq 'Custom installation' })
+            if ($found.Count -ne 1 -or $combined.Count -ne 5) { throw 'Custom installation discovery failed' }
+            Remove-Item -LiteralPath (Join-Path $custom 'MoonfallUnreal.exe')
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled -InstallDirectory $custom | ConvertFrom-Json
+            if ($combined.Count -ne 4) { throw 'Unverified installation was accepted' }
           } finally { $env:LOCALAPPDATA = $oldLocal }
