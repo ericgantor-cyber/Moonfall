@@ -42,13 +42,14 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
  const int32 Tier = InItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 8 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
      InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
   return;
  ItemCode = InItemCode;
- const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+ const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+   TEXT("Head"), TEXT("Shoulders"), TEXT("Chest"), TEXT("Hands"), TEXT("Legs"), TEXT("Boots")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),

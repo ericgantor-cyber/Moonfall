@@ -189,7 +189,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
-        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);", self.hud)
+        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 370.f) / 25.f), 2, 4);", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
@@ -305,7 +305,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(signature, self.hero_h)
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
-        self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
+        self.assertIn("GetEquippedCodeForSlot(Slot)", sets)
         self.assertIn("Rarity >= 1", sets)
         self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", sets)
         self.assertNotIn("InventoryItemCodes", sets)
@@ -319,14 +319,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
-        self.assertIn("bCriticalSpell ? 1.5f : 1.f", cast)
+        self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("GetVersatilityBonus() * 0.5f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1)", hud)
         self.assertIn("GetSetPieceCount(2)", hud)
         self.assertIn("GetSetPieceCount(3)", hud)
         self.assertIn("Crit %.1f%%   Haste %.1f%%   Mastery %.1f%%   Versatility %.1f%%", hud)
-        self.assertIn("2pc + 3pc unlock bonuses", hud)
+        self.assertIn("2/3/4/6/9pc bonuses", hud)
         self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
 
     def test_rare_and_higher_affix_reforging_preserves_equipped_stats_and_costs(self):
@@ -416,7 +416,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
-        self.assertIn("FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8", hud)
+        self.assertIn("FMath::FloorToInt((PanelHeight - 370.f) / 25.f), 2, 4", hud)
         self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
@@ -456,8 +456,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()", 1)[0]
         self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
-        self.assertIn("const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode", body)
-        self.assertIn("(Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);", body)
+        self.assertIn("const int32 EquippedCode = GetEquippedCodeForSlot(Slot);", body)
         self.assertIn("const bool bUpgradingEquipped = Code == EquippedCode;", body)
         self.assertIn("Tier < 1 || Tier >= 25", body)
         self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
@@ -484,8 +483,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;", body)
-        self.assertIn("const int32 EquippedCodes[3]", body)
-        self.assertIn("BestScores[3]", body)
+        self.assertIn("GetEquippedCodeForSlot(Slot)", body)
+        self.assertIn("BestScores[9]", body)
         self.assertIn("InventoryItemCodes.Num()", body)
         self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", body)
         self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
@@ -508,8 +507,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::InventoryConfirm()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
-        self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", salvage)
-        self.assertIn("Code == EquippedAccessoryCode", salvage)
+        self.assertIn("for (int32 Slot = 0; Slot < 9; ++Slot)", salvage)
+        self.assertIn("Code == GetEquippedCodeForSlot(Slot)", salvage)
         self.assertIn("if (bEquippedCode)", salvage)
         self.assertIn("for (const int32 Candidate : InventoryItemCodes)", salvage)
         self.assertIn("if (Copies <= 1) return false;", salvage)
@@ -518,7 +517,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;", salvage)
         self.assertIn("Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);", salvage)
         self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
-        self.assertLess(salvage.index("Code == EquippedWeaponCode"), salvage.index("Salvage = FMath::Clamp("))
+        self.assertLess(salvage.index("Code == GetEquippedCodeForSlot(Slot)"), salvage.index("Salvage = FMath::Clamp("))
         self.assertLess(salvage.index("Salvage = FMath::Clamp("), salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
         self.assertIn("Hero->Salvage", self.hud)
         self.assertIn("Delete / X: salvage", self.hud)
@@ -532,7 +531,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", equip)
         self.assertIn("const int32 Code = InventoryItemCodes[InventoryIndex];", equip)
         self.assertIn("if (Affix < 0 || Affix > 3", equip)
-        self.assertIn("SlotIndex < 0 || SlotIndex > 2", equip)
+        self.assertIn("SlotIndex < 0 || SlotIndex > 8", equip)
         self.assertIn("Rarity < 0 || Rarity > 5", equip)
         self.assertIn("Tier < 1 || Tier > 25", equip)
         self.assertIn("(Rarity == 0 && Affix != 0)", equip)
@@ -575,7 +574,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
+        self.assertIn("LastLootSlot = FMath::RandRange(0, 8);", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
         self.assertIn("LastLootRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
@@ -2487,7 +2486,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(declaration, self.hero_h)
             self.assertIn(declaration, self.hero_cpp)
         score = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split("\n}", 1)[0]
-        for guard in ("Rarity > 5", "Tier > 25", "Slot > 2", "Affix > 3",
+        for guard in ("Rarity > 5", "Tier > 25", "Slot > 8", "Affix > 3",
                       "ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
             self.assertIn(guard, score)
         self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", score)
@@ -2511,7 +2510,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_legendary_slot_perks_are_validated_and_bounded(self):
         self.assertIn("HasLegendaryPerk(int32 Slot) const", self.hero_h)
         perk = self.hero_cpp.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Slot < 0 || Slot > 2", perk)
+        self.assertIn("Slot < 0 || Slot > 8", perk)
         self.assertIn("GetItemPower(Code) > 0", perk)
         self.assertIn("(Code / 1000) % 10 == 5", perk)
         self.assertIn("HasLegendaryPerk(0) ? 1.65f : 1.5f", self.hero_cpp)
@@ -2524,7 +2523,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_character_screen_equipment_dashboard_and_compact_fallback(self):
         hud = self.hud
         self.assertIn("if (PanelWidth >= 560.f && PanelHeight >= 550.f)", hud)
-        self.assertIn("const int32 EquippedCodes[3]", hud)
+        self.assertIn("Hero->GetEquippedCodeForSlot(Slot)", hud)
         self.assertIn("TEXT(\"WEAPON\"), TEXT(\"ARMOR\"), TEXT(\"ACCESSORY\")", hud)
         self.assertIn("const TCHAR* Qualities[]", hud)
         self.assertIn("Hero->GetItemPower(Code) > 0", hud)
@@ -2548,13 +2547,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_three_segment_set_progress_and_next_bonus_preview(self):
         self.assertIn("Piece < SetCounts[S]", self.hud)
-        self.assertIn("Piece < 3", self.hud)
+        self.assertIn("Piece < 9", self.hud)
         self.assertIn("Next bonus: %s", self.hud)
-        self.assertIn("After == 3 ? TEXT(\"MAX 3/3\")", self.hud)
+        self.assertIn("After == 9 ? TEXT(\"MAX 9/9\")", self.hud)
         self.assertIn("Target - After, Target", self.hud)
         self.assertIn("GetItemPower(CurrentCode) > 0", self.hud)
         self.assertIn("No set progress change", self.hud)
         self.assertIn("Affix != CandidateAffix && Affix != ReplacedAffix", self.hud)
+
+    def test_nine_slot_equipment_and_milestones(self):
+        for symbol in ("GetEquippedCodeForSlot(int32 Slot) const",
+                       "ExtraEquippedCodes", "GetSetPieceCount(int32 Affix) const"):
+            self.assertIn(symbol, self.hero_h)
+        self.assertIn("for (int32 Slot = 0; Slot < 9; ++Slot)", self.hero_cpp)
+        self.assertIn("ExtraEquippedCodes[SlotIndex - 3] = Code", self.hero_cpp)
+        self.assertIn("LastLootSlot = FMath::RandRange(0, 8);", self.hero_cpp)
+        self.assertIn("return FMath::Clamp(GetSetPieceCount(Affix)", self.hero_cpp)
+        self.assertIn("0, 9);", self.hero_cpp)
+        self.assertIn("Hero->GetEquippedCodeForSlot(Slot)", self.hud)
+        self.assertIn("After == 9 ? TEXT(\"MAX 9/9\")", self.hud)
+        self.assertIn("const int32 Target = After < 2 ? 2 : (After < 4 ? 4 : (After < 6 ? 6 : 9));", self.hud)
+        for set_affix in (1,2,3):
+            self.assertIn(f"GetSetPieceCount({set_affix}) >= 4", self.hero_cpp)
 
 if __name__ == "__main__":
     unittest.main()
