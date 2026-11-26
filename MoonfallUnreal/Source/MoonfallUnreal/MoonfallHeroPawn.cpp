@@ -17,6 +17,7 @@
 #include "Misc/EngineVersion.h"
 #include "HAL/FileManager.h"
 #include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "Camera/CameraComponent.h"
@@ -1292,6 +1293,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   OnHealthChanged(Health, MaxHealth);
  }
  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::SpellCast,FPlatformTime::Seconds());
  OnSpellCast(School, Hand == 0);
  if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
   OnSpellCast(School, false);
@@ -2129,6 +2131,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
       ? FMath::Clamp(ImpactCameraOffset, 0.f, 24.f) : 0.f;
   ImpactCameraOffset = FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  }
+ if (DamageTaken>0.f && FMath::IsFinite(DamageTaken))
+  BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::DamageTaken,FPlatformTime::Seconds());
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
 }
@@ -2140,6 +2144,7 @@ void AMoonfallHeroPawn::CycleGraphicsQuality() {
  if (!Settings) return;
  const int32 Next = (Settings->GetOverallScalabilityLevel() + 1) % 4;
  Settings->SetOverallScalabilityLevel(Next);
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
  PerformanceAudit.Reset();
  StageAudit.Reset();
  StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
@@ -2152,6 +2157,7 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  if (!Settings) return;
  const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
  Settings->SetFullscreenMode(Next);
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
  PerformanceAudit.Reset();
  StageAudit.Reset();
  StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
@@ -2571,6 +2577,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  }
  bOptionsOpen = !bOptionsOpen;
  if (bOptionsOpen) RefreshGraphicsMemoryAudit();
+ BugBreadcrumbs.Record(bOptionsOpen?MoonfallDiagnostics::EEvent::OptionsOpened:MoonfallDiagnostics::EEvent::OptionsClosed,FPlatformTime::Seconds());
  // Match the inventory close workflow and allow the Options X to be clicked.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen;
@@ -2616,13 +2623,42 @@ void AMoonfallHeroPawn::ExportBugReport() {
   Report->SetNumberField(TEXT("height"),Resolution.Y);
   Report->SetNumberField(TEXT("quality"),Settings->GetOverallScalabilityLevel());
  }
+ TArray<TSharedPtr<FJsonValue>> Events;
+ for (std::size_t Index=0;Index<BugBreadcrumbs.Size();++Index) {
+  const auto Event=BugBreadcrumbs.At(Index);
+  const TCHAR* Kind=TEXT("unknown");
+  switch (Event.Kind) {
+   case MoonfallDiagnostics::EEvent::OptionsOpened: Kind=TEXT("options_opened"); break;
+   case MoonfallDiagnostics::EEvent::OptionsClosed: Kind=TEXT("options_closed"); break;
+   case MoonfallDiagnostics::EEvent::GraphicsChanged: Kind=TEXT("graphics_changed"); break;
+   case MoonfallDiagnostics::EEvent::DamageTaken: Kind=TEXT("damage_taken"); break;
+   case MoonfallDiagnostics::EEvent::SpellCast: Kind=TEXT("spell_cast"); break;
+  }
+  const double Age=Now-Event.At;
+  if (!FMath::IsFinite(Age) || Age<0 || Age>300.0) continue;
+  TSharedRef<FJsonObject> Item=MakeShared<FJsonObject>();
+  Item->SetStringField(TEXT("event"),Kind);
+  Item->SetNumberField(TEXT("seconds_ago"),Age);
+  Events.Add(MakeShared<FJsonValueObject>(Item));
+ }
+ Report->SetArrayField(TEXT("recent_events"),Events);
  FString Json;
  const auto Writer=TJsonWriterFactory<>::Create(&Json);
  const FString Directory=FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("BugReports"));
  const FString File=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
- const bool bSaved=FJsonSerializer::Serialize(Report,Writer)
-     && IFileManager::Get().MakeDirectory(*Directory,true)
-     && FFileHelper::SaveStringToFile(Json,*File,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+ const FString Temp=File+TEXT(".tmp");
+ IFileManager& Files=IFileManager::Get();
+ // Publish only a completely serialized file; never overwrite another report.
+ bool bSaved=FJsonSerializer::Serialize(Report,Writer)
+     && Json.Len()<=32768 && Files.MakeDirectory(*Directory,true)
+     && !Files.FileExists(*File) && !Files.FileExists(*Temp)
+     && FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+ if (bSaved) {
+  bSaved=Files.Move(*File,*Temp,false);
+  if (!bSaved) Files.Delete(*Temp,false,true,true);
+ } else if (Files.FileExists(*Temp)) {
+  Files.Delete(*Temp,false,true,true);
+ }
  BugReportStatus=bSaved?TEXT("REPORT SAVED"):TEXT("SAVE FAILED");
 }
 void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
@@ -2821,6 +2857,7 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
       : NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;
   Settings->SetFullscreenMode(NextMode);
  }
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
  PerformanceAudit.Reset();
  StageAudit.Reset();
  StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
