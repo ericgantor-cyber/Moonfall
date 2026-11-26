@@ -1186,6 +1186,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  FVector ResolvedImpactPoint = FVector::ZeroVector;
  FVector ResolvedImpactOrigin = FVector::ZeroVector;
  float ResolvedImpactDamage = 0.f;
+ int32 ResolvedComboStage = 0;
  bool bResolvedCritical = false;
  bool bResolvedKill = false;
  if (School != 3) {
@@ -1272,6 +1273,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   ResolvedComboStage = HitComboStage;
    ApplyConfirmedHitFeedback(Time, ActualSpellDamage, Enemy->bBoss, Enemy->Health <= 0.f);
    // Milestones are earned only once per uninterrupted same-target chain.
    // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
@@ -1293,7 +1295,6 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       Anim->Montage_Play(Montage, 1.f);
     }
    }
-   OnSuccessfulHitCombo(HitComboStage, Hand == 0);
   }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
       && FMath::IsFinite(OffensiveSpellPostureMultiplier) && OffensiveSpellPostureMultiplier > 0.f) {
@@ -1319,6 +1320,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
  }
+ if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+ // Report the captured combo only after the spell resource transaction.
+ if (ResolvedComboStage > 0) OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);
  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
  // Presentation is optional. Only a committed, confirmed hostile hit may
  // emit effects, and reduced motion suppresses both authored and fallback FX.

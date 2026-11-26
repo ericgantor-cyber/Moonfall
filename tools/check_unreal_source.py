@@ -3337,7 +3337,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("Anim->Montage_Play(Montage, 1.f);"))
         self.assertLess(cast.index("Anim->Montage_Play(Montage, 1.f);"),
-                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+                        cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
 
     def test_combo_milestone_reaction_cues_are_bounded(self):
         self.assertIn("void RegisterComboMilestone(int32 Stage);", self.enemy_h)
@@ -3922,9 +3922,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", cast)
         self.assertIn("FMath::Clamp(EffectiveIncomingStage, 0, 3)", cast)
         self.assertIn("LastSuccessfulHitAt = Time;", cast)
-        self.assertIn("OnSuccessfulHitCombo(HitComboStage, Hand == 0);", cast)
+        self.assertIn("ResolvedComboStage = HitComboStage;", cast)
+        self.assertIn("if (ResolvedComboStage > 0) OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);", cast)
+        for committed in ("Mana -= Costs[School] * Multiplier;", "LastCastTime[Hand] = Time;",
+                          "if (bDualCast) LastCastTime[1] = Time;"):
+            self.assertLess(cast.index(committed), cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
         self.assertLess(cast.index("const float ActualSpellDamage ="),
-                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+                        cast.index("OnSuccessfulHitCombo(ResolvedComboStage, Hand == 0);"))
         self.assertLess(cast.index("if (School == 3 && Health >= MaxHealth) return false;"),
                         cast.index("const float HitComboMultiplier"))
         injury = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
