@@ -7,11 +7,13 @@ on:
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
       - 'tools/test_unreal_performance_audit.cpp'
+      - 'tools/test_unreal_talent_web.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
+      - '.github/workflows/windows-unreal-preflight.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
@@ -19,11 +21,14 @@ on:
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
       - 'tools/test_unreal_performance_audit.cpp'
+      - 'tools/test_unreal_talent_web.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
+      - '.github/workflows/windows-unreal-preflight.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
