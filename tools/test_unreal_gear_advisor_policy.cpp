@@ -1,4 +1,5 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallGearAdvisorPolicy.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallLootLuck.h"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -65,6 +66,27 @@ int main() {
  const auto CombatPlan=CombatNine.Finish();
  assert(CombatPlan.Changes==1&&CombatPlan.Codes[8]==Nine[8]);
  assert(G::Improvement(Nine[8]+1,Nine)==1000);
+ namespace L=MoonfallLootLuck;
+ assert(L::Luck(G::FExpandedEquipped{})==0);
+ G::FExpandedEquipped MaxLuckGear{};
+ for(int Slot=0;Slot<9;++Slot)MaxLuckGear[Slot]=Slot*10000+5025;
+ assert(L::Luck(MaxLuckGear)==40);
+ MaxLuckGear.fill(999999);
+ assert(L::Luck(MaxLuckGear)==0);
+ for(int Level=1;Level<=100;++Level)for(int Rank=0;Rank<3;++Rank)
+  for(int Roll=0;Roll<1000;++Roll){
+   const bool Elite=Rank==1,Boss=Rank==2;
+   const int Old=Roll/10,Bias=Level/5<12?Level/5:12;
+   const int Expected=Boss?(Level>=60&&Old<12?5:Level>=30&&Old<40?4:3):
+    Elite?(Level>=50&&Old<3?5:Level>=20&&Old<12?4:Old<27?3:2):
+    (Level>=60&&Old<1?5:Level>=40&&Old<3?4:Old<3+Bias/3?3:Old<18+Bias?2:Old<53+Bias?1:0);
+   const int Base=L::Rarity(Roll,Level,Elite,Boss,0);
+   const int Boost=L::Rarity(Roll,Level,Elite,Boss,40);
+   assert(Base==Expected&&Boost>=Base&&Boost<=5);
+   assert(L::Rarity(Roll,Level,Elite,Boss,-1)==Base);
+   assert(L::Rarity(Roll,Level,Elite,Boss,1000)==Boost);
+  }
+ assert(L::Rarity(999,100,false,false,40)==0);
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
