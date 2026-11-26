@@ -1,12 +1,25 @@
 # Local report index. Does not upload, delete, open arbitrary paths or read saves.
 [CmdletBinding()]
-param()
+param([switch]$IncludeInstalled)
 $ErrorActionPreference = 'Stop'
 $root = Join-Path (Split-Path $PSScriptRoot -Parent) 'Saved\BugReports'
-function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Pattern) {
-    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { return }
-    $folder = Get-Item -LiteralPath $Directory
-    if ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint) { return }
+$roots = @([pscustomobject]@{ Path=$root; Source='Development checkout' })
+if ($IncludeInstalled -and $env:LOCALAPPDATA) {
+    $roots += [pscustomobject]@{ Path=(Join-Path $env:LOCALAPPDATA 'MoonfallUnreal\Saved\BugReports'); Source='Installed game (user data)' }
+    $roots += [pscustomobject]@{ Path=(Join-Path $env:LOCALAPPDATA 'Programs\MoonfallUnreal\MoonfallUnreal\Saved\BugReports'); Source='Installed game (package)' }
+}
+# Reject junctions/symlinks in every ancestor, not merely the leaf directory.
+function Test-PlainDirectory([string]$Directory) {
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { return $false }
+    $item = Get-Item -LiteralPath $Directory -Force
+    while ($null -ne $item) {
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { return $false }
+        $item = $item.Parent
+    }
+    return $true
+}
+function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Pattern, [string]$Source) {
+    if (-not (Test-PlainDirectory $Directory)) { return }
     $files = @(Get-ChildItem -LiteralPath $Directory -File -Filter '*.json' |
         Where-Object { $_.Name -match $Pattern -and $_.Length -gt 0 -and $_.Length -le 131072 -and
             -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } |
@@ -41,6 +54,7 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
                 }
             }
             [pscustomobject]@{
+                Source = $Source
                 File = $file.Name
                 LastWriteUtc = $file.LastWriteTimeUtc.ToString('o')
                 Kind = if ($Kind -eq 'moonfall_recovery_snapshot') { 'Recovery snapshot; session status and crash not established' } else { 'Manual report' }
@@ -53,11 +67,11 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
     }
 }
 $reports = @()
-if (Test-Path -LiteralPath $root -PathType Container) {
-    $rootItem = Get-Item -LiteralPath $root
-    if (-not ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        $reports += @(Read-ReportDirectory $root 'moonfall_manual_bug_diagnostics' '^[0-9a-fA-F]{32}\.json$')
-        $reports += @(Read-ReportDirectory (Join-Path $root 'Recovery') 'moonfall_recovery_snapshot' '^[0-9a-fA-F]{32}\.json\.(next|previous)\.json$')
+foreach ($entry in $roots) {
+    if (Test-PlainDirectory $entry.Path) {
+        $reports += @(Read-ReportDirectory $entry.Path 'moonfall_manual_bug_diagnostics' '^[0-9a-fA-F]{32}\.json$' $entry.Source)
+        $reports += @(Read-ReportDirectory (Join-Path $entry.Path 'Recovery') 'moonfall_recovery_snapshot' '^[0-9a-fA-F]{32}\.json\.(next|previous)\.json$' $entry.Source)
     }
 }
+if ($IncludeInstalled) { $reports = @($reports | Sort-Object LastWriteUtc -Descending | Select-Object -First 200) }
 [pscustomobject]@{ Reports = @($reports); Count = $reports.Count; Note = 'Local index only; recovery files may belong to a running game. Timing labels do not establish crash cause.' } | ConvertTo-Json -Depth 5
