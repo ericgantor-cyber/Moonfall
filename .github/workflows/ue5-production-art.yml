@@ -57,6 +57,8 @@ jobs:
           $manual = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready=$true;average_fps=20;p95_ms=60;hitches=4} | ConvertTo-Json
           $recovery = @{schema=1;kind='moonfall_recovery_snapshot';gameplay_sample_ready=$true;average_fps=60;p95_ms=20;hitches=2} | ConvertTo-Json
           Set-Content -Path "$root/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json" -Value $manual -Encoding UTF8
+          Set-Content -Path "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.previous.json" -Value $recovery -Encoding UTF8
+          (Get-Item "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.previous.json").LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-1)
           Set-Content -Path "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.next.json" -Value $recovery -Encoding UTF8
           Set-Content -Path "$root/ignored.json" -Value $manual -Encoding UTF8
           Set-Content -Path "$root/cccccccccccccccccccccccccccccccc.json" -Value '{}' -Encoding UTF8
@@ -65,3 +67,11 @@ jobs:
           if ($result.Reports[0].Classification -ne 'Low throughput') { throw 'Manual classification failed' }
           if ($result.Reports[1].Classification -ne 'Intermittent slow frames') { throw 'Recovery classification failed' }
           if ($result.Reports[1].Kind -notmatch 'crash not established') { throw 'Overconfident recovery label' }
+          if ($result.Reports[1].File -notmatch '\.next\.json
+) { throw 'Newest recovery snapshot was not selected' }
+          $invalid = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready='true';average_fps=10;p95_ms=100} | ConvertTo-Json
+          Set-Content -Path "$root/dddddddddddddddddddddddddddddddd.json" -Value $invalid -Encoding UTF8
+          $result = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 | ConvertFrom-Json
+          if ($result.Count -ne 3) { throw 'Unexpected count with invalid readiness' }
+          $entry = @($result.Reports | Where-Object { $_.File -eq 'dddddddddddddddddddddddddddddddd.json' })
+          if ($entry.Count -ne 1 -or $entry[0].Classification -ne 'Insufficient timing evidence') { throw 'Malformed readiness was accepted' }
