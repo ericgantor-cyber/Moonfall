@@ -6,6 +6,11 @@
 #include <cmath>
 namespace MoonfallTalentWeb {
 constexpr int MaxTier=14;
+constexpr double ResetConfirmationSeconds=3.0;
+inline bool ResetConfirmationActive(bool armed, double started, double now) {
+ return armed && std::isfinite(started) && std::isfinite(now)
+     && started>=0.0 && now>=started && now-started<=ResetConfirmationSeconds;
+}
 struct Rect {
  double X=0, Y=0, W=0, H=0;
  bool Hit(double px,double py) const {
