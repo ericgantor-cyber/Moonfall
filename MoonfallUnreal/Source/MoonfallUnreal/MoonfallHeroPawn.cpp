@@ -4496,6 +4496,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ // Canonical nine-slot record; legacy mirrors remain intact for migration.
+ Save->EquippedSlotCodes.Init(0,MoonfallEquipmentLayout::SlotCount);
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::LegacySlotCount;++Slot)
+  Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
@@ -4512,7 +4516,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 16) {
+ if (!Save || Save->Version < 1 || Save->Version > 17) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -4633,6 +4637,18 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
   return false;
+ }
+ // V17 mirrors must agree with legacy slots. Extra slots are not live yet;
+ // refuse nonempty future gear rather than silently discard it on autosave.
+ if(Save->Version>=17){
+  MoonfallEquipmentLayout::FLoadout ExpandedWorn{};
+  if(!MoonfallEquipmentLayout::TryRestoreLoadout(Save->EquippedSlotCodes.GetData(),
+      Save->EquippedSlotCodes.Num(),true,[Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},ExpandedWorn)
+      ||ExpandedWorn!=CheckedSavedWorn){
+   bPersistentSaveWritesBlocked=true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall V17 equipment record is inconsistent or contains inactive gear; original save protected."));
+   return false;
+  }
  }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
