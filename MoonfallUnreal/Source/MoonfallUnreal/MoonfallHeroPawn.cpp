@@ -117,10 +117,8 @@ MoonfallEquipmentSlots::FLoadout AMoonfallHeroPawn::BuildEquipmentLoadout() cons
 
 MoonfallEquipmentSlots::FLoadout AMoonfallHeroPawn::BuildOwnedEquipmentLoadout() const
 {
- MoonfallEquipmentSlots::FLoadout Owned{};
- for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
-  Owned[Slot] = GetEquipmentSlotCode(Slot);
- return Owned;
+ return MoonfallEquipmentSlots::OwnedSnapshot(BuildEquipmentLoadout(),
+     InventoryItemCodes.GetData(), InventoryItemCodes.Num());
 }
 
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
@@ -151,12 +149,11 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- const auto Codes = BuildEquipmentLoadout();
+ const auto Codes = BuildOwnedEquipmentLoadout();
  int32 Total = 0;
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (Codes[Slot] > 0 && InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
+  if (Codes[Slot] > 0 && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
    Total += GetItemPower(Codes[Slot]);
  }
  return Total;
@@ -206,12 +203,11 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
- const auto Codes = BuildEquipmentLoadout();
+ const auto Codes = BuildOwnedEquipmentLoadout();
  int32 Pieces = 0;
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (Codes[Slot] > 0 && InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
+  if (Codes[Slot] > 0 && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
  }
@@ -3713,7 +3709,6 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   // Recheck combat and exact ownership/index after any Blueprint callback.
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
-  if (Slot >= MoonfallEquipmentSlots::LegacyCount && Health <= 0.f) continue;
   // Do not overwrite an explicit gear change made by an earlier callback.
   if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
   if (!IsValid(this) || IsActorBeingDestroyed()) break;
@@ -3754,11 +3749,11 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 Tier = Item.Tier;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
- // Expanded gear has no legacy tier/affix mirrors. Do not change it while
- // defeated: the legacy recovery selection tracks only the original slots.
+ // Expanded gear has no legacy tier/affix mirrors. Preserve owned defeated
+ // choices exactly as with the original three slots.
  if (!MoonfallEquipmentSlots::Legacy(SlotIndex)) {
-  if (Health <= 0.f) return false;
   if (!MoonfallEquipmentSlots::EquipExtra(ExtraEquippedCodes, Code)) return false;
+  if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
   for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
    EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
@@ -4886,6 +4881,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[2], 2)
      && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ MoonfallEquipmentSlots::RestoreExtraChoices(ExtraEquippedCodes, DefeatedEquipmentSelection,
+     InventoryItemCodes.GetData(), InventoryItemCodes.Num());
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
   EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
