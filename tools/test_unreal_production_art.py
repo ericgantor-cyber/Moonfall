@@ -106,6 +106,20 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index("textures = load_texture_pack()"), script.index("mesh.set_material(index"))
         self.assertNotIn("delete_asset(", script)
 
+    def test_texture_import_validates_existing_and_streams_new_assets(self):
+        script = (ROOT / "Content/Python/import_production_textures.py").read_text()
+        preflight = script.split("def run():", 1)[1].split("if tasks:", 1)[0]
+        self.assertLess(preflight.index("validate_texture(texture, kind, target)"),
+                        preflight.index("if not path.is_file()"))
+        self.assertIn('texture.set_editor_property("never_stream", False)', script)
+        self.assertIn('texture.set_editor_property("virtual_texture_streaming", False)', script)
+        self.assertIn("TMGS_FROM_TEXTURE_GROUP", script)
+        self.assertIn('task.set_editor_property("replace_existing", False)', script)
+        validation = script.split("def validate_texture(", 1)[1].split("def run():", 1)[0]
+        self.assertNotIn("set_editor_property", validation)
+        self.assertIn("TC_NORMALMAP", validation)
+        self.assertIn("TC_MASKS", validation)
+
     def test_texture_generation_is_repeatable_and_periodic(self):
         import importlib.util
         import struct
