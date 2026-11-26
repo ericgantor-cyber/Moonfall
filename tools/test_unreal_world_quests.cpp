@@ -1,5 +1,6 @@
 // Native-free C++17 policy regression for 12 automatic regional world quests.
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldQuest.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallQuestJournal.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -55,7 +56,34 @@ constexpr bool RejectCorruption() {
    && !W::Select(Seen, Dead, 8).Valid;
 }
 static_assert(RejectCorruption(), "Bad saved counts must not produce a quest.");
+namespace J = MoonfallQuestJournal;
+static_assert(J::MaxTracked == W::MaxVisible);
 int main() {
+ for (int Active=0; Active<=J::ResidentCount; ++Active) {
+  int States[J::ResidentCount]{};
+  for (int I=0; I<J::ResidentCount; ++I) States[I]=I<Active?1:2;
+  for (int Salvage=0; Salvage<=30; ++Salvage) {
+   const auto C=J::Summarize(States,J::ResidentCount,Salvage);
+   assert(C.Active==Active && C.Completed==J::ResidentCount-Active);
+   assert(C.TrackedCount==(Active<7?Active:7));
+   int Seen[6]{1,0,0,0,0,0}, Dead[6]{};
+   const auto G=W::Select(Seen,Dead,W::MaxVisible-C.TrackedCount);
+   assert(G.Valid && G.Count+C.TrackedCount<=7);
+   bool Unready=false;
+   for (int I=0; I<C.TrackedCount; ++I) {
+    const int Index=C.TrackedIndices[I];
+    assert(Index>=0 && Index<J::ResidentCount && States[Index]==1);
+    const bool Ready=Salvage>=J::Cost(Index);
+    assert(!Unready || !Ready);
+    if (!Ready) Unready=true;
+    for (int K=0; K<I; ++K) assert(C.TrackedIndices[K]!=Index);
+   }
+  }
+ }
+ for (int I=0; I<J::ResidentCount; ++I) {
+  assert(J::Cost(I)>=10 && J::Cost(I)<=25);
+  for(int K=0; K<I; ++K) assert(std::strcmp(J::Residents[I].Id,J::Residents[K].Id)!=0);
+ }
  for (int Goal=0; Goal<W::GoalCount; ++Goal) {
   assert(std::strlen(W::GoalTitles[Goal]) >= 6);
   assert(std::strlen(W::GoalTitles[Goal]) <= 30);

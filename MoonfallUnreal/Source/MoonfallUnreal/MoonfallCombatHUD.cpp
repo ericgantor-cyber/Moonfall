@@ -9,6 +9,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallWorldQuest.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -2775,23 +2776,55 @@ void AMoonfallCombatHUD::DrawHUD()
      Seen[Zone] += Hero->HasDiscoveredDungeon(Zone,Dungeon) ? 1 : 0;
      Defeated[Zone] += Hero->HasDefeatedDungeonBoss(Zone,Dungeon) ? 1 : 0;
     }
-   const auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,MoonfallWorldQuest::MaxVisible);
+   // Fixed catalog and saved states only; no resident actor lookup or world scan.
+   static const auto ResidentKeys=[] {
+    TArray<FName> Keys;
+    Keys.Reserve(MoonfallQuestJournal::ResidentCount);
+    for (const auto& Entry : MoonfallQuestJournal::Residents)
+     Keys.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
+    return Keys;
+   }();
+   int States[MoonfallQuestJournal::ResidentCount]{};
+   for (int I=0; I<MoonfallQuestJournal::ResidentCount; ++I)
+    States[I]=Hero->GetResidentQuestState(ResidentKeys[I]);
+   const auto Contracts=MoonfallQuestJournal::Summarize(States,
+      MoonfallQuestJournal::ResidentCount,Hero->Salvage);
+   const auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,
+      MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount);
+   const int TotalRows=Contracts.TrackedCount+Goals.Count;
+   static_assert(MoonfallQuestJournal::MaxTracked==MoonfallWorldQuest::MaxVisible);
    const float ExtraTop=Top+132.f;
    const float OrbRadius=FMath::Clamp(FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.092f,50.f,80.f);
    const float Available=Canvas->SizeY-2.f*OrbRadius-33.f-ExtraTop;
-   const int Rows=MoonfallWorldQuest::VisibleRows(Available,Goals.Count);
-   if (Goals.Valid && Rows>0) {
+   const int Rows=MoonfallWorldQuest::VisibleRows(Available,TotalRows);
+   if (Rows>0) {
     const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
     DrawRect(FLinearColor(0.035f,0.055f,0.11f,0.88f),Left,ExtraTop,Width,Height);
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("REGIONAL QUESTS  |  %d/%d SHOWN"),Rows,Goals.Count),
+    DrawText(FString::Printf(TEXT("QUEST JOURNAL  |  %d/%d SHOWN"),Rows,TotalRows),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
-     const int Goal=Goals.Indices[Row];
-     const int Progress=MoonfallWorldQuest::Progress(Goal,Seen,Defeated);
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
+     if (Row<Contracts.TrackedCount) {
+      const int Index=Contracts.TrackedIndices[Row];
+      const auto& Entry=MoonfallQuestJournal::Residents[Index];
+      const int Cost=MoonfallQuestJournal::Cost(Index);
+      const int Salvage=FMath::Clamp(Hero->Salvage,0,Cost);
+      const bool bReady=Salvage>=Cost;
+      const FLinearColor Tint=bReady?FLinearColor(0.48f,0.93f,0.65f)
+         :FLinearColor(0.95f,0.78f,0.45f);
+      DrawText(FString::Printf(TEXT("%s | %s | %s"),UTF8_TO_TCHAR(Entry.Name),
+          UTF8_TO_TCHAR(Entry.Location),bReady?TEXT("TURN IN"):TEXT("ACTIVE")),
+         Tint,Left+14.f,Y+1.f,nullptr,0.68f);
+      const int Reward=MoonfallQuestXP::Reward(Cost,Hero->Level);
+      DrawText(FString::Printf(TEXT("Salvage %d/%d | +%d XP"),Salvage,Cost,Reward),
+         FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+12.f,nullptr,0.64f);
+      continue;
+     }
+     const int Goal=Goals.Indices[Row-Contracts.TrackedCount];
+     const int Progress=MoonfallWorldQuest::Progress(Goal,Seen,Defeated);
      DrawText(FString::Printf(TEXT("%s  |  %d/5 %s"),UTF8_TO_TCHAR(MoonfallWorldQuest::GoalTitles[Goal]),
         Progress,UTF8_TO_TCHAR(MoonfallWorldQuest::Type(Goal))),
         FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+2.f,nullptr,0.70f);
