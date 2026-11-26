@@ -5969,10 +5969,10 @@ int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
  return 0;
 }
 bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
- if (!GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !FMath::IsFinite(Health)
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
-     || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen || GetResidentQuestState(ResidentId) != 0) return false;
  int ActiveContracts=0;
  for(const auto& Entry:ResidentQuestStates) if(Entry.Value==1) ++ActiveContracts;
  if(!MoonfallQuestJournal::CanAccept(ActiveContracts)) return false;
@@ -5988,7 +5988,7 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
  return true;
 }
 bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
- if (!GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
+ if (!HasAuthority() || !GetWorld() || IsActorBeingDestroyed() || !bWorldProgressInitialized
      || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!FMath::IsFinite(Health) || Health <= 0.f || !FMath::IsFinite(MaxHealth)
      || MaxHealth < Health || !FMath::IsFinite(Mana) || !FMath::IsFinite(MaxMana)
