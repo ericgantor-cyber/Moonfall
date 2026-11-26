@@ -8,12 +8,14 @@ param(
     [ValidateRange(1,5)] [int]$MaximumReports=5,
     [switch]$IncludeTechnicalEvidence
 )
+begin {
 function Format-Metric($Value,[double]$Minimum,[double]$Maximum,[switch]$Integer) {
     if ($Value -isnot [double] -and $Value -isnot [single] -and $Value -isnot [int] -and $Value -isnot [long] -and $Value -isnot [decimal]) { return }
     $number=[double]$Value
     if ([double]::IsNaN($number) -or [double]::IsInfinity($number) -or $number -lt $Minimum -or $number -gt $Maximum) { return }
     if ($Integer -and $number -ne [math]::Truncate($number)) { return }
     $number.ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)
+}
 }
 process {
     $lines = @(
@@ -35,8 +37,8 @@ process {
     foreach ($report in $reports) {
         $i++
         $kind = if ($report.Kind -eq 'Manual report') { 'Manual report' } else { 'Recovery snapshot (session/crash status unknown)' }
-        $category = if ($allowed -contains $report.Classification) { [string]$report.Classification } else { 'Insufficient timing evidence' }
-        $lines += ('Report {0}: {1}; {2}' -f $i,$kind,$category)
+        $classification = if ($allowed -contains $report.Classification) { [string]$report.Classification } else { 'Insufficient timing evidence' }
+        $lines += ('Report {0}: {1}; {2}' -f $i,$kind,$classification)
         $specs = @(
             @{Name='AverageFPS';Min=0.001;Max=100000;Integer=$false},
             @{Name='P95Milliseconds';Min=0.001;Max=2000;Integer=$false},
