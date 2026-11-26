@@ -3333,8 +3333,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
- // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ // gear for any of the nine slots.
+ LastLootSlot = FMath::RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -3427,7 +3427,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
      || bCharacterStatsOpen || bResidentContextOpen || FocusedResident.IsValid()) return false;
  const auto Item = MoonfallEquipmentSlots::Decode(ItemCode);
- if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;
+ if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;
  const int32 Affix = Item.Affix;
  const int32 SlotIndex = Item.Slot;
  const int32 Rarity = Item.Rarity;
@@ -3779,7 +3779,7 @@ const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
- return MoonfallEquipmentSlots::Legacy(MoonfallEquipmentSlots::Decode(Code).Slot);
+ return MoonfallEquipmentSlots::Known(MoonfallEquipmentSlots::Decode(Code).Slot);
 
 }
 // A collision-aware recovery location is safer than reviving at the death site.
@@ -3936,7 +3936,7 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  }
  // Use a deterministic seed, independent of framerate and visit order.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
- const int32 Slot = Stream.RandRange(0, 2);
+ const int32 Slot = Stream.RandRange(0, MoonfallEquipmentSlots::SlotCount - 1);
  const int32 Rarity = Stream.RandRange(2, 5);
  const int32 Affix = Stream.RandRange(0, 3);
  const int32 Tier = FMath::Clamp(Level, 1, 25);
@@ -4408,9 +4408,16 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  // Validate the whole inventory and choose a format that preserves every slot.
  const auto WornCodes = BuildEquipmentLoadout();
- const int32 EquipmentSaveVersion = MoonfallEquipmentSlots::WriteVersion(
+ int32 EquipmentSaveVersion = MoonfallEquipmentSlots::WriteVersion(
      WornCodes, InventoryItemCodes.GetData(), InventoryItemCodes.Num());
  if (EquipmentSaveVersion == 0) return false;
+ // World drops and unclaimed dungeon rewards also require lossless V17 saves.
+ for (const auto& Record : PendingWorldLoot)
+  if (!MoonfallEquipmentSlots::Legacy(MoonfallEquipmentSlots::Decode(Record.ItemCode).Slot))
+   EquipmentSaveVersion = MoonfallEquipmentSlots::ExpandedVersion;
+ for (const int32 Code : DungeonTreasureStates)
+  if (Code > 0 && !MoonfallEquipmentSlots::Legacy(MoonfallEquipmentSlots::Decode(Code).Slot))
+   EquipmentSaveVersion = MoonfallEquipmentSlots::ExpandedVersion;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4645,7 +4652,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
   for (int32 Index = 0; Index < Save->DungeonTreasureStates.Num(); ++Index) {
    const int32 Code = Save->DungeonTreasureStates[Index];
-   if ((Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code))
+   if ((Code != 0 && Code != -1 && !MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version))
        || (Code != 0 && (Index % 14 == 0 || Index % 14 == 13))) {
     bPersistentSaveWritesBlocked = true;
     return false;
@@ -4658,7 +4665,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   TSet<FGuid> Seen;
   for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot) {
    if (!Record.DropId.IsValid() || Seen.Contains(Record.DropId)
-       || !ValidMoonfallItemCode(Record.ItemCode) || Record.LevelId.IsNone()
+       || !MoonfallEquipmentSlots::ValidInventoryCode(Record.ItemCode, Save->Version) || Record.LevelId.IsNone()
        || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) {
     bPersistentSaveWritesBlocked = true;
     return false;
