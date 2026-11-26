@@ -703,7 +703,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
  Input->BindAction(TEXT("TalentSpend"), IE_Pressed, this, &AMoonfallHeroPawn::TalentSpendSelected);
- Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::TalentConfirmRespec);
  Input->BindAction(TEXT("TalentClose"), IE_Pressed, this, &AMoonfallHeroPawn::TalentCloseWeb);
  Input->BindAction(TEXT("TalentBranchPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::TalentPreviousBranch);
  Input->BindAction(TEXT("TalentBranchNext"), IE_Pressed, this, &AMoonfallHeroPawn::TalentNextBranch);
@@ -927,6 +926,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -947,6 +947,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bTalentWebOpen) {
+  bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
   if (const APlayerController* PC=Cast<APlayerController>(Controller))
    PC->GetViewportSize(ViewW,ViewH);
@@ -2061,7 +2062,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // can cover defeat and lock movement after the next shrine respawn.
   bTalentWebOpen = false;
   bTalentRespecArmed = false;
-  TalentRespecArmUntil = -1.f;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
@@ -3747,7 +3747,6 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
  if (bTalentWebOpen) {
   bTalentWebOpen=false;
   bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
   if (APlayerController* PC=Cast<APlayerController>(Controller))PC->bShowMouseCursor=false;
   return;
  }
@@ -3799,31 +3798,25 @@ void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
   TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
       TalentWebSelected,TalentWebFirstTier,Layout.VisibleTiers);
  bTalentRespecArmed=false;
- TalentRespecArmUntil=-1.f;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
-     || TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
- // Clear confirmation before the allocation can notify Blueprint listeners.
- bTalentRespecArmed=false;
- TalentRespecArmUntil=-1.f;
+     || bPersistentSaveWritesBlocked)return;
+ if (bTalentRespecArmed) {
+  // Confirm explicitly using the separate primary action; never repeat reset.
+  bTalentRespecArmed=false;
+  RespecTalentPoints();
+  return;
+ }
+ if (TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
  SpendTalentPoint(TalentWebSelected);
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
  if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)return;
- const float Now=GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now))return;
- if (bTalentRespecArmed && FMath::IsFinite(TalentRespecArmUntil) && Now<=TalentRespecArmUntil) {
-  // Consume confirmation before the transaction emits synchronous callbacks.
-  bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
-  RespecTalentPoints();
- } else {
-  bTalentRespecArmed=true;
-  TalentRespecArmUntil=Now+3.0f;
- }
+ // Reset button / LT requests or cancels; only the separate confirm action commits.
+ bTalentRespecArmed=!bTalentRespecArmed;
 }
 void AMoonfallHeroPawn::TalentPointerClick() {
  if (!bTalentWebOpen)return;
@@ -3845,7 +3838,6 @@ void AMoonfallHeroPawn::TalentPointerClick() {
    TalentWebFirstTier=MoonfallTalentWeb::FirstTierForSelection(
        TalentWebSelected,Layout.FirstTier,Layout.VisibleTiers);
    bTalentRespecArmed=false;
-   TalentRespecArmUntil=-1.f;
    return;
   }
  if (MoonfallTalentWeb::SpendRect(Layout).Hit(X,Y)) {TalentSpendSelected();return;}
@@ -3854,7 +3846,6 @@ void AMoonfallHeroPawn::TalentPointerClick() {
  if (Hit>=0) {
   TalentWebSelected=Hit;
   bTalentRespecArmed=false;
-  TalentRespecArmUntil=-1.f;
  }
 }
 
@@ -4514,7 +4505,6 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
  bTalentRespecArmed = false;
- TalentRespecArmUntil = -1.f;
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
   if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(MaxMana)

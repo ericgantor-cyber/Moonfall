@@ -280,7 +280,6 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebSelected = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWebFirstTier = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
- float TalentRespecArmUntil = -1.f;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalentWeb();
  void TalentSpendSelected();
  void TalentConfirmRespec();
