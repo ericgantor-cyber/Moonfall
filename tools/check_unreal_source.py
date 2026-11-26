@@ -141,7 +141,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("OnSpellCast(School, Hand == 0);"))
         self.assertLess(cast.index("if (bDualCast) LastCastTime[1] = Time;"),
                         cast.index("OnHealthChanged(Health, MaxHealth);"))
-        self.assertLess(cast.index("!FMath::IsFinite(LastCastTime[1])"),
+        self.assertLess(cast.index("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[1], Haste, Remaining)"),
                         cast.index("Enemy->TakeSpellDamage("))
         self.assertIn("if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())", cast)
 
@@ -1355,7 +1355,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("const float Haste = GetHasteBonus();", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[Hand], Haste, Remaining)", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[1], Haste, Remaining)", cast)
         self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
         self.assertIn("bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f", cast)
         self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
@@ -2643,7 +2645,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_spell_cast_cost_and_cooldown_contract(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("Mana < Costs[School] * Multiplier", cast)
-        self.assertIn("Time - LastCastTime[Hand] < Cooldowns[School]", cast)
+        self.assertIn("TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[Hand], Haste, Remaining)", cast)
         self.assertIn("Mana -= Costs[School] * Multiplier", cast)
         self.assertIn("LastCastTime[Hand] = Time", cast)
         self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * Multiplier"))
