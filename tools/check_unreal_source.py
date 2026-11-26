@@ -4360,12 +4360,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)",
                          "GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)",
-                         "MoonfallGearAdvisor::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes)"):
+                         "MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,"):
             self.assertIn(contract, score)
         for preview in (score, recommendation):
+            self.assertIn("MoonfallEquipmentLayout::FLoadout EquippedCodes", preview)
+            self.assertIn("MoonfallEquipmentLayout::LegacySlotCount", preview)
             self.assertNotIn("Health <=", preview)
             self.assertNotIn("IsFinite(Health)", preview)
-        self.assertIn("MoonfallGearAdvisor::Improvement(InventoryItemCodes[Index], EquippedCodes)", recommendation)
+        self.assertIn("MoonfallEquipmentLayout::Improvement(InventoryItemCodes[Index], EquippedCodes,", recommendation)
         self.assertLess(recommendation.index("GetEquipmentSlotCode(0)"), recommendation.index("for (int32 Index"))
         self.assertNotIn("GetEquipmentUpgradeScore(Index)", recommendation)
         self.assertNotIn("InventoryItemCodes.Contains(", recommendation)
