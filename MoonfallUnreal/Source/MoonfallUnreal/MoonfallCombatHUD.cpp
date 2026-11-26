@@ -1928,8 +1928,8 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(1.f,0.83f,0.33f),FLinearColor(0.76f,0.45f,0.98f),
       FLinearColor(0.31f,0.91f,0.49f),FLinearColor(1.f,0.58f,0.23f)
     };
-    if (CardsAvailable >= 34.f) {
-     const float ResourceReserve=PanelHeight>=760.f && CardsAvailable>=100.f ? 60.f : 0.f;
+    if (CardsAvailable >= 36.f) {
+     const float ResourceReserve=PanelHeight>=760.f && CardsAvailable>=120.f ? 60.f : 0.f;
       const float CardHeight=FMath::Clamp((CardsAvailable-ResourceReserve-6.f)/3.f,10.f,46.f);
       const float CardWidth=(PanelWidth-36.f)/3.f;
       for (int32 Slot=0;Slot<MoonfallEquipmentSlots::SlotCount;++Slot) {
