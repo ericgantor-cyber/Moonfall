@@ -912,8 +912,12 @@ void AMoonfallCombatHUD::DrawHUD()
      const auto& Entry=J::Residents[Id];
      Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(Entry.Location),UTF8_TO_TCHAR(Entry.QuestTitle));
      const int Cost=J::Cost(Id);
-     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | +%d XP"),UTF8_TO_TCHAR(Entry.Name),
-       FMath::Clamp(Hero->Salvage,0,Cost),Cost,MoonfallQuestXP::Reward(Cost,Hero->Level));
+     const auto Reward=MoonfallQuestXP::Preview(Cost,Hero->Level,Hero->Experience,Hero->ExperienceToNextLevel);
+     const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
+       : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
+           Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
+     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | %s"),UTF8_TO_TCHAR(Entry.Name),
+       FMath::Clamp(Hero->Salvage,0,Cost),Cost,*RewardLabel);
     } else {
      const int Goal=Id-J::ResidentCount,Zone=Goal/2;
      int Progress=0;
