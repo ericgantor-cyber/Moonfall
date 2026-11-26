@@ -117,7 +117,7 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNati
 ```
 
 The runner **always compiles the checked-out Unreal C++ source** first.
-There is no `-SkipBuild` option. It then runs these six required real Unreal Editor
+There is no `-SkipBuild` option. It then runs these seven required real Unreal Editor
 automation tests:
 
 1. `Moonfall.Dungeons.All30EntranceLocations`
@@ -126,10 +126,11 @@ automation tests:
 4. `Moonfall.Dungeons.BossVictorySaveRoundTrip`
 5. `Moonfall.Controls.CurrentInputContract`
 6. `Moonfall.Quests.ResidentSaveRoundTrip`
+7. `Moonfall.Dungeons.EquipmentSaveRoundTrip`
 
 It records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
 and `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt`.
-A passing source workflow does not count: verify all **six** required native test
+A passing source workflow does not count: verify all **seven** required native test
 results are explicitly `True`, `EditorExitCode=0`, and
 `AnyNativeTestFailed=False`. If compilation, Editor execution or any test
 fails, the native runner must not report success.
@@ -138,11 +139,11 @@ For an authorized self-hosted GitHub Actions runner, select the
 `Windows Unreal build prerequisites` workflow, choose the **PR branch**,
 and dispatch with `compile_on_self_hosted=true`. That job requires a
 Windows x64 runner labeled `unreal-5-4` and a valid `UE54_ROOT`
-environment variable. It compiles, runs all six required tests, and uploads
+environment variable. It compiles, runs all seven required tests, and uploads
 `moonfall-unreal-native-dungeon-test-evidence` containing the log and
 result report. Normal hosted GitHub preflight checks do **not** run these tests.
 
-Even six passing Editor automation tests do not prove the runtime gameplay
+Even seven passing Editor automation tests do not prove the runtime gameplay
 loop. The control test checks loaded InputSettings, not physical input delivery.
 In Play In Editor, separately check physical dungeon connections,
 enemy navigation and hazards, boss spawn/death, rewards and exactly-once
