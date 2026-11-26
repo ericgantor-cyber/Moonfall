@@ -240,11 +240,11 @@ void AMoonfallCombatHUD::DrawHUD()
     break;
   }
  };
- // Real gear-slot iconography, not extra equipped slots or paper-doll art.
+ // Real gear-slot iconography; additional slots use the existing glyph family.
  // Type 0 sword; 1 armor; 2 talisman. Rarity remains the encoded item color.
  const auto DrawGearGlyph = [this](float Cx,float Cy,float R,
                                   int32 Slot,const FLinearColor& Ink) {
-  if (!Canvas || Slot<0 || Slot>2 || !FMath::IsFinite(Cx)
+  if (!Canvas || !MoonfallEquipmentSlots::Known(Slot) || !FMath::IsFinite(Cx)
       || !FMath::IsFinite(Cy) || !FMath::IsFinite(R)
       || R<4.f || R>19.f) return;
   const auto Line=[this,&Ink](float X0,float Y0,float X1,float Y1) {
@@ -265,6 +265,11 @@ void AMoonfallCombatHUD::DrawHUD()
     Line(Cx-R*0.22f,Cy+R*0.65f,Cx-R*0.48f,Cy+R);
     break;
    case 1:
+   case 3:
+   case 4:
+   case 5:
+   case 6:
+   case 7:
     Line(Cx-R*0.80f,Cy-R*0.84f,Cx+R*0.80f,Cy-R*0.84f);
     Line(Cx-R*0.80f,Cy-R*0.84f,Cx-R*0.72f,Cy+R*0.38f);
     Line(Cx+R*0.80f,Cy-R*0.84f,Cx+R*0.72f,Cy+R*0.38f);
@@ -1943,6 +1948,10 @@ void AMoonfallCombatHUD::DrawHUD()
          : FString::Printf(TEXT("%s -"),SlotNames[Slot]);
        DrawText(Label,bValid ? RarityColors[Rarity] : FLinearColor(0.75f,0.78f,0.83f),
          X+5.f,Y+1.f,nullptr,CardWidth<100.f?0.43f:0.60f);
+       // Preserve the original equipment glyphs; reserve space in wide cards.
+       if (CardHeight>=25.f && CardWidth>=175.f)
+        DrawGearGlyph(X+CardWidth-14.f,Y+CardHeight*0.5f,
+          9.f,Slot,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f));
        if (CardHeight>=25.f)
         DrawText(bValid ? FString::Printf(TEXT("%s %s"),RarityNames[Rarity],TraitNames[Trait])
           : FString(TEXT("EMPTY")),FLinearColor(0.78f,0.86f,0.92f),X+5.f,Y+13.f,
