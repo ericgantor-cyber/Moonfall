@@ -35,7 +35,18 @@ jobs:
             'Stop-Transcript | Out-Null',
             'finally {',
             'if: always()',
-            'MoonfallUnrealCompile/EditorBuild-Transcript.txt'
+            'MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT',
+            ('MoonfallUnrealCompile-' + '
+          )) {
+            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
+          }
+          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'
+ + '{{ github.run_id }}-' + '
+          )) {
+            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
+          }
+          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'
+ + '{{ github.run_attempt }}/EditorBuild-Transcript.txt')
           )) {
             if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
           }
