@@ -1098,6 +1098,8 @@ void AMoonfallHeroPawn::ControllerConfirm()
  // One A press takes exactly one route, even when a synchronous UI callback
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen && bCelestialWaitOpen) { ConfirmCelestialWait(); return; }
+ if (bOptionsOpen) { OpenCelestialWait(); return; }
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
@@ -2232,6 +2234,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterRepPageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
+  bCelestialWaitOpen=false;
+  CelestialWaitStatus.Reset();
   bAtlasOpen = false;
   bQuestLogOpen = false;
   QuestLogSelection = 0;
@@ -2734,7 +2738,30 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
  if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
 }
 
+void AMoonfallHeroPawn::OpenCelestialWait() {
+ if (!bOptionsOpen || Health<=0.f || !FMath::IsFinite(Health)) return;
+ bCelestialWaitOpen=true;
+ CelestialWaitHours=1;
+ CelestialWaitStatus.Reset();
+}
+void AMoonfallHeroPawn::AdjustCelestialWait(int32 Direction) {
+ if (!bOptionsOpen || !bCelestialWaitOpen || (Direction!=1&&Direction!=-1)) return;
+ CelestialWaitHours=FMath::Clamp(CelestialWaitHours+Direction,1,24);
+ CelestialWaitStatus.Reset();
+}
+void AMoonfallHeroPawn::ConfirmCelestialWait() {
+ if (!bOptionsOpen || !bCelestialWaitOpen) return;
+ if (TryWaitCelestialHours(CelestialWaitHours)) {
+  bCelestialWaitOpen=false;
+  OpenOptions();
+ } else CelestialWaitStatus=TEXT("Cannot wait here or save failed.");
+}
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bOptionsOpen && bCelestialWaitOpen) {
+  bCelestialWaitOpen=false;
+  CelestialWaitStatus.Reset();
+  return;
+ }
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The bag is the sole exception: Esc/X closes it without opening Options.
@@ -2765,6 +2792,8 @@ void AMoonfallHeroPawn::OpenOptions() {
   BufferedDodgeDirection = FVector::ZeroVector;
  }
  bOptionsOpen = !bOptionsOpen;
+ bCelestialWaitOpen=false;
+ CelestialWaitStatus.Reset();
  if (bOptionsOpen) RefreshGraphicsMemoryAudit();
  BugBreadcrumbs.Record(bOptionsOpen?MoonfallDiagnostics::EEvent::OptionsOpened:MoonfallDiagnostics::EEvent::OptionsClosed,FPlatformTime::Seconds());
  // Match the inventory close workflow and allow the Options X to be clicked.
@@ -2933,6 +2962,7 @@ void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bOptionsOpen && bCelestialWaitOpen) { AdjustCelestialWait(1); return; }
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(-1); return; }
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
@@ -2971,6 +3001,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bOptionsOpen && bCelestialWaitOpen) { AdjustCelestialWait(-1); return; }
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(1); return; }
  if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
@@ -3009,6 +3040,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bOptionsOpen && bCelestialWaitOpen) { AdjustCelestialWait(-1); return; }
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
@@ -3028,6 +3060,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bOptionsOpen && bCelestialWaitOpen) { AdjustCelestialWait(1); return; }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
@@ -4216,6 +4249,7 @@ void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  bTalentRespecArmed=false;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
+ if (bOptionsOpen) { if (bCelestialWaitOpen) ConfirmCelestialWait(); else OpenCelestialWait(); return; }
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked)return;
@@ -5522,6 +5556,21 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
     const float MenuTop = (float(Height) - MenuHeight) * 0.5f;
     const float CloseX = MenuLeft + MenuWidth - 42.f;
+    if (bCelestialWaitOpen) {
+     const auto Hit=[&](float X,float Y,float W,float H) {
+      return MouseX>=X && MouseX<=X+W && MouseY>=Y && MouseY<=Y+H;
+     };
+     const float Center=MenuLeft+MenuWidth*0.5f;
+     if (Hit(CloseX,MenuTop+12.f,28.f,28.f) || Hit(Center+5.f,MenuTop+170.f,100.f,40.f)) OpenOptions();
+     else if (Hit(Center-105.f,MenuTop+170.f,100.f,40.f)) ConfirmCelestialWait();
+     else if (Hit(Center-105.f,MenuTop+90.f,50.f,44.f)) AdjustCelestialWait(-1);
+     else if (Hit(Center+55.f,MenuTop+90.f,50.f,44.f)) AdjustCelestialWait(1);
+     return;
+    }
+    if (MouseX>=MenuLeft+14.f && MouseX<=MenuLeft+78.f
+        && MouseY>=MenuTop+42.f && MouseY<=MenuTop+60.f) {
+     OpenCelestialWait(); return;
+    }
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
