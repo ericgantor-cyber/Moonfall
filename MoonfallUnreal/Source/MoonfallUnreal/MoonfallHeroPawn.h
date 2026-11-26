@@ -586,8 +586,10 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ virtual void StopJumping() override;
  void TryJump();
  void ControllerConfirm();
+ void ControllerConfirmRelease();
  void ControllerBack();
  void ControllerLootOrSalvage();
  void ControllerLeftShoulder();
@@ -612,6 +614,7 @@ private:
  void ControllerRightStickPress();
  void ControllerRightStickRelease();
  bool bControllerGuardStarted = false;
+ bool bControllerJumpStarted = false;
  void InventorySalvage();
  void OpenOptions();
  void OptionsUp();

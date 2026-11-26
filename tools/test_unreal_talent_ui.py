@@ -83,7 +83,7 @@ assert 'ActionName="TalentSpend",Key=Enter' in inputs
 a_mappings = [line for line in inputs.splitlines()
               if line.startswith("+ActionMappings=") and "Key=Gamepad_FaceButton_Bottom" in line]
 assert a_mappings == ['+ActionMappings=(ActionName="ControllerConfirm",Key=Gamepad_FaceButton_Bottom)']
-confirm = pawn.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("void AMoonfallHeroPawn::TryJump()", 1)[0]
+confirm = pawn.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("void AMoonfallHeroPawn::ControllerConfirmRelease()", 1)[0]
 assert "if (bTalentWebOpen) { TalentSpendSelected(); return; }" in confirm
 assert confirm.index("if (bTalentWebOpen)") < confirm.index("TryJump();")
 b_mappings = [line for line in inputs.splitlines()
@@ -196,3 +196,11 @@ assert "bTalentRespecArmed=false;" in branch_tab
 assert "TalentRespecArmUntil=-1.f;" in branch_tab
 assert "TalentRespecArmUntil=-1.f;" in pointer.split("if (Hit>=0)", 1)[1]
 print("UE5 talent web: layout, full node UI, mouse/controller input and modal isolation source checks passed.")
+
+# A must not leave the grimoire or stop a keyboard-owned jump from a modal.
+assert confirm.index("if (bInventoryOpen && bSpellBookOpen) return;") < confirm.index("ToggleCharacterStats();")
+assert "bControllerJumpStarted=!bWasJumpPressed && bPressedJump;" in confirm
+release = pawn.split("void AMoonfallHeroPawn::ControllerConfirmRelease()", 1)[1].split("\n}", 1)[0]
+assert release.index("if (!bControllerJumpStarted) return;") < release.index("StopJumping();")
+stop = pawn.split("void AMoonfallHeroPawn::StopJumping()", 1)[1].split("\n}", 1)[0]
+assert stop.index("bControllerJumpStarted=false;") < stop.index("Super::StopJumping();")

@@ -673,7 +673,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerConfirm);
- Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &ACharacter::StopJumping);
+ Input->BindAction(TEXT("ControllerConfirm"), IE_Released, this, &AMoonfallHeroPawn::ControllerConfirmRelease);
  Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);
  Input->BindAction(TEXT("ControllerLootOrSalvage"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLootOrSalvage);
  Input->BindAction(TEXT("ControllerLeftShoulder"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerLeftShoulder);
@@ -1027,10 +1027,25 @@ void AMoonfallHeroPawn::ControllerConfirm()
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
- if (bOptionsOpen || bAtlasOpen) return;
+ if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()) return;
+ // Spellbook already owns D-pad hand assignment. A must not swap panels.
+ if (bInventoryOpen && bSpellBookOpen) return;
  if (bInventoryOpen && bCharacterStatsOpen) { ToggleTalentWeb(); return; }
  if (bInventoryOpen) { ToggleCharacterStats(); return; }
+ const bool bWasJumpPressed=bPressedJump;
  TryJump();
+ bControllerJumpStarted=!bWasJumpPressed && bPressedJump;
+}
+void AMoonfallHeroPawn::ControllerConfirmRelease()
+{
+ if (!bControllerJumpStarted) return;
+ bControllerJumpStarted=false;
+ StopJumping();
+}
+void AMoonfallHeroPawn::StopJumping()
+{
+ bControllerJumpStarted=false;
+ Super::StopJumping();
 }
 void AMoonfallHeroPawn::TryJump()
 {
