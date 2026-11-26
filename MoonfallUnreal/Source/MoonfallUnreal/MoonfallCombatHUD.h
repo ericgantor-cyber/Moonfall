@@ -19,7 +19,7 @@ private:
  // Cache only the read-only selected-gear score, not the inventory itself.
  TWeakObjectPtr<const AMoonfallHeroPawn> CachedAdvisorHero;
  bool bAdvisorScoreCached = false;
- float AdvisorScoreUpdatedAt = -1.f;
+ double AdvisorScoreUpdatedAt = -1.0;
  int32 CachedAdvisorCount = -1;
  int32 CachedAdvisorSelected = INDEX_NONE;
  int32 CachedAdvisorSelectedCode = 0;
