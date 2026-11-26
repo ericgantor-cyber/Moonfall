@@ -24,5 +24,20 @@ class EquipmentStatSafety(unittest.TestCase):
                       "InventoryItemCodes.Contains(EquippedArmorCode)",
                       "ValidEquippedTier(", "ValidEquippedTraitRarity("):
             self.assertIn(token, self.source)
+    def test_expanded_stats_use_owned_tiers_and_preserve_caps(self):
+        for fn, slots in (("GetMight", ("Shoulders", "Hands")),
+                          ("GetInsight", ("Head", "Ring")),
+                          ("GetResolve", ("Legs", "Feet"))):
+            body = self.source.split("AMoonfallHeroPawn::"+fn+"() const", 1)[1].split("\n}", 1)[0]
+            self.assertIn("MoonfallEquipmentSlots::ExtraPrimaryBonus(", body)
+            for slot in slots:
+                self.assertIn("GetValidatedEquippedTier(MoonfallEquipmentSlots::"+slot+")", body)
+            self.assertIn(", 10, 100);", body)
+        mastery = self.source.split("AMoonfallHeroPawn::GetMasteryBonus() const", 1)[1].split("\n}", 1)[0]
+        self.assertEqual(mastery.count("GetValidatedEquippedTier(MoonfallEquipmentSlots::"), 6)
+        self.assertIn("ExtraUnits * 0.000375f, 0.f, 0.12f", mastery)
+        self.assertIn("0.f, 0.16f", mastery)
+        tier = self.source.split("AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const", 1)[1].split("\n}", 1)[0]
+        self.assertLess(tier.index("Code <= 0"), tier.index("InventoryItemCodes.Contains(Code)"))
 if __name__ == "__main__":
     unittest.main()
