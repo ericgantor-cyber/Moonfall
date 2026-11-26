@@ -227,6 +227,120 @@ int main() {
   for(int Slot=3;Slot<L::SlotCount;++Slot)
    assert(SharedPlan.Codes[Slot]==0&&SharedPlan.Indices[Slot]==-1);
  }
+ // Fixed seed, independent reference decoder and score. No engine required.
+ // Concentrate cases around valid encodings as well as corrupt integer values.
+ unsigned FuzzSeed=0x4d4f4f4eu;
+ auto NextFuzz=[&FuzzSeed](){FuzzSeed=FuzzSeed*1664525u+1013904223u;return FuzzSeed;};
+ const auto RefValid=[](int Code,int Slot){
+  if(Code<=0||Slot<0||Slot>=9)return false;
+  const int Affix=Code/100000,EncodedSlot=(Code/10000)%10;
+  const int Rarity=(Code/1000)%10,Tier=Code%1000;
+  return Affix<=3&&EncodedSlot==Slot&&Rarity<=5&&Tier>=1&&Tier<=25
+      &&(Affix==0||Rarity>0);
+ };
+ const auto RefScore=[&RefValid](int Code,int Slot,const L::FLoadout& Worn,int Active){
+  if(Slot<0||Slot>=Active||!RefValid(Code,Slot))return 0;
+  const int Affix=Code/100000;
+  int Matching=0;
+  for(int Other=0;Other<Active;++Other)
+   if(Other!=Slot&&Affix>0&&RefValid(Worn[Other],Other)&&Worn[Other]/100000==Affix)
+    ++Matching;
+  return (Code%1000)*1000+((Code/1000)%10)*100+(Affix>0?10:0)+40*Matching;
+ };
+ auto ValidRandom=[&NextFuzz](int Slot){
+  const int Rarity=1+static_cast<int>(NextFuzz()%5u);
+  const int Affix=static_cast<int>((NextFuzz()>>12)%4u);
+  const int Tier=1+static_cast<int>((NextFuzz()>>8)%25u);
+  return Affix*100000+Slot*10000+Rarity*1000+Tier;
+ };
+ for(int Trial=0;Trial<4096;++Trial){
+  const int Slot=static_cast<int>((NextFuzz()>>8)%9u);
+  const int Active=Trial%2==0?3:9;
+  int Candidate=ValidRandom(Slot);
+  switch(Trial%8){
+   case 0:Candidate=std::numeric_limits<int>::min();break;
+   case 1:Candidate=std::numeric_limits<int>::max();break;
+   case 2:Candidate=static_cast<int>(NextFuzz()%1000000u)-500000;break;
+   case 3:Candidate=0;break;
+   case 4:Candidate+=static_cast<int>(NextFuzz()%2000u)-1000;break;
+   default:break;
+  }
+  L::FLoadout Worn{};
+  for(int S=0;S<9;++S)if((NextFuzz()>>8)%3u)Worn[S]=ValidRandom(S);
+  const int EncodedSlot=Candidate>0?(Candidate/10000)%10:-1;
+  const bool Eligible=EncodedSlot>=0&&EncodedSlot<Active&&RefValid(Candidate,EncodedSlot);
+  const int Expected=Eligible?RefScore(Candidate,EncodedSlot,Worn,Active)
+     -RefScore(Worn[EncodedSlot],EncodedSlot,Worn,Active):0;
+  assert(L::Improvement(Candidate,Worn,Active)==Expected);
+  assert(L::CanOperate(Candidate,Active,Op::Equip)==Eligible);
+  assert(L::CanOperate(Candidate,Active,Op::Salvage)==Eligible);
+  assert(L::CanOperate(Candidate,Active,Op::Upgrade)==(Eligible&&Candidate%1000<25));
+  assert(L::CanOperate(Candidate,Active,Op::Reforge)==(Eligible&&(Candidate/1000)%10>=2));
+  assert(L::CanOperate(Candidate,Active,Op::Ascend)==(Eligible&&(Candidate/1000)%10<5));
+  // A malformed or unowned slot must never partially replace the output.
+  const int Changed=static_cast<int>((NextFuzz()>>8)%static_cast<unsigned>(Active));
+  auto Record=Worn;
+  Record[Changed]=Candidate;
+  const bool RejectOwnership=Trial%5==0;
+  const auto Owns=[Candidate,RejectOwnership](int Code){return !RejectOwnership||Code!=Candidate;};
+  bool ExpectedRestore=true;
+  L::FLoadout RestoredExpected{};
+  for(int S=0;S<Active;++S){
+   const int Code=Record[S];
+   if(Code!=0&&(!RefValid(Code,S)||!Owns(Code)))ExpectedRestore=false;
+   RestoredExpected[S]=Code;
+  }
+  L::FLoadout Output=Full;
+  assert(L::TryRestoreLoadout(Record.data(),Active,Active==9,Owns,Output)==ExpectedRestore);
+  assert(Output==(ExpectedRestore?RestoredExpected:Full));
+ }
+ // Differential planner tests: brute force only in CI, not in game runtime.
+ const auto RefTotal=[&RefScore](const L::FLoadout& Worn){
+  int Score=0;
+  for(int S=0;S<9;++S)Score+=RefScore(Worn[S],S,Worn,9);
+  return Score;
+ };
+ for(int Trial=0;Trial<24;++Trial){
+  L::FLoadout Worn{};
+  std::array<std::array<int,3>,9> Options{};
+  for(int S=0;S<9;++S){
+   Worn[S]=Trial%4==0?0:ValidRandom(S);
+   Options[S]={Worn[S],ValidRandom(S),ValidRandom(S)};
+  }
+  const bool CombatOnly=Trial%3==0;
+  L::FPlanner PlannerUnderTest(Worn,CombatOnly);
+  for(int S=0;S<9;++S)
+   for(int C=1;C<3;++C)PlannerUnderTest.Add(Options[S][C],S*3+C);
+  const int Baseline=RefTotal(Worn);
+  int Best=Baseline,Fewest=0;
+  for(int Combination=0;Combination<19683;++Combination){
+   int Digits=Combination,Changes=0;
+   bool Allowed=true;
+   L::FLoadout Candidate{};
+   for(int S=0;S<9;++S){
+    const int Choice=Digits%3;Digits/=3;
+    const int Code=Options[S][Choice];
+    const int Rank=(Code%1000)*10+(Code/1000)%10;
+    const int PriorRank=(Worn[S]%1000)*10+(Worn[S]/1000)%10;
+    if(Rank<PriorRank||(CombatOnly&&S!=0&&Choice!=0)){Allowed=false;break;}
+    Candidate[S]=Code;
+    if(Code!=Worn[S])++Changes;
+   }
+   if(!Allowed)continue;
+   const int Score=RefTotal(Candidate);
+   if(Score>Best||(Score==Best&&Changes<Fewest)){Best=Score;Fewest=Changes;}
+  }
+  const auto Result=PlannerUnderTest.Finish();
+  assert(RefTotal(Result.Codes)==Best);
+  assert(Result.Gain==Best-Baseline&&Result.Changes==Fewest);
+  for(int S=0;S<9;++S){
+   if(Result.Codes[S]==Worn[S])continue;
+   const int Index=Result.Indices[S];
+   assert(Index==S*3+1||Index==S*3+2);
+   assert(Result.Codes[S]==Options[S][Index%3]);
+  }
+ }
+ std::cout << "Deterministic stress: 4096 corrupt/valid item and save cases; 24 independent exhaustive planner comparisons passed\n";
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
