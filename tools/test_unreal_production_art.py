@@ -295,6 +295,21 @@ class ProductionArtTests(unittest.TestCase):
         for token in ("ApplySettings", "SetOverallScalabilityLevel", "ExecuteConsoleCommand"):
             self.assertNotIn(token, block)
 
+    def test_memory_audit_is_cached_and_reports_unknown_safely(self):
+        source = ROOT / "Source/MoonfallUnreal"
+        pawn = (source / "MoonfallHeroPawn.cpp").read_text()
+        hud = (source / "MoonfallCombatHUD.cpp").read_text()
+        audit = pawn.split("void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit()",1)[1].split("void AMoonfallHeroPawn::OptionsUp()",1)[0]
+        for token in ("AuditDedicatedVideoMemory=AuditTextureMemory=AuditTexturePool=-1",
+                      "NM_DedicatedServer", "!GDynamicRHI", "RHIGetTextureMemoryStats(Stats)",
+                      "Stats.DedicatedVideoMemory>0", "Stats.AllocatedMemorySize>0",
+                      "Stats.TexturePoolSize>0"):
+            self.assertIn(token, audit)
+        self.assertIn("if (bOptionsOpen) RefreshGraphicsMemoryAudit();", pawn)
+        self.assertIn('TEXT("VRAM unknown")', hud)
+        self.assertNotIn("RHIGetTextureMemoryStats", hud)
+        self.assertNotIn("ApplySettings", audit)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
