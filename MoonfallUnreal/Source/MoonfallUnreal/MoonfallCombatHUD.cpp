@@ -881,8 +881,13 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
     DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
    }
-   DrawText(TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto | L / X: map"),
-       FLinearColor(0.75f,0.79f,0.85f),Left+18.f,Top+67.f,nullptr,Scale*0.60f);
+   const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
+   const bool bSelectedTracked=(Tracked&J::Bit(J::EntryAt(Active,Selected)))!=0;
+   DrawText(bSlotsFull&&!bSelectedTracked
+       ? TEXT("7/7 TRACKED | Untrack another quest first | Home: auto")
+       : TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto"),
+       bSlotsFull&&!bSelectedTracked?FLinearColor(0.95f,0.78f,0.45f):FLinearColor(0.75f,0.79f,0.85f),
+       Left+18.f,Top+67.f,nullptr,Scale*0.60f);
    if(Count==0) DrawText(TEXT("No active quests."),FLinearColor::White,Left+18.f,Top+93.f,nullptr,Scale);
    for(int Row=0;Row<Rows&&Start+Row<Count;++Row) {
     const int Id=J::EntryAt(Active,Start+Row);
