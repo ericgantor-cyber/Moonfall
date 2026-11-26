@@ -499,6 +499,7 @@ private:
  // Fixed storage for slot IDs 3–8. Public gameplay remains gated until
  // the expanded inventory, loot and equipment UI are integrated.
  int32 ExtraEquippedCodes[6] = {};
+ void RefreshEquipmentTier();
  MoonfallPerformance::FAudit PerformanceAudit;
  MoonfallPerformance::FStageAudit StageAudit;
  double NextStageAuditAt=-1;
@@ -685,6 +686,6 @@ private:
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;
  // Session-only owned gear choices made at zero HP; never serialized as loot.
- int32 DefeatedEquipmentSelection[3] = {0, 0, 0};
+ int32 DefeatedEquipmentSelection[9] = {};
  bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };
