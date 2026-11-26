@@ -96,6 +96,22 @@ int main(){
      std::numeric_limits<float>::quiet_NaN(),100.f,false,false));
  assert(!ShouldRetireAmbient(105.f,
      std::numeric_limits<float>::infinity(),false,false));
+ assert(CelestialMinute(0.0)==720);
+ assert(CelestialMinute(5.0)==721);
+ assert(CelestialMinute(3599.0)==1439);
+ assert(CelestialMinute(3600.0)==0);
+ assert(CelestialMinute(7200.0)==720);
+ assert(CelestialMinute(7200.0*100+5.0)==721);
+ assert(CelestialMinute(-1.0)==720);
+ assert(CelestialMinute(std::numeric_limits<double>::infinity())==720);
+ assert(DayPhase(288)==EDayPhase::Dawn&&DayPhase(504)==EDayPhase::Day);
+ assert(DayPhase(936)==EDayPhase::Dusk&&DayPhase(1152)==EDayPhase::Night);
+ assert(CelestialLightScale(0)>=0.69f&&CelestialLightScale(12)==1.f);
+ for(int Minute=0;Minute<1440;++Minute){
+  const int Hour=LightingHour(Minute);
+  assert(Hour>=0&&Hour<24);
+  assert(CelestialLightScale(Hour)>=0.69f&&CelestialLightScale(Hour)<=1.f);
+ }
  assert(Phase(-1.f,360.f)==0);
  assert(Phase(std::numeric_limits<float>::infinity(),360.f)==0);
  assert(WeatherFor(4,0)==EWeather::Snow||WeatherFor(4,0)==EWeather::Fog);
@@ -904,9 +920,9 @@ int main(){
         self.assertIn("WeatherFor(Zone,Phase)",weather)
         self.assertIn("LastRegionWeatherPhase=-1;", region)
         self.assertIn("for (int32& WeatherId : AppliedRegionWeather) WeatherId=INDEX_NONE;", region)
-        self.assertLess(weather.index("if (AppliedRegionWeather[Zone]==WeatherId) continue;"),
+        self.assertLess(weather.index("if (AppliedRegionWeather[Zone]==WeatherId && !bCelestialChanged) continue;"),
                         weather.index("Light->SetLightColor(Tint);"))
-        self.assertLess(weather.index("Light->SetIntensity(Intensity);"),
+        self.assertLess(weather.index("Light->SetIntensity(Intensity*MoonfallLivingSimulation::CelestialLightScale(Hour));"),
                         weather.index("AppliedRegionWeather[Zone]=WeatherId;"))
         self.assertIn("const int32 WeatherId=static_cast<int32>(Weather);", weather)
         self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
@@ -924,7 +940,9 @@ int main(){
         self.assertIn("Details->SetCullDistances(18000,28000);",landscape)
         self.assertIn("Light->SetCastShadows(false);",landscape)
         self.assertIn("Light->SetAttenuationRadius(3000.f);",landscape)
-        self.assertIn("LastRegionWeatherPhase==Phase",landscape)
+        self.assertIn("LastRegionWeatherPhase==Phase && !bCelestialChanged",landscape)
+        self.assertIn("CelestialMinute(WorldTime)",landscape)
+        self.assertIn("LastCelestialLightingHour=Hour;",landscape)
         self.assertIn("MoonfallLivingSimulation::WeatherFor(Zone,Phase)",landscape)
         self.assertIn("bEnableRegionalLandmarks = true;",header)
         self.assertIn("CreateRegionalLandmarks();",arena)
