@@ -375,7 +375,7 @@ int main() {
         self.assertIn("RIGHT HAND: %s  |  B: choose", hud)
         self.assertNotIn("V / D-PAD LEFT", hud)
 
-    def test_equipped_hand_survives_restart_without_save_schema_change(self):
+    def test_equipped_hand_survives_restart_without_persisting_transient_hand_mode(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         save_header = (SRC / "MoonfallPersistentSave.h").read_text()
         begin = hero.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
@@ -390,8 +390,14 @@ int main() {
         for method in (spell, weapon):
             self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', method)
         self.assertIn("RightSpell = FMath::Clamp(Save->RightSpell, 0, 5);", hero)
-        self.assertIn("UPROPERTY() int32 Version = 16;", save_header)
+        # Equipment schema evolution is independent of the right-hand preference.
+        # Keep the durable spell selection in the save and the hand mode in settings.
+        saver = hero.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("UPROPERTY() int32 RightSpell = 1;", save_header)
+        self.assertIn("Save->RightSpell = RightSpell;", saver)
         self.assertNotIn("RightHandSpellReadied", save_header)
+        self.assertNotIn("RightHandSpellReadied", saver)
 
     def test_active_hand_hud_disambiguates_heal_and_sword(self):
         hud = (SRC / "MoonfallCombatHUD.cpp").read_text()
