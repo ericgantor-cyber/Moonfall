@@ -32,7 +32,7 @@ assert "Hero->TalentRanks.Num()" not in hud, "Fixed rank array must not use Unre
 # also handles Tier 0 (unarmed), with the same validated multiplier.
 assert 'Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage' in hud
 assert 'MELEE DAMAGE +%.1f%%/RANK' in hud
-assert 'const float Tier = bWeaponOwned' in pawn
+assert 'const float Tier = static_cast<float>(GetValidatedEquippedTier(0));' in pawn
 assert 'const float TalentMeleeMultiplier = static_cast<float>(' in pawn
 assert '* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;' in pawn
 # Every category, including flat resource caps and percent damage bonuses,
