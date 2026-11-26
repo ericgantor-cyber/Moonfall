@@ -1400,11 +1400,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity >= 1", sets)
         self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
-        for guard in ("Code <= 0", "Slot != ExpectedSlot", "Trait < 0 || Trait > 3",
-                      "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25",
-                      "(Rarity == 0 && Trait != 0)",
-                      "Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
+        for guard in ("MoonfallEquipmentSlots::Legacy(ExpectedSlot)",
+                      "MoonfallEquipmentSlots::Decode(Code)", "Item.Slot!=ExpectedSlot",
+                      "OutTrait=Item.Affix", "OutRarity=Item.Rarity", "OutTier=Item.Tier"):
             self.assertIn(guard, decoder)
+        equipment = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
+        for guard in ("Code<=0", "!Known(Item.Slot)", "Item.Affix<0||Item.Affix>3",
+                      "Item.Rarity<0||Item.Rarity>5", "Item.Tier<1||Item.Tier>25",
+                      "(Item.Rarity==0&&Item.Affix!=0)",
+                      "Code!=Item.Affix*100000+Item.Slot*10000+Item.Rarity*1000+Item.Tier"):
+            self.assertIn(guard, equipment)
         self.assertIn("ValidEquippedTier(EquippedWeaponCode, 0)", self.hero_cpp)
         self.assertIn("ValidEquippedTier(EquippedArmorCode, 1)", self.hero_cpp)
         self.assertIn("ValidEquippedTier(EquippedAccessoryCode, 2)", self.hero_cpp)
