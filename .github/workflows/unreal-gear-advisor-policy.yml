@@ -49,6 +49,8 @@ jobs:
         id: gcc_portable
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && runner.os == 'Linux' }}
         shell: bash
+        env:
+          MOONFALL_POLICY_RESULTS: ${{ runner.temp }}/MoonfallCompiler-${{ github.run_id }}-${{ github.run_attempt }}.tsv
         run: bash tools/run_unreal_portable_gcc.sh
       - name: Clang address and undefined behavior sanitizers
         id: clang_sanitized
@@ -71,6 +73,8 @@ jobs:
         id: msvc_portable
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.msvc_setup.outcome == 'success' && runner.os == 'Windows' }}
         shell: pwsh
+        env:
+          MOONFALL_POLICY_RESULTS: ${{ runner.temp }}/MoonfallCompiler-${{ github.run_id }}-${{ github.run_attempt }}.tsv
         run: ./tools/Test-UnrealPortableMSVC.ps1
       - name: Record test scope and checked-out revision
         if: ${{ !cancelled() }}
@@ -102,8 +106,67 @@ jobs:
             echo 'Job status: ${{ job.status }}'
           } >> "$GITHUB_STEP_SUMMARY"
           [[ "$CHECKOUT_RESULT" == success ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           if [[ "$RUNNER_OS" == Linux ]]; then
             [[ "$GCC_RESULT" == success && "$GCC_PORTABLE_RESULT" == success && "$CLANG_RESULT" == success ]]
           else
             [[ "$MSVC_RESULT" == success && "$MSVC_PORTABLE_RESULT" == success ]]
           fi
+      - name: Write portable compiler verification evidence
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          CHECKOUT_RESULT: ${{ steps.checkout.outcome }}
+          GCC_RESULT: ${{ steps.gcc.outcome }}
+          GCC_PORTABLE_RESULT: ${{ steps.gcc_portable.outcome }}
+          CLANG_RESULT: ${{ steps.clang_sanitized.outcome }}
+          MSVC_RESULT: ${{ steps.msvc.outcome }}
+          MSVC_PORTABLE_RESULT: ${{ steps.msvc_portable.outcome }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          e = os.environ
+          linux = e['RUNNER_OS'] == 'Linux'
+          prefix = 'GCC' if linux else 'MSVC'
+          expected = {p.name for pattern in ('test_unreal_*.cpp', 'test_v27_*.cpp')
+                      for p in Path('tools').glob(pattern)}
+          gear = 'test_unreal_gear_advisor_policy.cpp'
+          root = Path(e['RUNNER_TEMP'])
+          stem = 'MoonfallCompiler-' + e['GITHUB_RUN_ID'] + '-' + e['GITHUB_RUN_ATTEMPT']
+          raw = root / (stem + '.tsv')
+          actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() if e['CHECKOUT_RESULT'] == 'success' else None
+          results = []
+          if raw.is_file():
+              for line in raw.read_text(encoding='utf-8-sig').splitlines():
+                  name, sep, status = line.partition('\t')
+                  if sep:
+                      results.append({'suite': name, 'outcome': status})
+          names = [item['suite'] for item in results]
+          complete = gear in expected and len(names) == len(set(names)) and set(names) == expected - {gear}
+          results.append({'suite': gear, 'outcome': 'Passed' if e[prefix + '_RESULT'] == 'success' else e[prefix + '_RESULT']})
+          verified = (actual == e['GITHUB_SHA'] and complete and e[prefix + '_PORTABLE_RESULT'] == 'success'
+                      and all(item['outcome'] == 'Passed' for item in results)
+                      and (not linux or e['CLANG_RESULT'] == 'success'))
+          evidence = {
+              'schema_version': 1, 'scope': 'standalone C++17 policy tests',
+              'compiler': prefix, 'runner_os': e['RUNNER_OS'],
+              'requested_sha': e['GITHUB_SHA'], 'checked_out_sha': actual,
+              'run_id': e['GITHUB_RUN_ID'], 'run_attempt': e['GITHUB_RUN_ATTEMPT'],
+              'expected_suite_count': len(expected), 'inventory_complete': complete,
+              'verified': verified, 'suites': sorted(results, key=lambda item: item['suite']),
+              'equipment_clang_sanitizer': e['CLANG_RESULT'] if linux else 'not-applicable',
+              'native_unreal_compilation_verified': False, 'packaged_gameplay_verified': False,
+          }
+          (root / (stem + '.json')).write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          if not verified:
+              raise SystemExit('Compiler evidence incomplete or tests failed.')
+          PY
+      - name: Preserve compiler verification report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-portable-compiler-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/MoonfallCompiler-${{ github.run_id }}-${{ github.run_attempt }}.json
+          if-no-files-found: error
+          retention-days: 30
