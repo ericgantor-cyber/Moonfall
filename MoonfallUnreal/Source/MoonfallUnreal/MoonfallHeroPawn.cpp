@@ -134,6 +134,7 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
  if (!MoonfallEquipmentSlots::Known(Slot)) return 0;
  const int32 Code = BuildEquipmentLoadout()[Slot];
+ if (Code <= 0 || !MoonfallEquipmentSlots::Valid(Code, Slot)) return 0;
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
@@ -154,7 +155,7 @@ int32 AMoonfallHeroPawn::GetEquipmentPower() const
  int32 Total = 0;
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
+  if (Codes[Slot] > 0 && InventoryItemCodes.Contains(Codes[Slot])
       && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
    Total += GetItemPower(Codes[Slot]);
  }
@@ -209,7 +210,7 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
  int32 Pieces = 0;
  for (int32 Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
+  if (Codes[Slot] > 0 && InventoryItemCodes.Contains(Codes[Slot])
       && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
@@ -221,21 +222,30 @@ int32 AMoonfallHeroPawn::GetMight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
    + (InventoryItemCodes.Contains(EquippedWeaponCode)
-     ? ValidEquippedTier(EquippedWeaponCode, 0) : 0) + GetRaceMightBonus(), 10, 100);
+     ? ValidEquippedTier(EquippedWeaponCode, 0) : 0) + GetRaceMightBonus()
+   + MoonfallEquipmentSlots::ExtraPrimaryBonus(
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Shoulders),
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Hands)), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
    + (InventoryItemCodes.Contains(EquippedAccessoryCode)
-     ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0) + GetRaceInsightBonus(), 10, 100);
+     ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0) + GetRaceInsightBonus()
+   + MoonfallEquipmentSlots::ExtraPrimaryBonus(
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Head),
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Ring)), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
    + (InventoryItemCodes.Contains(EquippedArmorCode)
-     ? ValidEquippedTier(EquippedArmorCode, 1) : 0) + GetRaceResolveBonus(), 10, 100);
+     ? ValidEquippedTier(EquippedArmorCode, 1) : 0) + GetRaceResolveBonus()
+   + MoonfallEquipmentSlots::ExtraPrimaryBonus(
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Legs),
+     GetValidatedEquippedTier(MoonfallEquipmentSlots::Feet)), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
@@ -257,10 +267,17 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
+ const int32 ExtraUnits = MoonfallEquipmentSlots::ExtraMasteryUnits(
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Head),
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Shoulders),
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Hands),
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Legs),
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Feet),
+   GetValidatedEquippedTier(MoonfallEquipmentSlots::Ring));
  const float GearMastery = FMath::Clamp(
    ((InventoryItemCodes.Contains(EquippedWeaponCode) ? ValidEquippedTier(EquippedWeaponCode, 0) : 0)
     + (InventoryItemCodes.Contains(EquippedArmorCode) ? ValidEquippedTier(EquippedArmorCode, 1) : 0)
-    + (InventoryItemCodes.Contains(EquippedAccessoryCode) ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0)) * 0.0015f, 0.f, 0.12f);
+    + (InventoryItemCodes.Contains(EquippedAccessoryCode) ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0)) * 0.0015f + ExtraUnits * 0.000375f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
@@ -3741,7 +3758,11 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  // defeated: the legacy recovery selection tracks only the original slots.
  if (!MoonfallEquipmentSlots::Legacy(SlotIndex)) {
   if (Health <= 0.f) return false;
-  return MoonfallEquipmentSlots::EquipExtra(ExtraEquippedCodes, Code);
+  if (!MoonfallEquipmentSlots::EquipExtra(ExtraEquippedCodes, Code)) return false;
+  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+  for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+   EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
+  return true;
  }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
@@ -3760,6 +3781,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  // An explicitly equipped weapon becomes the active right-hand action,
  // just as explicitly equipping a spell readies the spell.
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
  if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
@@ -4864,6 +4887,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ for (int32 Slot = MoonfallEquipmentSlots::LegacyCount; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
+  EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  // Six native spell schools; a stale or externally edited save must never
  // restore an unusable right-hand spell while magic is selected.
