@@ -507,6 +507,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ if (bTalentRespecArmed && !IsTalentResetConfirmationActive()) bTalentRespecArmed=false;
  // Replay one deliberately buffered dodge before a pending sword swing.
  if (DodgeBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(DodgeBuffer.ExpiresAt)) {
   const float DodgeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
@@ -747,6 +748,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
  Input->BindAction(TEXT("TalentSpend"), IE_Pressed, this, &AMoonfallHeroPawn::TalentSpendSelected);
+ Input->BindAction(TEXT("TalentReset"), IE_Pressed, this, &AMoonfallHeroPawn::TalentConfirmRespec);
  Input->BindAction(TEXT("TalentClose"), IE_Pressed, this, &AMoonfallHeroPawn::TalentCloseWeb);
  Input->BindAction(TEXT("TalentBranchPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::TalentPreviousBranch);
  Input->BindAction(TEXT("TalentBranchNext"), IE_Pressed, this, &AMoonfallHeroPawn::TalentNextBranch);
@@ -4077,20 +4079,29 @@ void AMoonfallHeroPawn::TalentSpendSelected() {
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked)return;
- if (bTalentRespecArmed) {
-  // Confirm explicitly using the separate primary action; never repeat reset.
-  bTalentRespecArmed=false;
-  RespecTalentPoints();
-  return;
- }
+ // Spending must never accidentally confirm a destructive reset.
+ if (bTalentRespecArmed) { bTalentRespecArmed=false; return; }
  if (TalentWebSelected<0 || TalentWebSelected>=MoonfallTalents::NodeCount)return;
  SpendTalentPoint(TalentWebSelected);
+}
+bool AMoonfallHeroPawn::IsTalentResetConfirmationActive() const {
+ return bTalentWebOpen && MoonfallTalentWeb::ResetConfirmationActive(
+     bTalentRespecArmed,TalentRespecArmedAt,FPlatformTime::Seconds());
 }
 void AMoonfallHeroPawn::TalentConfirmRespec() {
  if (!bTalentWebOpen || !GetWorld() || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked)return;
- // Reset button / LT requests or cancels; only the separate confirm action commits.
- bTalentRespecArmed=!bTalentRespecArmed;
+ // Backspace, the reset button, or LT must be activated twice within three seconds.
+ const double Now=FPlatformTime::Seconds();
+ if (!FMath::IsFinite(Now) || Now<0.0) { bTalentRespecArmed=false; return; }
+ if (MoonfallTalentWeb::ResetConfirmationActive(bTalentRespecArmed,TalentRespecArmedAt,Now)) {
+  bTalentRespecArmed=false;
+  TalentRespecArmedAt=-1.0;
+  RespecTalentPoints();
+  return;
+ }
+ TalentRespecArmedAt=Now;
+ bTalentRespecArmed=true;
 }
 void AMoonfallHeroPawn::TalentPointerClick() {
  if (!bTalentWebOpen)return;
