@@ -48,4 +48,22 @@ int main() {
  assert(Advice(audit.Snapshot)!=EAdvice::Smooth);
  assert(audit.Snapshot.OnePercentLowFPS<10);
  assert(Recommend(audit.Snapshot,2,100,50)==EAction::ReviewHitches);
+ FStageAudit stages;
+ FSnapshot frame{};
+ frame.Ready=true; frame.MeanMs=20;
+ assert(LikelyStage(stages,frame)==EStage::Unknown);
+ for(int i=0;i<8;++i) stages.Observe(9,8,19);
+ assert(LikelyStage(stages,frame)==EStage::GPU);
+ for(int i=0;i<8;++i) stages.Observe(20,8,9);
+ assert(LikelyStage(stages,frame)==EStage::Game);
+ for(int i=0;i<8;++i) stages.Observe(9,19,8);
+ assert(LikelyStage(stages,frame)==EStage::Render);
+ for(int i=0;i<8;++i) stages.Observe(18,19,20);
+ assert(LikelyStage(stages,frame)==EStage::Balanced);
+ for(int i=0;i<8;++i) stages.Observe(2,3,4);
+ assert(LikelyStage(stages,frame)==EStage::Balanced);
+ stages.Observe(0,9,15);
+ assert(LikelyStage(stages,frame)==EStage::Unknown);
+ stages.Reset();
+ assert(!stages.Ready());
 }
