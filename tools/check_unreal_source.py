@@ -67,7 +67,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                          "MoonfallQuestXP::Preview(Cost,Hero->Level,",
                          "Hero->Experience,Hero->ExperienceToNextLevel)",
                          'TEXT("MAX LEVEL")', 'TEXT(" | LEVEL UP")',
-                         "Contracts.Active,TotalRows,Rows",
+                         "Contracts.Active+MoonfallWorldQuest::ActiveCount(Seen,Defeated),TotalRows,Rows",
                          "2.28f*OrbRadius-40.f-ExtraTop",
                          'TEXT("SALVAGE READY")', 'TEXT("GATHER SALVAGE")'):
             self.assertIn(required, tracker)
