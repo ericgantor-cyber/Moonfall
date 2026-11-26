@@ -825,7 +825,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const float TrackX = Left + PanelWidth - 11.f;
  const float TrackY = Top + 145.f;
- const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
  const float TrackHeight = RowSpacing * Rows;
  // Initial click requires the track. Once dragging, clamped vertical motion
  // continues even when the cursor moves horizontally beyond its narrow track.
@@ -916,7 +916,7 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
   Controller->GetViewportSize(ViewWidth, ViewHeight);
  // Match the Canvas panel height and reserve footer/stat space.
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f));
- return FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20);
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20);
 }
 
 void AMoonfallHeroPawn::KeepInventorySelectionVisible()
@@ -955,7 +955,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const int32 Count = InventoryItemCodes.Num();
  const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
  const int32 End = FMath::Min(Count, Start + Rows);
- const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
+ const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
  const float FirstY = Top + 145.f;
  if (MouseX < Left + 12.f || MouseX > Left + PanelWidth - 16.f ||
      MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
