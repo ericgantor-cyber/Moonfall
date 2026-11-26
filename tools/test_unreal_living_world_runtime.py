@@ -103,6 +103,14 @@ int main(){
  assert(AdvanceClock(100.0,30.0,31.5)==101.5);
  assert(AdvanceClock(100.0,30.0,20.0)==100.0);
  assert(AdvanceClock(-1.0,100.0,105.0)==5.0);
+ assert(!ValidWaitHours(0)&&!ValidWaitHours(25));
+ for(int Hours=1;Hours<=24;++Hours){
+  assert(ValidWaitHours(Hours));
+  assert(WaitClock(7100.0,Hours)==std::fmod(7100.0+Hours*300.0,DaySeconds));
+ }
+ assert(WaitClock(123.0,24)==123.0);
+ assert(WaitClock(123.0,0)==123.0);
+ assert(WaitClock(123.0,25)==123.0);
  assert(CelestialMinute(0.0)==720);
  assert(CelestialMinute(5.0)==721);
  assert(CelestialMinute(3599.0)==1439);
@@ -954,6 +962,20 @@ int main(){
         self.assertIn("CelestialBaseIntensity*MoonfallLivingSimulation::GlobalLightScale(Bucket)",body)
         self.assertNotIn("SpawnActor",body)
         self.assertNotIn("Tick(",body)
+
+    def test_wait_only_advances_clock_and_rolls_back_on_save_failure(self):
+        hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
+        wait=hero.split("bool AMoonfallHeroPawn::TryWaitCelestialHours(",1)[1].split("bool AMoonfallHeroPawn::LoadWorldProgress()",1)[0]
+        for token in ("ValidWaitHours(Hours)", "IsRecentlyInCombatForAmbientAI()", "IsMovingOnGround()",
+                      "TActorIterator<AMoonfallEnemy>", "bCelestialWaitInProgress", "TGuardValue<bool>",
+                      "WaitClock(GetCelestialClockSeconds(),Hours)", "CelestialSavedPhase=PreviousPhase;",
+                      "CelestialSessionAnchor=PreviousAnchor;"):
+            self.assertIn(token,wait)
+        self.assertLess(wait.index("IsRecentlyInCombatForAmbientAI()"),wait.index("WaitClock("))
+        self.assertLess(wait.index("TActorIterator<AMoonfallEnemy>"),wait.index("WaitClock("))
+        self.assertLess(wait.index("if (!SaveWorldProgress())"),wait.index("CelestialSavedPhase=PreviousPhase;"))
+        for token in ("SetTimeDilation", "AwardExperience(", "AwardEquipmentDrop(", "Health =", "Mana =", "Stamina ="):
+            self.assertNotIn(token,wait)
 
     def test_celestial_clock_save_validation_and_shared_view(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
