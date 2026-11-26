@@ -1144,6 +1144,32 @@ int main(){
         self.assertNotIn("Spawned->SetLifeSpan(100.f);",pulse)
         self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
+    def test_waystation_contract_catalog_matches_spawned_residents(self):
+        import re
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        journal=(SRC/"MoonfallQuestJournal.h").read_text()
+        sites=arena.split("static const FWaystationSite Sites[6] = {",1)[1].split(
+            "RegionalWaystationFloors->ClearInstances()",1)[0]
+        rows=re.findall(r'\{TEXT\("([^"]+)"\), TEXT\("(waystation_[a-z]+)"\), TEXT\("[^"]+"\),\s*TEXT\("(waystation_[a-z_]+)"\), TEXT\("([^"]+)"\),\s*TEXT\("(waystation_[a-z_]+)"\), TEXT\("([^"]+)"\),[\s\S]*?, (\d+), (\d+)\}',sites)
+        self.assertEqual(len(rows),6)
+        entries=re.findall(r'\{"(waystation_[a-z_]+)", "([^"]+)", "[^"]+", "([^"]+)", (\d+)\}',journal)
+        self.assertEqual(len(entries),12)
+        by_id={key:(name,location.upper(),int(race)) for key,name,location,race in entries}
+        self.assertEqual(len(by_id),12)
+        self.assertEqual(len({row[1] for row in rows}),6)
+        for location,_,scout,scout_name,companion,companion_name,scout_race,companion_race in rows:
+            self.assertEqual(by_id[scout],(scout_name,location,int(scout_race)))
+            self.assertEqual(by_id[companion],(companion_name,location,int(companion_race)))
+        self.assertIn("RegionalWaystationRuins->SetCanEverAffectNavigation(false)",arena)
+        self.assertIn("FVector(ZoneCenterX, -1800.f, -20.f), FVector(7.4f, 9.6f, 0.4f)",arena)
+        self.assertIn("FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)",arena)
+        # The camp floor and road overlap by 230 units and share Z=0.
+        self.assertEqual((-2050)-(-2280),230)
+        # Camp centers are far from the central arena and dungeon chamber strip.
+        for zone in range(6):
+            center=(zone*5+2-14.5)*1350
+            self.assertGreater(abs(center)-370,1500)
+
     def test_story_only_residents_cannot_offer_unsaveable_contracts(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         hero_h=(SRC/"MoonfallHeroPawn.h").read_text()
