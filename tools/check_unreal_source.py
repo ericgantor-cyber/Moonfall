@@ -14,6 +14,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_combined_quest_journal_matches_resident_save_contract(self):
+        import re
+        journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
+        allowed = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split("};", 1)[0]
+        ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
+        saved_ids = re.findall(r'FName\(TEXT\("([^"]+)"\)\)', allowed)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(set(ids), set(saved_ids))
+        tracker = self.hud.split("// World-wide quest tracker", 1)[1].split(
+            "// Compact circular resource HUD", 1)[0]
+        for required in ("Hero->GetResidentQuestState(ResidentKeys[I])",
+                         "MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount",
+                         "VisibleRows(Available,TotalRows)",
+                         "Goals.Indices[Row-Contracts.TrackedCount]",
+                         "MoonfallQuestXP::Preview(Cost,Hero->Level,",
+                         "Hero->Experience,Hero->ExperienceToNextLevel)",
+                         'TEXT("MAX LEVEL")', 'TEXT(" | LEVEL UP")',
+                         "Contracts.Active,TotalRows,Rows",
+                         "2.28f*OrbRadius-40.f-ExtraTop",
+                         'TEXT("SALVAGE READY")', 'TEXT("GATHER SALVAGE")'):
+            self.assertIn(required, tracker)
+        accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
+        self.assertIn("ResidentQuestStates.Add(ResidentId, 1);", accept)
+        for cap in ("MaxTracked", "MaxVisible", "TrackedCount", "ResidentQuestStates.Num()"):
+            self.assertNotIn(cap, accept)
+        for forbidden in ("TActorIterator", "GetAllActorsOfClass", "SaveWorldProgress(",
+                          "AwardExperience(", "ResidentQuestStates.Add("):
+            self.assertNotIn(forbidden, tracker)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
@@ -642,8 +672,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertIn("Left click: select", self.hud)
         self.assertIn("Right click: equip", self.hud)
-        self.assertNotIn("PgUp/PgDn", self.hud)
-        self.assertNotIn("Home/End", self.hud)
+        # Quest log has its own keyboard browsing controls, not bag paging.
+        inventory_hud = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[0] + self.hud.split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[1]
+        self.assertNotIn("PgUp/PgDn", inventory_hud)
+        self.assertNotIn("Home/End", inventory_hud)
+        log = self.hud.split("if(Hero->bQuestLogOpen) {", 1)[1].split(
+            "// Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.", 1)[0]
+        self.assertIn("PgUp/PgDn", log)
+        self.assertIn("GetTrackedQuestMask()", log)
+        self.assertIn("ToggleSelectedQuestTracking()", left)
 
     def test_resident_dialogue_entry_validates_player_without_forcing_motion_stop(self):
         for method in ("OpenFocusedResidentContext", "CastRightMouse"):

@@ -2,6 +2,7 @@
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallImpactFeedback.h"
 #include "Misc/GuardValue.h"
 #include "MoonfallTalentWeb.h"
@@ -742,6 +743,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
+ Input->BindAction(TEXT("QuestLog"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleQuestLog);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
@@ -979,7 +981,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
- if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
+ if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(-1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
@@ -1000,7 +1002,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
- if (bAtlasOpen) { AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
+ if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
   const int32 MaxStart = FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows());
@@ -1032,6 +1034,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
 {
  // One X press owns one action; keyboard F and Delete remain independent.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
  PickupNearestGroundLoot();
@@ -1073,6 +1076,7 @@ void AMoonfallHeroPawn::ControllerConfirm()
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
+ if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
  if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()) return;
  // Spellbook already owns D-pad hand assignment. A must not swap panels.
@@ -2155,6 +2159,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
+  bQuestLogOpen = false;
+  QuestLogSelection = 0;
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
@@ -2252,11 +2258,93 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bInventoryScrollbarDragging = false;
 }
 
+MoonfallQuestJournal::FMask AMoonfallHeroPawn::GetActiveQuestMask() const {
+ namespace J=MoonfallQuestJournal;
+ namespace W=MoonfallWorldQuest;
+ J::FMask Mask{};
+ static const auto Keys=[] {
+  TArray<FName> Out;
+  for(const auto& Entry:J::Residents) Out.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
+  return Out;
+ }();
+ for(int I=0;I<J::ResidentCount;++I)
+  if(GetResidentQuestState(Keys[I])==1) Mask.Add(I);
+ for(int Zone=0;Zone<W::ZoneCount;++Zone) {
+  int Seen=0,Won=0;
+  for(int Dungeon=0;Dungeon<5;++Dungeon) {
+   Seen+=HasDiscoveredDungeon(Zone,Dungeon)?1:0;
+   Won+=HasDefeatedDungeonBoss(Zone,Dungeon)?1:0;
+  }
+  if(Seen<5) Mask.Add(J::ResidentCount+Zone*2);
+  if(Seen>0&&Won<5) Mask.Add(J::ResidentCount+Zone*2+1);
+ }
+ return Mask;
+}
+MoonfallQuestJournal::FMask AMoonfallHeroPawn::GetTrackedQuestMask() const {
+ namespace J=MoonfallQuestJournal;
+ namespace W=MoonfallWorldQuest;
+ if(bManualQuestTracking) return ManualQuestMask&GetActiveQuestMask();
+ static const auto Keys=[] {
+  TArray<FName> Out;
+  for(const auto& Entry:J::Residents) Out.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
+  return Out;
+ }();
+ int States[J::ResidentCount]{};
+ for(int I=0;I<J::ResidentCount;++I) States[I]=GetResidentQuestState(Keys[I]);
+ const auto C=J::Summarize(States,J::ResidentCount,Salvage);
+ int Seen[W::ZoneCount]{},Won[W::ZoneCount]{};
+ for(int Z=0;Z<W::ZoneCount;++Z)
+  for(int D=0;D<5;++D) {
+   Seen[Z]+=HasDiscoveredDungeon(Z,D)?1:0;
+   Won[Z]+=HasDefeatedDungeonBoss(Z,D)?1:0;
+  }
+ const auto G=W::Select(Seen,Won,W::MaxVisible-C.TrackedCount);
+ J::FMask Mask{};
+ for(int I=0;I<C.TrackedCount;++I) Mask.Add(C.TrackedIndices[I]);
+ for(int I=0;I<G.Count;++I) Mask.Add(J::ResidentCount+G.Indices[I]);
+ return Mask;
+}
+void AMoonfallHeroPawn::ToggleQuestLog() {
+ if(IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||bOptionsOpen||bTalentWebOpen) return;
+ if(!bAtlasOpen) {
+  ToggleAtlas();
+  if(!bAtlasOpen) return;
+  bQuestLogOpen=true;
+ } else bQuestLogOpen=!bQuestLogOpen;
+ QuestLogSelection=0;
+}
+void AMoonfallHeroPawn::StepQuestLog(int32 Direction) {
+ if(!bAtlasOpen||!bQuestLogOpen||(Direction!=1&&Direction!=-1)) return;
+ const int Last=FMath::Max(0,MoonfallQuestJournal::Count(GetActiveQuestMask())-1);
+ QuestLogSelection=FMath::Clamp(FMath::Clamp(QuestLogSelection,0,Last)+Direction,0,Last);
+}
+void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
+ if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
+ namespace J=MoonfallQuestJournal;
+ const auto Active=GetActiveQuestMask();
+ const int Count=J::Count(Active);
+ if(Count<=0) return;
+ QuestLogSelection=FMath::Clamp(QuestLogSelection,0,Count-1);
+ const int Id=J::EntryAt(Active,QuestLogSelection);
+ if(Id<0) return;
+ const auto Before=GetTrackedQuestMask();
+ const auto After=J::Toggle(Before,Active,Id);
+ // An unsuccessful attempt to track an eighth quest must not disable auto tracking.
+ if(After==Before) return;
+ ManualQuestMask=After;
+ bManualQuestTracking=true;
+}
+void AMoonfallHeroPawn::ResetQuestTracking() {
+ if(!bAtlasOpen||!bQuestLogOpen) return;
+ bManualQuestTracking=false;
+ ManualQuestMask={};
+}
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
  if (bTalentWebOpen) return;
  // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
  if (!bAtlasOpen || Health <= 0.f || bOptionsOpen) return;
+ if (bQuestLogOpen) return;
  bAtlasChronicleFocus = !bAtlasChronicleFocus;
  // An untouched selection follows the recommended revealed chapter. Once a
  // chapter tab is selected, it stays readable until the region changes.
@@ -2324,11 +2412,12 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   }
  }
  bAtlasOpen = !bAtlasOpen;
+ bQuestLogOpen=false;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = bAtlasOpen;
 }
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
- if (bAtlasOpen) { bAtlasOpen = false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
+ if (bAtlasOpen) { bAtlasOpen = false; bQuestLogOpen=false; if (APlayerController* PC = Cast<APlayerController>(Controller)) PC->bShowMouseCursor = false; }
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f) return;
  if (!bInventoryOpen) {
@@ -2783,6 +2872,7 @@ void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(-1); return; }
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
@@ -2820,6 +2910,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(1); return; }
  if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
@@ -2857,6 +2948,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
@@ -2875,6 +2967,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
@@ -4224,7 +4317,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Never create a save that this version's loader will reject on reload.
  // The source collection remains intact if its supported serialized size
  // would be exceeded; ground drops are not consumed in that case.
- if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
+ if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords
      || DiscoveredShrineIds.Num() > 64
      || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
      || PendingWorldLoot.Num() > 512
@@ -4239,9 +4332,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  // The loader only restores known residents with accepted or completed
  // contracts. Never save quest entries it would silently discard.
- for (const auto& Entry : ResidentQuestStates)
+ int ActiveQuestRecords=0;
+ for (const auto& Entry : ResidentQuestStates) {
   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2))
    return false;
+  if (Entry.Value==1 && ++ActiveQuestRecords>MoonfallQuestJournal::MaxActive) return false;
+ }
  // Reputation and bond maps must round-trip without silently dropping keys
  // or clamping values on the next load.
  static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
@@ -4421,7 +4517,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // would silently discard the remainder on the next two-second autosave.
  // Keep the original slot intact rather than saving truncated progress.
  if (Save->InventoryItemCodes.Num() > 10000
-     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64)) {
+     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords)) {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
   return false;
@@ -4466,8 +4562,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Protect all saved quest entries rather than filtering unsupported
  // residents or states and overwriting their original progress on autosave.
  if (Save->Version >= 6) {
+  int ActiveQuestRecords=0;
   for (const auto& Entry : Save->ResidentQuestStates) {
-   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)) {
+   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)
+       || (Entry.Value==1 && ++ActiveQuestRecords>MoonfallQuestJournal::MaxActive)) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident quest state; original save protected."));
     return false;
@@ -4660,7 +4758,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
-  if (Save->ResidentQuestStates.Num() <= 64) {
+  if (Save->ResidentQuestStates.Num() <= MoonfallQuestJournal::MaxStoredRecords) {
    for (const auto& Entry : Save->ResidentQuestStates)
     if (IsNamedMoonfallResident(Entry.Key) && (Entry.Value == 1 || Entry.Value == 2))
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
@@ -4779,6 +4877,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
  bTalentRespecArmed = false;
+ if (bQuestLogOpen) {
+  bAtlasOpen = false;
+  bQuestLogOpen = false;
+  QuestLogSelection = 0;
+  if (APlayerController* PC=Cast<APlayerController>(Controller)) PC->bShowMouseCursor=false;
+ }
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
   if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(MaxMana)
@@ -5229,6 +5333,22 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= PanelT + 12.f && MouseY <= PanelT + 40.f) {
      ToggleAtlas();
+     return;
+    }
+    if (PanelW>=480.f && MouseX>=PanelL+PanelW-110.f && MouseX<=PanelL+PanelW-14.f
+        && MouseY>=PanelT+46.f && MouseY<PanelT+66.f) { ToggleQuestLog(); return; }
+    if(bQuestLogOpen) {
+     const int Rows=MoonfallQuestJournal::PageRows(float(ViewH));
+     const int Count=MoonfallQuestJournal::Count(GetActiveQuestMask());
+     const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
+     const int Start=MoonfallQuestJournal::PageStart(Selected,Rows);
+     if(MouseX>=PanelL+12.f&&MouseX<=PanelL+PanelW-12.f&&MouseY>=PanelT+88.f) {
+      const int Row=MoonfallQuestJournal::HitRow(MouseY-PanelT-88.f,Rows);
+      if(Row>=0&&Row<Rows&&Start+Row<Count) {
+       QuestLogSelection=Start+Row;
+       ToggleSelectedQuestTracking();
+      }
+     }
      return;
     }
     const float SidebarWidth = FMath::Clamp(PanelW * 0.27f, 132.f, 238.f);
@@ -5814,6 +5934,9 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+ int ActiveContracts=0;
+ for(const auto& Entry:ResidentQuestStates) if(Entry.Value==1) ++ActiveContracts;
+ if(!MoonfallQuestJournal::CanAccept(ActiveContracts)) return false;
  const int32* ExistingState = ResidentQuestStates.Find(ResidentId);
  if (ExistingState && *ExistingState != 0) return false;
  const bool bHadZeroState = ExistingState != nullptr;
