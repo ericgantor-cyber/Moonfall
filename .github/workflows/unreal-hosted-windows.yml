@@ -240,21 +240,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Real Unreal Win64 packaging failed: $LASTEXITCODE"
           }
-          $games = @(Get-ChildItem -LiteralPath $out -Recurse -File -Filter 'MoonfallUnreal.exe')
-          if ($games.Count -ne 1) {
-            throw "Expected one packaged real game executable; got $($games.Count)"
-          }
-          $root = $games[0].Directory.FullName
+          $game = & .\build-tools\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory $out
+          $root = $game.Directory.FullName
           foreach ($folder in @('Engine', 'MoonfallUnreal')) {
             if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
               throw "Packaged Unreal game missing $folder"
             }
           }
-          if ($games[0].Length -lt 512) {
+          if ($game.Length -lt 512) {
             throw 'Packaged MoonfallUnreal.exe is too small to be a valid Windows executable.'
           }
           # Reject text, placeholder, or non-Win64 files mislabeled as .exe.
-          $stream = [IO.File]::OpenRead($games[0].FullName)
+          $stream = [IO.File]::OpenRead($game.FullName)
           $reader = [IO.BinaryReader]::new($stream)
           try {
             if ($reader.ReadUInt16() -ne 0x5A4D) {
