@@ -145,6 +145,7 @@ class FPlanner {
  FLoadout Worn{};
  std::array<std::array<FChoice,4>,SlotCount> Candidates{};
  bool WeaponsOnly=false;
+ int ActiveSlots=SlotCount;
  // Three decimal digits track counts of affixes 1, 2, 3. Each <=9.
  static constexpr int States=1000;
  static constexpr int Weights[4]={0,1,10,100};
@@ -154,16 +155,17 @@ class FPlanner {
       ||(A.Changes==B.Changes&&A.Path<B.Path)));
  }
 public:
- explicit FPlanner(const FLoadout& Equipped,bool bWeaponsOnly=false):WeaponsOnly(bWeaponsOnly){
+ explicit FPlanner(const FLoadout& Equipped,bool bWeaponsOnly=false,int EnabledSlots=SlotCount)
+     :WeaponsOnly(bWeaponsOnly),ActiveSlots(EnabledSlots==SlotCount?SlotCount:LegacySlotCount){
   for(int Slot=0;Slot<SlotCount;++Slot){
-   Worn[Slot]=Valid(Equipped[Slot],Slot)?Equipped[Slot]:0;
+   Worn[Slot]=Slot<ActiveSlots&&Valid(Equipped[Slot],Slot)?Equipped[Slot]:0;
    Candidates[Slot][Worn[Slot]/100000]={Worn[Slot],-1};
   }
  }
  void Add(int Code,int Index){
   if(Code<=0||Index<0)return;
   const int Slot=(Code/10000)%10;
-  if(!Valid(Code,Slot)||(WeaponsOnly&&Slot!=0)
+  if(Slot>=ActiveSlots||!Valid(Code,Slot)||(WeaponsOnly&&Slot!=0)
      ||MoonfallGearAdvisor::Rank(Code)<MoonfallGearAdvisor::Rank(Worn[Slot]))return;
   auto& C=Candidates[Slot][Code/100000];
   if(!C.Code||MoonfallGearAdvisor::Rank(Code)>MoonfallGearAdvisor::Rank(C.Code))C={Code,Index};
@@ -171,7 +173,7 @@ public:
  FPlan Finish()const{
   std::array<FState,States> Current{},Next{};
   Current[0].Score=0;
-  for(int Slot=0;Slot<SlotCount;++Slot){
+  for(int Slot=0;Slot<ActiveSlots;++Slot){
    Next.fill(FState{});
    for(int Key=0;Key<States;++Key){
     const auto& Prior=Current[Key];
@@ -197,7 +199,7 @@ public:
   Result.Gain=Best.Score-TotalScore(Worn);
   Result.Changes=Best.Changes;
   unsigned Path=Best.Path;
-  for(int Slot=SlotCount-1;Slot>=0;--Slot){
+  for(int Slot=ActiveSlots-1;Slot>=0;--Slot){
    const auto& C=Candidates[Slot][Path&3u];
    Result.Codes[Slot]=C.Code;Result.Indices[Slot]=C.Index;Path>>=2;
   }
