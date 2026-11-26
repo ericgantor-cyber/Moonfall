@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallEquipmentSlots.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -212,6 +213,71 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
    Legacy->DefeatedDungeonBossMask, 0);
  TestEqual(TEXT("Legacy currency retained"), Legacy->Salvage, 9876);
  TestEqual(TEXT("Legacy level retained"), Legacy->Level, 23);
+
+ // Exercise the reflected equipment fields in real Unreal serialization.
+ // V17 preserves expanded inventory; legacy-only characters keep V16.
+ namespace S = MoonfallEquipmentSlots;
+ Original->Version = 16;
+ Original->InventoryItemCodes = {1001, 11002, 21003};
+ Original->EquippedWeaponCode = 1001;
+ Original->EquippedArmorCode = 11002;
+ Original->EquippedAccessoryCode = 21003;
+ Original->ExtraEquippedCodes.Reset();
+ S::FLoadout Worn{};
+ for (int32 Version = 16; Version <= S::ExpandedVersion; ++Version) {
+  Original->Version = Version;
+  if (Version == S::ExpandedVersion) {
+   Original->ExtraEquippedCodes = {31004, 41005, 51006, 61007, 71008, 81009};
+   Original->InventoryItemCodes.Append(Original->ExtraEquippedCodes);
+   FMoonfallWorldLootRecord Pending;
+   Pending.DropId = FGuid(1, 2, 3, 4);
+   Pending.LevelId = FName(TEXT("MoonfallStart"));
+   Pending.Location = FVector(100.f, 200.f, 300.f);
+   Pending.ItemCode = 81010;
+   Original->PendingWorldLoot = {Pending};
+   Original->DungeonTreasureStates.Init(0, 420);
+   Original->DungeonTreasureStates[1] = 71011;
+   Original->DungeonTreasureStates[2] = -1;
+  }
+  Bytes.Reset();
+  if (!TestTrue(TEXT("Equipment fixture serializes"),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* Gear = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(TEXT("Equipment fixture restores"), Gear)) return false;
+  TestEqual(TEXT("Equipment fixture version survives"), Gear->Version, Version);
+  TestTrue(TEXT("Exact bag survives"), Gear->InventoryItemCodes == Original->InventoryItemCodes);
+  TestTrue(TEXT("Exact extra gear survives"), Gear->ExtraEquippedCodes == Original->ExtraEquippedCodes);
+  if (Version == S::ExpandedVersion) {
+   if (!TestEqual(TEXT("Pending expanded drop count survives"), Gear->PendingWorldLoot.Num(), 1)) return false;
+   const auto& Drop = Gear->PendingWorldLoot[0];
+   TestEqual(TEXT("Expanded world drop code survives"), Drop.ItemCode, 81010);
+   TestTrue(TEXT("Drop identity survives"), Drop.DropId == FGuid(1, 2, 3, 4));
+   TestTrue(TEXT("Drop position survives"), Drop.Location.Equals(FVector(100.f, 200.f, 300.f)));
+   TestTrue(TEXT("Expanded drop is only valid from V17"),
+     S::ValidInventoryCode(Drop.ItemCode, Version) && !S::ValidInventoryCode(Drop.ItemCode, 16));
+   if (!TestEqual(TEXT("Treasure ledger size survives"), Gear->DungeonTreasureStates.Num(), 420)) return false;
+   TestEqual(TEXT("Unclaimed expanded treasure survives"), Gear->DungeonTreasureStates[1], 71011);
+   TestEqual(TEXT("Claimed treasure stays claimed"), Gear->DungeonTreasureStates[2], -1);
+  }
+  const S::FLegacy Old{Gear->EquippedWeaponCode, Gear->EquippedArmorCode, Gear->EquippedAccessoryCode};
+  if (!TestTrue(TEXT("Restored equipment passes migration policy"),
+       S::ReadSavedLoadout(Gear->Version, Old, Gear->ExtraEquippedCodes.GetData(),
+        Gear->ExtraEquippedCodes.Num(), Gear->InventoryItemCodes.GetData(),
+        Gear->InventoryItemCodes.Num(), Worn))) return false;
+  for (int32 Slot = 0; Slot < S::SlotCount; ++Slot) {
+   const int32 Expected = Slot < Original->InventoryItemCodes.Num()
+       ? Original->InventoryItemCodes[Slot] : 0;
+   TestEqual(TEXT("Every worn slot round-trips or defaults empty"), Worn[Slot], Expected);
+  }
+  const S::FLoadout Before = Worn;
+  Gear->InventoryItemCodes.RemoveAt(0);
+  TestFalse(TEXT("Missing worn item rejects entire loadout"),
+    S::ReadSavedLoadout(Gear->Version, Old, Gear->ExtraEquippedCodes.GetData(),
+     Gear->ExtraEquippedCodes.Num(), Gear->InventoryItemCodes.GetData(),
+     Gear->InventoryItemCodes.Num(), Worn));
+  TestTrue(TEXT("Rejected load leaves output unchanged"), Worn == Before);
+ }
  return !HasAnyErrors();
 }
 

@@ -10,6 +10,7 @@
 #include "MoonfallPerformanceAudit.h"
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -675,10 +676,14 @@ private:
  bool TryCast(int32 School, int32 Hand, float Multiplier);
  bool TryPlayAuthoredSpellImpact(int32 School, const FVector& Point, float Multiplier);
  TArray<TWeakObjectPtr<UNiagaraComponent>> ActiveSpellImpactFX;
+ // Six additional slots have fixed native storage. V16 cannot persist them.
+ MoonfallEquipmentSlots::FExtra ExtraEquippedCodes{};
+ MoonfallEquipmentSlots::FLoadout BuildEquipmentLoadout() const;
+ MoonfallEquipmentSlots::FLoadout BuildOwnedEquipmentLoadout() const;
  bool bEquipmentCraftInProgress = false;
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;
  // Session-only owned gear choices made at zero HP; never serialized as loot.
- int32 DefeatedEquipmentSelection[3] = {0, 0, 0};
+ MoonfallEquipmentSlots::FLoadout DefeatedEquipmentSelection{};
  bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };

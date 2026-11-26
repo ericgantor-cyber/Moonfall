@@ -73,6 +73,8 @@ public:
  UPROPERTY() int32 EquippedWeaponCode = 0;
  UPROPERTY() int32 EquippedArmorCode = 0;
  UPROPERTY() int32 EquippedAccessoryCode = 0;
+ // V17 stores exactly six extra worn codes; V1-V16 require an empty array.
+ UPROPERTY() TArray<int32> ExtraEquippedCodes;
  UPROPERTY() int32 LeftSpell = 0;
  UPROPERTY() int32 RightSpell = 1;
 };

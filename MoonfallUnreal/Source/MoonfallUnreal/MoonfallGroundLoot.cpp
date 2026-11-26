@@ -1,4 +1,5 @@
 #include "MoonfallGroundLoot.h"
+#include "MoonfallEquipmentSlots.h"
 #include "MoonfallHeroPawn.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -90,7 +91,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
  const int32 Tier = InItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+ if (Affix < 0 || Affix > 3 || !MoonfallEquipmentSlots::Known(Slot) ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
      InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
@@ -116,7 +117,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-8.f));
   PickupDetailB->SetRelativeLocation(FVector(0.f,0.f,30.f));
   PickupDetailB->SetRelativeScale3D(FVector(0.10f,0.10f,0.33f));
- } else if (Slot == 1) {
+ } else if (Slot == 1 || (Slot >= 3 && Slot <= 7)) {
   // Broad breastplate plus offset shoulder pauldrons.
   if (GearCube) PickupMesh->SetStaticMesh(GearCube);
   PickupMesh->SetRelativeLocation(FVector(0.f,0.f,49.f));
@@ -142,7 +143,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Prefer a reviewed imported mesh, but reject empty or corrupt bounds.
  // Scale into the existing loot display footprint regardless of import units.
  bool bUsingProductionMesh=false;
- UStaticMesh* Imported=Slot==0?ProductionSword:Slot==1?ProductionCuirass:ProductionAmulet;
+ UStaticMesh* Imported=Slot==0?ProductionSword:Slot==1?ProductionCuirass:Slot==2?ProductionAmulet:nullptr;
  if (IsValid(Imported)) {
   const FBox Bounds=Imported->GetBoundingBox();
   const FVector Size=Bounds.GetSize();
@@ -171,7 +172,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const float BeaconWidth = 0.08f + 0.012f * Rarity;
  RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
    1.25f + 0.11f * Rarity));
- const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+ const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"), TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),

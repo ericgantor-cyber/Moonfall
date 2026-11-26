@@ -39,6 +39,32 @@ int main() {
  G::FPlanner New(Empty);
  New.Add(1,0);New.Add(10001,1);New.Add(20001,2);
  assert(New.Finish().Changes==3);
+ // Verify the nine-slot planner against a small exhaustive oracle.
+ G::FExpandedEquipped Nine{};
+ G::FExpandedPlanner Expanded(Nine);
+ for(int Slot=0;Slot<9;++Slot){
+  Nine[Slot]=100000+Slot*10000+1005;
+  Expanded.Add(Nine[Slot],Slot);
+  Expanded.Add(200000+Slot*10000+1005,9+Slot);
+ }
+ const auto Full=Expanded.Finish();
+ assert(Full.Changes==9&&Full.Codes==Nine&&Full.Gain==G::TotalScore(Nine));
+ G::FExpandedPlanner MixedNine(Nine);
+ for(int Slot=0;Slot<9;++Slot)MixedNine.Add(200000+Slot*10000+1006,Slot);
+ const auto Up=MixedNine.Finish();
+ int Oracle=0;
+ for(unsigned Mask=0;Mask<512;++Mask){
+  auto Candidate=Nine;
+  for(int Slot=0;Slot<9;++Slot)if(Mask&(1u<<Slot))Candidate[Slot]=200000+Slot*10000+1006;
+  const int Gain=G::TotalScore(Candidate)-G::TotalScore(Nine);
+  if(Gain>Oracle)Oracle=Gain;
+ }
+ assert(Up.Gain==Oracle&&Up.Changes==9);
+ G::FExpandedPlanner CombatNine(Nine,true);
+ CombatNine.Add(Nine[8]+1,8);CombatNine.Add(Nine[0]+1,0);
+ const auto CombatPlan=CombatNine.Finish();
+ assert(CombatPlan.Changes==1&&CombatPlan.Codes[8]==Nine[8]);
+ assert(G::Improvement(Nine[8]+1,Nine)==1000);
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {

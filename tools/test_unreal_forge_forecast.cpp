@@ -20,7 +20,7 @@ int main() {
  // Cross-check thousands of canonical equipment codes, budgets and limits
  // against an independent single-tier transaction reference.
  for (int Trait = 0; Trait <= 3; ++Trait)
- for (int Slot = 0; Slot <= 2; ++Slot)
+ for (int Slot = 0; Slot < MoonfallEquipmentSlots::SlotCount; ++Slot)
  for (int Rarity = 0; Rarity <= 5; ++Rarity)
  for (int Tier = 1; Tier <= 25; ++Tier) {
   const int Code = Trait*100000 + Slot*10000 + Rarity*1000 + Tier;
@@ -54,7 +54,7 @@ int main() {
   }
  }
  // Explicitly reject invalid slot/rarity/trait/negative-code combinations.
- for (int Code : {-2, 0, 26, 6001, 30001, 90001, 100001, 900999})
+ for (int Code : {-2, 0, 26, 6001, 90001, 100001, 900999})
   assert(!Preview(Code, 100, 5).Valid);
  std::cout << "Moonfall forge forecast: " << checked
            << " source-independent budget/cap combinations PASS\n";

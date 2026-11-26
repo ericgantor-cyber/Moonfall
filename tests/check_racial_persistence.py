@@ -40,7 +40,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 16", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -131,16 +131,19 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("Trait >= 0 && Trait <= 3", valid)
-        self.assertIn("Rarity >= 0 && Rarity <= 5", valid)
-        self.assertIn("(Rarity != 0 || Trait == 0)", valid)
-        self.assertIn("Tier >= 1 && Tier <= 25", valid)
-        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", valid)
-        self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
-        self.assertIn("(Rarity == 0 && Affix != 0)", equip)
+        slots = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
+        for guard in ("Item.Affix<0||Item.Affix>3", "Item.Rarity<0||Item.Rarity>5",
+                      "(Item.Rarity==0&&Item.Affix!=0)", "Item.Tier<1||Item.Tier>25",
+                      "Code!=Item.Affix*100000+Item.Slot*10000+Item.Rarity*1000+Item.Tier"):
+            self.assertIn(guard, slots)
+        self.assertIn("MoonfallEquipmentSlots::Known(MoonfallEquipmentSlots::Decode(Code).Slot)", valid)
+        self.assertIn("MoonfallEquipmentSlots::Decode(ItemCode)", pickup)
+        self.assertIn("MoonfallEquipmentSlots::Decode(Code)", equip)
+        self.assertIn("if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;", pickup)
+        self.assertIn("if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;", equip)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
         self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
-        self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", load)
+        self.assertIn("if (MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) InventoryItemCodes.Add(Code);", load)
         self.assertIn("ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot", load)
 
         def valid_item_code(code):
@@ -286,7 +289,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),

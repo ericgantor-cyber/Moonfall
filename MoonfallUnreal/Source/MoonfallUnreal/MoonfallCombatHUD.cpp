@@ -240,11 +240,11 @@ void AMoonfallCombatHUD::DrawHUD()
     break;
   }
  };
- // Real gear-slot iconography, not extra equipped slots or paper-doll art.
+ // Real gear-slot iconography; additional slots use the existing glyph family.
  // Type 0 sword; 1 armor; 2 talisman. Rarity remains the encoded item color.
  const auto DrawGearGlyph = [this](float Cx,float Cy,float R,
                                   int32 Slot,const FLinearColor& Ink) {
-  if (!Canvas || Slot<0 || Slot>2 || !FMath::IsFinite(Cx)
+  if (!Canvas || !MoonfallEquipmentSlots::Known(Slot) || !FMath::IsFinite(Cx)
       || !FMath::IsFinite(Cy) || !FMath::IsFinite(R)
       || R<4.f || R>19.f) return;
   const auto Line=[this,&Ink](float X0,float Y0,float X1,float Y1) {
@@ -265,6 +265,11 @@ void AMoonfallCombatHUD::DrawHUD()
     Line(Cx-R*0.22f,Cy+R*0.65f,Cx-R*0.48f,Cy+R);
     break;
    case 1:
+   case 3:
+   case 4:
+   case 5:
+   case 6:
+   case 7:
     Line(Cx-R*0.80f,Cy-R*0.84f,Cx+R*0.80f,Cy-R*0.84f);
     Line(Cx-R*0.80f,Cy-R*0.84f,Cx-R*0.72f,Cy+R*0.38f);
     Line(Cx+R*0.80f,Cy-R*0.84f,Cx+R*0.72f,Cy+R*0.38f);
@@ -1859,11 +1864,11 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste (20%% cap)"),
        Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
-     FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
+     FString::Printf(TEXT("Force %d/9: 2pc +3%% crit; 3pc +4%% mastery"),
        Hero->GetSetPieceCount(1)),
-     FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
+     FString::Printf(TEXT("Ward %d/9: 2pc +3%% vers; 3pc +2.5%% protection"),
        Hero->GetSetPieceCount(2)),
-     FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
+     FString::Printf(TEXT("Focus %d/9: 2pc +4%% haste; 3pc +6%% mana regen"),
        Hero->GetSetPieceCount(3)),
      TEXT("DUNGEON CAMPAIGN"),
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
@@ -1871,9 +1876,9 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetClearedDungeonZoneCount(), Hero->GetTotalDiscoveredDungeons())
    };
    // Stats and owned equipped gear share a single WoW-style character page.
-   // Reserve visible room for the three real slots at every supported height.
+   // Reserve visible room for the nine-slot grid at every supported height.
    const bool bCompactStats = PanelHeight < 570.f;
-   const float StatsBottom = Top + PanelHeight - (bCompactStats ? 130.f : 144.f);
+   const float StatsBottom = Top + PanelHeight - (bCompactStats ? 142.f : 166.f);
    const float StatsRowHeight = FMath::Clamp(
      (StatsBottom-StartY)/(bCompactStats ? 8.f : 18.f),9.f,24.f);
    int32 ShownStatsRows = 0;
@@ -1903,7 +1908,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Left + 23.f, RowY, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    }
-   // Actual Weapon, Armor and Accessory records, validated by combat getters.
+   // All nine equipment records, validated by combat getters.
    // Read-only: all equipping and item comparison remains in Inventory.
    const float GearTop=StartY+ShownStatsRows*StatsRowHeight+6.f;
    const float GearBottom=Top+PanelHeight-65.f;
@@ -1912,10 +1917,10 @@ void AMoonfallCombatHUD::DrawHUD()
       Left+23.f,GearTop,nullptr,PanelWidth<440.f?0.57f:0.78f);
     const float CardsTop=GearTop+16.f;
     const float CardsAvailable=GearBottom-CardsTop;
-    const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),
-      Hero->GetEquipmentSlotCode(1),Hero->GetEquipmentSlotCode(2)};
-    const TCHAR* SlotNames[] = {TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY")};
-    const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
+    const TCHAR* SlotNames[] = {TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY"),
+       TEXT("HEAD"),TEXT("SHOULDERS"),TEXT("HANDS"),TEXT("LEGS"),TEXT("FEET"),TEXT("RING")};
+     static_assert(UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentSlots::SlotCount);
+     const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
       TEXT("EPIC"),TEXT("EMERALD"),TEXT("LEGENDARY")};
     const TCHAR* TraitNames[] = {TEXT("NONE"),TEXT("FORCE"),TEXT("WARD"),TEXT("FOCUS")};
     const FLinearColor RarityColors[] = {
@@ -1923,42 +1928,39 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(1.f,0.83f,0.33f),FLinearColor(0.76f,0.45f,0.98f),
       FLinearColor(0.31f,0.91f,0.49f),FLinearColor(1.f,0.58f,0.23f)
     };
-    if (CardsAvailable >= 34.f) {
-     const float ResourceReserve=PanelHeight>=760.f ? 60.f : 0.f;
-     const float CardHeight=FMath::Clamp(
-       (CardsAvailable-ResourceReserve-6.f)/3.f,10.f,46.f);
-     for (int32 Slot=0;Slot<3;++Slot) {
-      const int32 Tier=Hero->GetValidatedEquippedTier(Slot);
-      const bool bEquipped=Tier>0;
-      const int32 Rarity=bEquipped ? (Codes[Slot]/1000)%10 : 0;
-      const int32 Trait=bEquipped ? Codes[Slot]/100000 : 0;
-      const bool bValid=bEquipped && Rarity>=0 && Rarity<6
-        && Trait>=0 && Trait<4;
-      const float Y=CardsTop+Slot*(CardHeight+3.f);
-      if (Y+CardHeight>GearBottom-ResourceReserve+1.f) break;
-      DrawRect(FLinearColor(0.08f,0.11f,0.16f,0.95f),
-        Left+15.f,Y,PanelWidth-30.f,CardHeight);
-      DrawRect(bValid ? RarityColors[Rarity] : FLinearColor(0.36f,0.39f,0.45f),
-        Left+15.f,Y,4.f,CardHeight);
-      const FString Label=bValid
-        ? FString::Printf(TEXT("%s  T%d %s  %s  |  POWER %d"),
-          SlotNames[Slot],Tier,RarityNames[Rarity],TraitNames[Trait],
-          Hero->GetItemPower(Codes[Slot]))
-        : FString::Printf(TEXT("%s  |  EMPTY"),SlotNames[Slot]);
-      if (CardHeight>=25.f && PanelWidth>=390.f)
-       DrawGearGlyph(Left+PanelWidth-29.f,Y+CardHeight*0.5f,
-         10.f,Slot,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f));
-      DrawText(Label,bValid ? RarityColors[Rarity]
-        : FLinearColor(0.75f,0.78f,0.83f),
-        Left+24.f,Y+1.f,nullptr,PanelWidth<440.f?0.48f:0.69f);
-      if (CardHeight>=32.f)
-       DrawText(bValid && Hero->HasLegendaryPerk(Slot)
-         ? TEXT("LEGENDARY PERK ACTIVE")
-         : TEXT("Equip upgrades in Inventory"),
-         FLinearColor(0.78f,0.86f,0.92f),Left+24.f,Y+22.f,
-         nullptr,PanelWidth<440.f?0.47f:0.60f);
-     }
-     if (PanelHeight>=760.f) {
+    if (CardsAvailable >= 36.f) {
+     const float ResourceReserve=PanelHeight>=760.f && CardsAvailable>=120.f ? 60.f : 0.f;
+      const float CardHeight=FMath::Clamp((CardsAvailable-ResourceReserve-6.f)/3.f,10.f,46.f);
+      const float CardWidth=(PanelWidth-36.f)/3.f;
+      for (int32 Slot=0;Slot<MoonfallEquipmentSlots::SlotCount;++Slot) {
+       const int32 Code=Hero->GetEquipmentSlotCode(Slot);
+       const int32 Tier=Code%1000;
+       const int32 Rarity=(Code/1000)%10;
+       const int32 Trait=Code/100000;
+       const bool bValid=Tier>0 && Rarity>=0 && Rarity<6 && Trait>=0 && Trait<4;
+       const float X=Left+15.f+(Slot%3)*(CardWidth+3.f);
+       const float Y=CardsTop+(Slot/3)*(CardHeight+3.f);
+       if (Y+CardHeight>GearBottom-ResourceReserve+1.f) break;
+       DrawRect(FLinearColor(0.08f,0.11f,0.16f,0.95f),X,Y,CardWidth,CardHeight);
+       DrawRect(bValid ? RarityColors[Rarity] : FLinearColor(0.36f,0.39f,0.45f),X,Y,3.f,CardHeight);
+       const FString Label=bValid
+         ? FString::Printf(TEXT("%s T%d"),SlotNames[Slot],Tier)
+         : FString::Printf(TEXT("%s -"),SlotNames[Slot]);
+       DrawText(Label,bValid ? RarityColors[Rarity] : FLinearColor(0.75f,0.78f,0.83f),
+         X+5.f,Y+1.f,nullptr,CardWidth<100.f?0.43f:0.60f);
+       // Preserve the original equipment glyphs; reserve space in wide cards.
+       if (CardHeight>=25.f && CardWidth>=175.f)
+        DrawGearGlyph(X+CardWidth-14.f,Y+CardHeight*0.5f,
+          9.f,Slot,bValid ? RarityColors[Rarity] : FLinearColor(0.38f,0.41f,0.49f));
+       if (CardHeight>=25.f)
+        DrawText(bValid ? FString::Printf(TEXT("%s %s"),RarityNames[Rarity],TraitNames[Trait])
+          : FString(TEXT("EMPTY")),FLinearColor(0.78f,0.86f,0.92f),X+5.f,Y+13.f,
+          nullptr,CardWidth<100.f?0.40f:0.52f);
+       if (CardHeight>=39.f && bValid)
+        DrawText(FString::Printf(TEXT("POWER %d"),Hero->GetItemPower(Code)),
+          FLinearColor(0.78f,0.86f,0.92f),X+5.f,Y+27.f,nullptr,0.52f);
+      }
+      if (ResourceReserve>0.f) {
       // Retain the live HP/mana/stamina view from the former gear page.
       const float ResourceTop=CardsTop+3.f*(CardHeight+3.f)+2.f;
       const float Current[] = {Hero->Health,Hero->Mana,Hero->Stamina};
@@ -1984,10 +1986,11 @@ void AMoonfallCombatHUD::DrawHUD()
       }
      }
     } else {
-     DrawText(FString::Printf(TEXT("W %d  |  A %d  |  T %d"),
-       Hero->GetValidatedEquippedTier(0),Hero->GetValidatedEquippedTier(1),
-       Hero->GetValidatedEquippedTier(2)),FLinearColor(0.83f,0.90f,0.97f),
-       Left+23.f,GearTop+12.f,nullptr,0.62f);
+     int32 EquippedCount=0;
+      for (int32 Slot=0;Slot<MoonfallEquipmentSlots::SlotCount;++Slot)
+       if (Hero->GetEquipmentSlotCode(Slot)>0) ++EquippedCount;
+      DrawText(FString::Printf(TEXT("%d/9 equipped | Inventory to inspect"),EquippedCount),
+        FLinearColor(0.83f,0.90f,0.97f),Left+23.f,GearTop+12.f,nullptr,0.62f);
     }
    }
 
@@ -2219,10 +2222,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Slot = (Code / 10000) % 10;
    const int32 Rarity = (Code / 1000) % 10;
    const int32 Tier = Code % 1000;
-   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"), TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+   const bool bValid = Code > 0 && MoonfallEquipmentSlots::Known(Slot) && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && (Rarity != 0 || Affix == 0)
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
    const bool bEquipped = bValid && Code == Hero->GetEquipmentSlotCode(Slot);
@@ -2308,7 +2311,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 ForcePieces = Hero->GetSetPieceCount(1);
   const int32 WardPieces = Hero->GetSetPieceCount(2);
   const int32 FocusPieces = Hero->GetSetPieceCount(3);
-  DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
+  DrawText(FString::Printf(TEXT("Sets: Force %d/9  Ward %d/9  Focus %d/9    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   // Give mouse help its own rows rather than painting over advisor/crafting text.
@@ -2331,31 +2334,31 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedSlot = (SelectedCode / 10000) % 10;
    const int32 SelectedAffix = SelectedCode / 100000;
    const bool bForgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier < 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2
+     && MoonfallEquipmentSlots::Known(SelectedSlot)
      && SelectedRarity >= 0 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bAscendable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 5
+     && MoonfallEquipmentSlots::Known(SelectedSlot) && SelectedRarity >= 0 && SelectedRarity < 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bReforgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 2 && SelectedRarity <= 5
+     && MoonfallEquipmentSlots::Known(SelectedSlot) && SelectedRarity >= 2 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    // A dedicated, read-only selected-item summary above crafting and comparison.
    // Keep this area hidden on very short viewports to avoid covering bag rows.
    if (PanelHeight >= 500.f) {
-    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"), TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
     const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
       TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
     const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-    const bool bValidDetail = SelectedCode > 0 && SelectedSlot >= 0 && SelectedSlot <= 2
+    const bool bValidDetail = SelectedCode > 0 && MoonfallEquipmentSlots::Known(SelectedSlot)
       && SelectedRarity >= 0 && SelectedRarity <= 5
       && SelectedAffix >= 0 && SelectedAffix <= 3 && SelectedTier >= 1 && SelectedTier <= 25
       && (SelectedRarity != 0 || SelectedAffix == 0)
@@ -2379,7 +2382,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
     const FString SetLine = bValidDetail && SelectedAffix > 0
-      ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
+      ? FString::Printf(TEXT("SET PREVIEW: %s %d/9 -> %d/9  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
           SetEffects[SelectedAffix])
@@ -2430,7 +2433,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
     const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
     const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
-    const bool bValidSelection = MoonfallGearAdvisor::Valid(SelectedCode, SelectedSlot);
+    const bool bValidSelection = MoonfallEquipmentSlots::Valid(SelectedCode, SelectedSlot);
     const bool bAlreadyEquipped = bValidSelection && SelectedCode == EquippedCode;
     // Use the same validated power difference for the label and displayed value.
     const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;

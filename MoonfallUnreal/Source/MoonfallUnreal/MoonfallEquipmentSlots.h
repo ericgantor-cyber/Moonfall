@@ -1,0 +1,153 @@
+#pragma once
+#include <array>
+#include <cstddef>
+namespace MoonfallEquipmentSlots {
+// Stable decimal item codes; never renumber the three legacy slots.
+enum ESlot : int { Weapon=0, Armor, Accessory, Head, Shoulders, Hands, Legs, Feet, Ring, Count };
+inline constexpr int LegacyCount=3, SlotCount=Count;
+using FLegacy=std::array<int,LegacyCount>;
+using FLoadout=std::array<int,SlotCount>;
+constexpr bool Known(int Slot) {return Slot>=0&&Slot<SlotCount;}
+constexpr bool Legacy(int Slot) {return Slot>=0&&Slot<LegacyCount;}
+constexpr const char* Name(int Slot) {
+ constexpr const char* Names[SlotCount]={"Weapon","Armor","Accessory","Head","Shoulders","Hands","Legs","Feet","Ring"};
+ return Known(Slot)?Names[Slot]:"Unknown";
+}
+struct FItem { int Affix=0, Slot=-1, Rarity=0, Tier=0; };
+constexpr FItem Decode(int Code) {
+ if(Code<=0)return {};
+ const FItem Item{Code/100000,(Code/10000)%10,(Code/1000)%10,Code%1000};
+ if(!Known(Item.Slot)||Item.Affix<0||Item.Affix>3||Item.Rarity<0||Item.Rarity>5
+    ||Item.Tier<1||Item.Tier>25||(Item.Rarity==0&&Item.Affix!=0)
+    ||Code!=Item.Affix*100000+Item.Slot*10000+Item.Rarity*1000+Item.Tier)return {};
+ return Item;
+}
+constexpr bool Valid(int Code,int Slot) {return Known(Slot)&&Decode(Code).Slot==Slot;}
+// Extra gear contributes at one quarter of legacy primary-stat scaling.
+// Both inputs must be validated, owned tier values at the caller boundary.
+constexpr int SafeTier(int Tier){return Tier>=1&&Tier<=25?Tier:0;}
+constexpr int ExtraPrimaryBonus(int A,int B){return (SafeTier(A)+SafeTier(B)+3)/4;}
+constexpr int ExtraMasteryUnits(int A,int B,int C,int D,int E,int F){
+ return SafeTier(A)+SafeTier(B)+SafeTier(C)+SafeTier(D)+SafeTier(E)+SafeTier(F);
+}
+constexpr FLoadout FromLegacy(const FLegacy& Old) {
+ FLoadout Out{};
+ for(int Slot=0;Slot<LegacyCount;++Slot)Out[Slot]=Old[Slot];
+ return Out;
+}
+constexpr FLegacy ToLegacy(const FLoadout& Worn) {return {Worn[0],Worn[1],Worn[2]};}
+// Validation is separate from migration: never silently erase an invalid or
+// unowned item. Callers must refuse the whole write/load before mutation.
+constexpr bool ValidateOwned(const FLoadout& Worn,const int* Bag,std::size_t Size) {
+ if(Size>10000||(!Bag&&Size!=0))return false;
+ for(int Slot=0;Slot<SlotCount;++Slot) {
+  const int Code=Worn[Slot];
+  if(Code==0)continue;
+  if(!Valid(Code,Slot))return false;
+  bool Found=false;
+  for(std::size_t I=0;I<Size;++I)if(Bag[I]==Code){Found=true;break;}
+  if(!Found)return false;
+ }
+ return true;
+}
+// Build an owned snapshot without repeated full-bag searches. Empty or
+// malformed slots never require a scan. This is read-only and not a cache.
+constexpr FLoadout OwnedSnapshot(const FLoadout& Worn,const int* Bag,std::size_t Size) {
+ FLoadout Out{};
+ if(Size>10000||(!Bag&&Size!=0))return Out;
+ int Remaining=0;
+ FLoadout Wanted{};
+ for(int Slot=0;Slot<SlotCount;++Slot)
+  if(Valid(Worn[Slot],Slot)){Wanted[Slot]=Worn[Slot];++Remaining;}
+ for(std::size_t I=0;I<Size&&Remaining>0;++I){
+  const int Code=Bag[I];
+  if(Code<=0)continue;
+  const int Slot=(Code/10000)%10;
+  if(Known(Slot)&&Wanted[Slot]==Code&&Out[Slot]==0){
+   Out[Slot]=Code;--Remaining;
+  }
+ }
+ return Out;
+}
+// A bag copy can be removed only if it is present and a worn copy remains.
+// Check all worn references, including corrupt wrong-slot state, fail closed.
+constexpr bool CanRemoveCopy(const FLoadout& Worn,int Code,const int* Bag,std::size_t Size) {
+ const auto Item=Decode(Code);
+ if(!Known(Item.Slot)||Size>10000||(!Bag&&Size!=0))return false;
+ bool IsWorn=false;
+ for(const int WornCode:Worn)if(WornCode==Code){IsWorn=true;break;}
+ int Copies=0;
+ for(std::size_t I=0;I<Size;++I)
+  if(Bag[I]==Code&&++Copies>(IsWorn?1:0))return true;
+ return false;
+}
+// V17 stores only the six additional codes alongside the three existing fields.
+// Reject unknown versions, incomplete arrays, and pre-V17 extra fields rather
+// than silently accepting data that could be lost on a later autosave.
+inline constexpr int ExpandedVersion=17, ExtraCount=SlotCount-LegacyCount;
+using FExtra=std::array<int,ExtraCount>;
+constexpr FExtra ToExtra(const FLoadout& Worn) {
+ FExtra Out{};
+ for(int I=0;I<ExtraCount;++I)Out[I]=Worn[LegacyCount+I];
+ return Out;
+}
+// Only expanded slots can be changed here; legacy fields retain their API.
+constexpr bool EquipExtra(FExtra& Extra,int Code) {
+ const auto Item=Decode(Code);
+ if(!Known(Item.Slot)||Legacy(Item.Slot))return false;
+ auto& Current=Extra[Item.Slot-LegacyCount];
+ if(Current==Code)return false;
+ Current=Code;
+ return true;
+}
+// Defeated choices may only replace a slot with an item still owned at
+// checkpoint recovery. Never recreate items picked up after that checkpoint.
+constexpr void RestoreExtraChoices(FExtra& Extra,const FLoadout& Choices,
+ const int* Bag,std::size_t Size) {
+ const auto Owned=OwnedSnapshot(Choices,Bag,Size);
+ for(int Slot=LegacyCount;Slot<SlotCount;++Slot)
+  if(Owned[Slot]!=0)Extra[Slot-LegacyCount]=Owned[Slot];
+}
+constexpr FLoadout FromParts(const FLegacy& Old,const FExtra& Extra) {
+ FLoadout Out=FromLegacy(Old);
+ for(int I=0;I<ExtraCount;++I)Out[LegacyCount+I]=Extra[I];
+ return Out;
+}
+constexpr bool CanWriteLegacy(const FLoadout& Worn) {
+ for(int Slot=LegacyCount;Slot<SlotCount;++Slot)
+  if(Worn[Slot]!=0)return false;
+ return true;
+}
+constexpr bool ValidInventoryCode(int Code,int Version) {
+ const auto Item=Decode(Code);
+ return Version>=1&&Version<=ExpandedVersion&&Known(Item.Slot)
+     &&(Version==ExpandedVersion||Legacy(Item.Slot));
+}
+// Keep legacy-only inventories on V16. Expanded bag items also require V17,
+// even when all six additional equipped fields are empty.
+constexpr int WriteVersion(const FLoadout& Worn,const int* Bag,std::size_t Size) {
+ if(!ValidateOwned(Worn,Bag,Size))return 0;
+ int Version=CanWriteLegacy(Worn)?16:ExpandedVersion;
+ for(std::size_t I=0;I<Size;++I){
+  if(!ValidInventoryCode(Bag[I],ExpandedVersion))return 0;
+  if(!Legacy(Decode(Bag[I]).Slot))Version=ExpandedVersion;
+ }
+ return Version;
+}
+constexpr bool ReadSavedLoadout(int Version,const FLegacy& Old,
+ const int* Extra,std::size_t ExtraSize,const int* Bag,std::size_t BagSize,FLoadout& Out) {
+ if(Version<1||Version>ExpandedVersion)return false;
+ if(Version<ExpandedVersion?ExtraSize!=0:ExtraSize!=ExtraCount||!Extra)return false;
+ // Validate the whole inventory, including unworn gear, before publishing a loadout.
+ if(BagSize>10000||(!Bag&&BagSize!=0))return false;
+ for(std::size_t I=0;I<BagSize;++I)
+  if(!ValidInventoryCode(Bag[I],Version))return false;
+ FLoadout Candidate=FromLegacy(Old);
+ if(Version==ExpandedVersion)
+  for(int I=0;I<ExtraCount;++I)Candidate[LegacyCount+I]=Extra[I];
+ if(!ValidateOwned(Candidate,Bag,BagSize))return false;
+ Out=Candidate;
+ return true;
+}
+static_assert(Weapon==0&&Armor==1&&Accessory==2&&Ring==8&&SlotCount==9);
+}
