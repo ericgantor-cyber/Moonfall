@@ -17,11 +17,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_combined_quest_journal_matches_resident_save_contract(self):
         import re
         journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
-        allowed = self.hero_cpp.split("bool IsNamedMoonfallResident(FName Id) {", 1)[1].split("};", 1)[0]
         ids = re.findall(r'^\s*\{"([^"]+)"', journal, re.MULTILINE)
-        saved_ids = re.findall(r'FName\(TEXT\("([^"]+)"\)\)', allowed)
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(set(ids), set(saved_ids))
+        self.assertEqual(len(ids), len(set(x.casefold() for x in ids)))
+        self.assertEqual(len(ids), 15)
+        catalog = self.hero_cpp.split("const TArray<FName>& NamedMoonfallResidentIds() {", 1)[1].split("bool IsNamedMoonfallResident(FName Id) {", 1)[0]
+        self.assertIn("static const TArray<FName> Keys=[]", catalog)
+        self.assertIn("Result.Reserve(MoonfallQuestJournal::ResidentCount)", catalog)
+        self.assertIn("for (const auto& Entry : MoonfallQuestJournal::Residents)", catalog)
+        self.assertIn("Result.Add(FName(UTF8_TO_TCHAR(Entry.Id)))", catalog)
+        self.assertIn("return NamedMoonfallResidentIds().Contains(Id);", self.hero_cpp)
         tracker = self.hud.split("// World-wide quest tracker", 1)[1].split(
             "// Compact circular resource HUD", 1)[0]
         for required in ("Hero->GetResidentQuestState(ResidentKeys[I])",
