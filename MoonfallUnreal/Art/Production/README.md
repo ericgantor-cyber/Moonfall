@@ -46,6 +46,9 @@ In Build Center, select BUG REPORTS, then ASK CHATGPT - PREVIEW REPORT. Review t
 
 The guided AI triage dialog adds nine category choices (including unspecified), severity, reproduction frequency, and one-to-five recent report selection. Optional technical evidence is off by default; enabling it adds validated 1% low FPS, CPU/render/GPU timing estimates, resolution, quality, allowlisted graphics API and reduced-motion setting when available. Arbitrary report strings and invalid numeric fields are excluded. The editable preview remains the final review step before copying. This is a manual ChatGPT handoff, not an embedded AI service.
 
+### Live AI analysis (personal developer workstation)
+In Build Center, open BUG REPORTS, ASK CHATGPT - PREVIEW REPORT, and select ANALYZE WITH LIVE AI. Review the exact text, then explicitly approve sending it to OpenAI. Set your own project API key in the local OPENAI_API_KEY environment variable and restart Build Center first. Never embed a shared key, commit credentials or paste a key into a report. API billing is separate from ChatGPT. The Responses API client uses gpt-5.4-mini, store=false, a 16,000-character prompt limit, 2,000 output tokens, a 60-second network timeout and no automatic retry or redirects. Responses are displayed read-only; no commands, repository actions or file writes are executed from AI output. Requests run on a dedicated PowerShell runspace; the manual copy handoff remains available. No actual API request is made by CI. This personal workstation feature does not grant access to ChatGPT conversation history, memory or GitHub, and does not ship a key or service to players. A publicly distributed AI feature would require a secured server-side backend and authenticated users.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
