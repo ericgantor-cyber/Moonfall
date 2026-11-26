@@ -11,6 +11,8 @@
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallRoadLandmarks.h"
 #include "Engine/World.h"
+#include "Engine/StaticMesh.h"
+#include "Misc/PackageName.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/ConstructorHelpers.h"
@@ -26,6 +28,16 @@ AMoonfallArena::AMoonfallArena() {
  DungeonRoad->SetCullDistances(24000, 34000);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_GothicColumn"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> Column(
+     TEXT("/Game/MoonfallProduction/Meshes/SM_MF_GothicColumn.SM_MF_GothicColumn"));
+  ProductionColumn=Column.Get();
+ }
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightShield"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> Shield(
+     TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightShield.SM_MF_FirstlightShield"));
+  ProductionShield=Shield.Get();
+ }
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  // Reuse the mesh already loaded for the instanced dungeon road rather
@@ -58,6 +70,28 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
  // Batch all transforms before registration: two instancing components
  // instead of dozens of ticking scene actors or per-block draw components.
  using MoonfallSanctuaryArchitecture::FPiece;
+ // Substitute only the tall sanctuary pillars. The physical arena, road,
+ // relics and horizontal arch spans retain their original geometry.
+ UInstancedStaticMeshComponent* ImportedColumns=nullptr;
+ FBox ColumnBounds(ForceInit);
+ if (IsValid(ProductionColumn)) {
+  ColumnBounds=ProductionColumn->GetBoundingBox();
+  const FVector Size=ColumnBounds.GetSize();
+  if (ColumnBounds.IsValid && !ColumnBounds.Min.ContainsNaN() && !ColumnBounds.Max.ContainsNaN()
+      && !Size.ContainsNaN() && Size.GetMin()>0.1f && Size.GetMax()<100000.f) {
+   ImportedColumns=NewObject<UInstancedStaticMeshComponent>(this,TEXT("SanctuaryImportedColumns"));
+   if (IsValid(ImportedColumns)) {
+    ImportedColumns->SetupAttachment(GetRootComponent());
+    ImportedColumns->SetStaticMesh(ProductionColumn);
+    ImportedColumns->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    ImportedColumns->SetCollisionResponseToAllChannels(ECR_Ignore);
+    ImportedColumns->SetGenerateOverlapEvents(false);
+    ImportedColumns->SetCastShadow(false);
+    ImportedColumns->SetCanEverAffectNavigation(false);
+    ImportedColumns->SetCullDistances(14000,22000);
+   }
+  }
+ }
  const auto BuildDetails = [&](const TCHAR* Name, const FPiece* Pieces,
                                int32 Count) -> UInstancedStaticMeshComponent* {
   UInstancedStaticMeshComponent* Details =
@@ -72,6 +106,15 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
   Details->SetCullDistances(14000, 22000);
   for (int32 Index = 0; Index < Count; ++Index) {
    const FPiece& Piece = Pieces[Index];
+   if (IsValid(ImportedColumns) && Pieces==MoonfallSanctuaryArchitecture::GothicStone
+       && Piece.ScaleZ>=4.9f && Piece.ScaleX<=1.f && Piece.ScaleY<=1.f
+       && Piece.YawDegrees==0.f) {
+    const FVector Size=ColumnBounds.GetSize();
+    const FVector Scale(100.f*Piece.ScaleX/Size.X,100.f*Piece.ScaleY/Size.Y,100.f*Piece.ScaleZ/Size.Z);
+    const FVector Location=FVector(Piece.X,Piece.Y,Piece.Z)-ColumnBounds.GetCenter()*Scale;
+    if (ImportedColumns->AddInstance(FTransform(FRotator::ZeroRotator,Location,Scale))!=INDEX_NONE)
+     continue;
+   }
    Details->AddInstance(FTransform(
        FRotator(0.f, Piece.YawDegrees, 0.f),
        FVector(Piece.X, Piece.Y, Piece.Z),
@@ -84,10 +127,43 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
  SanctuaryGothicDetails = BuildDetails(TEXT("SanctuaryGothicDetails"),
      MoonfallSanctuaryArchitecture::GothicStone,
      static_cast<int32>(MoonfallSanctuaryArchitecture::GothicCount));
+ if (IsValid(ImportedColumns)) {
+  AddInstanceComponent(ImportedColumns);
+  ImportedColumns->RegisterComponent();
+ }
  SanctuaryMoonstoneDetails = BuildDetails(TEXT("SanctuaryMoonstoneDetails"),
      MoonfallSanctuaryArchitecture::MoonstoneRelics,
      static_cast<int32>(MoonfallSanctuaryArchitecture::RelicCount));
 
+ // Imported heraldry is display-only, mounted on the existing outer pillars.
+ // No shield equipment, guard mechanics, collision or navigation changes.
+ if (IsValid(ProductionShield)) {
+  const FBox Bounds=ProductionShield->GetBoundingBox();
+  const FVector Size=Bounds.GetSize();
+  const double Span=Size.GetMax();
+  if (Bounds.IsValid && !Bounds.Min.ContainsNaN() && !Bounds.Max.ContainsNaN()
+      && !Size.ContainsNaN() && Size.GetMin()>0.1f && Span<100000.f) {
+   UInstancedStaticMeshComponent* Shields=NewObject<UInstancedStaticMeshComponent>(this,TEXT("SanctuaryShieldHeraldry"));
+   if (IsValid(Shields)) {
+    Shields->SetupAttachment(GetRootComponent());
+    Shields->SetStaticMesh(ProductionShield);
+    Shields->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Shields->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Shields->SetGenerateOverlapEvents(false);
+    Shields->SetCastShadow(false);
+    Shields->SetCanEverAffectNavigation(false);
+    Shields->SetCullDistances(8000,12000);
+    const float Scale=60.f/static_cast<float>(Span);
+    const FRotator Rotation(90.f,0.f,0.f);
+    const FVector Offset=Rotation.RotateVector(Bounds.GetCenter()*Scale);
+    for (float X : {-760.f,760.f})
+     for (float Y : {2670.f,3170.f,3870.f,4370.f})
+      Shields->AddInstance(FTransform(Rotation,FVector(X+50.f,Y,210.f)-Offset,FVector(Scale)));
+    AddInstanceComponent(Shields);
+    Shields->RegisterComponent();
+   }
+  }
+ }
  // Four soft moon-blue beacons. No shadow casters, extra ticking or FX systems.
  // Lights and all stonework inherit the arena transform if a map is rotated.
  const FVector Lanterns[] = {

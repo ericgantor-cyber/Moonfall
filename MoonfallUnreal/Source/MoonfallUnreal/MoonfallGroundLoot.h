@@ -5,6 +5,7 @@
 
 class USceneComponent;
 class UStaticMeshComponent;
+class UStaticMesh;
 class UTextRenderComponent;
 
 UCLASS()
@@ -29,6 +30,10 @@ public:
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupMesh;
+ // Optional imported production assets. Missing packages retain existing visuals.
+ UPROPERTY() UStaticMesh* ProductionSword = nullptr;
+ UPROPERTY() UStaticMesh* ProductionCuirass = nullptr;
+ UPROPERTY() UStaticMesh* ProductionAmulet = nullptr;
  // Distinct sword, cuirass and amulet silhouettes. Components are created once,
  // with no per-frame tick, extra loot actors, or gameplay collisions.
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupDetailA;

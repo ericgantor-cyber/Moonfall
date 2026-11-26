@@ -18,6 +18,23 @@ class GroundLootVisualSafety(unittest.TestCase):
                          "const float BeaconWidth", "RarityBeacon->SetRelativeScale3D("):
             self.assertIn(expected, source)
 
+    def test_optional_imported_meshes_fall_back_without_changing_pickup(self):
+        constructor = self.cpp.split("AMoonfallGroundLoot::AMoonfallGroundLoot()",1)[1].split("void AMoonfallGroundLoot::InitializeLoot",1)[0]
+        init = self.cpp.split("void AMoonfallGroundLoot::InitializeLoot",1)[1].split("void AMoonfallGroundLoot::SetPersistentDropId",1)[0]
+        for name in ("FirstlightSword", "FirstlightCuirass", "EclipseAmulet"):
+            self.assertIn('FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_' + name + '"))', constructor)
+        self.assertEqual(constructor.count("FObjectFinderOptional<UStaticMesh>"), 3)
+        for token in ("Bounds.IsValid", "FMath::IsFinite(Span)", "Span>0.1f",
+                      "PickupMesh->SetStaticMesh(Imported)", "bUsingProductionMesh=true",
+                      "bUsingProductionMesh || !IsValid(PickupDetailA->GetStaticMesh())",
+                      "bUsingProductionMesh || !IsValid(PickupDetailB->GetStaticMesh())",
+                      "if (!bUsingProductionMesh)", "ItemLabel->SetTextRenderColor(QualityColor)"):
+            self.assertIn(token, init)
+        self.assertLess(init.index("ItemCode = InItemCode;"), init.index("UStaticMesh* Imported="))
+        self.assertNotIn("FObjectFinder", init)
+        self.assertNotIn("LoadObject", init)
+        self.assertNotIn("LoadSynchronous", init)
+
     def test_existing_codes_and_collection_unmodified(self):
         source = self.cpp
         for text in ("InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier",

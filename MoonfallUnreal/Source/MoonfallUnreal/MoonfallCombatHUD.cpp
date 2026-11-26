@@ -18,6 +18,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "HAL/PlatformMemory.h"
+#include "HAL/PlatformMisc.h"
+#include "RHI.h"
+#include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 void AMoonfallCombatHUD::DrawHUD()
@@ -1352,6 +1356,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
   DrawText(bCompactOptions ? TEXT("MOONFALL | OPTIONS") : TEXT("MOONFALL | GRAPHICS & ACCESSIBILITY"),
       FLinearColor::White, MenuLeft + 18.f, MenuTop + 17.f, nullptr, bCompactOptions ? 0.83f : 1.05f);
+  const float ReportX=MenuLeft+MenuWidth-150.f;
+  DrawRect(FLinearColor(0.18f,0.29f,0.37f,0.98f),ReportX,MenuTop+42.f,140.f,18.f);
+  DrawHoverFrame(ReportX,MenuTop+42.f,140.f,18.f);
+  const FString ReportLabel=Hero->GetBugReportStatus().IsEmpty()
+      ? TEXT("REPORT [F8/R3]") : Hero->GetBugReportStatus();
+  DrawText(ReportLabel,FLinearColor::White,ReportX+5.f,MenuTop+43.f,nullptr,0.65f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
@@ -1447,6 +1457,50 @@ void AMoonfallCombatHUD::DrawHUD()
    else if (HelpIndex == 1)
     HelpText = bCompactOptions ? TEXT("4K render scale: quality vs FPS")
       : TEXT("4K render scale: 100% is sharpest; reduce for performance");
+  }
+  // Static hardware inventory only; no per-frame WMI, benchmark or settings change.
+  if (MenuWidth>=480.f && MenuHeight>=460.f) {
+   static const uint64 RAMGiB=FPlatformMemory::GetConstants().TotalPhysical/(1024ull*1024ull*1024ull);
+   static const int32 Threads=FPlatformMisc::NumberOfCoresIncludingHyperthreads();
+   const int64 VideoBytes=Hero->GetAuditDedicatedVideoMemory();
+   const FString VRAM=VideoBytes>0
+      ? FString::Printf(TEXT("%.1f GiB VRAM"),double(VideoBytes)/(1024.0*1024.0*1024.0))
+      : TEXT("VRAM unknown");
+   const FString Audit=FString::Printf(TEXT("PC AUDIT | %llu GiB RAM | %d CPU threads | %s"),
+       static_cast<unsigned long long>(RAMGiB), Threads,*VRAM);
+   DrawText(Audit,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-47.f,nullptr,0.65f);
+   if (MenuHeight>=510.f) {
+    const auto& Sample=Hero->GetPerformanceAudit();
+    float CurrentScale=100.f, Normalized=0.f, MinScale=50.f, MaxScale=100.f;
+    if (Settings) Settings->GetResolutionScaleInformationEx(CurrentScale,Normalized,MinScale,MaxScale);
+    const auto Action=MoonfallPerformance::Recommend(Sample,
+      Settings?Settings->GetOverallScalabilityLevel():-1,CurrentScale,FMath::Max(50.f,MinScale));
+    const TCHAR* Hint=Action==MoonfallPerformance::EAction::LowerPreset?TEXT("Lower preset"):
+      Action==MoonfallPerformance::EAction::LowerRenderScale?TEXT("Lower scale"):
+      Action==MoonfallPerformance::EAction::AtMinimum?TEXT("Try lower resolution"):
+      Action==MoonfallPerformance::EAction::ReviewHitches?TEXT("Review stutters"):
+      Action==MoonfallPerformance::EAction::Keep?TEXT("Keep & monitor"):TEXT("Collecting");
+    const auto Stage=MoonfallPerformance::LikelyStage(Hero->GetStageAudit(),Sample);
+    const TCHAR* StageLabel=Stage==MoonfallPerformance::EStage::GPU?TEXT("GPU"):
+      Stage==MoonfallPerformance::EStage::Game?TEXT("Game CPU"):
+      Stage==MoonfallPerformance::EStage::Render?TEXT("Render CPU"):
+      Stage==MoonfallPerformance::EStage::Balanced?TEXT("Mixed"):TEXT("Unknown");
+    const FString Timing=Sample.Ready
+      ? FString::Printf(TEXT("%.0f FPS | 1%% low %.0f | %u hitches | %s"),
+           Sample.AverageFPS,Sample.OnePercentLowFPS,Sample.Hitches,Hint)
+      : TEXT("PC AUDIT | Play to collect frame timing");
+    DrawText(Timing,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-65.f,nullptr,0.65f);
+    // Report the active RHI, not a guessed adapter from Windows enumeration.
+    // Names are bounded for layout; absence of a renderer is explicitly unknown.
+    if (MenuHeight>=540.f) {
+     const FString Adapter=GRHIAdapterName.IsEmpty()?TEXT("Unknown GPU"):GRHIAdapterName.Left(40);
+     const FString API=GDynamicRHI?FString(GDynamicRHI->GetName()).Left(12):TEXT("Unknown");
+     const FString Renderer=FString::Printf(TEXT("%s | %s | likely: %s"),*Adapter,*API,StageLabel);
+     // Texture pool data is available in the audit getters, never presented
+     // as total GPU allocation or as evidence of sufficient VRAM.
+     DrawText(Renderer.Left(50),FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.55f);
+    }
+   }
   }
   DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);

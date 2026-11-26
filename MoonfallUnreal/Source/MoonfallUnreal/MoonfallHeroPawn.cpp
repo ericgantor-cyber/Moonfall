@@ -11,6 +11,15 @@
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Guid.h"
+#include "Misc/EngineVersion.h"
+#include "HAL/FileManager.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -21,7 +30,14 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Engine/Engine.h"
+#include "HAL/PlatformTime.h"
+#include "RHI.h"
+#include "DynamicRHI.h"
+#include "RenderingThread.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
@@ -426,6 +442,33 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Wall-clock interval, independent of simulation dilation and clamped timers.
+ // Menus and defeat never pollute the last gameplay sample.
+ if (IsLocallyControlled()) {
+  const double Now=FPlatformTime::Seconds();
+  const bool bGameplay=GetWorld() && !GetWorld()->IsPaused()
+      && FMath::IsFinite(Health) && Health>0.f && !bOptionsOpen && !bInventoryOpen
+      && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen;
+  PerformanceAudit.Observe(Now,bGameplay);
+  if (bGameplay) UpdateRecoverySnapshot(Now);
+  // Throttled estimates from the engine; no GPU flush or profiler capture.
+  if (!bGameplay) { StageAuditWarmupUntil=Now+1.0; }
+  else if (StageAuditWarmupUntil>=0 && Now>=StageAuditWarmupUntil) {
+   // Keep the pre-menu reading while the menu is open; start a fresh
+   // consecutive sample window after returning to gameplay.
+   StageAudit.Reset();
+   StageAuditWarmupUntil=-1;
+   NextStageAuditAt=Now;
+  }
+  if (bGameplay && StageAuditWarmupUntil<0 && GDynamicRHI && GetNetMode()!=NM_DedicatedServer
+       && Now>=NextStageAuditAt) {
+   NextStageAuditAt=Now+0.25;
+   StageAudit.Observe(FPlatformTime::ToMilliseconds(GGameThreadTime),
+       FPlatformTime::ToMilliseconds(GRenderThreadTime),
+       FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
+  }
+ }
+
  // A nonfinite frame delta must not poison the persistent autosave or
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
@@ -695,6 +738,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ControllerRightStick"), IE_Released, this, &AMoonfallHeroPawn::ControllerRightStickRelease);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
+ Input->BindAction(TEXT("BugReport"), IE_Pressed, this, &AMoonfallHeroPawn::ExportBugReport);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
@@ -1262,8 +1306,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
-  DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  if (!TryPlayAuthoredSpellImpact(School, Hit.ImpactPoint, Multiplier)) {
+   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
+  }
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
@@ -1273,12 +1319,38 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   OnHealthChanged(Health, MaxHealth);
  }
  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::SpellCast,FPlatformTime::Seconds());
  OnSpellCast(School, Hand == 0);
  if (bDualCast && IsValid(this) && !IsActorBeingDestroyed() && GetWorld())
   OnSpellCast(School, false);
  if (IsValid(this) && !IsActorBeingDestroyed() && GetWorld() && ResolvedImpactDamage > 0.f)
   OnSpellImpact(School, Hand == 0, ResolvedImpactPoint, ResolvedImpactDamage,
     bResolvedCritical, bResolvedKill);
+ return true;
+}
+bool AMoonfallHeroPawn::TryPlayAuthoredSpellImpact(int32 School, const FVector& Point, float Multiplier)
+{
+ // Visual-only: this function never changes mana, damage, or targeting.
+ if (!bEnableAuthoredSpellVFX || bReduceMotion || IsActorBeingDestroyed()
+     || !GetWorld() || GetNetMode()==NM_DedicatedServer || Point.ContainsNaN()
+     || !FMath::IsFinite(Multiplier) || Multiplier<=0.f
+     || School<0 || School>=6 || School==3 || !SpellImpactSystems.IsValidIndex(School)) return false;
+ UNiagaraSystem* System=SpellImpactSystems[School].Get();
+ if (!IsValid(System)) return false;
+ ActiveSpellImpactFX.RemoveAll([](const TWeakObjectPtr<UNiagaraComponent>& FX){return !FX.IsValid();});
+ // At most four active components per caster; preserve the existing cue at capacity.
+ if (ActiveSpellImpactFX.Num()>=4) return false;
+ UNiagaraComponent* FX=UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+     this,System,Point,FRotator::ZeroRotator,FVector(FMath::Clamp(Multiplier,0.5f,2.f)),
+     true,true,ENCPoolMethod::None,true);
+ if (!IsValid(FX)) return false;
+ ActiveSpellImpactFX.Add(FX);
+ // Even an incorrectly authored looping system is removed after two seconds.
+ TWeakObjectPtr<UNiagaraComponent> WeakFX(FX);
+ FTimerHandle Cleanup;
+ GetWorld()->GetTimerManager().SetTimer(Cleanup,FTimerDelegate::CreateLambda([WeakFX](){
+  if (UNiagaraComponent* Component=WeakFX.Get()) Component->DestroyComponent();
+ }),2.f,false);
  return true;
 }
 void AMoonfallHeroPawn::CastLeft()
@@ -1727,6 +1799,7 @@ void AMoonfallHeroPawn::BreakGuard()
 void AMoonfallHeroPawn::ControllerRightStickPress()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen) { ExportBugReport(); return; }
  if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleAtlasChronicleFocus(); return; }
  // R3 opens the Atlas from the bag or its subpages, never from live combat.
@@ -2085,6 +2158,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
       ? FMath::Clamp(ImpactCameraOffset, 0.f, 24.f) : 0.f;
   ImpactCameraOffset = FMath::Clamp(SafeImpulse + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  }
+ if (DamageTaken>0.f && FMath::IsFinite(DamageTaken))
+  BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::DamageTaken,FPlatformTime::Seconds());
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
 }
@@ -2096,6 +2171,10 @@ void AMoonfallHeroPawn::CycleGraphicsQuality() {
  if (!Settings) return;
  const int32 Next = (Settings->GetOverallScalabilityLevel() + 1) % 4;
  Settings->SetOverallScalabilityLevel(Next);
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
+ PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2105,6 +2184,10 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  if (!Settings) return;
  const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
  Settings->SetFullscreenMode(Next);
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
+ PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -2520,9 +2603,166 @@ void AMoonfallHeroPawn::OpenOptions() {
   DodgeBuffer.Clear();
  }
  bOptionsOpen = !bOptionsOpen;
+ if (bOptionsOpen) RefreshGraphicsMemoryAudit();
+ BugBreadcrumbs.Record(bOptionsOpen?MoonfallDiagnostics::EEvent::OptionsOpened:MoonfallDiagnostics::EEvent::OptionsClosed,FPlatformTime::Seconds());
  // Match the inventory close workflow and allow the Options X to be clicked.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen;
+}
+void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
+ // Local recovery evidence only. No crash-handler allocations or uploads.
+ // Exclude PIE and dedicated servers; one rolling snapshot per local pawn.
+ if (!GetWorld() || GetWorld()->WorldType!=EWorldType::Game
+     || GetNetMode()==NM_DedicatedServer || !IsLocallyControlled()
+     || !FMath::IsFinite(Now)) return;
+ if (NextRecoverySnapshotAt<0) { NextRecoverySnapshotAt=Now+10.0; return; }
+ if (Now<NextRecoverySnapshotAt) return;
+ NextRecoverySnapshotAt=Now+60.0;
+ const FString Directory=FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("BugReports"),TEXT("Recovery"));
+ IFileManager& Files=IFileManager::Get();
+ if (!Files.MakeDirectory(*Directory,true)) return;
+ if (RecoverySnapshotPath.IsEmpty()) {
+  RecoverySnapshotPath=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
+ }
+ const auto& Sample=PerformanceAudit.Snapshot;
+ TSharedRef<FJsonObject> Report=MakeShared<FJsonObject>();
+ Report->SetNumberField(TEXT("schema"),1);
+ Report->SetStringField(TEXT("kind"),TEXT("moonfall_recovery_snapshot"));
+ Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
+ Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS)
+     && FMath::IsFinite(Sample.OnePercentLowFPS) && FMath::IsFinite(Sample.P95Ms)) {
+  Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
+  Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
+  Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
+  Report->SetNumberField(TEXT("hitches"),Sample.Hitches);
+ }
+ TArray<TSharedPtr<FJsonValue>> Recent;
+ for (std::size_t Index=0;Index<BugBreadcrumbs.Size();++Index) {
+  const auto Event=BugBreadcrumbs.At(Index);
+  const double Age=Now-Event.At;
+  if (!FMath::IsFinite(Age) || Age<0 || Age>300.0) continue;
+  TSharedRef<FJsonObject> Item=MakeShared<FJsonObject>();
+  Item->SetNumberField(TEXT("event_code"),static_cast<int>(Event.Kind));
+  Item->SetNumberField(TEXT("seconds_ago"),Age);
+  Recent.Add(MakeShared<FJsonValueObject>(Item));
+ }
+ Report->SetArrayField(TEXT("recent_events"),Recent);
+ FString Json;
+ const auto Writer=TJsonWriterFactory<>::Create(&Json);
+ const FString Temp=RecoverySnapshotPath+TEXT(".tmp");
+ if (FJsonSerializer::Serialize(Report,Writer) && Json.Len()<=32768
+     && FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)) {
+  // Alternate complete files rather than replacing the only good copy.
+  const FString Next=RecoverySnapshotPath+TEXT(".next.json");
+  const FString Previous=RecoverySnapshotPath+TEXT(".previous.json");
+  if (Files.FileExists(*Previous)) Files.Delete(*Previous,false,true,true);
+  if (!Files.FileExists(*Previous) &&
+      (!Files.FileExists(*Next) || Files.Move(*Previous,*Next,false))) {
+   Files.Move(*Next,*Temp,false);
+  }
+ }
+ if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
+}
+void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ // Normal teardown removes only this pawn's own recovery snapshot.
+ // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
+ if (!RecoverySnapshotPath.IsEmpty()) {
+  IFileManager::Get().Delete(*RecoverySnapshotPath,false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".next.json")),false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".previous.json")),false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".tmp")),false,true,true);
+ }
+ Super::EndPlay(EndPlayReason);
+}
+void AMoonfallHeroPawn::ExportBugReport() {
+ // Explicit local action only. No raw logs, saves, account data or network.
+ if (!bOptionsOpen || !IsLocallyControlled() || !GetWorld() || IsActorBeingDestroyed()
+     || GetNetMode()==NM_DedicatedServer) return;
+ const double Now=FPlatformTime::Seconds();
+ if (!FMath::IsFinite(Now) || (LastBugReportAt>=0 && Now-LastBugReportAt<5.0)) return;
+ LastBugReportAt=Now;
+ RefreshGraphicsMemoryAudit();
+ const auto& Sample=PerformanceAudit.Snapshot;
+ const auto& Stages=StageAudit;
+ TSharedRef<FJsonObject> Report=MakeShared<FJsonObject>();
+ Report->SetNumberField(TEXT("schema"),1);
+ Report->SetStringField(TEXT("kind"),TEXT("moonfall_manual_bug_diagnostics"));
+ Report->SetStringField(TEXT("engine"),FEngineVersion::Current().ToString());
+ Report->SetStringField(TEXT("utc"),FDateTime::UtcNow().ToIso8601());
+ Report->SetStringField(TEXT("gpu"),GRHIAdapterName.Left(128));
+ Report->SetStringField(TEXT("rhi"),GDynamicRHI?FString(GDynamicRHI->GetName()).Left(32):TEXT("Unknown"));
+ Report->SetBoolField(TEXT("reduced_motion"),bReduceMotion);
+ Report->SetNumberField(TEXT("dedicated_video_bytes"),double(AuditDedicatedVideoMemory));
+ Report->SetNumberField(TEXT("texture_allocation_bytes"),double(AuditTextureMemory));
+ Report->SetNumberField(TEXT("texture_pool_bytes"),double(AuditTexturePool));
+ Report->SetBoolField(TEXT("gameplay_sample_ready"),Sample.Ready);
+ Report->SetNumberField(TEXT("frame_samples"),Sample.Samples);
+ if (Sample.Ready && FMath::IsFinite(Sample.AverageFPS) && FMath::IsFinite(Sample.P95Ms)
+     && FMath::IsFinite(Sample.OnePercentLowFPS)) {
+  Report->SetNumberField(TEXT("average_fps"),Sample.AverageFPS);
+  Report->SetNumberField(TEXT("one_percent_low_fps"),Sample.OnePercentLowFPS);
+  Report->SetNumberField(TEXT("p95_ms"),Sample.P95Ms);
+  Report->SetNumberField(TEXT("hitches"),Sample.Hitches);
+ }
+ if (Stages.Ready()) {
+  Report->SetNumberField(TEXT("game_thread_ms"),Stages.Mean[0]);
+  Report->SetNumberField(TEXT("render_thread_ms"),Stages.Mean[1]);
+  Report->SetNumberField(TEXT("gpu_ms_estimate"),Stages.Mean[2]);
+ }
+ if (const UGameUserSettings* Settings=GEngine?GEngine->GetGameUserSettings():nullptr) {
+  const FIntPoint Resolution=Settings->GetScreenResolution();
+  Report->SetNumberField(TEXT("width"),Resolution.X);
+  Report->SetNumberField(TEXT("height"),Resolution.Y);
+  Report->SetNumberField(TEXT("quality"),Settings->GetOverallScalabilityLevel());
+ }
+ TArray<TSharedPtr<FJsonValue>> Events;
+ for (std::size_t Index=0;Index<BugBreadcrumbs.Size();++Index) {
+  const auto Event=BugBreadcrumbs.At(Index);
+  const TCHAR* Kind=TEXT("unknown");
+  switch (Event.Kind) {
+   case MoonfallDiagnostics::EEvent::OptionsOpened: Kind=TEXT("options_opened"); break;
+   case MoonfallDiagnostics::EEvent::OptionsClosed: Kind=TEXT("options_closed"); break;
+   case MoonfallDiagnostics::EEvent::GraphicsChanged: Kind=TEXT("graphics_changed"); break;
+   case MoonfallDiagnostics::EEvent::DamageTaken: Kind=TEXT("damage_taken"); break;
+   case MoonfallDiagnostics::EEvent::SpellCast: Kind=TEXT("spell_cast"); break;
+  }
+  const double Age=Now-Event.At;
+  if (!FMath::IsFinite(Age) || Age<0 || Age>300.0) continue;
+  TSharedRef<FJsonObject> Item=MakeShared<FJsonObject>();
+  Item->SetStringField(TEXT("event"),Kind);
+  Item->SetNumberField(TEXT("seconds_ago"),Age);
+  Events.Add(MakeShared<FJsonValueObject>(Item));
+ }
+ Report->SetArrayField(TEXT("recent_events"),Events);
+ FString Json;
+ const auto Writer=TJsonWriterFactory<>::Create(&Json);
+ const FString Directory=FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("BugReports"));
+ const FString File=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
+ const FString Temp=File+TEXT(".tmp");
+ IFileManager& Files=IFileManager::Get();
+ // Only clean up a temporary file that this invocation attempted to write.
+ bool bSaved=false;
+ if (FJsonSerializer::Serialize(Report,Writer) && Json.Len()<=32768
+     && Files.MakeDirectory(*Directory,true)
+     && !Files.FileExists(*File) && !Files.FileExists(*Temp)) {
+  bSaved=FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)
+      && Files.Move(*File,*Temp,false);
+  if (!bSaved && Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
+ }
+ BugReportStatus=bSaved?TEXT("REPORT SAVED"):TEXT("SAVE FAILED");
+}
+void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
+ AuditDedicatedVideoMemory=AuditTextureMemory=AuditTexturePool=-1;
+ if (!IsLocallyControlled() || GetNetMode()==NM_DedicatedServer || !GDynamicRHI) return;
+ FTextureMemoryStats Stats;
+ RHIGetTextureMemoryStats(Stats);
+ // Zero dedicated memory can indicate shared/integrated memory. Do not
+ // present it as a confirmed capacity. Texture allocation is not total VRAM use.
+ if (Stats.DedicatedVideoMemory>0) AuditDedicatedVideoMemory=Stats.DedicatedVideoMemory;
+ if (Stats.AllocatedMemorySize>0) AuditTextureMemory=Stats.AllocatedMemorySize;
+ if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
@@ -2709,6 +2949,10 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
       : NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;
   Settings->SetFullscreenMode(NextMode);
  }
+ BugBreadcrumbs.Record(MoonfallDiagnostics::EEvent::GraphicsChanged,FPlatformTime::Seconds());
+ PerformanceAudit.Reset();
+ StageAudit.Reset();
+ StageAuditWarmupUntil=FPlatformTime::Seconds()+1.0;
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
@@ -5036,6 +5280,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
+    } else if (MouseX>=MenuLeft+MenuWidth-150.f && MouseX<=MenuLeft+MenuWidth-10.f
+        && MouseY>=MenuTop+42.f && MouseY<=MenuTop+60.f) {
+     ExportBugReport();
     } else {
      // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
      const float RowGap = (MenuHeight - 130.f) / 8.f;

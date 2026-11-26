@@ -5,6 +5,7 @@
 #include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
+#include "Misc/PackageName.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "CollisionQueryParams.h"
@@ -34,6 +35,23 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
  if (Cube.Succeeded()) {
   PickupDetailA->SetStaticMesh(Cube.Object);
   PickupDetailB->SetStaticMesh(Cube.Object);
+ }
+ // Discover only packages actually present after the editor import. CDO
+ // references keep them alive; missing source-only assets remain optional.
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightSword"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> ImportedSword(
+    TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightSword.SM_MF_FirstlightSword"));
+  ProductionSword=ImportedSword.Get();
+ }
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightCuirass"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> ImportedCuirass(
+    TEXT("/Game/MoonfallProduction/Meshes/SM_MF_FirstlightCuirass.SM_MF_FirstlightCuirass"));
+  ProductionCuirass=ImportedCuirass.Get();
+ }
+ if (FPackageName::DoesPackageExist(TEXT("/Game/MoonfallProduction/Meshes/SM_MF_EclipseAmulet"))) {
+  static ConstructorHelpers::FObjectFinderOptional<UStaticMesh> ImportedAmulet(
+    TEXT("/Game/MoonfallProduction/Meshes/SM_MF_EclipseAmulet.SM_MF_EclipseAmulet"));
+  ProductionAmulet=ImportedAmulet.Get();
  }
  PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  RarityBeacon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -111,14 +129,34 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupDetailB->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
   PickupDetailB->SetRelativeRotation(FRotator(0.f,0.f,30.f));
  }
+ // Prefer a reviewed imported mesh, but reject empty or corrupt bounds.
+ // Scale into the existing loot display footprint regardless of import units.
+ bool bUsingProductionMesh=false;
+ UStaticMesh* Imported=Slot==0?ProductionSword:Slot==1?ProductionCuirass:ProductionAmulet;
+ if (IsValid(Imported)) {
+  const FBox Bounds=Imported->GetBoundingBox();
+  const FVector Size=Bounds.GetSize();
+  const float Span=static_cast<float>(Size.GetMax());
+  if (Bounds.IsValid && !Bounds.Min.ContainsNaN() && !Bounds.Max.ContainsNaN()
+      && FMath::IsFinite(Span) && Span>0.1f && Span<100000.f) {
+   const float Scale=Slot==0?65.f/Span:Slot==1?58.f/Span:42.f/Span;
+   if (PickupMesh->SetStaticMesh(Imported)) {
+    PickupMesh->SetRelativeRotation(FRotator::ZeroRotator);
+    PickupMesh->SetRelativeScale3D(FVector(Scale));
+    const FVector Center=Bounds.GetCenter();
+    PickupMesh->SetRelativeLocation(FVector(-Center.X*Scale,-Center.Y*Scale,18.f-Bounds.Min.Z*Scale));
+    bUsingProductionMesh=true;
+   }
+  }
+ }
  // Visual variation is bounded and derived only from validated item data.
  // Collision stays disabled and pickup distances remain unchanged.
  const float SizeAccent = 1.f + 0.004f * FMath::Clamp(Tier - 1, 0, 24);
  PickupMesh->SetRelativeScale3D(PickupMesh->GetRelativeScale3D() * SizeAccent);
  PickupDetailA->SetRelativeScale3D(PickupDetailA->GetRelativeScale3D() * SizeAccent);
  PickupDetailB->SetRelativeScale3D(PickupDetailB->GetRelativeScale3D() * SizeAccent);
- PickupDetailA->SetHiddenInGame(!IsValid(PickupDetailA->GetStaticMesh()));
- PickupDetailB->SetHiddenInGame(!IsValid(PickupDetailB->GetStaticMesh()));
+ PickupDetailA->SetHiddenInGame(bUsingProductionMesh || !IsValid(PickupDetailA->GetStaticMesh()));
+ PickupDetailB->SetHiddenInGame(bUsingProductionMesh || !IsValid(PickupDetailB->GetStaticMesh()));
  // Rarity changes beacon width/height, while text remains the accessible cue.
  const float BeaconWidth = 0.08f + 0.012f * Rarity;
  RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
@@ -136,6 +174,9 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Colored beacon and object communicate rarity without transient effects or tick.
  if (UMaterialInstanceDynamic* BeaconMaterial = RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
   BeaconMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
+ // Imported meshes retain their authored material slots; rarity remains
+ // accessible through the original text and beacon.
+ if (!bUsingProductionMesh)
  if (UMaterialInstanceDynamic* PickupMaterial = PickupMesh->CreateAndSetMaterialInstanceDynamic(0)) {
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
   if (IsValid(PickupDetailA) && IsValid(PickupDetailA->GetStaticMesh()))

@@ -7,6 +7,8 @@
 #include "MoonfallFirstlightTutorial.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallTalentRules.h"
+#include "MoonfallPerformanceAudit.h"
+#include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -17,6 +19,8 @@ class AMoonfallWorldNPC;
 class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
+class UNiagaraSystem;
+class UNiagaraComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -29,6 +33,7 @@ public:
  UNavigationInvokerComponent* DungeonNavigationInvoker;
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
@@ -231,8 +236,20 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
+ // Optional authored systems indexed by the six existing spell schools.
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Combat|VFX")
+ TArray<TObjectPtr<UNiagaraSystem>> SpellImpactSystems;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Combat|VFX")
+ bool bEnableAuthoredSpellVFX = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
+ const MoonfallPerformance::FSnapshot& GetPerformanceAudit() const { return PerformanceAudit.Snapshot; }
+ // Cached RHI-reported bytes; negative means unavailable.
+ const MoonfallPerformance::FStageAudit& GetStageAudit() const { return StageAudit; }
+ int64 GetAuditDedicatedVideoMemory() const { return AuditDedicatedVideoMemory; }
+ int64 GetAuditTextureMemory() const { return AuditTextureMemory; }
+ int64 GetAuditTexturePool() const { return AuditTexturePool; }
+ const FString& GetBugReportStatus() const { return BugReportStatus; }
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -464,6 +481,21 @@ public:
  void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
+ MoonfallPerformance::FAudit PerformanceAudit;
+ MoonfallPerformance::FStageAudit StageAudit;
+ double NextStageAuditAt=-1;
+ double StageAuditWarmupUntil=-1;
+ int64 AuditDedicatedVideoMemory=-1;
+ int64 AuditTextureMemory=-1;
+ int64 AuditTexturePool=-1;
+ void RefreshGraphicsMemoryAudit();
+ void ExportBugReport();
+ FString BugReportStatus;
+ MoonfallDiagnostics::FBreadcrumbs BugBreadcrumbs;
+ double LastBugReportAt=-1;
+ double NextRecoverySnapshotAt=-1;
+ FString RecoverySnapshotPath;
+ void UpdateRecoverySnapshot(double Now);
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;
@@ -629,6 +661,8 @@ private:
  bool RegisterPersistentEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& Drops);
  void RestorePendingWorldEquipmentDrops();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryPlayAuthoredSpellImpact(int32 School, const FVector& Point, float Multiplier);
+ TArray<TWeakObjectPtr<UNiagaraComponent>> ActiveSpellImpactFX;
  bool bEquipmentCraftInProgress = false;
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;

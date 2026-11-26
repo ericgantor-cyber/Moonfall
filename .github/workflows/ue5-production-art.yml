@@ -1,0 +1,202 @@
+name: UE5 production art source validation
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Art/Production/**'
+      - 'MoonfallUnreal/Content/Python/import_production_art.py'
+      - 'MoonfallUnreal/Content/Python/install_production_materials.py'
+      - 'MoonfallUnreal/Content/Python/import_production_textures.py'
+      - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
+      - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
+      - 'MoonfallUnreal/Config/DefaultScalability.ini'
+      - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
+      - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
+      - 'MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1'
+      - 'MoonfallUnreal/Build/Build-Center.ps1'
+      - 'tools/test_unreal_production_art.py'
+      - 'tools/test_unreal_performance_audit.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallBugBreadcrumbs.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - '.github/workflows/ue5-production-art.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'MoonfallUnreal/Art/Production/**'
+      - 'MoonfallUnreal/Content/Python/import_production_art.py'
+      - 'MoonfallUnreal/Content/Python/install_production_materials.py'
+      - 'MoonfallUnreal/Content/Python/import_production_textures.py'
+      - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
+      - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
+      - 'MoonfallUnreal/Config/DefaultScalability.ini'
+      - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
+      - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1'
+      - 'MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1'
+      - 'MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1'
+      - 'MoonfallUnreal/Build/Build-Center.ps1'
+      - 'tools/test_unreal_production_art.py'
+      - 'tools/test_unreal_performance_audit.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallBugBreadcrumbs.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
+      - '.github/workflows/ue5-production-art.yml'
+permissions:
+  contents: read
+jobs:
+  validate-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/test_unreal_production_art.py
+      - run: g++ -std=c++17 -Wall -Wextra -Werror tools/test_unreal_performance_audit.cpp -o /tmp/moonfall-performance-audit && /tmp/moonfall-performance-audit
+      - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py MoonfallUnreal/Content/Python/import_production_textures.py MoonfallUnreal/Art/Production/generate_texture_maps.py MoonfallUnreal/Tools/install_cinematic_preview_lighting.py MoonfallUnreal/Tools/create_nanite_benchmark_assets.py
+
+  validate-bug-report-index:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in @('Get-MoonfallBugReports.ps1','New-MoonfallAIBugPrompt.ps1','Build-Center.ps1','Invoke-MoonfallAIAnalysis.ps1','New-MoonfallAIFollowup.ps1')) {
+            $tokens=$null; $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Resolve-Path 'MoonfallUnreal/Build').Path $script),[ref]$tokens,[ref]$errors)
+            if ($errors.Count -gt 0) { throw ("PowerShell parse failure in " + $script + ": " + ($errors | Out-String)) }
+          }
+          $root = 'MoonfallUnreal/Saved/BugReports'
+          New-Item -ItemType Directory -Path "$root/Recovery" -Force | Out-Null
+          $manual = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready=$true;average_fps=20;p95_ms=60;hitches=4} | ConvertTo-Json
+          $recovery = @{schema=1;kind='moonfall_recovery_snapshot';gameplay_sample_ready=$true;average_fps=60;p95_ms=20;hitches=2} | ConvertTo-Json
+          Set-Content -Path "$root/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json" -Value $manual -Encoding UTF8
+          Set-Content -Path "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.previous.json" -Value $recovery -Encoding UTF8
+          (Get-Item "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.previous.json").LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-1)
+          Set-Content -Path "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.next.json" -Value $recovery -Encoding UTF8
+          Set-Content -Path "$root/ignored.json" -Value $manual -Encoding UTF8
+          Set-Content -Path "$root/cccccccccccccccccccccccccccccccc.json" -Value '{}' -Encoding UTF8
+          $result = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 | ConvertFrom-Json
+          if ($result.Count -ne 2) { throw 'Unexpected index count' }
+          if ($result.Reports[0].Classification -ne 'Low throughput') { throw 'Manual classification failed' }
+          if ($result.Reports[1].Classification -ne 'Intermittent slow frames') { throw 'Recovery classification failed' }
+          if ($result.Reports[1].Kind -notmatch 'crash not established') { throw 'Overconfident recovery label' }
+          if (-not $result.Reports[1].File.EndsWith('.next.json')) { throw 'Newest recovery snapshot was not selected' }
+          $invalid = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready='true';average_fps=10;p95_ms=100} | ConvertTo-Json
+          Set-Content -Path "$root/dddddddddddddddddddddddddddddddd.json" -Value $invalid -Encoding UTF8
+          $result = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 | ConvertFrom-Json
+          if ($result.Count -ne 3) { throw 'Unexpected count with invalid readiness' }
+          $entry = @($result.Reports | Where-Object { $_.File -eq 'dddddddddddddddddddddddddddddddd.json' })
+          if ($entry.Count -ne 1 -or $entry[0].Classification -ne 'Insufficient timing evidence') { throw 'Malformed readiness was accepted' }
+
+          # Isolate the installed-game fixture from the runner's real profile.
+          $oldLocal = $env:LOCALAPPDATA
+          try {
+            $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'MoonfallReportFixture'
+            $installed = Join-Path $env:LOCALAPPDATA 'MoonfallUnreal/Saved/BugReports'
+            New-Item -ItemType Directory -Path $installed -Force | Out-Null
+            Set-Content -Path (Join-Path $installed 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json') -Value $manual -Encoding UTF8
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled | ConvertFrom-Json
+            if ($combined.Count -ne 4) { throw 'Installed report discovery failed' }
+            $found = @($combined.Reports | Where-Object { $_.Source -eq 'Installed game (user data)' })
+            if ($found.Count -ne 1 -or $found[0].Classification -ne 'Low throughput') { throw 'Installed report label failed' }
+            $custom = Join-Path $env:RUNNER_TEMP 'MoonfallCustomInstall'
+            $customReports = Join-Path $custom 'MoonfallUnreal/Saved/BugReports'
+            New-Item -ItemType Directory -Path $customReports -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $custom 'MoonfallUnreal.exe') -Force | Out-Null
+            Set-Content -Path (Join-Path $customReports 'ffffffffffffffffffffffffffffffff.json') -Value $manual -Encoding UTF8
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled -InstallDirectory $custom | ConvertFrom-Json
+            $found = @($combined.Reports | Where-Object { $_.Source -eq 'Custom installation' })
+            if ($found.Count -ne 1 -or $combined.Count -ne 5) { throw 'Custom installation discovery failed' }
+            Remove-Item -LiteralPath (Join-Path $custom 'MoonfallUnreal.exe')
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled -InstallDirectory $custom | ConvertFrom-Json
+            if ($combined.Count -ne 4) { throw 'Unverified installation was accepted' }
+          } finally { $env:LOCALAPPDATA = $oldLocal }
+
+          $fixture = [pscustomobject]@{Reports=@(
+            1..8 | ForEach-Object {
+              [pscustomobject]@{ LastWriteUtc=('2026-01-0{0}' -f $_); Kind='Manual report'; Classification='Low throughput'; AverageFPS=20; P95Milliseconds=60; Hitches=4; File='private-file.json'; Source='private-path'; Extra='private-token' }
+            }
+          )}
+          $prompt = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $fixture
+          if ($prompt -match 'private-file|private-path|private-token|Report 6:') { throw 'Prompt privacy or size limit failed' }
+          if ($prompt -notmatch 'Report 5:' -or $prompt -notmatch 'AverageFPS: 20' -or $prompt -notmatch 'reproduction steps') { throw 'Prompt missing required evidence' }
+          $empty = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex ([pscustomobject]@{Reports=@()})
+          if ($empty -notmatch 'No usable reports') { throw 'Empty handoff failed' }
+
+          $guided = [pscustomobject]@{Reports=@(
+            [pscustomobject]@{Kind='Manual report';Classification='Low throughput';AverageFPS=24;P95Milliseconds=60;Hitches=3;OnePercentLowFPS=15;GameThreadMs=12;RenderThreadMs=8;GpuMsEstimate=42;Width=1920;Height=1080;Quality=2;GraphicsAPI='D3D12';ReducedMotion=$true;File='private-file.json';Extra='private-token'},
+            [pscustomobject]@{Kind='Manual report';Classification='Unknown arbitrary text';AverageFPS=$true;P95Milliseconds=-1;Hitches=2.5;GpuMsEstimate='private-token';GraphicsAPI='private-path'}
+          )}
+          $basic = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $guided
+          if ($basic -match 'GpuMsEstimate|Graphics API:|OnePercentLowFPS|private-token|private-path|Hitches: 2.5|AverageFPS: True') { throw 'Basic prompt evidence boundary failed' }
+          $rich = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $guided -Category Performance -Severity Major -Frequency Sometimes -IncludeTechnicalEvidence
+          if ($rich -notmatch 'Bug category: Performance' -or $rich -notmatch 'Severity.*Major' -or $rich -notmatch 'GpuMsEstimate: 42' -or $rich -notmatch 'Graphics API: D3D12') { throw 'Guided evidence failed' }
+          if ($rich -match 'private-token|private-path|private-file|Hitches: 2.5') { throw 'Invalid evidence leaked' }
+          $single = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $fixture -MaximumReports 1
+          if ($single -notmatch 'Report 1:' -or $single -match 'Report 2:') { throw 'Report selection bound failed' }
+
+          $eventFixture = [pscustomobject]@{Reports=@([pscustomobject]@{
+            Kind='Manual report';Classification='Insufficient timing evidence';RecentEvents=@(
+              [pscustomobject]@{Event='damage_taken';SecondsAgo=3},
+              [pscustomobject]@{Event='private-token';SecondsAgo=4},
+              [pscustomobject]@{Event='spell_cast';SecondsAgo=-1}
+            )
+          })}
+          $eventPrompt = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $eventFixture -IncludeTechnicalEvidence
+          if ($eventPrompt -notmatch 'damage_taken' -or $eventPrompt -match 'private-token|spell_cast') { throw 'Breadcrumb evidence validation failed' }
+          $eventBasic = & ./MoonfallUnreal/Build/New-MoonfallAIBugPrompt.ps1 -ReportIndex $eventFixture
+          if ($eventBasic -match 'damage_taken') { throw 'Breadcrumb consent boundary failed' }
+
+          # Test fail-closed behavior without a live API key or paid network request.
+          $oldKey = [Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process')
+          try {
+            [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$null,'Process')
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'test' } catch { $blocked = $_.Exception.Message -match 'Explicit approval' }
+            if (-not $blocked) { throw 'Consent gate failed' }
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'test' -Approved } catch { $blocked = $_.Exception.Message -match 'OPENAI_API_KEY' }
+            if (-not $blocked) { throw 'Missing key gate failed' }
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt ('x'*16001) -Approved } catch { $blocked = $true }
+            if (-not $blocked) { throw 'Request size gate failed' }
+          } finally { [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$oldKey,'Process') }
+
+          $followup = & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport ('r'*16000) -PreviousAnswer ('a'*24000) -Question ('q'*2000)
+          if ($followup.Length -gt 16000 -or $followup -notmatch 'context truncated locally' -or $followup -notmatch 'PLAYER FOLLOW-UP QUESTION:') { throw 'Follow-up context bounds failed' }
+          $followup = & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport 'test report' -PreviousAnswer 'test answer' -Question 'What should I test next?'
+          if ($followup -notmatch 'test report' -or $followup -notmatch 'test answer' -or $followup -notmatch 'What should I test next') { throw 'Follow-up context missing' }
+          $blocked = $false
+          try { & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport 'test' -PreviousAnswer 'test' -Question '   ' } catch { $blocked = $true }
+          if (-not $blocked) { throw 'Blank follow-up accepted' }
+
+          # Cancellation and key leakage guards must block before any network I/O.
+          $source = New-Object System.Threading.CancellationTokenSource
+          $previousKey = [Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process')
+          try {
+            [Environment]::SetEnvironmentVariable('OPENAI_API_KEY','moonfall-ci-fake-key','Process')
+            $source.Cancel()
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'test' -Approved -CancellationToken $source.Token }
+            catch { $blocked = $_.Exception.Message -match 'canceled locally' }
+            if (-not $blocked) { throw 'Pre-canceled request was not rejected' }
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'contains moonfall-ci-fake-key' -Approved }
+            catch { $blocked = $_.Exception.Message -match 'contains your configured API key' }
+            if (-not $blocked) { throw 'Credential leakage guard failed' }
+          } finally {
+            $source.Dispose()
+            [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$previousKey,'Process')
+          }
+
+          # Source contract for retry gating and startup rollback. Desktop behavior still needs a native smoke test.
+          $ui = Get-Content -LiteralPath 'MoonfallUnreal/Build/Build-Center.ps1' -Raw
+          foreach ($marker in @('RETRY INITIAL ANALYSIS','Confirm retry','-not $session.LastAnswer -and $session.Requests -lt 10','if (-not $pending.Active -or -not $session.Task -or -not $session.Task.IsCompleted)','Resend the same reviewed original report')) {
+            if (-not $ui.Contains($marker)) { throw ('Missing live AI recovery guard: '+$marker) }
+          }

@@ -31,7 +31,7 @@ $logs.ReadOnly = $true
 $logs.BackColor = [Drawing.Color]::FromArgb(12,12,26)
 $logs.ForeColor = [Drawing.Color]::Gainsboro
 $logs.Font = New-Object Drawing.Font('Consolas',9)
-$logs.SetBounds(16,179,790,323)
+$logs.SetBounds(16,213,790,289)
 $logs.Anchor = 'Top,Bottom,Left,Right'
 $logs.AccessibleName = 'Build progress and diagnostic output'
 $form.Controls.Add($logs)
@@ -177,6 +177,414 @@ $exportLog.Add_Click({
         }
     }
     $dialog.Dispose()
+})
+$bugReports = New-Button 'BUG REPORTS' 16 180
+$bugReports.SetBounds(16,174,180,29)
+$bugReports.AccessibleName = 'Review local Moonfall bug reports and recovery snapshots'
+$bugReports.Add_Click({
+    if ($script:process -and -not $script:process.HasExited) {
+        [void][Windows.Forms.MessageBox]::Show('Finish or cancel the current build before reviewing reports.','Moonfall bug reports')
+        return
+    }
+    $indexScript = Join-Path $PSScriptRoot 'Get-MoonfallBugReports.ps1'
+    if (-not (Test-Path -LiteralPath $indexScript -PathType Leaf)) {
+        [void][Windows.Forms.MessageBox]::Show('The report viewer script is missing from this checkout.','Moonfall bug reports')
+        return
+    }
+    try {
+        # Use only the local, allowlisted report index. No uploads or raw logs.
+        $index = & $indexScript -IncludeInstalled | ConvertFrom-Json -ErrorAction Stop
+        $viewer = New-Object Windows.Forms.Form
+        try {
+            $viewer.Text = 'Moonfall local bug reports'
+            $viewer.Size = New-Object Drawing.Size(760,520)
+            $viewer.MinimumSize = New-Object Drawing.Size(460,320)
+            $viewer.StartPosition = 'CenterParent'
+            $viewer.Font = New-Object Drawing.Font('Segoe UI',11)
+            $note = New-Object Windows.Forms.Label
+            $note.Dock = 'Top'
+            $note.Height = 76
+            $note.Text = 'Local checkout, standard installed-game folders and registered custom installation. Recovery snapshots may belong to a running session. No report is sent automatically.'
+            $note.AccessibleName = 'Local report privacy and recovery limitations'
+            $body = New-Object Windows.Forms.TextBox
+            $body.Multiline = $true
+            $body.ReadOnly = $true
+            $body.ScrollBars = 'Both'
+            $body.WordWrap = $false
+            $body.Dock = 'Fill'
+            $body.AccessibleName = 'Read-only bug report summaries'
+            $body.Text = if ($index.Count -gt 0) {
+                $index.Reports | Format-List Source,File,LastWriteUtc,Kind,Classification,AverageFPS,P95Milliseconds,Hitches | Out-String -Width 160
+            } else {
+                'No valid reports found in the checked folders. Unregistered installations or Saved directory overrides may use another location.'
+            }
+            $close = New-Object Windows.Forms.Button
+            $close.Dock = 'Bottom'
+            $close.Height = 34
+            $close.Text = 'CLOSE'
+            $close.AccessibleName = 'Close bug report viewer'
+            $close.DialogResult = [Windows.Forms.DialogResult]::Cancel
+            $viewer.CancelButton = $close
+            $askAI = New-Object Windows.Forms.Button
+            $askAI.Dock = 'Bottom'
+            $askAI.Height = 40
+            $askAI.Text = 'ASK CHATGPT - PREVIEW REPORT'
+            $askAI.AccessibleName = 'Preview a privacy-filtered diagnostic prompt for ChatGPT'
+            $askAI.Add_Click({
+                $promptScript = Join-Path $PSScriptRoot 'New-MoonfallAIBugPrompt.ps1'
+                try {
+                    if (-not (Test-Path -LiteralPath $promptScript -PathType Leaf)) { throw 'Missing prompt generator.' }
+                    $triage = New-Object Windows.Forms.Form
+                    try {
+                        $triage.Text = 'Moonfall AI bug triage'
+                        $triage.ClientSize = New-Object Drawing.Size(500,350)
+                        $triage.FormBorderStyle = 'FixedDialog'
+                        $triage.StartPosition = 'CenterParent'
+                        $triage.Font = New-Object Drawing.Font('Segoe UI',11)
+                        $triage.MaximizeBox = $false
+                        $triage.MinimizeBox = $false
+                        $definitions = @(
+                            @{Label='Bug category'; Items=@('Unspecified','Crash or freeze','Performance','Combat','Controller or keyboard','UI or accessibility','Quest or world','Save or progression','Graphics or audio')},
+                            @{Label='Severity'; Items=@('Unknown','Critical','Major','Minor')},
+                            @{Label='Reproduction frequency'; Items=@('Unknown','Every time','Sometimes','Once')},
+                            @{Label='Number of recent reports'; Items=@('1','2','3','4','5')}
+                        )
+                        $choices = @()
+                        $y = 12
+                        foreach ($definition in $definitions) {
+                            $label = New-Object Windows.Forms.Label
+                            $label.Text = $definition.Label
+                            $label.SetBounds(12,$y,465,23)
+                            $combo = New-Object Windows.Forms.ComboBox
+                            $combo.SetBounds(12,($y+23),465,30)
+                            $combo.AccessibleName = $definition.Label
+                            $combo.DropDownStyle = 'DropDownList'
+                            [void]$combo.Items.AddRange([object[]]$definition.Items)
+                            $combo.SelectedIndex = 0
+                            $triage.Controls.Add($label)
+                            $triage.Controls.Add($combo)
+                            $choices += $combo
+                            $y += 57
+                        }
+                        $details = New-Object Windows.Forms.CheckBox
+                        $details.SetBounds(12,248,465,40)
+                        $details.Text = 'Include extra graphics and CPU/GPU timing evidence'
+                        $details.AccessibleName = 'Include extra technical diagnostic evidence'
+                        $details.Checked = $false
+                        $triage.Controls.Add($details)
+                        $next = New-Object Windows.Forms.Button
+                        $next.SetBounds(12,302,275,36)
+                        $next.Text = 'PREVIEW PROMPT'
+                        $next.AccessibleName = 'Review generated diagnostic prompt'
+                        $next.DialogResult = [Windows.Forms.DialogResult]::OK
+                        $abort = New-Object Windows.Forms.Button
+                        $abort.SetBounds(300,302,177,36)
+                        $abort.Text = 'CANCEL'
+                        $abort.AccessibleName = 'Cancel AI report preparation'
+                        $abort.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                        $triage.Controls.Add($next)
+                        $triage.Controls.Add($abort)
+                        $triage.AcceptButton = $next
+                        $triage.CancelButton = $abort
+                        if ($triage.ShowDialog($viewer) -ne [Windows.Forms.DialogResult]::OK) { return }
+                        $prompt = & $promptScript -ReportIndex $index -Category ([string]$choices[0].SelectedItem) -Severity ([string]$choices[1].SelectedItem) -Frequency ([string]$choices[2].SelectedItem) -MaximumReports ([int]$choices[3].SelectedItem) -IncludeTechnicalEvidence:$details.Checked
+                    } finally { $triage.Dispose() }
+                    $preview = New-Object Windows.Forms.Form
+                    try {
+                        $preview.Text = 'Review diagnostic handoff before sharing'
+                        $preview.Size = New-Object Drawing.Size(680,480)
+                        $preview.MinimumSize = New-Object Drawing.Size(440,300)
+                        $preview.StartPosition = 'CenterParent'
+                        $preview.Font = New-Object Drawing.Font('Segoe UI',11)
+                        $instructions = New-Object Windows.Forms.Label
+                        $instructions.Dock = 'Top'
+                        $instructions.Height = 64
+                        $instructions.Text = 'Review the prompt and add reproduction steps. Choose live analysis or copy into ChatGPT. Nothing is sent without confirmation.'
+                        $instructions.AccessibleName = 'ChatGPT sharing instructions'
+                        $promptBox = New-Object Windows.Forms.TextBox
+                        $promptBox.Multiline = $true
+                        $promptBox.ScrollBars = 'Vertical'
+                        $promptBox.Dock = 'Fill'
+                        $promptBox.Text = $prompt
+                        $promptBox.AccessibleName = 'Editable diagnostic prompt'
+                        $copy = New-Object Windows.Forms.Button
+                        $copy.Dock = 'Bottom'
+                        $copy.Height = 38
+                        $copy.Text = 'COPY FOR CHATGPT'
+                        $copy.AccessibleName = 'Copy reviewed prompt to clipboard'
+                        $copy.Add_Click({
+                            try {
+                                [Windows.Forms.Clipboard]::SetText($promptBox.Text)
+                                $copy.Text = 'COPIED - PASTE INTO CHATGPT'
+                            } catch {
+                                [void][Windows.Forms.MessageBox]::Show('Clipboard unavailable. Select and copy the prompt manually.','Moonfall AI handoff')
+                            }
+                        })
+                        $back = New-Object Windows.Forms.Button
+                        $back.Dock = 'Bottom'
+                        $back.Height = 34
+                        $back.Text = 'BACK'
+                        $back.AccessibleName = 'Return to bug report list'
+                        $back.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                        $preview.CancelButton = $back
+                        $live = New-Object Windows.Forms.Button
+                        $live.Dock = 'Bottom'
+                        $live.Height = 40
+                        $live.Text = 'ANALYZE WITH LIVE AI'
+                        $live.AccessibleName = 'Send reviewed diagnostic prompt to OpenAI and view the response'
+                        $live.Add_Click({
+                            $apiScript = Join-Path $PSScriptRoot 'Invoke-MoonfallAIAnalysis.ps1'
+                            if (-not (Test-Path -LiteralPath $apiScript -PathType Leaf)) {
+                                [void][Windows.Forms.MessageBox]::Show('Live AI client is missing. Use the manual handoff.','Moonfall live AI')
+                                return
+                            }
+                            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process'))) {
+                                [void][Windows.Forms.MessageBox]::Show('Configure your own OpenAI API key in the local OPENAI_API_KEY environment variable and restart Build Center. API billing is separate. Never paste a key into this report.','Moonfall live AI setup')
+                                return
+                            }
+                            if ([string]::IsNullOrWhiteSpace($promptBox.Text) -or $promptBox.Text.Length -gt 16000) {
+                                [void][Windows.Forms.MessageBox]::Show('Enter a report of 1 to 16000 characters.','Moonfall live AI')
+                                return
+                            }
+                            if ([Windows.Forms.MessageBox]::Show('Send the reviewed text to OpenAI? API usage may incur charges. Do not include passwords or private information. No files or GitHub actions will be executed.','Confirm live AI request','YesNo','Question',[Windows.Forms.MessageBoxDefaultButton]::Button2) -ne [Windows.Forms.DialogResult]::Yes) { return }
+                            $analysisWindow = New-Object Windows.Forms.Form
+                            $worker = $null
+                            $poll = $null
+                            $pending = @{Active=$false;Task=$null}
+                            try {
+                                $analysisWindow.Text = 'Moonfall live AI analysis'
+                                $analysisWindow.Size = New-Object Drawing.Size(760,560)
+                                $analysisWindow.MinimumSize = New-Object Drawing.Size(440,300)
+                                $analysisWindow.StartPosition = 'CenterParent'
+                                $analysisWindow.Font = New-Object Drawing.Font('Segoe UI',11)
+                                $status = New-Object Windows.Forms.Label
+                                $status.Dock = 'Top'
+                                $status.Height = 58
+                                $status.Text = 'Requesting AI analysis. The interface remains responsive.'
+                                $status.AccessibleName = 'Live AI request status'
+                                $answerBox = New-Object Windows.Forms.TextBox
+                                $answerBox.Multiline = $true
+                                $answerBox.ReadOnly = $true
+                                $answerBox.ScrollBars = 'Vertical'
+                                $answerBox.Dock = 'Fill'
+                                $answerBox.AccessibleName = 'AI analysis response'
+                                $done = New-Object Windows.Forms.Button
+                                $done.Dock = 'Bottom'
+                                $done.Height = 40
+                                $done.Text = 'CLOSE'
+                                $done.Enabled = $false
+                                $done.AccessibleName = 'Close AI analysis'
+                                $done.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                                $analysisWindow.CancelButton = $done
+                                $analysisWindow.Controls.Add($answerBox)
+                                $analysisWindow.Controls.Add($done)
+                                $analysisWindow.Controls.Add($status)
+                                $analysisWindow.Add_FormClosing({
+                                    param($sender,$eventArgs)
+                                    if ($pending.Active) { $eventArgs.Cancel = $true }
+                                })
+                                $originalReport = $promptBox.Text
+                                $session = @{ Worker=$null; Task=$null; LastAnswer=''; Requests=0; CancelSource=$null; Canceled=$false }
+                                $question = New-Object Windows.Forms.TextBox
+                                $question.Dock = 'Bottom'
+                                $question.Multiline = $true
+                                $question.Height = 70
+                                $question.MaxLength = 2000
+                                $question.AccessibleName = 'Ask a follow-up question about this bug'
+                                $question.Enabled = $false
+                                $follow = New-Object Windows.Forms.Button
+                                $follow.Dock = 'Bottom'
+                                $follow.Height = 40
+                                $follow.Text = 'REVIEW FOLLOW-UP'
+                                $follow.AccessibleName = 'Review the next AI question and its context before sending'
+                                $follow.Enabled = $false
+                                $copyAnswer = New-Object Windows.Forms.Button
+                                $copyAnswer.Dock = 'Bottom'
+                                $copyAnswer.Height = 36
+                                $copyAnswer.Text = 'COPY LATEST ANALYSIS'
+                                $copyAnswer.AccessibleName = 'Copy latest AI analysis to clipboard'
+                                $copyAnswer.Enabled = $false
+                                $analysisWindow.Controls.Add($follow)
+                                $analysisWindow.Controls.Add($question)
+                                $analysisWindow.Controls.Add($copyAnswer)
+                                $cancelRequest = New-Object Windows.Forms.Button
+                                $cancelRequest.Dock = 'Bottom'
+                                $cancelRequest.Height = 38
+                                $cancelRequest.Text = 'CANCEL REQUEST'
+                                $cancelRequest.AccessibleName = 'Cancel the active AI request locally; API charges may still apply'
+                                $cancelRequest.Enabled = $false
+                                $analysisWindow.Controls.Add($cancelRequest)
+                                $cancelRequest.Add_Click({
+                                    if (-not $pending.Active -or -not $session.CancelSource) { return }
+                                    $session.Canceled = $true
+                                    $cancelRequest.Enabled = $false
+                                    $status.Text = 'Canceling locally. API billing status is unknown.'
+                                    $session.CancelSource.Cancel()
+                                })
+                                $copyAnswer.Add_Click({
+                                    if ($session.LastAnswer) {
+                                        try { [Windows.Forms.Clipboard]::SetText($session.LastAnswer); $status.Text = 'Latest analysis copied.' }
+                                        catch { $status.Text = 'Clipboard unavailable. Select and copy the response manually.' }
+                                    }
+                                })
+                                $poll = New-Object Windows.Forms.Timer
+                                $poll.Interval = 250
+                                $retryInitial = New-Object Windows.Forms.Button
+                                $retryInitial.Dock = 'Bottom'
+                                $retryInitial.Height = 38
+                                $retryInitial.Text = 'RETRY INITIAL ANALYSIS'
+                                $retryInitial.AccessibleName = 'Retry the original report only after confirming another paid API request'
+                                $retryInitial.Enabled = $false
+                                $analysisWindow.Controls.Add($retryInitial)
+                                $startRequest = {
+                                    param([string]$request)
+                                    if ($pending.Active -or $session.Requests -ge 10) { return }
+                                    $worker = $null
+                                    try {
+                                        $retryInitial.Enabled = $false
+                                        $worker = [PowerShell]::Create()
+                                        $session.CancelSource = New-Object System.Threading.CancellationTokenSource
+                                        $session.Canceled = $false
+                                        [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$request).AddParameter('Approved',$true).AddParameter('CancellationToken',$session.CancelSource.Token)
+                                        $session.Task = $worker.BeginInvoke()
+                                        $session.Worker = $worker
+                                        $session.Requests++
+                                        $pending.Active = $true
+                                        $done.Enabled = $false
+                                        $cancelRequest.Enabled = $true
+                                        $question.Enabled = $false
+                                        $follow.Enabled = $false
+                                        $status.Text = ('Request {0}/10 in progress. No automatic retry.' -f $session.Requests)
+                                        $poll.Start()
+                                    } catch {
+                                        # If startup failed after BeginInvoke, cancel before disposing.
+                                        if ($session.CancelSource) { $session.CancelSource.Cancel() }
+                                        if ($worker) { $worker.Dispose() }
+                                        if ($session.CancelSource) { $session.CancelSource.Dispose(); $session.CancelSource=$null }
+                                        $session.Worker = $null
+                                        $session.Task = $null
+                                        $pending.Active = $false
+                                        $poll.Stop()
+                                        $retryInitial.Enabled = -not $session.LastAnswer -and $session.Requests -lt 10
+                                        $cancelRequest.Enabled = $false
+                                        $status.Text = 'Unable to start request. No automatic retry.'
+                                        $done.Enabled = $true
+                                        $question.Enabled = [bool]$session.LastAnswer -and $session.Requests -lt 10
+                                        $follow.Enabled = $question.Enabled
+                                    }
+                                }
+                                $poll.Add_Tick({
+                                    if (-not $pending.Active -or -not $session.Task -or -not $session.Task.IsCompleted) { return }
+                                    $poll.Stop()
+                                    try {
+                                        $reply = ($session.Worker.EndInvoke($session.Task) | Out-String).Trim()
+                                        if ($session.Canceled) { throw 'Canceled locally.' }
+                                        if ($session.Worker.HadErrors -or -not $reply) { throw 'No usable analysis was returned.' }
+                                        $session.LastAnswer = $reply
+                                        $answerBox.Text = $reply
+                                        $question.Clear()
+                                        $status.Text = ('AI analysis ready. {0}/10 requests used. Verify suggestions before applying changes.' -f $session.Requests)
+                                    } catch {
+                                        if ($session.Canceled) {
+                                            $status.Text = 'Canceled locally. Previous analysis retained. API billing status is unknown.'
+                                        } else {
+                                            # Never display unfiltered exception details, request bodies or credentials.
+                                            $status.Text = 'Request failed. Check local API configuration, billing, model access or network. Previous analysis retained.'
+                                        }
+                                    } finally {
+                                        $session.Worker.Dispose()
+                                        if ($session.CancelSource) { $session.CancelSource.Dispose(); $session.CancelSource=$null }
+                                        $cancelRequest.Enabled = $false
+                                        $session.Worker = $null
+                                        $session.Task = $null
+                                        $pending.Active = $false
+                                        $done.Enabled = $true
+                                        $copyAnswer.Enabled = [bool]$session.LastAnswer
+                                        $question.Enabled = [bool]$session.LastAnswer -and $session.Requests -lt 10
+                                        $follow.Enabled = $question.Enabled
+                                        $retryInitial.Enabled = -not $session.LastAnswer -and $session.Requests -lt 10
+                                    }
+                                })
+                                $retryInitial.Add_Click({
+                                    if ($pending.Active -or $session.LastAnswer -or $session.Requests -ge 10) { return }
+                                    if ([Windows.Forms.MessageBox]::Show('Resend the same reviewed original report to OpenAI? Another request may incur charges.','Confirm retry','YesNo','Question',[Windows.Forms.MessageBoxDefaultButton]::Button2) -eq [Windows.Forms.DialogResult]::Yes) {
+                                        & $startRequest $originalReport
+                                    }
+                                })
+                                $follow.Add_Click({
+                                    if ($pending.Active -or $session.Requests -ge 10) { return }
+                                    if ([string]::IsNullOrWhiteSpace($question.Text)) { $status.Text = 'Enter a follow-up question first.'; return }
+                                    try {
+                                        $builder = Join-Path $PSScriptRoot 'New-MoonfallAIFollowup.ps1'
+                                        $request = & $builder -OriginalReport $originalReport -PreviousAnswer $session.LastAnswer -Question $question.Text
+                                        $review = New-Object Windows.Forms.Form
+                                        try {
+                                            $review.Text = 'Review exact follow-up request to OpenAI'
+                                            $review.Size = New-Object Drawing.Size(690,480)
+                                            $review.StartPosition = 'CenterParent'
+                                            $review.Font = New-Object Drawing.Font('Segoe UI',11)
+                                            $text = New-Object Windows.Forms.TextBox
+                                            $text.Multiline = $true
+                                            $text.ReadOnly = $true
+                                            $text.ScrollBars = 'Vertical'
+                                            $text.Dock = 'Fill'
+                                            $text.Text = $request
+                                            $text.AccessibleName = 'Exact follow-up text including original report and prior response'
+                                            $send = New-Object Windows.Forms.Button
+                                            $send.Dock = 'Bottom'
+                                            $send.Height = 40
+                                            $send.Text = 'SEND PAID API REQUEST'
+                                            $send.AccessibleName = 'Explicitly approve sending this follow-up to OpenAI'
+                                            $send.DialogResult = [Windows.Forms.DialogResult]::OK
+                                            $cancelReview = New-Object Windows.Forms.Button
+                                            $cancelReview.Dock = 'Bottom'
+                                            $cancelReview.Height = 38
+                                            $cancelReview.Text = 'CANCEL'
+                                            $cancelReview.AccessibleName = 'Cancel follow-up without sending'
+                                            $cancelReview.DialogResult = [Windows.Forms.DialogResult]::Cancel
+                                            $review.CancelButton = $cancelReview
+                                            $review.Controls.Add($text)
+                                            $review.Controls.Add($send)
+                                            $review.Controls.Add($cancelReview)
+                                            $review.ActiveControl = $cancelReview
+                                            if ($review.ShowDialog($analysisWindow) -eq [Windows.Forms.DialogResult]::OK) { & $startRequest $request }
+                                        } finally { $review.Dispose() }
+                                    } catch { $status.Text = 'Unable to prepare follow-up. No new request was made.' }
+                                })
+                                & $startRequest $originalReport
+                                [void]$analysisWindow.ShowDialog($preview)
+                            } catch {
+                                [void][Windows.Forms.MessageBox]::Show('Unable to complete live analysis. Use the manual handoff.','Moonfall live AI')
+                            } finally {
+                                if ($poll) { $poll.Stop(); $poll.Dispose() }
+                                if ($session -and $session.CancelSource) { $session.CancelSource.Cancel() }
+                                if ($session -and $session.Worker) { $session.Worker.Dispose() }
+                                if ($session -and $session.CancelSource) { $session.CancelSource.Dispose() }
+                                $analysisWindow.Dispose()
+                            }
+                        })
+                        $preview.Controls.Add($promptBox)
+                        $preview.Controls.Add($live)
+                        $preview.Controls.Add($copy)
+                        $preview.Controls.Add($back)
+                        $preview.Controls.Add($instructions)
+                        [void]$preview.ShowDialog($viewer)
+                    } finally { $preview.Dispose() }
+                } catch {
+                    [void][Windows.Forms.MessageBox]::Show('Unable to prepare a diagnostic handoff. No information was sent.','Moonfall AI handoff')
+                }
+            })
+            $viewer.Controls.Add($body)
+            $viewer.Controls.Add($askAI)
+            $viewer.Controls.Add($close)
+            $viewer.Controls.Add($note)
+            [void]$viewer.ShowDialog($form)
+        } finally {
+            $viewer.Dispose()
+        }
+    } catch {
+        [void][Windows.Forms.MessageBox]::Show('Unable to read the local report index. Existing reports have not been modified.','Moonfall bug reports')
+    }
 })
 # Explicit user-controlled opt-in. Auto-upload is never enabled by a build.
 $testUpload = New-Button 'AUTO TEST UPLOAD' 591 230
@@ -352,7 +760,7 @@ $form.Add_Shown({
 })
 if ($SelfTest) {
     # Exercise real WinForms control construction on a hosted Windows runner.
-    $required = @($check, $install, $exportLog, $testUpload, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    $required = @($check, $install, $exportLog, $bugReports, $testUpload, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
     foreach ($control in $required) {
         if ($null -eq $control -or -not $control.IsHandleCreated) {
             if ($null -eq $control) { throw 'Build Center control was not created.' }
