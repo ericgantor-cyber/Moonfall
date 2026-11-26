@@ -103,6 +103,7 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
   Details->SetCollisionResponseToAllChannels(ECR_Ignore);
   Details->SetGenerateOverlapEvents(false);
   Details->SetCastShadow(false);
+  Details->SetCanEverAffectNavigation(false);
   Details->SetCullDistances(14000, 22000);
   for (int32 Index = 0; Index < Count; ++Index) {
    const FPiece& Piece = Pieces[Index];
@@ -205,6 +206,7 @@ void AMoonfallArena::CreateSanctuaryAtmosphere() {
   LoreMarker->SetTextRenderColor(FColor(172, 215, 246));
   LoreMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
   LoreMarker->SetGenerateOverlapEvents(false);
+  LoreMarker->SetCanEverAffectNavigation(false);
   LoreMarker->SetRelativeLocation(Plaque.At);
   LoreMarker->RegisterComponent();
   SanctuaryGuideSigns.Add(LoreMarker);
@@ -226,6 +228,7 @@ void AMoonfallArena::CreateRegionalLandmarks() {
  Details->SetCollisionResponseToAllChannels(ECR_Ignore);
  Details->SetGenerateOverlapEvents(false);
  Details->SetCastShadow(false);
+ Details->SetCanEverAffectNavigation(false);
  Details->SetCullDistances(18000,28000);
  for (int32 Zone=0;Zone<6;++Zone) {
   const float CenterX=(static_cast<float>(Zone*5+2)-14.5f)*1350.f;
