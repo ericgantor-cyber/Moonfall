@@ -1715,11 +1715,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
-        self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", salvage)
-        self.assertIn("Code == EquippedAccessoryCode", salvage)
-        self.assertIn("if (bEquippedCode)", salvage)
-        self.assertIn("for (const int32 Candidate : InventoryItemCodes)", salvage)
-        self.assertIn("if (Copies <= 1) return false;", salvage)
+        self.assertIn("MoonfallEquipmentSlots::FromLegacy(", salvage)
+        self.assertIn("{EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}", salvage)
+        self.assertIn("!MoonfallEquipmentSlots::CanRemoveCopy(WornCodes, Code,", salvage)
+        self.assertIn("InventoryItemCodes.GetData(), InventoryItemCodes.Num())) return false;", salvage)
+        self.assertLess(salvage.index("CanRemoveCopy("), salvage.index("Salvage = SafeBalance +"))
         slots = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
         self.assertIn("Item.Rarity<0||Item.Rarity>5", slots)
         self.assertIn("Item.Tier<1||Item.Tier>25", slots)
@@ -1737,7 +1737,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);", save)
         self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
-        self.assertLess(salvage.index("Code == EquippedWeaponCode"), salvage.index("Salvage = SafeBalance +"))
+        self.assertLess(salvage.index("CanRemoveCopy("), salvage.index("Salvage = SafeBalance +"))
         self.assertLess(salvage.index("Salvage = SafeBalance +"), salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
         self.assertIn("Hero->Salvage", self.hud)
         self.assertIn("Delete / X: salvage", self.hud)
