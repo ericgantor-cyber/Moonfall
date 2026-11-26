@@ -39,6 +39,15 @@ constexpr float PulseSeconds=4.f;
 // Two real hours per celestial day, beginning at noon for a fresh session.
 // Sample the existing world clock; do not introduce another ticking actor.
 constexpr double DaySeconds=7200.0;
+// V17 was introduced by the stacked equipment PR and is not released.
+// -1 means a legacy save with no celestial state.
+inline bool ValidSavedClock(double Clock){return Clock==-1.0||(std::isfinite(Clock)&&Clock>=0.0&&Clock<DaySeconds);}
+inline double SavedClock(double Clock){return ValidSavedClock(Clock)&&Clock>=0.0?Clock:0.0;}
+inline double AdvanceClock(double Saved,double Anchor,double Now){
+ const double Base=SavedClock(Saved);
+ if(!std::isfinite(Anchor)||!std::isfinite(Now)||Anchor<0.0||Now<Anchor)return Base;
+ return std::fmod(Base+std::fmod(Now-Anchor,DaySeconds),DaySeconds);
+}
 inline int CelestialMinute(double Elapsed){
  if(!std::isfinite(Elapsed)||Elapsed<0.0)return 720;
  const double Wrapped=std::fmod(Elapsed,DaySeconds);
