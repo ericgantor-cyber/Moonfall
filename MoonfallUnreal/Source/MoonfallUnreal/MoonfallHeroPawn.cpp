@@ -1170,12 +1170,16 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
      || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f
      || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
- if (!FMath::IsFinite(Time) || !FMath::IsFinite(LastCastTime[Hand])) return false;
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier) return false;
+ const float Haste = GetHasteBonus();
+ float Remaining = 0.f;
+ if (!MoonfallSpellBook::TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[Hand], Haste, Remaining)
+     || Remaining > 0.f) return false;
  const bool bDualCast = Hand == 0 && Multiplier == 2.f;
  // Dual casting is one resource transaction, not two callback-driven casts.
  if (bDualCast && (LeftSpell != School || RightSpell != School
-     || !FMath::IsFinite(LastCastTime[1]) || Time - LastCastTime[1] < Cooldowns[School])) return false;
+     || !MoonfallSpellBook::TryCooldownRemaining(Cooldowns[School], Time, LastCastTime[1], Haste, Remaining)
+     || Remaining > 0.f)) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  // Capture presentation data before combo/posture callbacks can mutate the
  // target. Emit after committing mana and cooldown, without retaining it.
@@ -1401,9 +1405,7 @@ void AMoonfallHeroPawn::CastBoth()
  DodgeBuffer.Clear();
  SwordBuffer.Clear();
  if (LeftSpell != RightSpell || !GetWorld()) return;
- const float Time = GetWorld()->GetTimeSeconds();
- static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ // TryCast alone validates the school, both cooldowns and combined mana.
  TryCast(LeftSpell, 0, 2.f);
 }
 // Right-hand input mirrors equipped-hand combat: the same click/trigger
