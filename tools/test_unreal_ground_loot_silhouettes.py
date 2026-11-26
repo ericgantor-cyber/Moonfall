@@ -51,6 +51,12 @@ class GroundLootVisualSafety(unittest.TestCase):
             self.assertIn("UStaticMeshComponent* " + name, self.header)
             self.assertIn(name + "->SetCollisionEnabled(ECollisionEnabled::NoCollision);", source)
             self.assertIn(name + "->SetHiddenInGame(true);", source)
+        for name in ("PickupMesh", "RarityBeacon", "PickupDetailA", "PickupDetailB", "ItemLabel"):
+            self.assertIn("static_cast<UPrimitiveComponent*>(" + name + ")", source)
+        self.assertIn("Visual->SetCanEverAffectNavigation(false);", source)
+        self.assertIn("Visual->SetGenerateOverlapEvents(false);", source)
+        self.assertIn("RarityBeacon->SetCastShadow(false);", source)
+        self.assertIn("ItemLabel->SetCollisionEnabled(ECollisionEnabled::NoCollision);", source)
         self.assertNotIn("SpawnActor", source)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true;", source)
         self.assertEqual(source.count("PickupMesh->CreateAndSetMaterialInstanceDynamic(0)"), 1)
