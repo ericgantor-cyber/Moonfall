@@ -5362,7 +5362,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      return;
     }
     const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(PanelW);
-    if ((bQuestLogOpen||PanelW>=480.f) && QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)) {
+    if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)) {
      ToggleQuestLog(); return;
     }
     if(bQuestLogOpen) {
