@@ -5058,6 +5058,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MOONFALL_NATIVE_DUNGEON_TESTS_PASS", script)
         self.assertLess(script.index("if (Test-Path -LiteralPath $log)"),
                         script.index("& $editor $project"))
+        self.assertLess(script.index("Remove-Item -LiteralPath $report -Force"),
+                        script.index("if ([string]::IsNullOrWhiteSpace($UnrealRoot))"))
+        self.assertLess(script.index("Remove-Item -LiteralPath $log -Force"),
+                        script.index("Build-Windows.ps1"))
+        self.assertLess(script.index("Assert-NativeAutomationReport.ps1"),
+                        script.index("MOONFALL_NATIVE_DUNGEON_TESTS_PASS"))
         self.assertNotIn("merge_pull_request", script)
 
 
