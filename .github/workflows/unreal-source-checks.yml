@@ -221,6 +221,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
 
+      - name: Test native automation evidence parser with synthetic records
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-NativeAutomationResults.Tests.ps1
+
       - name: Parse Windows build scripts
         shell: pwsh
         run: |
