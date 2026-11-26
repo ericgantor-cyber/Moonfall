@@ -49,6 +49,13 @@ def load_texture_pack():
                         "ORM": unreal.TextureCompressionSettings.TC_MASKS}.get(kind)
             if expected is not None and texture.get_editor_property("compression_settings") != expected:
                 raise RuntimeError("Incorrect texture compression: " + target)
+            # These graphs use ordinary (non-virtual) texture samplers.
+            # Validate before any material creation or mesh assignment, even
+            # when the pack was imported manually instead of by our importer.
+            if texture.get_editor_property("virtual_texture_streaming"):
+                raise RuntimeError("Virtual textures require different material samplers: " + target)
+            if texture.get_editor_property("never_stream"):
+                unreal.log_warning("Texture is nonstreaming; review VRAM policy: " + target)
             textures[(slot, kind)] = texture
     if textures and len(textures) != len(SLOTS)*len(kinds):
         raise RuntimeError("Import all fifteen production textures before installing textured materials.")
