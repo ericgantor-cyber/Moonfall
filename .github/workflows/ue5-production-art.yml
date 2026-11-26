@@ -9,6 +9,7 @@ on:
       - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
       - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
+      - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
   push:
@@ -21,6 +22,7 @@ on:
       - 'MoonfallUnreal/Tools/install_cinematic_preview_lighting.py'
       - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
+      - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'tools/test_unreal_production_art.py'
       - '.github/workflows/ue5-production-art.yml'
 permissions:
