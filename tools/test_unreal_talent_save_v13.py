@@ -83,7 +83,7 @@ assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::S
 assert "MoonfallTalents::DamageMultiplier(Level, TalentRanks, MoonfallTalents::Stat::MeleeDamage)" in melee
 assert spell.index("if (School != 3) {") < spell.index("TalentMagicMultiplier") < spell.index("Enemy->TakeSpellDamage(SpellDamage)")
 assert "* MightMultiplier * TalentMagicMultiplier;" in spell
-assert melee.index("if (!bLivingTarget)") < melee.index("TalentMeleeMultiplier")
+assert melee.index("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed()") < melee.index("TalentMeleeMultiplier")
 assert "* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;" in melee
 assert melee.index("TalentMeleeMultiplier") < melee.index("Enemy->TakeMeleeDamage(")
 assert "DamageMultiplier(int Level,const Ranks& Allocated,Stat Kind)" in rules
