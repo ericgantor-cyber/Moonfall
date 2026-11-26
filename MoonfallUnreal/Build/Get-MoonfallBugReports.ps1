@@ -86,20 +86,20 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
                 Source = $Source
                 File = $file.Name
                 LastWriteUtc = $file.LastWriteTimeUtc.ToString('o')
-                Kind = if ($Kind -eq 'moonfall_recovery_snapshot') { 'Recovery snapshot; session status and crash not established' } else { 'Manual report' }
+                Kind = $(if ($Kind -eq 'moonfall_recovery_snapshot') { 'Recovery snapshot; session status and crash not established' } else { 'Manual report' })
                 Classification = $classification
                 AverageFPS = $fps
                 P95Milliseconds = $p95
                 Hitches = $hitches
-                OnePercentLowFPS = if ($report.gameplay_sample_ready -is [bool] -and $report.gameplay_sample_ready) { Get-ReportMetric $report.one_percent_low_fps 0.001 100000 }
-                GameThreadMs = Get-ReportMetric $report.game_thread_ms 0.001 2000
-                RenderThreadMs = Get-ReportMetric $report.render_thread_ms 0.001 2000
-                GpuMsEstimate = Get-ReportMetric $report.gpu_ms_estimate 0.001 2000
-                Width = Get-ReportMetric $report.width 1 16384 -Integer
-                Height = Get-ReportMetric $report.height 1 16384 -Integer
-                Quality = Get-ReportMetric $report.quality -1 4 -Integer
-                GraphicsAPI = if (@('D3D11','D3D12','Vulkan') -contains $report.rhi) { [string]$report.rhi }
-                ReducedMotion = if ($report.reduced_motion -is [bool]) { $report.reduced_motion }
+                OnePercentLowFPS = $(if ($report.gameplay_sample_ready -is [bool] -and $report.gameplay_sample_ready) { Get-ReportMetric $report.one_percent_low_fps 0.001 100000 })
+                GameThreadMs = $(Get-ReportMetric $report.game_thread_ms 0.001 2000)
+                RenderThreadMs = $(Get-ReportMetric $report.render_thread_ms 0.001 2000)
+                GpuMsEstimate = $(Get-ReportMetric $report.gpu_ms_estimate 0.001 2000)
+                Width = $(Get-ReportMetric $report.width 1 16384 -Integer)
+                Height = $(Get-ReportMetric $report.height 1 16384 -Integer)
+                Quality = $(Get-ReportMetric $report.quality -1 4 -Integer)
+                GraphicsAPI = $(if (@('D3D11','D3D12','Vulkan') -contains $report.rhi) { [string]$report.rhi })
+                ReducedMotion = $(if ($report.reduced_motion -is [bool]) { $report.reduced_motion })
             }
         } catch { Write-Warning ('Invalid or unreadable report: ' + $file.Name) }
     }
