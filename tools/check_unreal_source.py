@@ -1887,8 +1887,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("const int32 SavedWornCodes[3] = {", load)
         self.assertIn("Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode", load)
-        self.assertIn("((Code / 10000) % 10) != Slot", load)
-        self.assertIn("!Save->InventoryItemCodes.Contains(Code)", load)
+        self.assertIn("TryRestoreLoadout(SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),false,", load)
+        self.assertIn("[Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);}", load)
         guard = load.split("const int32 SavedWornCodes[3]", 1)[1].split(
             "// Validate the V7 discovered-shrine ledger", 1)[0]
         self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
@@ -1902,10 +1902,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", save)
-        self.assertIn("for (int32 Slot = 0; Slot < 3; ++Slot)", save)
-        self.assertIn("Code != 0 && (!ValidMoonfallItemCode(Code)", save)
-        self.assertIn("((Code / 10000) % 10) != Slot", save)
-        self.assertIn("!InventoryItemCodes.Contains(Code)", save)
+        self.assertIn("TryRestoreLoadout(WornCodes,UE_ARRAY_COUNT(WornCodes),false,", save)
+        self.assertIn("[this](int32 Code){return InventoryItemCodes.Contains(Code);}", save)
+        policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        restore = policy.split("bool TryRestoreLoadout(", 1)[1].split("// Exact set-aware", 1)[0]
+        self.assertIn("Count!=(Expanded?SlotCount:LegacySlotCount)", restore)
+        self.assertIn("!Valid(Code,Slot)||!IsOwned(Code)", restore)
+        self.assertLess(restore.index("!Valid(Code,Slot)||!IsOwned(Code)"), restore.index("Out=Candidate;"))
         self.assertLess(save.index("const int32 WornCodes[3]"), save.index("UGameplayStatics::SaveGameToSlot("))
 
     def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
