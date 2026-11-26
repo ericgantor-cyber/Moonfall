@@ -1354,13 +1354,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Audit,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-47.f,nullptr,0.65f);
    if (MenuHeight>=510.f) {
     const auto& Sample=Hero->GetPerformanceAudit();
-    const auto Advice=MoonfallPerformance::Advice(Sample);
-    const TCHAR* Hint=Advice==MoonfallPerformance::EAdvice::ReduceQuality?TEXT("Lower quality"):
-      Advice==MoonfallPerformance::EAdvice::Smooth?TEXT("Smooth sample"):
-      Advice==MoonfallPerformance::EAdvice::Monitor?TEXT("Monitor") : TEXT("Collecting");
+    float CurrentScale=100.f, Normalized=0.f, MinScale=50.f, MaxScale=100.f;
+    if (Settings) Settings->GetResolutionScaleInformationEx(CurrentScale,Normalized,MinScale,MaxScale);
+    const auto Action=MoonfallPerformance::Recommend(Sample,
+      Settings?Settings->GetOverallScalabilityLevel():-1,CurrentScale,FMath::Max(50.f,MinScale));
+    const TCHAR* Hint=Action==MoonfallPerformance::EAction::LowerPreset?TEXT("Lower preset"):
+      Action==MoonfallPerformance::EAction::LowerRenderScale?TEXT("Lower scale"):
+      Action==MoonfallPerformance::EAction::AtMinimum?TEXT("Try lower resolution"):
+      Action==MoonfallPerformance::EAction::ReviewHitches?TEXT("Review stutters"):
+      Action==MoonfallPerformance::EAction::Keep?TEXT("Keep & monitor"):TEXT("Collecting");
     const FString Timing=Sample.Ready
-      ? FString::Printf(TEXT("%.0f FPS | p95 %.1f ms | %u hitches | %s"),
-           Sample.AverageFPS,Sample.P95Ms,Sample.Hitches,Hint)
+      ? FString::Printf(TEXT("%.0f FPS | 1%% low %.0f | %u hitches | %s"),
+           Sample.AverageFPS,Sample.OnePercentLowFPS,Sample.Hitches,Hint)
       : TEXT("PC AUDIT | Play to collect frame timing");
     DrawText(Timing,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-65.f,nullptr,0.65f);
    }
