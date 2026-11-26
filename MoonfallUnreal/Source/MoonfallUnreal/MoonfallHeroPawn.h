@@ -7,6 +7,7 @@
 #include "MoonfallFirstlightTutorial.h"
 #include "MoonfallSpellBook.h"
 #include "MoonfallTalentRules.h"
+#include "MoonfallPerformanceAudit.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -240,6 +241,7 @@ public:
  bool bEnableAuthoredSpellVFX = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float CombatTextScale = 1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
+ const MoonfallPerformance::FSnapshot& GetPerformanceAudit() const { return PerformanceAudit.Snapshot; }
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -472,6 +474,7 @@ public:
  void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
+ MoonfallPerformance::FAudit PerformanceAudit;
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;
