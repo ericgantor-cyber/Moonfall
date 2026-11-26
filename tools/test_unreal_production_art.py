@@ -310,6 +310,26 @@ class ProductionArtTests(unittest.TestCase):
         self.assertNotIn("RHIGetTextureMemoryStats", hud)
         self.assertNotIn("ApplySettings", audit)
 
+    def test_bug_report_is_explicit_local_bounded_and_accessible(self):
+        source = ROOT / "Source/MoonfallUnreal"
+        pawn = (source / "MoonfallHeroPawn.cpp").read_text()
+        hud = (source / "MoonfallCombatHUD.cpp").read_text()
+        audit = pawn.split("void AMoonfallHeroPawn::ExportBugReport()",1)[1].split("void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit()",1)[0]
+        for token in ("!bOptionsOpen", "!IsLocallyControlled()", "NM_DedicatedServer",
+                      "Now-LastBugReportAt<5.0", "FJsonSerializer::Serialize",
+                      "FPaths::ProjectSavedDir()", 'TEXT("BugReports")',
+                      "FGuid::NewGuid()", "SaveStringToFile", "REPORT SAVED", "SAVE FAILED",
+                      "one_percent_low_fps", "gpu_ms_estimate", "gameplay_sample_ready"):
+            self.assertIn(token, audit)
+        for token in ("LoadFileToString", "GetUserName", "GetComputerName", "HttpModule",
+                      "LaunchURL", "SaveGameToSlot", "ApplySettings"):
+            self.assertNotIn(token, audit)
+        self.assertIn('ActionName="BugReport",Key=F8', (ROOT / "Config/DefaultInput.ini").read_text())
+        self.assertIn('if (bOptionsOpen) { ExportBugReport(); return; }', pawn)
+        self.assertIn('MouseY>=MenuTop+42.f && MouseY<=MenuTop+60.f', pawn)
+        self.assertIn('REPORT [F8/R3]', hud)
+        self.assertIn('MenuTop+42.f,140.f,18.f', hud)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
