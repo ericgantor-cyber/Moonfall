@@ -321,8 +321,8 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
       && FMath::IsFinite(It->Health) && It->Health > 0.f)
    return false;
  }
- TArray<AMoonfallEnemy*> GroupActors;
- GroupActors.Reserve(GroupSize);
+ // All legal bonus groups fit inline; no temporary heap allocation.
+ TArray<AMoonfallEnemy*, TInlineAllocator<11>> GroupActors;
  FCollisionQueryParams CollisionParams(SCENE_QUERY_STAT(MoonfallDungeonBonusSpawn), false);
  // Keep dungeon walls and floors in collision checks, not ignored.
  bool bAllSpawned = true;
@@ -586,8 +586,8 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  const int32 Count = Requested;
  const int32 EncounterLevel = GetOrLockEncounterLevel(Hero);
  if (EncounterLevel <= 0) return false;
- TArray<AMoonfallEnemy*> SpawnedActors;
- SpawnedActors.Reserve(Count);
+ // The authored chamber limit is six, so rollback bookkeeping fits inline.
+ TArray<AMoonfallEnemy*, TInlineAllocator<6>> SpawnedActors;
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   // Two lanes of three enemies, spaced to fit within the chamber floor.
@@ -636,7 +636,15 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  }
  // Commit the chamber only when every requested actor survived spawning.
  // A blocked slot must not permanently turn a 5-6-mob room into a partial room.
- if (Spawned != Count) {
+ bool bAllSurvived = Spawned == Count;
+ for (const AMoonfallEnemy* Enemy : SpawnedActors) {
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || Enemy->GetOwner() != this
+      || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {
+   bAllSurvived = false;
+   break;
+  }
+ }
+ if (!bAllSurvived) {
   for (AMoonfallEnemy* Enemy : SpawnedActors)
    if (IsValid(Enemy)) Enemy->Destroy();
   return false;
