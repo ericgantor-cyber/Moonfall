@@ -26,6 +26,8 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Engine/Engine.h"
 #include "HAL/PlatformTime.h"
+#include "RHI.h"
+#include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
@@ -2541,9 +2543,21 @@ void AMoonfallHeroPawn::OpenOptions() {
   DodgeBuffer.Clear();
  }
  bOptionsOpen = !bOptionsOpen;
+ if (bOptionsOpen) RefreshGraphicsMemoryAudit();
  // Match the inventory close workflow and allow the Options X to be clicked.
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bOptionsOpen;
+}
+void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
+ AuditDedicatedVideoMemory=AuditTextureMemory=AuditTexturePool=-1;
+ if (!IsLocallyControlled() || GetNetMode()==NM_DedicatedServer || !GDynamicRHI) return;
+ FTextureMemoryStats Stats;
+ RHIGetTextureMemoryStats(Stats);
+ // Zero dedicated memory can indicate shared/integrated memory. Do not
+ // present it as a confirmed capacity. Texture allocation is not total VRAM use.
+ if (Stats.DedicatedVideoMemory>0) AuditDedicatedVideoMemory=Stats.DedicatedVideoMemory;
+ if (Stats.AllocatedMemorySize>0) AuditTextureMemory=Stats.AllocatedMemorySize;
+ if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
