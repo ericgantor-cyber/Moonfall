@@ -215,6 +215,12 @@ jobs:
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
 
+      - name: Test Windows packaged root discovery with synthetic layouts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
+
       - name: Parse Windows build scripts
         shell: pwsh
         run: |

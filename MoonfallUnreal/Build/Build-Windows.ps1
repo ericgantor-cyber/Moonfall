@@ -169,12 +169,11 @@ Write-Host 'Packaging Unreal Win64 Development game...'
 & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
 if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
 
-$games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
-if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Count)" }
+$game = & (Join-Path $PSScriptRoot 'Find-PackagedGame.ps1') -PackageDirectory $gameOutput
 # The packaging tool can exit successfully while leaving behind a corrupt or
 # wrong-architecture executable. Validate its PE32+ AMD64 file header before
 # publishing a launcher or installer. This is not a replacement for launching it.
-$gameExe = $games[0].FullName
+$gameExe = $game.FullName
 $stream = [System.IO.File]::OpenRead($gameExe)
 try {
     if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
@@ -193,7 +192,7 @@ try {
 } finally {
     $stream.Dispose()
 }
-$gameRoot = $games[0].Directory.FullName
+$gameRoot = $game.Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
 }
@@ -221,7 +220,7 @@ if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
     throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
 }
 if ($LaunchSmokeTest) {
-    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $game.FullName
 }
 Write-Host 'Building self-contained Windows launcher...'
 $launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
