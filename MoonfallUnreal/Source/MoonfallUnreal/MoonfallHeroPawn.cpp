@@ -151,14 +151,9 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Total = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (InventoryItemCodes.Contains(Codes[Slot])
-      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier))
-   Total += GetItemPower(Codes[Slot]);
- }
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::LegacySlotCount; ++Slot)
+  Total += GetItemPower(GetEquipmentSlotCode(Slot));
  return Total;
 }
 
@@ -169,12 +164,7 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  if (CandidatePower <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
  if (Slot < 0 || Slot > 2) return 0;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
- int32 Trait = 0, Rarity = 0, Tier = 0;
- const bool bCurrentOwnedAndValid = InventoryItemCodes.Contains(CurrentCode)
-     && DecodeEquippedItem(CurrentCode, Slot, Trait, Rarity, Tier);
- return CandidatePower - (bCurrentOwnedAndValid ? GetItemPower(CurrentCode) : 0);
+ return CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot));
 }
 
 int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
