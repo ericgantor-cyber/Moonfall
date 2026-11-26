@@ -2887,7 +2887,8 @@ void AMoonfallHeroPawn::OptionsRight() {
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
- if (!bOptionsOpen || !GEngine) return;
+ if (!bOptionsOpen || !GEngine || (Direction != -1 && Direction != 1)
+     || OptionsSelection < 0 || OptionsSelection > 7) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();
  if (!Settings) return;
  if (OptionsSelection == 0) {
@@ -2914,13 +2915,23 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   }
   if (CurrentResolution != Resolutions[Target])
    Settings->SetScreenResolution(Resolutions[Target]);
+  else return; // No renderer reconfiguration at the preset boundary.
  } else if (OptionsSelection == 1) {
   float CurrentScale = 100.f;
   float NormalizedScale = 0.f, MinScale = 50.f, MaxScale = 100.f;
   Settings->GetResolutionScaleInformationEx(CurrentScale, NormalizedScale, MinScale, MaxScale);
-  Settings->SetResolutionScaleValueEx(FMath::Clamp(CurrentScale + Direction * 10.f, FMath::Max(50.f, MinScale), FMath::Min(100.f, MaxScale)));
+  const float LowerScale=FMath::Max(50.f, MinScale);
+  const float UpperScale=FMath::Min(100.f, MaxScale);
+  if (!FMath::IsFinite(CurrentScale) || !FMath::IsFinite(MinScale)
+      || !FMath::IsFinite(MaxScale) || LowerScale>UpperScale) return;
+  const float NextScale=FMath::Clamp(CurrentScale + Direction * 10.f, LowerScale, UpperScale);
+  if (FMath::IsNearlyEqual(CurrentScale, NextScale)) return;
+  Settings->SetResolutionScaleValueEx(NextScale);
  } else if (OptionsSelection == 2) {
-  Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
+  const int32 CurrentQuality=Settings->GetOverallScalabilityLevel();
+  const int32 NextQuality=FMath::Clamp(CurrentQuality + Direction, 0, 3);
+  if (CurrentQuality==NextQuality) return;
+  Settings->SetOverallScalabilityLevel(NextQuality);
  } else if (OptionsSelection == 3) {
   FrameGenerationPreference = FMath::Clamp(FrameGenerationPreference + Direction, 0, 2);
   // Store user preference only. The feature remains inactive without vendor integration.
