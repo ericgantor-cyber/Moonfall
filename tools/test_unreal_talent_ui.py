@@ -94,7 +94,8 @@ assert 'ActionName="AscendGear",Key=R' in inputs
 assert "void ControllerBack();" in header
 assert 'BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerBack);' in pawn
 back = pawn.split("void AMoonfallHeroPawn::ControllerBack()", 1)[1].split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[0]
-routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;",
+routes = ("if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;",
+          "if (Health == 0.f) { if (bInventoryOpen) OpenOptions(); return; }",
           "if (bTalentWebOpen) { TalentCloseWeb(); return; }",
           "if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) { OpenOptions(); return; }",
           "if (bInventoryOpen && (bCharacterStatsOpen || bSpellBookOpen)) { OpenOptions(); return; }",
