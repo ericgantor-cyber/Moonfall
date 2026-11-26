@@ -6923,8 +6923,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "bTalentAllocationInProgress", "bPersistentSaveWritesBlocked"):
                 self.assertIn(guard, entry, name)
         equip = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
-        self.assertLess(equip.index("EquipmentTier = FMath::Max("),
+        self.assertLess(equip.rindex("RefreshEquipmentTier();"),
                         equip.index("ReadyRightHandWeapon();"))
+        self.assertIn("int32 DefeatedEquipmentSelection[9] = {};", self.hero_h)
+        extra = equip.split("if (SlotIndex >= MoonfallEquipmentLayout::LegacySlotCount)", 1)[1].split("int32* EquippedTier", 1)[0]
+        self.assertIn("ExtraEquippedCodes[SlotIndex-MoonfallEquipmentLayout::LegacySlotCount]", extra)
+        self.assertIn("if (ExtraCode == Code) return false;", extra)
+        self.assertIn("DefeatedEquipmentSelection[SlotIndex] = Code;", extra)
+        self.assertIn("ExtraCode = Code;", extra)
+        self.assertNotIn("MaxHealth", extra)
+        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperate("), equip.index("ExtraCode = Code;"))
+        refresh = self.hero_cpp.split("void AMoonfallHeroPawn::RefreshEquipmentTier()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Slot<MoonfallEquipmentLayout::SlotCount", refresh)
+        self.assertIn("FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot))", refresh)
 
     def test_hand_loadout_rejects_unsafe_world_and_menu_transitions(self):
         for name in ("ReadyRightHandSpell", "ReadyRightHandWeapon",
