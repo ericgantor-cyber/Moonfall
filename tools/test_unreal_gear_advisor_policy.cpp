@@ -220,6 +220,53 @@ int main() {
  L::FFullPlanner PreserveFlexible(Flexible);
  PreserveFlexible.Add(L::EncodeFullItem(23,3,5,25),0);
  assert(PreserveFlexible.Finish().Codes==Flexible&&PreserveFlexible.Finish().Changes==0);
+ // Copy-aware ring optimization uses real inventory positions and keeps
+ // the other fourteen equipment slots fixed. Compare against an independent
+ // subset search, including mixed banks, duplicates, and more than ten rings.
+ L::FFullLoadout RingStart{};
+ const int FixedChest=L::EncodeFullItem(1,2,4,10);
+ RingStart[1]=FixedChest;RingStart[23]=CommonRing;RingStart[16]=CommonRing;
+ const std::array<int,13> FlexibleBag{{FixedChest,CommonRing,CommonRing,HighRing,
+  L::EncodeFullItem(8,1,4,9),L::EncodeFullItem(8,2,4,8),
+  L::EncodeFullItem(13,3,4,10),L::EncodeFullItem(16,2,4,11),
+  L::EncodeFullItem(17,1,4,12),L::EncodeFullItem(18,3,4,13),
+  L::EncodeFullItem(19,2,4,14),L::EncodeFullItem(20,2,4,15),
+  L::EncodeFullItem(21,1,4,16)}};
+ const auto FlexiblePlan=L::PlanFlexibleRings(RingStart,24,false,FlexibleBag);
+ assert(FlexiblePlan.Gain>0&&FlexiblePlan.Codes[1]==FixedChest);
+ assert(L::IsFullLoadoutOwned(FlexiblePlan.Codes,24,FlexibleBag));
+ assert(L::FullWornCopies(CommonRing,FlexiblePlan.Codes,24)<=2);
+ int FlexibleBest=L::FullTotalScore(RingStart);
+ for(unsigned Mask=0;Mask<(1u<<12);++Mask){
+  L::FFullLoadout RingTrial{};RingTrial[1]=FixedChest;
+  int Filled=0,RankSum=0;
+  for(int I=0;I<12;++I)if(Mask&(1u<<I)){
+   if(Filled<10)RingTrial[L::RingSlot(Filled)]=FlexibleBag[I+1];
+   ++Filled;RankSum+=L::FullRank(FlexibleBag[I+1]);
+  }
+  if(Filled<2||Filled>10||RankSum<2*L::FullRank(CommonRing))continue;
+  int ReferenceScore=0;
+  for(int S=0;S<24;++S){
+   const auto RItem=L::DecodeFullItem(RingTrial[S]);
+   if(!RItem.IsValid())continue;
+   ReferenceScore+=RItem.Tier*1000+RItem.Rarity*100+(RItem.Trait?10:0);
+   for(int Other=S+1;Other<24;++Other)
+    if(RItem.Trait&&L::DecodeFullItem(RingTrial[Other]).Trait==RItem.Trait)ReferenceScore+=80;
+  }
+  if(ReferenceScore>FlexibleBest)FlexibleBest=ReferenceScore;
+ }
+ assert(L::FullTotalScore(FlexiblePlan.Codes)==FlexibleBest);
+ assert(FlexiblePlan.Gain==FlexibleBest-L::FullTotalScore(RingStart));
+ for(int R=0;R<10;++R){
+  const int Target=L::RingSlot(R),Index=FlexiblePlan.Indices[Target];
+  if(Index<0)continue;
+  assert(FlexiblePlan.Codes[Target]==FlexibleBag[Index]);
+  for(int Other=R+1;Other<10;++Other)assert(FlexiblePlan.Indices[L::RingSlot(Other)]!=Index);
+ }
+ assert(L::PlanFlexibleRings(FlexiblePlan.Codes,24,false,FlexibleBag).Changes==0);
+ assert(L::PlanFlexibleRings(RingStart,24,true,FlexibleBag).Codes==RingStart);
+ assert(L::PlanFlexibleRings(RingStart,24,false,std::array<int,2>{FixedChest,CommonRing}).Codes==RingStart);
+ assert(L::PlanFlexibleRings(RingStart,23,false,FlexibleBag).Codes==RingStart);
  // Worst case: all 24 matching traits, with all four candidate buckets.
  // High counts exceed the old decimal DP; first and last slots exercise
  // the full 48-bit decision path. Equal items retain the earliest index.
