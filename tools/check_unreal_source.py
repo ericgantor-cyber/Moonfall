@@ -6848,7 +6848,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split("\n}", 1)[0]
         self.assertLess(body.index("const int32 InitialCode = InventoryItemCodes[InventoryIndex];"),
                         body.index("for (int32 Step = 0; Step < Limit; ++Step)"))
-        self.assertLess(body.index("!ValidMoonfallItemCode(InitialCode)"),
+        self.assertLess(body.index("!MoonfallEquipmentSlots::Known(MoonfallEquipmentSlots::Decode(InitialCode).Slot)"),
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
         self.assertLess(body.index("InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded"),
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
