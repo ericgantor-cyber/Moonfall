@@ -85,8 +85,7 @@ jobs:
           $destination = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
           & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
           if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
-          $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
-          if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
+          $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory $destination
           # A successful UAT exit and .exe alone do not prove cooked game data exists.
           $pakDir = Join-Path $exe.Directory.FullName "MoonfallUnreal\Content\Paks"
           if (-not (Test-Path -LiteralPath $pakDir -PathType Container)) { throw "Missing cooked content directory: $pakDir" }
@@ -109,9 +108,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
-          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
-          & .\MoonfallUnreal\Build\Test-PackagedGame.ps1 -GameExecutable $exes[0].FullName -ObservationSeconds 8
+          $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory 'MoonfallUnrealPackaged'
+          & .\MoonfallUnreal\Build\Test-PackagedGame.ps1 -GameExecutable $exe.FullName -ObservationSeconds 8
           if (-not $?) { throw 'Packaged Moonfall game launch smoke test failed.' }
           "Packaged game remained running for the eight-second smoke test. Graphics and gameplay are not verified." >> $env:GITHUB_STEP_SUMMARY
       - name: Publish self-contained Windows launcher
@@ -119,9 +117,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install .NET 8 SDK on the Windows build runner.' }
-          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
-          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
-          $gameRoot = $exes[0].Directory.FullName
+          $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory 'MoonfallUnrealPackaged'
+          $gameRoot = $exe.Directory.FullName
           & dotnet publish 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
           if ($LASTEXITCODE -ne 0) { throw 'Launcher publish failed' }
           if (-not (Test-Path (Join-Path $gameRoot 'MoonfallLauncher.exe'))) { throw 'Launcher executable missing' }
@@ -129,9 +126,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
-          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
-          $root = $exes[0].Directory.FullName
+          $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory 'MoonfallUnrealPackaged'
+          $root = $exe.Directory.FullName
           $launcher = Join-Path $root 'MoonfallLauncher.exe'
           if (-not (Test-Path $launcher)) { throw 'Compiled launcher missing from game package' }
           $process = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $root -PassThru -Wait
@@ -151,9 +147,8 @@ jobs:
           $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if (-not $nsis) { throw 'Install NSIS 3 and put makensis.exe on PATH on the trusted Windows runner.' }
           $packaged = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
-          $exes = @(Get-ChildItem $packaged -Recurse -File -Filter 'MoonfallUnreal.exe')
-          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
-          $sourceDir = $exes[0].Directory.FullName
+          $exe = & .\MoonfallUnreal\Build\Find-PackagedGame.ps1 -PackageDirectory $packaged
+          $sourceDir = $exe.Directory.FullName
           if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal.exe'))) { throw 'Staged game entrypoint is missing' }
           if (-not (Test-Path (Join-Path $sourceDir 'MoonfallLauncher.exe'))) { throw 'Published launcher missing' }
           if (-not (Test-Path (Join-Path $sourceDir 'Engine'))) { throw 'Packaged Unreal Engine runtime directory missing; refusing incomplete installer' }
