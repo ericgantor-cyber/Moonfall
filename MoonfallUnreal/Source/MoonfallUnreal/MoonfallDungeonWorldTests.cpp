@@ -229,6 +229,15 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   if (Version == S::ExpandedVersion) {
    Original->ExtraEquippedCodes = {31004, 41005, 51006, 61007, 71008, 81009};
    Original->InventoryItemCodes.Append(Original->ExtraEquippedCodes);
+   FMoonfallWorldLootRecord Pending;
+   Pending.DropId = FGuid(1, 2, 3, 4);
+   Pending.LevelId = FName(TEXT("MoonfallStart"));
+   Pending.Location = FVector(100.f, 200.f, 300.f);
+   Pending.ItemCode = 81010;
+   Original->PendingWorldLoot = {Pending};
+   Original->DungeonTreasureStates.Init(0, 420);
+   Original->DungeonTreasureStates[1] = 71011;
+   Original->DungeonTreasureStates[2] = -1;
   }
   Bytes.Reset();
   if (!TestTrue(TEXT("Equipment fixture serializes"),
@@ -239,6 +248,18 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
   TestEqual(TEXT("Equipment fixture version survives"), Gear->Version, Version);
   TestTrue(TEXT("Exact bag survives"), Gear->InventoryItemCodes == Original->InventoryItemCodes);
   TestTrue(TEXT("Exact extra gear survives"), Gear->ExtraEquippedCodes == Original->ExtraEquippedCodes);
+  if (Version == S::ExpandedVersion) {
+   if (!TestEqual(TEXT("Pending expanded drop count survives"), Gear->PendingWorldLoot.Num(), 1)) return false;
+   const auto& Drop = Gear->PendingWorldLoot[0];
+   TestEqual(TEXT("Expanded world drop code survives"), Drop.ItemCode, 81010);
+   TestTrue(TEXT("Drop identity survives"), Drop.DropId == FGuid(1, 2, 3, 4));
+   TestTrue(TEXT("Drop position survives"), Drop.Location.Equals(FVector(100.f, 200.f, 300.f)));
+   TestTrue(TEXT("Expanded drop is only valid from V17"),
+     S::ValidInventoryCode(Drop.ItemCode, Version) && !S::ValidInventoryCode(Drop.ItemCode, 16));
+   if (!TestEqual(TEXT("Treasure ledger size survives"), Gear->DungeonTreasureStates.Num(), 420)) return false;
+   TestEqual(TEXT("Unclaimed expanded treasure survives"), Gear->DungeonTreasureStates[1], 71011);
+   TestEqual(TEXT("Claimed treasure stays claimed"), Gear->DungeonTreasureStates[2], -1);
+  }
   const S::FLegacy Old{Gear->EquippedWeaponCode, Gear->EquippedArmorCode, Gear->EquippedAccessoryCode};
   if (!TestTrue(TEXT("Restored equipment passes migration policy"),
        S::ReadSavedLoadout(Gear->Version, Old, Gear->ExtraEquippedCodes.GetData(),
