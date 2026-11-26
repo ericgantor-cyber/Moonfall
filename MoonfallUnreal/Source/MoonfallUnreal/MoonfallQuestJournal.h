@@ -136,6 +136,22 @@ constexpr int CountContracts(FMask Mask) {
  for(int I=0;I<ResidentCount;++I) if(Mask.Has(I))++N;
  return N;
 }
+// Shared quest header geometry for drawing and pointer routing.
+// Keep both buttons available at the existing 300px minimum viewport.
+struct FHeaderButtons {
+ float AutoX=0.f, MapX=0.f, Width=0.f;
+ constexpr bool HitAuto(float X,float Y) const {
+  return Width>0.f&&X>=AutoX&&X<AutoX+Width&&Y>=46.f&&Y<66.f;
+ }
+ constexpr bool HitMap(float X,float Y) const {
+  return Width>0.f&&X>=MapX&&X<MapX+Width&&Y>=46.f&&Y<66.f;
+ }
+};
+constexpr FHeaderButtons HeaderButtons(float Width) {
+ if(!(Width>=276.f&&Width<=900.f)) return {};
+ const float ButtonWidth=Width>=480.f?96.f:60.f;
+ return {Width-22.f-2.f*ButtonWidth,Width-14.f-ButtonWidth,ButtonWidth};
+}
 constexpr int PageRows(float Height) {
  // Clamp before converting to int; never convert infinity or NaN.
  if(!(Height>=240.f))return 0;
