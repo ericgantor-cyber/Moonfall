@@ -4412,14 +4412,14 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if(!MoonfallWorldPolicy::ValidCompanionParty(!CompanionParty.ResidentId.IsNone(),CompanionParty.Stance,
      CompanionParty.Health,CompanionParty.AbilityReadyUtc)
      ||(!CompanionParty.ResidentId.IsNone()&&!IsNamedMoonfallResident(CompanionParty.ResidentId)))return false;
- if(CompanionGear.Num()>15)return false;
+ if(CompanionGear.Num()>MoonfallQuestJournal::ResidentCount)return false;
  for(const auto& Entry:CompanionGear){
   if(!IsNamedMoonfallResident(Entry.Key))return false;
   for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
    if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot))return false;
   }
  }
- if(CompanionProfiles.Num()>15)return false;
+ if(CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount)return false;
  for(const auto& Entry:CompanionProfiles)
   if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
       !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value)))return false;
@@ -4521,7 +4521,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  // V15 validates owned companion gear before loading character state.
  if(Save->Version>=15){
-  if(Save->CompanionGear.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  if(Save->CompanionGear.Num()>MoonfallQuestJournal::ResidentCount){bPersistentSaveWritesBlocked=true;return false;}
   for(const auto& Entry:Save->CompanionGear){
    if(!IsNamedMoonfallResident(Entry.Key)){bPersistentSaveWritesBlocked=true;return false;}
    for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
@@ -4531,7 +4531,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  // V14 companion profiles are validated before any gameplay mutation.
  if(Save->Version>=14){
-  if(Save->CompanionProfiles.Num()>15){bPersistentSaveWritesBlocked=true;return false;}
+  if(Save->CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount){bPersistentSaveWritesBlocked=true;return false;}
   for(const auto& Entry:Save->CompanionProfiles)
    if(!IsNamedMoonfallResident(Entry.Key)||Entry.Value<=0||
       !MoonfallWorldPolicy::ValidCompanionProfile(static_cast<uint32>(Entry.Value))){
