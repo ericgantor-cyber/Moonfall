@@ -2258,29 +2258,29 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bInventoryScrollbarDragging = false;
 }
 
-uint32 AMoonfallHeroPawn::GetActiveQuestMask() const {
+MoonfallQuestJournal::FMask AMoonfallHeroPawn::GetActiveQuestMask() const {
  namespace J=MoonfallQuestJournal;
  namespace W=MoonfallWorldQuest;
- uint32 Mask=0;
+ J::FMask Mask{};
  static const auto Keys=[] {
   TArray<FName> Out;
   for(const auto& Entry:J::Residents) Out.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
   return Out;
  }();
  for(int I=0;I<J::ResidentCount;++I)
-  if(GetResidentQuestState(Keys[I])==1) Mask|=J::Bit(I);
+  if(GetResidentQuestState(Keys[I])==1) Mask.Add(I);
  for(int Zone=0;Zone<W::ZoneCount;++Zone) {
   int Seen=0,Won=0;
   for(int Dungeon=0;Dungeon<5;++Dungeon) {
    Seen+=HasDiscoveredDungeon(Zone,Dungeon)?1:0;
    Won+=HasDefeatedDungeonBoss(Zone,Dungeon)?1:0;
   }
-  if(Seen<5) Mask|=J::Bit(J::ResidentCount+Zone*2);
-  if(Seen>0&&Won<5) Mask|=J::Bit(J::ResidentCount+Zone*2+1);
+  if(Seen<5) Mask.Add(J::ResidentCount+Zone*2);
+  if(Seen>0&&Won<5) Mask.Add(J::ResidentCount+Zone*2+1);
  }
  return Mask;
 }
-uint32 AMoonfallHeroPawn::GetTrackedQuestMask() const {
+MoonfallQuestJournal::FMask AMoonfallHeroPawn::GetTrackedQuestMask() const {
  namespace J=MoonfallQuestJournal;
  namespace W=MoonfallWorldQuest;
  if(bManualQuestTracking) return ManualQuestMask&GetActiveQuestMask();
@@ -2299,9 +2299,9 @@ uint32 AMoonfallHeroPawn::GetTrackedQuestMask() const {
    Won[Z]+=HasDefeatedDungeonBoss(Z,D)?1:0;
   }
  const auto G=W::Select(Seen,Won,W::MaxVisible-C.TrackedCount);
- uint32 Mask=0;
- for(int I=0;I<C.TrackedCount;++I) Mask|=J::Bit(C.TrackedIndices[I]);
- for(int I=0;I<G.Count;++I) Mask|=J::Bit(J::ResidentCount+G.Indices[I]);
+ J::FMask Mask{};
+ for(int I=0;I<C.TrackedCount;++I) Mask.Add(C.TrackedIndices[I]);
+ for(int I=0;I<G.Count;++I) Mask.Add(J::ResidentCount+G.Indices[I]);
  return Mask;
 }
 void AMoonfallHeroPawn::ToggleQuestLog() {
@@ -2321,14 +2321,14 @@ void AMoonfallHeroPawn::StepQuestLog(int32 Direction) {
 void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
  namespace J=MoonfallQuestJournal;
- const uint32 Active=GetActiveQuestMask();
+ const auto Active=GetActiveQuestMask();
  const int Count=J::Count(Active);
  if(Count<=0) return;
  QuestLogSelection=FMath::Clamp(QuestLogSelection,0,Count-1);
  const int Id=J::EntryAt(Active,QuestLogSelection);
  if(Id<0) return;
- const uint32 Before=GetTrackedQuestMask();
- const uint32 After=J::Toggle(Before,Active,Id);
+ const auto Before=GetTrackedQuestMask();
+ const auto After=J::Toggle(Before,Active,Id);
  // An unsuccessful attempt to track an eighth quest must not disable auto tracking.
  if(After==Before) return;
  ManualQuestMask=After;
@@ -2337,7 +2337,7 @@ void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
 void AMoonfallHeroPawn::ResetQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen) return;
  bManualQuestTracking=false;
- ManualQuestMask=0;
+ ManualQuestMask={};
 }
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
  // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
@@ -4317,7 +4317,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Never create a save that this version's loader will reject on reload.
  // The source collection remains intact if its supported serialized size
  // would be exceeded; ground drops are not consumed in that case.
- if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
+ if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords
      || DiscoveredShrineIds.Num() > 64
      || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
      || PendingWorldLoot.Num() > 512
@@ -4514,7 +4514,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // would silently discard the remainder on the next two-second autosave.
  // Keep the original slot intact rather than saving truncated progress.
  if (Save->InventoryItemCodes.Num() > 10000
-     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64)) {
+     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords)) {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
   return false;
@@ -4753,7 +4753,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
-  if (Save->ResidentQuestStates.Num() <= 64) {
+  if (Save->ResidentQuestStates.Num() <= MoonfallQuestJournal::MaxStoredRecords) {
    for (const auto& Entry : Save->ResidentQuestStates)
     if (IsNamedMoonfallResident(Entry.Key) && (Entry.Value == 1 || Entry.Value == 2))
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
@@ -5929,6 +5929,9 @@ bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked) return false;
  if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
      || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+ int ActiveContracts=0;
+ for(const auto& Entry:ResidentQuestStates) if(Entry.Value==1) ++ActiveContracts;
+ if(!MoonfallQuestJournal::CanAccept(ActiveContracts)) return false;
  const int32* ExistingState = ResidentQuestStates.Find(ResidentId);
  if (ExistingState && *ExistingState != 0) return false;
  const bool bHadZeroState = ExistingState != nullptr;

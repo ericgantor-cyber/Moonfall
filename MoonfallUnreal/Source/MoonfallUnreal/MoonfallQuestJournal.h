@@ -72,27 +72,51 @@ constexpr FSummary Summarize(const int* States, int StateCount, int Salvage) {
  if (Result.TrackedCount > 0) Result.TrackedIndex = Result.TrackedIndices[0];
  return Result;
 }
-// Stable bit IDs: resident contracts first, then the twelve regional objectives.
+// 100 accepted contracts, plus automatic regional goals. Completed contracts
+// remain stored separately from the active limit. Keep capacity independent of content.
+inline constexpr int MaxActive=100;
+inline constexpr int MaxStoredRecords=256;
 inline constexpr int EntryCount=ResidentCount+MoonfallWorldQuest::GoalCount;
-static_assert(EntryCount<32);
-constexpr std::uint32_t Bit(int Id) {
- return Id>=0 && Id<EntryCount ? std::uint32_t(1)<<Id : 0u;
-}
-constexpr int Count(std::uint32_t Mask) {
+inline constexpr int MaskCapacity=MaxStoredRecords+64;
+static_assert(EntryCount<=MaskCapacity);
+struct FMask {
+ std::uint64_t Words[MaskCapacity/64]{};
+ constexpr bool Has(int Id) const {
+  return Id>=0&&Id<MaskCapacity&&(Words[Id/64]&(std::uint64_t(1)<<(Id%64)))!=0;
+ }
+ constexpr void Add(int Id) {
+  if(Id>=0&&Id<MaskCapacity) Words[Id/64]|=std::uint64_t(1)<<(Id%64);
+ }
+ constexpr void Remove(int Id) {
+  if(Id>=0&&Id<MaskCapacity) Words[Id/64]&=~(std::uint64_t(1)<<(Id%64));
+ }
+ constexpr bool operator==(const FMask& Other) const {
+  for(int I=0;I<MaskCapacity/64;++I) if(Words[I]!=Other.Words[I])return false;
+  return true;
+ }
+ constexpr bool operator!=(const FMask& Other) const {return !(*this==Other);}
+ constexpr FMask operator&(const FMask& Other) const {
+  FMask Out{};
+  for(int I=0;I<MaskCapacity/64;++I)Out.Words[I]=Words[I]&Other.Words[I];
+  return Out;
+ }
+};
+constexpr int Count(FMask Mask) {
  int N=0;
- for (int I=0; I<EntryCount; ++I) if (Mask&Bit(I)) ++N;
+ for(auto Word:Mask.Words) while(Word){Word&=Word-1;++N;}
  return N;
 }
-constexpr std::uint32_t Toggle(std::uint32_t Mask,std::uint32_t Active,int Id) {
- Mask &= Active;
- const auto B=Bit(Id)&Active;
- if (!B) return Mask;
- if (Mask&B) return Mask&~B;
- return Count(Mask)<MaxTracked ? Mask|B : Mask;
+constexpr bool CanAccept(int Active) {return Active>=0&&Active<MaxActive;}
+constexpr FMask Toggle(FMask Mask,FMask Active,int Id) {
+ Mask=Mask&Active;
+ if(!Active.Has(Id))return Mask;
+ if(Mask.Has(Id))Mask.Remove(Id);
+ else if(Count(Mask)<MaxTracked)Mask.Add(Id);
+ return Mask;
 }
-constexpr int EntryAt(std::uint32_t Mask,int Row) {
- for(int I=0;I<EntryCount;++I)
-  if ((Mask&Bit(I)) && Row--==0) return I;
+constexpr int EntryAt(FMask Mask,int Row) {
+ for(int I=0;I<MaskCapacity;++I)
+  if(Mask.Has(I)&&Row--==0)return I;
  return -1;
 }
 constexpr int PageRows(float Height) {

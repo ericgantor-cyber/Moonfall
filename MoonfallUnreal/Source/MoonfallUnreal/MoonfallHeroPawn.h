@@ -9,6 +9,7 @@
 #include "MoonfallTalentRules.h"
 #include "MoonfallPerformanceAudit.h"
 #include "MoonfallBugBreadcrumbs.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -391,10 +392,10 @@ public:
  // Quest log reuses Atlas input and modal safety. Tracking preferences are session-only.
  bool bQuestLogOpen = false;
  bool bManualQuestTracking = false;
- uint32 ManualQuestMask = 0;
+ MoonfallQuestJournal::FMask ManualQuestMask{};
  int32 QuestLogSelection = 0;
- uint32 GetActiveQuestMask() const;
- uint32 GetTrackedQuestMask() const;
+ MoonfallQuestJournal::FMask GetActiveQuestMask() const;
+ MoonfallQuestJournal::FMask GetTrackedQuestMask() const;
  void ToggleQuestLog();
  void StepQuestLog(int32 Direction);
  void ToggleSelectedQuestTracking();

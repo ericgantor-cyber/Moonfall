@@ -865,7 +865,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const float Width=FMath::Min(900.f,Canvas->SizeX-24.f);
    const float Height=FMath::Min(650.f,Canvas->SizeY-24.f);
    const float Left=(Canvas->SizeX-Width)*0.5f,Top=(Canvas->SizeY-Height)*0.5f;
-   const uint32 Active=Hero->GetActiveQuestMask(),Tracked=Hero->GetTrackedQuestMask();
+   const auto Active=Hero->GetActiveQuestMask(),Tracked=Hero->GetTrackedQuestMask();
    const int Count=J::Count(Active),Rows=J::PageRows(Canvas->SizeY);
    const int Selected=FMath::Clamp(Hero->QuestLogSelection,0,FMath::Max(0,Count-1));
    const int Start=J::PageStart(Selected,Rows);
@@ -882,7 +882,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
    }
    const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
-   const bool bSelectedTracked=(Tracked&J::Bit(J::EntryAt(Active,Selected)))!=0;
+   const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
    DrawText(bSlotsFull&&!bSelectedTracked
        ? TEXT("7/7 TRACKED | Untrack another quest first | Home: auto")
        : TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto"),
@@ -892,7 +892,7 @@ void AMoonfallCombatHUD::DrawHUD()
    for(int Row=0;Row<Rows&&Start+Row<Count;++Row) {
     const int Id=J::EntryAt(Active,Start+Row);
     if(Id<0) continue;
-    const bool bTracked=(Tracked&J::Bit(Id))!=0;
+    const bool bTracked=Tracked.Has(Id);
     const float Y=Top+88.f+Row*30.f;
     DrawRect(Start+Row==Selected?FLinearColor(0.22f,0.24f,0.32f):FLinearColor(0.09f,0.10f,0.15f),Left+12.f,Y,Width-24.f,28.f);
     DrawHoverFrame(Left+12.f,Y,Width-24.f,28.f);
@@ -2856,9 +2856,9 @@ void AMoonfallCombatHUD::DrawHUD()
       MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount);
    if(Hero->bManualQuestTracking) {
     namespace J=MoonfallQuestJournal;
-    const uint32 Mask=Hero->GetTrackedQuestMask();
+    const auto Mask=Hero->GetTrackedQuestMask();
     Contracts.TrackedCount=0; Goals.Count=0;
-    for(int Id=0;Id<J::EntryCount;++Id) if(Mask&J::Bit(Id)) {
+    for(int Id=0;Id<J::EntryCount;++Id) if(Mask.Has(Id)) {
      if(Id<J::ResidentCount) Contracts.TrackedIndices[Contracts.TrackedCount++]=Id;
      else Goals.Indices[Goals.Count++]=Id-J::ResidentCount;
     }
