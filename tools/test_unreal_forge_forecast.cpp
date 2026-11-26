@@ -20,18 +20,19 @@ int main() {
  // Cross-check thousands of canonical equipment codes, budgets and limits
  // against an independent single-tier transaction reference.
  for (int Trait = 0; Trait <= 3; ++Trait)
- for (int Slot = 0; Slot <= 2; ++Slot)
+ for (int Slot = 0; Slot < MoonfallEquipmentLayout::SlotCount; ++Slot)
  for (int Rarity = 0; Rarity <= 5; ++Rarity)
  for (int Tier = 1; Tier <= 25; ++Tier) {
   const int Code = Trait*100000 + Slot*10000 + Rarity*1000 + Tier;
   if (Rarity == 0 && Trait != 0) {
-   assert(!ValidCode(Code));
+   assert(!ValidCode(Code,9));
    continue;
   }
-  assert(ValidCode(Code));
+  assert(ValidCode(Code,9));
+  assert(ValidCode(Code,3)==(Slot<3));
   for (int Balance : {-5, 0, 1, 6, 20, 55, 100, 200, 1000, 100000000})
   for (int Limit = -2; Limit <= 9; ++Limit) {
-   const FPlan Plan = Preview(Code, Balance, Limit);
+   const FPlan Plan = Preview(Code, Balance, Limit,9);
    assert(Plan.Valid);
    const int ClampedLimit = Limit < 0 ? 0 : Limit > 5 ? 5 : Limit;
    int ReferenceBalance = Balance < 0 ? 0 : Balance;
@@ -54,8 +55,14 @@ int main() {
   }
  }
  // Explicitly reject invalid slot/rarity/trait/negative-code combinations.
- for (int Code : {-2, 0, 26, 6001, 30001, 90001, 100001, 900999})
-  assert(!Preview(Code, 100, 5).Valid);
+ for (int Code : {-2, 0, 26, 6001, 90001, 100001, 900999})
+  assert(!Preview(Code, 100, 5,9).Valid);
+ for(int Slot=3;Slot<9;++Slot){
+  const int Code=Slot*10000+1;
+  assert(!Preview(Code,100,5,3).Valid);
+  assert(Preview(Code,100,5,9).Upgrades==5);
+ }
+ assert(!Preview(1,100,5,4).Valid);
  std::cout << "Moonfall forge forecast: " << checked
            << " source-independent budget/cap combinations PASS\n";
  return 0;
