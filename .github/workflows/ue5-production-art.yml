@@ -175,3 +175,22 @@ jobs:
           $blocked = $false
           try { & ./MoonfallUnreal/Build/New-MoonfallAIFollowup.ps1 -OriginalReport 'test' -PreviousAnswer 'test' -Question '   ' } catch { $blocked = $true }
           if (-not $blocked) { throw 'Blank follow-up accepted' }
+
+          # Cancellation and key leakage guards must block before any network I/O.
+          $source = New-Object System.Threading.CancellationTokenSource
+          $previousKey = [Environment]::GetEnvironmentVariable('OPENAI_API_KEY','Process')
+          try {
+            [Environment]::SetEnvironmentVariable('OPENAI_API_KEY','moonfall-ci-fake-key','Process')
+            $source.Cancel()
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'test' -Approved -CancellationToken $source.Token }
+            catch { $blocked = $_.Exception.Message -match 'canceled locally' }
+            if (-not $blocked) { throw 'Pre-canceled request was not rejected' }
+            $blocked = $false
+            try { & ./MoonfallUnreal/Build/Invoke-MoonfallAIAnalysis.ps1 -Prompt 'contains moonfall-ci-fake-key' -Approved }
+            catch { $blocked = $_.Exception.Message -match 'contains your configured API key' }
+            if (-not $blocked) { throw 'Credential leakage guard failed' }
+          } finally {
+            $source.Dispose()
+            [Environment]::SetEnvironmentVariable('OPENAI_API_KEY',$previousKey,'Process')
+          }
