@@ -3677,9 +3677,10 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
  // Only an explicit equip request needs a valid living pawn.
  if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
- const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+ const MoonfallEquipmentLayout::FLoadout EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
- return MoonfallGearAdvisor::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes);
+ return MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,
+     MoonfallEquipmentLayout::LegacySlotCount);
 }
 
 int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
@@ -3687,12 +3688,13 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  // Validate worn ownership once, then scan the inventory once. The candidate
  // is already owned by construction, so no nested bag searches are needed.
  if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
- const MoonfallGearAdvisor::FEquipped EquippedCodes = {
+ const MoonfallEquipmentLayout::FLoadout EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
  int32 BestIndex = INDEX_NONE;
  int32 BestImprovement = 0;
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-  const int32 Improvement = MoonfallGearAdvisor::Improvement(InventoryItemCodes[Index], EquippedCodes);
+  const int32 Improvement = MoonfallEquipmentLayout::Improvement(InventoryItemCodes[Index], EquippedCodes,
+      MoonfallEquipmentLayout::LegacySlotCount);
   if (Improvement > BestImprovement) {
    BestImprovement = Improvement;
    BestIndex = Index;
