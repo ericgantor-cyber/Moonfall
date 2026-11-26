@@ -2159,6 +2159,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
+  bQuestLogOpen = false;
+  QuestLogSelection = 0;
   bInventoryScrollbarDragging = false;
   AtlasDiscoveredShrineLocations.Reset();
   AtlasDiscoveredShrineNames.Reset();
@@ -2313,8 +2315,8 @@ void AMoonfallHeroPawn::ToggleQuestLog() {
 }
 void AMoonfallHeroPawn::StepQuestLog(int32 Direction) {
  if(!bAtlasOpen||!bQuestLogOpen||(Direction!=1&&Direction!=-1)) return;
- QuestLogSelection=FMath::Clamp(QuestLogSelection+Direction,0,
-   FMath::Max(0,MoonfallQuestJournal::Count(GetActiveQuestMask())-1));
+ const int Last=FMath::Max(0,MoonfallQuestJournal::Count(GetActiveQuestMask())-1);
+ QuestLogSelection=FMath::Clamp(FMath::Clamp(QuestLogSelection,0,Last)+Direction,0,Last);
 }
 void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
@@ -4870,6 +4872,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  // controller states: no talent modal or pending respec survives a death.
  bTalentWebOpen = false;
  bTalentRespecArmed = false;
+ if (bQuestLogOpen) {
+  bAtlasOpen = false;
+  bQuestLogOpen = false;
+  QuestLogSelection = 0;
+  if (APlayerController* PC=Cast<APlayerController>(Controller)) PC->bShowMouseCursor=false;
+ }
  // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
   if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(MaxMana)
