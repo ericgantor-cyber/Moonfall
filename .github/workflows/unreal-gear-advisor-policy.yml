@@ -3,16 +3,18 @@ on:
   push:
     branches: [main]
     paths:
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGearAdvisorPolicy.h'
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
-      - 'tools/test_unreal_gear_advisor_policy.cpp'
+      - 'MoonfallUnreal/Source/**'
+      - 'tools/test_unreal_*.cpp'
+      - 'tools/test_v27_*.cpp'
+      - 'tools/Test-UnrealPortableMSVC.ps1'
       - 'tools/run_unreal_sanitizer.sh'
       - '.github/workflows/unreal-gear-advisor-policy.yml'
   pull_request:
     paths:
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallGearAdvisorPolicy.h'
-      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
-      - 'tools/test_unreal_gear_advisor_policy.cpp'
+      - 'MoonfallUnreal/Source/**'
+      - 'tools/test_unreal_*.cpp'
+      - 'tools/test_v27_*.cpp'
+      - 'tools/Test-UnrealPortableMSVC.ps1'
       - 'tools/run_unreal_sanitizer.sh'
       - '.github/workflows/unreal-gear-advisor-policy.yml'
   workflow_dispatch:
@@ -28,7 +30,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         id: checkout
@@ -58,6 +60,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./gear-advisor.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile and run all other portable C++ policies with MSVC
+        id: msvc_portable
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.msvc_setup.outcome == 'success' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: ./tools/Test-UnrealPortableMSVC.ps1
       - name: Record test scope and checked-out revision
         if: ${{ !cancelled() }}
         shell: bash
@@ -66,6 +73,7 @@ jobs:
           GCC_RESULT: ${{ steps.gcc.outcome }}
           CLANG_RESULT: ${{ steps.clang_sanitized.outcome }}
           MSVC_RESULT: ${{ steps.msvc.outcome }}
+          MSVC_PORTABLE_RESULT: ${{ steps.msvc_portable.outcome }}
         run: |
           set -euo pipefail
           {
@@ -80,12 +88,13 @@ jobs:
             echo "| --- | --- |"
             echo "| GCC | ${GCC_RESULT:-not-run} |"
             echo "| Clang ASan/UBSan | ${CLANG_RESULT:-not-run} |"
-            echo "| MSVC | ${MSVC_RESULT:-not-run} |"
+            echo "| MSVC equipment | ${MSVC_RESULT:-not-run} |"
+            echo "| MSVC other portable policies | ${MSVC_PORTABLE_RESULT:-not-run} |"
             echo 'Job status: ${{ job.status }}'
           } >> "$GITHUB_STEP_SUMMARY"
           [[ "$CHECKOUT_RESULT" == success ]]
           if [[ "$RUNNER_OS" == Linux ]]; then
             [[ "$GCC_RESULT" == success && "$CLANG_RESULT" == success ]]
           else
-            [[ "$MSVC_RESULT" == success ]]
+            [[ "$MSVC_RESULT" == success && "$MSVC_PORTABLE_RESULT" == success ]]
           fi
