@@ -586,8 +586,8 @@ int main(){
         self.assertIn("Save->CompanionProfiles = CompanionProfiles;",hero)
         self.assertIn("CompanionProfiles.Reset();",hero)
         self.assertIn("if(Save->Version>=14)CompanionProfiles=Save->CompanionProfiles;",hero)
-        self.assertIn("Save->CompanionProfiles.Num()>15",hero)
-        self.assertIn("CompanionProfiles.Num()>15",hero)
+        self.assertIn("Save->CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount",hero)
+        self.assertIn("CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount",hero)
         transaction=hero.split("bool AMoonfallHeroPawn::CommitCompanionProfile(",1)[1].split(
             "bool AMoonfallHeroPawn::ChangeResidentBond(",1)[0]
         self.assertIn("HasAuthority()",transaction)
@@ -659,7 +659,7 @@ int main(){
         self.assertIn("Version = 16",save)
         self.assertIn("TMap<FName,FMoonfallCompanionGearRecord> CompanionGear",save)
         self.assertIn("Save->CompanionGear = CompanionGear;",hero)
-        self.assertIn("Save->CompanionGear.Num()>15",hero)
+        self.assertIn("Save->CompanionGear.Num()>MoonfallQuestJournal::ResidentCount",hero)
         self.assertIn("if(Save->Version>=15)CompanionGear=Save->CompanionGear;",hero)
         trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
             "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
