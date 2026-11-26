@@ -131,11 +131,16 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("Trait >= 0 && Trait <= 3", valid)
-        self.assertIn("Rarity >= 0 && Rarity <= 5", valid)
-        self.assertIn("(Rarity != 0 || Trait == 0)", valid)
-        self.assertIn("Tier >= 1 && Tier <= 25", valid)
-        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", valid)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", valid)
+        self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", valid)
+        policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        self.assertIn("Affix >= 0 && Affix <= 3", policy)
+        self.assertIn("Rarity >= 0", policy)
+        self.assertIn("Rarity <= 5", policy)
+        self.assertIn("(Rarity != 0 || Affix == 0)", policy)
+        self.assertIn("Tier >= 1 && Tier <= 25", policy)
+        self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", policy)
+        self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
         self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
         self.assertIn("(Rarity == 0 && Affix != 0)", equip)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
