@@ -20,6 +20,9 @@ Run Tools/create_nanite_benchmark_assets.py inside UE5.4 after importing the pro
 ## Firstlight Warden skeletal pilot
 The standalone Rigs/SK_MF_FirstlightWarden.gltf contains a 17-joint hierarchy, inverse bind matrices, rigid per-part skin weights, 948 vertices, 1,296 triangles, three material slots and five original keyframed clips (Idle, Walk, Attack, Guard, HitReact). It is an articulated armor prototype, not a high-detail sculpt or a finished deforming character. Open in Blender to review geometry, shoulder and leg pivots, animation pose transitions and orientation; export a reviewed skeletal FBX with mesh/armature and baked actions for UE5.4 import into a separate /Game/MoonfallProduction/Rigs folder. Review the skeleton, clips, materials, collision independence and retargeting before assigning it to any ordinary enemy. No original heroes, divine bosses, runtime enemy collision or combat timing are changed. Blender conversion and Unreal import have not been run.
 
+## PC audit
+The full-size Options panel displays cached RAM and logical CPU thread count. For more detail, execute `MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1` in Windows PowerShell. The script prints local JSON with OS version, CPU, visible RAM, graphics adapters, driver versions and conservative starting settings. It does not run a benchmark, change settings, identify the active rendering adapter, test DX12 capability, infer dedicated VRAM from truncated WMI fields, collect personal identifiers or transmit the report. FPS and advanced rendering capability require native verification.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
