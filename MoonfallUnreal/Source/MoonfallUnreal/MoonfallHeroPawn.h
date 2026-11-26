@@ -496,6 +496,9 @@ public:
 private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
+ // Fixed storage for slot IDs 3–8. Public gameplay remains gated until
+ // the expanded inventory, loot and equipment UI are integrated.
+ int32 ExtraEquippedCodes[6] = {};
  MoonfallPerformance::FAudit PerformanceAudit;
  MoonfallPerformance::FStageAudit StageAudit;
  double NextStageAuditAt=-1;
