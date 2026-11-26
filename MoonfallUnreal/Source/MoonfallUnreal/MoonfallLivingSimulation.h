@@ -36,6 +36,35 @@ int ProcessNearbyResidents(int cursor,int registered,
  return (start+inspected)%registered;
 }
 constexpr float PulseSeconds=4.f;
+// Two real hours per celestial day, beginning at noon for a fresh session.
+// Sample the existing world clock; do not introduce another ticking actor.
+constexpr double DaySeconds=7200.0;
+inline int CelestialMinute(double Elapsed){
+ if(!std::isfinite(Elapsed)||Elapsed<0.0)return 720;
+ const double Wrapped=std::fmod(Elapsed,DaySeconds);
+ return (720+static_cast<int>(Wrapped/5.0))%1440;
+}
+enum class EDayPhase { Night, Dawn, Day, Dusk };
+constexpr EDayPhase DayPhase(int Minute){
+ return Minute>=288&&Minute<504?EDayPhase::Dawn:
+  Minute>=504&&Minute<936?EDayPhase::Day:
+  Minute>=936&&Minute<1152?EDayPhase::Dusk:EDayPhase::Night;
+}
+constexpr const char* DayPhaseName(EDayPhase Phase){
+ switch(Phase){
+ case EDayPhase::Dawn:return "DAWN";
+ case EDayPhase::Day:return "DAY";
+ case EDayPhase::Dusk:return "DUSK";
+ default:return "NIGHT";
+ }
+}
+constexpr int LightingHour(int Minute){return Minute>=0&&Minute<1440?Minute/60:12;}
+// Never extinguish weather lighting or alter authored sanctuary lighting.
+constexpr float CelestialLightScale(int Hour){
+ if(Hour<0||Hour>23)return 1.f;
+ const int Distance=Hour>12?Hour-12:12-Hour;
+ return 1.f-0.025f*static_cast<float>(Distance);
+}
 enum class EWeather { Clear, Fog, Rain, Storm, Snow, Ash };
 enum class EEvent { Merchant, Patrol, Rescue, Dispute, Monster };
 enum class EActivity { Work, Patrol, Travel, Rest, Shelter };
