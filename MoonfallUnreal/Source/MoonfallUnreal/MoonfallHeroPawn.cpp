@@ -1254,13 +1254,19 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
   Enemy->TakeSpellDamage(SpellDamage);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+  // Damage callbacks may destroy the target or replace its resource state.
+  const auto TargetUsable = [Enemy]() {
+   return IsValid(Enemy) && !Enemy->IsActorBeingDestroyed() && FMath::IsFinite(Enemy->Health);
+  };
   // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
   // Combo stages, posture, and counter rewards still require real damage.
   CombatRecoveryEndsAt = FMath::Max(
        FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
        Time + (FMath::IsFinite(CombatRecoverySeconds)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
-  const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  const float ActualSpellDamage = TargetUsable()
+      ? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;
   if (ActualSpellDamage > 0.f) {
    if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
     ResolvedImpactPoint = Hit.ImpactPoint;
@@ -1283,12 +1289,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
    if (bNewPostureMilestone && Enemy->Health > 0.f
        && FMath::IsFinite(HitComboFourthHitPosture) && HitComboFourthHitPosture > 0.f)
     Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
-   if (bNewPostureMilestone && Enemy->Health > 0.f)
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+   if (TargetUsable() && bNewPostureMilestone && Enemy->Health > 0.f)
     Enemy->RegisterComboMilestone(HitComboStage);
    // A lethal hit may have already started finisher choreography in
    // TakeSpellDamage. Never interrupt that finisher with a basic combo montage.
    // Nonlethal hits use their authored slot, without requiring every slot.
-   if (Enemy->Health > 0.f && !bReduceMotion && HitComboStage >= 1 && HitComboStage <= 12
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+   if (TargetUsable() && Enemy->Health > 0.f && !bReduceMotion && HitComboStage >= 1 && HitComboStage <= 12
        && ComboMontages.IsValidIndex(HitComboStage - 1) && GetMesh()) {
     if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
      if (UAnimMontage* Montage = ComboMontages[HitComboStage - 1].Get())
@@ -1296,19 +1304,22 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     }
    }
   }
-  if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
+  if (TargetUsable() && ActualSpellDamage > 0.f && Enemy->Health > 0.f
       && FMath::IsFinite(OffensiveSpellPostureMultiplier) && OffensiveSpellPostureMultiplier > 0.f) {
    const float ExtraPosture = ActualSpellDamage * 0.25f * SchoolPostureWeights[School]
        * FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f);
    if (FMath::IsFinite(ExtraPosture) && ExtraPosture > 0.f)
     Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));
   }
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
   if (bCounterReady && ActualSpellDamage > 0.f) {
    // A perfect-parry counter also pressures posture, making the next stance
    // break attainable without handing out free pressure on a miss or no-op.
-   if (Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
+   if (TargetUsable() && Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
        && ParryCounterPostureDamage > 0.f)
     Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;
    ParryCounterUntil = -1.f;
   }
 

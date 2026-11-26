@@ -3333,7 +3333,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("const float HealthBeforeSpell = Enemy->Health;"),
                         cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
-                        cast.index("if (Enemy->Health > 0.f && !bReduceMotion"))
+                        cast.index("if (TargetUsable() && Enemy->Health > 0.f && !bReduceMotion"))
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("Anim->Montage_Play(Montage, 1.f);"))
         self.assertLess(cast.index("Anim->Montage_Play(Montage, 1.f);"),
@@ -3354,7 +3354,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnComboMilestone(Stage);", reaction)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("if (bNewPostureMilestone && Enemy->Health > 0.f)", cast)
+        self.assertIn("if (TargetUsable() && bNewPostureMilestone && Enemy->Health > 0.f)", cast)
         self.assertIn("Enemy->RegisterComboMilestone(HitComboStage);", cast)
 
     def test_fourth_hit_has_full_damage_bonus_and_expiring_combo_clears(self):
@@ -3977,7 +3977,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f}", cast)
         self.assertIn("FMath::Clamp(0.018f * ValidEquippedTier(EquippedWeaponCode, 0), 0.f, 0.35f)", cast)
-        self.assertIn("const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);", cast)
+        self.assertIn("? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;", cast)
         self.assertIn("ActualSpellDamage > 0.f && Enemy->Health > 0.f", cast)
         self.assertIn("FMath::IsFinite(OffensiveSpellPostureMultiplier)", cast)
         self.assertIn("FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f)", cast)
@@ -3988,6 +3988,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("const float ActualSpellDamage ="),
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
+    def test_spell_callbacks_revalidate_destroyed_targets_before_followups(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        damage = cast.index("Enemy->TakeSpellDamage(SpellDamage);")
+        valid = cast.index("const auto TargetUsable = [Enemy]()")
+        self.assertLess(damage, valid)
+        self.assertIn("IsValid(Enemy) && !Enemy->IsActorBeingDestroyed() && FMath::IsFinite(Enemy->Health)", cast)
+        self.assertIn("const float ActualSpellDamage = TargetUsable()", cast)
+        for condition in ("TargetUsable() && bNewPostureMilestone",
+                          "TargetUsable() && Enemy->Health > 0.f && !bReduceMotion",
+                          "TargetUsable() && ActualSpellDamage > 0.f",
+                          "TargetUsable() && Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)"):
+            self.assertLess(valid, cast.index(condition))
+        self.assertIn("if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return true;", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("Mana -= Costs[School] * Multiplier;"))
 
     def test_counterspell_posture_pressure_requires_real_spell_damage(self):
         self.assertIn("float ParryCounterPostureDamage = 15.f;", self.hero_h)
