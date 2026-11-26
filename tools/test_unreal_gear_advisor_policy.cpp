@@ -63,6 +63,23 @@ int main() {
      assert(!L::Valid(Code,(Slot+1)%L::SlotCount));
      if(Slot<3) assert(L::Valid(Code,Slot)==G::Valid(Code,Slot));
     }
+ // Strict saved records must restore atomically; never erase invalid gear.
+ L::FLoadout Saved{};
+ const int LegacyCodes[]={101005,111005,121005};
+ const auto OwnAll=[](int){return true;};
+ assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
+ const L::FLoadout Full={101005,111005,121005,131005,141005,151005,161005,171005,181005};
+ assert(L::TryRestoreLoadout(Full.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),9,false,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(LegacyCodes,3,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(nullptr,9,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),10,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),9,true,[](int Code){return Code!=181005;},Saved)&&Saved==Full);
+ auto WrongSlot=Full;WrongSlot[8]=171005;
+ assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ WrongSlot=Full;WrongSlot[8]=-1;
+ assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
