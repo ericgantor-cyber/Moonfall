@@ -4429,13 +4429,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
  // would silently clear an equipped slot on the next launch.
- const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = WornCodes[Slot];
-  if (Code != 0 && (!ValidMoonfallItemCode(Code)
-      || ((Code / 10000) % 10) != Slot || !InventoryItemCodes.Contains(Code)))
-   return false;
- }
+ const auto WornCodes = MoonfallEquipmentSlots::FromLegacy(
+     {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode});
+ if (!MoonfallEquipmentSlots::ValidateOwned(WornCodes, InventoryItemCodes.GetData(),
+     InventoryItemCodes.Num())) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4612,17 +4609,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Validate worn references before restoring anything. Otherwise RestoreGear
  // would clear an unowned or wrong-slot item and a later autosave would
  // permanently overwrite the original save with the missing equipment.
- const int32 SavedWornCodes[3] = {
-  Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
- };
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = SavedWornCodes[Slot];
-  if (Code != 0 && (!ValidMoonfallItemCode(Code)
-      || ((Code / 10000) % 10) != Slot || !Save->InventoryItemCodes.Contains(Code))) {
-   bPersistentSaveWritesBlocked = true;
-   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
-   return false;
-  }
+ const auto SavedWornCodes = MoonfallEquipmentSlots::FromLegacy(
+     {Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode});
+ if (!MoonfallEquipmentSlots::ValidateOwned(SavedWornCodes, Save->InventoryItemCodes.GetData(),
+     Save->InventoryItemCodes.Num())) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
+  return false;
  }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
