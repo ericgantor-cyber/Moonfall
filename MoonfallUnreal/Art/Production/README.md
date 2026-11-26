@@ -57,14 +57,14 @@ An active live request can now be canceled with CANCEL REQUEST. Cancellation is 
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
-| Environment | Modular ruins, terrain, foliage, rock and settlement kits; LOD/Nanite review | Column source mesh only |
+| Environment | Modular ruins, terrain, foliage, rock and settlement kits; LOD/Nanite review | Column source mesh and optional sanctuary integration; other environment kits pending |
 | Gear | Original weapon, armor and accessory meshes; PBR maps | Sword, shield, cuirass and amulet source meshes; cuirass is a solid display prop, not wearable or rigged armor |
-| Shrines | Authored modular reliquary and emissive material | Reliquary source mesh only |
+| Shrines | Authored modular reliquary and emissive material | Reliquary source mesh and optional shrine integration; editor verification pending |
 | Enemies and bosses | Unique sculpt, retopology, rig, skin weights, animation sets | Original Warden skeletal pilot with five clips; native import and runtime binding pending |
 | Combat | Retargeted directional strikes, blocking, dodging, reactions | Not delivered |
 | Spells | Authored Niagara systems and scalable budgets | Not delivered |
-| Materials | Base color, normal, roughness, metallic, AO; material instance library | Constant PBR material installer added; texture maps and native validation pending |
-| Lighting | Lumen/other lighting profile, scalable non-Lumen fallback and GPU timing | Not delivered |
+| Materials | Base color, normal, roughness, metallic, AO; material instance library | Constant and textured PBR material installation plus deterministic texture generation; native validation pending |
+| Lighting | Lumen/other lighting profile, scalable non-Lumen fallback and GPU timing | Opt-in preview and scalable bloom implemented in source; native lighting and GPU measurements pending |
 | UI | Production icon/texture atlas, readability, controller focus | Earlier Canvas art only |
 
 Use engine/editor validation, asset provenance and license review, gameplay integration, visual accessibility review, and Windows performance measurements before labeling any category production-ready. Preserve original hero art and existing save/input contracts. Keep rendering changes opt-in until tested.
