@@ -10,6 +10,7 @@ on:
       - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
+      - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
@@ -25,6 +26,7 @@ on:
       - 'MoonfallUnreal/Tools/create_nanite_benchmark_assets.py'
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
+      - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
@@ -42,3 +44,24 @@ jobs:
       - run: python tools/test_unreal_production_art.py
       - run: g++ -std=c++17 -Wall -Wextra -Werror tools/test_unreal_performance_audit.cpp -o /tmp/moonfall-performance-audit && /tmp/moonfall-performance-audit
       - run: python -m py_compile MoonfallUnreal/Content/Python/import_production_art.py MoonfallUnreal/Content/Python/install_production_materials.py MoonfallUnreal/Content/Python/import_production_textures.py MoonfallUnreal/Art/Production/generate_texture_maps.py MoonfallUnreal/Tools/install_cinematic_preview_lighting.py MoonfallUnreal/Tools/create_nanite_benchmark_assets.py
+
+  validate-bug-report-index:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = 'MoonfallUnreal/Saved/BugReports'
+          New-Item -ItemType Directory -Path "$root/Recovery" -Force | Out-Null
+          $manual = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready=$true;average_fps=20;p95_ms=60;hitches=4} | ConvertTo-Json
+          $recovery = @{schema=1;kind='moonfall_recovery_snapshot';gameplay_sample_ready=$true;average_fps=60;p95_ms=20;hitches=2} | ConvertTo-Json
+          Set-Content -Path "$root/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json" -Value $manual -Encoding UTF8
+          Set-Content -Path "$root/Recovery/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json.next.json" -Value $recovery -Encoding UTF8
+          Set-Content -Path "$root/ignored.json" -Value $manual -Encoding UTF8
+          Set-Content -Path "$root/cccccccccccccccccccccccccccccccc.json" -Value '{}' -Encoding UTF8
+          $result = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 | ConvertFrom-Json
+          if ($result.Count -ne 2) { throw 'Unexpected index count' }
+          if ($result.Reports[0].Classification -ne 'Low throughput') { throw 'Manual classification failed' }
+          if ($result.Reports[1].Classification -ne 'Intermittent slow frames') { throw 'Recovery classification failed' }
+          if ($result.Reports[1].Kind -notmatch 'crash not established') { throw 'Overconfident recovery label' }
