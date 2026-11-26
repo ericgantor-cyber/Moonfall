@@ -33,4 +33,29 @@ static_assert(!S::Valid(INT_MAX,8)&&!S::Valid(INT_MIN,0));
 static_assert(!S::Valid(91001,9)&&!S::Valid(0,0)&&!S::Valid(1000,0));
 static_assert(!S::Valid(6026,0)&&!S::Valid(100001,0));
 static_assert(S::ValidateOwned(S::FLoadout{},nullptr,0));
-int main(){return AllSlots()?0:1;}
+constexpr bool Migration() {
+ const int Bag[9]={1001,11002,21003,31004,41005,51006,61007,71008,81009};
+ const S::FExtra Extra{31004,41005,51006,61007,71008,81009};
+ S::FLoadout Worn{};
+ for(int V=1;V<17;++V) {
+  if(!S::ReadSavedLoadout(V,Old,nullptr,0,Bag,9,Worn))return false;
+  for(int I=0;I<9;++I)if(Worn[I]!=Migrated[I])return false;
+  if(S::ReadSavedLoadout(V,Old,Extra.data(),Extra.size(),Bag,9,Worn))return false;
+ }
+ if(!S::ReadSavedLoadout(17,Old,Extra.data(),Extra.size(),Bag,9,Worn))return false;
+ for(int I=0;I<9;++I)if(Worn[I]!=Bag[I])return false;
+ const auto Before=Worn;
+ if(S::ReadSavedLoadout(17,Old,Extra.data(),5,Bag,9,Worn))return false;
+ if(S::ReadSavedLoadout(17,Old,nullptr,6,Bag,9,Worn))return false;
+ if(S::ReadSavedLoadout(17,Old,Extra.data(),6,Bag,8,Worn))return false;
+ if(S::ReadSavedLoadout(18,Old,Extra.data(),6,Bag,9,Worn))return false;
+ if(S::ReadSavedLoadout(0,Old,nullptr,0,Bag,9,Worn))return false;
+ auto Wrong=Extra; Wrong[0]=Extra[1];
+ if(S::ReadSavedLoadout(17,Old,Wrong.data(),6,Bag,9,Worn))return false;
+ for(int I=0;I<9;++I)if(Worn[I]!=Before[I])return false;
+ const auto RoundTrip=S::ToExtra(Worn);
+ for(int I=0;I<6;++I)if(RoundTrip[I]!=Extra[I])return false;
+ return true;
+}
+static_assert(Migration());
+int main(){return AllSlots()&&Migration()?0:1;}
