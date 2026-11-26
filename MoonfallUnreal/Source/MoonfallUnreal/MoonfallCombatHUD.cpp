@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "HAL/PlatformMemory.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/PlatformTime.h"
 #include "RHI.h"
 #include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
@@ -2368,16 +2369,17 @@ void AMoonfallCombatHUD::DrawHUD()
   // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
   // Changing selection, equipped gear, count or selected item invalidates it.
   // Same-count changes in other slots refresh within 0.25 seconds.
-  const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const double AdvisorNow = FPlatformTime::Seconds();
+  const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
-  const bool bRefreshAdvisor = !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
+  const bool bRefreshAdvisor = !bAdvisorClockValid || !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
     || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
     || CachedAdvisorSelectedCode != AdvisorCode
     || CachedAdvisorWeapon != Hero->EquippedWeaponCode
     || CachedAdvisorArmor != Hero->EquippedArmorCode
     || CachedAdvisorAccessory != Hero->EquippedAccessoryCode
     || AdvisorNow < AdvisorScoreUpdatedAt
-    || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f;
+    || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25;
   if (bRefreshAdvisor) {
    CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
    CachedAdvisorHero = Hero;
@@ -2388,7 +2390,7 @@ void AMoonfallCombatHUD::DrawHUD()
    CachedAdvisorArmor = Hero->EquippedArmorCode;
    CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
    AdvisorScoreUpdatedAt = AdvisorNow;
-   bAdvisorScoreCached = true;
+   bAdvisorScoreCached = bAdvisorClockValid;
   }
   const int32 SelectedUpgradeScore = CachedAdvisorScore;
   const bool bCompactAdvisor = PanelWidth < 550.f;
