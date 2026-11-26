@@ -429,11 +429,20 @@ $bugReports.Add_Click({
                                 })
                                 $poll = New-Object Windows.Forms.Timer
                                 $poll.Interval = 250
+                                $retryInitial = New-Object Windows.Forms.Button
+                                $retryInitial.Dock = 'Bottom'
+                                $retryInitial.Height = 38
+                                $retryInitial.Text = 'RETRY INITIAL ANALYSIS'
+                                $retryInitial.AccessibleName = 'Retry the original report only after confirming another paid API request'
+                                $retryInitial.Enabled = $false
+                                $analysisWindow.Controls.Add($retryInitial)
                                 $startRequest = {
                                     param([string]$request)
                                     if ($pending.Active -or $session.Requests -ge 10) { return }
-                                    $worker = [PowerShell]::Create()
+                                    $worker = $null
                                     try {
+                                        $retryInitial.Enabled = $false
+                                        $worker = [PowerShell]::Create()
                                         $session.CancelSource = New-Object System.Threading.CancellationTokenSource
                                         $session.Canceled = $false
                                         [void]$worker.AddCommand($apiScript).AddParameter('Prompt',$request).AddParameter('Approved',$true).AddParameter('CancellationToken',$session.CancelSource.Token)
@@ -448,17 +457,24 @@ $bugReports.Add_Click({
                                         $status.Text = ('Request {0}/10 in progress. No automatic retry.' -f $session.Requests)
                                         $poll.Start()
                                     } catch {
-                                        $worker.Dispose()
+                                        # If startup failed after BeginInvoke, cancel before disposing.
+                                        if ($session.CancelSource) { $session.CancelSource.Cancel() }
+                                        if ($worker) { $worker.Dispose() }
                                         if ($session.CancelSource) { $session.CancelSource.Dispose(); $session.CancelSource=$null }
+                                        $session.Worker = $null
+                                        $session.Task = $null
+                                        $pending.Active = $false
+                                        $poll.Stop()
+                                        $retryInitial.Enabled = -not $session.LastAnswer -and $session.Requests -lt 10
                                         $cancelRequest.Enabled = $false
                                         $status.Text = 'Unable to start request. No automatic retry.'
                                         $done.Enabled = $true
-                                        $question.Enabled = [bool]$session.LastAnswer
-                                        $follow.Enabled = [bool]$session.LastAnswer
+                                        $question.Enabled = [bool]$session.LastAnswer -and $session.Requests -lt 10
+                                        $follow.Enabled = $question.Enabled
                                     }
                                 }
                                 $poll.Add_Tick({
-                                    if (-not $session.Task.IsCompleted) { return }
+                                    if (-not $pending.Active -or -not $session.Task -or -not $session.Task.IsCompleted) { return }
                                     $poll.Stop()
                                     try {
                                         $reply = ($session.Worker.EndInvoke($session.Task) | Out-String).Trim()
@@ -486,6 +502,13 @@ $bugReports.Add_Click({
                                         $copyAnswer.Enabled = [bool]$session.LastAnswer
                                         $question.Enabled = [bool]$session.LastAnswer -and $session.Requests -lt 10
                                         $follow.Enabled = $question.Enabled
+                                        $retryInitial.Enabled = -not $session.LastAnswer -and $session.Requests -lt 10
+                                    }
+                                })
+                                $retryInitial.Add_Click({
+                                    if ($pending.Active -or $session.LastAnswer -or $session.Requests -ge 10) { return }
+                                    if ([Windows.Forms.MessageBox]::Show('Resend the same reviewed original report to OpenAI? Another request may incur charges.','Confirm retry','YesNo','Question',[Windows.Forms.MessageBoxDefaultButton]::Button2) -eq [Windows.Forms.DialogResult]::Yes) {
+                                        & $startRequest $originalReport
                                     }
                                 })
                                 $follow.Add_Click({
