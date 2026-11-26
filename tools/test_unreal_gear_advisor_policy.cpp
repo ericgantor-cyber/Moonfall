@@ -117,7 +117,8 @@ int main() {
  assert(L::Improvement(101006,Full,-1)==0);
  assert(L::Improvement(101006,Full,4)==0);
  assert(L::Improvement(101006,Full,10)==0);
- assert(L::Improvement(181014,Full,L::SlotCount)==1000);
+ assert(L::Improvement(181006,Full,L::SlotCount)==1000);
+ assert(L::Improvement(181014,Full,L::SlotCount)==9000);
  // Cross-check exact optimization against all 4^9 combinations in tests only.
  L::FLoadout NineWorn{};
  int Choices[L::SlotCount][4]{};
