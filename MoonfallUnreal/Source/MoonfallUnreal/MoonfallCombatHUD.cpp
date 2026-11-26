@@ -1351,8 +1351,12 @@ void AMoonfallCombatHUD::DrawHUD()
   if (MenuWidth>=480.f && MenuHeight>=460.f) {
    static const uint64 RAMGiB=FPlatformMemory::GetConstants().TotalPhysical/(1024ull*1024ull*1024ull);
    static const int32 Threads=FPlatformMisc::NumberOfCoresIncludingHyperthreads();
-   static const FString Audit=FString::Printf(TEXT("PC AUDIT | %llu GiB RAM | %d CPU threads"),
-       static_cast<unsigned long long>(RAMGiB), Threads);
+   const int64 VideoBytes=Hero->GetAuditDedicatedVideoMemory();
+   const FString VRAM=VideoBytes>0
+      ? FString::Printf(TEXT("%.1f GiB VRAM"),double(VideoBytes)/(1024.0*1024.0*1024.0))
+      : TEXT("VRAM unknown");
+   const FString Audit=FString::Printf(TEXT("PC AUDIT | %llu GiB RAM | %d CPU threads | %s"),
+       static_cast<unsigned long long>(RAMGiB), Threads,*VRAM);
    DrawText(Audit,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+MenuHeight-47.f,nullptr,0.65f);
    if (MenuHeight>=510.f) {
     const auto& Sample=Hero->GetPerformanceAudit();
@@ -1376,6 +1380,8 @@ void AMoonfallCombatHUD::DrawHUD()
      const FString Adapter=GRHIAdapterName.IsEmpty()?TEXT("Unknown GPU"):GRHIAdapterName.Left(40);
      const FString API=GDynamicRHI?FString(GDynamicRHI->GetName()).Left(12):TEXT("Unknown");
      const FString Renderer=FString::Printf(TEXT("GPU | %s | %s"),*Adapter,*API);
+     // Texture pool data is available in the audit getters, never presented
+     // as total GPU allocation or as evidence of sufficient VRAM.
      DrawText(Renderer,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.60f);
     }
    }
