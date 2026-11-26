@@ -1985,7 +1985,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ChaseSpeed : 0.f, 0.f, 2000.f);", tick)
         self.assertIn("const float ChaseStep = FMath::Min(Direction.Size(),", tick)
         self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);", tick)
-        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit)", tick)
+        self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", tick)
         self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
 
     def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
