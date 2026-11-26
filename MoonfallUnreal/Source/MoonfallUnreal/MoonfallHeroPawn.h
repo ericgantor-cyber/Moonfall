@@ -9,6 +9,7 @@
 #include "MoonfallTalentRules.h"
 #include "MoonfallPerformanceAudit.h"
 #include "MoonfallBugBreadcrumbs.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -388,6 +389,17 @@ public:
  // -1 follows the region's automatically featured discovered chapter.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") int32 AtlasChronicleChapter = -1;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasChronicleFocus = false;
+ // Quest log reuses Atlas input and modal safety. Tracking preferences are session-only.
+ bool bQuestLogOpen = false;
+ bool bManualQuestTracking = false;
+ MoonfallQuestJournal::FMask ManualQuestMask{};
+ int32 QuestLogSelection = 0;
+ MoonfallQuestJournal::FMask GetActiveQuestMask() const;
+ MoonfallQuestJournal::FMask GetTrackedQuestMask() const;
+ void ToggleQuestLog();
+ void StepQuestLog(int32 Direction);
+ void ToggleSelectedQuestTracking();
+ void ResetQuestTracking();
  void ToggleAtlasChronicleFocus();
  void StepAtlasChronicle(int32 Direction);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;

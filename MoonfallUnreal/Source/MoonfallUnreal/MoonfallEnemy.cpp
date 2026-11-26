@@ -378,11 +378,13 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   }
   if (bShatterFinisher && ActualDamage > 0.f)
     OnShatterFinisher(ActualDamage);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   // Offensive pressure builds posture, but an already broken enemy cannot
   // immediately be rebroken by damage dealt during its vulnerability window.
   if (ActualDamage > 0.f && Health > 0.f && FMath::IsFinite(SpellPostureScale)
       && SpellPostureScale > 0.f && !bPostureExposed)
     ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
@@ -411,10 +413,13 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     bHasCachedNavigationWaypoint = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
    }
   }
   OnHitFeedback(ActualDamage, Health);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld() || !FMath::IsFinite(Health)) return;
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
   bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;
@@ -479,9 +484,14 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
      LivingHero->MarkDungeonBossDefeated(this);
     }
    }
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    OnEnemyDefeated(bLastHitWasShatter);
+   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
+    if (!IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
+    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+        || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     const bool bSanctuaryPracticeReward = ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
     if (bSanctuaryPracticeReward) {
      // Practice grants a small one-time-kill reward per actor, not a full
@@ -490,6 +500,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     } else {
      const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
      Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+     if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+         || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
      Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
     }
    }

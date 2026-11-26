@@ -9,6 +9,7 @@
 #include "MoonfallForgeForecast.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallWorldQuest.h"
+#include "MoonfallQuestJournal.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
@@ -858,6 +859,69 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawLiveMenuHitCue();
    return;
   }
+  if(Hero->bQuestLogOpen) {
+   namespace J=MoonfallQuestJournal;
+   namespace W=MoonfallWorldQuest;
+   const float Width=FMath::Min(900.f,Canvas->SizeX-24.f);
+   const float Height=FMath::Min(650.f,Canvas->SizeY-24.f);
+   const float Left=(Canvas->SizeX-Width)*0.5f,Top=(Canvas->SizeY-Height)*0.5f;
+   const auto Active=Hero->GetActiveQuestMask(),Tracked=Hero->GetTrackedQuestMask();
+   const int Count=J::Count(Active),Rows=J::PageRows(Canvas->SizeY);
+   const int Selected=FMath::Clamp(Hero->QuestLogSelection,0,FMath::Max(0,Count-1));
+   const int Start=J::PageStart(Selected,Rows);
+   const float Scale=FMath::Clamp(Width/650.f,0.48f,1.f);
+   DrawRect(FLinearColor(0.045f,0.043f,0.049f,0.98f),Left,Top,Width,Height);
+   DrawModalChrome(Left,Top,Width,Height,FLinearColor(0.55f,0.46f,0.30f,0.98f));
+   DrawText(TEXT("MOONFALL | QUEST LOG"),FLinearColor(0.95f,0.82f,0.58f),Left+18.f,Top+13.f,nullptr,Scale*1.15f);
+   DrawRect(FLinearColor(0.37f,0.16f,0.22f),Left+Width-42.f,Top+12.f,28.f,28.f);
+   DrawText(TEXT("X"),FLinearColor::White,Left+Width-33.f,Top+16.f,nullptr,0.9f);
+   const int Accepted=J::CountContracts(Active);
+   DrawText(FString::Printf(TEXT("%d/%d CONTRACTS | %d REGIONAL | %d/7 TRACKED"),
+       Accepted,J::MaxActive,Count-Accepted,J::Count(Tracked)),
+       FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+36.f,nullptr,Scale*0.72f);
+   DrawText(FString::Printf(TEXT("%s | PAGE %d/%d"),Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO"),
+       Rows>0?Start/Rows+1:1,Rows>0?FMath::Max(1,(Count+Rows-1)/Rows):1),
+       FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+51.f,nullptr,Scale*0.68f);
+   if(Width>=480.f) {
+    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
+    DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
+   }
+   const bool bSlotsFull=J::Count(Tracked)>=J::MaxTracked;
+   const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
+   DrawText(bSlotsFull&&!bSelectedTracked
+       ? TEXT("7/7 TRACKED | Untrack another quest first | Home: auto")
+       : TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto"),
+       bSlotsFull&&!bSelectedTracked?FLinearColor(0.95f,0.78f,0.45f):FLinearColor(0.75f,0.79f,0.85f),
+       Left+18.f,Top+67.f,nullptr,Scale*0.60f);
+   if(Count==0) DrawText(TEXT("No active quests."),FLinearColor::White,Left+18.f,Top+93.f,nullptr,Scale);
+   for(int Row=0;Row<Rows&&Start+Row<Count;++Row) {
+    const int Id=J::EntryAt(Active,Start+Row);
+    if(Id<0) continue;
+    const bool bTracked=Tracked.Has(Id);
+    const float Y=Top+88.f+Row*30.f;
+    DrawRect(Start+Row==Selected?FLinearColor(0.22f,0.24f,0.32f):FLinearColor(0.09f,0.10f,0.15f),Left+12.f,Y,Width-24.f,28.f);
+    DrawHoverFrame(Left+12.f,Y,Width-24.f,28.f);
+    const FLinearColor Ink=bTracked?FLinearColor(0.52f,0.95f,0.68f):FLinearColor(0.85f,0.88f,0.92f);
+    FString Title,Detail;
+    if(Id<J::ResidentCount) {
+     const auto& Entry=J::Residents[Id];
+     Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(Entry.Location),UTF8_TO_TCHAR(Entry.QuestTitle));
+     const int Cost=J::Cost(Id);
+     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | +%d XP"),UTF8_TO_TCHAR(Entry.Name),
+       FMath::Clamp(Hero->Salvage,0,Cost),Cost,MoonfallQuestXP::Reward(Cost,Hero->Level));
+    } else {
+     const int Goal=Id-J::ResidentCount,Zone=Goal/2;
+     int Progress=0;
+     for(int D=0;D<5;++D) Progress+=(Goal%2?Hero->HasDefeatedDungeonBoss(Zone,D):Hero->HasDiscoveredDungeon(Zone,D))?1:0;
+     Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(W::RegionNames[Zone]),UTF8_TO_TCHAR(W::GoalTitles[Goal]));
+     Detail=FString::Printf(TEXT("%d/5 %s"),Progress,UTF8_TO_TCHAR(W::Type(Goal)));
+    }
+    DrawText(FString::Printf(TEXT("%s %s"),bTracked?TEXT("[X]"):TEXT("[ ]"),*Title),Ink,Left+18.f,Y+1.f,nullptr,Scale*0.75f);
+    DrawText(Detail,FLinearColor(0.80f,0.84f,0.90f),Left+38.f,Y+15.f,nullptr,Scale*0.66f);
+   }
+   DrawLiveMenuHitCue();
+   return;
+  }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
   // Artwork is procedural and schematic, never a claim of surveyed terrain.
   static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
@@ -893,7 +957,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Width>=480.f) DrawMoonfallSigil(Left+Width-67.f,Top+24.f,11.f,FLinearColor(0.92f,0.75f,0.42f),1);
   const float Scale = FMath::Clamp(Width / 900.f, 0.48f, 1.f);
   DrawText(TEXT("MOONFALL | CARTOGRAPHER'S ATLAS"), FLinearColor(0.91f, 0.84f, 0.68f), Left + 18.f, Top + 13.f, nullptr, Scale * 1.32f);
-  // The clickable X is the only Atlas header button (no ME button).
+  // Atlas close remains independent of the quest-log navigation button.
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);
@@ -908,6 +972,11 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
     FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
     nullptr, Scale * 0.72f);
+  if(Width>=480.f) {
+   DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
+   DrawHoverFrame(Left+Width-110.f,Top+46.f,96.f,20.f);
+   DrawText(TEXT("QUESTS [L]"),FLinearColor::White,Left+Width-103.f,Top+48.f,nullptr,0.65f);
+  }
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
   const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);
   const bool bCompactAtlasRows = AtlasRowGap < 55.f;
@@ -2008,9 +2077,9 @@ void AMoonfallCombatHUD::DrawHUD()
     switch (State.State) {
      case MoonfallSpellBook::EReadiness::Ready: return bHealing ? TEXT("READY TO HEAL") : TEXT("READY TO AIM");
      case MoonfallSpellBook::EReadiness::Cooldown:
-      return FString::Printf(TEXT("COOLDOWN %.1fs"),State.CooldownRemaining);
+      return FString::Printf(TEXT("COOLDOWN %.1fs"),FMath::Max(0.1f,State.CooldownRemaining));
      case MoonfallSpellBook::EReadiness::LowMana:
-      return FString::Printf(TEXT("NEED %.0f MANA"),State.ManaShortfall);
+      return FString::Printf(TEXT("NEED %.0f MANA"),FMath::CeilToFloat(State.ManaShortfall));
      case MoonfallSpellBook::EReadiness::FullHealth: return TEXT("FULL HEALTH");
      default: return TEXT("UNAVAILABLE");
     }
@@ -2020,7 +2089,7 @@ void AMoonfallCombatHUD::DrawHUD()
       ? FLinearColor(0.52f,0.94f,0.66f)
       : FLinearColor(0.95f,0.70f,0.42f);
    };
-   if (Book.DetailsY+33.f < Book.EquipY) {
+   if (MoonfallSpellBook::HasFullDetails(Book)) {
     DrawText(FString::Printf(TEXT("%s  |  %.0f MANA  |  %.2fs BASE COOLDOWN"),
       ANSI_TO_TCHAR(Selected.School),Selected.ManaCost,Selected.Cooldown),
       FLinearColor(0.94f,0.82f,0.54f),Book.RowX,Book.DetailsY,nullptr,
@@ -2031,16 +2100,17 @@ void AMoonfallCombatHUD::DrawHUD()
        Book.RowX,Book.DetailsY+23.f,nullptr,
        Book.Width<500.f ? 0.60f : 0.80f);
    }
-   if (Book.DetailsY+80.f < Book.EquipY) {
+   if (MoonfallSpellBook::HasCompactReadiness(Book)) {
+    const float StatusY = MoonfallSpellBook::ReadinessY(Book);
+    const float StatusGap = MoonfallSpellBook::ReadinessLineGap(Book);
+    const float StatusScale = Book.Width<500.f || !MoonfallSpellBook::HasFullDetails(Book) ? 0.59f : 0.78f;
     DrawText(FString::Printf(TEXT("LEFT: %s%s"),*StatusText(LeftStatus,Selected.bHealing),
       Hero->LeftSpell==SelectedSpell ? TEXT("  [EQUIPPED]") : TEXT("")),
-      StatusColor(LeftStatus.State),Book.RowX,Book.DetailsY+49.f,nullptr,
-      Book.Width<500.f ? 0.59f : 0.78f);
+      StatusColor(LeftStatus.State),Book.RowX,StatusY,nullptr,StatusScale);
     DrawText(FString::Printf(TEXT("RIGHT: %s%s"),*StatusText(RightStatus,Selected.bHealing),
       Hero->bRightHandSpellReadied && Hero->RightSpell==SelectedSpell
        ? TEXT("  [EQUIPPED]") : TEXT("")),
-      StatusColor(RightStatus.State),Book.RowX,Book.DetailsY+72.f,nullptr,
-      Book.Width<500.f ? 0.59f : 0.78f);
+      StatusColor(RightStatus.State),Book.RowX,StatusY+StatusGap,nullptr,StatusScale);
    }
    DrawRect(FLinearColor(0.22f,0.32f,0.46f,0.98f),
       Book.EquipLeftX,Book.EquipY,Book.EquipWidth,Book.EquipHeight);
@@ -2775,23 +2845,69 @@ void AMoonfallCombatHUD::DrawHUD()
      Seen[Zone] += Hero->HasDiscoveredDungeon(Zone,Dungeon) ? 1 : 0;
      Defeated[Zone] += Hero->HasDefeatedDungeonBoss(Zone,Dungeon) ? 1 : 0;
     }
-   const auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,MoonfallWorldQuest::MaxVisible);
+   // Fixed catalog and saved states only; no resident actor lookup or world scan.
+   static const auto ResidentKeys=[] {
+    TArray<FName> Keys;
+    Keys.Reserve(MoonfallQuestJournal::ResidentCount);
+    for (const auto& Entry : MoonfallQuestJournal::Residents)
+     Keys.Add(FName(UTF8_TO_TCHAR(Entry.Id)));
+    return Keys;
+   }();
+   int States[MoonfallQuestJournal::ResidentCount]{};
+   for (int I=0; I<MoonfallQuestJournal::ResidentCount; ++I)
+    States[I]=Hero->GetResidentQuestState(ResidentKeys[I]);
+   auto Contracts=MoonfallQuestJournal::Summarize(States,
+      MoonfallQuestJournal::ResidentCount,Hero->Salvage);
+   auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,
+      MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount);
+   if(Hero->bManualQuestTracking) {
+    namespace J=MoonfallQuestJournal;
+    const auto Mask=Hero->GetTrackedQuestMask();
+    Contracts.TrackedCount=0; Goals.Count=0;
+    for(int Id=0;Id<J::EntryCount;++Id) if(Mask.Has(Id)) {
+     if(Id<J::ResidentCount) Contracts.TrackedIndices[Contracts.TrackedCount++]=Id;
+     else Goals.Indices[Goals.Count++]=Id-J::ResidentCount;
+    }
+   }
+   const int TotalRows=Contracts.TrackedCount+Goals.Count;
+   static_assert(MoonfallQuestJournal::MaxTracked==MoonfallWorldQuest::MaxVisible);
    const float ExtraTop=Top+132.f;
    const float OrbRadius=FMath::Clamp(FMath::Min(Canvas->SizeX,Canvas->SizeY)*0.092f,50.f,80.f);
-   const float Available=Canvas->SizeY-2.f*OrbRadius-33.f-ExtraTop;
-   const int Rows=MoonfallWorldQuest::VisibleRows(Available,Goals.Count);
-   if (Goals.Valid && Rows>0) {
+   // Reserve the resource medallion above the orb, not just the orb itself.
+   const float Available=Canvas->SizeY-2.28f*OrbRadius-40.f-ExtraTop;
+   const int Rows=MoonfallWorldQuest::VisibleRows(Available,TotalRows);
+   if (Rows>0) {
     const float Height=MoonfallWorldQuest::HeaderHeight+Rows*MoonfallWorldQuest::RowHeight;
     DrawRect(FLinearColor(0.035f,0.055f,0.11f,0.88f),Left,ExtraTop,Width,Height);
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("REGIONAL QUESTS  |  %d/%d SHOWN"),Rows,Goals.Count),
+    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active,TotalRows,Rows),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
-     const int Goal=Goals.Indices[Row];
-     const int Progress=MoonfallWorldQuest::Progress(Goal,Seen,Defeated);
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;
+     if (Row<Contracts.TrackedCount) {
+      const int Index=Contracts.TrackedIndices[Row];
+      const auto& Entry=MoonfallQuestJournal::Residents[Index];
+      const int Cost=MoonfallQuestJournal::Cost(Index);
+      const int Salvage=FMath::Clamp(Hero->Salvage,0,Cost);
+      const bool bReady=Salvage>=Cost;
+      const FLinearColor Tint=bReady?FLinearColor(0.48f,0.93f,0.65f)
+         :FLinearColor(0.95f,0.78f,0.45f);
+      DrawText(FString::Printf(TEXT("%s | %s | %s"),UTF8_TO_TCHAR(Entry.Name),
+          UTF8_TO_TCHAR(Entry.Location),bReady?TEXT("SALVAGE READY"):TEXT("GATHER SALVAGE")),
+         Tint,Left+14.f,Y+1.f,nullptr,0.68f);
+      const auto Reward=MoonfallQuestXP::Preview(Cost,Hero->Level,
+          Hero->Experience,Hero->ExperienceToNextLevel);
+      const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
+        : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
+            Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
+      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel),
+         FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+12.f,nullptr,0.64f);
+      continue;
+     }
+     const int Goal=Goals.Indices[Row-Contracts.TrackedCount];
+     const int Progress=MoonfallWorldQuest::Progress(Goal,Seen,Defeated);
      DrawText(FString::Printf(TEXT("%s  |  %d/5 %s"),UTF8_TO_TCHAR(MoonfallWorldQuest::GoalTitles[Goal]),
         Progress,UTF8_TO_TCHAR(MoonfallWorldQuest::Type(Goal))),
         FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+2.f,nullptr,0.70f);

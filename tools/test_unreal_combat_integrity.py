@@ -40,7 +40,7 @@ class CombatIntegrityTests(unittest.TestCase):
             self.assertIn(statement, reset)
         melee = self.hero.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split(
             "void AMoonfallHeroPawn::BreakGuard()", 1)[0]
-        miss = melee.split("if (!bLivingTarget) {", 1)[1].split("\n }", 1)[0]
+        miss = melee.split("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {", 1)[1].split("\n }", 1)[0]
         invalid = melee.split("if (!FMath::IsFinite(Damage) || Damage <= 0.f) {", 1)[1].split("\n }", 1)[0]
         for branch in (miss, invalid):
             self.assertIn("ResetMeleeHitCombo();", branch)
@@ -49,7 +49,7 @@ class CombatIntegrityTests(unittest.TestCase):
         absorbed = melee.split("} else {\n  // Fully absorbed strikes cannot retain a powered combo.", 1)[1]
         self.assertIn("ResetMeleeHitCombo();", absorbed)
         self.assertLess(melee.index("Stamina = FMath::Clamp(Stamina - Cost"),
-                        melee.index("if (!bLivingTarget) {"))
+                        melee.index("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {"))
         self.assertIn("OnSuccessfulHitCombo(HitComboStage, false);", melee)
 
     def test_cancelled_enemy_attacks_hide_warning_before_next_tick(self):

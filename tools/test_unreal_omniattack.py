@@ -174,7 +174,7 @@ int main() {
             self.assertIn(token, melee)
         self.assertLess(melee.index("if (bConnected) {"),
                         melee.index("ParryCounterUntil = -1.f;"))
-        self.assertLess(melee.index("if (!bLivingTarget) {"),
+        self.assertLess(melee.index("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {"),
                         melee.index("Enemy->TakeMeleeDamage("))
         self.assertEqual(melee.count("SweepSingleByChannel("), 1)
 
@@ -197,6 +197,17 @@ int main() {
         self.assertIn("OnDirectionalGuardImpact(GuardAngle, bPerfectParry)", hero)
         self.assertIn("E->GetDirectionalWindup(WorldTime, HeroLocation)", hud)
         self.assertIn('TEXT("%s STRIKE | GUARD")', hud)
+
+    def test_guard_feedback_revalidates_defender_before_followup(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
+        guard = ("if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()\n"
+                 "      || !FMath::IsFinite(Health) || Health <= 0.f) return;")
+        for callback, next_operation in (
+            ("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);", "OnDirectionalGuardImpact("),
+            ("OnDirectionalGuardImpact(GuardAngle, bPerfectParry);", "if (Stamina < GuardStaminaCost) BreakGuard();"),
+        ):
+            self.assertIn(guard, damage.split(callback, 1)[1].split(next_operation, 1)[0])
 
     def test_damage_revalidates_hero_after_defense_and_companion_callbacks(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
@@ -222,7 +233,7 @@ int main() {
         self.assertIn("ComboMontages[NextSwingStage - 1].Get()", melee)
         self.assertEqual(melee.count("Anim->Montage_Play(Montage, 1.f);"), 1)
         self.assertLess(melee.index("Anim->Montage_Play(Montage, 1.f);"),
-                        melee.index("if (!bLivingTarget) {"))
+                        melee.index("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {"))
         self.assertLess(melee.index("Anim->Montage_Play(Montage, 1.f);"),
                         melee.index("Enemy->TakeMeleeDamage("))
         self.assertIn("OnMeleeSwing(CurrentSwordAngle, false);", melee)
@@ -232,7 +243,7 @@ int main() {
         self.assertNotIn("OnSuccessfulHitCombo(HitComboStage, true);", melee)
         # An accepted miss expends resources and may animate, but does not
         # increment connected-hit combo stages or award posture pressure.
-        miss = melee.split("if (!bLivingTarget) {", 1)[1].split("\n }", 1)[0]
+        miss = melee.split("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {", 1)[1].split("\n }", 1)[0]
         self.assertNotIn("HitComboStage =", miss)
         self.assertNotIn("ApplyPostureDamage(", miss)
 
@@ -247,7 +258,7 @@ int main() {
         self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", melee)
         self.assertIn("* FMath::Clamp(EffectiveIncomingStage, 0, 3);", melee)
         self.assertIn("* AngleBonus * HitComboMultiplier *", melee)
-        self.assertLess(melee.index("if (!bLivingTarget) {"),
+        self.assertLess(melee.index("if (!bLivingTarget || !IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f) {"),
                         melee.index("const float HitComboMultiplier"))
         self.assertLess(melee.index("const float HitComboMultiplier"),
                         melee.index("Enemy->TakeMeleeDamage("))

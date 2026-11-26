@@ -48,6 +48,28 @@ int main() {
  if (queue.Consume(7.1f,7.f,true)) return 20;
  if (queue.ExpiresAt!=-1.f) return 21;
  if (queue.Queue(7.f,7.2f)) return 22; // Only the final 180ms.
+ if (!queue.Queue(8.85f,9.f)) return 23;
+ if (queue.Consume(8.80f,9.f,true)) return 24; // Clock rolled behind press.
+ if (queue.ExpiresAt!=-1.f || queue.QueuedAt!=-1.f) return 25;
+ if (queue.Consume(9.01f,9.f,true)) return 26; // No stale replay.
+ if (!queue.Queue(9.85f,10.f)) return 27;
+ queue.ExpiresAt=-inf;
+ if (queue.Consume(10.f,10.f,true)) return 28;
+ if (queue.ExpiresAt!=-1.f || queue.QueuedAt!=-1.f) return 29;
+ if (queue.Queue(-0.1f,0.f)) return 30;
+ if (!queue.Queue(10.85f,11.f)) return 31;
+ if (!queue.Consume(11.f,11.f,true)) return 32;
+ if (queue.ExpiresAt!=-1.f || queue.QueuedAt!=-1.f) return 33;
+ if (queue.HasPending()) return 34;
+ if (!queue.Queue(11.85f,12.f)) return 35;
+ if (!queue.HasPending()) return 36;
+ if (queue.Queue(11.0f,12.f)) return 37; // Early press after rollback.
+ if (queue.HasPending()) return 38;
+ queue.QueuedAt=12.f; // Half-populated slot still requires cleanup.
+ if (!queue.HasPending() || queue.Consume(12.f,12.f,true)) return 39;
+ if (queue.HasPending()) return 40;
+ if (!queue.Queue(12.85f,13.f)) return 41;
+ if (queue.Queue(13.2f,14.f) || queue.HasPending()) return 42;
  return 0;
 }
 """
