@@ -52,6 +52,8 @@ In Build Center, open BUG REPORTS, ASK CHATGPT - PREVIEW REPORT, and select ANAL
 ### Conversational live AI workspace
 After the first response, enter a follow-up question and review the exact outbound text, including a bounded portion of the original report and most recent AI answer. Each request requires explicit approval; a session permits at most ten request attempts. The current report and latest answer remain in memory only, and a failed follow-up keeps the previous successful answer. The latest answer may be copied manually. This is bounded single-step follow-up context rather than complete conversation history; no connection to ChatGPT account memory or repository tools is included. The client rejects prompts containing the configured API key. CI tests context limits and consent without paid requests.
 
+An active live request can now be canceled with CANCEL REQUEST. Cancellation is propagated to the local HTTP client and the previous successful answer remains available. Cancellation does not guarantee that remote processing stops or that API charges are avoided. The response is also checked for the exact configured key before display. CI covers pre-canceled requests and key leakage without contacting the API; actual in-flight cancellation and desktop interaction remain native test requirements.
+
 ## Production gates
 | Area | Required next deliverable | Current status |
 |---|---|---|
