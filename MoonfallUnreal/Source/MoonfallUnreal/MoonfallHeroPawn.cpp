@@ -453,8 +453,15 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (bGameplay) UpdateRecoverySnapshot(Now);
   // Throttled estimates from the engine; no GPU flush or profiler capture.
   if (!bGameplay) { StageAuditWarmupUntil=Now+1.0; }
-  else if (GDynamicRHI && GetNetMode()!=NM_DedicatedServer
-       && Now>=StageAuditWarmupUntil && Now>=NextStageAuditAt) {
+  else if (StageAuditWarmupUntil>=0 && Now>=StageAuditWarmupUntil) {
+   // Keep the pre-menu reading while the menu is open; start a fresh
+   // consecutive sample window after returning to gameplay.
+   StageAudit.Reset();
+   StageAuditWarmupUntil=-1;
+   NextStageAuditAt=Now;
+  }
+  if (bGameplay && StageAuditWarmupUntil<0 && GDynamicRHI && GetNetMode()!=NM_DedicatedServer
+       && Now>=NextStageAuditAt) {
    NextStageAuditAt=Now+0.25;
    StageAudit.Observe(FPlatformTime::ToMilliseconds(GGameThreadTime),
        FPlatformTime::ToMilliseconds(GRenderThreadTime),
@@ -2628,8 +2635,14 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  const FString Temp=RecoverySnapshotPath+TEXT(".tmp");
  if (FJsonSerializer::Serialize(Report,Writer) && Json.Len()<=32768
      && FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)) {
-  // A prior checkpoint remains useful if serialization or writing fails.
-  Files.Move(*RecoverySnapshotPath,*Temp,true);
+  // Alternate complete files rather than replacing the only good copy.
+  const FString Next=RecoverySnapshotPath+TEXT(".next.json");
+  const FString Previous=RecoverySnapshotPath+TEXT(".previous.json");
+  if (Files.FileExists(*Previous)) Files.Delete(*Previous,false,true,true);
+  if (!Files.FileExists(*Previous) &&
+      (!Files.FileExists(*Next) || Files.Move(*Previous,*Next,false))) {
+   Files.Move(*Next,*Temp,false);
+  }
  }
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
@@ -2638,6 +2651,8 @@ void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
  if (!RecoverySnapshotPath.IsEmpty()) {
   IFileManager::Get().Delete(*RecoverySnapshotPath,false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".next.json")),false,true,true);
+  IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".previous.json")),false,true,true);
   IFileManager::Get().Delete(*(RecoverySnapshotPath+TEXT(".tmp")),false,true,true);
  }
  Super::EndPlay(EndPlayReason);
@@ -2708,16 +2723,14 @@ void AMoonfallHeroPawn::ExportBugReport() {
  const FString File=FPaths::Combine(Directory,FGuid::NewGuid().ToString(EGuidFormats::Digits)+TEXT(".json"));
  const FString Temp=File+TEXT(".tmp");
  IFileManager& Files=IFileManager::Get();
- // Publish only a completely serialized file; never overwrite another report.
- bool bSaved=FJsonSerializer::Serialize(Report,Writer)
-     && Json.Len()<=32768 && Files.MakeDirectory(*Directory,true)
-     && !Files.FileExists(*File) && !Files.FileExists(*Temp)
-     && FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
- if (bSaved) {
-  bSaved=Files.Move(*File,*Temp,false);
-  if (!bSaved) Files.Delete(*Temp,false,true,true);
- } else if (Files.FileExists(*Temp)) {
-  Files.Delete(*Temp,false,true,true);
+ // Only clean up a temporary file that this invocation attempted to write.
+ bool bSaved=false;
+ if (FJsonSerializer::Serialize(Report,Writer) && Json.Len()<=32768
+     && Files.MakeDirectory(*Directory,true)
+     && !Files.FileExists(*File) && !Files.FileExists(*Temp)) {
+  bSaved=FFileHelper::SaveStringToFile(Json,*Temp,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)
+      && Files.Move(*File,*Temp,false);
+  if (!bSaved && Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
  }
  BugReportStatus=bSaved?TEXT("REPORT SAVED"):TEXT("SAVE FAILED");
 }
