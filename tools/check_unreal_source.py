@@ -1679,9 +1679,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;", body)
-        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", body)
+        self.assertIn("BuildOwnedEquipmentLoadout()", body)
         self.assertIn("InventoryItemCodes.Num()", body)
-        self.assertIn("MoonfallGearAdvisor::FPlanner Planner", body)
+        self.assertIn("MoonfallGearAdvisor::FExpandedPlanner Planner", body)
         self.assertIn("Planner.Add(InventoryItemCodes[Index], Index)", body)
         self.assertIn("Planner.Finish()", body)
         self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", body)
@@ -1930,7 +1930,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
-        self.assertIn("GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)", auto)
+        self.assertIn("BuildOwnedEquipmentLoadout()", auto)
         self.assertIn("Planner.Finish()", auto)
         self.assertIn("InventoryItemCodes[Index] != Plan.Codes[Slot]", auto)
         self.assertIn("EquipInventoryItem(Index)", auto)
@@ -4353,14 +4353,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
         )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)",
-                         "GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)",
+                         "BuildOwnedEquipmentLoadout()",
                          "MoonfallGearAdvisor::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes)"):
             self.assertIn(contract, score)
         for preview in (score, recommendation):
             self.assertNotIn("Health <=", preview)
             self.assertNotIn("IsFinite(Health)", preview)
         self.assertIn("MoonfallGearAdvisor::Improvement(InventoryItemCodes[Index], EquippedCodes)", recommendation)
-        self.assertLess(recommendation.index("GetEquipmentSlotCode(0)"), recommendation.index("for (int32 Index"))
+        self.assertLess(recommendation.index("BuildOwnedEquipmentLoadout()"), recommendation.index("for (int32 Index"))
         self.assertNotIn("GetEquipmentUpgradeScore(Index)", recommendation)
         self.assertNotIn("InventoryItemCodes.Contains(", recommendation)
         self.assertIn("Improvement > BestImprovement", recommendation)
