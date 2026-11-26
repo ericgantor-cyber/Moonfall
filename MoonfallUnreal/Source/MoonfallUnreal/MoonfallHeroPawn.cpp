@@ -3712,11 +3712,17 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  TGuardValue<bool> BatchGuard(bEquipBestInProgress, true);
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
+  // A Blueprint callback may destroy this pawn or close the inventory.
+  // Revalidate before reading combat state, equipment, or bag contents.
+  if (!IsValid(this) || IsActorBeingDestroyed()) break;
+  if (!bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen
+      || bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+      || !FMath::IsFinite(Health) || Health < 0.f || bPersistentSaveWritesBlocked
+      || bWorldProgressLoadInProgress || bTalentAllocationInProgress || bEquipmentCraftInProgress) break;
   // Recheck combat and exact ownership/index after any Blueprint callback.
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
   // Do not overwrite an explicit gear change made by an earlier callback.
   if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
-  if (!IsValid(this) || IsActorBeingDestroyed()) break;
   const int32 Index = Plan.Indices[Slot];
   if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
       || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
