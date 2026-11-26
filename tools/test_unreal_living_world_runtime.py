@@ -114,6 +114,14 @@ int main(){
  assert(DayPhase(288)==EDayPhase::Dawn&&DayPhase(504)==EDayPhase::Day);
  assert(DayPhase(936)==EDayPhase::Dusk&&DayPhase(1152)==EDayPhase::Night);
  assert(CelestialLightScale(0)>=0.69f&&CelestialLightScale(12)==1.f);
+ assert(CelestialLightBucket(0)==0&&CelestialLightBucket(1439)==143);
+ assert(SunlightAmount(0)==0.f&&SunlightAmount(72)==1.f);
+ assert(GlobalLightScale(72)==1.f&&GlobalLightScale(0)>=0.27f);
+ for(int Bucket=0;Bucket<144;++Bucket){
+  assert(GlobalLightScale(Bucket)>=0.27f&&GlobalLightScale(Bucket)<=1.f);
+  if(Bucket<72)assert(SunlightAmount(Bucket)<=SunlightAmount(Bucket+1));
+  if(Bucket>72)assert(SunlightAmount(Bucket)<=SunlightAmount(Bucket-1));
+ }
  for(int Minute=0;Minute<1440;++Minute){
   const int Hour=LightingHour(Minute);
   assert(Hour>=0&&Hour<24);
@@ -934,6 +942,18 @@ int main(){
         self.assertIn("const int32 WeatherId=static_cast<int32>(Weather);", weather)
         self.assertLess(arena.index("DungeonRoad->PreAllocateInstancesMemory(30);"),
                         arena.index("DungeonRoad->AddInstance("))
+
+    def test_global_celestial_light_reuses_authored_scene_without_tick(self):
+        arena=(SRC/"MoonfallArena.cpp").read_text()
+        body=arena.split("void AMoonfallArena::UpdateCelestialGlobalLighting(",1)[1].split("void AMoonfallArena::UpdateRegionWeather(",1)[0]
+        self.assertIn("if (!bCelestialLightResolved)",body)
+        self.assertIn("TaggedCount==1",body)
+        self.assertIn('ActorHasTag(FName(TEXT("MoonfallCelestial")))',body)
+        self.assertIn("else if (!bHasAuthoredLight)",body)
+        self.assertIn("LastGlobalLightBucket==Bucket",body)
+        self.assertIn("CelestialBaseIntensity*MoonfallLivingSimulation::GlobalLightScale(Bucket)",body)
+        self.assertNotIn("SpawnActor",body)
+        self.assertNotIn("Tick(",body)
 
     def test_celestial_clock_save_validation_and_shared_view(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
