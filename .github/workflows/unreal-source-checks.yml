@@ -24,12 +24,23 @@ on:
       - '.github/workflows/unreal-source-checks.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-windows-build.yml'
+permissions:
+  contents: read
+concurrency:
+  group: moonfall-source-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   source-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        with:
+          persist-credentials: false
       - name: Validate Unreal source layout
+        id: check_validate_unreal_source_layout
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -102,10 +113,14 @@ jobs:
       # Check the actual game integration contracts on every Unreal source change.
       # This is not a native UE5 build; use the dedicated Windows engine runner for that.
       - name: Run complete Unreal integration regression tests
+        id: check_run_complete_unreal_integration_regression_tests
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/check_unreal_source.py
 
       - name: Compile and run original 141-node UE5 talent rules (C++17)
+        id: check_compile_and_run_original_141_node_ue5_talent_rules_c_17
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -113,6 +128,8 @@ jobs:
           /tmp/moonfall_talent_rules
 
       - name: Compile and run performance audit and bug reporter regressions (C++17)
+        id: check_compile_and_run_performance_audit_and_bug_reporter_regressions_c_17
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -120,14 +137,20 @@ jobs:
           /tmp/moonfall_performance_audit
 
       - name: Verify every UE5 talent matches the canonical 141-node catalog
+        id: check_verify_every_ue5_talent_matches_the_canonical_141_node_catalog
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_talent_catalog_parity.py
 
       - name: Validate UE5 V13 talent save, load and rollback contracts
+        id: check_validate_ue5_v13_talent_save_load_and_rollback_contracts
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_talent_save_v13.py
 
       - name: Compile and test full 141-node talent-web layout and hit-testing
+        id: check_compile_and_test_full_141_node_talent_web_layout_and_hit_testing
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -135,50 +158,74 @@ jobs:
           /tmp/moonfall_talent_web
 
       - name: Verify shared UE5 panel chrome, focus highlights and compact accessibility
+        id: check_verify_shared_ue5_panel_chrome_focus_highlights_and_compact_accessibility
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_modal_panels
 
       - name: Verify 12 saved racial passives and C character ancestry pages
+        id: check_verify_12_saved_racial_passives_and_c_character_ancestry_pages
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_character_race_pages.py
 
       - name: Verify creator-to-gameplay ancestry save-backed confirmation
+        id: check_verify_creator_to_gameplay_ancestry_save_backed_confirmation
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_creator_gameplay_bridge.py
 
       - name: Verify playable talent web input, modal safety and native HUD contracts
+        id: check_verify_playable_talent_web_input_modal_safety_and_native_hud_contracts
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_talent_ui.py
 
       - name: Verify red damage feedback and talent-web defeat recovery
+        id: check_verify_red_damage_feedback_and_talent_web_defeat_recovery
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 tools/test_unreal_live_menu_damage.py
 
       - name: Verify WASD and arrow keys are movement-only across engines
+        id: check_verify_wasd_and_arrow_keys_are_movement_only_across_engines
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest discover -s tests -p test_movement_only_keyboard.py -v
 
       - name: Verify native Omniattack and movement-only keyboard controls
+        id: check_verify_native_omniattack_and_movement_only_keyboard_controls
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_omniattack
 
       - name: Verify buffered sword combos and enemy NPC pause behavior
+        id: check_verify_buffered_sword_combos_and_enemy_npc_pause_behavior
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_buffer
 
       - name: Verify Shattered Sanctuary gothic architecture and safe paths
+        id: check_verify_shattered_sanctuary_gothic_architecture_and_safe_paths
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_sanctuary_architecture
 
       - name: Verify Firstlight tutorial and safe practice sentry AI
+        id: check_verify_firstlight_tutorial_and_safe_practice_sentry_ai
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_firstlight_training
 
       - name: Verify six-region climate and living-world runtime
+        id: check_verify_six_region_climate_and_living_world_runtime
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_living_world_runtime
 
       - name: Compile and execute V27 living AI policies (C++17)
+        id: check_compile_and_execute_v27_living_ai_policies_c_17
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -188,16 +235,22 @@ jobs:
           done
 
       - name: Verify UE5 combat momentum and immediate flinch regressions
+        id: check_verify_ue5_combat_momentum_and_immediate_flinch_regressions
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_integrity
 
       - name: Verify native Spell Book catalog, layout, and modal controls
+        id: check_verify_native_spell_book_catalog_layout_and_modal_controls
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_spellbook
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
       - name: Run Unreal equipment and loot safety regression tests
+        id: check_run_unreal_equipment_and_loot_safety_regression_tests
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -206,30 +259,42 @@ jobs:
             tools.test_unreal_loot_collection_safety
 
       - name: Verify combat HUD scan regressions
+        id: check_verify_combat_hud_scan_regressions
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_combat_hud_scan
 
       - name: Verify enemy navigation budget regressions
+        id: check_verify_enemy_navigation_budget_regressions
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_enemy_path_budget
 
       - name: Verify cooked content gates for Windows installer
+        id: check_verify_cooked_content_gates_for_windows_installer
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: python3 -m unittest -v tools.test_unreal_windows_packaging_gate
 
       - name: Test Windows packaged root discovery with synthetic layouts
+        id: check_test_windows_packaged_root_discovery_with_synthetic_layouts
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
 
       - name: Test native automation evidence parser with synthetic records
+        id: check_test_native_automation_evidence_parser_with_synthetic_records
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & ./MoonfallUnreal/Build/Test-NativeAutomationResults.Tests.ps1
 
       - name: Parse Windows build scripts
+        id: check_parse_windows_build_scripts
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -244,6 +309,8 @@ jobs:
           }
 
       - name: Parse GitHub-hosted Unreal inline PowerShell
+        id: check_parse_github_hosted_unreal_inline_powershell
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -277,6 +344,8 @@ jobs:
           Write-Host "Parsed $parsed hosted Unreal PowerShell blocks. Native UE5 compilation NOT performed."
 
       - name: Test Unreal 5.4 engine guard with synthetic installations
+        id: check_test_unreal_5_4_engine_guard_with_synthetic_installations
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -292,6 +361,8 @@ jobs:
           Write-Host 'Both Unreal Windows build entrypoints call the tested engine version guard.'
 
       - name: Validate Unreal project and module configuration
+        id: check_validate_unreal_project_and_module_configuration
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -306,4 +377,35 @@ jobs:
           targets = list(Path('MoonfallUnreal/Source').glob('*.Target.cs'))
           assert targets, 'Missing Unreal target definitions'
           print('Unreal 5.4 project metadata, module dependencies and targets validated.')
+          PY
+
+      - name: Publish independent regression results
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          STEP_RESULTS: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          steps = json.loads(os.environ['STEP_RESULTS'])
+          checks = [["check_validate_unreal_source_layout","Validate Unreal source layout"],["check_run_complete_unreal_integration_regression_tests","Run complete Unreal integration regression tests"],["check_compile_and_run_original_141_node_ue5_talent_rules_c_17","Compile and run original 141-node UE5 talent rules (C++17)"],["check_compile_and_run_performance_audit_and_bug_reporter_regressions_c_17","Compile and run performance audit and bug reporter regressions (C++17)"],["check_verify_every_ue5_talent_matches_the_canonical_141_node_catalog","Verify every UE5 talent matches the canonical 141-node catalog"],["check_validate_ue5_v13_talent_save_load_and_rollback_contracts","Validate UE5 V13 talent save, load and rollback contracts"],["check_compile_and_test_full_141_node_talent_web_layout_and_hit_testing","Compile and test full 141-node talent-web layout and hit-testing"],["check_verify_shared_ue5_panel_chrome_focus_highlights_and_compact_accessibility","Verify shared UE5 panel chrome, focus highlights and compact accessibility"],["check_verify_12_saved_racial_passives_and_c_character_ancestry_pages","Verify 12 saved racial passives and C character ancestry pages"],["check_verify_creator_to_gameplay_ancestry_save_backed_confirmation","Verify creator-to-gameplay ancestry save-backed confirmation"],["check_verify_playable_talent_web_input_modal_safety_and_native_hud_contracts","Verify playable talent web input, modal safety and native HUD contracts"],["check_verify_red_damage_feedback_and_talent_web_defeat_recovery","Verify red damage feedback and talent-web defeat recovery"],["check_verify_wasd_and_arrow_keys_are_movement_only_across_engines","Verify WASD and arrow keys are movement-only across engines"],["check_verify_native_omniattack_and_movement_only_keyboard_controls","Verify native Omniattack and movement-only keyboard controls"],["check_verify_buffered_sword_combos_and_enemy_npc_pause_behavior","Verify buffered sword combos and enemy NPC pause behavior"],["check_verify_shattered_sanctuary_gothic_architecture_and_safe_paths","Verify Shattered Sanctuary gothic architecture and safe paths"],["check_verify_firstlight_tutorial_and_safe_practice_sentry_ai","Verify Firstlight tutorial and safe practice sentry AI"],["check_verify_six_region_climate_and_living_world_runtime","Verify six-region climate and living-world runtime"],["check_compile_and_execute_v27_living_ai_policies_c_17","Compile and execute V27 living AI policies (C++17)"],["check_verify_ue5_combat_momentum_and_immediate_flinch_regressions","Verify UE5 combat momentum and immediate flinch regressions"],["check_verify_native_spell_book_catalog_layout_and_modal_controls","Verify native Spell Book catalog, layout, and modal controls"],["check_run_unreal_equipment_and_loot_safety_regression_tests","Run Unreal equipment and loot safety regression tests"],["check_verify_combat_hud_scan_regressions","Verify combat HUD scan regressions"],["check_verify_enemy_navigation_budget_regressions","Verify enemy navigation budget regressions"],["check_verify_cooked_content_gates_for_windows_installer","Verify cooked content gates for Windows installer"],["check_test_windows_packaged_root_discovery_with_synthetic_layouts","Test Windows packaged root discovery with synthetic layouts"],["check_test_native_automation_evidence_parser_with_synthetic_records","Test native automation evidence parser with synthetic records"],["check_parse_windows_build_scripts","Parse Windows build scripts"],["check_parse_github_hosted_unreal_inline_powershell","Parse GitHub-hosted Unreal inline PowerShell"],["check_test_unreal_5_4_engine_guard_with_synthetic_installations","Test Unreal 5.4 engine guard with synthetic installations"],["check_validate_unreal_project_and_module_configuration","Validate Unreal project and module configuration"]]
+          counts = {}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as report:
+              report.write('### UE5 source regression results\n\n')
+              checkout = steps.get('checkout', {}).get('outcome', 'not-run')
+              report.write(f'Checkout: {checkout}\n\n')
+              if checkout == 'success':
+                  sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+                  report.write(f'Checked-out commit: `{sha}`\n\n')
+              report.write('Scope: source contracts and standalone policy tests only. Native Unreal compilation and gameplay are NOT verified.\n\n')
+              report.write('| Check | Outcome |\n| --- | --- |\n')
+              for key, name in checks:
+                  result = steps.get(key, {}).get('outcome', 'not-run')
+                  counts[result] = counts.get(result, 0) + 1
+                  report.write(f'| {name} | {result} |\n')
+              report.write('\n' + ', '.join(f'{n} {status}' for status, n in sorted(counts.items())) + '\n')
+          # The original steps are still required; none use continue-on-error.
+          # Also fail closed if a required check did not actually complete successfully.
+          if checkout != 'success' or counts.get('success', 0) != len(checks):
+              raise SystemExit('One or more required regression checks did not pass; inspect the summary.')
           PY
