@@ -2831,8 +2831,9 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.53f,0.77f,0.92f));
   const auto Climate=MoonfallLivingSimulation::WeatherFor(ClimateRegion,
       MoonfallLivingSimulation::Phase(GetWorld()->GetTimeSeconds(),360.f));
-  DrawText(FString::Printf(TEXT("%s  |  %s"),
-      bSanctuaryObjective?TEXT("FIRSTLIGHT"):TEXT("WEATHER"),
+  const int32 CelestialMinute=MoonfallLivingSimulation::CelestialMinute(GetWorld()->GetTimeSeconds());
+  DrawText(FString::Printf(TEXT("%02d:%02d | %s"),
+      CelestialMinute/60,CelestialMinute%60,
       UTF8_TO_TCHAR(MoonfallLivingSimulation::WeatherName(Climate))),
     FLinearColor(0.7f,0.85f,0.96f),Left+Width-160.f,Top+7.f,nullptr,0.64f);
   DrawText(Objective, FLinearColor::White,
