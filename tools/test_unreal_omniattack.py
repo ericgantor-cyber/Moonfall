@@ -198,6 +198,17 @@ int main() {
         self.assertIn("E->GetDirectionalWindup(WorldTime, HeroLocation)", hud)
         self.assertIn('TEXT("%s STRIKE | GUARD")', hud)
 
+    def test_guard_feedback_revalidates_defender_before_followup(self):
+        hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]
+        guard = ("if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()\n"
+                 "      || !FMath::IsFinite(Health) || Health <= 0.f) return;")
+        for callback, next_operation in (
+            ("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);", "OnDirectionalGuardImpact("),
+            ("OnDirectionalGuardImpact(GuardAngle, bPerfectParry);", "if (Stamina < GuardStaminaCost) BreakGuard();"),
+        ):
+            self.assertIn(guard, damage.split(callback, 1)[1].split(next_operation, 1)[0])
+
     def test_damage_revalidates_hero_after_defense_and_companion_callbacks(self):
         hero = (SRC / "MoonfallHeroPawn.cpp").read_text()
         damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1]

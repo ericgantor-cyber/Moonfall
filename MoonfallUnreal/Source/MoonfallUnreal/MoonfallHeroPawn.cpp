@@ -2127,8 +2127,13 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    DamageAfterGuard *= 0.4f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
+  // Blueprint feedback may synchronously defeat or destroy the defending pawn.
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+      || !FMath::IsFinite(Health) || Health <= 0.f) return;
   if (MoonfallOmniattack::ValidAngle(GuardAngle))
    OnDirectionalGuardImpact(GuardAngle, bPerfectParry);
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+      || !FMath::IsFinite(Health) || Health <= 0.f) return;
   if (Stamina < GuardStaminaCost) BreakGuard();
  } else if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack) {
   // Insufficient stamina breaks guard without granting free damage reduction.
