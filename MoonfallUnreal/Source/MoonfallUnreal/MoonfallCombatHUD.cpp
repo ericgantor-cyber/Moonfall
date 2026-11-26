@@ -895,7 +895,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bSelectedTracked=Tracked.Has(J::EntryAt(Active,Selected));
    DrawText(bSlotsFull&&!bSelectedTracked
        ? TEXT("7/7 TRACKED | Untrack another quest first | Home: auto")
-       : TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto"),
+       : TEXT("PgUp/PgDn or D-pad: row | LB/RB: page | A/End/click: track"),
        bSlotsFull&&!bSelectedTracked?FLinearColor(0.95f,0.78f,0.45f):FLinearColor(0.75f,0.79f,0.85f),
        Left+18.f,Top+67.f,nullptr,Scale*0.60f);
    if(Count==0) DrawText(TEXT("No active quests."),FLinearColor::White,Left+18.f,Top+93.f,nullptr,Scale);
@@ -912,8 +912,12 @@ void AMoonfallCombatHUD::DrawHUD()
      const auto& Entry=J::Residents[Id];
      Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(Entry.Location),UTF8_TO_TCHAR(Entry.QuestTitle));
      const int Cost=J::Cost(Id);
-     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | +%d XP"),UTF8_TO_TCHAR(Entry.Name),
-       FMath::Clamp(Hero->Salvage,0,Cost),Cost,MoonfallQuestXP::Reward(Cost,Hero->Level));
+     const auto Reward=MoonfallQuestXP::Preview(Cost,Hero->Level,Hero->Experience,Hero->ExperienceToNextLevel);
+     const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
+       : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
+           Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
+     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | %s"),UTF8_TO_TCHAR(Entry.Name),
+       FMath::Clamp(Hero->Salvage,0,Cost),Cost,*RewardLabel);
     } else {
      const int Goal=Id-J::ResidentCount,Zone=Goal/2;
      int Progress=0;
@@ -2902,7 +2906,7 @@ void AMoonfallCombatHUD::DrawHUD()
     // A matching etched top rail ties the quest ledger to the main tracker.
     DrawRect(FLinearColor(0.48f,0.65f,0.76f,0.80f),Left,ExtraTop,Width,1.f);
     DrawRect(FLinearColor(0.30f,0.72f,0.92f,0.95f),Left,ExtraTop,3.f,Height);
-    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active,TotalRows,Rows),
+    DrawText(FString::Printf(TEXT("QUESTS | %d ACTIVE | %d TRACKED | %d SHOWN"),Contracts.Active+MoonfallWorldQuest::ActiveCount(Seen,Defeated),TotalRows,Rows),
       FLinearColor(0.72f,0.92f,1.f),Left+14.f,ExtraTop+4.f,nullptr,0.76f);
     for (int Row=0; Row<Rows; ++Row) {
      const float Y=ExtraTop+MoonfallWorldQuest::HeaderHeight+Row*MoonfallWorldQuest::RowHeight;

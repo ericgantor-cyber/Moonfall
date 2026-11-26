@@ -58,6 +58,19 @@ constexpr FSelection Select(const int* Discovered, const int* Defeated, int Requ
  }
  return Out;
 }
+// Match the journal's active ledger: boss objectives unlock on first discovery.
+// Unlike Select().Unfinished, this excludes not-yet-unlocked boss goals.
+constexpr int ActiveCount(const int* Discovered, const int* Defeated) {
+ if (!Discovered || !Defeated) return 0;
+ int Count=0;
+ for (int Z=0; Z<ZoneCount; ++Z) {
+  if (Discovered[Z]<0 || Discovered[Z]>5 || Defeated[Z]<0 ||
+      Defeated[Z]>Discovered[Z]) return 0;
+  if (Discovered[Z]<5) ++Count;
+  if (Discovered[Z]>0 && Defeated[Z]<5) ++Count;
+ }
+ return Count;
+}
 constexpr int Progress(int Goal, const int* Discovered, const int* Defeated) {
  return !Discovered || !Defeated || Goal < 0 || Goal >= GoalCount ? 0
     : Goal % 2 == 0 ? Discovered[Goal/2] : Defeated[Goal/2];

@@ -43,6 +43,22 @@ constexpr bool AllFinished() {
  return R.Valid && R.Completed == 12 && R.Unfinished == 0 && R.Count == 0;
 }
 static_assert(AllFinished(), "12 complete regional quests return to exploration.");
+constexpr bool ActiveQuestLedger() {
+ int Seen[6]{}, Dead[6]{};
+ if(W::ActiveCount(Seen,Dead)!=6) return false;
+ Seen[0]=1;
+ if(W::ActiveCount(Seen,Dead)!=7) return false;
+ Seen[0]=5;
+ if(W::ActiveCount(Seen,Dead)!=6) return false;
+ Dead[0]=5;
+ if(W::ActiveCount(Seen,Dead)!=5) return false;
+ for(int Z=0;Z<6;++Z) {Seen[Z]=5;Dead[Z]=5;}
+ if(W::ActiveCount(Seen,Dead)!=0) return false;
+ Dead[0]=6;
+ return W::ActiveCount(Seen,Dead)==0 && W::ActiveCount(nullptr,Dead)==0;
+}
+static_assert(ActiveQuestLedger(), "Active count excludes locked and completed regional goals.");
+
 constexpr bool RejectCorruption() {
  int Seen[6]{0,0,6,0,0,0}, Dead[6]{};
  const auto Wrong = W::Select(Seen, Dead, 7);

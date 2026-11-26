@@ -1018,6 +1018,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 void AMoonfallHeroPawn::ControllerLeftShoulder()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(-1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) { TalentPreviousBranch(); return; }
  if (bInventoryOpen) { ReforgeSelectedInventoryItem(); return; }
@@ -1026,6 +1027,7 @@ void AMoonfallHeroPawn::ControllerLeftShoulder()
 void AMoonfallHeroPawn::ControllerRightShoulder()
 {
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bTalentWebOpen) { TalentNextBranch(); return; }
  if (bInventoryOpen) { ForgeFiveSelectedInventoryItem(); return; }
@@ -2370,6 +2372,18 @@ void AMoonfallHeroPawn::StepQuestLog(int32 Direction) {
  const int Last=FMath::Max(0,MoonfallQuestJournal::Count(GetActiveQuestMask())-1);
  QuestLogSelection=FMath::Clamp(FMath::Clamp(QuestLogSelection,0,Last)+Direction,0,Last);
 }
+void AMoonfallHeroPawn::StepQuestLogPage(int32 Direction) {
+ if (!bAtlasOpen || !bQuestLogOpen || bOptionsOpen || IsActorBeingDestroyed()
+     || !FMath::IsFinite(Health) || Health<=0.f || (Direction!=-1 && Direction!=1)) return;
+ const auto* PC=Cast<APlayerController>(Controller);
+ if (!PC) return;
+ int32 ViewW=0, ViewH=0;
+ PC->GetViewportSize(ViewW,ViewH);
+ if (ViewW<300 || ViewH<240) return;
+ namespace J=MoonfallQuestJournal;
+ QuestLogSelection=J::SelectPage(QuestLogSelection,J::PageRows(float(ViewH)),
+     J::Count(GetActiveQuestMask()),Direction);
+}
 void AMoonfallHeroPawn::ToggleSelectedQuestTracking() {
  if(!bAtlasOpen||!bQuestLogOpen||Health<=0.f||!FMath::IsFinite(Health)) return;
  namespace J=MoonfallQuestJournal;
@@ -3712,11 +3726,17 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  TGuardValue<bool> BatchGuard(bEquipBestInProgress, true);
  int32 UpgradesEquipped = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
+  // A Blueprint callback may destroy this pawn or close the inventory.
+  // Revalidate before reading combat state, equipment, or bag contents.
+  if (!IsValid(this) || IsActorBeingDestroyed()) break;
+  if (!bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen
+      || bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+      || !FMath::IsFinite(Health) || Health < 0.f || bPersistentSaveWritesBlocked
+      || bWorldProgressLoadInProgress || bTalentAllocationInProgress || bEquipmentCraftInProgress) break;
   // Recheck combat and exact ownership/index after any Blueprint callback.
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
   // Do not overwrite an explicit gear change made by an earlier callback.
   if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
-  if (!IsValid(this) || IsActorBeingDestroyed()) break;
   const int32 Index = Plan.Indices[Slot];
   if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
       || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
