@@ -205,6 +205,20 @@ void AMoonfallNorthGothicFerryActor::OnConstruction(const FTransform& Transform)
  for (float X : {-735.f,-410.f,-85.f}) {
   AddBox(GothicIronwork, FVector(X,0,835), FVector(23,23,220));
  }
+ // Original raven-wing tracery along the OUTER gunwales. Reuse the
+ // existing ironwork batch; never intrude into the passenger walkable deck.
+ for (int Side : {-1,1}) {
+  for (int32 I=0;I<5;++I) {
+   const float X=-650.f+I*290.f;
+   AddBox(GothicIronwork,FVector(X-38.f,Side*330.f,374.f),
+      FVector(105,15,15),FRotator(-34.f,0.f,0.f));
+   AddBox(GothicIronwork,FVector(X+38.f,Side*330.f,374.f),
+      FVector(105,15,15),FRotator(34.f,0.f,0.f));
+  }
+ }
+ // Three crown stones ornament the existing roof spires, not the sails.
+ for (float X : {-735.f,-410.f,-85.f})
+  AddBox(GothicIronwork,FVector(X,0,955),FVector(38,38,28),FRotator(0,45,0));
  // Main mast + six crimson torn sail panels. Static and bounded, no physics.
  AddBox(GothicIronwork, FVector(275,0,785), FVector(43,43,1030));
  AddBox(GothicIronwork, FVector(270,0,1190), FVector(32,700,30));

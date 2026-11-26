@@ -82,9 +82,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   if (GearCube) PickupMesh->SetStaticMesh(GearCube);
   PickupMesh->SetRelativeLocation(FVector(0.f,0.f,78.f));
   PickupMesh->SetRelativeScale3D(FVector(0.10f,0.09f,0.67f));
-  PickupMesh->SetRelativeRotation(FRotator(0.f,0.f,-16.f));
+  PickupMesh->SetRelativeRotation(FRotator(0.f,0.f,0.f));
   PickupDetailA->SetRelativeLocation(FVector(0.f,0.f,50.f));
-  PickupDetailA->SetRelativeScale3D(FVector(0.45f,0.10f,0.09f));
+  PickupDetailA->SetRelativeScale3D(FVector(0.52f,0.11f,0.08f));
+  PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-8.f));
   PickupDetailB->SetRelativeLocation(FVector(0.f,0.f,30.f));
   PickupDetailB->SetRelativeScale3D(FVector(0.10f,0.10f,0.33f));
  } else if (Slot == 1) {
@@ -93,9 +94,11 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMesh->SetRelativeLocation(FVector(0.f,0.f,49.f));
   PickupMesh->SetRelativeScale3D(FVector(0.43f,0.28f,0.52f));
   PickupDetailA->SetRelativeLocation(FVector(-29.f,0.f,70.f));
-  PickupDetailA->SetRelativeScale3D(FVector(0.25f,0.33f,0.19f));
+  PickupDetailA->SetRelativeScale3D(FVector(0.29f,0.33f,0.19f));
+  PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-24.f));
   PickupDetailB->SetRelativeLocation(FVector(29.f,0.f,70.f));
-  PickupDetailB->SetRelativeScale3D(FVector(0.25f,0.33f,0.19f));
+  PickupDetailB->SetRelativeScale3D(FVector(0.29f,0.33f,0.19f));
+  PickupDetailB->SetRelativeRotation(FRotator(0.f,0.f,24.f));
  } else {
   // Gem in the center of two angled, suspended chain links.
   if (GearSphere) PickupMesh->SetStaticMesh(GearSphere);
@@ -103,10 +106,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMesh->SetRelativeScale3D(FVector(0.25f,0.13f,0.32f));
   PickupDetailA->SetRelativeLocation(FVector(-22.f,0.f,89.f));
   PickupDetailA->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
-  PickupDetailA->SetRelativeRotation(FRotator(0.f,-30.f,0.f));
+  PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-30.f));
   PickupDetailB->SetRelativeLocation(FVector(22.f,0.f,89.f));
   PickupDetailB->SetRelativeScale3D(FVector(0.12f,0.10f,0.35f));
-  PickupDetailB->SetRelativeRotation(FRotator(0.f,30.f,0.f));
+  PickupDetailB->SetRelativeRotation(FRotator(0.f,0.f,30.f));
  }
  // Visual variation is bounded and derived only from validated item data.
  // Collision stays disabled and pickup distances remain unchanged.

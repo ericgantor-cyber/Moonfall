@@ -6450,6 +6450,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "!FMath::IsFinite(Mana)", "!FMath::IsFinite(MaxMana)", "Level < 1", "Experience < 0", "Experience > 1000000", "ExperienceToNextLevel != 100 + (Level - 1) * 55"):
             self.assertLess(award.index(guard), award.index("Experience = FMath::Min("))
 
+    def test_shrine_loot_ferry_art_stays_separate_from_gameplay(self):
+        shrine = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        ferry = (ROOT / "MoonfallNorthGothicFerryActor.cpp").read_text(encoding="utf-8")
+        crown = shrine.split("ShrineCrownArt = CreateDefaultSubobject", 1)[1].split("ShrineBase->SetRelativeScale3D", 1)[0]
+        for token in ("ECollisionEnabled::NoCollision", "SetGenerateOverlapEvents(false)",
+                      "SetCastShadow(false)", "SetCanEverAffectNavigation(false)", "I<8;++I"):
+            self.assertIn(token, crown)
+        self.assertEqual(crown.count("ShrineCrownArt->AddInstance("), 2)
+        self.assertIn("PickupDetailA->SetRelativeScale3D(FVector(0.52f,0.11f,0.08f))", loot)
+        self.assertIn("PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-24.f))", loot)
+        self.assertIn("PickupDetailB->SetRelativeRotation(FRotator(0.f,0.f,30.f))", loot)
+        tracery = ferry.split("// Original raven-wing tracery", 1)[1].split("// Main mast", 1)[0]
+        self.assertIn("Side*330.f", tracery)
+        self.assertIn("I<5;++I", tracery)
+        self.assertNotIn("CrimsonSails", tracery)
+        self.assertNotIn("PassengerDeck", tracery)
+
     def test_talent_menu_guards_load_and_clears_confirmation_before_callbacks(self):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleTalentWeb()", 1)[1].split("\n}", 1)[0]
         for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "bWorldProgressLoadInProgress"):
