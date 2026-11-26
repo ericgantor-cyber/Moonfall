@@ -4934,6 +4934,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.BossVictoryLedgerDefaults",
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
             "Moonfall.Controls.CurrentInputContract",
+            "Moonfall.Quests.ResidentSaveRoundTrip",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -4999,6 +5000,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT", workflow)
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
         self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
+        self.assertIn("Moonfall.Quests.ResidentSaveRoundTrip", workflow)
+        quest_native = (ROOT / "MoonfallQuestNativeTests.cpp").read_text(encoding="utf-8")
+        for token in ("Moonfall.Quests.ResidentSaveRoundTrip", "Hero->SupportsResidentContract(Id)", "UGameplayStatics::SaveGameToMemory(Original,Bytes)", "UGameplayStatics::LoadGameFromMemory(Bytes)", "J::MaxTracked", "J::MaxActive"):
+            self.assertIn(token, quest_native)
         native = (ROOT / "MoonfallInputNativeTests.cpp").read_text(encoding="utf-8")
         for token in ("GetDefault<UInputSettings>()", "GetActionMappings()", "GetAxisMappings()", "RequireExclusiveAction", "MovementScales", "Moonfall.Controls.CurrentInputContract"):
             self.assertIn(token, native)
@@ -5344,7 +5349,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         name = "Moonfall.Dungeons.BossVictoryLedgerDefaults"
         self.assertIn(name, source)
         self.assertIn(name, runner)
-        self.assertIn('Save->Version, 10', source)
+        self.assertIn('Save->Version, 16', source)
         self.assertIn('Save->DefeatedDungeonBossMask, 0', source)
         self.assertIn('Hero->GetTotalDefeatedDungeonBosses()', source)
         self.assertIn('Hero->HasDefeatedDungeonBoss(-1, 0)', source)
@@ -5383,7 +5388,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all five required native tests explicitly passed", runner)
+        self.assertIn("all six required native tests explicitly passed", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
