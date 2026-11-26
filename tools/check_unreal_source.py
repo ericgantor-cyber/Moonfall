@@ -842,7 +842,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
         for slot, field in enumerate(("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode")):
             self.assertIn(f"case {slot}: return {field};", raw)
-        self.assertIn("default: return 0;", raw)
+        self.assertIn("Slot >= MoonfallEquipmentLayout::SlotCount) return 0;", raw)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", raw)
+        self.assertIn("return ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount];", raw)
+        self.assertIn("int32 ExtraEquippedCodes[6] = {};", self.hero_h)
         self.assertNotIn("InventoryItemCodes", raw)
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
@@ -1925,19 +1928,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         load.index("bWorldProgressLoadInProgress = true;"))
         self.assertLess(load.index("const int32 SavedWornCodes[3]"),
                         load.index("RestoreGear(Save->EquippedWeaponCode"))
+        extra_restore = "ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=CheckedSavedWorn[Slot];"
+        self.assertIn(extra_restore, load)
+        self.assertLess(load.index("bWorldProgressLoadInProgress = true;"), load.index(extra_restore))
 
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
-        self.assertIn("const int32 WornCodes[3] = {GetRawEquipmentSlotCode(0), GetRawEquipmentSlotCode(1), GetRawEquipmentSlotCode(2)};", save)
-        self.assertIn("TryRestoreLoadout(WornCodes,UE_ARRAY_COUNT(WornCodes),false,", save)
+        self.assertIn("MoonfallEquipmentLayout::FLoadout WornCodes{};", save)
+        self.assertIn("WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);", save)
+        self.assertIn("TryRestoreMirroredLoadout(", save)
+        self.assertIn("WornCodes.data(),MoonfallEquipmentLayout::SlotCount,true,MoonfallEquipmentLayout::LegacySlotCount", save)
+        self.assertIn("for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)", save)
+        self.assertIn("Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];", save)
         self.assertIn("[this](int32 Code){return InventoryItemCodes.Contains(Code);}", save)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         restore = policy.split("bool TryRestoreLoadout(", 1)[1].split("// Exact set-aware", 1)[0]
         self.assertIn("Count!=(Expanded?SlotCount:LegacySlotCount)", restore)
         self.assertIn("!Valid(Code,Slot)||!IsOwned(Code)", restore)
         self.assertLess(restore.index("!Valid(Code,Slot)||!IsOwned(Code)"), restore.index("Out=Candidate;"))
-        self.assertLess(save.index("const int32 WornCodes[3]"), save.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertLess(save.index("MoonfallEquipmentLayout::FLoadout WornCodes{};"), save.index("UGameplayStatics::SaveGameToSlot("))
 
     def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
         hero = self.hero_cpp
