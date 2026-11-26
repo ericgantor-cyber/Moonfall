@@ -70,7 +70,8 @@ sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
     ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
     ("atlas and quest log", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 3),
-    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
+    # Celestial wait dialog adds a third painter-ordered exit; all three need the hit cue.
+    ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 3),
     ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )
 for name, begin_marker, end_marker, expected in sections:
