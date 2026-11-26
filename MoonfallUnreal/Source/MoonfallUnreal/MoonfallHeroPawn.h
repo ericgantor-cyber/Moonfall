@@ -247,6 +247,7 @@ public:
  int64 GetAuditDedicatedVideoMemory() const { return AuditDedicatedVideoMemory; }
  int64 GetAuditTextureMemory() const { return AuditTextureMemory; }
  int64 GetAuditTexturePool() const { return AuditTexturePool; }
+ const FString& GetBugReportStatus() const { return BugReportStatus; }
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 FrameGenerationPreference = 0;
@@ -487,6 +488,9 @@ private:
  int64 AuditTextureMemory=-1;
  int64 AuditTexturePool=-1;
  void RefreshGraphicsMemoryAudit();
+ void ExportBugReport();
+ FString BugReportStatus;
+ double LastBugReportAt=-1;
  // Fallback for levels without a usable PlayerStart. Capture the actual
  // authored spawn before the saved checkpoint is applied during BeginPlay.
  FTransform InitialSpawnTransform = FTransform::Identity;
