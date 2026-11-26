@@ -11,6 +11,7 @@ on:
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
@@ -27,6 +28,7 @@ on:
       - 'MoonfallUnreal/Config/DefaultScalability.ini'
       - 'MoonfallUnreal/Build/Get-MoonfallPCAudit.ps1'
       - 'MoonfallUnreal/Build/Get-MoonfallBugReports.ps1'
+      - 'MoonfallUnreal/Build/Build-Center.ps1'
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
@@ -75,3 +77,16 @@ jobs:
           if ($result.Count -ne 3) { throw 'Unexpected count with invalid readiness' }
           $entry = @($result.Reports | Where-Object { $_.File -eq 'dddddddddddddddddddddddddddddddd.json' })
           if ($entry.Count -ne 1 -or $entry[0].Classification -ne 'Insufficient timing evidence') { throw 'Malformed readiness was accepted' }
+
+          # Isolate the installed-game fixture from the runner's real profile.
+          $oldLocal = $env:LOCALAPPDATA
+          try {
+            $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'MoonfallReportFixture'
+            $installed = Join-Path $env:LOCALAPPDATA 'MoonfallUnreal/Saved/BugReports'
+            New-Item -ItemType Directory -Path $installed -Force | Out-Null
+            Set-Content -Path (Join-Path $installed 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json') -Value $manual -Encoding UTF8
+            $combined = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 -IncludeInstalled | ConvertFrom-Json
+            if ($combined.Count -ne 4) { throw 'Installed report discovery failed' }
+            $found = @($combined.Reports | Where-Object { $_.Source -eq 'Installed game (user data)' })
+            if ($found.Count -ne 1 -or $found[0].Classification -ne 'Low throughput') { throw 'Installed report label failed' }
+          } finally { $env:LOCALAPPDATA = $oldLocal }
