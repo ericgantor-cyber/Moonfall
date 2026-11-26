@@ -109,6 +109,12 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 }
 }
 
+MoonfallEquipmentSlots::FLoadout AMoonfallHeroPawn::BuildEquipmentLoadout() const
+{
+ return MoonfallEquipmentSlots::FromParts(
+     {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}, ExtraEquippedCodes);
+}
+
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
  if (Slot < 0 || Slot > 2) return 0;
@@ -2514,8 +2520,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const auto Item = MoonfallEquipmentSlots::Decode(Code);
  if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;
  // Protect the last copy of any worn item through the shared slot policy.
- const auto WornCodes = MoonfallEquipmentSlots::FromLegacy(
-     {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode});
+ const auto WornCodes = BuildEquipmentLoadout();
  if (!MoonfallEquipmentSlots::CanRemoveCopy(WornCodes, Code,
      InventoryItemCodes.GetData(), InventoryItemCodes.Num())) return false;
  const int32 Rarity = Item.Rarity;
@@ -4398,8 +4403,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
  // would silently clear an equipped slot on the next launch.
- const auto WornCodes = MoonfallEquipmentSlots::FromLegacy(
-     {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode});
+ const auto WornCodes = BuildEquipmentLoadout();
+ // Never let a V16 write silently discard the six reserved native slots.
+ if (!MoonfallEquipmentSlots::CanWriteLegacy(WornCodes)) return false;
  if (!MoonfallEquipmentSlots::ValidateOwned(WornCodes, InventoryItemCodes.GetData(),
      InventoryItemCodes.Num())) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
@@ -4825,6 +4831,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(SavedWornCodes[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  RestoreGear(SavedWornCodes[1], 1, EquippedArmorCode, ArmorTier, ArmorAffix);
  RestoreGear(SavedWornCodes[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ ExtraEquippedCodes = MoonfallEquipmentSlots::ToExtra(SavedWornCodes);
  // A defeated loadout may select only gear still owned after checkpoint restore.
  // Reconcile armor capacity against the saved armor tier exactly once.
  if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[0], 0)
