@@ -528,7 +528,7 @@ void AMoonfallUnrealGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
- const TArray<TWeakObjectPtr<AMoonfallWorldNPC>>& Candidates) {
+ TArrayView<const TWeakObjectPtr<AMoonfallWorldNPC>> Candidates) {
  UWorld* World=GetWorld();
  if (!World || Candidates.Num()<2) return;
  auto* Society=World->GetSubsystem<UMoonfallLivingWorldSubsystem>();
@@ -538,13 +538,15 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
  SocialSpeakerCursor=(SocialSpeakerCursor+1)%MoonfallLivingSimulation::ResidentRegistryBudget;
  AMoonfallWorldNPC* Speaker=Candidates[SpeakerIndex].Get();
  if (!IsValid(Speaker) || Speaker->IsActorBeingDestroyed()) return;
+ const FVector SpeakerLocation=Speaker->GetActorLocation();
+ if (SpeakerLocation.ContainsNaN()) return;
  AMoonfallWorldNPC* Listener=nullptr;
  double BestDistance=FMath::Square(300.0);
  for (int32 I=0; I<Candidates.Num(); ++I) {
   auto* Other=Candidates[I].Get();
   if (!IsValid(Other) || Other->IsActorBeingDestroyed() || Other==Speaker
       || Other->ResidentId==Speaker->ResidentId || Other->SettlementId!=Speaker->SettlementId) continue;
-  const double Distance=FVector::DistSquared(Speaker->GetActorLocation(),Other->GetActorLocation());
+  const double Distance=FVector::DistSquared(SpeakerLocation,Other->GetActorLocation());
   if (!FMath::IsFinite(Distance) || Distance>=BestDistance) continue;
   // Reject hostile listeners before nearest-neighbor selection. Otherwise
   // the same hostile neighbor can permanently block all friendly exchanges.
@@ -561,7 +563,7 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
  Params.AddIgnoredActor(Listener);
  FHitResult Hit;
  const FVector EyeOffset(0,0,55);
- if (World->LineTraceSingleByChannel(Hit,Speaker->GetActorLocation()+EyeOffset,
+ if (World->LineTraceSingleByChannel(Hit,SpeakerLocation+EyeOffset,
       Listener->GetActorLocation()+EyeOffset,ECC_Visibility,Params)) return;
  if (!Society->ShareUsefulRumor(Speaker->ResidentId,Listener->ResidentId)) return;
  // A dedicated ambient event never opens player dialogue, overwrites a
@@ -641,8 +643,8 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  // With <=20 nearby, all respond on every pulse instead of waiting for
  // their distant settlement's registry slots. Larger local crowds rotate.
  auto* Society=World->GetSubsystem<UMoonfallLivingWorldSubsystem>();
- TArray<TWeakObjectPtr<AMoonfallWorldNPC>> SocialCandidates;
- SocialCandidates.Reserve(MoonfallLivingSimulation::ResidentBudget);
+ // The resident selector guarantees no more than ResidentBudget updates.
+ TArray<TWeakObjectPtr<AMoonfallWorldNPC>, TInlineAllocator<MoonfallLivingSimulation::ResidentBudget>> SocialCandidates;
  const int32 CombatPhase=MoonfallLivingSimulation::Phase(Now,20.f);
  const bool bNewCombatObservation=bCombatNearby && CombatPhase!=LastSocialCombatPhase;
  // Nearby combat is a non-crime danger observation, not proof of a crime.
@@ -689,7 +691,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
       NPC->AdvanceLivingRoutine(Now,HeroLocation,
           Hero->bResidentContextOpen && Hero->FocusedResident.Get()==NPC,
           Bond,bGuide,bHold);
-      if (!bCombatNearby && !bTalking && NPC->bUsePersonalityRoutines && !NPC->ResidentId.IsNone()
+      if (!bCombatNearby && !Hero->bResidentContextOpen && !bTalking && NPC->bUsePersonalityRoutines && !NPC->ResidentId.IsNone()
           && !NPC->SettlementId.IsNone()
           && MoonfallLivingSimulation::ReactionFor(MoonfallLivingSimulation::ERole::Citizen,
                Now-NPC->LastDangerAt)==MoonfallLivingSimulation::EAlertReaction::Normal
@@ -698,7 +700,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
      });
  if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);
  if (bPublishedCombat) LastSocialCombatPhase=CombatPhase;
- if (!bCombatNearby && !Hero->bResidentContextOpen) ShareNearbyResidentRumor(SocialCandidates);
+ if (!bCombatNearby && !Hero->bResidentContextOpen) ShareNearbyResidentRumor(TArrayView<const TWeakObjectPtr<AMoonfallWorldNPC>>(SocialCandidates.GetData(),SocialCandidates.Num()));
  // Event cooldowns and region eligibility are deterministic. We spawn at
  // most one short-lived ambient actor, never inside the starting sanctuary.
  if (Now<NextAmbientEncounterAt) return;
