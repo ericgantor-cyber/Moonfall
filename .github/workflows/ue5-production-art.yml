@@ -15,6 +15,9 @@ on:
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallBugBreadcrumbs.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - '.github/workflows/ue5-production-art.yml'
   push:
     branches: [main]
@@ -32,6 +35,9 @@ on:
       - 'tools/test_unreal_production_art.py'
       - 'tools/test_unreal_performance_audit.cpp'
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPerformanceAudit.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallBugBreadcrumbs.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp'
       - '.github/workflows/ue5-production-art.yml'
 permissions:
   contents: read
@@ -69,8 +75,7 @@ jobs:
           if ($result.Reports[0].Classification -ne 'Low throughput') { throw 'Manual classification failed' }
           if ($result.Reports[1].Classification -ne 'Intermittent slow frames') { throw 'Recovery classification failed' }
           if ($result.Reports[1].Kind -notmatch 'crash not established') { throw 'Overconfident recovery label' }
-          if ($result.Reports[1].File -notmatch '\.next\.json
-) { throw 'Newest recovery snapshot was not selected' }
+          if (-not $result.Reports[1].File.EndsWith('.next.json')) { throw 'Newest recovery snapshot was not selected' }
           $invalid = @{schema=1;kind='moonfall_manual_bug_diagnostics';gameplay_sample_ready='true';average_fps=10;p95_ms=100} | ConvertTo-Json
           Set-Content -Path "$root/dddddddddddddddddddddddddddddddd.json" -Value $invalid -Encoding UTF8
           $result = & ./MoonfallUnreal/Build/Get-MoonfallBugReports.ps1 | ConvertFrom-Json
