@@ -204,7 +204,12 @@ int main(){
             "void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[0]
         pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split(
             "void AMoonfallUnrealGameMode::SpawnDungeonBatch()",1)[0]
-        self.assertIn("SocialCandidates.Reserve(MoonfallLivingSimulation::ResidentBudget)",pulse)
+        self.assertIn("TInlineAllocator<MoonfallLivingSimulation::ResidentBudget>> SocialCandidates",pulse)
+        self.assertNotIn("SocialCandidates.Reserve(",pulse)
+        self.assertIn("!bCombatNearby && !Hero->bResidentContextOpen && !bTalking",pulse)
+        self.assertIn("TArrayView<const TWeakObjectPtr<AMoonfallWorldNPC>> Candidates",helper)
+        self.assertEqual(helper.count("Speaker->GetActorLocation()"),1)
+        self.assertIn("if (SpeakerLocation.ContainsNaN()) return;",helper)
         self.assertIn("!bCombatNearby && !Hero->bResidentContextOpen",pulse)
         self.assertIn("HeroLocation,false,180.f",pulse)
         self.assertIn("CombatPhase%1024",pulse)
