@@ -508,7 +508,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    CloseResidentContext();
  }
  // Replay one deliberately buffered dodge before a pending sword swing.
- if (DodgeBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(DodgeBuffer.ExpiresAt)) {
+ if (DodgeBuffer.HasPending()) {
   const float DodgeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
   const bool bCanDodge = GetWorld() && FMath::IsFinite(Health) && Health > 0.f
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
@@ -520,12 +520,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    Dodge();
   }
   // Consume also clears expired or invalid input without dispatching.
-  if (DodgeBuffer.ExpiresAt < 0.f) BufferedDodgeDirection = FVector::ZeroVector;
+  if (!DodgeBuffer.HasPending()) BufferedDodgeDirection = FVector::ZeroVector;
  }
  // A second click shortly before recovery may queue exactly one next swing.
  // No extra timer, animation, actor scan, trace, or stamina charge per frame.
  // All modal/defense transitions discard it before an attack can resolve.
- if (SwordBuffer.ExpiresAt >= 0.f || !FMath::IsFinite(SwordBuffer.ExpiresAt)) {
+ if (SwordBuffer.HasPending()) {
   const float CombatNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
   const bool bCanDispatchBufferedMelee = GetWorld() && Health > 0.f
     && FMath::IsFinite(Health) && !bOptionsOpen && !bInventoryOpen
@@ -1933,6 +1933,8 @@ void AMoonfallHeroPawn::Dodge()
   if (!bDispatchingBufferedDodge && DodgeBuffer.Queue(Now,FMath::Max(NextDodgeAt,DamageImmunityUntil))) {
    BufferedDodgeDirection = Direction;
    SwordBuffer.Clear();
+  } else if (!DodgeBuffer.HasPending()) {
+   BufferedDodgeDirection = FVector::ZeroVector;
   }
   return;
  }
