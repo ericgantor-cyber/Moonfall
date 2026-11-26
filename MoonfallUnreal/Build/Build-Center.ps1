@@ -204,7 +204,7 @@ $bugReports.Add_Click({
             $note = New-Object Windows.Forms.Label
             $note.Dock = 'Top'
             $note.Height = 76
-            $note.Text = 'Local checkout and standard installed-game report folders. Recovery snapshots may belong to a running session. No report is sent automatically.'
+            $note.Text = 'Local checkout, standard installed-game folders and registered custom installation. Recovery snapshots may belong to a running session. No report is sent automatically.'
             $note.AccessibleName = 'Local report privacy and recovery limitations'
             $body = New-Object Windows.Forms.TextBox
             $body.Multiline = $true
@@ -216,7 +216,7 @@ $bugReports.Add_Click({
             $body.Text = if ($index.Count -gt 0) {
                 $index.Reports | Format-List Source,File,LastWriteUtc,Kind,Classification,AverageFPS,P95Milliseconds,Hitches | Out-String -Width 160
             } else {
-                'No valid reports found in the checked folders. Custom installation or Saved directory overrides may use another location.'
+                'No valid reports found in the checked folders. Unregistered installations or Saved directory overrides may use another location.'
             }
             $close = New-Object Windows.Forms.Button
             $close.Dock = 'Bottom'
