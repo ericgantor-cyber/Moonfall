@@ -1251,7 +1251,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
         self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
-        self.assertIn("Save->Version > 16", self.hero_cpp)
+        self.assertIn("Save->Version > MoonfallEquipmentSlots::ExpandedVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 11", self.hero_cpp)
         self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
         self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
@@ -1887,7 +1887,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() TArray<int32> ExtraEquippedCodes;", save_h)
         self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
-        self.assertIn("Save->Version > 16", load)
+        self.assertIn("Save->Version > MoonfallEquipmentSlots::ExpandedVersion", load)
 
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
@@ -1897,10 +1897,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         builder = self.hero_cpp.split("AMoonfallHeroPawn::BuildEquipmentLoadout()", 1)[1].split("\n}", 1)[0]
         self.assertIn("MoonfallEquipmentSlots::FromParts(", builder)
         self.assertIn("{EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode}, ExtraEquippedCodes", builder)
-        self.assertIn("if (!MoonfallEquipmentSlots::CanWriteLegacy(WornCodes)) return false;", save)
-        self.assertLess(save.index("CanWriteLegacy("), save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("!MoonfallEquipmentSlots::ValidateOwned(WornCodes, InventoryItemCodes.GetData(),", save)
-        self.assertIn("InventoryItemCodes.Num())) return false;", save)
+        self.assertIn("MoonfallEquipmentSlots::WriteVersion(", save)
+        self.assertIn("WornCodes, InventoryItemCodes.GetData(), InventoryItemCodes.Num()", save)
+        self.assertIn("if (EquipmentSaveVersion == 0) return false;", save)
+        self.assertLess(save.index("WriteVersion("), save.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertIn("Save->Version = EquipmentSaveVersion;", save)
+        self.assertIn("if (EquipmentSaveVersion == MoonfallEquipmentSlots::ExpandedVersion)", save)
+        self.assertIn("Save->ExtraEquippedCodes.Append(Extra.data(),", save)
         self.assertLess(save.index("const auto WornCodes"), save.index("UGameplayStatics::SaveGameToSlot("))
 
     def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
@@ -1909,10 +1912,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         load = hero.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
-        self.assertIn("for (const int32 Code : InventoryItemCodes)", save)
-        self.assertIn("if (!ValidMoonfallItemCode(Code)) return false;", save)
+        policy = (ROOT / "MoonfallEquipmentSlots.h").read_text(encoding="utf-8")
+        self.assertIn("if(!ValidInventoryCode(Bag[I],ExpandedVersion))return 0;", policy)
+        self.assertIn("if (EquipmentSaveVersion == 0) return false;", save)
         self.assertIn("for (const int32 Code : Save->InventoryItemCodes)", load)
-        self.assertIn("if (!ValidMoonfallItemCode(Code)) {", load)
+        self.assertIn("if (!MoonfallEquipmentSlots::ValidInventoryCode(Code, Save->Version)) {", load)
         guard = load.split("for (const int32 Code : Save->InventoryItemCodes)", 1)[1].split(
             "// Validate the V7 discovered-shrine ledger", 1)[0]
         self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
@@ -4443,7 +4447,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() int32 Version = 16;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 16", self.hero_cpp)
+        self.assertIn("Version > MoonfallEquipmentSlots::ExpandedVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -5323,7 +5327,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 16", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -7129,7 +7133,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;", save)
         self.assertLess(save.index("ExploredZoneFogMasks.Num() != 6"),
                         save.index("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;"))
-        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
+        self.assertIn("Save->Version < 1 || Save->Version > MoonfallEquipmentSlots::ExpandedVersion", load)
         self.assertIn("if (Save->Version >= 12) {", load)
         self.assertIn("if (Save->ExploredZoneFogMasks.Num() != 6)", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
