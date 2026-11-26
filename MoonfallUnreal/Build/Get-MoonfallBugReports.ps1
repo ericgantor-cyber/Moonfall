@@ -11,15 +11,19 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
         Where-Object { $_.Name -match $Pattern -and $_.Length -gt 0 -and $_.Length -le 131072 -and
             -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } |
         Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 100)
+    $seenSessions = @{}
     foreach ($file in $files) {
+        $session = $file.Name.Substring(0,32)
+        if ($Kind -eq 'moonfall_recovery_snapshot' -and $seenSessions.ContainsKey($session)) { continue }
         try {
             $report = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
             if ($report.schema -ne 1 -or $report.kind -ne $Kind) { continue }
+            if ($Kind -eq 'moonfall_recovery_snapshot') { $seenSessions[$session] = $true }
             $fps = $null
             $p95 = $null
             $hitches = $null
             $classification = 'Insufficient timing evidence'
-            if ($report.gameplay_sample_ready -eq $true -and
+            if ($report.gameplay_sample_ready -is [bool] -and $report.gameplay_sample_ready -and
                 $report.average_fps -is [ValueType] -and $report.p95_ms -is [ValueType]) {
                 $f = [double]$report.average_fps
                 $p = [double]$report.p95_ms
@@ -39,7 +43,7 @@ function Read-ReportDirectory([string]$Directory, [string]$Kind, [string]$Patter
             [pscustomobject]@{
                 File = $file.Name
                 LastWriteUtc = $file.LastWriteTimeUtc.ToString('o')
-                Kind = if ($Kind -eq 'moonfall_recovery_snapshot') { 'Interrupted-session evidence; crash not established' } else { 'Manual report' }
+                Kind = if ($Kind -eq 'moonfall_recovery_snapshot') { 'Recovery snapshot; session status and crash not established' } else { 'Manual report' }
                 Classification = $classification
                 AverageFPS = $fps
                 P95Milliseconds = $p95
@@ -56,4 +60,4 @@ if (Test-Path -LiteralPath $root -PathType Container) {
         $reports += @(Read-ReportDirectory (Join-Path $root 'Recovery') 'moonfall_recovery_snapshot' '^[0-9a-fA-F]{32}\.json\.(next|previous)\.json$')
     }
 }
-[pscustomobject]@{ Reports = @($reports); Count = $reports.Count; Note = 'Local index only; timing labels are heuristic and do not establish crash cause.' } | ConvertTo-Json -Depth 5
+[pscustomobject]@{ Reports = @($reports); Count = $reports.Count; Note = 'Local index only; recovery files may belong to a running game. Timing labels do not establish crash cause.' } | ConvertTo-Json -Depth 5
