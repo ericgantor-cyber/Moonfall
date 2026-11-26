@@ -310,7 +310,8 @@ int main() {
   const bool CombatOnly=Trial%3==0;
   L::FPlanner PlannerUnderTest(Worn,CombatOnly);
   for(int S=0;S<9;++S)
-   for(int C=1;C<3;++C)PlannerUnderTest.Add(Options[S][C],S*3+C);
+   for(int OptionIndex=1;OptionIndex<3;++OptionIndex)
+    PlannerUnderTest.Add(Options[S][OptionIndex],S*3+OptionIndex);
   const int Baseline=RefTotal(Worn);
   int Best=Baseline,Fewest=0;
   for(int Combination=0;Combination<19683;++Combination){
