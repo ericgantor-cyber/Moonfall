@@ -18,7 +18,9 @@ class FAudit {
  double LastTime=-1, PublishElapsed=0;
 public:
  FSnapshot Snapshot{};
- void BreakSequence() { LastTime=-1; }
+ // Keep the last published reading visible in menus, but do not mix
+ // pre-menu frames with a fresh gameplay window when sampling resumes.
+ void BreakSequence() { LastTime=-1; Count=Next=0; PublishElapsed=0; }
  void Reset() { Count=Next=0; LastTime=-1; PublishElapsed=0; Snapshot={}; }
  void Observe(double Now, bool Gameplay) {
   if (!Gameplay || !std::isfinite(Now)) { BreakSequence(); return; }

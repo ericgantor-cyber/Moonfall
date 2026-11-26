@@ -32,6 +32,28 @@ int main() {
  assert(std::abs(audit.Snapshot.OnePercentLowFPS-60)<.001);
  assert(Recommend(audit.Snapshot,3,100,50)==EAction::Keep);
  assert(Recommend(audit.Snapshot,-1,100,50)==EAction::Collect);
+ // After a menu or long gap, retain the old snapshot only until a fresh
+ // consecutive gameplay window is ready, not a blend of two environments.
+ FAudit resumed;
+ double resumeNow=0;
+ resumed.Observe(resumeNow,true);
+ for(int i=0;i<240;++i) { resumeNow+=1.0/60; resumed.Observe(resumeNow,true); }
+ assert(resumed.Snapshot.Ready);
+ resumed.Observe(resumeNow+10,false);
+ assert(std::abs(resumed.Snapshot.AverageFPS-60)<.001);
+ resumeNow+=20;
+ resumed.Observe(resumeNow,true);
+ for(int i=0;i<40;++i) { resumeNow+=.05; resumed.Observe(resumeNow,true); }
+ assert(resumed.Snapshot.Ready && resumed.Snapshot.Samples>=30 && resumed.Snapshot.Samples<=40);
+ assert(std::abs(resumed.Snapshot.AverageFPS-20)<.001);
+ assert(std::abs(resumed.Snapshot.OnePercentLowFPS-20)<.001);
+ resumed.Observe(resumeNow+10,true);
+ assert(std::abs(resumed.Snapshot.AverageFPS-20)<.001);
+ resumeNow+=11;
+ resumed.Observe(resumeNow,true);
+ for(int i=0;i<65;++i) { resumeNow+=1.0/60; resumed.Observe(resumeNow,true); }
+ assert(resumed.Snapshot.Ready && resumed.Snapshot.Samples<=65);
+ assert(std::abs(resumed.Snapshot.AverageFPS-60)<.001);
  auto previous=audit.Snapshot;
  audit.Observe(now+100,false);
  audit.Observe(now+200,true);
