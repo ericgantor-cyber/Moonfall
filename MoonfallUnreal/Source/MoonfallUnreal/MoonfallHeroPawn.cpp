@@ -81,16 +81,12 @@ bool HasVisibleInventoryPointerSurface(const AController* Controller)
 bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
                         int32& OutTrait, int32& OutRarity, int32& OutTier)
 {
- if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ // Only the three persisted live slots are enabled until the V17 migration.
+ if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::LegacySlotCount
+     || !MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)) return false;
  const int32 Trait = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Trait != 0)
-     || Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
-  return false;
  OutTrait = Trait;
  OutRarity = Rarity;
  OutTier = Tier;
@@ -3718,7 +3714,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // considers matching affixes together without lowering any slot's tier/rarity.
  const MoonfallGearAdvisor::FEquipped EquippedCodes = {
      GetEquipmentSlotCode(0), GetEquipmentSlotCode(1), GetEquipmentSlotCode(2)};
- MoonfallGearAdvisor::FPlanner Planner(EquippedCodes, IsRecentlyInCombatForAmbientAI());
+ MoonfallEquipmentLayout::FPlanner Planner(MoonfallEquipmentLayout::ExpandLegacy(EquippedCodes),
+     IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::LegacySlotCount);
  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
   Planner.Add(InventoryItemCodes[Index], Index);
  const auto Plan = Planner.Finish();
@@ -3814,17 +3811,10 @@ const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
- const int32 Trait = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- // Match RollEquipmentCode, ground pickup and manual equip. Common gear
- // has no trait; uncommon gear may be traitless. Reject only malformed codes,
- // not legitimately collected rewards that must persist through respawning.
- return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
-     && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
-     && (Rarity != 0 || Trait == 0)
-     && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // The existing save format cannot yet restore the six additional slots.
+ return Slot < MoonfallEquipmentLayout::LegacySlotCount
+     && MoonfallEquipmentLayout::Valid(Code, Slot);
 }
 // A collision-aware recovery location is safer than reviving at the death site.
 // The level generator supplies a PlayerStart; authored worlds can supply more.
@@ -4455,12 +4445,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Keep the equipped references consistent with the bag; otherwise the loader
  // would silently clear an equipped slot on the next launch.
  const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = WornCodes[Slot];
-  if (Code != 0 && (!ValidMoonfallItemCode(Code)
-      || ((Code / 10000) % 10) != Slot || !InventoryItemCodes.Contains(Code)))
-   return false;
- }
+ MoonfallEquipmentLayout::FLoadout CheckedWorn{};
+ if (!MoonfallEquipmentLayout::TryRestoreLoadout(WornCodes,UE_ARRAY_COUNT(WornCodes),false,
+     [this](int32 Code){return InventoryItemCodes.Contains(Code);},CheckedWorn)) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4509,6 +4496,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ // Canonical nine-slot record; legacy mirrors remain intact for migration.
+ Save->EquippedSlotCodes.Init(0,MoonfallEquipmentLayout::SlotCount);
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::LegacySlotCount;++Slot)
+  Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
@@ -4525,7 +4516,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 16) {
+ if (!Save || Save->Version < 1 || Save->Version > 17) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -4640,12 +4631,22 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  const int32 SavedWornCodes[3] = {
   Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
  };
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = SavedWornCodes[Slot];
-  if (Code != 0 && (!ValidMoonfallItemCode(Code)
-      || ((Code / 10000) % 10) != Slot || !Save->InventoryItemCodes.Contains(Code))) {
-   bPersistentSaveWritesBlocked = true;
-   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
+ MoonfallEquipmentLayout::FLoadout CheckedSavedWorn{};
+ if (!MoonfallEquipmentLayout::TryRestoreLoadout(SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),false,
+     [Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},CheckedSavedWorn)) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
+  return false;
+ }
+ // V17 mirrors must agree with legacy slots. Extra slots are not live yet;
+ // refuse nonempty future gear rather than silently discard it on autosave.
+ if(Save->Version>=17){
+  MoonfallEquipmentLayout::FLoadout ExpandedWorn{};
+  if(!MoonfallEquipmentLayout::TryRestoreLoadout(Save->EquippedSlotCodes.GetData(),
+      Save->EquippedSlotCodes.Num(),true,[Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},ExpandedWorn)
+      ||ExpandedWorn!=CheckedSavedWorn){
+   bPersistentSaveWritesBlocked=true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall V17 equipment record is inconsistent or contains inactive gear; original save protected."));
    return false;
   }
  }

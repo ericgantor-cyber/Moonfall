@@ -36,11 +36,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 16", self.save)
+        self.assertIn("int32 Version = 17", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 16", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 17", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -91,7 +91,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Save->ResidentQuestStates = ResidentQuestStates;",saver)
         self.assertIn("Save->ResidentBonds = ResidentBonds;",saver)
         # Existing version and limits remain unchanged for legacy saves.
-        self.assertIn("int32 Version = 16",self.save)
+        self.assertIn("int32 Version = 17",self.save)
         self.assertIn("ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords",saver)
         self.assertIn("++ActiveQuestRecords>MoonfallQuestJournal::MaxActive", saver)
         self.assertIn("++ActiveQuestRecords>MoonfallQuestJournal::MaxActive", loader)
@@ -131,11 +131,16 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("Trait >= 0 && Trait <= 3", valid)
-        self.assertIn("Rarity >= 0 && Rarity <= 5", valid)
-        self.assertIn("(Rarity != 0 || Trait == 0)", valid)
-        self.assertIn("Tier >= 1 && Tier <= 25", valid)
-        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", valid)
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", valid)
+        self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", valid)
+        policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        self.assertIn("Affix >= 0 && Affix <= 3", policy)
+        self.assertIn("Rarity >= 0", policy)
+        self.assertIn("Rarity <= 5", policy)
+        self.assertIn("(Rarity != 0 || Affix == 0)", policy)
+        self.assertIn("Tier >= 1 && Tier <= 25", policy)
+        self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", policy)
+        self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
         self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
         self.assertIn("(Rarity == 0 && Affix != 0)", equip)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
@@ -286,7 +291,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 16", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 17", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -574,7 +579,7 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("if (!SaveWorldProgress()) {"))
 
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
-        self.assertIn("int32 Version = 16;", self.save)
+        self.assertIn("int32 Version = 17;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
         self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
         self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)

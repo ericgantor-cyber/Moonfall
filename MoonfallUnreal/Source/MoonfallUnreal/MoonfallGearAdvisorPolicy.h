@@ -82,3 +82,129 @@ public:
  }
 };
 }
+
+// Nine-slot migration foundation. Not yet wired into the native inventory or save.
+// Preserve the legacy weapon/armor/accessory digits exactly; reserve six new IDs.
+namespace MoonfallEquipmentLayout {
+enum class ESlot : int { Weapon=0, Chest=1, Trinket=2, Head=3, Shoulders=4, Hands=5, Legs=6, Feet=7, Ring=8 };
+inline constexpr int SlotCount=9;
+inline constexpr int LegacySlotCount=3;
+using FLoadout=std::array<int,SlotCount>;
+constexpr bool Valid(int Code,int Slot) {
+ if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
+ // Normalize the slot digit only, then reuse the existing tier/rarity/affix validator.
+ return MoonfallGearAdvisor::Valid(Code-Slot*10000,0);
+}
+constexpr FLoadout ExpandLegacy(const MoonfallGearAdvisor::FEquipped& Old) {
+ FLoadout Out{};
+ for(int Slot=0;Slot<LegacySlotCount;++Slot)
+  if(Valid(Old[Slot],Slot)) Out[Slot]=Old[Slot];
+ return Out;
+}
+constexpr bool ValidLayout(const FLoadout& Codes) {
+ for(int Slot=0;Slot<SlotCount;++Slot)
+  if(Codes[Slot]!=0&&!Valid(Codes[Slot],Slot))return false;
+ return true;
+}
+static_assert(SlotCount<=10,"Item encoding reserves one decimal slot digit");
+// Strict persistence boundary: legacy records have exactly three codes;
+// expanded records have nine. Unlike preview expansion, never discard invalid
+// saved items. Publish the output only after every slot passes ownership checks.
+template<class Owns>
+bool TryRestoreLoadout(const int* Codes,int Count,bool Expanded,Owns IsOwned,FLoadout& Out) {
+ if(!Codes||Count!=(Expanded?SlotCount:LegacySlotCount))return false;
+ FLoadout Candidate{};
+ for(int Slot=0;Slot<Count;++Slot){
+  const int Code=Codes[Slot];
+  if(Code!=0&&(!Valid(Code,Slot)||!IsOwned(Code)))return false;
+  Candidate[Slot]=Code;
+ }
+ Out=Candidate;
+ return true;
+}
+
+// Exact set-aware optimization by affix counts rather than enumerating 4^9
+// loadouts. A matching pair contributes 80 total (40 per equipped item).
+struct FPlan {
+ FLoadout Codes{};
+ std::array<int,SlotCount> Indices{};
+ int Gain=0, Changes=0;
+ FPlan(){Indices.fill(-1);}
+};
+constexpr int TotalScore(const FLoadout& Codes) {
+ int Score=0, Counts[4]{};
+ for(int Slot=0;Slot<SlotCount;++Slot) if(Valid(Codes[Slot],Slot)){
+  const int Affix=Codes[Slot]/100000;
+  Score+=MoonfallGearAdvisor::Rank(Codes[Slot])*100+(Affix?10+80*Counts[Affix]:0);
+  if(Affix)++Counts[Affix];
+ }
+ return Score;
+}
+class FPlanner {
+ using FChoice=MoonfallGearAdvisor::FChoice;
+ FLoadout Worn{};
+ std::array<std::array<FChoice,4>,SlotCount> Candidates{};
+ bool WeaponsOnly=false;
+ int ActiveSlots=SlotCount;
+ // Three decimal digits track counts of affixes 1, 2, 3. Each <=9.
+ static constexpr int States=1000;
+ static constexpr int Weights[4]={0,1,10,100};
+ struct FState {int Score=-1, Changes=0; unsigned Path=0;};
+ static bool Better(const FState& A,const FState& B){
+  return A.Score>B.Score||(A.Score==B.Score&&(A.Changes<B.Changes
+      ||(A.Changes==B.Changes&&A.Path<B.Path)));
+ }
+public:
+ explicit FPlanner(const FLoadout& Equipped,bool bWeaponsOnly=false,int EnabledSlots=SlotCount)
+     :WeaponsOnly(bWeaponsOnly),ActiveSlots(EnabledSlots==SlotCount?SlotCount:LegacySlotCount){
+  for(int Slot=0;Slot<SlotCount;++Slot){
+   Worn[Slot]=Slot<ActiveSlots&&Valid(Equipped[Slot],Slot)?Equipped[Slot]:0;
+   Candidates[Slot][Worn[Slot]/100000]={Worn[Slot],-1};
+  }
+ }
+ void Add(int Code,int Index){
+  if(Code<=0||Index<0)return;
+  const int Slot=(Code/10000)%10;
+  if(Slot>=ActiveSlots||!Valid(Code,Slot)||(WeaponsOnly&&Slot!=0)
+     ||MoonfallGearAdvisor::Rank(Code)<MoonfallGearAdvisor::Rank(Worn[Slot]))return;
+  auto& C=Candidates[Slot][Code/100000];
+  if(!C.Code||MoonfallGearAdvisor::Rank(Code)>MoonfallGearAdvisor::Rank(C.Code))C={Code,Index};
+ }
+ FPlan Finish()const{
+  std::array<FState,States> Current{},Next{};
+  Current[0].Score=0;
+  for(int Slot=0;Slot<ActiveSlots;++Slot){
+   Next.fill(FState{});
+   for(int Key=0;Key<States;++Key){
+    const auto& Prior=Current[Key];
+    if(Prior.Score<0)continue;
+    for(int Affix=0;Affix<4;++Affix){
+     const auto& C=Candidates[Slot][Affix];
+     if(!C.Code&&(Affix!=0||Worn[Slot]!=0))continue;
+     const int Weight=Weights[Affix];
+     const int Matching=Affix?(Key/Weight)%10:0;
+     const int Dest=Key+Weight;
+     FState New{Prior.Score+MoonfallGearAdvisor::Rank(C.Code)*100+(Affix?10+80*Matching:0),
+         Prior.Changes+(C.Code!=Worn[Slot]),(Prior.Path<<2)|static_cast<unsigned>(Affix)};
+     if(Better(New,Next[Dest]))Next[Dest]=New;
+    }
+   }
+   Current=Next;
+  }
+  FState Best;
+  for(const auto& State:Current)if(State.Score>=0&&Better(State,Best))Best=State;
+  FPlan Result;
+  Result.Codes=Worn;
+  if(Best.Score<=TotalScore(Worn))return Result;
+  Result.Gain=Best.Score-TotalScore(Worn);
+  Result.Changes=Best.Changes;
+  unsigned Path=Best.Path;
+  for(int Slot=ActiveSlots-1;Slot>=0;--Slot){
+   const auto& C=Candidates[Slot][Path&3u];
+   Result.Codes[Slot]=C.Code;Result.Indices[Slot]=C.Index;Path>>=2;
+  }
+  return Result;
+ }
+};
+static_assert(SlotCount==9,"Affix count encoding and path capacity assume nine slots");
+} // namespace MoonfallEquipmentLayout

@@ -39,6 +39,119 @@ int main() {
  G::FPlanner New(Empty);
  New.Add(1,0);New.Add(10001,1);New.Add(20001,2);
  assert(New.Finish().Changes==3);
+ namespace L=MoonfallEquipmentLayout;
+ static_assert(L::SlotCount==9);
+ constexpr auto Migrated=L::ExpandLegacy(G::FEquipped{101005,111005,121005});
+ static_assert(Migrated[0]==101005&&Migrated[1]==111005&&Migrated[2]==121005);
+ static_assert(Migrated[3]==0&&Migrated[8]==0&&L::ValidLayout(Migrated));
+ assert(L::ExpandLegacy(G::FEquipped{111005,-1,121005})[0]==0);
+ assert(L::ExpandLegacy(G::FEquipped{111005,-1,121005})[1]==0);
+ L::FLoadout Expanded=Migrated;
+ for(int Slot=3;Slot<L::SlotCount;++Slot) Expanded[Slot]=Slot*10000+1;
+ assert(L::ValidLayout(Expanded));
+ Expanded[8]=Expanded[7];
+ assert(!L::ValidLayout(Expanded));
+ assert(!L::Valid(std::numeric_limits<int>::max(),8));
+ assert(!L::Valid(90001,9));
+ assert(!L::Valid(-1,0));
+ for(int Slot=0;Slot<L::SlotCount;++Slot)
+  for(int Tier=1;Tier<=25;++Tier)
+   for(int Rarity=0;Rarity<=5;++Rarity)
+    for(int Affix=0;Affix<=3;++Affix) {
+     const int Code=Affix*100000+Slot*10000+Rarity*1000+Tier;
+     assert(L::Valid(Code,Slot)==(Rarity!=0||Affix==0));
+     assert(!L::Valid(Code,(Slot+1)%L::SlotCount));
+     if(Slot<3) assert(L::Valid(Code,Slot)==G::Valid(Code,Slot));
+    }
+ // Strict saved records must restore atomically; never erase invalid gear.
+ L::FLoadout Saved{};
+ const int LegacyCodes[]={101005,111005,121005};
+ const auto OwnAll=[](int){return true;};
+ assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
+ const L::FLoadout Full={101005,111005,121005,131005,141005,151005,161005,171005,181005};
+ assert(L::TryRestoreLoadout(Full.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),9,false,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(LegacyCodes,3,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(nullptr,9,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),10,true,OwnAll,Saved)&&Saved==Full);
+ assert(!L::TryRestoreLoadout(Full.data(),9,true,[](int Code){return Code!=181005;},Saved)&&Saved==Full);
+ auto WrongSlot=Full;WrongSlot[8]=171005;
+ assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ WrongSlot=Full;WrongSlot[8]=-1;
+ assert(!L::TryRestoreLoadout(WrongSlot.data(),9,true,OwnAll,Saved)&&Saved==Full);
+ assert(L::TryRestoreLoadout(LegacyCodes,3,false,OwnAll,Saved)&&Saved==Migrated);
+ // Cross-check exact optimization against all 4^9 combinations in tests only.
+ L::FLoadout NineWorn{};
+ int Choices[L::SlotCount][4]{};
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  for(int Affix=0;Affix<4;++Affix)
+   Choices[Slot][Affix]=Affix*100000+Slot*10000+1000+5+((Slot+Affix)%3==0?1:0);
+  NineWorn[Slot]=Slot*10000+1005;
+ }
+ L::FPlanner Nine(NineWorn);
+ for(int Slot=0;Slot<L::SlotCount;++Slot)
+  for(int Affix=0;Affix<4;++Affix)Nine.Add(Choices[Slot][Affix],Slot*4+Affix);
+ Nine.Add(181004,100);Nine.Add(191025,101);
+ const auto NinePlan=Nine.Finish();
+ int BestScore=-1, BestChanges=L::SlotCount+1;
+ for(unsigned Path=0;Path<(1u<<(2*L::SlotCount));++Path){
+  L::FLoadout Codes{};
+  unsigned Bits=Path;
+  int Changes=0;
+  for(int Slot=L::SlotCount-1;Slot>=0;--Slot){
+   Codes[Slot]=Choices[Slot][Bits&3u];Bits>>=2;
+   if(Codes[Slot]!=NineWorn[Slot])++Changes;
+  }
+  const int Score=L::TotalScore(Codes);
+  if(Score>BestScore||(Score==BestScore&&Changes<BestChanges)){
+   BestScore=Score;BestChanges=Changes;
+  }
+ }
+ assert(L::TotalScore(NinePlan.Codes)==BestScore);
+ assert(NinePlan.Gain==BestScore-L::TotalScore(NineWorn)&&NinePlan.Changes==BestChanges);
+ for(int Slot=0;Slot<L::SlotCount;++Slot){
+  assert(L::Valid(NinePlan.Codes[Slot],Slot));
+  if(NinePlan.Codes[Slot]!=NineWorn[Slot])
+   assert(NinePlan.Indices[Slot]==Slot*4+NinePlan.Codes[Slot]/100000);
+ }
+ L::FPlanner Restricted(NineWorn,true);
+ Restricted.Add(101006,0);Restricted.Add(181025,1);
+ const auto RestrictedPlan=Restricted.Finish();
+ assert(RestrictedPlan.Changes==1&&RestrictedPlan.Codes[0]==101006);
+ for(int Slot=1;Slot<L::SlotCount;++Slot)assert(RestrictedPlan.Codes[Slot]==NineWorn[Slot]);
+ L::FPlanner Blank(L::FLoadout{});
+ Blank.Add(80001,9);Blank.Add(80001,10);
+ const auto BlankPlan=Blank.Finish();
+ assert(BlankPlan.Changes==1&&BlankPlan.Codes[8]==80001&&BlankPlan.Indices[8]==9);
+ L::FPlanner Unchanged(NineWorn);
+ Unchanged.Add(181004,0);
+ assert(Unchanged.Finish().Changes==0);
+ // Legacy mode must produce exactly the old planner's results before activation.
+ unsigned Seed=731u;
+ auto NextRandom=[&Seed](){Seed=Seed*1664525u+1013904223u;return Seed>>16;};
+ for(int Trial=0;Trial<128;++Trial){
+  G::FEquipped Old{};
+  for(int Slot=0;Slot<3;++Slot)
+   if(NextRandom()%2)Old[Slot]=Slot*10000+1000+1+static_cast<int>(NextRandom()%5);
+  const bool CombatOnly=Trial%2!=0;
+  G::FPlanner Legacy(Old,CombatOnly);
+  L::FPlanner Shared(L::ExpandLegacy(Old),CombatOnly,L::LegacySlotCount);
+  for(int I=0;I<36;++I){
+   const int Slot=static_cast<int>(NextRandom()%3),Affix=static_cast<int>(NextRandom()%4);
+   const int Code=Affix*100000+Slot*10000+1000+1+static_cast<int>(NextRandom()%7);
+   Legacy.Add(Code,I);Shared.Add(Code,I);
+  }
+  Shared.Add(181025,99);
+  const auto OldPlan=Legacy.Finish();
+  const auto SharedPlan=Shared.Finish();
+  assert(OldPlan.Gain==SharedPlan.Gain&&OldPlan.Changes==SharedPlan.Changes);
+  for(int Slot=0;Slot<3;++Slot){
+   assert(OldPlan.Codes[Slot]==SharedPlan.Codes[Slot]);
+   assert(OldPlan.Indices[Slot]==SharedPlan.Indices[Slot]);
+  }
+  for(int Slot=3;Slot<L::SlotCount;++Slot)
+   assert(SharedPlan.Codes[Slot]==0&&SharedPlan.Indices[Slot]==-1);
+ }
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
