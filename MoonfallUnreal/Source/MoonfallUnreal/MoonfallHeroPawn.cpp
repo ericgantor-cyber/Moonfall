@@ -143,6 +143,9 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
 }
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // Preserve authored/loaded extra pieces; create missing slots only.
+ // Never resize once the expected six slots already exist.
+ if (ExtraEquippedCodes.Num() != 6) ExtraEquippedCodes.SetNum(6);
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
@@ -877,6 +880,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
+ const int32 PreviousWornTier = GetEquippedCodeForSlot(Slot) % 1000;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
@@ -886,7 +890,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
- LastLootUpgrade = (Tier + 1) - (GetEquippedCodeForSlot(Slot) % 1000);
+ LastLootUpgrade = (Tier + 1) - PreviousWornTier;
  OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
@@ -1315,8 +1319,9 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
  if (LastLootSlot >= 3) {
-  if (NewTier > GetEquippedCodeForSlot(LastLootSlot) % 1000)
-   EquipInventoryItem(InventoryItemCodes.Num() - 1);
+  // New wearable categories stay in the bag until explicit equip or Equip Best.
+  // Simply earning loot cannot silently break a 4/6/9-piece set bonus.
+  LastLootUpgrade = NewTier - (GetEquippedCodeForSlot(LastLootSlot) % 1000);
   return;
  }
  int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
@@ -1500,7 +1505,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   if (!ExtraEquippedCodes.IsValidIndex(SlotIndex - 3)) return false;
   if (ExtraEquippedCodes[SlotIndex - 3] == Code) return false;
   ExtraEquippedCodes[SlotIndex - 3] = Code;
-  EquipmentTier = FMath::Max(EquipmentTier, Tier);
+  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+  for (int32 ExtraSlot = 3; ExtraSlot < 9; ++ExtraSlot)
+   EquipmentTier = FMath::Max(EquipmentTier, GetEquippedCodeForSlot(ExtraSlot) % 1000);
   return true;
  }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
@@ -1513,6 +1520,8 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  *EquippedAffix = Affix;
  *EquippedCode = Code;
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ for (int32 ExtraSlot = 3; ExtraSlot < 9; ++ExtraSlot)
+  EquipmentTier = FMath::Max(EquipmentTier, GetEquippedCodeForSlot(ExtraSlot) % 1000);
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
   const float HealthDelta = 2.f * (Tier - PreviousTier);

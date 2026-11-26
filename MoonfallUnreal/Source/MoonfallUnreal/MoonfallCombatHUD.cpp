@@ -337,7 +337,7 @@ void AMoonfallCombatHUD::DrawHUD()
     for (int32 Affix = 1; Affix <= 3; ++Affix) {
      if (Affix != CandidateAffix && Affix != ReplacedAffix) continue;
      const int32 After = Hero->GetProjectedSetPieceCount(Affix, SelectedCode);
-     const int32 Target = After < 2 ? 2 : (After < 4 ? 4 : (After < 6 ? 6 : 9));
+     const int32 Target = After < 2 ? 2 : (After < 3 ? 3 : (After < 4 ? 4 : (After < 6 ? 6 : 9)));
      if (!NextBonus.IsEmpty()) NextBonus += TEXT("  |  ");
      NextBonus += FString::Printf(TEXT("%s: %s"),
        SetNames[Affix - 1],
