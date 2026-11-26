@@ -341,11 +341,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
         self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
         self.assertIn("$game.Length -lt 512", packaging)
-        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
-        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
-        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
-        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
-        self.assertIn("$reader.Dispose()", packaging)
+        self.assertIn("Assert-Win64Executable.ps1 -Executable $game.FullName", packaging)
+        self.assertIn("build-tools", packaging)
         self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
         self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
         self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
@@ -6636,25 +6633,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_packaged_unreal_executable_requires_win64_pe_header(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
-        start = script.index("$gameExe = $game.FullName")
-        end = script.index("$gameRoot = $game.Directory.FullName", start)
-        validation = script[start:end]
+        validation = (ROOT.parents[1] / "Build" / "Assert-Win64Executable.ps1").read_text(encoding="utf-8")
         for expected in (
-            "[System.IO.File]::OpenRead($gameExe)",
-            "$stream.Length -lt 128",
-            "$reader.ReadUInt16() -ne 0x5A4D",
-            "$stream.Position = 0x3C",
-            "$peOffset -lt 64",
-            "$peOffset -gt $stream.Length - 26",
-            "$reader.ReadUInt32() -ne 0x00004550",
-            "$reader.ReadUInt16() -ne 0x8664",
-            "$stream.Position = $peOffset + 24",
-            "$reader.ReadUInt16() -ne 0x20B",
-            "$stream.Dispose()",
+            "[IO.File]::OpenRead", "$stream.Length -lt 128",
+            "$reader.ReadUInt16() -ne 0x5A4D", "$stream.Position = 0x3C",
+            "$peOffset -lt 0x40", "$peOffset -gt $stream.Length - 26",
+            "$reader.ReadUInt32() -ne 0x00004550", "$reader.ReadUInt16() -ne 0x8664",
+            "$stream.Position = $peOffset + 24", "$reader.ReadUInt16() -ne 0x20B",
+            "$reader.Dispose()", "$stream.Dispose()",
         ):
             self.assertIn(expected, validation)
+        start = script.index("Assert-Win64Executable.ps1")
+        self.assertIn("-Executable $game.FullName", script[start:])
         self.assertLess(script.index("Find-PackagedGame.ps1"), start)
-        self.assertLess(end, script.index("Building self-contained Windows launcher"))
+        self.assertLess(start, script.index("Building self-contained Windows launcher"))
 
 
     def test_build_center_streams_incremental_logs_without_unbounded_poll_reads(self):
