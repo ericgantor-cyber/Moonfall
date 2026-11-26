@@ -16,6 +16,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
         log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
+        self.assertIn("MoonfallQuestXP::Preview(Cost,Hero->Level,Hero->Experience,Hero->ExperienceToNextLevel)",log)
+        self.assertIn('TEXT("MAX LEVEL")',log)
+        self.assertIn('Reward.LevelsGained>0?TEXT(" | LEVEL UP")',log)
+        self.assertIn("Cost,*RewardLabel",log)
+        self.assertNotIn("MoonfallQuestXP::Reward(Cost,Hero->Level)",log)
         self.assertIn('TEXT("AUTO TRACK")',log)
         self.assertIn("J::HeaderButtons(Width)",log)
         self.assertIn("DrawHoverFrame(Left+Buttons.AutoX,Top+46.f,Buttons.Width,20.f)",log)
