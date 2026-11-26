@@ -83,10 +83,11 @@ bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
 {
  // Accept only canonical codes for active player equipment slots.
  if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount
-     || !MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)) return false;
- const int32 Trait = Code / 100000;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
+     || !MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)) return false;
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int32 Trait = Decoded.Trait;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
  OutTrait = Trait;
  OutRarity = Rarity;
  OutTier = Tier;
@@ -2537,10 +2538,10 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
- MoonfallEquipmentLayout::FLoadout Worn{};
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
  for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
   Worn[Slot] = GetRawEquipmentSlotCode(Slot);
- if (!MoonfallEquipmentLayout::CanRemoveSelectedCopy(Code,Worn,
+ if (!MoonfallEquipmentLayout::CanRemoveFullCopy(Code,Worn,
      MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
@@ -3447,15 +3448,13 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
      || bCharacterStatsOpen || bResidentContextOpen || FocusedResident.IsValid()) return false;
- const int32 Affix = ItemCode / 100000;
- const int32 SlotIndex = (ItemCode / 10000) % 10;
- const int32 Rarity = (ItemCode / 1000) % 10;
- const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex >= MoonfallEquipmentLayout::ActiveSlotCount
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Affix != 0)
-     || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
-  return false;
+ if (!MoonfallEquipmentLayout::CanOperateFull(ItemCode,MoonfallEquipmentLayout::ActiveSlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Equip)) return false;
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(ItemCode);
+ const int32 Affix = Decoded.Trait;
+ const int32 SlotIndex = Decoded.Slot;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
  // Ground loot remains in the world until it is safely recorded.
  // SaveGameToSlot is synchronous here; a failed save must leave pickup and
  // all last-loot UI values untouched, even when this code already exists.
@@ -3814,11 +3813,8 @@ const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
- if (Code <= 0) return false;
- const int32 Slot = (Code / 10000) % 10;
- // The V17 save format supports all active player slots.
- return Slot < MoonfallEquipmentLayout::ActiveSlotCount
-     && MoonfallEquipmentLayout::Valid(Code, Slot);
+ return MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Equip);
 }
 // A collision-aware recovery location is safer than reviving at the death site.
 // The level generator supplies a PlayerStart; authored worlds can supply more.
