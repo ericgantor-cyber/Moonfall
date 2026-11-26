@@ -5103,9 +5103,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         accept = self.hero_cpp.split("bool AMoonfallHeroPawn::AcceptResidentQuest(", 1)[1].split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[0]
         complete = self.hero_cpp.split("bool AMoonfallHeroPawn::CompleteResidentQuest(", 1)[1].split("\n}", 1)[0]
         for body, mutation in ((accept, "ResidentQuestStates.Add(ResidentId, 1)"), (complete, "Salvage -= Cost;")):
-            for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "!FMath::IsFinite(Health)"):
+            for guard in ("!HasAuthority()", "!GetWorld()", "IsActorBeingDestroyed()", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked", "!FMath::IsFinite(Health)"):
                 self.assertLess(body.index(guard), body.index(mutation))
         self.assertLess(accept.index("ExistingState && *ExistingState != 0"), accept.index("ResidentQuestStates.Add(ResidentId, 1)"))
+        for panel in ("bAtlasOpen", "bTalentWebOpen", "bInventoryOpen", "bOptionsOpen"):
+            self.assertLess(accept.index(panel), accept.index("ResidentQuestStates.Add(ResidentId, 1)"))
         rollback = accept.split("if (!SaveWorldProgress())", 1)[1]
         self.assertIn("if (bHadZeroState) ResidentQuestStates.Add(ResidentId, 0);", rollback)
         self.assertIn("else ResidentQuestStates.Remove(ResidentId);", rollback)
