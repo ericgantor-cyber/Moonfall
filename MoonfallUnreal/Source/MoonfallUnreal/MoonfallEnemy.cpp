@@ -7,6 +7,8 @@
 #include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallDungeonLayout.h"
@@ -84,6 +86,75 @@ FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
+ // Native regional bosses and elites receive one static engraved armor batch.
+ // Ordinary native enemies receive two race ornaments in the same batch.
+ // Never overlay authored Blueprint meshes, divine bosses, or practice sentries.
+ const bool bRegionalArt = bBoss && DungeonBossRank>=1 && DungeonBossRank<=5
+     && !DungeonBossFamily.IsNone() && ActorHasTag(FName(TEXT("MoonfallDungeonBoss")));
+ const bool bEliteArt = bElite && !bBoss && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")));
+ const bool bRaceArt = !bBoss && !bElite && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
+     && RaceId>=0 && RaceId<MoonfallRaces::Count;
+ if (GetClass()==AMoonfallEnemy::StaticClass() && DivineBossId.IsNone()
+     && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
+     && (bRegionalArt || bEliteArt || bRaceArt)
+     && IsValid(Body) && Body->GetStaticMesh()
+     && Body->GetStaticMesh()->GetPathName()==TEXT("/Engine/BasicShapes/Sphere.Sphere")
+     && IsValid(AttackTellMarker) && AttackTellMarker->GetStaticMesh()) {
+  UInstancedStaticMeshComponent* Crest=NewObject<UInstancedStaticMeshComponent>(this,TEXT("EnemyHeraldryArt"));
+  if (IsValid(Crest)) {
+   Crest->SetupAttachment(Body);
+   Crest->SetStaticMesh(AttackTellMarker->GetStaticMesh());
+   Crest->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+   Crest->SetCollisionResponseToAllChannels(ECR_Ignore);
+   Crest->SetGenerateOverlapEvents(false);
+   Crest->SetCastShadow(false);
+   Crest->SetCanEverAffectNavigation(false);
+   Crest->SetCullDistances(4500,6500);
+   // Race-specific masks / pauldrons for primitive native enemies only.
+   // Two small pieces per ordinary enemy, using stable existing race IDs.
+   if (bRaceArt) {
+    struct FRaceOrnament { float Width,Height,Roll; };
+    static constexpr FRaceOrnament RaceOrnaments[MoonfallRaces::Count]={
+     {.15f,.10f,0.f},   // Human: squared brow
+     {.10f,.19f,28.f},  // High Elf: long tapered brow
+     {.10f,.14f,48.f},  // Wood Elf: swept leaf shape
+     {.21f,.09f,0.f},   // Dwarf: heavy metal plate
+     {.12f,.08f,12.f},  // Halfling: rounded profile
+     {.20f,.17f,35.f},  // Orc: angled tusk-like armor
+     {.09f,.15f,55.f},  // Goblin: narrow angular profile
+     {.13f,.22f,20.f},  // Troll: tall cheek guards
+     {.17f,.21f,40.f},  // Entkin: bark-like ridges
+     {.11f,.16f,60.f},  // Shadowborn: swept mask
+     {.16f,.12f,30.f},  // Moonborn: lunar crest
+     {.19f,.20f,45.f}   // Draconid: scaled brow
+    };
+    const auto& Shape=RaceOrnaments[RaceId];
+    for (const float Side : {-1.f,1.f}) {
+     Crest->AddInstance(FTransform(FRotator(0,0,Side*Shape.Roll),
+       FVector(23.f,Side*25.f,30.f),FVector(.10f,Shape.Width,Shape.Height)));
+    }
+   } else {
+   // Armor follows the scaled body without changing the collision root.
+   for (const float Side : {-1.f,1.f}) {
+    Crest->AddInstance(FTransform(FRotator(0,0,Side*24.f),
+      FVector(0,Side*39.f,16.f),FVector(.34f,.23f,.14f)));
+    Crest->AddInstance(FTransform(FRotator(0,0,Side*18.f),
+      FVector(-9.f,Side*27.f,30.f),FVector(.23f,.12f,.24f)));
+   }
+   if (bRegionalArt) {
+    // Rank-dependent crown silhouette, never a new attack tell or hitbox.
+    const int32 Rank=FMath::Clamp(DungeonBossRank,1,5);
+    for (int32 I=0;I<Rank;++I) {
+     const float Y=(float(I)-float(Rank-1)*.5f)*10.f;
+     Crest->AddInstance(FTransform(FRotator(0,45,0),
+       FVector(-4.f,Y,45.f),FVector(.09f,.09f,.17f)));
+    }
+   }
+   }
+   AddInstanceComponent(Crest);
+   Crest->RegisterComponent();
+  }
+ }
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  CachedHero = Player;
