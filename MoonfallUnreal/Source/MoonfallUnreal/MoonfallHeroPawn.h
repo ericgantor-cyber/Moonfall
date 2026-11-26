@@ -243,6 +243,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Accessibility") float BossWarningScale = 1.f;
  const MoonfallPerformance::FSnapshot& GetPerformanceAudit() const { return PerformanceAudit.Snapshot; }
  // Cached RHI-reported bytes; negative means unavailable.
+ const MoonfallPerformance::FStageAudit& GetStageAudit() const { return StageAudit; }
  int64 GetAuditDedicatedVideoMemory() const { return AuditDedicatedVideoMemory; }
  int64 GetAuditTextureMemory() const { return AuditTextureMemory; }
  int64 GetAuditTexturePool() const { return AuditTexturePool; }
@@ -479,6 +480,9 @@ public:
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  MoonfallPerformance::FAudit PerformanceAudit;
+ MoonfallPerformance::FStageAudit StageAudit;
+ double NextStageAuditAt=-1;
+ double StageAuditWarmupUntil=-1;
  int64 AuditDedicatedVideoMemory=-1;
  int64 AuditTextureMemory=-1;
  int64 AuditTexturePool=-1;
