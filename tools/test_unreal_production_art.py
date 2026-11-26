@@ -265,6 +265,24 @@ class ProductionArtTests(unittest.TestCase):
                 for i in range(0,len(rotations),4):
                     self.assertAlmostEqual(sum(q*q for q in rotations[i:i+4]), 1.0, places=5)
 
+    def test_pc_audit_is_local_read_only_and_does_not_claim_gpu_support(self):
+        script = (ROOT / "Build/Get-MoonfallPCAudit.ps1").read_text()
+        for token in ("Win32_Processor", "Win32_OperatingSystem", "Win32_VideoController",
+                      "TotalVisibleMemorySize", "NumberOfLogicalProcessors", "DriverVersion",
+                      "DirectX12FeatureSupport = 'Not tested'", "DedicatedVRAM = 'Not determined'",
+                      "MeasuredFPS = 'Not tested'", "ConvertTo-Json"):
+            self.assertIn(token, script)
+        for token in ("Invoke-WebRequest", "Invoke-RestMethod", "Set-CimInstance", "Set-ItemProperty",
+                      "Out-File", "Set-Content", "Start-Process", "RunAs"):
+            self.assertNotIn(token, script)
+        hud = (ROOT / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text()
+        audit = hud.split("// Static hardware inventory only",1)[1].split("DrawText(HelpText",1)[0]
+        for token in ("MenuWidth>=480.f", "MenuHeight>=460.f", "static const uint64 RAMGiB",
+                      "FPlatformMemory::GetConstants().TotalPhysical", "NumberOfCoresIncludingHyperthreads()",
+                      "PC AUDIT"):
+            self.assertIn(token, audit)
+        self.assertNotIn("ApplySettings", audit)
+
     def test_importer_is_allowlisted_non_destructive(self):
         source = (ROOT / "Content/Python/import_production_art.py").read_text()
         for token in ('"replace_existing", False','"auto_generate_collision", False','/Game/MoonfallProduction/Meshes','does_asset_exist(target)','isinstance(mesh, unreal.StaticMesh)'):
