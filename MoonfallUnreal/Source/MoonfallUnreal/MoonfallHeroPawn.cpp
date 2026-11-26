@@ -4797,6 +4797,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
   }
  }
+ // Reconcile transient quest tracking with restored progress before notifying UI.
+ // Keep valid manual choices, but never revive stale selections from another snapshot.
+ const auto RestoredActiveQuests=GetActiveQuestMask();
+ ManualQuestMask=ManualQuestMask&RestoredActiveQuests;
+ QuestLogSelection=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,MoonfallQuestJournal::Count(RestoredActiveQuests)-1));
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
  CompanionParty=Save->Version>=16?Save->CompanionParty:FMoonfallCompanionPartyRecord{};
  CompanionGear.Reset();
