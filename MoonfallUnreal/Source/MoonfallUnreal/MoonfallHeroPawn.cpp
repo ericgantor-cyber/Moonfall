@@ -5371,6 +5371,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const int Count=MoonfallQuestJournal::Count(GetActiveQuestMask());
      const int Selected=FMath::Clamp(QuestLogSelection,0,FMath::Max(0,Count-1));
      const int Start=MoonfallQuestJournal::PageStart(Selected,Rows);
+     const auto Pages=MoonfallQuestJournal::PageButtons(PanelW,PanelH);
+     const int PageDirection=Pages.Hit(MouseX-PanelL,MouseY-PanelT);
+     if(PageDirection!=0) {
+      QuestLogSelection=MoonfallQuestJournal::SelectPage(Selected,Rows,Count,PageDirection);
+      return;
+     }
      if(MouseX>=PanelL+12.f&&MouseX<=PanelL+PanelW-12.f&&MouseY>=PanelT+88.f) {
       const int Row=MoonfallQuestJournal::HitRow(MouseY-PanelT-88.f,Rows);
       if(Row>=0&&Row<Rows&&Start+Row<Count) {
