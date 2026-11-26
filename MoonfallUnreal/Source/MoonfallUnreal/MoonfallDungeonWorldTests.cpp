@@ -222,4 +222,72 @@ bool FMoonfallDungeonBossSaveRoundTripTest::RunTest(const FString& Parameters)
  return !HasAnyErrors();
 }
 
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallEquipmentSaveRoundTripTest,
+  "Moonfall.Dungeons.EquipmentSaveRoundTrip",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
+{
+ // Exercise the complete V17 serialized layout, not live equipping. No disk
+ // slot is read or written; the six inactive gameplay slots remain disabled.
+ UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!TestNotNull(TEXT("Create equipment save"), Original)) return false;
+ TestEqual(TEXT("Fresh equipment save has nine slots"), Original->EquippedSlotCodes.Num(), 9);
+ for (const int32 Code : Original->EquippedSlotCodes)
+  TestEqual(TEXT("Fresh equipment slot is empty"), Code, 0);
+ const TArray<int32> AllCodes = {101005,111006,121007,131008,141009,151010,161011,171012,181013};
+ auto RoundTrip = [this, Original](const TArray<int32>& Codes, int32 Version) -> bool {
+  Original->Version = Version;
+  Original->EquippedSlotCodes = Codes;
+  TArray<uint8> Bytes;
+  if (!TestTrue(TEXT("Serialize equipment record to memory"),
+        UGameplayStatics::SaveGameToMemory(Original, Bytes))) return false;
+  UMoonfallPersistentSave* Restored = Cast<UMoonfallPersistentSave>(
+    UGameplayStatics::LoadGameFromMemory(Bytes));
+  if (!TestNotNull(TEXT("Deserialize equipment record from memory"), Restored)) return false;
+  TestEqual(TEXT("Schema version preserved"), Restored->Version, Version);
+  TestTrue(TEXT("Exact slot record preserved without normalization"),
+    Restored->EquippedSlotCodes == Codes);
+  TestTrue(TEXT("Inventory ownership record preserved"),
+    Restored->InventoryItemCodes == Original->InventoryItemCodes);
+  TestEqual(TEXT("Weapon mirror preserved"), Restored->EquippedWeaponCode, Original->EquippedWeaponCode);
+  TestEqual(TEXT("Chest mirror preserved"), Restored->EquippedArmorCode, Original->EquippedArmorCode);
+  TestEqual(TEXT("Trinket mirror preserved"), Restored->EquippedAccessoryCode, Original->EquippedAccessoryCode);
+  return true;
+ };
+ Original->InventoryItemCodes = AllCodes;
+ Original->EquippedWeaponCode = AllCodes[0];
+ Original->EquippedArmorCode = AllCodes[1];
+ Original->EquippedAccessoryCode = AllCodes[2];
+ if (!RoundTrip(AllCodes, 17)) return false;
+ // One-hot records catch a swapped slot or an omitted serialized element.
+ for (int32 Slot = 0; Slot < AllCodes.Num(); ++Slot) {
+  TArray<int32> Single;
+  Single.Init(0, 9);
+  Single[Slot] = AllCodes[Slot];
+  Original->EquippedWeaponCode = Single[0];
+  Original->EquippedArmorCode = Single[1];
+  Original->EquippedAccessoryCode = Single[2];
+  if (!RoundTrip(Single, 17)) return false;
+ }
+ // Malformed records must remain detectable by the separate gameplay loader.
+ // Serialization itself must not silently pad, truncate or repair these.
+ TArray<int32> Short = AllCodes;
+ Short.Pop();
+ if (!RoundTrip(Short, 17)) return false;
+ TArray<int32> Long = AllCodes;
+ Long.Add(0);
+ if (!RoundTrip(Long, 17)) return false;
+ // Synthetic V16 fixture: verifies serialization of the legacy mirrors only,
+ // not loading a real historical save or upgrading a live character.
+ Original->InventoryItemCodes = {AllCodes[0],AllCodes[1],AllCodes[2]};
+ Original->EquippedWeaponCode = AllCodes[0];
+ Original->EquippedArmorCode = AllCodes[1];
+ Original->EquippedAccessoryCode = AllCodes[2];
+ if (!RoundTrip(TArray<int32>{}, 16)) return false;
+ return !HasAnyErrors();
+}
+
 #endif
