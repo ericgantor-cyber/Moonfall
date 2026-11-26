@@ -39,6 +39,30 @@ int main() {
  G::FPlanner New(Empty);
  New.Add(1,0);New.Add(10001,1);New.Add(20001,2);
  assert(New.Finish().Changes==3);
+ namespace L=MoonfallEquipmentLayout;
+ static_assert(L::SlotCount==9);
+ constexpr auto Migrated=L::ExpandLegacy(G::FEquipped{101005,111005,121005});
+ static_assert(Migrated[0]==101005&&Migrated[1]==111005&&Migrated[2]==121005);
+ static_assert(Migrated[3]==0&&Migrated[8]==0&&L::ValidLayout(Migrated));
+ assert(L::ExpandLegacy(G::FEquipped{111005,-1,121005})[0]==0);
+ assert(L::ExpandLegacy(G::FEquipped{111005,-1,121005})[1]==0);
+ L::FLoadout Expanded=Migrated;
+ for(int Slot=3;Slot<L::SlotCount;++Slot) Expanded[Slot]=Slot*10000+1;
+ assert(L::ValidLayout(Expanded));
+ Expanded[8]=Expanded[7];
+ assert(!L::ValidLayout(Expanded));
+ assert(!L::Valid(std::numeric_limits<int>::max(),8));
+ assert(!L::Valid(90001,9));
+ assert(!L::Valid(-1,0));
+ for(int Slot=0;Slot<L::SlotCount;++Slot)
+  for(int Tier=1;Tier<=25;++Tier)
+   for(int Rarity=0;Rarity<=5;++Rarity)
+    for(int Affix=0;Affix<=3;++Affix) {
+     const int Code=Affix*100000+Slot*10000+Rarity*1000+Tier;
+     assert(L::Valid(Code,Slot)==(Rarity!=0||Affix==0));
+     assert(!L::Valid(Code,(Slot+1)%L::SlotCount));
+     if(Slot<3) assert(L::Valid(Code,Slot)==G::Valid(Code,Slot));
+    }
  int Cases = 0;
  for(int Slot=0;Slot<3;++Slot) for(int Tier=1;Tier<=25;++Tier)
   for(int Rarity=0;Rarity<=5;++Rarity) for(int Affix=0;Affix<=3;++Affix) {
