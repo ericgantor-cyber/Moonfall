@@ -341,19 +341,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
         self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
         self.assertIn("$game.Length -lt 512", packaging)
-        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
-        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
-        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
-        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
-        self.assertIn("$reader.Dispose()", packaging)
-        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
-        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
-        self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
-        self.assertIn("Test-Path -LiteralPath $ucasPath -PathType Leaf", packaging)
-        self.assertIn("(Get-Item -LiteralPath $ucasPath).Length -gt 0", packaging)
-        self.assertIn("$hasIoStorePair = $true", packaging)
-        self.assertIn("$pakFiles.Count -eq 0 -and -not $hasIoStorePair", packaging)
-        self.assertIn("matching .utoc/.ucas content archive pair", packaging)
+        self.assertIn("Assert-Win64Executable.ps1 -Executable $game.FullName", packaging)
+        self.assertIn("build-tools", packaging)
+        self.assertIn("Assert-CookedContent.ps1 -GameRoot $root", packaging)
         diagnostics = workflow[workflow.index("Collect Unreal AutomationTool failure logs"):]
         self.assertIn("if: failure()", diagnostics)
         self.assertIn("'Unreal Engine\\AutomationTool\\Logs'", diagnostics)
@@ -493,6 +483,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(workflow.index("& $editor $project"), workflow.index("if (-not (Test-Path -LiteralPath $map -PathType Leaf))"))
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
         self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
+
+    def test_self_hosted_windows_package_rejects_stale_outputs_and_wrong_architecture(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows" / "unreal-windows-build.yml").read_text(encoding="utf-8")
+        self.assertLess(workflow.index("Refusing stale build output"), workflow.index("Compile Unreal Editor Win64 Development"))
+        self.assertLess(workflow.index("Refusing to reuse a previous Windows package"), workflow.index("& $uat BuildCookRun"))
+        package = workflow[workflow.index("Package Windows game using AutomationTool"):workflow.index("Smoke-test packaged Unreal game launch")]
+        self.assertIn("Assert-Win64Executable.ps1 -Executable $exe.FullName", package)
+        validator = (ROOT.parents[1] / "Build" / "Assert-Win64Executable.ps1").read_text(encoding="utf-8")
+        for token in ("0x5A4D", "0x00004550", "0x8664", "0x20B", "$reader.Dispose()", "$stream.Dispose()"):
+            self.assertIn(token, validator)
+        fixtures = (ROOT.parents[1] / "Build" / "Test-FindPackagedGame.Tests.ps1").read_text(encoding="utf-8")
+        self.assertIn("Assert-Win64Executable.ps1", fixtures)
+        self.assertLess(workflow.index("Refusing to overwrite a previous installer"), workflow.index("& $nsis.Source"))
+        self.assertLess(workflow.index("Confirm installer provenance before publication"), workflow.index("Upload Windows installer"))
+        self.assertIn("Installer checksum changed after verification", workflow)
+        self.assertIn("$actual -cne $env:GITHUB_SHA", workflow)
 
     def test_windows_package_requires_project_startup_level(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
@@ -5012,6 +5018,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "Moonfall.Dungeons.BossVictorySaveRoundTrip",
             "Moonfall.Controls.CurrentInputContract",
             "Moonfall.Quests.ResidentSaveRoundTrip",
+            "Moonfall.Dungeons.EquipmentSaveRoundTrip",
         ]
         # Check the actual PowerShell $required array, not merely names that
         # might occur in comments, unrelated strings or example commands.
@@ -5057,6 +5064,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MOONFALL_NATIVE_DUNGEON_TESTS_PASS", script)
         self.assertLess(script.index("if (Test-Path -LiteralPath $log)"),
                         script.index("& $editor $project"))
+        self.assertLess(script.index("Remove-Item -LiteralPath $report -Force"),
+                        script.index("if ([string]::IsNullOrWhiteSpace($UnrealRoot))"))
+        self.assertLess(script.index("Remove-Item -LiteralPath $log -Force"),
+                        script.index("Build-Windows.ps1"))
+        self.assertLess(script.index("Assert-NativeAutomationReport.ps1"),
+                        script.index("MOONFALL_NATIVE_DUNGEON_TESTS_PASS"))
         self.assertNotIn("merge_pull_request", script)
 
 
@@ -5071,6 +5084,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("name: Preserve native dungeon test evidence", workflow)
         self.assertIn("Moonfall.Controls.CurrentInputContract", workflow)
         self.assertIn("Moonfall.Quests.ResidentSaveRoundTrip", workflow)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", workflow)
         quest_native = (ROOT / "MoonfallQuestNativeTests.cpp").read_text(encoding="utf-8")
         for token in ("Moonfall.Quests.ResidentSaveRoundTrip", "Hero->SupportsResidentContract(Id)", "UGameplayStatics::SaveGameToMemory(Original,Bytes)", "UGameplayStatics::LoadGameFromMemory(Bytes)", "J::MaxTracked", "J::MaxActive"):
             self.assertIn(token, quest_native)
@@ -5080,6 +5094,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("moonfall-unreal-native-dungeon-test-evidence", workflow)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("Moonfall-Dungeon-UE54.log", workflow)
+        self.assertIn("MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}", workflow)
+        self.assertIn("-ReportDirectory $env:MOONFALL_NATIVE_REPORT_DIRECTORY", workflow)
+        self.assertIn("NativeAutomation-Provenance.txt", workflow)
+        self.assertIn("Assert-NativeAutomationReport.ps1 -Lines $contents -Required $requiredTests", workflow)
+        report_validator = (ROOT.parents[1] / "Build" / "Assert-NativeAutomationReport.ps1").read_text(encoding="utf-8")
+        for token in ("$seen.Add($key)", "$value -cne $expected[$key]", "$seen.Contains($key)", "EditorExitCode", "AnyNativeTestFailed"):
+            self.assertIn(token, report_validator)
+        self.assertIn("Get-FileHash -LiteralPath $report -Algorithm SHA256", workflow)
+        self.assertIn("Get-FileHash -LiteralPath $log -Algorithm SHA256", workflow)
+        self.assertIn("$actual -cne $env:GITHUB_SHA", workflow)
+        self.assertNotIn("MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt", workflow)
         self.assertIn("EditorExitCode=0", workflow)
         self.assertIn("AnyNativeTestFailed=False", workflow)
         for name in ("All30EntranceLocations", "SeededRoomArchetypes",
@@ -5460,7 +5485,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->DefeatedDungeonBossMask, 0", source)
         self.assertIn("Legacy->Salvage, 9876", source)
         self.assertIn("Legacy->Level, 23", source)
-        self.assertIn("all six required native tests explicitly passed", runner)
+        self.assertIn("all seven required native tests explicitly passed", runner)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", source)
+        self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
@@ -6599,25 +6626,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_packaged_unreal_executable_requires_win64_pe_header(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
-        start = script.index("$gameExe = $game.FullName")
-        end = script.index("$gameRoot = $game.Directory.FullName", start)
-        validation = script[start:end]
+        validation = (ROOT.parents[1] / "Build" / "Assert-Win64Executable.ps1").read_text(encoding="utf-8")
         for expected in (
-            "[System.IO.File]::OpenRead($gameExe)",
-            "$stream.Length -lt 128",
-            "$reader.ReadUInt16() -ne 0x5A4D",
-            "$stream.Position = 0x3C",
-            "$peOffset -lt 64",
-            "$peOffset -gt $stream.Length - 26",
-            "$reader.ReadUInt32() -ne 0x00004550",
-            "$reader.ReadUInt16() -ne 0x8664",
-            "$stream.Position = $peOffset + 24",
-            "$reader.ReadUInt16() -ne 0x20B",
-            "$stream.Dispose()",
+            "[IO.File]::OpenRead", "$stream.Length -lt 128",
+            "$reader.ReadUInt16() -ne 0x5A4D", "$stream.Position = 0x3C",
+            "$peOffset -lt 0x40", "$peOffset -gt $stream.Length - 26",
+            "$reader.ReadUInt32() -ne 0x00004550", "$reader.ReadUInt16() -ne 0x8664",
+            "$stream.Position = $peOffset + 24", "$reader.ReadUInt16() -ne 0x20B",
+            "$reader.Dispose()", "$stream.Dispose()",
         ):
             self.assertIn(expected, validation)
+        start = script.index("Assert-Win64Executable.ps1")
+        self.assertIn("-Executable $game.FullName", script[start:])
         self.assertLess(script.index("Find-PackagedGame.ps1"), start)
-        self.assertLess(end, script.index("Building self-contained Windows launcher"))
+        self.assertLess(start, script.index("Building self-contained Windows launcher"))
 
 
     def test_build_center_streams_incremental_logs_without_unbounded_poll_reads(self):
@@ -6655,6 +6677,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('& $build MoonfallUnreal Win64 Development', build)
         self.assertIn('if ($LASTEXITCODE -ne 0)', build)
         self.assertIn("NativeCompile-Evidence.txt", workflow)
+        self.assertIn('Native compile evidence directory already exists', workflow)
+        self.assertLess(workflow.index('Native compile checkout does not match requested revision'), workflow.index('Compile Unreal Editor and Game Win64 Development targets'))
+        self.assertLess(workflow.index('Native compile checkout changed during build'), workflow.index('Set-Content -LiteralPath $evidence'))
+        self.assertEqual(workflow.count('$actual -cne $env:GITHUB_SHA'), 2)
+        self.assertIn('Actual checked-out commit: $actual', workflow)
+        self.assertIn('Run: $env:GITHUB_RUN_ID', workflow)
+        self.assertIn('Attempt: $env:GITHUB_RUN_ATTEMPT', workflow)
         self.assertIn('Commit: $env:GITHUB_SHA', workflow)
         self.assertIn('Runner: $env:RUNNER_NAME', workflow)
         self.assertIn('Targets: MoonfallUnrealEditor Win64 Development; MoonfallUnreal Win64 Development', workflow)
@@ -6675,14 +6704,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_windows_installer_requires_real_nonempty_cooked_content_archives(self):
         build = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
-        self.assertIn("MoonfallUnreal\\Content\\Paks", build)
-        self.assertIn("Test-Path -LiteralPath $pakDirectory -PathType Container", build)
-        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak'", build)
-        self.assertIn("Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc'", build)
-        self.assertIn("[IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')", build)
-        self.assertIn("Where-Object { $_.Length -gt 0 }", build)
-        self.assertIn("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)", build)
-        self.assertLess(build.index("if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)"),
+        validator = (ROOT.parents[1] / "Build" / "Assert-CookedContent.ps1").read_text(encoding="utf-8")
+        for expected in (
+            "MoonfallUnreal/Content/Paks",
+            "Test-Path -LiteralPath $pakDirectory -PathType Container",
+            "Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak'",
+            "Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc'",
+            "[IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')",
+            "Where-Object { $_.Length -gt 0 }",
+            "if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair)",
+        ):
+            self.assertIn(expected, validator)
+        self.assertIn("Assert-CookedContent.ps1", build)
+        self.assertLess(build.index("Assert-CookedContent.ps1"),
                         build.index("Write-Host 'Building NSIS Windows installer...'"))
         self.assertNotIn("Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File", build)
 

@@ -173,52 +173,12 @@ $game = & (Join-Path $PSScriptRoot 'Find-PackagedGame.ps1') -PackageDirectory $g
 # The packaging tool can exit successfully while leaving behind a corrupt or
 # wrong-architecture executable. Validate its PE32+ AMD64 file header before
 # publishing a launcher or installer. This is not a replacement for launching it.
-$gameExe = $game.FullName
-$stream = [System.IO.File]::OpenRead($gameExe)
-try {
-    if ($stream.Length -lt 128) { throw 'Packaged game executable is too short to be a valid Win64 PE file.' }
-    $reader = [System.IO.BinaryReader]::new($stream)
-    if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Packaged game executable is missing the DOS MZ header.' }
-    $stream.Position = 0x3C
-    $peOffset = $reader.ReadInt32()
-    if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) {
-        throw 'Packaged game executable has an invalid PE header offset.'
-    }
-    $stream.Position = $peOffset
-    if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Packaged game executable is missing the PE signature.' }
-    if ($reader.ReadUInt16() -ne 0x8664) { throw 'Packaged game executable is not AMD64 Win64.' }
-    $stream.Position = $peOffset + 24
-    if ($reader.ReadUInt16() -ne 0x20B) { throw 'Packaged game executable is not PE32+ x64.' }
-} finally {
-    $stream.Dispose()
-}
+& (Join-Path $PSScriptRoot 'Assert-Win64Executable.ps1') -Executable $game.FullName
 $gameRoot = $game.Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
 }
-# The project directory may contain executable/config files even when cooking
-# silently produced no game content. Require an actual non-empty cooked archive.
-# UE5 may emit a .pak or a paired IoStore .utoc/.ucas container.
-$pakDirectory = Join-Path $gameRoot 'MoonfallUnreal\Content\Paks'
-if (-not (Test-Path -LiteralPath $pakDirectory -PathType Container)) {
-    throw "Cooked Moonfall Paks directory missing: $pakDirectory"
-}
-$pakFiles = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.pak' |
-    Where-Object { $_.Length -gt 0 })
-$ioStoreIndexes = @(Get-ChildItem -LiteralPath $pakDirectory -Recurse -File -Filter '*.utoc' |
-    Where-Object { $_.Length -gt 0 })
-$hasIoStorePair = $false
-foreach ($indexFile in $ioStoreIndexes) {
-    $dataFile = [IO.Path]::ChangeExtension($indexFile.FullName, '.ucas')
-    if ((Test-Path -LiteralPath $dataFile -PathType Leaf) -and
-        (Get-Item -LiteralPath $dataFile).Length -gt 0) {
-        $hasIoStorePair = $true
-        break
-    }
-}
-if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
-    throw 'No non-empty cooked .pak or paired .utoc/.ucas archive was found. Refusing incomplete installer.'
-}
+& (Join-Path $PSScriptRoot 'Assert-CookedContent.ps1') -GameRoot $gameRoot
 if ($LaunchSmokeTest) {
     & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $game.FullName
 }

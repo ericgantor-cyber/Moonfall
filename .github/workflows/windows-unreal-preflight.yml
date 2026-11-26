@@ -16,12 +16,21 @@ on:
       - 'tools/check_unreal_source.py'
       - '.github/workflows/windows-unreal-preflight.yml'
 
+permissions:
+  contents: read
+
 jobs:
   windows-preflight:
     runs-on: windows-2022
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        with:
+          persist-credentials: false
       - name: Detect Unreal Engine 5.4 installation
+        id: prerequisites
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
           $engine = 'C:\Program Files\Epic Games\UE_5.4'
@@ -32,13 +41,16 @@ jobs:
             'Windows preflight: Unreal 5.4 packaging prerequisites verified. Native C++ compilation was NOT performed.' >> $env:GITHUB_STEP_SUMMARY
           } else {
             Write-Host 'Unreal Engine 5.4 is not installed on this hosted runner.'
-            Write-Host 'This job validates PowerShell syntax and prerequisite discovery only.'
-            'Windows preflight: PowerShell syntax only; Unreal 5.4 is not installed. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
+            Write-Host 'This job validates PowerShell syntax, prerequisite discovery and synthetic build fixtures.'
+            'Windows preflight: no Unreal 5.4 installed; syntax and synthetic fixtures are not native compilation. Native C++ compilation was SKIPPED.' >> $env:GITHUB_STEP_SUMMARY
             'To compile, dispatch this workflow on the PR branch with compile_on_self_hosted=true and an authorized Unreal 5.4 Windows runner.' >> $env:GITHUB_STEP_SUMMARY
           }
       - name: Parse Windows scripts on Windows
+        id: syntax
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $scripts = @(Get-ChildItem MoonfallUnreal/Build -Filter '*.ps1' -Recurse -File)
           if ($scripts.Count -eq 0) { throw 'No build scripts found' }
           foreach ($script in $scripts) {
@@ -49,16 +61,82 @@ jobs:
           }
           Write-Host "Parsed $($scripts.Count) build scripts on Windows."
 
+      - name: Execute package root discovery fixtures on Windows
+        id: package_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-FindPackagedGame.Tests.ps1
+      - name: Execute native evidence parser fixtures on Windows
+        id: evidence_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-NativeAutomationResults.Tests.ps1
+      - name: Execute engine version guard fixtures on Windows
+        id: engine_fixtures
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1
+      - name: Publish Windows verification results
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          CHECKOUT_RESULT: ${{ steps.checkout.outcome }}
+          PREREQUISITES_RESULT: ${{ steps.prerequisites.outcome }}
+          SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          PACKAGE_RESULT: ${{ steps.package_fixtures.outcome }}
+          EVIDENCE_RESULT: ${{ steps.evidence_fixtures.outcome }}
+          ENGINE_RESULT: ${{ steps.engine_fixtures.outcome }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $checks = [ordered]@{
+            'Checkout' = $env:CHECKOUT_RESULT
+            'Prerequisite discovery' = $env:PREREQUISITES_RESULT
+            'PowerShell syntax' = $env:SYNTAX_RESULT
+            'Synthetic package layout' = $env:PACKAGE_RESULT
+            'Synthetic native evidence parser' = $env:EVIDENCE_RESULT
+            'Synthetic engine version guard' = $env:ENGINE_RESULT
+          }
+          '### Windows preflight results' >> $env:GITHUB_STEP_SUMMARY
+          if ($env:CHECKOUT_RESULT -ceq 'success') {
+            $actual = (& git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve checked-out revision.' }
+            "Checked-out commit: $actual" >> $env:GITHUB_STEP_SUMMARY
+          }
+          '| Check | Outcome |' >> $env:GITHUB_STEP_SUMMARY
+          '| --- | --- |' >> $env:GITHUB_STEP_SUMMARY
+          foreach ($entry in $checks.GetEnumerator()) {
+            "| $($entry.Key) | $($entry.Value) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+          'Scope: real Windows PowerShell execution with synthetic fixtures; no native Unreal compilation, packaging or gameplay.' >> $env:GITHUB_STEP_SUMMARY
+          if (@($checks.Values | Where-Object { $_ -cne 'success' }).Count -ne 0) {
+            throw 'One or more required Windows preflight checks did not pass.'
+          }
+
   unreal-editor-compile:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
     runs-on: [self-hosted, Windows, X64, unreal-5-4]
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Verify Unreal compiler prerequisites
+        id: native_preflight
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native checkout does not match the requested revision.' }
+          $directory = Join-Path $env:RUNNER_TEMP "MoonfallNative-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          if (Test-Path -LiteralPath $directory) { throw 'Native evidence directory already exists; refusing to reuse it.' }
+          New-Item -ItemType Directory -Path $directory | Out-Null
+          "MOONFALL_NATIVE_REPORT_DIRECTORY=$directory" >> $env:GITHUB_ENV
           if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
           $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
           if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
@@ -74,21 +152,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $evidence = Join-Path $env:RUNNER_TEMP 'moonfall-unreal-native-compile.txt'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native compile checkout changed before evidence publication.' }
+          $evidence = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'moonfall-unreal-native-compile.txt'
           @(
-            'Native Unreal 5.4 editor compile: SUCCEEDED'
-            "Commit: $env:GITHUB_SHA"
+            'Native Unreal 5.4 Editor and Game Win64 Development compilation: SUCCEEDED'
+            "Commit: $actual"
+            "Run: $env:GITHUB_RUN_ID"
+            "Attempt: $env:GITHUB_RUN_ATTEMPT"
+            'Scope: compilation only; automation and packaged gameplay not yet verified'
             "Git ref: $env:GITHUB_REF"
             "Runner: $env:RUNNER_NAME"
             "Verified at: $([DateTime]::UtcNow.ToString('o'))"
           ) | Set-Content -LiteralPath $evidence -Encoding UTF8
-          "Native UE5.4 Editor compilation succeeded for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          "Native UE5.4 Editor and Game compilation succeeded for commit $actual on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
           Get-Content -LiteralPath $evidence | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
       - name: Save native compile provenance
         uses: actions/upload-artifact@v4
         with:
           name: moonfall-unreal-native-compile-evidence
-          path: ${{ runner.temp }}/moonfall-unreal-native-compile.txt
+          path: ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/moonfall-unreal-native-compile.txt
           if-no-files-found: error
           retention-days: 30
       - name: Run real UE5.4 dungeon automation tests
@@ -96,38 +179,46 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # The runner always compiles this checkout itself; no stale-binary bypass.
-          & ./MoonfallUnreal/Build/Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT
+          & ./MoonfallUnreal/Build/Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT -ReportDirectory $env:MOONFALL_NATIVE_REPORT_DIRECTORY
           if (-not $?) { throw 'Native UE5.4 dungeon tests failed.' }
-          $report = 'MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt'
+          $report = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'Moonfall-Dungeon-TestResult.txt'
           if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
             throw 'Native dungeon test report is missing.'
           }
-          $contents = Get-Content -LiteralPath $report -Raw
-          foreach ($required in @(
+          $contents = @(Get-Content -LiteralPath $report)
+          $requiredTests = @(
             'Moonfall.Dungeons.All30EntranceLocations',
             'Moonfall.Dungeons.SeededRoomArchetypes',
             'Moonfall.Dungeons.BossVictoryLedgerDefaults',
             'Moonfall.Dungeons.BossVictorySaveRoundTrip',
             'Moonfall.Controls.CurrentInputContract',
-            'Moonfall.Quests.ResidentSaveRoundTrip'
-          )) {
-            if (-not $contents.Contains("$required=True")) {
-              throw "Native dungeon test was not verified as passing: $required"
-            }
-          }
-          if (-not $contents.Contains('EditorExitCode=0') -or
-              -not $contents.Contains('AnyNativeTestFailed=False')) {
-            throw 'Native dungeon test report does not show a successful Editor run.'
-          }
-          "Native UE5.4 dungeon and control automation: all six required tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+            'Moonfall.Quests.ResidentSaveRoundTrip',
+            'Moonfall.Dungeons.EquipmentSaveRoundTrip'
+          )
+          & ./MoonfallUnreal/Build/Assert-NativeAutomationReport.ps1 -Lines $contents -Required $requiredTests
+          # The strict validator requires EditorExitCode=0 and AnyNativeTestFailed=False.
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native test checkout changed during verification.' }
+          $log = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'Moonfall-Dungeon-UE54.log'
+          $proof = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'NativeAutomation-Provenance.txt'
+          @(
+            "Commit=$actual"
+            "Run=$env:GITHUB_RUN_ID"
+            "Attempt=$env:GITHUB_RUN_ATTEMPT"
+            "ReportSHA256=$((Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash)"
+            "LogSHA256=$((Get-FileHash -LiteralPath $log -Algorithm SHA256).Hash)"
+            'Scope=UE5.4 Editor automation; not packaged gameplay'
+          ) | Set-Content -LiteralPath $proof -Encoding UTF8
+          "Native UE5.4 dungeon and control automation: all seven required tests passed for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
       - name: Preserve native dungeon test evidence
-        if: always()
+        if: ${{ always() && steps.native_preflight.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: moonfall-unreal-native-dungeon-test-evidence
           path: |
-            MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-TestResult.txt
-            MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/Moonfall-Dungeon-TestResult.txt
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/Moonfall-Dungeon-UE54.log
+            ${{ runner.temp }}/MoonfallNative-${{ github.run_id }}-${{ github.run_attempt }}/NativeAutomation-Provenance.txt
           if-no-files-found: warn
           retention-days: 30
       - name: Save Unreal compilation diagnostics

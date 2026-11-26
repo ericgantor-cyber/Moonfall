@@ -27,6 +27,8 @@ jobs:
       - name: Verify trusted Windows Unreal build environment
         run: |
           $ErrorActionPreference = 'Stop'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native compile checkout does not match requested revision.' }
           if (-not $env:UE54_ROOT) {
             throw 'UE54_ROOT must be defined in the Windows runner environment, pointing to an installed Unreal Engine 5.4.'
           }
@@ -42,10 +44,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $logDir = Join-Path $env:RUNNER_TEMP "MoonfallUnrealCompile-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
-          New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+          if (Test-Path -LiteralPath $logDir) { throw 'Native compile evidence directory already exists.' }
+          New-Item -Path $logDir -ItemType Directory | Out-Null
           $transcript = Join-Path $logDir 'EditorBuild-Transcript.txt'
           $evidence = Join-Path $logDir 'NativeCompile-Evidence.txt'
-          if (Test-Path -LiteralPath $evidence) { Remove-Item -LiteralPath $evidence -Force }
           Start-Transcript -LiteralPath $transcript -Force | Out-Null
           try {
             # -CompileOnly invokes BOTH MoonfallUnrealEditor and MoonfallUnreal
@@ -53,9 +55,14 @@ jobs:
             & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
             if (-not $?) { throw 'Moonfall Unreal Editor/Game compile script failed.' }
             if ($LASTEXITCODE -ne 0) { throw "Moonfall Unreal build returned $LASTEXITCODE" }
+            $actual = (& git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native compile checkout changed during build.' }
             @(
               'Native Unreal 5.4 Editor and Game Win64 Development compilation: SUCCEEDED'
               "Commit: $env:GITHUB_SHA"
+              "Actual checked-out commit: $actual"
+              "Run: $env:GITHUB_RUN_ID"
+              "Attempt: $env:GITHUB_RUN_ATTEMPT"
               "Git ref: $env:GITHUB_REF"
               "Runner: $env:RUNNER_NAME"
               "Verified at: $([DateTime]::UtcNow.ToString('o'))"
