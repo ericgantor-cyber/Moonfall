@@ -684,6 +684,6 @@ private:
  bool bEquipBestInProgress = false;
  bool bTalentAllocationInProgress = false;
  // Session-only owned gear choices made at zero HP; never serialized as loot.
- int32 DefeatedEquipmentSelection[3] = {0, 0, 0};
+ MoonfallEquipmentSlots::FLoadout DefeatedEquipmentSelection{};
  bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
 };
