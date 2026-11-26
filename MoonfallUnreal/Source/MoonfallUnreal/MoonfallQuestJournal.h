@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "MoonfallWorldQuest.h"
 // Stable UI-only resident catalog and bounded quest selection rules.
 // Does not spawn NPCs, change rewards, or alter persistent save formats.
 // Match names/races to the existing native sanctuary and Crossroads authoring.
@@ -69,5 +71,35 @@ constexpr FSummary Summarize(const int* States, int StateCount, int Salvage) {
  }
  if (Result.TrackedCount > 0) Result.TrackedIndex = Result.TrackedIndices[0];
  return Result;
+}
+// Stable bit IDs: resident contracts first, then the twelve regional objectives.
+inline constexpr int EntryCount=ResidentCount+MoonfallWorldQuest::GoalCount;
+static_assert(EntryCount<32);
+constexpr std::uint32_t Bit(int Id) {
+ return Id>=0 && Id<EntryCount ? std::uint32_t(1)<<Id : 0u;
+}
+constexpr int Count(std::uint32_t Mask) {
+ int N=0;
+ for (int I=0; I<EntryCount; ++I) if (Mask&Bit(I)) ++N;
+ return N;
+}
+constexpr std::uint32_t Toggle(std::uint32_t Mask,std::uint32_t Active,int Id) {
+ Mask &= Active;
+ const auto B=Bit(Id)&Active;
+ if (!B) return Mask;
+ if (Mask&B) return Mask&~B;
+ return Count(Mask)<MaxTracked ? Mask|B : Mask;
+}
+constexpr int EntryAt(std::uint32_t Mask,int Row) {
+ for(int I=0;I<EntryCount;++I)
+  if ((Mask&Bit(I)) && Row--==0) return I;
+ return -1;
+}
+constexpr int PageRows(float Height) {
+ const int N=Height>=240.f?static_cast<int>((Height-116.f)/30.f):0;
+ return N>17?17:N;
+}
+constexpr int PageStart(int Selected,int Rows) {
+ return Rows>0 && Selected>=0?(Selected/Rows)*Rows:0;
 }
 } // namespace MoonfallQuestJournal

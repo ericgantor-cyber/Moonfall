@@ -859,6 +859,59 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawLiveMenuHitCue();
    return;
   }
+  if(Hero->bQuestLogOpen) {
+   namespace J=MoonfallQuestJournal;
+   namespace W=MoonfallWorldQuest;
+   const float Width=FMath::Min(900.f,Canvas->SizeX-24.f);
+   const float Height=FMath::Min(650.f,Canvas->SizeY-24.f);
+   const float Left=(Canvas->SizeX-Width)*0.5f,Top=(Canvas->SizeY-Height)*0.5f;
+   const uint32 Active=Hero->GetActiveQuestMask(),Tracked=Hero->GetTrackedQuestMask();
+   const int Count=J::Count(Active),Rows=J::PageRows(Canvas->SizeY);
+   const int Selected=FMath::Clamp(Hero->QuestLogSelection,0,FMath::Max(0,Count-1));
+   const int Start=J::PageStart(Selected,Rows);
+   const float Scale=FMath::Clamp(Width/650.f,0.48f,1.f);
+   DrawRect(FLinearColor(0.045f,0.043f,0.049f,0.98f),Left,Top,Width,Height);
+   DrawModalChrome(Left,Top,Width,Height,FLinearColor(0.55f,0.46f,0.30f,0.98f));
+   DrawText(TEXT("MOONFALL | QUEST LOG"),FLinearColor(0.95f,0.82f,0.58f),Left+18.f,Top+13.f,nullptr,Scale*1.15f);
+   DrawRect(FLinearColor(0.37f,0.16f,0.22f),Left+Width-42.f,Top+12.f,28.f,28.f);
+   DrawText(TEXT("X"),FLinearColor::White,Left+Width-33.f,Top+16.f,nullptr,0.9f);
+   DrawText(FString::Printf(TEXT("%d ACTIVE | %d/7 TRACKED | %s"),Count,J::Count(Tracked),
+       Hero->bManualQuestTracking?TEXT("MANUAL"):TEXT("AUTO")),FLinearColor(0.82f,0.9f,0.95f),Left+18.f,Top+40.f,nullptr,Scale*0.78f);
+   if(Width>=480.f) {
+    DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
+    DrawText(TEXT("MAP"),FLinearColor::White,Left+Width-101.f,Top+48.f,nullptr,0.72f);
+   }
+   DrawText(TEXT("PgUp/PgDn or D-pad: select | A / End / click: track | Home: auto | L / X: map"),
+       FLinearColor(0.75f,0.79f,0.85f),Left+18.f,Top+67.f,nullptr,Scale*0.60f);
+   if(Count==0) DrawText(TEXT("No active quests."),FLinearColor::White,Left+18.f,Top+93.f,nullptr,Scale);
+   for(int Row=0;Row<Rows&&Start+Row<Count;++Row) {
+    const int Id=J::EntryAt(Active,Start+Row);
+    if(Id<0) continue;
+    const bool bTracked=(Tracked&J::Bit(Id))!=0;
+    const float Y=Top+88.f+Row*30.f;
+    DrawRect(Start+Row==Selected?FLinearColor(0.22f,0.24f,0.32f):FLinearColor(0.09f,0.10f,0.15f),Left+12.f,Y,Width-24.f,28.f);
+    DrawHoverFrame(Left+12.f,Y,Width-24.f,28.f);
+    const FLinearColor Ink=bTracked?FLinearColor(0.52f,0.95f,0.68f):FLinearColor(0.85f,0.88f,0.92f);
+    FString Title,Detail;
+    if(Id<J::ResidentCount) {
+     const auto& Entry=J::Residents[Id];
+     Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(Entry.Location),UTF8_TO_TCHAR(Entry.QuestTitle));
+     const int Cost=J::Cost(Id);
+     Detail=FString::Printf(TEXT("%s | Salvage %d/%d | +%d XP"),UTF8_TO_TCHAR(Entry.Name),
+       FMath::Clamp(Hero->Salvage,0,Cost),Cost,MoonfallQuestXP::Reward(Cost,Hero->Level));
+    } else {
+     const int Goal=Id-J::ResidentCount,Zone=Goal/2;
+     int Progress=0;
+     for(int D=0;D<5;++D) Progress+=(Goal%2?Hero->HasDefeatedDungeonBoss(Zone,D):Hero->HasDiscoveredDungeon(Zone,D))?1:0;
+     Title=FString::Printf(TEXT("%s | %s"),UTF8_TO_TCHAR(W::RegionNames[Zone]),UTF8_TO_TCHAR(W::GoalTitles[Goal]));
+     Detail=FString::Printf(TEXT("%d/5 %s"),Progress,UTF8_TO_TCHAR(W::Type(Goal)));
+    }
+    DrawText(FString::Printf(TEXT("%s %s"),bTracked?TEXT("[X]"):TEXT("[ ]"),*Title),Ink,Left+18.f,Y+1.f,nullptr,Scale*0.75f);
+    DrawText(Detail,FLinearColor(0.80f,0.84f,0.90f),Left+38.f,Y+15.f,nullptr,Scale*0.66f);
+   }
+   DrawLiveMenuHitCue();
+   return;
+  }
   // Wide illustrated Atlas inspired by ink-wash/hand-drawn cartography.
   // Artwork is procedural and schematic, never a claim of surveyed terrain.
   static const TCHAR* AtlasRegions[6] = {TEXT("Ashen Wilds"), TEXT("Moonveil Forest"), TEXT("Hollow Depths"), TEXT("Iron Foundry"), TEXT("Frostbound Reach"), TEXT("Eclipse Wastes")};
@@ -894,7 +947,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Width>=480.f) DrawMoonfallSigil(Left+Width-67.f,Top+24.f,11.f,FLinearColor(0.92f,0.75f,0.42f),1);
   const float Scale = FMath::Clamp(Width / 900.f, 0.48f, 1.f);
   DrawText(TEXT("MOONFALL | CARTOGRAPHER'S ATLAS"), FLinearColor(0.91f, 0.84f, 0.68f), Left + 18.f, Top + 13.f, nullptr, Scale * 1.32f);
-  // The clickable X is the only Atlas header button (no ME button).
+  // Atlas close remains independent of the quest-log navigation button.
   const float AtlasCloseX = Left + Width - 42.f;
   DrawRect(FLinearColor(0.37f, 0.16f, 0.22f, 0.96f), AtlasCloseX, Top + 12.f, 28.f, 28.f);
   DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);
@@ -909,6 +962,11 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("Mouse: select a region or pan the chart | Tab / R3: read"),
     FLinearColor(0.71f, 0.69f, 0.62f), Left + 18.f, Top + 70.f,
     nullptr, Scale * 0.72f);
+  if(Width>=480.f) {
+   DrawRect(FLinearColor(0.20f,0.24f,0.30f),Left+Width-110.f,Top+46.f,96.f,20.f);
+   DrawHoverFrame(Left+Width-110.f,Top+46.f,96.f,20.f);
+   DrawText(TEXT("QUESTS [L]"),FLinearColor::White,Left+Width-103.f,Top+48.f,nullptr,0.65f);
+  }
   const float AtlasSidebarWidth = FMath::Clamp(Width * 0.27f, 132.f, 238.f);
   const float AtlasRowGap = FMath::Clamp((Height - 145.f) / 6.f, 24.f, 78.f);
   const bool bCompactAtlasRows = AtlasRowGap < 55.f;
@@ -2787,10 +2845,19 @@ void AMoonfallCombatHUD::DrawHUD()
    int States[MoonfallQuestJournal::ResidentCount]{};
    for (int I=0; I<MoonfallQuestJournal::ResidentCount; ++I)
     States[I]=Hero->GetResidentQuestState(ResidentKeys[I]);
-   const auto Contracts=MoonfallQuestJournal::Summarize(States,
+   auto Contracts=MoonfallQuestJournal::Summarize(States,
       MoonfallQuestJournal::ResidentCount,Hero->Salvage);
-   const auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,
+   auto Goals=MoonfallWorldQuest::Select(Seen,Defeated,
       MoonfallWorldQuest::MaxVisible-Contracts.TrackedCount);
+   if(Hero->bManualQuestTracking) {
+    namespace J=MoonfallQuestJournal;
+    const uint32 Mask=Hero->GetTrackedQuestMask();
+    Contracts.TrackedCount=0; Goals.Count=0;
+    for(int Id=0;Id<J::EntryCount;++Id) if(Mask&J::Bit(Id)) {
+     if(Id<J::ResidentCount) Contracts.TrackedIndices[Contracts.TrackedCount++]=Id;
+     else Goals.Indices[Goals.Count++]=Id-J::ResidentCount;
+    }
+   }
    const int TotalRows=Contracts.TrackedCount+Goals.Count;
    static_assert(MoonfallQuestJournal::MaxTracked==MoonfallWorldQuest::MaxVisible);
    const float ExtraTop=Top+132.f;

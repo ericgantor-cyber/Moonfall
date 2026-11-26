@@ -58,6 +58,20 @@ constexpr bool RejectCorruption() {
 static_assert(RejectCorruption(), "Bad saved counts must not produce a quest.");
 namespace J = MoonfallQuestJournal;
 static_assert(J::MaxTracked == W::MaxVisible);
+constexpr bool ManualTracking() {
+ const auto Active=J::Bit(0)|J::Bit(1)|J::Bit(2)|J::Bit(3)|J::Bit(4)|J::Bit(5)|J::Bit(6)|J::Bit(7)|J::Bit(26);
+ auto M=std::uint32_t(0);
+ for(int I=0;I<7;++I) M=J::Toggle(M,Active,I);
+ if(J::Count(M)!=7||J::Toggle(M,Active,7)!=M) return false;
+ M=J::Toggle(M,Active,2);
+ M=J::Toggle(M,Active,26);
+ return J::Count(M)==7&&(M&J::Bit(26))&&!(M&J::Bit(2))
+   &&J::EntryAt(Active,8)==26&&J::EntryAt(Active,9)==-1
+   &&J::Count(J::Toggle(M,Active&~J::Bit(0),-1))==6;
+}
+static_assert(ManualTracking(), "Manual tracking is bounded, independent of accepted quests.");
+static_assert(J::PageRows(240.f)==4 && J::PageRows(1080.f)==17);
+static_assert(J::PageStart(16,4)==16 && J::PageStart(26,17)==17);
 constexpr bool MoreAcceptedThanTracked() {
  int States[J::ResidentCount]{};
  for (int I=0; I<J::ResidentCount; ++I) States[I]=1;

@@ -388,6 +388,17 @@ public:
  // -1 follows the region's automatically featured discovered chapter.
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") int32 AtlasChronicleChapter = -1;
  UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas|Chronicle") bool bAtlasChronicleFocus = false;
+ // Quest log reuses Atlas input and modal safety. Tracking preferences are session-only.
+ bool bQuestLogOpen = false;
+ bool bManualQuestTracking = false;
+ uint32 ManualQuestMask = 0;
+ int32 QuestLogSelection = 0;
+ uint32 GetActiveQuestMask() const;
+ uint32 GetTrackedQuestMask() const;
+ void ToggleQuestLog();
+ void StepQuestLog(int32 Direction);
+ void ToggleSelectedQuestTracking();
+ void ResetQuestTracking();
  void ToggleAtlasChronicleFocus();
  void StepAtlasChronicle(int32 Direction);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") float AtlasZoom = 1.f;
