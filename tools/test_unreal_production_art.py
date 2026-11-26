@@ -106,6 +106,50 @@ class ProductionArtTests(unittest.TestCase):
         self.assertLess(script.index("textures = load_texture_pack()"), script.index("mesh.set_material(index"))
         self.assertNotIn("delete_asset(", script)
 
+    def test_material_preflight_rejects_virtual_textures_without_mutating_assets(self):
+        import ast
+        from types import SimpleNamespace
+        script = (ROOT / "Content/Python/install_production_materials.py").read_text()
+        tree = ast.parse(script)
+        loader = next(node for node in tree.body
+                      if isinstance(node, ast.FunctionDef) and node.name == "load_texture_pack")
+        class Texture:
+            def __init__(self, kind):
+                self.properties = {"srgb": kind == "BaseColor",
+                                   "compression_settings": {"Normal": "normal", "ORM": "masks"}.get(kind),
+                                   "virtual_texture_streaming": False, "never_stream": False}
+            def get_editor_property(self, key):
+                return self.properties[key]
+        slots = {"bronze", "leather", "steel", "stone", "moonstone"}
+        root = "/Game/MoonfallProduction/Textures"
+        assets = {root + "/T_MF_" + slot.title() + "_" + kind: Texture(kind)
+                  for slot in slots for kind in ("BaseColor", "Normal", "ORM")}
+        warnings = []
+        fake = SimpleNamespace(Texture2D=Texture,
+                               TextureCompressionSettings=SimpleNamespace(TC_NORMALMAP="normal", TC_MASKS="masks"),
+                               EditorAssetLibrary=SimpleNamespace(does_asset_exist=assets.__contains__, load_asset=assets.get),
+                               log_warning=warnings.append)
+        env = {"unreal": fake, "SLOTS": slots, "TEXTURE_ROOT": root}
+        exec(compile(ast.Module(body=[loader], type_ignores=[]), "<material preflight>", "exec"), env)
+        load = env["load_texture_pack"]
+        self.assertEqual(len(load()), 15)
+        target = root + "/T_MF_Bronze_Normal"
+        assets[target].properties["virtual_texture_streaming"] = True
+        with self.assertRaisesRegex(RuntimeError, "Virtual textures require different material samplers"):
+            load()
+        self.assertTrue(assets[target].properties["virtual_texture_streaming"])
+        assets[target].properties["virtual_texture_streaming"] = False
+        assets[target].properties["never_stream"] = True
+        self.assertEqual(len(load()), 15)
+        self.assertTrue(assets[target].properties["never_stream"])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn(target, warnings[0])
+        assets.pop(target)
+        with self.assertRaisesRegex(RuntimeError, "Import all fifteen"):
+            load()
+        assets.clear()
+        self.assertEqual(load(), {})
+
     def test_texture_import_validates_existing_and_streams_new_assets(self):
         script = (ROOT / "Content/Python/import_production_textures.py").read_text()
         preflight = script.split("def run():", 1)[1].split("if tasks:", 1)[0]
