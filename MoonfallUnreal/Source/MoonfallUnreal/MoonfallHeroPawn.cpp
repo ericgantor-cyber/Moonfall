@@ -4332,9 +4332,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  // The loader only restores known residents with accepted or completed
  // contracts. Never save quest entries it would silently discard.
- for (const auto& Entry : ResidentQuestStates)
+ int ActiveQuestRecords=0;
+ for (const auto& Entry : ResidentQuestStates) {
   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2))
    return false;
+  if (Entry.Value==1 && ++ActiveQuestRecords>MoonfallQuestJournal::MaxActive) return false;
+ }
  // Reputation and bond maps must round-trip without silently dropping keys
  // or clamping values on the next load.
  static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
@@ -4559,8 +4562,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Protect all saved quest entries rather than filtering unsupported
  // residents or states and overwriting their original progress on autosave.
  if (Save->Version >= 6) {
+  int ActiveQuestRecords=0;
   for (const auto& Entry : Save->ResidentQuestStates) {
-   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)) {
+   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)
+       || (Entry.Value==1 && ++ActiveQuestRecords>MoonfallQuestJournal::MaxActive)) {
     bPersistentSaveWritesBlocked = true;
     UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident quest state; original save protected."));
     return false;

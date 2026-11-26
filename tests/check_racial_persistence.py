@@ -54,7 +54,7 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
         self.assertIn("IsNamedMoonfallResident(Entry.Key)", loader)
         self.assertIn("Entry.Value == 1 || Entry.Value == 2", loader)
-        self.assertIn("Save->ResidentQuestStates.Num() <= 64", loader)
+        self.assertIn("Save->ResidentQuestStates.Num() <= MoonfallQuestJournal::MaxStoredRecords", loader)
         self.assertIn("FMath::Min(Save->InventoryItemCodes.Num(), 10000)", loader)
         self.assertIn("Index < LoadScanCount", loader)
         self.assertIn("ValidMoonfallItemCode(Code)", loader)
@@ -93,7 +93,9 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Save->ResidentBonds = ResidentBonds;",saver)
         # Existing version and limits remain unchanged for legacy saves.
         self.assertIn("int32 Version = 16",self.save)
-        self.assertIn("ResidentQuestStates.Num() > 64",saver)
+        self.assertIn("ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords",saver)
+        self.assertIn("++ActiveQuestRecords>MoonfallQuestJournal::MaxActive", saver)
+        self.assertIn("++ActiveQuestRecords>MoonfallQuestJournal::MaxActive", loader)
 
     def test_shrine_overlap_cannot_save_half_loaded_progress_on_respawn(self):
         self.assertIn("bool bWorldProgressLoadInProgress = false;", self.header)
@@ -218,7 +220,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"),
                         collect.index("return false;", collect.index("if (!SaveWorldProgress()) {")))
         self.assertLess(collect.index("if (!SaveWorldProgress()) {"), collect.rindex("return true;"))
-        self.assertIn("if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64", saver)
+        self.assertIn("if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords", saver)
         self.assertIn("|| DiscoveredShrineIds.Num() > 64", saver)
         self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", saver)
         self.assertIn("Save->InventoryItemCodes.Num() > 10000", loader)
@@ -256,7 +258,7 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
         for expression in (
             "Save->InventoryItemCodes.Num() > 10000",
-            "Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64",
+            "Save->Version >= 6 && Save->ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords",
         ):
             self.assertIn(expression, loader)
         reject = loader.split("if (Save->InventoryItemCodes.Num() > 10000", 1)[1].split(
