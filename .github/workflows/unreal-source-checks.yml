@@ -7,6 +7,7 @@ on:
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
       - 'tools/test_unreal_performance_audit.cpp'
+      - 'tools/test_unreal_equipment_slots.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
@@ -19,6 +20,7 @@ on:
       - 'tools/test_unreal_*.py'
       - 'tools/test_unreal_talent_rules.cpp'
       - 'tools/test_unreal_performance_audit.cpp'
+      - 'tools/test_unreal_equipment_slots.cpp'
       - 'tools/test_v27_*.cpp'
       - 'tests/test_movement_only_keyboard.py'
       - '.github/workflows/unreal-source-checks.yml'
@@ -197,6 +199,11 @@ jobs:
 
       # Guard the safety invariants that protect equipment ownership and pickups.
       # These are source contracts, not a native Unreal Engine compile or runtime test.
+      - name: Compile and test stable nine-slot equipment encoding (C++17)
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/test_unreal_equipment_slots.cpp -o /tmp/moonfall_equipment_slots
+          /tmp/moonfall_equipment_slots
       - name: Run Unreal equipment and loot safety regression tests
         shell: bash
         run: |
