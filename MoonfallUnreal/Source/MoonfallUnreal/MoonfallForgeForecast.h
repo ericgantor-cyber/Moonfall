@@ -12,7 +12,7 @@ struct FPlan {
 };
 constexpr bool ValidCode(int Code,int ActiveSlots=MoonfallEquipmentLayout::ActiveSlotCount) {
  // Max-tier gear still has a valid preview; Cost handles its immutable tier.
- return MoonfallEquipmentLayout::CanOperate(Code,ActiveSlots,
+ return MoonfallEquipmentLayout::CanOperateFull(Code,ActiveSlots,
      MoonfallEquipmentLayout::EInventoryOperation::Equip);
 }
 constexpr int Cost(int Tier, int Rarity) {
@@ -22,8 +22,9 @@ constexpr int Cost(int Tier, int Rarity) {
 constexpr FPlan Preview(int Code, int Salvage, int MaxLevels = 5,
     int ActiveSlots=MoonfallEquipmentLayout::ActiveSlotCount) {
  if (!ValidCode(Code,ActiveSlots)) return {false, 0, 0, 0, 0};
- const int Tier = Code % 1000;
- const int Rarity = (Code / 1000) % 10;
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int Tier = Decoded.Tier;
+ const int Rarity = Decoded.Rarity;
  const int Limit = MaxLevels < 0 ? 0 : (MaxLevels > 5 ? 5 : MaxLevels);
  int Balance = Salvage < 0 ? 0 : Salvage;
  int FinalTier = Tier, Count = 0, Spent = 0;
