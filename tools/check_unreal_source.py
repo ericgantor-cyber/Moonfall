@@ -4850,9 +4850,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
         self.assertIn("-ExecCmds=Automation RunTests Moonfall; Quit", script)
         self.assertIn("-TestExit=Automation Test Queue Empty", script)
-        self.assertIn("Test Completed", script)
-        self.assertIn("Passed", script)
-        self.assertIn("Failed", script)
+        self.assertIn("Read-NativeAutomationResults.ps1", script)
+        parser = (ROOT.parents[1] / "Build" / "Read-NativeAutomationResults.ps1").read_text(encoding="utf-8")
+        for token in ("Test Completed", "Passed", "Path=", "$counts[$name] -eq 1", "AnyNativeTestFailed"):
+            self.assertIn(token, parser)
         self.assertIn("Moonfall-Dungeon-TestResult.txt", script)
         self.assertIn("$editorExit -ne 0", script)
         self.assertIn("$results.Values -contains $false", script)
