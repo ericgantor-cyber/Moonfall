@@ -6137,9 +6137,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(scan.index("DistSq > FMath::Square(6000.f)"), scan.index("NearbyDamageEnemies.Add(E)"))
         self.assertIn("DistSq >= FMath::Square(3000.f)", scan)
         self.assertLess(scan.index("NearbyDamageEnemies.Add(E)"), scan.index("!FMath::IsFinite(E->Health)"))
-        self.assertIn("DistSq <= FMath::Square(6000.f)", scan)
-        self.assertLess(scan.index("DistSq <= FMath::Square(6000.f)"),
-                        scan.index("NearbyDamageEnemies.Add(E)"))
+        self.assertNotIn("DistSq <= FMath::Square(6000.f)", scan)
         self.assertIn("for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies)", draw_damage)
         self.assertNotIn("GetAllActorsOfClass", guide)
 
