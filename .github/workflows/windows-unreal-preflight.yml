@@ -152,15 +152,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:GITHUB_SHA) { throw 'Native compile checkout changed before evidence publication.' }
           $evidence = Join-Path $env:MOONFALL_NATIVE_REPORT_DIRECTORY 'moonfall-unreal-native-compile.txt'
           @(
-            'Native Unreal 5.4 editor compile: SUCCEEDED'
-            "Commit: $env:GITHUB_SHA"
+            'Native Unreal 5.4 Editor and Game Win64 Development compilation: SUCCEEDED'
+            "Commit: $actual"
+            "Run: $env:GITHUB_RUN_ID"
+            "Attempt: $env:GITHUB_RUN_ATTEMPT"
+            'Scope: compilation only; automation and packaged gameplay not yet verified'
             "Git ref: $env:GITHUB_REF"
             "Runner: $env:RUNNER_NAME"
             "Verified at: $([DateTime]::UtcNow.ToString('o'))"
           ) | Set-Content -LiteralPath $evidence -Encoding UTF8
-          "Native UE5.4 Editor compilation succeeded for commit $env:GITHUB_SHA on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
+          "Native UE5.4 Editor and Game compilation succeeded for commit $actual on runner $env:RUNNER_NAME." >> $env:GITHUB_STEP_SUMMARY
           Get-Content -LiteralPath $evidence | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
       - name: Save native compile provenance
         uses: actions/upload-artifact@v4
