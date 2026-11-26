@@ -1281,6 +1281,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bNavigationRouteUnavailable) return;
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
+  if (Direction.ContainsNaN()) return;
   // A brief re-entry chase bonus rewards the two-second withdrawal
   // without increasing damage, attack frequency, or extra navigation queries.
   const bool bTacticalReengage = bElite && !bBoss
@@ -1292,7 +1293,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Keep the existing capped movement speed and single swept move.
   const float ChaseStep = FMath::Min(Direction.Size(),
     SafeChaseSpeed * ChaseMultiplier * SafeAIDelta);
-  AddActorWorldOffset(Direction.GetSafeNormal() * ChaseStep, true, &Hit);
+  // A stationary enemy at a cached corner needs no collision sweep.
+  // Keep its existing path refresh deadline and let the next tick retry.
+  if (!FMath::IsFinite(ChaseStep) || ChaseStep <= 0.f) return;
+  const FVector ChaseDirection = Direction.GetSafeNormal();
+  if (ChaseDirection.ContainsNaN() || ChaseDirection.IsZero()) return;
+  AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit);
   // Track whether this tick's optional swept escape made it past the wall.
   // A successful escape can keep its cached NavMesh route until the next
   // normal refresh instead of forcing a new synchronous solve.
