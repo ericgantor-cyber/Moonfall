@@ -4827,12 +4827,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    Affix = 0;
   }
  };
- RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
- RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
- RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ RestoreGear(SavedWornCodes[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
+ RestoreGear(SavedWornCodes[1], 1, EquippedArmorCode, ArmorTier, ArmorAffix);
+ RestoreGear(SavedWornCodes[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  // A defeated loadout may select only gear still owned after checkpoint restore.
  // Reconcile armor capacity against the saved armor tier exactly once.
- if (DefeatedEquipmentSelection[0] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
+ if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[0], 0)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
   RestoreGear(DefeatedEquipmentSelection[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  if (DefeatedEquipmentSelection[1] && MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[1], 1)
      && InventoryItemCodes.Contains(DefeatedEquipmentSelection[1])) {
@@ -4842,7 +4843,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    MaxHealth = NewCap;
   }
  }
- if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
+ if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[2], 2)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
