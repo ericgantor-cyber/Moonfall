@@ -1020,6 +1020,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for start in range(len(modes)):
             self.assertEqual((start + 1 + 2) % len(modes), start)
 
+    def test_graphics_option_boundaries_skip_reconfiguration_and_audit_reset(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("(Direction != -1 && Direction != 1)", adjust)
+        self.assertIn("OptionsSelection < 0 || OptionsSelection > 7", adjust)
+        for guard in ("else return; // No renderer reconfiguration at the preset boundary.",
+                      "if (FMath::IsNearlyEqual(CurrentScale, NextScale)) return;",
+                      "if (CurrentQuality==NextQuality) return;"):
+            for work in ("BugBreadcrumbs.Record(", "PerformanceAudit.Reset();",
+                         "StageAudit.Reset();", "Settings->ApplySettings(false);",
+                         "Settings->SaveSettings();"):
+                self.assertLess(adjust.index(guard), adjust.index(work))
+        self.assertIn("LowerScale>UpperScale", adjust)
+        self.assertLess(adjust.index("!FMath::IsFinite(CurrentScale)"),
+                        adjust.index("Settings->SetResolutionScaleValueEx(NextScale);"))
+        self.assertIn("Settings->SetOverallScalabilityLevel(NextQuality);", adjust)
+
     def test_4k_uhd_resolution_preset_is_visible_selectable_and_persisted(self):
         adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
         resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
