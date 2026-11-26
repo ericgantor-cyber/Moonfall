@@ -1366,11 +1366,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
-   const bool bDungeonRole = ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+   static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));
+   const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);
    if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
+    const FVector PackOrigin = GetActorLocation();
     // Cap the iterator itself, not only eligible allies. Large worlds can
     // contain many bosses, defeated actors, and inactive enemies.
     for (TActorIterator<AMoonfallEnemy> It(GetWorld());
@@ -1385,7 +1387,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
      const bool bDungeonMember = bDungeonRole;
-     const bool bOtherDungeonMember = Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")));
+     const bool bOtherDungeonMember = Other->ActorHasTag(DungeonEncounterTag);
      if (bDungeonMember || bOtherDungeonMember) {
       if (!bDungeonMember || !bOtherDungeonMember
           || !IsValid(GetOwner()) || Other->GetOwner() != GetOwner()
@@ -1394,7 +1396,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // Distant allies must not exhaust our small decision-time candidate
      // budget before nearby windups can be considered. Reject corrupt
      // positions too, while preserving the outer 64-actor scan limit.
-     const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation());
+     const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin);
      if (!FMath::IsFinite(AllyDistanceSquared)
          || AllyDistanceSquared >= FMath::Square(550.f)) continue;
      ++ConsideredAllies;

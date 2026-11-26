@@ -3329,8 +3329,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         scope = tick.split("// Small-pack coordination:", 1)[1].split(
             "// Alternate quick strikes", 1)[0]
-        for guard in ('ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
-                      'Other->ActorHasTag(FName(TEXT("MoonfallDungeonEncounter")))',
+        for guard in ('static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));',
+                      'const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);',
+                      'const bool bOtherDungeonMember = Other->ActorHasTag(DungeonEncounterTag);',
                       '!bDungeonMember || !bOtherDungeonMember',
                       '!IsValid(GetOwner())', 'Other->GetOwner() != GetOwner()'):
             self.assertIn(guard, scope)
@@ -3376,7 +3377,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         scope = tick.split("// Small-pack coordination:", 1)[1].split(
             "// Alternate quick strikes", 1)[0]
         self.assertIn("FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now", scope)
-        self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation())", scope)
+        self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin)", scope)
         self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
         self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
@@ -6132,9 +6133,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         scan = hud.split("TArray<const AMoonfallEnemy*, TInlineAllocator<64>> NearbyDamageEnemies;", 1)[1].split(
             "if (Boss && BossDistanceSq", 1
         )[0]
-        self.assertIn("DistSq <= FMath::Square(6000.f)", scan)
-        self.assertLess(scan.index("DistSq <= FMath::Square(6000.f)"),
-                        scan.index("NearbyDamageEnemies.Add(E)"))
+        self.assertIn("bHeroLocationValid && It", scan)
+        self.assertIn("DistSq > FMath::Square(6000.f)", scan)
+        self.assertLess(scan.index("DistSq > FMath::Square(6000.f)"), scan.index("NearbyDamageEnemies.Add(E)"))
+        self.assertIn("DistSq >= FMath::Square(3000.f)", scan)
+        self.assertLess(scan.index("NearbyDamageEnemies.Add(E)"), scan.index("!FMath::IsFinite(E->Health)"))
+        self.assertNotIn("DistSq <= FMath::Square(6000.f)", scan)
         self.assertIn("for (const AMoonfallEnemy* Enemy : NearbyDamageEnemies)", draw_damage)
         self.assertNotIn("GetAllActorsOfClass", guide)
 

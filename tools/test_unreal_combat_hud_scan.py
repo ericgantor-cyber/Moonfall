@@ -19,8 +19,10 @@ class CombatHudScanTests(unittest.TestCase):
     def test_nearby_damage_keeps_killing_blow_feedback(self):
         hud = self.source
         self.assertLess(hud.index("NearbyDamageEnemies.Add(E)"),
-                        hud.index("if (E->Health <= 0.f) continue;"))
-        self.assertIn("DistSq <= FMath::Square(6000.f)", hud)
+                        hud.index("!FMath::IsFinite(E->Health) || E->Health <= 0.f) continue;"))
+        self.assertIn("if (!FMath::IsFinite(DistSq) || DistSq > FMath::Square(6000.f)) continue;", hud)
+        self.assertLess(hud.index("DistSq > FMath::Square(6000.f)"),
+                        hud.index("NearbyDamageEnemies.Add(E)"))
         self.assertIn("if (bHasRecentDamage) NearbyDamageEnemies.Add(E);", hud)
         self.assertIn("const float Age = WorldTime - Hit.Time;", hud)
         self.assertIn("Age >= 0.f && Age <= 0.8f", hud)
@@ -44,7 +46,9 @@ class CombatHudScanTests(unittest.TestCase):
         self.assertIn("if (DistSq < BossDistanceSq)", hud)
         self.assertIn("if (DistSq < PostureDistanceSq", hud)
         self.assertIn("E->PostureBrokenUntil > WorldTime", hud)
-        self.assertIn("if (!FMath::IsFinite(DistSq)) continue;", hud)
+        self.assertIn("if (!FMath::IsFinite(DistSq) || DistSq > FMath::Square(6000.f)) continue;", hud)
+        self.assertIn("float BossDistanceSq = FMath::Square(3000.f);", hud)
+        self.assertIn("DistSq >= FMath::Square(3000.f) || !FMath::IsFinite(E->Health)", hud)
 
 
 if __name__ == "__main__":
