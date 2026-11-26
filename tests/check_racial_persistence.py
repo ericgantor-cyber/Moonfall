@@ -136,10 +136,10 @@ class TestRacialPersistence(unittest.TestCase):
                       "(Item.Rarity==0&&Item.Affix!=0)", "Item.Tier<1||Item.Tier>25",
                       "Code!=Item.Affix*100000+Item.Slot*10000+Item.Rarity*1000+Item.Tier"):
             self.assertIn(guard, slots)
-        self.assertIn("MoonfallEquipmentSlots::Legacy(MoonfallEquipmentSlots::Decode(Code).Slot)", valid)
+        self.assertIn("MoonfallEquipmentSlots::Known(MoonfallEquipmentSlots::Decode(Code).Slot)", valid)
         self.assertIn("MoonfallEquipmentSlots::Decode(ItemCode)", pickup)
         self.assertIn("MoonfallEquipmentSlots::Decode(Code)", equip)
-        self.assertIn("if (!MoonfallEquipmentSlots::Legacy(Item.Slot)) return false;", pickup)
+        self.assertIn("if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;", pickup)
         self.assertIn("if (!MoonfallEquipmentSlots::Known(Item.Slot)) return false;", equip)
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
         self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
