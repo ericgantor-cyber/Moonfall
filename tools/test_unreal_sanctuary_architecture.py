@@ -60,7 +60,8 @@ int main() {
             "Details->SetCollisionEnabled(ECollisionEnabled::NoCollision);",
             "Details->SetCollisionResponseToAllChannels(ECR_Ignore);",
             "Details->SetGenerateOverlapEvents(false);",
-            "Details->SetCastShadow(false);", "Details->SetCullDistances(14000, 22000);",
+            "Details->SetCastShadow(false);", "Details->SetCanEverAffectNavigation(false);",
+            "Details->SetCullDistances(14000, 22000);",
             "AddInstanceComponent(Details);","Details->RegisterComponent();",
             "Details->SetStaticMesh(StoneMesh);",
             "SanctuaryMoonstoneDetails = BuildDetails(","SanctuaryGothicDetails = BuildDetails(",
@@ -88,6 +89,7 @@ int main() {
                        "FOLLOW THE SOUTHERN PASS","LET THE WITNESSES SPEAK"):
             self.assertIn(phrase,method)
         self.assertIn("LoreMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);",method)
+        self.assertIn("LoreMarker->SetCanEverAffectNavigation(false);",method)
         self.assertIn("SanctuaryGuideSigns.Add(LoreMarker);",method)
         self.assertLess(method.index("LoreMarker->SetRelativeLocation(Plaque.At);"),
                         method.index("LoreMarker->RegisterComponent();"))
