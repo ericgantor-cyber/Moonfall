@@ -1251,6 +1251,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
   DrawText(bCompactOptions ? TEXT("MOONFALL | OPTIONS") : TEXT("MOONFALL | GRAPHICS & ACCESSIBILITY"),
       FLinearColor::White, MenuLeft + 18.f, MenuTop + 17.f, nullptr, bCompactOptions ? 0.83f : 1.05f);
+  const float ReportX=MenuLeft+MenuWidth-150.f;
+  DrawRect(FLinearColor(0.18f,0.29f,0.37f,0.98f),ReportX,MenuTop+42.f,140.f,18.f);
+  DrawHoverFrame(ReportX,MenuTop+42.f,140.f,18.f);
+  const FString ReportLabel=Hero->GetBugReportStatus().IsEmpty()
+      ? TEXT("REPORT [F8/R3]") : Hero->GetBugReportStatus();
+  DrawText(ReportLabel,FLinearColor::White,ReportX+5.f,MenuTop+43.f,nullptr,0.65f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
@@ -1387,7 +1393,7 @@ void AMoonfallCombatHUD::DrawHUD()
      const FString Renderer=FString::Printf(TEXT("%s | %s | likely: %s"),*Adapter,*API,StageLabel);
      // Texture pool data is available in the audit getters, never presented
      // as total GPU allocation or as evidence of sufficient VRAM.
-     DrawText(Renderer,FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.60f);
+     DrawText(Renderer.Left(50),FLinearColor(0.68f,0.84f,0.91f),MenuLeft+15.f,MenuTop+42.f,nullptr,0.55f);
     }
    }
   }
