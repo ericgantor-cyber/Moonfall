@@ -14,6 +14,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
+        log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
+        self.assertIn('TEXT("AUTO TRACK")',log)
+        self.assertIn("DrawHoverFrame(Left+Width-214.f,Top+46.f,96.f,20.f)",log)
+        pointer=self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[1].split("const float SidebarWidth",1)[0]
+        self.assertIn("if(bQuestLogOpen) {",pointer)
+        self.assertIn("PanelW>=480.f && MouseX>=PanelL+PanelW-214.f && MouseX<PanelL+PanelW-118.f",pointer)
+        self.assertIn("MouseY>=PanelT+46.f && MouseY<PanelT+66.f) { ResetQuestTracking(); return; }",pointer)
+        self.assertLess(pointer.index("ResetQuestTracking(); return;"),pointer.index("MoonfallQuestJournal::HitRow"))
+        reset=self.hero_cpp.split("void AMoonfallHeroPawn::ResetQuestTracking()",1)[1].split("void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()",1)[0]
+        self.assertIn("bManualQuestTracking=false;",reset)
+        self.assertIn("ManualQuestMask={};",reset)
+
     def test_combined_quest_journal_matches_resident_save_contract(self):
         import re
         journal = (ROOT / "MoonfallQuestJournal.h").read_text(encoding="utf-8")
