@@ -16,6 +16,11 @@ public:
  // Dungeon encounter level captured on first entry. Zero preserves ordinary world scaling.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Encounter")
  int32 EncounterLevelOverride = 0;
+ // Only used by explicitly tagged aquatic preview encounters.
+ UPROPERTY(EditInstanceOnly, Category="Combat|Aquatic", meta=(ClampMin="0",ClampMax="5"))
+ int32 AquaticProfileId = 0;
+ float GetAquaticWarningRemaining(float Now) const;
+ int32 GetAquaticPhase() const;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
