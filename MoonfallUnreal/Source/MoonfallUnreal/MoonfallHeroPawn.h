@@ -46,6 +46,8 @@ public:
  bool bWaterSubmerged = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
+ float DrowningExposureSeconds = 0.f;
+ bool bApplyingDrowningDamage = false;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
