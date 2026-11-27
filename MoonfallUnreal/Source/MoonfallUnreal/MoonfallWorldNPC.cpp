@@ -373,6 +373,11 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  if (ActorHasTag(FName(TEXT("MoonfallIslandPreview")))) {
   auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
   if (!IsValid(Preview) || Hero->bWaterSwimming) return false;
+  if (ResidentId==FName(TEXT("MoonwatchTrader"))) {
+   LastSpokenLine=FText::FromString(FString::Printf(TEXT("Breath tonic: %d credits. Carry up to three."),Preview->GetIslandTonicPrice()));
+   OnDialogueStarted(Hero,LastSpokenLine);
+   return true;
+  }
   const int32 Id=ResidentId==FName(TEXT("MoonwatchWarden"))?0:
       ResidentId==FName(TEXT("MoonwatchCartographer"))?1:
       ResidentId==FName(TEXT("MoonwatchKeeper"))?2:-1;
