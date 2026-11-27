@@ -72,3 +72,17 @@ def ruin_geometry():
         for name, x in (("West drowned gate", -2200.0), ("East drowned gate", 2200.0))
         for side, y in (("north pillar", 430.0), ("south pillar", -430.0))
     )
+
+
+# Open-roof wrecks, away from the grotto rooms, shore and current lanes.
+WRECK_CENTERS = ((-2200.0, -1250.0, -260.0), (2200.0, 1250.0, -260.0))
+
+
+def wreck_geometry():
+    for index, (x, y, z) in enumerate(WRECK_CENTERS):
+        name = ("Blackwake Wreck", "Moonspine Wreck")[index]
+        yield name + " keel", (x, y, -410.0), (6.8, 3.6, 0.4), 0.0
+        for side in (-1, 1):
+            yield name + " broken hull", (x-65.0, y+side*155.0, -320.0), (4.5, 0.45, 1.4), side*6.0
+            yield name + " shattered bow", (x+245.0, y+side*95.0, -320.0), (1.7, 0.4, 1.25), -side*35.0
+        yield name + " fallen mast", (x-150.0, y, -365.0), (2.6, 0.3, 0.3), 22.0
