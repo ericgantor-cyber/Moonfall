@@ -1388,6 +1388,9 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::ControllerLeftShoulder()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(-1); return; }
@@ -1398,6 +1401,9 @@ void AMoonfallHeroPawn::ControllerLeftShoulder()
 }
 void AMoonfallHeroPawn::ControllerRightShoulder()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(1); return; }
@@ -1408,6 +1414,9 @@ void AMoonfallHeroPawn::ControllerRightShoulder()
 }
 void AMoonfallHeroPawn::ControllerLootOrSalvage()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  // One X press owns one action; keyboard F and Delete remain independent.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bOptionsOpen || bTalentWebOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -1418,6 +1427,9 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  // Preserve Equip Best's existing zero-health inventory policy; its own
  // validated transaction remains authoritative. Never cast at zero health.
@@ -1430,6 +1442,9 @@ void AMoonfallHeroPawn::ControllerLeftTrigger()
 }
 void AMoonfallHeroPawn::ControllerRightTrigger()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  // Route physical RT once; mouse combat continues to call RightHandAction.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
@@ -1439,6 +1454,9 @@ void AMoonfallHeroPawn::ControllerRightTrigger()
 }
 void AMoonfallHeroPawn::ControllerBack()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ClearRingNavigationFocus();return;}
  // Choose one route before a modal transition can expose gameplay input.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
@@ -1452,6 +1470,9 @@ void AMoonfallHeroPawn::ControllerBack()
 }
 void AMoonfallHeroPawn::ControllerConfirm()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ConfirmRingNavigationAction();return;}
  // One A press takes exactly one route, even when a synchronous UI callback
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
