@@ -12,7 +12,9 @@ enum class Orb : int { Agility, Hidden };
 inline constexpr int SkillCount=static_cast<int>(Skill::Count);
 inline constexpr int RegionCount=8;
 inline constexpr int OrbsPerRegion=64;
-inline constexpr std::array<int,6> RankThresholds{{0,100,300,650,1100,1800}};
+// Rank zero is untrained; ten earned ranks retain existing thresholds 1–5.
+inline constexpr int MaxRank=10;
+inline constexpr std::array<int,MaxRank+1> RankThresholds{{0,100,300,650,1100,1800,2600,3600,4800,6200,8000}};
 inline constexpr int MaxXP=RankThresholds.back();
 struct State {
  std::array<int,SkillCount> XP{};
@@ -56,12 +58,11 @@ bool TryRestoreRecord(int Version,const XPArray& XP,const OrbArray& Orbs,State& 
 }
 // Read-only unlock eligibility. Gameplay integration must still validate
 // movement, collision, input accessibility and combat restrictions.
-enum class Unlock : int { Vault, AirDash, AdvancedClimb, PerfectGuard, HeavyFollowup, ArcaneChain, EfficientCraft };
+enum class Unlock : int { Vault, AdvancedClimb, PerfectGuard, HeavyFollowup, ArcaneChain, EfficientCraft };
 constexpr bool HasUnlock(const State& S,Unlock U) {
  if(!Valid(S))return false;
  switch(U){
   case Unlock::Vault:return RankFor(S,Skill::Agility)>=1;
-  case Unlock::AirDash:return RankFor(S,Skill::Agility)>=3;
   case Unlock::AdvancedClimb:return RankFor(S,Skill::Agility)>=5;
   case Unlock::PerfectGuard:return RankFor(S,Skill::Defense)>=2;
   case Unlock::HeavyFollowup:return RankFor(S,Skill::Strength)>=3;
@@ -73,10 +74,8 @@ constexpr bool HasUnlock(const State& S,Unlock U) {
 // Bounded preview movement bonuses; never compound across jumps.
 constexpr int JumpBonusBps(const State& S) {
  const int R=RankFor(S,Skill::Agility);
- return R<1?0:R>=5?2500:R>=3?1800:R>=2?1200:600;
-}
-constexpr bool CanAirDash(const State& S,bool Falling,bool UsedThisFall,bool SafeMovement) {
- return Falling&&!UsedThisFall&&SafeMovement&&HasUnlock(S,Unlock::AirDash);
+ constexpr std::array<int,MaxRank+1> Bonus{{0,600,1200,1800,2100,2500,2800,3100,3400,3700,4000}};
+ return R<0||R>MaxRank?0:Bonus[static_cast<std::size_t>(R)];
 }
 constexpr int Reward(Action A) {
  switch(A){
