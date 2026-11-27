@@ -24,6 +24,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PhysicsVolume.h"
+#include "MoonfallWaterRules.h"
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
@@ -597,6 +599,8 @@ void AMoonfallHeroPawn::BeginPlay() {
   NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
       ? AuthoredWalkSpeed : 600.f;
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  GetCharacterMovement()->GetNavAgentPropertiesRef().bCanSwim = true;
+  GetCharacterMovement()->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
  }
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
@@ -687,6 +691,22 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Native swimming mode, never a height-only guess about whether the hero is in water.
+ bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
+     && GetCharacterMovement()->IsSwimming();
+ bWaterSubmerged = false;
+ if (bWaterSwimming) {
+  const APhysicsVolume* Volume = GetPhysicsVolume();
+  if (IsValid(Volume) && Volume->bWaterVolume) {
+   const FBox Bounds = Volume->GetComponentsBoundingBox(true);
+   const FVector Eye = GetPawnViewLocation();
+   // Authored water physics volumes must use their upper boundary as the surface.
+   bWaterSubmerged = Bounds.IsValid && !Eye.ContainsNaN()
+       && FMath::IsFinite(Bounds.Max.Z) && Eye.Z < Bounds.Max.Z;
+  }
+ }
+ Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
+     bWaterSubmerged, !GetWorld() || GetWorld()->IsPaused());
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
@@ -863,7 +883,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
+ const bool bCanSprint = !bWaterSwimming && bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
