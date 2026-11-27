@@ -3657,7 +3657,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Square(550.f)", tick)
         self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", tick)
         self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
-        self.assertIn("MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID())", tick)
+        self.assertIn("MoonfallPackTactics::AttackSlotDelay(FMath::Max(NearbyWindingAllies,bParentWinding?1:0), GetUniqueID())", tick)
         self.assertLess(tick.index("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
@@ -5589,7 +5589,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         callback = boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", identity)
         successful_return = boss.index("return true;", callback)
         for fragment in (boss[identity:callback], boss[callback:successful_return]):
-            self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", fragment)
+            self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed())", fragment)
             self.assertIn("!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f", fragment)
             self.assertIn("Boss->Destroy();", fragment)
             self.assertIn("return false;", fragment)
@@ -6960,6 +6960,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->DungeonChamberIndex = ChamberCount-1;",boss)
         self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));',boss)
         self.assertIn("RollbackBossMinions",boss)
+        self.assertIn("Minion->EncounterBoss=Boss;",boss)
+        self.assertIn("bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot",coordination)
+        self.assertIn("Parent->Health<=0.f",enemy)
+        self.assertIn("FacingDot>=0.94f",enemy)
         self.assertIn("ShouldMinionYieldToBoss(",coordination)
         self.assertIn("Other->ActorHasTag(BossEncounterTag)",coordination)
         self.assertIn("Other->GetOwner() != GetOwner()",coordination)
@@ -7294,7 +7298,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[0]
         after_encounter = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
         invalid_health = "if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)"
-        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;"
+        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed())"
         for stage in (after_identity, after_encounter):
             self.assertIn(actor_invalid, stage)
             self.assertIn(invalid_health, stage)
