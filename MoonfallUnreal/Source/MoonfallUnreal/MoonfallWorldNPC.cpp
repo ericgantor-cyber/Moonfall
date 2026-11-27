@@ -100,7 +100,12 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const FVector ActualMove=GetActorLocation()-Start;
  if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0){
   FollowerBlockedSteps=0;
-  SetActorRotation(FRotator(0.f,ActualMove.Rotation().Yaw,0.f));
+  // Bound visible turns per existing 0.2-second follower pulse, including
+  // wraparound at +/-180 degrees. No animation tick or asset dependency.
+  const float CurrentYaw=static_cast<float>(GetActorRotation().Yaw);
+  const float DesiredYaw=static_cast<float>(ActualMove.Rotation().Yaw);
+  if(FMath::IsFinite(CurrentYaw)&&FMath::IsFinite(DesiredYaw))
+   SetActorRotation(FRotator(0.f,FMath::FixedTurn(CurrentYaw,DesiredYaw,45.f),0.f));
  }else MarkBlocked();
  return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance&&FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0;
 }
