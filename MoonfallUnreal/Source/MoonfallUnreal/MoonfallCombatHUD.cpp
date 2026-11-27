@@ -2700,29 +2700,30 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  // Temporary contextual resource, independent of the three permanent orbs.
- if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
+ if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
   const float W = 252.f;
   const float X = (Canvas->SizeX-W)*0.5f;
-  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-126.f);
+  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-146.f);
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
   const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
       Hero->WaterBreathScale));
-  DrawText(Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),Hero->bInsideAirPocket ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
+  DrawText(Hero->WaterTonicRemaining > 0.f ? FString::Printf(TEXT("WATER BREATHING %ds"),FMath::CeilToInt(Hero->WaterTonicRemaining)) : Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),(Hero->bInsideAirPocket || Hero->WaterTonicRemaining > 0.f) ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
-  if (Hero->WaterSwimScale > 1.001f)
+  if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
    DrawText(FString::Printf(TEXT("+%.0f%% SWIM"),(Hero->WaterSwimScale-1.f)*100.f),AirColor,X+150.f,Y+3.f,nullptr,0.75f);
   if (GetWorld()) {
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    if (IsValid(Preview)) {
-    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,60.f);
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,80.f);
     DrawText(FString::Printf(TEXT("GROTTO TREASURES  %d / 6"),Preview->GetGrottoClaimCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
     const int32 Pieces=Preview->GetGrottoSetPieces();
     DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
     DrawText(Pieces>=3 ? TEXT("+10% BREATH | +10% SWIM") : Pieces>=2 ? TEXT("+10% BREATH | 3PC: +SWIM") : TEXT("2PC: BREATH | 3PC: SWIM"),FLinearColor(0.42f,0.86f,0.82f),X+8.f,Y+98.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("BREATH TONICS %d | AUTO AT 10%%"),Preview->GetBreathingTonicCharges()),FLinearColor(0.44f,0.88f,0.91f),X+8.f,Y+116.f,nullptr,0.72f);
    }
   }
  }
