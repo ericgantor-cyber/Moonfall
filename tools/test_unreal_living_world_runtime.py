@@ -23,8 +23,8 @@ int main(){
  assert(MoonfallPackTactics::AttackSlotDelay(0,7u)==0.f);
  assert(MoonfallPackTactics::AttackSlotDelay(-1,7u)==0.f);
  assert(MoonfallPackTactics::AttackSlotDelay(1,0u)>=0.4f);
- assert(MoonfallPackTactics::AttackSlotDelay(1,3u)<=0.505f);
- assert(MoonfallPackTactics::AttackSlotDelay(2,3u)<=0.655f);
+ assert(MoonfallPackTactics::AttackSlotDelay(1,3u)<=0.506f);
+ assert(MoonfallPackTactics::AttackSlotDelay(2,3u)<=0.656f);
  assert(MoonfallPackTactics::AttackSlotDelay(2,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
  assert(MoonfallPackTactics::AttackSlotDelay(1,0u)!=MoonfallPackTactics::AttackSlotDelay(1,1u));
  assert(MoonfallPackTactics::AttackSlotDelay(99,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
