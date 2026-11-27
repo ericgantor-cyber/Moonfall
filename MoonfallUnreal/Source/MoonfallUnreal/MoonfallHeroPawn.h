@@ -466,6 +466,7 @@ public:
  // Read-only pointer hit test sharing the inventory Canvas row geometry.
  int32 HitTestInventoryRow() const;
  bool HitTestInventoryBagDropSurface() const;
+ bool CanDropDraggedRingInBag() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
@@ -538,6 +539,7 @@ private:
  uint32 RingDragInventoryRevision=0;
  uint64 RingDragLoadoutFingerprint=0;
  mutable std::array<int8,MoonfallEquipmentLayout::RingSlotCount> RingDragTargetCache{};
+ mutable int8 RingDragBagDropCache=0;
  int32 GetLootComparisonTier(int32 Slot) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;
