@@ -4259,7 +4259,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for callback, next_operation in (
             ("Enemy->TakeMeleeDamage(FMath::Clamp(Damage, 1.f, 250.f));", "const float Dealt"),
             ("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", "Enemy->SwordGuardAngle ="),
-            ("Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);", "const float Window"),
+            ("Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Strength)));", "const float Window"),
             ("Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));", "Enemy->RegisterComboMilestone("),
         ):
             section = melee.split(callback, 1)[1].split(next_operation, 1)[0]
