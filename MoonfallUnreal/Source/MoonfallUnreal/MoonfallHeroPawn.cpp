@@ -26,6 +26,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "MoonfallWaterRules.h"
+#include "MoonfallWaterCurrent.h"
 #include "MoonfallAirPocket.h"
 #include "MoonfallGrottoTreasure.h"
 #include "NavigationInvokerComponent.h"
@@ -726,11 +727,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  WaterCameraDepth = 0.f;
  WaterStrokeSpeed = 0.f;
  WaterVerticalSpeed = 0.f;
+ WaterCurrentStrength = 0.f;
  bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
      && GetCharacterMovement()->IsSwimming();
  bWaterSubmerged = false;
  float WaterEyeDepth = 0.f;
  bool bValidWaterSurface = false;
+ FVector WaterRelativePosition = FVector::ZeroVector;
  if (bWaterSwimming) {
   const APhysicsVolume* Volume = GetPhysicsVolume();
   if (IsValid(Volume) && Volume->bWaterVolume) {
@@ -741,6 +744,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
        && FMath::IsFinite(Bounds.Max.Z);
    if (bValidWaterSurface) {
     WaterEyeDepth = Bounds.Max.Z - Eye.Z;
+    const FVector Center = Bounds.GetCenter();
+    WaterRelativePosition = GetActorLocation()-FVector(Center.X,Center.Y,Bounds.Max.Z);
     bWaterSubmerged = WaterEyeDepth > 0.f;
     if (IsValid(FollowCamera)) {
      const FVector CameraPosition = FollowCamera->GetComponentLocation();
@@ -784,6 +789,19 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
+ // Gentle horizontal flow only in the dedicated preview. Native movement
+ // retains collision, acceleration limits and full player steering authority.
+ if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
+     && IsLocallyControlled() && GetWorld() && !GetWorld()->IsPaused()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) {
+  const FVector Flow=MoonfallWaterCurrent::Input(WaterRelativePosition,WaterVerticalIntent>0,bInsideAirPocket);
+  WaterCurrentStrength=float(Flow.Size());
+  if (WaterCurrentStrength>0.f)
+   AddMovementInput(Flow.GetSafeNormal(),WaterCurrentStrength);
+ }
  if (bWaterSwimming) {
   GetWaterTraversalBonuses(WaterBreathScale,WaterSwimScale);
   if (auto* Movement = GetCharacterMovement())
