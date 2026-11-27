@@ -2704,7 +2704,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
   const float W = 252.f;
   const float X = (Canvas->SizeX-W)*0.5f;
-  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-90.f);
+  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-126.f);
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
   const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
@@ -2718,8 +2718,11 @@ void AMoonfallCombatHUD::DrawHUD()
   if (GetWorld()) {
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    if (IsValid(Preview)) {
-    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,24.f);
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,60.f);
     DrawText(FString::Printf(TEXT("GROTTO TREASURES  %d / 6"),Preview->GetGrottoClaimCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
+    const int32 Pieces=Preview->GetGrottoSetPieces();
+    DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
+    DrawText(Pieces>=3 ? TEXT("+10% BREATH | +10% SWIM") : Pieces>=2 ? TEXT("+10% BREATH | 3PC: +SWIM") : TEXT("2PC: BREATH | 3PC: SWIM"),FLinearColor(0.42f,0.86f,0.82f),X+8.f,Y+98.f,nullptr,0.72f);
    }
   }
  }
