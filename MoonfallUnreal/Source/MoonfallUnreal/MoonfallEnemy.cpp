@@ -97,9 +97,17 @@ void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
  if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+  // Fail closed if a preview actor is accidentally placed in the campaign.
+  if (!GetWorld() || !GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   Destroy();
+   return;
+  }
+  AquaticProfileId = MoonfallAquatic::SelectEncounter(AquaticProfileId, FMath::RandRange(0,99));
   const auto P = MoonfallAquatic::Profile(AquaticProfileId);
   Health = P.Health;
   AttackDamage = P.Damage;
+  bBoss = false; // Aquatic phases use the isolated profile, not the land boss pipeline.
+  bElite = false;
  }
  // Native regional bosses and elites receive one static engraved armor batch.
  // Ordinary native enemies receive two race ornaments in the same batch.
