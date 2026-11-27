@@ -3748,6 +3748,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
      || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
  if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
+ if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount) return EquipBestExpandedLoadout();
  // Use validated owned gear and a single inventory pass. Set-aware plan
  // considers matching affixes together without lowering any slot's tier/rarity.
  const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
@@ -3778,6 +3779,60 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  }
  if (IsValid(this) && !IsActorBeingDestroyed()) OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;
+}
+
+int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()
+{
+ // Called only after the shared public entry point's modal/reentry checks.
+ TGuardValue<bool> BatchGuard(bEquipBestInProgress,true);
+ const auto CanContinue=[this](){
+  return IsValid(this)&&!IsActorBeingDestroyed()&&bInventoryOpen&&!bOptionsOpen
+   &&!bCharacterStatsOpen&&!bSpellBookOpen&&!bTalentWebOpen&&!bAtlasOpen
+   &&!bResidentContextOpen&&!FocusedResident.IsValid()&&FMath::IsFinite(Health)
+   &&Health>=0.f&&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress
+   &&!bTalentAllocationInProgress&&!bEquipmentCraftInProgress;
+ };
+ const auto ReadRaw=[this](){
+  MoonfallEquipmentLayout::FFullLoadout Worn{};
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+   Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+  return Worn;
+ };
+ if(!CanContinue())return 0;
+ const auto Initial=ReadRaw();
+ if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Initial,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+ // First optimize fixed-slot gear with rings frozen, then optimize rings
+ // against the actual resulting gear. This is a bounded two-stage plan,
+ // not a claim of global optimality over both categories.
+ MoonfallEquipmentLayout::FFullPlanner Fixed(Initial,IsRecentlyInCombatForAmbientAI(),MoonfallEquipmentLayout::ActiveSlotCount,true);
+ for(int32 Index=0;Index<InventoryItemCodes.Num();++Index)Fixed.Add(InventoryItemCodes[Index],Index);
+ const auto FixedPlan=Fixed.Finish();
+ int32 Applied=0;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+  if(!CanContinue())break;
+  if(MoonfallEquipmentLayout::IsRingSlot(Slot)||GetRawEquipmentSlotCode(Slot)!=Initial[Slot])continue;
+  if(Slot!=0&&IsRecentlyInCombatForAmbientAI())continue;
+  const int32 Index=FixedPlan.Indices[Slot];
+  if(!InventoryItemCodes.IsValidIndex(Index)||InventoryItemCodes[Index]!=FixedPlan.Codes[Slot])continue;
+  if(EquipInventoryItem(Index))++Applied;
+ }
+ // No Blueprint notifications occur while publishing ring references.
+ // Commit the complete ring plan at once so swaps never duplicate a copy
+ // or expose a partially applied loadout to autosave or callbacks.
+ if(CanContinue()&&Health>0.f&&!IsRecentlyInCombatForAmbientAI()){
+  const auto BeforeRings=ReadRaw();
+  const auto RingPlan=MoonfallEquipmentLayout::PlanFlexibleRings(BeforeRings,MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes);
+  if(RingPlan.Changes>0&&MoonfallEquipmentLayout::IsFullLoadoutOwned(RingPlan.Codes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)){
+   for(int32 Slot:MoonfallEquipmentLayout::RingSlots){
+    if(Slot>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+    ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=RingPlan.Codes[Slot];
+   }
+   Applied+=RingPlan.Changes;
+   RefreshEquipmentTier();
+  }
+ }
+ if(IsValid(this)&&!IsActorBeingDestroyed())OnBestLoadoutEquipped(Applied);
+ return Applied;
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
