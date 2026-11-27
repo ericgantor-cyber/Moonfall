@@ -6926,7 +6926,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel", 1)[0]
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("Enemy->bElite = Group > 0 && Member == GroupSize - 1;", spawn)
-        self.assertIn('if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));', spawn)
+        self.assertIn("RoleForEncounterSlot(Member,Enemy->bElite)", spawn)
+        self.assertIn("CombatRole==MoonfallPackTactics::CombatRole::PackLeader", spawn)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))', spawn)
+        self.assertIn('FName(TEXT("DungeonPackLeader"))', spawn)
         self.assertLess(spawn.index('Tags.AddUnique(FName(TEXT("DungeonPackLeader")))'),
                         spawn.index("Enemy->FinishSpawning(SpawnTransform);"))
         self.assertIn('ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))', tick)
