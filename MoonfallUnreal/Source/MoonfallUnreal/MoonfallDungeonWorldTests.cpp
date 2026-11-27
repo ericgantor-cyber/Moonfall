@@ -344,6 +344,26 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
    Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
  const auto BeforeRejected= Migrated;
+ TestFalse(TEXT("V17 rejects mismatched legacy mirrors"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
+   Future.GetData(),MoonfallEquipmentLayout::SlotCount,17,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V17 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V18 rejects mismatched legacy mirrors"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
+   Middle.GetData(),Middle.Num(),18,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V18 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V17 rejects truncated nine-slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),MoonfallEquipmentLayout::SlotCount-1,17,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V17 truncation leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V18 rejects truncated sixteen-slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Middle.GetData(),Middle.Num()-1,18,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V18 truncation leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("Unsupported V20 equipment schema is rejected"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),20,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V20 schema leaves output unchanged"),Migrated==BeforeRejected);
  TArray<int32> WrongV18Slot=Middle;
  WrongV18Slot[9]=Middle[10];
  TestFalse(TEXT("V18 rejects an item encoded for a different slot"),
