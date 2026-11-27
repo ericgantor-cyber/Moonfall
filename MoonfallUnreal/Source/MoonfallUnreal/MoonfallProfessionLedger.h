@@ -2,8 +2,10 @@
 #include "MoonfallOceanCrafting.h"
 #include "MoonfallIslandQuest.h"
 #include "MoonfallOceanEvents.h"
+#include "MoonfallRegionalDiscovery.h"
 namespace MoonfallProfessionLedger {
- constexpr int Count=31;
+ constexpr int LegacyCount=31;
+ constexpr int Count=34;
  struct FSnapshot {
   MoonfallOceanGathering::FCollection Gathering;
   MoonfallOceanCrafting::FWorkshop Workshop;
@@ -11,6 +13,7 @@ namespace MoonfallProfessionLedger {
   MoonfallIslandQuest::FJournal Journal;
   MoonfallOceanEvents::FSightings Sightings;
   unsigned Wrecks=0,Caves=0;
+  MoonfallRegionalDiscovery::FProgress Regions;
   void Encode(int (&Out)[Count]) const {
    int N=0;
    for(int I:Gathering.Harvested) Out[N++]=I;
@@ -23,9 +26,10 @@ namespace MoonfallProfessionLedger {
    Out[N++]=int(Gear.Claims); Out[N++]=Gear.LastCode; Out[N++]=Gear.TonicCharges;
    Out[N++]=int(Journal.Accepted); Out[N++]=int(Journal.Completed); Out[N++]=Journal.Credits;
    Out[N++]=int(Sightings.Seen); Out[N++]=int(Wrecks); Out[N++]=int(Caves);
+   Out[N++]=int(Regions.Visited); Out[N++]=int(Regions.Caught); Out[N++]=int(Regions.Harvested);
   }
   bool Decode(const int* In,int Size) {
-   if(!In||Size!=Count) return false;
+   if(!In||(Size!=Count&&Size!=LegacyCount)) return false;
    FSnapshot S;
    int N=0;
    for(int& I:S.Gathering.Harvested) I=In[N++];
@@ -38,6 +42,8 @@ namespace MoonfallProfessionLedger {
    S.Gear.Claims=unsigned(In[N++]); S.Gear.LastCode=In[N++]; S.Gear.TonicCharges=In[N++];
    S.Journal.Accepted=unsigned(In[N++]); S.Journal.Completed=unsigned(In[N++]); S.Journal.Credits=In[N++];
    S.Sightings.Seen=unsigned(In[N++]); S.Wrecks=unsigned(In[N++]); S.Caves=unsigned(In[N++]);
+   if(Size==Count) { S.Regions.Visited=unsigned(In[N++]); S.Regions.Caught=unsigned(In[N++]); S.Regions.Harvested=unsigned(In[N++]); }
+   if(!S.Regions.Valid()) return false;
    for(int I=0;I<4;++I) if(S.Gathering.Harvested[I]<0||S.Gathering.Harvested[I]>MoonfallOceanGathering::MaxMaterialPerType||
     S.Workshop.Spent[I]<0||S.Workshop.Spent[I]>S.Gathering.Harvested[I]) return false;
    for(int I=0;I<3;++I) {

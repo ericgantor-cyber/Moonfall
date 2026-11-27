@@ -1764,6 +1764,8 @@ void AMoonfallCombatHUD::DrawHUD()
       FString::Printf(TEXT("Dawncrest %s | Stormcoil %s"),Preview->HasLegendaryFish(0)?TEXT("FOUND"):TEXT("--"),Preview->HasLegendaryFish(1)?TEXT("FOUND"):TEXT("--")),
       FString::Printf(TEXT("Abyssal Crown %s"),Preview->HasLegendaryFish(2)?TEXT("FOUND"):TEXT("--")),
       FString::Printf(TEXT("Bait %d/20 | used on catches"),Preview->GetFishingBaitCount()),
+      FString::Printf(TEXT("Regions: visited %d/9 | mastered %d/9"),Preview->GetRegionalVisited(),Preview->GetRegionalCompleted()),
+      FString::Printf(TEXT("Regional fish %d/9 | gather %d/9"),Preview->GetRegionalFished(),Preview->GetRegionalGathered()),
       TEXT("Rank 7+: match schools to ocean activity."),
       !Preview->IsProfessionSaveEnabled()?TEXT("Session only (editor)"):Preview->IsProfessionSaveBlocked()?TEXT("Preview save blocked; progress not saved"):Preview->IsProfessionSaveDirty()?TEXT("Preview progress pending save"):TEXT("Separate preview save; no campaign changes")
      };

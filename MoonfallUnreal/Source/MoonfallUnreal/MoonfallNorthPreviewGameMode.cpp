@@ -50,15 +50,15 @@ void AMoonfallNorthPreviewGameMode::LoadProfessions() {
   if(!UGameplayStatics::DoesSaveGameExist(Slot,0)) continue;
   bAny=true;
   const auto* Save=Cast<UMoonfallProfessionSave>(UGameplayStatics::LoadGameFromSlot(Slot,0));
-  if(IsValid(Save)&&Save->Version>1) { bProfessionSaveBlocked=true; return; }
+  if(IsValid(Save)&&Save->Version>2) { bProfessionSaveBlocked=true; return; }
   FSnapshot Candidate;
-  if(!IsValid(Save)||Save->Version!=1||Save->Sequence<=0||Save->Sequence%2!=I||
+  if(!IsValid(Save)||(Save->Version!=1&&Save->Version!=2)||Save->Ledger.Num()!=(Save->Version==1?LegacyCount:Count)||Save->Sequence<=0||Save->Sequence%2!=I||
     !Candidate.Decode(Save->Ledger.GetData(),Save->Ledger.Num())) continue;
   if(!bValid||Save->Sequence>ProfessionSequence) { Best=Candidate; ProfessionSequence=Save->Sequence; bValid=true; }
  }
  if(!bValid) { bProfessionSaveBlocked=bAny; return; }
  Gathering=Best.Gathering; Workshop=Best.Workshop; GrottoGear=Best.Gear; IslandJournal=Best.Journal;
- Sightings=Best.Sightings; WreckClaims=uint8(Best.Wrecks); CaveClaims=uint8(Best.Caves);
+ Regions=Best.Regions; Sightings=Best.Sightings; WreckClaims=uint8(Best.Wrecks); CaveClaims=uint8(Best.Caves);
  bProfessionDirty=false;
 }
 void AMoonfallNorthPreviewGameMode::FlushProfessions() {
@@ -66,7 +66,7 @@ void AMoonfallNorthPreviewGameMode::FlushProfessions() {
  if(!bProfessionSaveEnabled||bProfessionSaveBlocked||!bProfessionDirty||ProfessionSequence==MAX_int64) return;
  FSnapshot State;
  State.Gathering=Gathering; State.Workshop=Workshop; State.Gear=GrottoGear; State.Journal=IslandJournal;
- State.Sightings=Sightings; State.Wrecks=WreckClaims; State.Caves=CaveClaims;
+ State.Regions=Regions; State.Sightings=Sightings; State.Wrecks=WreckClaims; State.Caves=CaveClaims;
  int Values[Count]={}; State.Encode(Values);
  FSnapshot Validation;
  if(!Validation.Decode(Values,Count)) { bProfessionSaveBlocked=true; return; }

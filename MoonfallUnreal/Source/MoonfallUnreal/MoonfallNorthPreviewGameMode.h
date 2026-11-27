@@ -10,6 +10,7 @@
 #include "MoonfallOceanCrafting.h"
 #include "MoonfallFishing.h"
 #include "MoonfallRegionalFishing.h"
+#include "MoonfallRegionalDiscovery.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -52,10 +53,15 @@ public:
  int32 GetIslandTonicPrice() const { return IslandJournal.TonicPrice(); }
  bool BuyIslandTonic() { const bool OK=IslandJournal.BuyTonic(GrottoGear.TonicCharges); bProfessionDirty|=OK; return OK; }
  int32 GetOceanActivity() const;
+ void DiscoverRegionalWater(int32 Province) { if(HasAuthority()) bProfessionDirty|=Regions.Visit(Province); }
+ int32 GetRegionalVisited() const { return Regions.Count(Regions.Visited); }
+ int32 GetRegionalFished() const { return Regions.Count(Regions.Caught); }
+ int32 GetRegionalGathered() const { return Regions.Count(Regions.Harvested); }
+ int32 GetRegionalCompleted() const { return Regions.Completed(); }
  bool DiscoverAquaticCreature(int32 Id) { const bool OK=Sightings.Discover(Id); bProfessionDirty|=OK; return OK; }
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
- bool CollectOceanResource(int32 Id) { const bool OK=HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); bProfessionDirty|=OK; return OK; }
+ bool CollectOceanResource(int32 Id) { const bool OK=HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); if(OK&&Id>=MoonfallOceanGathering::BaseNodeCount) Regions.Gather((Id-MoonfallOceanGathering::BaseNodeCount)/4); bProfessionDirty|=OK; return OK; }
  float GetOceanResourceCooldown(int32 Id) const {
   return GetWorld()?float(Gathering.RemainingCooldown(Id,GetWorld()->GetTimeSeconds())):0.f;
  }
@@ -69,11 +75,12 @@ public:
   const int32 Event=GetOceanActivity();
   const bool bBait=Workshop.Bait>0 && Workshop.Bait<=MoonfallOceanCrafting::BaitCapacity;
   const int32 Rank=MoonfallFishing::Rank(Gathering.Catches());
-  const int32 Bonus=MoonfallRegionalFishing::TrophyBonus(Province,Rank,bSchool);
+  const int32 Bonus=MoonfallRegionalFishing::TrophyBonus(Province,Rank,bSchool)+(bSchool&&Regions.Complete(Province)?2:0);
   const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event,bBait)+Bonus;
   const int32 Legendary=bSchool?MoonfallFishing::LegendarySpecies(Gathering.Catches(),SchoolId,Event,FMath::RandRange(0,99),bBait):-1;
   const bool bCaught=Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):MoonfallRegionalFishing::Preferred(Province,Rank),bTrophy,Legendary);
   if(bCaught&&bBait) Workshop.UseBait();
+  if(bCaught) Regions.Fish(Province);
   bProfessionDirty|=bCaught;
   return bCaught;
  }
@@ -104,6 +111,7 @@ private:
  // One neutral bank and one per authored northern province.
  static int32 SchoolBank(int32 Province) { return MoonfallRegionalFishing::Valid(Province)?Province+1:0; }
  MoonfallFishing::FSchoolStock Schools[MoonfallNorth::ZoneCount+1];
+ MoonfallRegionalDiscovery::FProgress Regions;
  MoonfallOceanCrafting::FWorkshop Workshop;
  MoonfallOceanGathering::FCollection Gathering;
  MoonfallOceanEvents::FSightings Sightings;
