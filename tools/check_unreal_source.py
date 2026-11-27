@@ -875,7 +875,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("IsRingSlot(Slot)", hud)
         self.assertIn("CachedAdvisorLoadoutHash != AdvisorLoadoutHash", hud)
         self.assertIn("CachedAdvisorLoadoutHash = AdvisorLoadoutHash", hud)
-        self.assertIn("uint32 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
+        self.assertIn("uint64 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
         self.assertIn("DecodeFullItem(CodeA)", self.hero_cpp)
         self.assertIn("GetEquipmentLoadoutFingerprint()", hud)
 
