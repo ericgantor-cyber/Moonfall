@@ -5869,6 +5869,32 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
 }
+int32 AMoonfallHeroPawn::GetRingPointerDragCode() const
+{
+ if(RingDragCode<=0||!CanEditEquippedRings()||!HasVisibleInventoryPointerSurface(Controller)
+     ||RingDragInventoryRevision!=EquipmentInventoryRevision
+     ||RingDragLoadoutFingerprint!=GetEquipmentLoadoutFingerprint())return 0;
+ return RingDragCode;
+}
+
+bool AMoonfallHeroPawn::CanDropDraggedRingOnFinger(int32 FingerIndex) const
+{
+ const int32 Code=GetRingPointerDragCode();
+ if(Code<=0)return false;
+ const int32 Target=MoonfallEquipmentLayout::RingSlot(FingerIndex);
+ MoonfallEquipmentLayout::FFullLoadout Worn{},Next{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ if(RingDragBagIndex!=INDEX_NONE){
+  if(!InventoryItemCodes.IsValidIndex(RingDragBagIndex)||InventoryItemCodes[RingDragBagIndex]!=Code)return false;
+  return MoonfallEquipmentLayout::TryAssignFullRing(Code,Target,Worn,
+      MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next);
+ }
+ const int32 From=MoonfallEquipmentLayout::RingSlot(RingDragFingerIndex);
+ if(From<0||Worn[From]!=Code)return false;
+ return MoonfallEquipmentLayout::TryMoveFullRing(From,Target,Worn,
+     MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next);
+}
+
 void AMoonfallHeroPawn::ClearRingPointerDrag()
 {
  RingDragBagIndex=RingDragFingerIndex=INDEX_NONE;
