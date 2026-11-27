@@ -37,6 +37,7 @@ public:
  bool AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance);
  bool TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero);
  FVector FollowerWaypoint=FVector::ZeroVector;
+ FVector FollowerPathGoal=FVector::ZeroVector;
  float NextFollowerPathAt=-1.f;
  bool bFollowerWaypointValid=false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
