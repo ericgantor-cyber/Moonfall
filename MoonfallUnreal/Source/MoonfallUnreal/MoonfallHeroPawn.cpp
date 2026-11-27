@@ -5222,12 +5222,23 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Restore only owned, active expanded gear selected while defeated.
  static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::FullSlotCount,
      "Defeated selection must match the equipment layout");
+ MoonfallEquipmentLayout::FFullLoadout RecoveryWorn{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+  RecoveryWorn[Slot]=GetRawEquipmentSlotCode(Slot);
  for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot) {
   const int32 Code=DefeatedEquipmentSelection[Slot];
-  if (MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+  // Flexible ring changes while defeated remain disabled. Do not replay stale
+  // ring selections against a checkpoint with different physical copy counts.
+  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+      &&MoonfallEquipmentLayout::IsRingSlot(Slot))continue;
+  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
       MoonfallEquipmentLayout::EInventoryOperation::Equip)
-      && MoonfallEquipmentLayout::ValidFullItem(Code,Slot) && InventoryItemCodes.Contains(Code))
-   ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
+      || !MoonfallEquipmentLayout::ValidFullItem(Code,Slot))continue;
+  auto Candidate=RecoveryWorn;
+  Candidate[Slot]=Code;
+  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Candidate,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))continue;
+  RecoveryWorn=Candidate;
+  ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
  }
  RefreshEquipmentTier();
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);

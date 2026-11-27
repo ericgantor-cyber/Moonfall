@@ -309,6 +309,21 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   TestEqual(TEXT("V19 migration retains exact equipment position"),Migrated[Slot],Future[Slot]);
  TArray<int32> MissingCopy=Original->InventoryItemCodes;
  MissingCopy.RemoveAt(23);
+ // A strict V18 checkpoint has sixteen slots and no cross-finger aliases.
+ TArray<int32> Middle;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SixteenSlotCount;++Slot)
+  Middle.Add(MoonfallEquipmentLayout::EncodeFullItem(Slot,1,2,5));
+ MoonfallEquipmentLayout::FFullLoadout MiddleRestored{};
+ TestTrue(TEXT("V18 migration retains sixteen strict equipment positions"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Middle.GetData(),Middle.Num(),18,Middle,MiddleRestored));
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
+  TestEqual(TEXT("V18 migration zero-fills new positions"),MiddleRestored[Slot],
+   Middle.IsValidIndex(Slot)?Middle[Slot]:0);
+ const int32 WrongMirrors[]={Future[1],Future[0],Future[2]};
+ TestFalse(TEXT("V19 rejects mismatched legacy mirrors"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
+   Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
  const auto BeforeRejected= Migrated;
  TestFalse(TEXT("V19 rejects a missing physical ring copy"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
