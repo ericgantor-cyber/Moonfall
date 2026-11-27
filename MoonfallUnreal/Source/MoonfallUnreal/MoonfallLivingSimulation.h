@@ -114,6 +114,13 @@ constexpr EEvent EncounterFor(int region,int phase) {
  return slot==0?EEvent::Merchant:slot==1?EEvent::Patrol:
   slot==2?EEvent::Rescue:slot==3?EEvent::Dispute:EEvent::Monster;
 }
+// Each normal encounter repeats on a five-phase cycle. Rotate its dialogue
+// across three cycles without RNG, additional actors or persistent state.
+constexpr int EncounterDialogueVariant(int Region,int Phase){
+ return Region<0||Region>=RegionCount||Phase<0?0:((Phase/5)%3+Region%3)%3;
+}
+static_assert(EncounterDialogueVariant(0,0)==0&&EncounterDialogueVariant(0,5)==1&&EncounterDialogueVariant(0,10)==2&&EncounterDialogueVariant(0,15)==0,"Dialogue rotates on recurring encounters");
+static_assert(EncounterDialogueVariant(-1,5)==0&&EncounterDialogueVariant(6,5)==0&&EncounterDialogueVariant(0,-1)==0,"Invalid dialogue coordinates use default");
 // Weather influences which story can start; avoid unexpected hostile spawns
 // during severe, low-visibility conditions. Ordinary weather is unchanged.
 constexpr EEvent EncounterForWeather(int region,int phase,EWeather weather) {
