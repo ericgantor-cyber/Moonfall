@@ -150,6 +150,13 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
 
+void AMoonfallHeroPawn::RefreshEquipmentTier()
+{
+ EquipmentTier = 0;
+ for (int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+  EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
+}
+
 int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 {
  // Use the same strict decoder as equipped combat stats. No save mutations.
@@ -3753,6 +3760,16 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
      MoonfallEquipmentLayout::EInventoryOperation::Equip)) return false;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
+ // Expanded slots have no legacy Blueprint caches or armor HP side effects.
+ // The active-slot validation above gates this path until loot/UI integration.
+ if (SlotIndex >= MoonfallEquipmentLayout::LegacySlotCount) {
+  int32& ExtraCode = ExtraEquippedCodes[SlotIndex-MoonfallEquipmentLayout::LegacySlotCount];
+  if (ExtraCode == Code) return false;
+  if (Health == 0.f) DefeatedEquipmentSelection[SlotIndex] = Code;
+  ExtraCode = Code;
+  RefreshEquipmentTier();
+  return true;
+ }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
@@ -3769,7 +3786,7 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  *EquippedCode = Code;
  // An explicitly equipped weapon becomes the active right-hand action,
  // just as explicitly equipping a spell readies the spell.
- EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ RefreshEquipmentTier();
  if (SlotIndex == 0 && !bEquipmentCraftInProgress) ReadyRightHandWeapon();
  if (SlotIndex == 1 && PreviousTier != Tier) {
   // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
@@ -4884,7 +4901,17 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
- EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ // Restore only owned, active expanded gear selected while defeated.
+ static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::SlotCount,
+     "Defeated selection must match the equipment layout");
+ for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
+  const int32 Code=DefeatedEquipmentSelection[Slot];
+  if (MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,
+      MoonfallEquipmentLayout::EInventoryOperation::Equip)
+      && MoonfallEquipmentLayout::Valid(Code,Slot) && InventoryItemCodes.Contains(Code))
+   ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
+ }
+ RefreshEquipmentTier();
  LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
  // Six native spell schools; a stale or externally edited save must never
  // restore an unusable right-hand spell while magic is selected.
