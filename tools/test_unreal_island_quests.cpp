@@ -20,5 +20,21 @@ int main() {
     assert(Early.Count()==0);
     assert(Early.Talk(2,6)==2);
     assert(Early.Count()==1);
+    assert(J.Reputation()==90);
+    assert(J.Credits==6);
+    assert(J.TonicPrice()==1);
+    assert(Early.Reputation()==30 && Early.Credits==2);
+    assert(Early.TonicPrice()==2);
+    int Stock=3;
+    assert(!Early.BuyTonic(Stock) && Early.Credits==2);
+    Stock=0;
+    assert(Early.BuyTonic(Stock) && Stock==1 && Early.Credits==0);
+    assert(!Early.BuyTonic(Stock));
+    assert(Early.Talk(2,6)==3 && Early.Credits==0);
+    Stock=2;
+    assert(J.BuyTonic(Stock) && Stock==3 && J.Credits==5);
+    assert(!J.BuyTonic(Stock) && J.Credits==5);
+    Stock=-1;
+    assert(!J.BuyTonic(Stock) && J.Credits==5);
     return 0;
 }
