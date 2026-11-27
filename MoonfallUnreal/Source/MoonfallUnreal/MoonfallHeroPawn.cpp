@@ -721,6 +721,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
  // Native swimming mode, never a height-only guess about whether the hero is in water.
+ const bool bWasSwimming = bWaterSwimming;
+ const bool bWasSubmerged = bWaterSubmerged;
+ WaterCameraDepth = 0.f;
+ WaterStrokeSpeed = 0.f;
+ WaterVerticalSpeed = 0.f;
  bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
      && GetCharacterMovement()->IsSwimming();
  bWaterSubmerged = false;
@@ -737,6 +742,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    if (bValidWaterSurface) {
     WaterEyeDepth = Bounds.Max.Z - Eye.Z;
     bWaterSubmerged = WaterEyeDepth > 0.f;
+    if (IsValid(FollowCamera)) {
+     const FVector CameraPosition = FollowCamera->GetComponentLocation();
+     if (!CameraPosition.ContainsNaN() && Bounds.IsInsideOrOn(CameraPosition))
+      WaterCameraDepth = FMath::Max(0.f,float(Bounds.Max.Z-CameraPosition.Z));
+    }
    }
   }
  }
@@ -752,6 +762,17 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     break;
    }
   }
+ }
+ if (bWaterSwimming) {
+  const FVector Velocity = GetVelocity();
+  if (!Velocity.ContainsNaN()) {
+   WaterStrokeSpeed = float(Velocity.Size2D());
+   WaterVerticalSpeed = float(Velocity.Z);
+  }
+ }
+ if (bWasSwimming != bWaterSwimming || bWasSubmerged != bWaterSubmerged) {
+  OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
+  if (IsActorBeingDestroyed()) return;
  }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
