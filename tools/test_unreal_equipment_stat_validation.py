@@ -127,6 +127,19 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertLess(body.index(guard), body.index("const TArray<int32> PreviousBag"))
         self.assertIn("InventoryItemCodes=PreviousBag;", body)
 
+    def test_crafting_blocks_combat_at_entry_and_between_batch_steps(self):
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix", "AscendInventoryItemRarity", "ForgeInventoryItemLevels"):
+            body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}\n", 1)[0]
+            self.assertLess(body.index("IsRecentlyInCombatForAmbientAI()"), body.index("InventoryItemCodes[InventoryIndex]"))
+        batch = self.source.split("AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split("\n}\n", 1)[0]
+        loop = batch.split("for (int32 Step = 0; Step < Limit; ++Step)", 1)[1]
+        self.assertLess(loop.index("IsRecentlyInCombatForAmbientAI()"), loop.index("if (!UpgradeInventoryItem(InventoryIndex))"))
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bCraftCombatLocked=Hero->IsRecentlyInCombatForAmbientAI()", hud)
+        self.assertIn("Crafting: unavailable in combat", hud)
+        self.assertIn("Reforge: unavailable in combat", hud)
+        self.assertIn("Ascend: unavailable in combat", hud)
+
     def test_save_restore_batches_equipment_cache_invalidation(self):
         load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress(", 1)[1]
         rebuild = load.split("InventoryItemCodes.Reset();", 1)[1].split("const auto RestoreGear", 1)[0]

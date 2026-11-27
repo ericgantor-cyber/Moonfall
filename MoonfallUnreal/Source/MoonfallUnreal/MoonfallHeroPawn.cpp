@@ -2743,7 +2743,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked || IsRecentlyInCombatForAmbientAI()) return false;
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
@@ -2792,7 +2792,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked || IsRecentlyInCombatForAmbientAI()) return false;
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
@@ -2845,7 +2845,7 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked || IsRecentlyInCombatForAmbientAI()) return false;
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
  if (bEquipmentCraftInProgress || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
      || FocusedResident.IsValid() || !bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
@@ -2892,7 +2892,7 @@ void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
-     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return 0;
+     || bTalentAllocationInProgress || bPersistentSaveWritesBlocked || IsRecentlyInCombatForAmbientAI()) return 0;
  if (bEquipmentCraftInProgress) return 0;
  // Reject the wrong inventory page before initiating any batch transaction.
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen
@@ -2913,7 +2913,7 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
       || bTalentAllocationInProgress || bEquipmentCraftInProgress
       || !bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen
       || bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
-      || !FMath::IsFinite(Health) || Health <= 0.f) break;
+      || !FMath::IsFinite(Health) || Health <= 0.f || IsRecentlyInCombatForAmbientAI()) break;
   // Craft callbacks can change inventory selection or contents. Never
   // apply the next upgrade to an unrelated item that moved into this slot.
   if (!InventoryItemCodes.IsValidIndex(InventoryIndex)
