@@ -157,6 +157,89 @@ int main() {
  assert(!L::TryRestoreFullLoadout(Full24.data(),3,Full24.data(),16,19,OwnAll,FullRestore));
  assert(!L::TryRestoreFullLoadout(Full24.data(),3,Full24.data(),24,20,OwnAll,FullRestore));
  assert(FullRestore==Full24);
+ // Full-layout crafting operations must preserve slot banks and reject
+ // malformed/inactive gear. All valid slots are exercised across rarity caps.
+ for(int Slot=0;Slot<24;++Slot)
+ for(int Rarity=0;Rarity<=5;++Rarity){
+  const int Code=L::EncodeFullItem(Slot,0,Rarity,24);
+  const int Up=L::FullUpgradeCode(Code,24),Asc=L::FullAscendCode(Code,24);
+  const int Reforge=L::FullReforgeCode(Code,2,24);
+  assert(L::DecodeFullItem(Up).Slot==Slot&&L::DecodeFullItem(Up).Tier==25);
+  assert(L::FullUpgradeCode(Up,24)==0);
+  assert(Asc==(Rarity<5?L::EncodeFullItem(Slot,0,Rarity+1,24):0));
+  assert(Reforge==(Rarity>=2?L::EncodeFullItem(Slot,2,Rarity,24):0));
+  assert(L::FullReforgeCode(Reforge,2,24)==0);
+  assert(L::FullUpgradeCode(Code,9)==(Slot<9?Up:0));
+ }
+ const int Ring10=L::EncodeFullItem(23,1,5,10);
+ L::FFullLoadout RingWorn{};RingWorn[23]=Ring10;
+ assert(!L::CanRemoveFullCopy(Ring10,RingWorn,24,std::array<int,1>{Ring10}));
+ assert(L::CanRemoveFullCopy(Ring10,RingWorn,24,std::array<int,2>{Ring10,Ring10}));
+ assert(!L::CanRemoveFullCopy(Ring10,RingWorn,16,std::array<int,2>{Ring10,Ring10}));
+ assert(L::FullUpgradeCode(Ring10,23)==0);
+ // Worst case: all 24 matching traits, with all four candidate buckets.
+ // High counts exceed the old decimal DP; first and last slots exercise
+ // the full 48-bit decision path. Equal items retain the earliest index.
+ L::FFullPlanner AllSlots(L::FFullLoadout{});
+ L::FFullLoadout Expected24{};
+ for(int Slot=0;Slot<24;++Slot){
+  Expected24[Slot]=L::EncodeFullItem(Slot,3,5,25);
+  for(int Trait=0;Trait<4;++Trait)
+   AllSlots.Add(L::EncodeFullItem(Slot,Trait,5,25),Slot*4+Trait);
+  AllSlots.Add(Expected24[Slot],100+Slot);
+ }
+ const auto AllPlan=AllSlots.Finish();
+ assert(AllPlan.Changes==24&&AllPlan.Gain==L::FullTotalScore(AllPlan.Codes));
+ // All same-affix plans have equal score: deterministic path picks trait 1.
+ for(int Slot=0;Slot<24;++Slot){
+  assert(AllPlan.Codes[Slot]==L::EncodeFullItem(Slot,1,5,25));
+  assert(AllPlan.Indices[Slot]==Slot*4+1);
+ }
+ L::FFullPlanner Locked(AllPlan.Codes,true);
+ Locked.Add(L::EncodeFullItem(23,3,5,25),0);
+ assert(Locked.Finish().Changes==0);
+ L::FFullPlanner InvalidCount(L::FFullLoadout{},false,23);
+ InvalidCount.Add(Ring10,0);
+ assert(InvalidCount.Finish().Changes==0);
+ // Independent brute-force reference over seven varied slots, including
+ // bank boundaries and the final ring. Other slots remain fixed.
+ const std::array<int,7> Varied{{0,8,9,13,15,16,23}};
+ const auto IndependentTotal=[](const L::FFullLoadout& Gear){
+  int Score=0;
+  for(int S=0;S<24;++S){
+   const auto D=L::DecodeFullItem(Gear[S]);
+   if(D.Slot!=S)continue;
+   Score+=D.Tier*1000+D.Rarity*100+(D.Trait?10:0);
+   for(int Other=S+1;Other<24;++Other){
+    const auto E=L::DecodeFullItem(Gear[Other]);
+    if(D.Trait&&E.Slot==Other&&E.Trait==D.Trait)Score+=80;
+   }
+  }
+  return Score;
+ };
+ for(int Trial=0;Trial<12;++Trial){
+  L::FFullLoadout Worn{};
+  for(int S=0;S<24;++S)Worn[S]=L::EncodeFullItem(S,(S+Trial)%4,2,5);
+  L::FFullPlanner Planner24(Worn);
+  std::array<std::array<int,3>,7> Choices{};
+  for(int I=0;I<7;++I){
+   const int S=Varied[I];
+   Choices[I]={Worn[S],L::EncodeFullItem(S,(S+Trial+1)%4,2,5),
+                       L::EncodeFullItem(S,(S+Trial+2)%4,2,5+Trial%2)};
+   Planner24.Add(Choices[I][1],I*2);Planner24.Add(Choices[I][2],I*2+1);
+  }
+  const int Baseline=IndependentTotal(Worn);
+  int Best=Baseline,Fewest=0;
+  for(int N=0;N<2187;++N){
+   auto TrialLoadout=Worn;int Digits=N,Changes=0;
+   for(int I=0;I<7;++I){TrialLoadout[Varied[I]]=Choices[I][Digits%3];Digits/=3;
+    Changes+=TrialLoadout[Varied[I]]!=Worn[Varied[I]];}
+   const int Score=IndependentTotal(TrialLoadout);
+   if(Score>Best||(Score==Best&&Changes<Fewest)){Best=Score;Fewest=Changes;}
+  }
+  const auto Plan24=Planner24.Finish();
+  assert(IndependentTotal(Plan24.Codes)==Best&&Plan24.Gain==Best-Baseline&&Plan24.Changes==Fewest);
+ }
  // Shared single-item comparison covers all nine slots without changing legacy weights.
  const auto LegacyExpanded=L::ExpandLegacy(Gear);
  for(int Slot=0;Slot<3;++Slot)
