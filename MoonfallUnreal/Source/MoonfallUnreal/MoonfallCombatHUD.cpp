@@ -2325,28 +2325,22 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   // Match the combat decoder: a code only contributes while owned, correctly
   // slotted and canonically encoded. HUD previews must never imply phantom stats.
-  const auto ReadOwnedGear = [Hero](int32 Code, int32 ExpectedSlot,
+  const auto ReadOwnedGear = [&WornCodes](int32 ExpectedSlot,
                                    int32& Trait, int32& Rarity, int32& Tier) {
    Trait = 0; Rarity = 0; Tier = 0;
-   if (Code <= 0 || !Hero->InventoryItemCodes.Contains(Code)) return;
-   const int32 EncodedTrait = Code / 100000;
-   const int32 Slot = (Code / 10000) % 10;
-   const int32 EncodedRarity = (Code / 1000) % 10;
-   const int32 EncodedTier = Code % 1000;
-   if (EncodedTrait < 0 || EncodedTrait > 3 || Slot != ExpectedSlot
-       || EncodedRarity < 0 || EncodedRarity > 5
-       || EncodedTier < 1 || EncodedTier > 25
-       || (EncodedRarity == 0 && EncodedTrait != 0)
-       || Code != EncodedTrait * 100000 + Slot * 10000 + EncodedRarity * 1000 + EncodedTier)
-    return;
-   Trait = EncodedTrait; Rarity = EncodedRarity; Tier = EncodedTier;
+   if (!WornCodes.IsValidIndex(ExpectedSlot)) return;
+   const int32 Code = WornCodes[ExpectedSlot];
+   const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+   if (!Decoded.IsValid() || !MoonfallEquipmentLayout::CanWearFullItem(
+       Code, ExpectedSlot, MoonfallEquipmentLayout::ActiveSlotCount)) return;
+   Trait = Decoded.Trait; Rarity = Decoded.Rarity; Tier = Decoded.Tier;
   };
   int32 WeaponTrait = 0, WeaponRarity = 0, WeaponTier = 0;
   int32 ArmorTrait = 0, ArmorRarity = 0, ArmorTier = 0;
   int32 AccessoryTrait = 0, AccessoryRarity = 0, AccessoryTier = 0;
-  ReadOwnedGear(Hero->EquippedWeaponCode, 0, WeaponTrait, WeaponRarity, WeaponTier);
-  ReadOwnedGear(Hero->EquippedArmorCode, 1, ArmorTrait, ArmorRarity, ArmorTier);
-  ReadOwnedGear(Hero->EquippedAccessoryCode, 2, AccessoryTrait, AccessoryRarity, AccessoryTier);
+  ReadOwnedGear(0, WeaponTrait, WeaponRarity, WeaponTier);
+  ReadOwnedGear(1, ArmorTrait, ArmorRarity, ArmorTier);
+  ReadOwnedGear(2, AccessoryTrait, AccessoryRarity, AccessoryTier);
   const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
     + (WeaponTrait == 1 && WeaponRarity > 0 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
   const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
