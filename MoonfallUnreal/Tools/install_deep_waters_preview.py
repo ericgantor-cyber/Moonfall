@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
     grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry, wreck_geometry,
     MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH, EXPANDED_HALF_WIDTH, EXPANDED_HALF_LENGTH,
-    cave_geometry, island_geometry, settlement_geometry, ISLAND_RESIDENTS
+    cave_geometry, island_geometry, settlement_geometry, ISLAND_RESIDENTS, ocean_resources
 )
 
 MAP_PATH = "/Game/DeepWaters/Maps/DeepWatersPreview"
@@ -147,6 +147,12 @@ def main():
                 npc.set_editor_property("use_personality_routines", False)
                 npc.set_editor_property("ambient_visitor", True)
             unreal.log("Expanded basin enabled: two caverns and Moonwatch settlement.")
+        for index, label, shape, pos, scale in ocean_resources(extent.x):
+            resource = place(treasure_class, label, pos)
+            resource.set_editor_property("resource_index", index)
+            mesh = resource.get_editor_property("chest_mesh")
+            mesh.set_static_mesh(art_meshes[shape])
+            mesh.set_relative_scale3d(unreal.Vector(*scale))
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
         for index, (name, (x, y, z)) in enumerate(grotto_layout()):
