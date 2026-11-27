@@ -255,7 +255,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "case 3:", "case 4:", "default:", "Canvas->K2_DrawLine",
         ):
             self.assertIn(token, spell)
-        for token in ("Slot<0 || Slot>2", "R<4.f || R>19.f",
+        for token in ("Slot<0 || Slot>=MoonfallEquipmentLayout::ActiveSlotCount", "R<4.f || R>19.f",
                       "switch (Slot)", "case 0:", "case 1:", "default:"):
             self.assertIn(token, gear)
         for forbidden in ("GetAllActorsOfClass", "TActorIterator",
