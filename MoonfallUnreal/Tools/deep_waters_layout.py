@@ -52,3 +52,23 @@ def grotto_art(index, x, y):
         )
     )
     return ornaments, (x, y + 195.0, -105.0), color
+
+
+def shoreline_geometry(half_width):
+    # Dry deck ends at the water boundary; descending steps overlap horizontally
+    # by 10 cm and differ in height by only 25 cm.
+    return (
+        ("Dry dock", (-half_width - 300.0, 0.0, -20.0), (6.0, 12.0, 0.4)),
+        ("Shallow step", (-half_width + 95.0, 0.0, -45.0), (2.0, 12.0, 0.4)),
+        ("Middle step", (-half_width + 285.0, 0.0, -70.0), (2.0, 12.0, 0.4)),
+        ("Deep step", (-half_width + 475.0, 0.0, -95.0), (2.0, 12.0, 0.4)),
+    )
+
+
+def ruin_geometry():
+    # Two broken gateway landmarks away from the center current lanes.
+    return tuple(
+        (f"{name} {side}", (x, y, -320.0), (0.8, 0.8, 1.8))
+        for name, x in (("West drowned gate", -2200.0), ("East drowned gate", 2200.0))
+        for side, y in (("north pillar", 430.0), ("south pillar", -430.0))
+    )
