@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
-    grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry,
+    grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry, wreck_geometry,
     MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
 )
 
@@ -84,12 +84,14 @@ def main():
         actor.set_editor_property("tags", [unreal.Name(TAG)])
         return actor
 
-    def block(label, pos, scale):
+    def block(label, pos, scale, yaw=0.0):
         actor = place(unreal.StaticMeshActor, label, pos)
         mesh = actor.get_editor_property("static_mesh_component")
         mesh.set_static_mesh(cube)
         mesh.set_collision_profile_name("BlockAll")
         actor.set_actor_scale3d(unreal.Vector(*scale))
+        if yaw:
+            actor.set_actor_rotation(unreal.Rotator(0, 0, yaw), False)
 
     def decorate(name, index, x, y):
         ornaments, light_pos, color = grotto_art(index, x, y)
@@ -124,6 +126,8 @@ def main():
             block("Deep Waters " + label, pos, scale)
         for label, pos, scale in ruin_geometry():
             block(label, pos, scale)
+        for label, pos, scale, yaw in wreck_geometry():
+            block(label, pos, scale, yaw)
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
         for index, (name, (x, y, z)) in enumerate(grotto_layout()):
