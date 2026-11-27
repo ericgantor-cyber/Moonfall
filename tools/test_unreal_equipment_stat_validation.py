@@ -188,6 +188,12 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("InventoryItemCodes[RingDragBagIndex]!=Code", preview)
         self.assertNotIn("ExtraEquippedCodes[", preview)
         self.assertNotIn("RefreshEquipmentTier()", preview)
+        self.assertIn("RingDragTargetCache[FingerIndex]", preview)
+        self.assertIn("if(Cached!=0)return Cached>0;", preview)
+        self.assertLess(preview.index("GetRingPointerDragCode()"), preview.index("RingDragTargetCache[FingerIndex]"))
+        clear = self.source.split("void AMoonfallHeroPawn::ClearRingPointerDrag()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("RingDragTargetCache.fill(0);", clear)
+        self.assertIn("else if(bWorn)DrawRect", hud)
         self.assertIn("DragHover!=INDEX_NONE&&Hero->CanDropDraggedRingOnFinger(DragHover)", hud)
         self.assertNotIn('bDropAllowed?TEXT("+"):TEXT("X")', hud)
         self.assertIn("Index==DragHover&&bDropAllowed?SlotGold:QualityInk", hud)
