@@ -2793,14 +2793,20 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
    DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
-   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolSpecies>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
+   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolId>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
       bBite?TEXT("BITE! N / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
       (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch unavailable")):
       TEXT("Face water | N / X: Cast");
-   const FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
-   DrawText(FishingPrompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
+   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
+   const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
+   if(bCatchNotice) {
+    const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
+    const int32 Species=Preview->GetLastFishSpecies();
+    if(Species>=0&&Species<3) FishingPrompt=FString::Printf(TEXT("%s%s caught!"),Preview->WasLastFishTrophy()?TEXT("TROPHY "):TEXT(""),Names[Species]);
+   }
+   DrawText(FishingPrompt,bCatchNotice&&Preview->WasLastFishTrophy()?FLinearColor(1.f,0.8f,0.25f):Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
      Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
    if(!bActive && Hero->CanContinueFishing() && GetOwningPlayerController()) {

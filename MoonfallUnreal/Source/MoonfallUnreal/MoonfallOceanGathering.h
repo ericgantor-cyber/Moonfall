@@ -16,6 +16,9 @@ namespace MoonfallOceanGathering
         double ReadyAt[NodeCount]={};
         int Harvested[4]={};
         int Fish[3]={};
+        int TrophyCatches=0;
+        int LastSpecies=-1;
+        bool LastTrophy=false;
         bool Ready(int Id,double Now) const {
             return IsResource(Id) && std::isfinite(Now) && Now>=0.0 && Now>=ReadyAt[Id]
                 && Now+RespawnSeconds>Now && Harvested[MaterialType(Id)]<MaxMaterialPerType;
@@ -27,10 +30,13 @@ namespace MoonfallOceanGathering
             return true;
         }
         bool CanCatch() const { return Catches()<MaxSessionCatches; }
-        bool Catch(int Event,int Roll,int Preferred=-1) {
+        bool Catch(int Event,int Roll,int Preferred=-1,bool Trophy=false) {
             if(Event<0||Event>2||Roll<0||Roll>99||Preferred<-1||Preferred>2||!CanCatch()) return false;
             const int SpeciesId=Preferred>=0&&Roll<75?Preferred:((Roll<50?0:Roll<80?1:2)+Event)%3;
             ++Fish[SpeciesId];
+            LastSpecies=SpeciesId;
+            LastTrophy=Trophy;
+            if(Trophy) ++TrophyCatches;
             return true;
         }
         int Material(int Type) const {

@@ -7,6 +7,7 @@
 #include "MoonfallOceanEvents.h"
 #include "MoonfallOceanGathering.h"
 #include "MoonfallOceanCrafting.h"
+#include "MoonfallFishing.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -49,7 +50,17 @@ public:
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CanCatchOceanFish() const { return Gathering.CanCatch(); }
- bool CatchOceanFish(int32 Preferred=-1) { return HasAuthority() && Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99),Preferred); }
+ bool IsFishingSchoolAvailable(int32 Id) const { return GetWorld() && Schools.Available(Id,GetWorld()->GetTimeSeconds()); }
+ bool CatchOceanFish(int32 SchoolId=-1) {
+  if(!HasAuthority()||!GetWorld()||!Gathering.CanCatch()||SchoolId<-1||SchoolId>=MoonfallFishing::SchoolCount) return false;
+  const bool bSchool=SchoolId>=0 && Schools.Take(SchoolId,GetWorld()->GetTimeSeconds());
+  const int32 Event=GetOceanActivity();
+  const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event);
+  return Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):-1,bTrophy);
+ }
+ int32 GetLastFishSpecies() const { return Gathering.LastSpecies; }
+ bool WasLastFishTrophy() const { return Gathering.LastTrophy; }
+ int32 GetTrophyCatchCount() const { return Gathering.TrophyCatches; }
  int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
  int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
  bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }
@@ -58,6 +69,8 @@ public:
  int32 GetAvailableOceanMaterials() const { return Workshop.AvailableMaterials(Gathering); }
  int32 GetAvailableOceanFish() const { return Workshop.RemainingFish(Gathering); }
 private:
+ // Eight shared schools for the isolated single-basin preview.
+ MoonfallFishing::FSchoolStock Schools;
  MoonfallOceanCrafting::FWorkshop Workshop;
  MoonfallOceanGathering::FCollection Gathering;
  MoonfallOceanEvents::FSightings Sightings;

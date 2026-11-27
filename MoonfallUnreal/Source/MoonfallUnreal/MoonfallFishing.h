@@ -10,6 +10,26 @@ namespace MoonfallFishing
     }
     constexpr int SchoolCount=8;
     constexpr int SchoolSpecies(int Id) { return Id>=0&&Id<SchoolCount?Id%3:-1; }
+    constexpr int SchoolCapacity=4;
+    constexpr double SchoolRecovery=90.0;
+    struct FSchoolStock {
+        int Used[SchoolCount]={};
+        double RecoverAt[SchoolCount]={};
+        bool Available(int Id,double Now) const {
+            return SchoolSpecies(Id)>=0 && std::isfinite(Now) && Now>=0 &&
+                (Used[Id]<SchoolCapacity || Now>=RecoverAt[Id]);
+        }
+        bool Take(int Id,double Now) {
+            if(!Available(Id,Now)||!std::isfinite(Now+SchoolRecovery)||Now+SchoolRecovery<=Now) return false;
+            if(Used[Id]>=SchoolCapacity) Used[Id]=0;
+            if(++Used[Id]==SchoolCapacity) RecoverAt[Id]=Now+SchoolRecovery;
+            return true;
+        }
+    };
+    // Trophy quality is a catch record, not a separate crafting item.
+    constexpr int TrophyChance(int Catches,bool School,int Event) {
+        return 2+(Rank(Catches)-1)/2+(School?4:0)+(Event==1?3:0);
+    }
     struct FSchoolPosition { double X=0,Y=0; };
     inline FSchoolPosition SchoolPosition(int Id,double Now,double Width,double Length) {
         if(SchoolSpecies(Id)<0||!std::isfinite(Now)||Now<0||!std::isfinite(Width)||!std::isfinite(Length)||Width<600||Length<600) return {};

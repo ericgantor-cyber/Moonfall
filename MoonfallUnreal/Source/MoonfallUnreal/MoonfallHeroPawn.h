@@ -50,7 +50,7 @@ public:
  FVector FishingBobber=FVector::ZeroVector;
  float FishingNoticeUntil=0.f;
  bool bFishingCaught=false;
- int32 FishingSchoolSpecies=-1;
+ int32 FishingSchoolId=-1;
  TArray<FVector> NearbyFishingSchools;
  float NextFishingSchoolScan=0.f;
  void RefreshFishingSchools(float Now);
