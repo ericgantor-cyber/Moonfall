@@ -2744,12 +2744,26 @@ void AMoonfallCombatHUD::DrawHUD()
    }
   }
  }
+ // Session-only fishing and gathering journal. No world scan.
+ if (GetWorld() && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview) && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+      && !Hero->bWaterSwimming) {
+   const float X=(Canvas->SizeX-252.f)*0.5f,Y=Canvas->SizeY*0.62f;
+   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
+   DrawText(FString::Printf(TEXT("FISH %d/3 | MATERIALS %d/4"),Preview->GetOceanCatchCount(),
+     Preview->GetOceanMaterialCount()),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
+   DrawText(TEXT("F: Fish at a dock marker"),FLinearColor(0.44f,0.88f,0.91f),X+8.f,Y+23.f,nullptr,0.72f);
+   DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
+     Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
+  }
+ }
  // Temporary contextual resource, independent of the three permanent orbs.
  if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
   const float W = 252.f;
   const float X = (Canvas->SizeX-W)*0.5f;
-  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-164.f);
+  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-182.f);
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
   const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
@@ -2765,7 +2779,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (GetWorld()) {
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    if (IsValid(Preview)) {
-    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,98.f);
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,116.f);
     DrawText(FString::Printf(TEXT("G %d/6 | WRECK %d/2 | CAVE %d"),Preview->GetGrottoClaimCount(),Preview->GetWreckDiscoveryCount(),Preview->GetCaveDiscoveryCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
     const int32 Pieces=Preview->GetGrottoSetPieces();
     DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
@@ -2775,6 +2789,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
       Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
       Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("MATERIALS %d/4 | FISH %d/3"),Preview->GetOceanMaterialCount(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
    }
   }
  }
