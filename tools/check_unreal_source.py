@@ -1577,7 +1577,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity <= 5", policy)
         self.assertIn("case EInventoryOperation::Ascend:return Rarity<5;", policy)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Ascend", hud)
-        self.assertIn("Rarity <= 5", hud)
+        self.assertIn("DecodeFullItem(SelectedCode)", hud)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
         self.assertIn("ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
