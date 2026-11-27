@@ -656,12 +656,22 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GetWorld()) {
   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
    if (IsValid(*It)) It->CheckHeroAtSpawn(this);
-  // Reconcile initial orb overlaps only after the save/character is ready.
-  if(IsSkillMasteryPreviewEnabled())
-   for(TActorIterator<AMoonfallMasteryOrb> It(GetWorld());It;++It)
-    if(IsValid(*It)&&!It->IsActorBeingDestroyed())It->CheckHeroAtSpawn(this);
+  ReconcileMasteryOrbOverlaps();
  }
 }
+void AMoonfallHeroPawn::PossessedBy(AController* NewController)
+{
+ Super::PossessedBy(NewController);
+ if(bWorldProgressInitialized)ReconcileMasteryOrbOverlaps();
+}
+
+void AMoonfallHeroPawn::ReconcileMasteryOrbOverlaps()
+{
+ if(!IsSkillMasteryPreviewEnabled()||!GetWorld()||!bWorldProgressInitialized)return;
+ for(TActorIterator<AMoonfallMasteryOrb> It(GetWorld());It;++It)
+  if(IsValid(*It)&&!It->IsActorBeingDestroyed())It->CheckHeroAtSpawn(this);
+}
+
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
@@ -1529,7 +1539,7 @@ void AMoonfallHeroPawn::TryJump()
  if(IsSkillMasteryPreviewEnabled()&&GetCharacterMovement()
     &&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked
     &&!bEquipmentCraftInProgress&&!bTalentAllocationInProgress){
-  const int32 Bonus=MoonfallSkillMastery::JumpBonusBps(SessionMastery);
+  const int32 Bonus=MoonfallSkillMastery::JumpBonusBps(*GetSessionMastery());
   GetCharacterMovement()->JumpZVelocity=MasteryBaseJumpZ*(1.f+float(Bonus)/10000.f);
  }
  Jump();
@@ -2401,7 +2411,7 @@ void AMoonfallHeroPawn::Dodge()
      &&GetCharacterMovement()->IsFalling();
  // Preview aerial dodges have a single-use budget per landing. Preserve the
  // ordinary dodge behavior completely outside the opt-in session.
- if(bPreviewFalling&&!MoonfallSkillMastery::CanAirDash(SessionMastery,true,bMasteryAirDashUsed,
+ if(bPreviewFalling&&!MoonfallSkillMastery::CanAirDash(*GetSessionMastery(),true,bMasteryAirDashUsed,
     !bPersistentSaveWritesBlocked&&!bGuarding&&!bDispatchingBufferedDodge
     &&!bSpellBookOpen&&!bCharacterStatsOpen))return;
  if (Now < NextDodgeAt || Now < DamageImmunityUntil) {
@@ -3788,14 +3798,26 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetVisibility(true);
 }
 
-bool AMoonfallHeroPawn::IsSkillMasteryPreviewEnabled() const
+MoonfallSkillMastery::State* AMoonfallHeroPawn::GetSessionMastery() const
 {
 #if WITH_EDITOR
- // Explicit session-only opt-in. Never enable progression in a packaged game.
- return FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"));
+ // Authoritative single-local-player world only. No progression is shared
+ // with remote pawns, another PIE world, or a different level instance.
+ if(!GetWorld()||GetWorld()->GetNetMode()!=NM_Standalone||!IsLocallyControlled()||
+    !IsPlayerControlled()||UGameplayStatics::GetPlayerPawn(this,0)!=this||
+    !FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview")))return nullptr;
+ auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+ if(!IsValid(Mode)||Mode->IsActorBeingDestroyed()||
+    Mode->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))return nullptr;
+ return &Mode->MasterySessionLedger;
 #else
- return false;
+ return nullptr;
 #endif
+}
+
+bool AMoonfallHeroPawn::IsSkillMasteryPreviewEnabled() const
+{
+ return GetSessionMastery()!=nullptr;
 }
 
 void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action)
@@ -3803,7 +3825,7 @@ void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action 
  if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
     ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return;
- MoonfallSkillMastery::TryAward(SessionMastery,Action,true,SessionMastery);
+ if(auto* Ledger=GetSessionMastery())MoonfallSkillMastery::TryAward(*Ledger,Action,true,*Ledger);
 }
 
 bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind)
@@ -3811,12 +3833,14 @@ bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSk
  if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
     ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return false;
- return MoonfallSkillMastery::TryCollect(SessionMastery,Region,Index,Kind,true,SessionMastery);
+ auto* Ledger=GetSessionMastery();
+ return Ledger&&MoonfallSkillMastery::TryCollect(*Ledger,Region,Index,Kind,true,*Ledger);
 }
 
 int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
 {
- return IsSkillMasteryPreviewEnabled()?MoonfallSkillMastery::XPFor(SessionMastery,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):-1;
+ const auto* Ledger=GetSessionMastery();
+ return Ledger?MoonfallSkillMastery::XPFor(*Ledger,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):-1;
 }
 
 int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
@@ -3826,11 +3850,12 @@ int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
 
 int32 AMoonfallHeroPawn::GetCollectedMasteryRouteOrbs() const
 {
- if(!IsSkillMasteryPreviewEnabled())return -1;
+ const auto* Ledger=GetSessionMastery();
+ if(!Ledger)return -1;
  int32 Count=0;
  for(int32 I=0;I<MoonfallSkillMastery::WorldRouteCount;++I){
   const auto P=MoonfallSkillMastery::RoutePlacement(I);
-  if(MoonfallSkillMastery::IsCollected(SessionMastery,P.Region,P.Index))++Count;
+  if(MoonfallSkillMastery::IsCollected(*Ledger,P.Region,P.Index))++Count;
  }
  return Count;
 }
