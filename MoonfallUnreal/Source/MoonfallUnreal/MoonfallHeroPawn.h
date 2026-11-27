@@ -445,6 +445,7 @@ public:
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
  bool HitTestInventoryEquipButton() const;
+ int32 HitTestInventoryRingStrip() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.
@@ -510,6 +511,13 @@ private:
  int32 GetCraftEquipmentSlot(int32 Code) const;
  bool CanCraftEquipmentCopy(int32 Code,int32 Slot) const;
  bool CanEditEquippedRings() const;
+ void ClearRingPointerDrag();
+ void BeginRingPointerDrag(int32 BagIndex,int32 FingerIndex);
+ int32 RingDragBagIndex=INDEX_NONE;
+ int32 RingDragFingerIndex=INDEX_NONE;
+ int32 RingDragCode=0;
+ uint32 RingDragInventoryRevision=0;
+ uint64 RingDragLoadoutFingerprint=0;
  int32 GetLootComparisonTier(int32 Slot) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;

@@ -711,6 +711,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   else
    ScrollInventoryToMouseTrack();
  }
+ if(RingDragCode>0&&(!CanEditEquippedRings()
+     ||!HasVisibleInventoryPointerSurface(Controller)
+     ||RingDragInventoryRevision!=EquipmentInventoryRevision
+     ||RingDragLoadoutFingerprint!=GetEquipmentLoadoutFingerprint()))
+  ClearRingPointerDrag();
  // Dialogue focus and modal state must agree. A stale focused resident
  // otherwise blocks movement/attacks and keeps enemy AI paused indefinitely.
  // This is a cheap pointer check, with no per-frame actor search or trace.
@@ -1143,6 +1148,32 @@ bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
  const float EquipY = Top + 87.f;
  return MouseX >= EquipX && MouseX <= EquipX + 172.f &&
         MouseY >= EquipY && MouseY <= EquipY + 30.f;
+}
+
+int32 AMoonfallHeroPawn::HitTestInventoryRingStrip() const
+{
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
+     ||!bInventoryOpen||bCharacterStatsOpen||bSpellBookOpen||bOptionsOpen
+     ||bTalentWebOpen||bAtlasOpen||!HasVisibleInventoryPointerSurface(Controller))return INDEX_NONE;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if(!PC||!PC->bShowMouseCursor)return INDEX_NONE;
+ int32 Width=0,Height=0;float MouseX=0.f,MouseY=0.f;
+ PC->GetViewportSize(Width,Height);
+ if(Width<=0||Height<=0||!PC->GetMousePosition(MouseX,MouseY)
+     ||!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY))return INDEX_NONE;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(Width)-24.f,float(Width)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(Height)-24.f));
+ if(PanelHeight<420.f)return INDEX_NONE;
+ const float Left=float(Width)-PanelWidth-12.f,Top=(float(Height)-PanelHeight)*0.5f;
+ const float HelpOffset=PanelHeight>=500.f?270.f:230.f;
+ const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
+ const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
+ for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
+  if(MoonfallEquipmentLayout::RingSlot(Index)>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+  const float X=RingX+Index*RingWidth;
+  if(MouseX>=X&&MouseX<X+RingWidth-2.f&&MouseY>=RingY&&MouseY<RingY+18.f)return Index;
+ }
+ return INDEX_NONE;
 }
 
 int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
@@ -2732,6 +2763,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  }
  bInventoryOpen = !bInventoryOpen;
  bInventoryScrollbarDragging = false;
+ ClearRingPointerDrag();
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) {
@@ -5771,6 +5803,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ ClearRingPointerDrag();
  if (bTalentWebOpen) return;
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
  if (bAtlasOpen) return;
@@ -5779,6 +5812,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
+  const int32 RingIndex=HitTestInventoryRingStrip();
+  if(RingIndex!=INDEX_NONE)return; // Worn-slot clicks never remove gear implicitly.
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
@@ -5834,9 +5869,52 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
 }
+void AMoonfallHeroPawn::ClearRingPointerDrag()
+{
+ RingDragBagIndex=RingDragFingerIndex=INDEX_NONE;
+ RingDragCode=0;
+ RingDragInventoryRevision=0;
+ RingDragLoadoutFingerprint=0;
+}
+
+void AMoonfallHeroPawn::BeginRingPointerDrag(int32 BagIndex,int32 FingerIndex)
+{
+ ClearRingPointerDrag();
+ if(!CanEditEquippedRings())return;
+ const int32 Slot=MoonfallEquipmentLayout::RingSlot(FingerIndex);
+ const int32 Code=InventoryItemCodes.IsValidIndex(BagIndex)?InventoryItemCodes[BagIndex]:
+     Slot>=0?GetEquipmentSlotCode(Slot):0;
+ if(!MoonfallEquipmentLayout::IsRingSlot(MoonfallEquipmentLayout::DecodeFullItem(Code).Slot)
+     ||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+         MoonfallEquipmentLayout::EInventoryOperation::Equip))return;
+ RingDragBagIndex=BagIndex;
+ RingDragFingerIndex=FingerIndex;
+ RingDragCode=Code;
+ RingDragInventoryRevision=EquipmentInventoryRevision;
+ RingDragLoadoutFingerprint=GetEquipmentLoadoutFingerprint();
+}
+
 void AMoonfallHeroPawn::ReleaseInventoryPointer()
 {
  bInventoryScrollbarDragging = false;
+ const int32 BagIndex=RingDragBagIndex,FingerIndex=RingDragFingerIndex,Code=RingDragCode;
+ const uint32 Revision=RingDragInventoryRevision;
+ const uint64 Fingerprint=RingDragLoadoutFingerprint;
+ ClearRingPointerDrag();
+ if(Code<=0||!CanEditEquippedRings()||!HasVisibleInventoryPointerSurface(Controller)
+     ||Revision!=EquipmentInventoryRevision||Fingerprint!=GetEquipmentLoadoutFingerprint())return;
+ const int32 Target=HitTestInventoryRingStrip();
+ if(BagIndex!=INDEX_NONE){
+  if(Target!=INDEX_NONE&&InventoryItemCodes.IsValidIndex(BagIndex)&&InventoryItemCodes[BagIndex]==Code)
+   EquipInventoryRing(BagIndex,Target);
+ }else if(FingerIndex!=INDEX_NONE){
+  if(GetEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(FingerIndex))!=Code)return;
+  if(Target!=INDEX_NONE){
+   if(Target!=FingerIndex)MoveEquippedRing(FingerIndex,Target);
+  }else if(HitTestInventoryRow()!=INDEX_NONE){
+   UnequipRing(FingerIndex); // The existing bag retains the physical copy.
+  }
+ }
 }
 
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
@@ -5862,6 +5940,7 @@ bool AMoonfallHeroPawn::HasResidentContextPointerSurface(float ViewportWidth, fl
      && GetResidentContextRowPitch(GetResidentContextPanelHeight(ViewportHeight)) >= 32.f;
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ ClearRingPointerDrag();
  if (bTalentWebOpen) { TalentPointerClick(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.
  if (bAtlasOpen) {
@@ -6082,6 +6161,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    EquipSelectedInventoryItem();
    return;
   }
+  const int32 RingIndex=HitTestInventoryRingStrip();
+  if(RingIndex!=INDEX_NONE){
+   BeginRingPointerDrag(INDEX_NONE,RingIndex);
+   return;
+  }
   const int32 Favorite = HitTestRightHandFavorite();
   if (Favorite != INDEX_NONE) {
    EquipRightHandFavorite(Favorite);
@@ -6090,6 +6174,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (ScrollInventoryToMouseTrack()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  if(HitIndex!=INDEX_NONE)BeginRingPointerDrag(HitIndex,INDEX_NONE);
   return;
  }
  if (!bResidentContextOpen) { RightHandAction(); return; }

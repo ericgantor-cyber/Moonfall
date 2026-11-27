@@ -2385,12 +2385,32 @@ void AMoonfallCombatHUD::DrawHUD()
   // On short panels use the space left by the hidden item detail and forecast.
   if (PanelHeight >= 420.f) {
    const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
-   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
-      FLinearColor::White, Left + 18.f, Top + PanelHeight - HelpOffset, nullptr,
-      PanelWidth < 550.f ? 0.55f : 0.75f);
-   DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
-      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - HelpOffset + 20.f,
-      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+   if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+    DrawText(TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
+       FLinearColor::White,Left+18.f,Top+PanelHeight-HelpOffset,nullptr,PanelWidth<550.f?0.48f:0.68f);
+    const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
+    const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
+    const bool bRingLocked=Hero->Health<=0.f||!FMath::IsFinite(Hero->Health)||Hero->IsRecentlyInCombatForAmbientAI();
+    for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
+     const int32 Finger=MoonfallEquipmentLayout::RingSlot(Index);
+     if(Finger>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+     const bool bWorn=WornCodes.IsValidIndex(Finger)&&WornCodes[Finger]>0;
+     const float X=RingX+Index*RingWidth;
+     DrawRect(bRingLocked?FLinearColor(0.23f,0.23f,0.27f,0.95f):
+       bWorn?FLinearColor(0.20f,0.43f,0.35f,0.95f):FLinearColor(0.19f,0.23f,0.33f,0.95f),
+       X,RingY,RingWidth-2.f,18.f);
+     DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
+     DrawText(FString::Printf(TEXT("%d%s"),Index+1,bWorn?TEXT("*"):TEXT("")),
+       FLinearColor::White,X+3.f,RingY+2.f,nullptr,PanelWidth<550.f?0.54f:0.68f);
+    }
+   }else{
+    DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
+       FLinearColor::White, Left + 18.f, Top + PanelHeight - HelpOffset, nullptr,
+       PanelWidth < 550.f ? 0.55f : 0.75f);
+    DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
+       FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - HelpOffset + 20.f,
+       nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
+   }
   }
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
