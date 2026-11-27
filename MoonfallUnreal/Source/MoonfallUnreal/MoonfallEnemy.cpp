@@ -1,6 +1,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallNorthPreviewGameMode.h"
+#include "MoonfallAquaticProfiles.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
@@ -84,9 +85,22 @@ void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
  if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+float AMoonfallEnemy::GetAquaticWarningRemaining(float Now) const {
+ if (!ActorHasTag(FName(TEXT("MoonfallAquaticPreview"))) || Health <= 0.f
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(Now) || !FMath::IsFinite(WindupEndsAt)) return 0.f;
+ return FMath::Max(0.f, WindupEndsAt - Now);
+}
+int32 AMoonfallEnemy::GetAquaticPhase() const {
+ return MoonfallAquatic::Phase(AquaticProfileId, MaxHealthAtSpawn > 0.f ? Health / MaxHealthAtSpawn : 1.f);
+}
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
+ if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+  const auto P = MoonfallAquatic::Profile(AquaticProfileId);
+  Health = P.Health;
+  AttackDamage = P.Damage;
+ }
  // Native regional bosses and elites receive one static engraved armor batch.
  // Ordinary native enemies receive two race ornaments in the same batch.
  // Never overlay authored Blueprint meshes, divine bosses, or practice sentries.
@@ -658,7 +672,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
   const FVector DesiredScale = ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
-    ? FVector(1.2f,0.48f,0.48f)
+    ? MoonfallAquatic::Profile(AquaticProfileId).Scale
     : FVector(0.85f * Scale / FMath::Max(0.75f,Squash),
         0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
   // In large worlds, idle enemies otherwise send the same mesh transform
@@ -687,6 +701,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  // Isolated aquatic encounters use bounded 3D sweeps instead of land navigation.
   if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+   const auto Profile = MoonfallAquatic::Profile(AquaticProfileId);
+   const int32 AquaticPhase = GetAquaticPhase();
    const FVector Position = GetActorLocation();
    const FVector Target = Hero->GetActorLocation();
    const bool bValid = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
@@ -706,10 +722,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    } else if (WindupEndsAt >= 0.f) {
     if (Now >= WindupEndsAt) {
      WindupEndsAt = -1.f;
-     NextAttackAt = Now + 2.f;
+     NextAttackAt = Now + Profile.Recovery * MoonfallAquatic::RecoveryScale(AquaticPhase);
      RefreshAttackTellMarker(Now, Hero->bReduceMotion);
-     if (DistanceSq <= FMath::Square(180.f)) {
-      const bool bParried = Hero->ApplyMoonfallDamageFrom(8.f, Position);
+     if (DistanceSq <= FMath::Square(Profile.Reach + 20.f)) {
+      const bool bParried = Hero->ApplyMoonfallDamageFrom(Profile.Damage, Position);
       if (IsValid(this) && !IsActorBeingDestroyed() && Health > 0.f) {
        if (bParried) ApplyPostureDamage(ParryPostureDamage);
        else OnEnemyAttack();
@@ -718,8 +734,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      return;
     }
     return;
-   } else if (DistanceSq <= FMath::Square(150.f) && Now >= NextAttackAt) {
-    CurrentWindup = 0.8f;
+   } else if (DistanceSq <= FMath::Square(Profile.Reach) && Now >= NextAttackAt) {
+    CurrentWindup = Profile.Windup;
     WindupEndsAt = Now + CurrentWindup;
     CurrentAttackMultiplier = 1.f;
     CurrentAttackRangeMultiplier = 1.f;
@@ -731,8 +747,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    FVector Destination = bClear ? Target : DungeonHomePosition;
    Destination = DungeonHomePosition + (Destination-DungeonHomePosition).GetClampedToMaxSize(270.f);
    Destination.Z = FMath::Clamp(Destination.Z, DungeonHomePosition.Z-55.0, DungeonHomePosition.Z+55.0);
-   if (!bClear || DistanceSq > FMath::Square(135.f)) {
-    const FVector Step = (Destination-Position).GetClampedToMaxSize(140.f*SafeAIDelta);
+   if (!bClear || DistanceSq > FMath::Square(Profile.Reach-15.f)) {
+    const FVector Step = (Destination-Position).GetClampedToMaxSize(Profile.Speed*SafeAIDelta);
     if (!Step.IsNearlyZero()) {
      SetActorRotation(FRotator(0.f, Step.Rotation().Yaw, 0.f));
      FHitResult MoveHit;
