@@ -37,6 +37,9 @@ int main(){
  assert(!PauseResidentMotion(false,true,true,false));
  assert(!PauseResidentMotion(false,true,false,true));
  assert(!PauseResidentMotion(false,false,false,false));
+ assert(RegionalAllowsSocial(-1));
+ for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
+ assert(RegionalAllowsSocial(101));
  assert(ResidentWindowCount(0)==0);
  assert(ResidentWindowCount(1)==1);
  assert(ResidentWindowCount(19)==19);
@@ -1298,5 +1301,10 @@ int main(){
         self.assertIn("RegionalRoutine(Role,GetLocalRegionalDanger()",activity)
         self.assertIn("bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal",activity)
         self.assertIn("!LivingIntent.IsEmpty() && !bRegionalIntent",activity)
+        self.assertIn('LivingIntent!=TEXT("Seeking Shelter")',activity)
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1]
+        self.assertLess(pulse.index("RegionalAllowsSocial(NPC->GetLocalRegionalDanger())"),pulse.index("SocialCandidates.Add(NPC)"))
+        self.assertIn('NPC->LivingIntent!=TEXT("Meal Break")',pulse)
 
 if __name__=="__main__":unittest.main()
