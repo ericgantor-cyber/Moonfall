@@ -105,8 +105,8 @@ namespace MoonfallEquipmentLayout {
 enum class ESlot : int { Weapon=0, Chest=1, Trinket=2, Head=3, Shoulders=4, Hands=5, Legs=6, Feet=7, Ring=8 };
 inline constexpr int SlotCount=9;
 inline constexpr int LegacySlotCount=3;
-// All nine player equipment slots; companion slots retain their legacy limit.
-inline constexpr int ActiveSlotCount=SlotCount;
+// V19 activates all 24 player equipment slots; companion gear stays legacy.
+inline constexpr int ActiveSlotCount=24;
 using FLoadout=std::array<int,SlotCount>;
 constexpr bool Valid(int Code,int Slot) {
  if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
@@ -300,6 +300,7 @@ enum class EFullSlot : int {
 };
 inline constexpr int SixteenSlotCount=16;
 inline constexpr int FullSlotCount=24;
+static_assert(ActiveSlotCount==FullSlotCount,"Native equipment activation must match the V19 save layout");
 inline constexpr int RingSlotCount=10;
 inline constexpr std::array<int,RingSlotCount> RingSlots{{8,13,16,17,18,19,20,21,22,23}};
 constexpr int RingSlot(int Index) {
