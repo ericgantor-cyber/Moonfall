@@ -372,6 +372,8 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    const auto CombatRole=MoonfallPackTactics::RoleForEncounterSlot(Member,Enemy->bElite);
    if (CombatRole==MoonfallPackTactics::CombatRole::Scout)
     Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+   else if (MoonfallPackTactics::IsCasterRole(CombatRole))
+    Enemy->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Caster")));
    else if (MoonfallPackTactics::IsRangedRole(CombatRole))
     Enemy->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Ranged")));
    else if (CombatRole==MoonfallPackTactics::CombatRole::PackLeader)
@@ -854,7 +856,9 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
     Minion->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));
     Minion->Tags.AddUnique(FName(TEXT("MoonfallBossMinion")));
     const auto MinionRole=MoonfallPackTactics::RoleForBossMinion(MinionIndex);
-    if (MoonfallPackTactics::IsRangedRole(MinionRole))
+    if (MoonfallPackTactics::IsCasterRole(MinionRole))
+     Minion->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Caster")));
+    else if (MoonfallPackTactics::IsRangedRole(MinionRole))
      Minion->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Ranged")));
     Minion->FinishSpawning(MinionTransform);
     if (!IsValid(Minion)) continue;
