@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Tools"))
-from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, MIN_HALF_LENGTH, grotto_art, GROTTO_ART, shoreline_geometry, ruin_geometry
+from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, MIN_HALF_LENGTH, grotto_art, GROTTO_ART, shoreline_geometry, ruin_geometry, wreck_geometry, WRECK_CENTERS
 
 
 class DeepWatersLayoutTests(unittest.TestCase):
@@ -61,6 +61,27 @@ class DeepWatersLayoutTests(unittest.TestCase):
             self.assertGreaterEqual(z-scale[2]*50, -430)
             for _, (gx, gy, _) in grotto_layout():
                 self.assertTrue(abs(x-gx)>350+scale[0]*50 or abs(y-gy)>305+scale[1]*50)
+
+    def test_wrecks_are_within_pool_and_leave_open_ascent(self):
+        import math
+        self.assertEqual(len(WRECK_CENTERS), 2)
+        pieces = tuple(wreck_geometry())
+        self.assertEqual(len(pieces), 12)
+        for name, (x,y,z), scale, yaw in pieces:
+            angle=math.radians(yaw)
+            hx=50*(abs(math.cos(angle))*scale[0]+abs(math.sin(angle))*scale[1])
+            hy=50*(abs(math.sin(angle))*scale[0]+abs(math.cos(angle))*scale[1])
+            hz=50*scale[2]
+            self.assertLess(abs(x)+hx, MIN_HALF_WIDTH, name)
+            self.assertLess(abs(y)+hy, MIN_HALF_LENGTH, name)
+            self.assertGreaterEqual(z-hz,-430.0,name)
+            self.assertLessEqual(z+hz,-190.0,name)
+            for _, (gx,gy,_) in grotto_layout():
+                self.assertTrue(abs(x-gx)>350+hx or abs(y-gy)>305+hy,name)
+        for x,y,z in WRECK_CENTERS:
+            self.assertGreater(abs(x), 1100.0)
+            self.assertGreater(abs(y), 340.0)
+            self.assertLess(z+90.0,0.0)
 
     def test_rooms_do_not_overlap(self):
         rooms = grotto_layout()
