@@ -2398,34 +2398,49 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 DragHover=DragCode>0?Hero->HitTestInventoryRingStrip():INDEX_NONE;
     // Only evaluate the hovered target, not all ten fingers every frame.
     const bool bDropAllowed=DragHover!=INDEX_NONE&&Hero->CanDropDraggedRingOnFinger(DragHover);
+    const FLinearColor RingQualityColors[]={FLinearColor(0.90f,0.90f,0.90f),
+      FLinearColor(0.25f,0.69f,1.f),FLinearColor(0.96f,0.79f,0.25f),
+      FLinearColor(0.72f,0.35f,0.96f),FLinearColor(0.23f,0.84f,0.42f),
+      FLinearColor(1.f,0.52f,0.12f)};
+    const FLinearColor SlotGold(0.94f,0.76f,0.32f,1.f);
     for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
      const int32 Finger=MoonfallEquipmentLayout::RingSlot(Index);
      if(Finger>=MoonfallEquipmentLayout::ActiveSlotCount)break;
      const bool bWorn=WornCodes.IsValidIndex(Finger)&&WornCodes[Finger]>0;
+     const auto WornItem=MoonfallEquipmentLayout::DecodeFullItem(bWorn?WornCodes[Finger]:0);
      const float X=RingX+Index*RingWidth;
-     DrawRect(bRingLocked?FLinearColor(0.23f,0.23f,0.27f,0.95f):
-       bWorn?FLinearColor(0.20f,0.43f,0.35f,0.95f):FLinearColor(0.19f,0.23f,0.33f,0.95f),
-       X,RingY,RingWidth-2.f,18.f);
-     DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
+     const bool bBlockedHover=Index==DragHover&&!bDropAllowed;
+     const bool bDim=bRingLocked||bBlockedHover;
+     const FLinearColor QualityInk=bWorn&&WornItem.IsValid()?RingQualityColors[WornItem.Rarity]:
+       FLinearColor(0.43f,0.40f,0.34f,1.f);
+     const FLinearColor FrameInk=bDim?FLinearColor(0.35f,0.34f,0.32f,1.f):
+       Index==DragHover&&bDropAllowed?SlotGold:QualityInk;
+     const float FrameThickness=Index==DragHover&&bDropAllowed?2.f:1.f;
+     // WoW-inspired dark item cells, rarity edges, and a gold destination rim.
+     // Invalid targets dim instead of painting a red error symbol over an item.
+     DrawRect(FrameInk,X,RingY,RingWidth-2.f,18.f);
+     DrawRect(bDim?FLinearColor(0.09f,0.09f,0.11f,0.98f):
+       FLinearColor(0.13f,0.12f,0.16f,0.98f),
+       X+FrameThickness,RingY+FrameThickness,RingWidth-2.f-2.f*FrameThickness,18.f-2.f*FrameThickness);
+     if(DragCode<=0)DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
      if(Index==FocusedRing)DrawSelectionRail(X,RingY,18.f);
-     if(Index==DragSource)DrawRect(FLinearColor(0.95f,0.78f,0.28f,1.f),X,RingY,RingWidth-2.f,2.f);
-     if(Index==DragHover){
-      const FLinearColor DropColor=bDropAllowed?FLinearColor(0.30f,0.95f,0.50f,1.f):FLinearColor(0.95f,0.28f,0.25f,1.f);
-      DrawRect(DropColor,X,RingY+16.f,RingWidth-2.f,2.f);
-      DrawText(bDropAllowed?TEXT("+"):TEXT("X"),DropColor,X+RingWidth-10.f,RingY+2.f,nullptr,0.58f);
-     }
-     DrawText(FString::Printf(TEXT("%d%s"),Index+1,bWorn?TEXT("*"):TEXT("")),
-       FLinearColor::White,X+3.f,RingY+2.f,nullptr,PanelWidth<550.f?0.54f:0.68f);
+     if(Index==DragSource)DrawRect(SlotGold,X,RingY,RingWidth-2.f,2.f);
+     if(bWorn&&RingWidth>=40.f)DrawGearGlyph(X+RingWidth-10.f,RingY+9.f,6.f,Finger,bDim?FrameInk:QualityInk);
+     DrawText(FString::FromInt(Index+1),bDim?FLinearColor(0.55f,0.55f,0.55f):FLinearColor::White,
+       X+3.f,RingY+2.f,nullptr,PanelWidth<550.f?0.54f:0.68f);
     }
     if(DragCode>0){
      const auto DragItem=MoonfallEquipmentLayout::DecodeFullItem(DragCode);
      const APlayerController* PC=Cast<APlayerController>(Hero->GetController());
      float MX=0.f,MY=0.f;
      if(PC&&PC->GetMousePosition(MX,MY)&&FMath::IsFinite(MX)&&FMath::IsFinite(MY)){
-      const float GhostX=FMath::Clamp(MX+12.f,0.f,FMath::Max(0.f,float(Canvas->SizeX)-90.f));
+      const float GhostX=FMath::Clamp(MX+12.f,0.f,FMath::Max(0.f,float(Canvas->SizeX)-108.f));
       const float GhostY=FMath::Clamp(MY+12.f,0.f,FMath::Max(0.f,float(Canvas->SizeY)-25.f));
-      DrawRect(FLinearColor(0.10f,0.12f,0.20f,0.96f),GhostX,GhostY,90.f,25.f);
-      DrawText(FString::Printf(TEXT("RING T%d"),DragItem.Tier),FLinearColor::White,GhostX+6.f,GhostY+4.f,nullptr,0.68f);
+      const FLinearColor GhostInk=DragItem.IsValid()?RingQualityColors[DragItem.Rarity]:FLinearColor::White;
+      DrawRect(GhostInk,GhostX,GhostY,108.f,25.f);
+      DrawRect(FLinearColor(0.10f,0.12f,0.20f,0.98f),GhostX+1.f,GhostY+1.f,106.f,23.f);
+      DrawGearGlyph(GhostX+12.f,GhostY+12.f,7.f,DragItem.Slot,GhostInk);
+      DrawText(FString::Printf(TEXT("RING T%d"),DragItem.Tier),GhostInk,GhostX+24.f,GhostY+4.f,nullptr,0.68f);
      }
     }
    }else{
