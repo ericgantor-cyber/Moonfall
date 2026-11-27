@@ -7,6 +7,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
+    TestEqual(TEXT("Land pose is neutral"),SwimPosePitch(false,false,false,100.f),0.f);
+    TestEqual(TEXT("Surface pose is neutral"),SwimPosePitch(true,false,false,100.f),0.f);
+    TestEqual(TEXT("Reduced motion is neutral"),SwimPosePitch(true,true,true,-250.f),0.f);
+    TestEqual(TEXT("Idle submerged pose"),SwimPosePitch(true,true,false,0.f),-10.f);
+    TestEqual(TEXT("Bounded descent pose"),SwimPosePitch(true,true,false,-10000.f),-25.f);
+    TestEqual(TEXT("Bounded ascent pose"),SwimPosePitch(true,true,false,10000.f),10.f);
     TestTrue(TEXT("Half breath after 90 seconds"), FMath::IsNearlyEqual(AdvanceAir(100.f, 90.f, true, true, false), 50.f));
     TestTrue(TEXT("Three-minute breath"), FMath::IsNearlyZero(AdvanceAir(100.f, 180.f, true, true, false)));
     TestEqual(TEXT("Surface refill"), AdvanceAir(50.f, 1.f, true, false, false), 75.f);
