@@ -2740,7 +2740,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    if (IsValid(Preview)) {
     DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,80.f);
-    DrawText(FString::Printf(TEXT("GROTTO TREASURES  %d / 6"),Preview->GetGrottoClaimCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
+    DrawText(FString::Printf(TEXT("GROTTO %d/6 | WRECK %d/2"),Preview->GetGrottoClaimCount(),Preview->GetWreckDiscoveryCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
     const int32 Pieces=Preview->GetGrottoSetPieces();
     DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
     DrawText(Pieces>=3 ? TEXT("+10% BREATH | +10% SWIM") : Pieces>=2 ? TEXT("+10% BREATH | 3PC: +SWIM") : TEXT("2PC: BREATH | 3PC: SWIM"),FLinearColor(0.42f,0.86f,0.82f),X+8.f,Y+98.f,nullptr,0.72f);
