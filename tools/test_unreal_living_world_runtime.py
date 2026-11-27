@@ -894,6 +894,13 @@ int main(){
         for role in ("Merchant","Guard","Scout"):
             self.assertIn('SocialRole==FName(TEXT("'+role+'"))',talk)
         self.assertNotIn("ChangeFactionReputation(",talk)
+        self.assertIn("Mode->GetLocalCompanionForHero(Hero)==this",talk)
+        self.assertIn("bActiveCompanion&&Disposition",talk)
+        self.assertIn("!bAmbientVisitor&&!bActiveCompanion&&Disposition",talk)
+        self.assertLess(talk.index("if(bCompanionDowned)PartyLine"),talk.index("Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold"))
+        self.assertLess(talk.index("SupportsResidentContract"),talk.index("Reaction.ToString()+PartyLine"))
+        self.assertNotIn("SetLocalCompanionStance(",talk)
+        self.assertNotIn("SetLocalCompanionRole(",talk)
 
     def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
