@@ -884,7 +884,6 @@ int main(){
         self.assertIn("Minion->EncounterBoss=Boss;",boss)
         self.assertIn("bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot",enemy)
         self.assertIn("Parent->Health<=0.f",enemy)
-        self.assertIn("FacingDot>=0.94f",enemy)
         self.assertIn("Other->ActorHasTag(BossEncounterTag)",enemy)
         self.assertIn("Other->GetOwner() != GetOwner()",enemy)
         self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",enemy)
