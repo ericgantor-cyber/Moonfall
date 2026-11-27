@@ -1433,12 +1433,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         validator = self.hero_cpp.split("bool ValidMoonfallItemCode(int32 Code) {", 1)[1].split("\n}", 1)[0]
         self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", validator)
         self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", validator)
-        self.assertIn("ValidEquippedTier(EquippedWeaponCode, 0)", self.hero_cpp)
-        self.assertIn("ValidEquippedTier(EquippedArmorCode, 1)", self.hero_cpp)
-        self.assertIn("ValidEquippedTier(EquippedAccessoryCode, 2)", self.hero_cpp)
-        self.assertIn("ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1)", self.hero_cpp)
-        self.assertIn("ValidEquippedTraitRarity(EquippedArmorCode, 1, 2)", self.hero_cpp)
-        self.assertIn("ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3)", self.hero_cpp)
+        self.assertIn("ValidEquippedTier(OwnedWeaponCode, 0)", self.hero_cpp)
+        self.assertIn("ValidEquippedTier(OwnedArmorCode, 1)", self.hero_cpp)
+        self.assertIn("ValidEquippedTier(OwnedAccessoryCode, 2)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(OwnedWeaponCode, 0, 1)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(OwnedArmorCode, 1, 2)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(OwnedAccessoryCode, 2, 3)", self.hero_cpp)
         # Every derived bonus must reject valid-looking codes for items not owned.
         stats = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
             "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
@@ -1476,20 +1476,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_live_combat_never_uses_unverified_equipment_fields(self):
         source = self.hero_cpp
         regen = source.split("const float CombatManaFactor =", 1)[1].split(
-            "// Recovery in either menu", 1)[0]
-        attack = source.split("const float WeaponDamageBonus =", 1)[1].split(
+            "// Recovery in any menu", 1)[0]
+        attack = source.split("const int32 OwnedWeaponCode =", 1)[1].split(
             "const float MomentumBonus", 1)[0]
-        defense = source.split("const float ArmorMitigation =", 1)[1].split(
+        defense = source.split("const int32 OwnedArmorCode =", 1)[1].split(
             "const bool bRacialWard", 1)[0]
-        self.assertIn("ValidEquippedTier(EquippedAccessoryCode, 2)", regen)
-        self.assertIn("ValidEquippedRarity(EquippedAccessoryCode, 2)", regen)
-        self.assertIn("InventoryItemCodes.Contains(EquippedAccessoryCode)", regen)
-        self.assertIn("ValidEquippedTier(EquippedWeaponCode, 0)", attack)
-        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0)", attack)
-        self.assertIn("bOwnedWeapon", attack)
-        self.assertIn("ValidEquippedTier(EquippedArmorCode, 1)", defense)
-        self.assertIn("ValidEquippedRarity(EquippedArmorCode, 1)", defense)
-        self.assertIn("bOwnedArmor", defense)
+        self.assertIn("ValidEquippedTier(OwnedAccessoryCode, 2)", regen)
+        self.assertIn("ValidEquippedRarity(OwnedAccessoryCode, 2)", regen)
+        self.assertIn("OwnedAccessoryCode = GetEquipmentSlotCode(2)", regen)
+        self.assertIn("ValidEquippedTier(OwnedWeaponCode, 0)", attack)
+        self.assertIn("ValidEquippedRarity(OwnedWeaponCode, 0)", attack)
+        self.assertIn("GetEquipmentSlotCode(0)", attack)
+        self.assertIn("ValidEquippedTier(OwnedArmorCode, 1)", defense)
+        self.assertIn("ValidEquippedRarity(OwnedArmorCode, 1)", defense)
+        self.assertIn("GetEquipmentSlotCode(1)", defense)
         for block, unsafe in ((regen, "AccessoryTier *"), (attack, "WeaponTier"),
                               (defense, "ArmorTier *")):
             self.assertNotIn(unsafe, block)
@@ -1541,7 +1541,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity <= 5", hud)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
-        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
 
@@ -1591,12 +1591,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f", self.hero_cpp)
-        self.assertIn("ValidEquippedRarity(EquippedArmorCode, 1) * 0.005f", self.hero_cpp)
-        self.assertIn("ValidEquippedRarity(EquippedAccessoryCode, 2) * 0.02f", self.hero_cpp)
-        self.assertIn("0.f, 0.075f) : 0.f);", self.hero_cpp)
-        self.assertIn("0.f, 0.025f) : 0.f)", self.hero_cpp)
-        self.assertIn("0.10f)", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(OwnedArmorCode, 1) * 0.005f", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(OwnedAccessoryCode, 2) * 0.02f", self.hero_cpp)
+        self.assertIn("FMath::Clamp(ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
+        self.assertIn("FMath::Clamp(ValidEquippedRarity(OwnedArmorCode, 1) * 0.005f, 0.f, 0.025f)", self.hero_cpp)
+        self.assertIn("FMath::Clamp(ValidEquippedRarity(OwnedAccessoryCode, 2) * 0.02f, 0.f, 0.10f)", self.hero_cpp)
         self.assertIn("WeaponRarity * 0.015f", hud)
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
@@ -2043,12 +2043,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertNotIn(unsafe, award)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("bOwnedWeapon && ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f", cast)
+        self.assertIn("ValidEquippedTraitRarity(OwnedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f", cast)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("FMath::Min(0.34f", damage)
-        self.assertIn("bOwnedArmor && ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f", damage)
-        self.assertIn("ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) > 0.f ? 0.08f : 0.f", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(OwnedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f", damage)
+        self.assertIn("ValidEquippedTraitRarity(OwnedAccessoryCode, 2, 3) > 0.f ? 0.08f : 0.f", self.hero_cpp)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
@@ -2388,7 +2388,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f", tick)
         self.assertIn("const float StaminaDelta = SafeRecoveryDelta;", tick)
         self.assertIn("* SafeRecoveryDelta);", tick)
-        self.assertIn("FMath::Clamp(ValidEquippedTier(EquippedAccessoryCode, 2) * 0.012f, 0.f, 0.25f)", tick)
+        self.assertIn("FMath::Clamp(ValidEquippedTier(OwnedAccessoryCode, 2) * 0.012f, 0.f, 0.25f)", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f", tick)
         self.assertIn("Mana >= 0.f && Mana < MaxMana", tick)
 
@@ -4131,7 +4131,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f}", cast)
-        self.assertIn("FMath::Clamp(0.018f * ValidEquippedTier(EquippedWeaponCode, 0), 0.f, 0.35f)", cast)
+        self.assertIn("FMath::Clamp(0.018f * ValidEquippedTier(OwnedWeaponCode, 0), 0.f, 0.35f)", cast)
         self.assertIn("? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;", cast)
         self.assertIn("ActualSpellDamage > 0.f && Enemy->Health > 0.f", cast)
         self.assertIn("FMath::IsFinite(OffensiveSpellPostureMultiplier)", cast)
