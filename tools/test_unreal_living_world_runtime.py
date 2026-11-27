@@ -1291,5 +1291,12 @@ int main(){
         self.assertIn("bSheltering||bRegionalHome,bHoldPost||bRegionalWatch",routine)
         self.assertIn("if(bRegionalWatch){Side=0.f;Front=0.f;}",routine)
         self.assertIn("GetClampedToMaxSize2D(RoutineStep)",routine)
+        self.assertIn("if(bGuide||bRegionalHome||bRegionalWatch)",routine)
+        self.assertLess(routine.index("if(bGuide||bRegionalHome||bRegionalWatch)"),routine.index("LineTraceSingleByChannel"))
+        self.assertLess(routine.index("LineTraceSingleByChannel"),routine.index("AddActorWorldOffset"))
+        activity=npc.split("FString AMoonfallWorldNPC::GetCurrentActivity() const",1)[1].split("\n}",1)[0]
+        self.assertIn("RegionalRoutine(Role,GetLocalRegionalDanger()",activity)
+        self.assertIn("bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal",activity)
+        self.assertIn("!LivingIntent.IsEmpty() && !bRegionalIntent",activity)
 
 if __name__=="__main__":unittest.main()
