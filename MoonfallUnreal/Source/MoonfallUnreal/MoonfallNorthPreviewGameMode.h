@@ -62,10 +62,10 @@ public:
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CanCatchOceanFish() const { return Gathering.CanCatch(); }
- bool IsFishingSchoolAvailable(int32 Id) const { return GetWorld() && Schools.Available(Id,GetWorld()->GetTimeSeconds()); }
+ bool IsFishingSchoolAvailable(int32 Id,int32 Province=-1) const { return GetWorld() && Schools[SchoolBank(Province)].Available(Id,GetWorld()->GetTimeSeconds()); }
  bool CatchOceanFish(int32 SchoolId=-1,int32 Province=-1) {
   if(!HasAuthority()||!GetWorld()||!Gathering.CanCatch()||SchoolId<-1||SchoolId>=MoonfallFishing::SchoolCount) return false;
-  const bool bSchool=SchoolId>=0 && Schools.Take(SchoolId,GetWorld()->GetTimeSeconds());
+  const bool bSchool=SchoolId>=0 && Schools[SchoolBank(Province)].Take(SchoolId,GetWorld()->GetTimeSeconds());
   const int32 Event=GetOceanActivity();
   const bool bBait=Workshop.Bait>0 && Workshop.Bait<=MoonfallOceanCrafting::BaitCapacity;
   const int32 Rank=MoonfallFishing::Rank(Gathering.Catches());
@@ -101,8 +101,9 @@ private:
  FTimerHandle ProfessionSaveTimer;
  void LoadProfessions();
  void FlushProfessions();
- // Eight shared schools for the isolated single-basin preview.
- MoonfallFishing::FSchoolStock Schools;
+ // One neutral bank and one per authored northern province.
+ static int32 SchoolBank(int32 Province) { return MoonfallRegionalFishing::Valid(Province)?Province+1:0; }
+ MoonfallFishing::FSchoolStock Schools[MoonfallNorth::ZoneCount+1];
  MoonfallOceanCrafting::FWorkshop Workshop;
  MoonfallOceanGathering::FCollection Gathering;
  MoonfallOceanEvents::FSightings Sightings;

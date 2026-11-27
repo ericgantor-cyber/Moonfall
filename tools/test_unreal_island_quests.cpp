@@ -114,7 +114,7 @@ int main() {
     using namespace MoonfallOceanGathering;
     for(int event=0;event<3;++event) {
         FCollection Collection;
-        for(int id=0;id<NodeCount;++id) {
+        for(int id=0;id<BaseNodeCount;++id) {
             assert(CanCollect(id,true,false,true));
             assert(!CanCollect(id,true,false,false));
             assert(!CanCollect(id,false,true,true));
@@ -267,7 +267,7 @@ int main() {
     FCollection BaitMaterials;
     MoonfallAquaticRewards::FSessionGear BaitGear;
     assert(!BaitWorkshop.Craft(3,BaitMaterials,BaitGear));
-    for(int Id=0;Id<NodeCount;++Id) assert(BaitMaterials.Collect(Id,0,0));
+    for(int Id=0;Id<BaseNodeCount;++Id) assert(BaitMaterials.Collect(Id,0,0));
     assert(BaitWorkshop.CanCraft(3,BaitMaterials,BaitGear) && BaitWorkshop.Bait==0);
     assert(BaitWorkshop.Craft(3,BaitMaterials,BaitGear) && BaitWorkshop.Bait==5);
     assert(BaitWorkshop.AvailableMaterials(BaitMaterials)==10);
@@ -327,5 +327,14 @@ int main() {
     assert(MoonfallRegionalFishing::Preferred(8,7)==-1);
     assert(MoonfallRegionalFishing::Preferred(8,8)==0);
     assert(MoonfallRegionalFishing::Preferred(-1,10)==-1);
+    FCollection Regional;
+    for(int Province=0;Province<9;++Province)
+      for(int Type=0;Type<4;++Type) {
+        const int Id=RegionalNode(Province,Type);
+        assert(Id>=BaseNodeCount && MaterialType(Id)==Type);
+        assert(Regional.Collect(Id,0,0));
+        assert(!Regional.Collect(Id,0,0));
+      }
+    assert(Regional.Materials()==36 && RegionalNode(9,0)==-1 && RegionalNode(0,4)==-1);
     return 0;
 }

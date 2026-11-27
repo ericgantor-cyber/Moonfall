@@ -146,3 +146,43 @@ def ocean_resources(half_width):
         (10, "Crimson coral III", "Cone", (0.0,-1750.0,-270.0), (0.7,0.7,1.1)),
         (11, "Sea salt III", "Cylinder", (0.0,1750.0,-300.0), (0.7,0.7,0.55)),
     )
+
+
+REGIONAL_HABITATS = (
+    "Glacial coast", "Forest rivers", "Tundra pools", "Barrens springs",
+    "Living basin", "Mountain lakes", "Sunken ruins", "Crystal waters", "Eclipse pools",
+)
+
+
+def regional_water_plan(province, half_width, half_length, depth):
+    import math
+    if type(province) is not int or not 0 <= province < 9:
+        raise ValueError("Invalid province")
+    if not all(math.isfinite(v) for v in (half_width, half_length, depth)):
+        raise ValueError("Invalid bounds")
+    if half_width < 600 or half_length < 600 or depth < 500:
+        raise ValueError("Regional water requires at least 12 x 12 x 5 m")
+    # West bank is continuous across both migrating school lanes.
+    shore = (
+        ("Dry bank", (-half_width - 300, 0, -20), (6, half_length/50, .4)),
+        ("Shallow step", (-half_width+95, 0, -45), (2, half_length/50, .4)),
+        ("Middle step", (-half_width+285, 0, -70), (2, half_length/50, .4)),
+        ("Deep step", (-half_width+475, 0, -95), (2, half_length/50, .4)),
+    )
+    nodes = tuple(
+        (12+province*4+i, label, shape, (sx*half_width*.4, sy*half_length*.4, -260),
+         scale)
+        for i, (label, shape, sx, sy, scale) in enumerate((
+            ("Moonkelp", "Cone", -1,-1,(.5,.5,1.2)),
+            ("Pearl cluster", "Sphere", 1,-1,(.65,.65,.65)),
+            ("Crimson coral", "Cone", -1,1,(.7,.7,1.1)),
+            ("Sea salt", "Cylinder", 1,1,(.7,.7,.55)),
+        ))
+    )
+    # Keep deposits clear of west entry steps even in the minimum pool.
+    nodes = tuple((i,n,s,(max(x,-half_width+670),y,z),scale)
+                  for i,n,s,(x,y,z),scale in nodes)
+    # For narrow pools, retain distinct east/west lanes instead of clamping both.
+    nodes = tuple((i,n,s,(half_width*.15 if i%2==0 else half_width*.65,y,z),scale)
+                  for i,n,s,(x,y,z),scale in nodes)
+    return shore, nodes

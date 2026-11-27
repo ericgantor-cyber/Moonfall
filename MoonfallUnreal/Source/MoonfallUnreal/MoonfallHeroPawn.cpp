@@ -4370,7 +4370,7 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
   const FBox Bounds=It->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
-   if(!Preview->IsFishingSchoolAvailable(Id)) continue;
+   if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(MoonfallFishing::CastReach(Preview->GetOceanCatchCount()))) continue;
    FHitResult Hit;
@@ -4417,7 +4417,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
   const FBox Bounds=It->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
-   if(!Preview->IsFishingSchoolAvailable(Id)) continue;
+   if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
    const double Distance=FVector::DistSquared2D(Start,Target);
