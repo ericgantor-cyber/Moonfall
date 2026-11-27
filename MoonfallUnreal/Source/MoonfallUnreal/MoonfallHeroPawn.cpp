@@ -774,12 +774,25 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
  }
  const float BreathScale = WaterBreathScale;
- const float PreviousAir = Oxygen;
  const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !bPersistentSaveWritesBlocked)
+  WaterTonicRemaining = 0.f;
+ else
+  WaterTonicRemaining = MoonfallWaterRules::AdvanceTonic(WaterTonicRemaining,SafeTimerDelta,bWaterPaused);
+ if (bPersistentSaveWritesBlocked && GetWorld() && bWaterSwimming
+     && MoonfallWaterRules::ShouldUseTonic(Oxygen,WaterTonicRemaining,bNeedsBreath,bWaterPaused)) {
+  auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview) && Preview->ConsumeBreathingTonic()) {
+   WaterTonicRemaining = MoonfallWaterRules::TonicDuration;
+   Oxygen = MoonfallWaterRules::MaxAir;
+  }
+ }
+ const bool bDrainAir = bNeedsBreath && WaterTonicRemaining <= 0.f;
+ const float PreviousAir = Oxygen;
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bNeedsBreath, bWaterPaused, BreathScale);
+     bDrainAir, bWaterPaused, BreathScale);
  const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
-     PreviousAir, SafeTimerDelta, bWaterSwimming && bNeedsBreath, bWaterPaused, BreathScale);
+     PreviousAir, SafeTimerDelta, bWaterSwimming && bDrainAir, bWaterPaused, BreathScale);
  if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
   TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
   TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
