@@ -14,6 +14,19 @@ bool FMoonfallAquaticProfilesTest::RunTest(const FString& Parameters)
         TestTrue(TEXT("Bounded speed and reach"), P.Speed <= 200.f && P.Reach <= 220.f);
         TestTrue(TEXT("Positive recovery"), P.Recovery > 0.f);
     }
+    for (int32 Slot = 0; Slot < 6; ++Slot) {
+        int32 Authored = 0;
+        for (int32 Roll = 0; Roll < 100; ++Roll) {
+            const int32 Id = MoonfallAquatic::SelectEncounter(Slot, Roll);
+            if (Id == Slot) ++Authored;
+            TestTrue(TEXT("Valid encounter selection"), Id >= 0 && Id <= 5);
+            TestTrue(TEXT("Rare restricted to its own grotto"), Id != 4 || Slot == 4);
+            TestTrue(TEXT("Leviathan restricted to final grotto"), Id != 5 || Slot == 5);
+        }
+        TestEqual(TEXT("Exact authored encounter chance"), Authored, Slot == 5 ? 100 : Slot == 4 ? 25 : 70);
+    }
+    TestEqual(TEXT("Invalid slot fails to default"), MoonfallAquatic::SelectEncounter(9, 50), 0);
+    TestEqual(TEXT("Invalid roll fails to default"), MoonfallAquatic::SelectEncounter(5, 100), 0);
     TestEqual(TEXT("Six distinct names"), Names.Num(), 6);
     TestEqual(TEXT("Invalid profile uses default"), MoonfallAquatic::Profile(-1).Health, 60.f);
     TestEqual(TEXT("Ordinary creature has no phase changes"), MoonfallAquatic::Phase(0,0.1f), 1);
