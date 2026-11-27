@@ -818,12 +818,15 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
   for (AMoonfallEnemy* Minion:BossMinions)
    if (IsValid(Minion)) Minion->Destroy();
  };
+ const int32 BossRace=Boss->RaceId;
  if (Rank>=3) {
   FCollisionQueryParams MinionCollisionParams(SCENE_QUERY_STAT(MoonfallBossMinionSpawn),false);
   bool bAllMinionsSpawned=true;
   for (int32 MinionIndex=0;MinionIndex<2;++MinionIndex) {
    bool bSpawnedMinion=false;
    for (int32 MinionAttempt=0;MinionAttempt<3;++MinionAttempt) {
+    if (!IsValid(Boss)||Boss->IsActorBeingDestroyed()
+        ||!FMath::IsFinite(Boss->Health)||Boss->Health<=0.f) break;
     const float RetryX=MinionAttempt==0?0.f:(MinionAttempt==1?-55.f:55.f);
     const FVector MinionPosition=GetActorTransform().TransformPosition(
       FVector((ChamberCount-1)*ChamberLength+120.f+RetryX,
@@ -837,7 +840,8 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
     if (!IsValid(Minion)) continue;
     Minion->bElite=false;
     Minion->bBoss=false;
-    Minion->RaceId=(Boss->RaceId+MinionIndex+1)%12;
+    Minion->RaceId=(BossRace+MinionIndex+1)%12;
+    Minion->EncounterBoss=Boss;
     Minion->EncounterLevelOverride=EncounterLevel;
     Minion->DungeonChamberIndex=ChamberCount-1;
     Minion->Health=60.f*FMath::Clamp(RankScale,1.f,1.5f);
@@ -868,6 +872,9 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
     break;
    }
   }
+  for (const AMoonfallEnemy* Minion:BossMinions)
+   if (!IsValid(Minion)||Minion->IsActorBeingDestroyed()||Minion->GetOwner()!=this
+       ||!FMath::IsFinite(Minion->Health)||Minion->Health<=0.f) bAllMinionsSpawned=false;
   if (!bAllMinionsSpawned || BossMinions.Num()!=2) RollbackBossMinions();
  }
  // Minion initialization is synchronous; revalidate the boss before callbacks.
