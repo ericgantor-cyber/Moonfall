@@ -4298,7 +4298,8 @@ bool AMoonfallHeroPawn::CanContinueFishing() const {
      && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
      && IsValid(Movement) && Movement->IsMovingOnGround() && !bWaterSwimming
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
-     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !bCharacterStatsOpen && !bSpellBookOpen && !bQuestLogOpen
+     && !bWorldProgressLoadInProgress && !bResidentContextOpen && !FocusedResident.IsValid()
      && !IsRecentlyInCombatForAmbientAI()
      && (Fishing.Stage==MoonfallFishing::EStage::Idle ||
          FVector::DistSquared(GetActorLocation(),FishingOrigin)<=FMath::Square(35.f));
@@ -4351,6 +4352,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
      || bCharacterStatsOpen || FocusedResident.IsValid()) return;
  // Only the isolated preview may collect its session-only grotto discoveries.
  if (bPersistentSaveWritesBlocked) {
+  if (bSpellBookOpen || bQuestLogOpen) return;
   if ((bWaterSwimming || !bAutoLootDispatch) && GetCapsuleComponent()
       && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
    TArray<AActor*> Chests;

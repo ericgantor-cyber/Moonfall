@@ -34,7 +34,8 @@ bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
         || Hero->GetWorld() != GetWorld() || !FMath::IsFinite(Hero->Health)
         || Hero->Health <= 0.f
         || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-        || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen)
+        || Hero->bCharacterStatsOpen || Hero->bSpellBookOpen || Hero->bQuestLogOpen
+        || Hero->bResidentContextOpen || Hero->bTalentWebOpen || Hero->FocusedResident.IsValid())
         return false;
     auto* Mode = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
     if (!IsValid(Mode)) return false;

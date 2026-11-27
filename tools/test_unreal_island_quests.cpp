@@ -217,5 +217,12 @@ int main() {
     assert(Cast.Hook(56) && Cast.Stage==EStage::Reeling);
     assert(Cast.Advance(57.5,true));
     assert(!Cast.Advance(58,true));
+    assert(!Cast.Start(std::numeric_limits<double>::max(),3));
+    assert(Cast.Start(60,2));
+    assert(!Cast.Advance(62,true));
+    assert(!Cast.Hook(61.99));
+    assert(!Cast.Advance(59,true) && Cast.Stage==EStage::Idle);
+    assert(Cast.Start(70,2));
+    assert(!Cast.Advance(std::numeric_limits<double>::max(),true) && Cast.Stage==EStage::Idle);
     return 0;
 }
