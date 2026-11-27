@@ -13,6 +13,12 @@ namespace MoonfallRegionalDiscovery {
   bool Visit(int Id) { return Mark(Visited,Id); }
   bool Fish(int Id) { return Mark(Caught,Id); }
   bool Gather(int Id) { return Mark(Harvested,Id); }
+  int Milestones(int Id) const {
+   if(!MoonfallNorth::ValidZone(Id)) return 0;
+   const unsigned Bit=1u<<Id;
+   return int(bool(Visited&Bit))+int(bool(Caught&Bit))+int(bool(Harvested&Bit));
+  }
+  bool HasVisited(int Id) const { return MoonfallNorth::ValidZone(Id)&&(Visited&(1u<<Id)); }
   bool Complete(int Id) const { return MoonfallNorth::ValidZone(Id)&&((Visited&Caught&Harvested)&(1u<<Id)); }
   static int Count(unsigned Bits) {
    int N=0; for(int I=0;I<MoonfallNorth::ZoneCount;++I) if(Bits&(1u<<I)) ++N;

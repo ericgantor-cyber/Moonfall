@@ -289,6 +289,9 @@ int main() {
     assert(Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
     assert(Restored.Gathering.HasLegendary(0) && Restored.Gathering.TrophyCatches==1);
     assert(Restored.Regions.Complete(0));
+    assert(Restored.Regions.Milestones(0)==3 && Restored.Regions.HasVisited(0));
+    assert(Restored.Regions.Milestones(-1)==0 && !Restored.Regions.HasVisited(9));
+    assert(Restored.Regions.Fish(1) && Restored.Regions.Milestones(1)==1 && !Restored.Regions.HasVisited(1));
     MoonfallProfessionLedger::FSnapshot Migrated;
     assert(Migrated.Decode(Ledger,MoonfallProfessionLedger::LegacyCount));
     assert(Migrated.Regions.Completed()==0 && Migrated.Gathering.HasLegendary(0));

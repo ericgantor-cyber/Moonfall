@@ -6583,6 +6583,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      ToggleAtlas();
      return;
     }
+    if(!bQuestLogOpen&&HasWaterProfessionsPage()) return; // regional schematic is read-only
     const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(PanelW);
     if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)) {
      ToggleQuestLog(); return;
