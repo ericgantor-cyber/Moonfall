@@ -42,6 +42,7 @@ public:
  float Oxygen = 100.f;
  // Runtime-derived from validated equipment; shared with the HUD.
  float WaterBreathScale = 1.f;
+ float WaterTonicRemaining = 0.f;
  float WaterSwimScale = 1.f;
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
