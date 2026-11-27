@@ -1649,8 +1649,8 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Optional read-only mastery sidebar occupies only unused screen space.
    // Existing tabs, gear layout and all input hit targets stay unchanged.
-   if(Hero->GetSkillMasteryXP(0)>=0&&Left>=338.f&&Canvas->SizeY>=400.f){
-    const float MX=Left-328.f,MY=Top,MW=312.f,MH=352.f;
+   if(Hero->GetSkillMasteryXP(0)>=0&&Left>=338.f&&PanelHeight>=430.f){
+    const float MX=Left-328.f,MY=Top,MW=312.f,MH=418.f;
     DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.96f),MX,MY,MW,MH);
     DrawModalChrome(MX,MY,MW,MH,FLinearColor(0.36f,0.69f,0.52f,1.f));
     DrawText(TEXT("SKILL MASTERY | PREVIEW"),FLinearColor::White,MX+14,MY+15,nullptr,0.88f);
@@ -1662,7 +1662,7 @@ void AMoonfallCombatHUD::DrawHUD()
      const int32 Start=MoonfallSkillMastery::RankThresholds[Rank];
      const int32 End=Rank==MoonfallSkillMastery::MaxRank?Start:MoonfallSkillMastery::RankThresholds[Rank+1];
      const float Progress=Rank==MoonfallSkillMastery::MaxRank?1.f:FMath::Clamp(float(XP-Start)/float(End-Start),0.f,1.f);
-     const float Y=MY+51.f+K*42.f;
+     const float Y=MY+51.f+K*52.f;
      DrawText(FString::Printf(TEXT("%s R%d/%d"),Names[K],Rank,MoonfallSkillMastery::MaxRank),FLinearColor(0.91f,0.93f,0.96f),MX+14,Y,nullptr,0.75f);
      DrawText(Rank==MoonfallSkillMastery::MaxRank?FString(TEXT("MAX")):FString::Printf(TEXT("%d / %d"),XP-Start,End-Start),
         FLinearColor(0.8f,0.85f,0.9f),MX+194,Y,nullptr,0.65f);
@@ -1673,8 +1673,8 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.78f,0.84f,0.90f),MX+14,Y+29,nullptr,0.56f);
     }
     DrawText(FString::Printf(TEXT("Route orbs collected: %d"),Hero->GetCollectedMasteryRouteOrbs()),
-       FLinearColor(1.f,0.85f,0.52f),MX+14,MY+307,nullptr,0.76f);
-    DrawText(TEXT("Session only | Not saved"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+327,nullptr,0.67f);
+       FLinearColor(1.f,0.85f,0.52f),MX+14,MY+369,nullptr,0.76f);
+    DrawText(TEXT("Session only | Not saved"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
    }
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
