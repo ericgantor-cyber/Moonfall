@@ -33,6 +33,43 @@ constexpr int XPFor(const State& S,Skill K) {
  return I>=0&&I<SkillCount&&Valid(S)?S.XP[static_cast<std::size_t>(I)]:-1;
 }
 constexpr int RankFor(const State& S,Skill K) {return Rank(XPFor(S,K));}
+// Independent versioned record for later native persistence integration.
+// A legacy absent record is accepted only with empty payloads. Reject
+// malformed or future records rather than resetting earned progress.
+inline constexpr int RecordVersion=1;
+template<class XPArray,class OrbArray>
+bool TryRestoreRecord(int Version,const XPArray& XP,const OrbArray& Orbs,State& Out) {
+ if(Version==0){
+  if(!XP.empty()||!Orbs.empty())return false;
+  Out=State{};return true;
+ }
+ if(Version!=RecordVersion||XP.size()!=static_cast<std::size_t>(SkillCount)
+    ||Orbs.size()!=static_cast<std::size_t>(RegionCount))return false;
+ State Next{};
+ for(std::size_t I=0;I<Next.XP.size();++I){
+  if(XP[I]<0||XP[I]>MaxXP)return false;
+  Next.XP[I]=static_cast<int>(XP[I]);
+ }
+ for(std::size_t I=0;I<Next.Collected.size();++I)
+  Next.Collected[I]=static_cast<std::uint64_t>(Orbs[I]);
+ Out=Next;return true;
+}
+// Read-only unlock eligibility. Gameplay integration must still validate
+// movement, collision, input accessibility and combat restrictions.
+enum class Unlock : int { Vault, AirDash, AdvancedClimb, PerfectGuard, HeavyFollowup, ArcaneChain, EfficientCraft };
+constexpr bool HasUnlock(const State& S,Unlock U) {
+ if(!Valid(S))return false;
+ switch(U){
+  case Unlock::Vault:return RankFor(S,Skill::Agility)>=1;
+  case Unlock::AirDash:return RankFor(S,Skill::Agility)>=3;
+  case Unlock::AdvancedClimb:return RankFor(S,Skill::Agility)>=5;
+  case Unlock::PerfectGuard:return RankFor(S,Skill::Defense)>=2;
+  case Unlock::HeavyFollowup:return RankFor(S,Skill::Strength)>=3;
+  case Unlock::ArcaneChain:return RankFor(S,Skill::Arcane)>=3;
+  case Unlock::EfficientCraft:return RankFor(S,Skill::Survival)>=2;
+ }
+ return false;
+}
 constexpr int Reward(Action A) {
  switch(A){
   case Action::MeleeVictory:return 12;
