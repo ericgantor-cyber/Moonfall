@@ -2245,6 +2245,19 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
+  // Identical rings are fungible codes, not individually tracked bag instances.
+  // Report aggregate copies instead of marking every duplicate as equipped.
+  TMap<int32,int32> WornRingCopies,OwnedRingCopies;
+  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+   for(int32 Ring:MoonfallEquipmentLayout::RingSlots){
+    if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]>0)
+     ++WornRingCopies.FindOrAdd(WornCodes[Ring]);
+   }
+   for(const auto& Entry:WornRingCopies)OwnedRingCopies.Add(Entry.Key,0);
+   if(!OwnedRingCopies.IsEmpty())
+    for(int32 Item:Hero->InventoryItemCodes)
+     if(int32* Copies=OwnedRingCopies.Find(Item))++*Copies;
+  }
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
@@ -2281,13 +2294,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Decoded.IsValid()
      && MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
         MoonfallEquipmentLayout::EInventoryOperation::Equip);
-   bool bEquipped=false;
-   if(bValid&&MoonfallEquipmentLayout::IsRingSlot(Slot)
-      &&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
-    for(int32 Ring:MoonfallEquipmentLayout::RingSlots)
-     if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]==Code)
-      {bEquipped=true;break;}
-   }else if(bValid)bEquipped=WornCodes.IsValidIndex(Slot)&&Code==WornCodes[Slot];
+   const bool bFlexibleRing=bValid&&MoonfallEquipmentLayout::IsRingSlot(Slot)
+      &&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount;
+   const int32 WornCopies=bFlexibleRing?WornRingCopies.FindRef(Code):0;
+   const int32 OwnedCopies=bFlexibleRing?OwnedRingCopies.FindRef(Code):0;
+   const bool bEquipped=bValid&&!bFlexibleRing&&WornCodes.IsValidIndex(Slot)&&Code==WornCodes[Slot];
+   const FString WornLabel=WornCopies>0
+     ? FString::Printf(TEXT("  [%d/%d WORN]"),WornCopies,OwnedCopies)
+     : (bEquipped?FString(TEXT("  [EQUIPPED]")):FString());
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -2297,7 +2311,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawSelectionRail(Left+12.f,Y-3.f,FMath::Max(3.f,RowSpacing-3.f));
    DrawHoverFrame(Left+12.f,Y-3.f,PanelWidth-24.f,RowSpacing-3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+      DisplayPosition + 1, bFlexibleRing?TEXT("Ring"):Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], *WornLabel)
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
@@ -2492,17 +2506,19 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 EquippedRarity=EquippedCode>0?MoonfallEquipmentLayout::DecodeFullItem(EquippedCode).Rarity:0;
     const int32 EquippedAffix=EquippedCode>0?MoonfallEquipmentLayout::DecodeFullItem(EquippedCode).Trait:0;
     bool bAlreadyEquipped=bValidSelection&&SelectedCode==EquippedCode;
-    if(bFlexibleRingCandidate){
-     for(int32 Ring:MoonfallEquipmentLayout::RingSlots)
-      if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]==SelectedCode)
-       {bAlreadyEquipped=true;break;}
-    }
+    const int32 SelectedWornCopies=bFlexibleRingCandidate?WornRingCopies.FindRef(SelectedCode):0;
+    const int32 SelectedOwnedCopies=bFlexibleRingCandidate?OwnedRingCopies.FindRef(SelectedCode):0;
+    const bool bSpareRing=bFlexibleRingCandidate&&SelectedWornCopies>0
+      &&SelectedOwnedCopies>SelectedWornCopies;
+    if(bFlexibleRingCandidate)
+     bAlreadyEquipped=SelectedWornCopies>0&&!bSpareRing;
     // The power delta for a flexible ring compares against its best eligible finger.
     const int32 PowerDelta=bValidSelection?Hero->GetItemPowerDelta(SelectedCode):0;
     const bool bIsUpgrade=bValidSelection&&!bAlreadyEquipped&&PowerDelta>0;
     const bool bIsLower=!bFlexibleRingCandidate&&bValidSelection&&EquippedCode>0&&PowerDelta<0;
     const TCHAR* CompareWord=!bValidSelection?TEXT("INVALID GEAR")
-      :bFlexibleRingCandidate?(bAlreadyEquipped?(PowerDelta>0?TEXT("SPARE RING"):TEXT("EQUIPPED"))
+      :bFlexibleRingCandidate?(bAlreadyEquipped?TEXT("EQUIPPED")
+        :bSpareRing?(bIsUpgrade?TEXT("SPARE UPGRADE"):TEXT("SPARE RING"))
         :(bIsUpgrade?TEXT("RING UPGRADE"):TEXT("RING COMPARISON")))
       :bAlreadyEquipped?TEXT("EQUIPPED"):EquippedCode<=0?TEXT("EMPTY SLOT")
       :bIsUpgrade?TEXT("UPGRADE"):bIsLower?TEXT("LOWER"):TEXT("SIDEGRADE");
