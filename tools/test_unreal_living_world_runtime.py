@@ -62,6 +62,12 @@ int main(){
  assert(FollowerStepBudget(200,0,0.2)==24);
  assert(FollowerStepBudget(200,24,0.2)==48);
  assert(FollowerStepBudget(200,48,0.2)==60);
+ assert(FollowerStepBudget(200,48,0.2,80)==72);
+ assert(FollowerStepBudget(200,72,0.2,80)==80);
+ assert(FollowerStepBudget(40,80,0.2,80)==20);
+ assert(FollowerStepBudget(200,80,0.5,80)==24);
+ assert(FollowerStepBudget(200,0,0.2,101)==0);
+ assert(FollowerStepBudget(200,0,0.2,0)==0);
  assert(FollowerStepBudget(200,60,0.5)==24);
  assert(FollowerStepBudget(40,60,0.2)==20);
  assert(FollowerStepBudget(5,60,0.2)==5);
@@ -707,7 +713,8 @@ int main(){
         self.assertIn("FollowerPathGoal=Goal",npc)
         self.assertIn("FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0)",npc)
         self.assertIn("if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;return true;}",npc)
-        self.assertIn("FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt)",npc)
+        self.assertIn("FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt,MaxStep)",npc)
+        self.assertIn("float MaxStep=60.f",npc)
         self.assertIn("FollowerLastStep=FMath::Min(60.0,ActualMove.Size2D())",npc)
         self.assertIn("!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2",npc)
         self.assertIn("FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1",npc)
@@ -789,7 +796,10 @@ int main(){
         self.assertIn("const bool bFreshThreat=IsFreshThreat(CompanionThreat.Get())",mode)
         self.assertIn("if(!bFreshThreat){CompanionThreat.Reset();CompanionThreatAt=-1000.f;}",mode)
         self.assertIn("FMath::Abs(Player.Z-Threat->GetActorLocation().Z)<=100.0",mode)
-        self.assertIn("PreviousIntent!=Scout->LivingIntent)Scout->bFollowerWaypointValid=false",mode)
+        self.assertIn("PreviousIntent!=Scout->LivingIntent)ResetFollowerMomentum()",mode)
+        self.assertIn("HeroSpeed>=550.0?80.f:HeroSpeed>=300.0?70.f:60.f",mode)
+        self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep",mode)
+        self.assertIn("Scout->FollowerLastMoveAt=-1.f",mode)
         self.assertIn("LocalCompanion.Get()!=Scout||!IsLocalCompanionOwner(Hero)",mode)
         self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
 
