@@ -169,7 +169,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  LivingIntent.Reset();
  bReviewingCombatReport=false;
  FMoonfallWorldRumor GuardReport;
- if (bUsePersonalityRoutines && bGuard && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
+ if (bUsePersonalityRoutines && bGuard && !bRegionalWatch && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
   if (const auto* Society=GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>()) {
    bReviewingCombatReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),GuardReport);
   }
@@ -199,7 +199,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   if (bInConversation) LivingIntent=TEXT("Conversing");
   else if (bHoldPost) LivingIntent=TEXT("On Alert");
   else if (bSheltering) LivingIntent=TEXT("Seeking Shelter");
-  else if (bGuard) LivingIntent=bReviewingCombatReport?TEXT("Reviewing Reports"):bRegionalWatch?TEXT("Regional Watch"):TEXT("On Duty");
+  else if (bGuard) LivingIntent=bRegionalWatch?TEXT("Regional Watch"):bReviewingCombatReport?TEXT("Reviewing Reports"):TEXT("On Duty");
   else if (bRegionalHome) { LivingIntent=TEXT("Staying Near Home"); bRoutineHome=true; }
   else if (Regional==RegionRoutine::CautiousWork) LivingIntent=TEXT("Cautious Work");
   else switch(Intent) {
@@ -230,7 +230,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  if(bRegionalWatch){Side=0.f;Front=0.f;}
  // Credible reports bias a guard toward one of the original four watch
  // offsets. This does not pathfind to the reported incident or accuse anyone.
- if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bHoldPost
+ if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bRegionalWatch && !bHoldPost
      && !bSheltering && !bInConversation && !bNearHero && !MoonfallLivingSimulation::Severe(Weather)) {
   const FVector Direction=GuardReport.Location-AuthoredHomeLocation;
   using MoonfallWorldPolicy::WatchPoint;
@@ -252,8 +252,8 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
  if (Step.SizeSquared2D() > FMath::Square(1.f)){
-  if(bGuide||bRegionalHome||bRegionalWatch){
-   // Guide and regional return steps must stay on clear, level ground.
+  if(bGuide||bRegionalHome||bRegionalWatch||bSheltering||bHoldPost){
+   // All urgent return steps must stay on clear, level ground.
    const FVector Start=GetActorLocation();
    const FVector End=Start+Step.GetClampedToMaxSize2D(32.f);
    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLocalGuide),false,this);
@@ -333,7 +333,8 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if(bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal)return LivingIntent;
  // Only ordinary residents expose the new activity in the existing HUD.
  // Fresh danger/weather and authored specialist roles take precedence.
- if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport) {
+ if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport
+     && Regional!=MoonfallLivingSimulation::ERegionalRoutine::GuardWatch) {
   if (const auto* Society=GetWorld()?GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>():nullptr) {
    FMoonfallWorldRumor Report;
    if (Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report)) return TEXT("Reviewing Reports");
