@@ -41,6 +41,7 @@ public:
  float NextFollowerPathAt=-1.f;
  bool bFollowerWaypointValid=false;
  int32 FollowerBlockedSteps=0;
+ bool bFollowerTravelFormation=false;
  double FollowerLastStep=0.0;
  float FollowerLastMoveAt=-1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
