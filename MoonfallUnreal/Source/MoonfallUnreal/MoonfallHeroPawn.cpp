@@ -139,6 +139,38 @@ int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
  return ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount];
 }
 
+void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const
+{
+ OutCodes.SetNumZeroed(MoonfallEquipmentLayout::FullSlotCount);
+ if(!MoonfallEquipmentLayout::ValidFullActiveCount(MoonfallEquipmentLayout::ActiveSlotCount))return;
+ // Count the bag once, then validate all 24 raw references and duplicate
+ // multiplicities without rescanning the inventory for every finger.
+ TMap<int32,int32> OwnedCounts,RequiredCounts;
+ for(int32 Code:InventoryItemCodes)++OwnedCounts.FindOrAdd(Code);
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+  const int32 Code=GetRawEquipmentSlotCode(Slot);
+  if(Code&&MoonfallEquipmentLayout::CanWearFullItem(Code,Slot,MoonfallEquipmentLayout::ActiveSlotCount))
+   ++RequiredCounts.FindOrAdd(Code);
+ }
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+  const int32 Code=GetRawEquipmentSlotCode(Slot);
+  if(!Code||!MoonfallEquipmentLayout::CanWearFullItem(Code,Slot,MoonfallEquipmentLayout::ActiveSlotCount))continue;
+  const int32* Required=RequiredCounts.Find(Code);
+  const int32* Owned=OwnedCounts.Find(Code);
+  if(Required&&Owned&&*Owned>=*Required)OutCodes[Slot]=Code;
+ }
+}
+
+uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint() const
+{
+ uint32 Hash=2166136261u;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot){
+  Hash^=static_cast<uint32>(GetRawEquipmentSlotCode(Slot));
+  Hash*=16777619u;
+ }
+ return Hash;
+}
+
 int32 AMoonfallHeroPawn::GetEquipmentSlotCode(int32 Slot) const
 {
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
@@ -190,9 +222,15 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- int32 Total = 0;
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
-  Total += GetItemPower(GetEquipmentSlotCode(Slot));
+ int32 Total=0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  TArray<int32> Codes;GetValidatedEquipmentCodes(Codes);
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+   Total+=GetItemPower(Codes[Slot]);
+  return Total;
+ }
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+  Total+=GetItemPower(GetEquipmentSlotCode(Slot));
  return Total;
 }
 
@@ -205,16 +243,19 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
      &&MoonfallEquipmentLayout::IsRingSlot(Slot)){
+  TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
   MoonfallEquipmentLayout::FFullLoadout Worn{};
-  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetEquipmentSlotCode(I);
-  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I){
+   Worn[I]=ValidatedCodes[I];
+   if(GetRawEquipmentSlotCode(I)!=ValidatedCodes[I])return 0;
+  }
   int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==ItemCode)++Copies;
   if(Copies<MoonfallEquipmentLayout::FullWornCopies(ItemCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
   int32 BestDelta=MIN_int32;const int32 Rank=MoonfallEquipmentLayout::FullRank(ItemCode);
   for(int32 Target:MoonfallEquipmentLayout::RingSlots){
    if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
    if(Worn[Target]==ItemCode||Rank<MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
-   BestDelta=FMath::Max(BestDelta,CandidatePower-GetItemPower(GetEquipmentSlotCode(Target)));
+   BestDelta=FMath::Max(BestDelta,CandidatePower-GetItemPower(Worn[Target]));
   }
   return BestDelta==MIN_int32?0:BestDelta;
  }
@@ -232,20 +273,28 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
   return 0;
  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
      &&MoonfallEquipmentLayout::IsRingSlot(Slot)){
+  TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
   MoonfallEquipmentLayout::FFullLoadout Worn{};
-  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetEquipmentSlotCode(I);
-  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I){
+   Worn[I]=ValidatedCodes[I];
+   if(GetRawEquipmentSlotCode(I)!=ValidatedCodes[I])return 0;
+  }
   int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==CandidateCode)++Copies;
   if(Copies<MoonfallEquipmentLayout::FullWornCopies(CandidateCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
+  int32 CurrentPieces=0;
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I){
+   int32 T=0,R=0,Ti=0;
+   if(DecodeEquippedItem(Worn[I],I,T,R,Ti)&&T==Affix&&R>=1)++CurrentPieces;
+  }
   int32 BestProjection=0;
   for(int32 Target:MoonfallEquipmentLayout::RingSlots){
    if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
    if(Worn[Target]==CandidateCode||MoonfallEquipmentLayout::FullRank(CandidateCode)
        <MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
    int32 PreviousTrait=0,PreviousRarity=0,PreviousTier=0;
-   const bool bCurrentValid=DecodeEquippedItem(GetEquipmentSlotCode(Target),Target,
+   const bool bCurrentValid=DecodeEquippedItem(Worn[Target],Target,
        PreviousTrait,PreviousRarity,PreviousTier);
-   const int32 Projected=FMath::Clamp(GetSetPieceCount(Affix)
+   const int32 Projected=FMath::Clamp(CurrentPieces
        -(bCurrentValid&&PreviousRarity>=1&&PreviousTrait==Affix?1:0)
        +(CandidateRarity>=1&&CandidateTrait==Affix?1:0),0,MoonfallEquipmentLayout::ActiveSlotCount);
    BestProjection=FMath::Max(BestProjection,Projected);
@@ -269,13 +318,19 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
- if (Affix < 1 || Affix > 3) return 0;
- int32 Pieces = 0;
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot) {
-  int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (DecodeEquippedItem(GetEquipmentSlotCode(Slot), Slot, Trait, Rarity, Tier)
-      && Trait == Affix && Rarity >= 1)
-   ++Pieces;
+ if(Affix<1||Affix>3)return 0;
+ int32 Pieces=0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  TArray<int32> Codes;GetValidatedEquipmentCodes(Codes);
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+   int32 Trait=0,Rarity=0,Tier=0;
+   if(DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)&&Trait==Affix&&Rarity>=1)++Pieces;
+  }
+  return Pieces;
+ }
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+  int32 Trait=0,Rarity=0,Tier=0;
+  if(DecodeEquippedItem(GetEquipmentSlotCode(Slot),Slot,Trait,Rarity,Tier)&&Trait==Affix&&Rarity>=1)++Pieces;
  }
  return Pieces;
 }
@@ -302,10 +357,13 @@ MoonfallEquipmentLayout::FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses() 
 {
  // Keep all nine-slot balance unchanged until the full ring layout activates.
  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return {};
+ TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
  MoonfallEquipmentLayout::FFullLoadout Worn{};
- for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
-  Worn[Slot]=GetRawEquipmentSlotCode(Slot);
- return MoonfallEquipmentLayout::BuildRingBonuses(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+  Worn[Slot]=ValidatedCodes[Slot];
+  if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot])return {};
+ }
+ return MoonfallEquipmentLayout::BuildRingBonusesValidated(Worn,MoonfallEquipmentLayout::ActiveSlotCount);
 }
 
 float AMoonfallHeroPawn::GetRingLuckBonus() const
@@ -3755,11 +3813,12 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
  if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
   MoonfallEquipmentLayout::FFullLoadout EquippedCodes{};
-  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
-   EquippedCodes[Slot]=GetEquipmentSlotCode(Slot);
-  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(EquippedCodes,
-      MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+   EquippedCodes[Slot]=ValidatedCodes[Slot];
+   if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot])return 0;
+  }
   const int32 Candidate=InventoryItemCodes[InventoryIndex];
   int32 OwnedCopies=0;
   for(int32 Code:InventoryItemCodes)if(Code==Candidate)++OwnedCopies;
@@ -3777,11 +3836,12 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  // is already owned by construction, so no nested bag searches are needed.
  if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
  if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
   MoonfallEquipmentLayout::FFullLoadout EquippedCodes{};
-  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
-   EquippedCodes[Slot]=GetEquipmentSlotCode(Slot);
-  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(EquippedCodes,
-      MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return INDEX_NONE;
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+   EquippedCodes[Slot]=ValidatedCodes[Slot];
+   if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot])return INDEX_NONE;
+  }
   TMap<int32,int32> OwnedCounts;
   for(int32 Code:InventoryItemCodes)++OwnedCounts.FindOrAdd(Code);
   int32 FullBestIndex=INDEX_NONE,FullBestImprovement=0;
