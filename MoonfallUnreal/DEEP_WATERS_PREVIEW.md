@@ -31,5 +31,8 @@ actors created in that invocation.
 - Verify existing menus, land controls, and ferry behavior are unchanged.
 - Verify campaign save slots remain untouched during preview play and respawn.
 
-The preview does not yet include final water materials, treasure rewards, enemies,
-or campaign placement. Existing campaign equipment transactions remain unchanged.
+The preview includes six session-only treasure chests, one per grotto. Collect them using existing pickup controls or auto-loot while swimming within reach and line of sight. The contextual HUD counts unique discoveries out of six. Claims survive hero respawn but reset when the preview world ends. No gear, XP, or currency is granted.
+
+Acceptance checks: collect each chest once; verify duplicate IDs cannot increase the count, blocked sight prevents collection, and campaign inventory remains unchanged.
+
+Final water materials, enemies, and campaign placement are pending. Existing campaign equipment transactions remain unchanged.
