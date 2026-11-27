@@ -57,7 +57,14 @@ int main(){
  assert(MoonfallPackTactics::RoleForEncounterSlot(2,false)==CombatRole::Vanguard);
  assert(MoonfallPackTactics::RoleForEncounterSlot(0,true)==CombatRole::PackLeader);
  assert(MoonfallPackTactics::RoleForBossMinion(0)==CombatRole::Vanguard);
- assert(MoonfallPackTactics::RoleForBossMinion(1)==CombatRole::Ranged);
+ assert(MoonfallPackTactics::RoleForBossMinion(1)==CombatRole::Caster);
+ assert(MoonfallPackTactics::IsCasterRole(MoonfallPackTactics::RoleForBossMinion(1)));
+ assert(MoonfallPackTactics::IsRangedRole(MoonfallPackTactics::RoleForBossMinion(1)));
+ assert(MoonfallPackTactics::RangedProjectileSpeed(false)==850.f);
+ assert(MoonfallPackTactics::RangedProjectileSpeed(true)==650.f);
+ assert(MoonfallPackTactics::RangedProjectileWindup(false)==0.95f);
+ assert(MoonfallPackTactics::RangedProjectileWindup(true)==1.2f);
+ assert(MoonfallPackTactics::RangedProjectileDamageScale(true)==0.95f);
  assert(MoonfallPackTactics::RangedAttackRange==520.f);
  assert(MoonfallPackTactics::RangedRepositionMode(200.0)==-1);
  assert(MoonfallPackTactics::RangedRepositionMode(390.0)==0);
@@ -855,13 +862,21 @@ int main(){
         self.assertIn("RangedRepositionMode(Distance)",enemy)
         self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
         self.assertIn("Distance <= EffectiveAttackRange * CurrentAttackRangeMultiplier",enemy)
-        self.assertIn("CurrentWindup=FMath::Max(CurrentWindup,0.95f)",enemy)
+        self.assertIn("RangedProjectileWindup(bCasterCombatRole)",enemy)
+        self.assertIn("SpawnActor<AMoonfallEnemyProjectile>",enemy)
+        self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
+        self.assertIn("OnRangedAttackTelegraphed(",enemy)
+        projectile=(SRC/"MoonfallEnemyProjectile.cpp").read_text()
+        self.assertIn("UProjectileMovementComponent",projectile)
+        self.assertIn("ECC_Pawn,ECR_Overlap",projectile)
+        self.assertIn("TryRewardPerfectDodge()",projectile)
+        self.assertIn("ApplyMoonfallDamageFrom(Damage,ImpactPoint)",projectile)
         self.assertIn("Boss->DungeonChamberIndex = ChamberCount-1;",boss)
         self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));',boss)
         self.assertIn("if (Rank>=3)",boss)
         self.assertIn("RoleForBossMinion(MinionIndex)",boss)
         self.assertIn('FName(TEXT("MoonfallBossMinion"))',boss)
-        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))',boss)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Caster"))',boss)
         self.assertIn("Minion->DungeonChamberIndex=ChamberCount-1;",boss)
         self.assertIn("if (!bAllMinionsSpawned || BossMinions.Num()!=2) RollbackBossMinions();",boss)
         self.assertIn("ShouldMinionYieldToBoss(",enemy)
