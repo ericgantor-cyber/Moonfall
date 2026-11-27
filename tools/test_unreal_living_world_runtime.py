@@ -1260,4 +1260,19 @@ int main(){
         self.assertIn("Spawned->SetLifeSpan(0.f);",pulse)
         self.assertIn("ActiveAmbientExpiresAt=Now+100.f;",pulse)
 
+    def test_reactive_regional_danger_reuses_existing_scheduler(self):
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        policy=(SRC/"MoonfallLivingSimulation.h").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1].split("void AMoonfallUnrealGameMode::SetDungeonSlotReady",1)[0]
+        self.assertIn("StepRegionalPressure(RegionalPressure[Z]",pulse)
+        self.assertIn("Hero->HasDefeatedDungeonBoss(Z,D)",pulse)
+        self.assertIn("bCombatNearby&&LocalRegion==Z",pulse)
+        self.assertLess(pulse.index("StepRegionalPressure"),pulse.index("if (!bHeroReady) return;"))
+        self.assertLess(pulse.index("MayEncounter("),pulse.index("ReactiveEncounter("))
+        self.assertLess(pulse.index("Ground.GetComponent()!=LivingArena->DungeonRoad"),pulse.index("ReactiveEncounter("))
+        self.assertIn("PlannedEvent,CurrentWeather,Danger,RegionalBossVictories[Region]",pulse)
+        self.assertNotIn("SetTimer(",pulse)
+        self.assertIn('static_assert(StepRegionalPressure(58,true)==60',policy)
+        self.assertIn('static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue',policy)
+
 if __name__=="__main__":unittest.main()
