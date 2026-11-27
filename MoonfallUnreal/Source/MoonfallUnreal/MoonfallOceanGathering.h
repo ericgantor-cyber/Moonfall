@@ -18,6 +18,8 @@ namespace MoonfallOceanGathering
         double ReadyAt[NodeCount]={};
         int Harvested[4]={};
         int Fish[3]={};
+        unsigned LegendarySeen=0;
+        bool LastLegendary=false;
         int TrophyCatches=0;
         int TrophySpecies[3]={};
         int LastSpecies=-1;
@@ -37,13 +39,16 @@ namespace MoonfallOceanGathering
             return ReadyAt[Id]-Now;
         }
         bool CanCatch() const { return Catches()<MaxSessionCatches; }
-        bool Catch(int Event,int Roll,int Preferred=-1,bool Trophy=false) {
-            if(Event<0||Event>2||Roll<0||Roll>99||Preferred<-1||Preferred>2||!CanCatch()) return false;
-            const int SpeciesId=Preferred>=0&&Roll<75?Preferred:((Roll<50?0:Roll<80?1:2)+Event)%3;
+        bool Catch(int Event,int Roll,int Preferred=-1,bool Trophy=false,int Legendary=-1) {
+            if(Event<0||Event>2||Roll<0||Roll>99||Preferred<-1||Preferred>2||Legendary<-1||Legendary>2||!CanCatch()) return false;
+            const bool Unique=Legendary>=0&&!HasLegendary(Legendary);
+            const int SpeciesId=Unique?Legendary:Preferred>=0&&Roll<75?Preferred:((Roll<50?0:Roll<80?1:2)+Event)%3;
             ++Fish[SpeciesId];
             LastSpecies=SpeciesId;
-            LastTrophy=Trophy;
-            if(Trophy) { ++TrophyCatches; ++TrophySpecies[SpeciesId]; }
+            LastLegendary=Unique;
+            if(Unique) LegendarySeen|=1u<<Legendary;
+            LastTrophy=Trophy||Unique;
+            if(LastTrophy) { ++TrophyCatches; ++TrophySpecies[SpeciesId]; }
             return true;
         }
         int Material(int Type) const {
@@ -56,6 +61,8 @@ namespace MoonfallOceanGathering
         int Catches() const { return Fish[0]+Fish[1]+Fish[2]; }
         int Species(int Id) const { return Id>=0&&Id<3?Fish[Id]:0; }
         int Trophies(int Id) const { return Id>=0&&Id<3?TrophySpecies[Id]:0; }
+        bool HasLegendary(int Id) const { return Id>=0&&Id<3&&(LegendarySeen&(1u<<Id))!=0; }
+        int Legendaries() const { return int(HasLegendary(0))+int(HasLegendary(1))+int(HasLegendary(2)); }
         int DiscoveredSpecies() const { return int(Fish[0]>0)+int(Fish[1]>0)+int(Fish[2]>0); }
     };
 }
