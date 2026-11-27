@@ -40,6 +40,10 @@ public:
  // Runtime water state; never serialized to character or checkpoint saves.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float Oxygen = 100.f;
+ // Runtime-derived from validated equipment; shared with the HUD.
+ float WaterBreathScale = 1.f;
+ float WaterSwimScale = 1.f;
+ void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSwimming = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
