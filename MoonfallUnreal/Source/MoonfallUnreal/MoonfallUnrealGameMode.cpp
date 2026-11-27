@@ -706,6 +706,7 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
           &&bGuideSafe&&Bond>=60&&Hero->GetFactionReputation(NPC->FactionId)>=0
           &&FVector::DistSquared(HeroLocation,NPC->AuthoredHomeLocation)<=FMath::Square(450.0);
       const bool bGuide=!bGuideBudgetUsed&&bStanceAllowsGuide&&NPC->bAllowLocalScoutGuidance&&NPC->bUsePersonalityRoutines
+          &&NPC->GetLocalRegionalDanger()<65
           &&NPC->SocialRole==FName(TEXT("Scout"))
           &&MoonfallWorldPolicy::CanLocalGuide(Bond,Hero->GetFactionReputation(NPC->FactionId),
              FVector::DistSquared(HeroLocation,NPC->AuthoredHomeLocation),
