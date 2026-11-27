@@ -861,7 +861,7 @@ int main(){
         self.assertIn("RangedMaximumRange=500.0",policy)
         self.assertIn("RangedRepositionMode(Distance)",enemy)
         self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
-        self.assertIn("Distance <= EffectiveAttackRange * CurrentAttackRangeMultiplier",enemy)
+        self.assertIn("Distance > EffectiveAttackRange",enemy)
         self.assertIn("RangedProjectileWindup(bCasterCombatRole)",enemy)
         self.assertIn("SpawnActor<AMoonfallEnemyProjectile>",enemy)
         self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
