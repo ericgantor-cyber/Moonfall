@@ -2018,7 +2018,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (const int32 Code : InventoryItemCodes)", save)
         self.assertIn("if (!ValidMoonfallItemCode(Code)) return false;", save)
         self.assertIn("for (const int32 Code : Save->InventoryItemCodes)", load)
-        self.assertIn("if (!ValidMoonfallItemCode(Code)) {", load)
+        self.assertIn("if (!ValidSavedItem(Code)) {", load)
+        self.assertIn("MoonfallEquipmentLayout::ValidSavedInventoryItem(", load)
+        self.assertIn("Code,Save->Version,MoonfallEquipmentLayout::ActiveSlotCount", load)
+        self.assertIn("Code != 0 && Code != -1 && !ValidSavedItem(Code)", load)
+        self.assertIn("!ValidSavedItem(Record.ItemCode)", load)
+        self.assertLess(load.index("const auto ValidSavedItem="),
+                        load.index("for (const int32 Code : Save->InventoryItemCodes)"))
         guard = load.split("for (const int32 Code : Save->InventoryItemCodes)", 1)[1].split(
             "// Validate the V7 discovered-shrine ledger", 1)[0]
         self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
