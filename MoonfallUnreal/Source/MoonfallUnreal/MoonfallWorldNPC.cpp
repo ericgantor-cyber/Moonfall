@@ -446,6 +446,16 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
   else if(LastConversationMood==EMoonfallNpcMood::Wary)
    Reaction=FText::FromString(TEXT("I would rather keep our distance for now."));
  }
+ // Friendly faction standing is meaningful even before the trusted tier.
+ // Preserve authored greetings, ancestry, strong bonds and contract priority.
+ if(!bAmbientVisitor&&bUsePersonalityRoutines&&Disposition==TEXT("Friendly")
+     &&Bond>-60&&Bond<60){
+  const TCHAR* Welcome=SocialRole==FName(TEXT("Merchant"))?TEXT(" Your good name is known among our traders."):
+      SocialRole==FName(TEXT("Guard"))?TEXT(" You have earned the goodwill of our watch."):
+      SocialRole==FName(TEXT("Scout"))?TEXT(" Our scouts speak well of you."):
+      TEXT(" You are welcome among our people.");
+  Reaction=FText::FromString(Reaction.ToString()+Welcome);
+ }
  // Accepted one-time contracts have useful, contextual status.
  if (!bAmbientVisitor && Disposition != TEXT("Hostile")
      && Hero->SupportsResidentContract(ResidentId)
@@ -480,8 +490,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
    }
   }
  }
- if(!bAmbientVisitor&&Disposition!=TEXT("Hostile")&&GetLocalRegionalDanger()>=65)
-  Reaction=FText::FromString(Reaction.ToString()+TEXT(" The province is on alert. We are keeping close to our posts."));
+ const int32 RegionalDanger=GetLocalRegionalDanger();
+ if(!bAmbientVisitor&&Disposition!=TEXT("Hostile")&&RegionalDanger>=65&&RegionalDanger<=100){
+  const TCHAR* RegionalWarning=SocialRole==FName(TEXT("Guard"))?TEXT(" The province is on alert. We are keeping close to our posts."):
+      SocialRole==FName(TEXT("Merchant"))?TEXT(" Trade continues, but I am staying close to my stall."):
+      SocialRole==FName(TEXT("Scout"))?TEXT(" The roads are dangerous. I am staying near the settlement."):
+      TEXT(" The province is on alert. I am staying close to home.");
+  Reaction=FText::FromString(Reaction.ToString()+RegionalWarning);
+ }
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
