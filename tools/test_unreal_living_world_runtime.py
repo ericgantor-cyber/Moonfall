@@ -41,6 +41,15 @@ int main(){
  assert(RegionalAllowsSocial(-1));
  for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
  assert(RegionalAllowsSocial(101));
+ for(int region=0;region<6;++region){
+  for(int phase=0;phase<60;++phase){
+   const int variant=EncounterDialogueVariant(region,phase);
+   assert(variant>=0&&variant<3);
+   assert(EncounterDialogueVariant(region,phase+5)==(variant+1)%3);
+   assert(EncounterDialogueVariant(region,phase+15)==variant);
+  }
+ }
+ assert(EncounterDialogueVariant(5,std::numeric_limits<int>::max())>=0);
  // Exhaust every valid danger level and boss count for every encounter kind.
  for(int danger=0;danger<=100;++danger){
   for(int bosses=0;bosses<=5;++bosses){
@@ -1035,6 +1044,10 @@ int main(){
             self.assertIn(region,rumor)
         self.assertEqual(rumor.count("TEXT("),6)
         self.assertIn("Visitor->Greeting=FText::FromString(Story);",mode)
+        self.assertIn("EncounterDialogueVariant(Region,Phase)",mode)
+        for group in ("MerchantGreetings","PatrolGreetings","WayfarerGreetings","DisputeGreetings"):
+            self.assertIn(group+"[3]",mode)
+            self.assertIn("FText::FromString("+group+"[DialogueVariant])",mode)
         self.assertIn("MoonfallLivingSimulation::Severe(CurrentWeather)",mode)
         self.assertIn("if (Region>=0 && Region<6)",mode)
         self.assertNotIn("SaveWorldProgress",rumor)
