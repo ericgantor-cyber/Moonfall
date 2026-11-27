@@ -58,13 +58,29 @@ class EquipmentStatSafety(unittest.TestCase):
             "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
         self.assertIn("FullWornCopies(CandidateCode,Worn", projected)
         self.assertIn("BestProjection", projected)
+    def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
+        snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
+            "uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
+        for token in ("OutCodes.SetNumZeroed(MoonfallEquipmentLayout::FullSlotCount)",
+                      "TMap<int32,int32> OwnedCounts,RequiredCounts",
+                      "for(int32 Code:InventoryItemCodes)", "RequiredCounts.FindOrAdd(Code)",
+                      "OwnedCounts.Find(Code)", "*Owned>=*Required"):
+            self.assertIn(token, snapshot)
+        fingerprint = self.source.split("uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
+        self.assertIn("GetRawEquipmentSlotCode(Slot)", fingerprint)
+        self.assertNotIn("InventoryItemCodes", fingerprint)
+        power = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentPower() const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
+        self.assertIn("GetValidatedEquipmentCodes(Codes)", power)
     def test_ring_stats_respect_activation_ownership_and_global_caps(self):
         source = self.source
         rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
             "float AMoonfallHeroPawn::GetRingLuckBonus()", 1)[0]
         self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", rings)
         self.assertIn("GetRawEquipmentSlotCode(Slot)", rings)
-        self.assertIn("BuildRingBonuses(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)", rings)
+        self.assertIn("GetValidatedEquipmentCodes(ValidatedCodes)", rings)
+        self.assertIn("BuildRingBonusesValidated(Worn,MoonfallEquipmentLayout::ActiveSlotCount)", rings)
         for method, field, cap in (("GetCriticalChance", "CritBps", "0.25f"),
                                    ("GetHasteBonus", "HasteBps", "0.20f"),
                                    ("GetMasteryBonus", "MasteryBps", "0.16f"),
