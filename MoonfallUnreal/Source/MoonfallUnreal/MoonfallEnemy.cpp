@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallUnrealGameMode.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
@@ -95,6 +96,7 @@ void AMoonfallEnemy::BeginPlay() {
  const bool bRaceArt = !bBoss && !bElite && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
      && RaceId>=0 && RaceId<MoonfallRaces::Count;
  if (GetClass()==AMoonfallEnemy::StaticClass() && DivineBossId.IsNone()
+     && !ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
      && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
      && (bRegionalArt || bEliteArt || bRaceArt)
      && IsValid(Body) && Body->GetStaticMesh()
@@ -487,6 +489,11 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    OnEnemyDefeated(bLastHitWasShatter);
    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+    // No campaign rewards or finisher movement from preview creatures.
+    if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+     SetLifeSpan(1.25f);
+     return;
+    }
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     if (!IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
@@ -676,7 +683,64 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
- // Reject invalid actor transforms before targeting, pathfinding or attack hit checks.
+ // Isolated aquatic encounters use bounded 3D sweeps instead of land navigation.
+  if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+   const FVector Position = GetActorLocation();
+   const FVector Target = Hero->GetActorLocation();
+   const bool bValid = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+       && !Position.ContainsNaN() && !Target.ContainsNaN() && !DungeonHomePosition.ContainsNaN();
+   const bool bEngaged = bValid && Hero->bWaterSwimming && !Hero->bInsideAirPocket
+       && FVector::DistSquared(Target, DungeonHomePosition) <= FMath::Square(480.f);
+   if (IsValid(Body)) Body->SetRelativeScale3D(FVector(1.2f,0.48f,0.48f));
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAquaticSight), false);
+   Params.AddIgnoredActor(this);
+   Params.AddIgnoredActor(Hero);
+   FHitResult Sight;
+   const bool bClear = bEngaged && !GetWorld()->LineTraceSingleByChannel(
+       Sight, Position, Target, ECC_Visibility, Params);
+   const double DistanceSq = FVector::DistSquared(Position, Target);
+   if (!bClear) {
+    WindupEndsAt = -1.f;
+    NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
+   } else if (WindupEndsAt >= 0.f) {
+    if (Now >= WindupEndsAt) {
+     WindupEndsAt = -1.f;
+     NextAttackAt = Now + 2.f;
+     RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+     if (DistanceSq <= FMath::Square(180.f)) {
+      const bool bParried = Hero->ApplyMoonfallDamageFrom(8.f, Position);
+      if (IsValid(this) && !IsActorBeingDestroyed() && Health > 0.f) {
+       if (bParried) ApplyPostureDamage(ParryPostureDamage);
+       else OnEnemyAttack();
+      }
+     }
+     return;
+    }
+    return;
+   } else if (DistanceSq <= FMath::Square(150.f) && Now >= NextAttackAt) {
+    CurrentWindup = 0.8f;
+    WindupEndsAt = Now + CurrentWindup;
+    CurrentAttackMultiplier = 1.f;
+    CurrentAttackRangeMultiplier = 1.f;
+    RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+    return;
+   }
+   RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+   if (!bValid) return;
+   FVector Destination = bClear ? Target : DungeonHomePosition;
+   Destination = DungeonHomePosition + (Destination-DungeonHomePosition).GetClampedToMaxSize(270.f);
+   Destination.Z = FMath::Clamp(Destination.Z, DungeonHomePosition.Z-55.0, DungeonHomePosition.Z+55.0);
+   if (!bClear || DistanceSq > FMath::Square(135.f)) {
+    const FVector Step = (Destination-Position).GetClampedToMaxSize(140.f*SafeAIDelta);
+    if (!Step.IsNearlyZero()) {
+     SetActorRotation(FRotator(0.f, Step.Rotation().Yaw, 0.f));
+     FHitResult MoveHit;
+     AddActorWorldOffset(Step, true, &MoveHit);
+    }
+   }
+   return;
+  }
+  // Reject invalid actor transforms before targeting, pathfinding or attack hit checks.
  const FVector HeroPosition = Hero->GetActorLocation();
  const FVector EnemyPosition = GetActorLocation();
  if (HeroPosition.ContainsNaN() || EnemyPosition.ContainsNaN()) return;
