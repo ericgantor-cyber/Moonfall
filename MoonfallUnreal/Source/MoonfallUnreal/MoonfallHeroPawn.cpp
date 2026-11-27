@@ -1629,8 +1629,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
  if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
- if (!bWaterSwimming && TryFishingAction()) return;
- PickupNearestGroundLoot();
+ ManualLootOrFish();
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
 {
@@ -4525,8 +4524,26 @@ bool AMoonfallHeroPawn::TryFishingAction() {
 
 void AMoonfallHeroPawn::ManualLootOrFish()
 {
- // Keyboard F shares the controller fishing-first context. Automatic loot
- // and Blueprint pickup requests retain their original pickup-only path.
+ // F and controller X share one explicit interaction route. Automatic
+ // loot and Blueprint pickup requests remain pickup-only.
+ if (!GetWorld() || GetWorld()->IsPaused() || IsActorBeingDestroyed()
+     || !FMath::IsFinite(Health) || Health<=0.f || bWorldProgressLoadInProgress
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bSpellBookOpen || bQuestLogOpen || bCharacterStatsOpen
+     || bResidentContextOpen || FocusedResident.IsValid()) return;
+ // Never steal a bite or reel action for a nearby resident.
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  TryFishingAction();
+  return;
+ }
+ // Preserve nearby civilian interaction without opening conversations
+ // underwater or while combat recovery is active. The existing context
+ // entry point revalidates reachability before publishing the menu.
+ if (!bWaterSwimming && !IsRecentlyInCombatForAmbientAI()
+     && IsValid(GetNearestResidentNPC())) {
+  OpenFocusedResidentContext();
+  return;
+ }
  if (CanContinueFishing() && TryFishingAction()) return;
  PickupNearestGroundLoot();
 }
