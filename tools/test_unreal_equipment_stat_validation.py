@@ -237,6 +237,21 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn('TEXT("RING T%d")', hud)
         self.assertIn("FMath::IsFinite(MX)&&FMath::IsFinite(MY)", hud)
 
+    def test_inventory_pointer_coordinates_are_finite(self):
+        for name in ("ScrollInventoryToMouseTrack", "HitTestInventoryCloseButton",
+                     "HitTestInventorySortButton", "HitTestInventoryEquipButton", "HitTestInventoryRow"):
+            with self.subTest(name=name):
+                body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+                self.assertIn("!FMath::IsFinite(MouseX)", body)
+                self.assertIn("!FMath::IsFinite(MouseY)", body)
+        scroll = self.source.split("AMoonfallHeroPawn::ScrollInventoryToMouseTrack(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(scroll.index("!FMath::IsFinite(MouseY)"), scroll.index("FMath::RoundToInt("))
+        row = self.source.split("AMoonfallHeroPawn::HitTestInventoryRow(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!HasVisibleInventoryPointerSurface(Controller)", row)
+        self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen", row)
+        self.assertIn("MouseX >= Left + PanelWidth - 16.f", row)
+        self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("GetInventoryDisplayOrder()"))
+
     def test_bag_drop_surface_has_no_gold_highlight(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertNotIn("CanDropDraggedRingInBag()", hud)
