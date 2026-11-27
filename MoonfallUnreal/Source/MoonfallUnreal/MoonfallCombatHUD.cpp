@@ -2394,7 +2394,8 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedSlot=SelectedDecoded.Slot;
    const int32 SelectedAffix=SelectedDecoded.Trait;
    const bool bCraftCombatLocked=Hero->IsRecentlyInCombatForAmbientAI();
-   const bool bCraftHealthLocked=!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f;
+   const bool bCraftHealthLocked=!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f
+      ||!FMath::IsFinite(Hero->MaxHealth)||Hero->MaxHealth<1.f;
    const bool bForgeable=MoonfallEquipmentLayout::CanOperateFull(SelectedCode,
        MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Upgrade);
    const bool bAscendable=MoonfallEquipmentLayout::CanOperateFull(SelectedCode,

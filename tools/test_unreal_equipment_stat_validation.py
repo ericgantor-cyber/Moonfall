@@ -146,6 +146,18 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertIn("!bCraftHealthLocked && !bCraftCombatLocked && " + operation, hud)
         self.assertIn("!bCraftCombatLocked && Plan.Valid && Plan.Upgrades > 0", hud)
 
+    def test_crafting_rejects_invalid_health_capacity_and_equip_best_reentry(self):
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix", "AscendInventoryItemRarity", "ForgeInventoryItemLevels"):
+            body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}\n", 1)[0]
+            for guard in ("bEquipBestInProgress", "!FMath::IsFinite(MaxHealth)", "MaxHealth < 1.f"):
+                self.assertLess(body.index(guard), body.index("InventoryItemCodes[InventoryIndex]"))
+        batch = self.source.split("AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split("\n}\n", 1)[0]
+        loop = batch.split("for (int32 Step = 0; Step < Limit; ++Step)", 1)[1]
+        for guard in ("bEquipBestInProgress", "!FMath::IsFinite(MaxHealth)", "MaxHealth < 1.f"):
+            self.assertLess(loop.index(guard), loop.index("if (!UpgradeInventoryItem(InventoryIndex))"))
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("||!FMath::IsFinite(Hero->MaxHealth)||Hero->MaxHealth<1.f", hud)
+
     def test_save_restore_batches_equipment_cache_invalidation(self):
         load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress(", 1)[1]
         rebuild = load.split("InventoryItemCodes.Reset();", 1)[1].split("const auto RestoreGear", 1)[0]
