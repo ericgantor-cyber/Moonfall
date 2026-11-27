@@ -2,6 +2,11 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallCheckpointShrine.h"
+#include "MoonfallMasteryOrb.h"
+#include "MoonfallSkillMastery.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "CollisionQueryParams.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -378,6 +383,34 @@ void AMoonfallArena::BeginPlay() {
   DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
  }
+#if WITH_EDITOR
+ // Bounded, deterministic preview routes. Never spawn in normal gameplay.
+ if(FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"))&&GetWorld()){
+  namespace M=MoonfallSkillMastery;
+  FCollisionQueryParams OrbTrace(SCENE_QUERY_STAT(MoonfallMasteryRoute),false);
+  for(int32 I=0;I<M::WorldRouteCount;++I){
+   const auto P=M::RoutePlacement(I);
+   if(P.Region==6&&!bEnableStartingSanctuary)continue;
+   const FVector Origin=GetActorTransform().TransformPosition(FVector(P.X,P.Y,0.f));
+   FHitResult Ground;
+   if(!GetWorld()->LineTraceSingleByChannel(Ground,Origin+FVector(0,0,250),
+       Origin-FVector(0,0,100),ECC_Visibility,OrbTrace))continue;
+   if(Ground.GetActor()!=this||Ground.ImpactNormal.Z<0.7f)continue;
+   const FVector Location=Ground.ImpactPoint+FVector(0,0,100.f);
+   if(Location.ContainsNaN()||GetWorld()->OverlapBlockingTestByChannel(Location,
+       FQuat::Identity,ECC_Pawn,FCollisionShape::MakeSphere(40.f),OrbTrace))continue;
+   const FTransform Transform(FRotator::ZeroRotator,Location);
+   auto* Orb=GetWorld()->SpawnActorDeferred<AMoonfallMasteryOrb>(
+       AMoonfallMasteryOrb::StaticClass(),Transform,this,nullptr,
+       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+   if(!IsValid(Orb))continue;
+   if(!Orb->InitializeRouteIdentity(P.Region,P.Index,P.Kind==M::Orb::Hidden)){
+    Orb->Destroy();continue;
+   }
+   Orb->FinishSpawning(Transform);
+  }
+ }
+#endif
  // Bounded silhouette landmarks and nonshadow weather lights, outside the road.
  CreateRegionalLandmarks();
  // One readable sign for each five-dungeon zone. UI/map code can also obtain
