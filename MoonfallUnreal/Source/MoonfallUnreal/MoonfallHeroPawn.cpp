@@ -2906,6 +2906,14 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
  const int32 InitialCode = InventoryItemCodes[InventoryIndex];
  if (!ValidMoonfallItemCode(InitialCode)) return 0;
  for (int32 Step = 0; Step < Limit; ++Step) {
+  // A synchronous crafting notification may destroy the hero, close the
+  // inventory, or begin another transaction. Stop before touching the bag.
+  if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
+      || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+      || bTalentAllocationInProgress || bEquipmentCraftInProgress
+      || !bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen
+      || bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
+      || !FMath::IsFinite(Health) || Health <= 0.f) break;
   // Craft callbacks can change inventory selection or contents. Never
   // apply the next upgrade to an unrelated item that moved into this slot.
   if (!InventoryItemCodes.IsValidIndex(InventoryIndex)

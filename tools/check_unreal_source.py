@@ -7001,6 +7001,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
         self.assertLess(body.index("InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded"),
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
+        loop = body.split("for (int32 Step = 0; Step < Limit; ++Step)", 1)[1]
+        for guard in ("!IsValid(this)", "IsActorBeingDestroyed()", "!GetWorld()",
+                      "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked",
+                      "bTalentAllocationInProgress", "bEquipmentCraftInProgress",
+                      "!bInventoryOpen", "bTalentWebOpen", "bAtlasOpen",
+                      "FocusedResident.IsValid()", "!FMath::IsFinite(Health)", "Health <= 0.f"):
+            self.assertLess(loop.index(guard), loop.index("!InventoryItemCodes.IsValidIndex(InventoryIndex)"))
 
     def test_combat_entry_rejects_unsafe_transitions_and_trace_geometry(self):
         for name in ("TryCast", "MeleeAttack", "Dodge", "BeginGuard"):
