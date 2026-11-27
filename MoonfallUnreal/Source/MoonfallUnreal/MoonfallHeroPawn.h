@@ -11,6 +11,7 @@
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallFishing.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -44,6 +45,14 @@ public:
  float WaterBreathScale = 1.f;
  float WaterTonicRemaining = 0.f;
  float WaterSwimScale = 1.f;
+ MoonfallFishing::FSession Fishing;
+ FVector FishingOrigin=FVector::ZeroVector;
+ FVector FishingBobber=FVector::ZeroVector;
+ float FishingNoticeUntil=0.f;
+ bool bFishingCaught=false;
+ bool CanContinueFishing() const;
+ bool TryFishingAction();
+ void FishingAction() { TryFishingAction(); }
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSwimming = false;
