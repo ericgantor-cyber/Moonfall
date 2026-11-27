@@ -2386,7 +2386,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (PanelHeight >= 420.f) {
    const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
    if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
-    DrawText(TEXT("RINGS: click to equip selected | right-click to remove"),
+    DrawText(TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
        FLinearColor::White,Left+18.f,Top+PanelHeight-HelpOffset,nullptr,PanelWidth<550.f?0.48f:0.68f);
     const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
     const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
