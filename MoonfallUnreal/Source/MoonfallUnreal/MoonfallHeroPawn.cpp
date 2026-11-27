@@ -38,6 +38,7 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
@@ -526,6 +527,8 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
    TEXT("DungeonNavigationInvoker"));
  // Small active navmesh radius helps keep 30 long dungeon lanes affordable.
  DungeonNavigationInvoker->SetGenerationRadii(3000.f, 5000.f);
+ SwimPoseAnchor=CreateDefaultSubobject<USceneComponent>(TEXT("SwimPoseAnchor"));
+ SwimPoseAnchor->SetupAttachment(GetRootComponent());
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = CameraDistance;
@@ -692,6 +695,14 @@ void AMoonfallHeroPawn::BeginPlay() {
    if (IsValid(*It)) It->CheckHeroAtSpawn(this);
  }
 }
+void AMoonfallHeroPawn::RefreshSwimPose()
+{
+ if(!IsValid(SwimPoseAnchor)) return;
+ const FRotator Pose(MoonfallWaterRules::SwimPosePitch(
+     bWaterSwimming,bWaterSubmerged,bReduceMotion,WaterVerticalSpeed),0.f,0.f);
+ if(!SwimPoseAnchor->GetRelativeRotation().Equals(Pose,0.1f))
+  SwimPoseAnchor->SetRelativeRotation(Pose);
+}
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
@@ -780,6 +791,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    WaterVerticalSpeed = float(Velocity.Z);
   }
  }
+ RefreshSwimPose();
  if (bWasSwimming != bWaterSwimming || bWasSubmerged != bWaterSubmerged) {
   OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
   if (IsActorBeingDestroyed()) return;
@@ -6132,6 +6144,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  WaterTonicRemaining = 0.f;
  bWaterSwimming = false;
  bWaterSubmerged = false;
+ RefreshSwimPose();
  bInsideAirPocket = false;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
