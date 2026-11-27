@@ -257,6 +257,15 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("MouseX >= Left + PanelWidth - 16.f", row)
         self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("GetInventoryDisplayOrder()"))
 
+    def test_controller_buttons_cancel_inventory_pointer_gestures(self):
+        for name in ("ControllerConfirm", "ControllerBack", "ControllerLootOrSalvage",
+                     "ControllerLeftShoulder", "ControllerRightShoulder",
+                     "ControllerLeftTrigger", "ControllerRightTrigger"):
+            with self.subTest(name=name):
+                body = self.source.split("void AMoonfallHeroPawn::" + name + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index("ClearRingPointerDrag();"), body.index("if"))
+                self.assertLess(body.index("bInventoryScrollbarDragging=false;"), body.index("if"))
+
     def test_controller_navigation_owns_inventory_gestures(self):
         for name in ("OptionsUp", "OptionsDown", "OptionsLeft", "OptionsRight"):
             with self.subTest(name=name):
