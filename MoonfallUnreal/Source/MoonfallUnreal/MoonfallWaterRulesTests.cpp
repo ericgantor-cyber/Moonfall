@@ -36,13 +36,18 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Surface cancels damage"), AdvanceDrowning(Exposure, 0.f, 0.25f, false, false));
     TestEqual(TEXT("Surface resets exposure"), Exposure, 0.f);
     TestEqual(TEXT("No equipped Focus gear"),GearBreathMultiplier(false,9,-1),1.f);
-    TestTrue(TEXT("Common Focus adds five percent"),FMath::IsNearlyEqual(GearBreathMultiplier(false,0,0),1.05f));
+    TestEqual(TEXT("Common Focus is not a canonical affix"),GearBreathMultiplier(false,0,0),1.f);
     TestTrue(TEXT("Legendary Focus adds thirty percent"),FMath::IsNearlyEqual(GearBreathMultiplier(false,0,5),1.30f));
     TestTrue(TEXT("Shadowborn legendary breath cap"),FMath::IsNearlyEqual(GearBreathMultiplier(true,9,5),2.6f));
     TestTrue(TEXT("Legendary Focus footwear"),FMath::IsNearlyEqual(GearSwimMultiplier(5),1.30f));
     TestEqual(TEXT("Invalid rarity cannot add speed"),GearSwimMultiplier(6),1.f);
     TestTrue(TEXT("HUD rate honors gear cap"),FMath::IsNearlyEqual(EffectiveDrain(2.6f),100.f/468.f));
     TestTrue(TEXT("Gear breath duration matches air depletion"),FMath::IsNearlyZero(AdvanceAir(100.f,468.f,true,true,false,2.6f),0.001f));
+    TestEqual(TEXT("One set piece has no breath bonus"),SetBreathMultiplier(1.f,1),1.f);
+    TestTrue(TEXT("Two pieces extend breath"),FMath::IsNearlyEqual(SetBreathMultiplier(1.f,2),1.10f));
+    TestTrue(TEXT("Three pieces increase speed"),FMath::IsNearlyEqual(SetSwimMultiplier(1.30f,3),1.40f));
+    TestTrue(TEXT("Set breath remains bounded"),FMath::IsNearlyEqual(SetBreathMultiplier(2.6f,3),2.86f));
+    TestTrue(TEXT("Drain reflects set bonus"),FMath::IsNearlyEqual(EffectiveDrain(2.86f),100.f/514.8f));
     return true;
 }
 #endif
