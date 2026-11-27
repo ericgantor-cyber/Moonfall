@@ -1457,7 +1457,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", set_body)
         self.assertIn("DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)", set_body)
         self.assertIn("DecodeEquippedItem(GetEquipmentSlotCode(Slot),Slot,Trait,Rarity,Tier)", set_body)
-        self.assertIn("Rarity >= 1", set_body)
+        self.assertIn("Rarity>=1", set_body)
         self.assertNotIn("EquippedWeaponCode", set_body)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", decoder)
@@ -2079,7 +2079,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                        "Hero->WeaponAffix", "Hero->ArmorAffix", "Hero->AccessoryAffix"):
             self.assertNotIn(unsafe, preview)
         self.assertIn("EncodedRarity == 0 && EncodedTrait != 0", preview)
-        self.assertIn("CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount", preview)
+        self.assertIn("Code != EncodedTrait * 100000 + Slot * 10000", preview)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
