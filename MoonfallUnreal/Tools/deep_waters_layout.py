@@ -131,10 +131,18 @@ def settlement_geometry():
 
 
 def ocean_resources(half_width):
-    # Four nonblocking underwater nodes in clear water outside grotto walls.
+    # Twelve nonblocking nodes, three deposits per material type.
     return (
         (0, "Moonkelp", "Cone", (-900.0,-1600.0,-240.0), (0.5,0.5,1.2)),
         (1, "Pearl cluster", "Sphere", (900.0,-1600.0,-280.0), (0.65,0.65,0.65)),
         (2, "Crimson coral", "Cone", (-900.0,1600.0,-240.0), (0.7,0.7,1.1)),
         (3, "Sea salt", "Cylinder", (900.0,1600.0,-280.0), (0.7,0.7,0.55)),
+        (4, "Moonkelp II", "Cone", (-2650.0,-600.0,-270.0), (0.5,0.5,1.2)),
+        (5, "Pearl cluster II", "Sphere", (2650.0,600.0,-300.0), (0.65,0.65,0.65)),
+        (6, "Crimson coral II", "Cone", (-2650.0,600.0,-270.0), (0.7,0.7,1.1)),
+        (7, "Sea salt II", "Cylinder", (2650.0,-600.0,-300.0), (0.7,0.7,0.55)),
+        (8, "Moonkelp III", "Cone", (-650.0,-430.0,-270.0), (0.5,0.5,1.2)),
+        (9, "Pearl cluster III", "Sphere", (650.0,430.0,-300.0), (0.65,0.65,0.65)),
+        (10, "Crimson coral III", "Cone", (0.0,-1750.0,-270.0), (0.7,0.7,1.1)),
+        (11, "Sea salt III", "Cylinder", (0.0,1750.0,-300.0), (0.7,0.7,0.55)),
     )
