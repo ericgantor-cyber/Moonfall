@@ -8,7 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
-    grotto_layout, grotto_geometry, grotto_art, MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
+    grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry,
+    MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
 )
 
 MAP_PATH = "/Game/DeepWaters/Maps/DeepWatersPreview"
@@ -119,8 +120,10 @@ def main():
         mesh.set_editor_property("cast_shadow", False)
         water.set_actor_scale3d(unreal.Vector(extent.x / 50, extent.y / 50, 1.0))
         # A dry deck adjacent to the pool, with a submerged step and open exit.
-        block("Deep Waters dry dock", (-extent.x - 300, 0, -20), (7, 12, 0.4))
-        block("Deep Waters entry step", (-extent.x + 150, 0, -90), (4, 12, 0.4))
+        for label, pos, scale in shoreline_geometry(extent.x):
+            block("Deep Waters " + label, pos, scale)
+        for label, pos, scale in ruin_geometry():
+            block(label, pos, scale)
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
         for index, (name, (x, y, z)) in enumerate(grotto_layout()):
