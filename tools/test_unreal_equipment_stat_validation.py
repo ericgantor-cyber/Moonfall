@@ -62,7 +62,7 @@ class EquipmentStatSafety(unittest.TestCase):
     def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
         snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
             "uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
-        for token in ("OutCodes.SetNumZeroed(MoonfallEquipmentLayout::FullSlotCount)",
+        for token in ("OutCodes.Init(0,MoonfallEquipmentLayout::FullSlotCount)",
                       "TMap<int32,int32> OwnedCounts,RequiredCounts",
                       "for(int32 Code:InventoryItemCodes)", "RequiredCounts.FindOrAdd(Code)",
                       "OwnedCounts.Find(Code)", "*Owned>=*Required"):
