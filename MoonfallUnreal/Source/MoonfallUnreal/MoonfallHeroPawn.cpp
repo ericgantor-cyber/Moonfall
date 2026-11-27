@@ -27,6 +27,7 @@
 #include "GameFramework/PhysicsVolume.h"
 #include "MoonfallWaterRules.h"
 #include "MoonfallAirPocket.h"
+#include "MoonfallGrottoTreasure.h"
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
@@ -4160,9 +4161,20 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
  if (bTalentWebOpen) return;
- if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || !bWorldProgressInitialized
-     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
      || bCharacterStatsOpen || FocusedResident.IsValid()) return;
+ // Only the isolated preview may collect its session-only grotto discoveries.
+ if (bPersistentSaveWritesBlocked) {
+  if (bWaterSwimming && GetCapsuleComponent()
+      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   TArray<AActor*> Chests;
+   GetCapsuleComponent()->GetOverlappingActors(Chests, AMoonfallGrottoTreasure::StaticClass());
+   for (AActor* Actor : Chests)
+    if (auto* Chest = Cast<AMoonfallGrottoTreasure>(Actor); IsValid(Chest)) Chest->TryClaim(this);
+  }
+  return;
+ }
+ if (!bWorldProgressInitialized) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
