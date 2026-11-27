@@ -58,7 +58,9 @@ jobs:
         id: clang_sanitized
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && runner.os == 'Linux' }}
         shell: bash
-        run: bash tools/run_unreal_sanitizer.sh tools/test_unreal_gear_advisor_policy.cpp
+        run: |
+          bash tools/run_unreal_sanitizer.sh tools/test_unreal_gear_advisor_policy.cpp
+          bash tools/run_unreal_sanitizer.sh tools/test_unreal_gear_advisor_policy.cpp --v19-preview
       - uses: ilammy/msvc-dev-cmd@v1
         id: msvc_setup
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' && runner.os == 'Windows' }}
@@ -101,7 +103,7 @@ jobs:
               echo "Checked-out revision: $(git rev-parse HEAD)"
             fi
             echo "Runner: $RUNNER_OS"
-            echo 'Scope: standalone C++17 policy, default V17 and opt-in V19 preview on GCC/MSVC; not Unreal Engine compilation or gameplay.'
+            echo 'Scope: standalone C++17 policy, default V17 and opt-in V19 preview on GCC/MSVC/Clang sanitizers; not Unreal Engine compilation or gameplay.'
             echo "| Compiler | Outcome |"
             echo "| --- | --- |"
             echo "| GCC equipment | ${GCC_RESULT:-not-run} |"
