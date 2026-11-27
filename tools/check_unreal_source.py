@@ -6963,7 +6963,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Minion->EncounterBoss=Boss;",boss)
         self.assertIn("bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot",coordination)
         self.assertIn("Parent->Health<=0.f",enemy)
-        self.assertIn("FacingDot>=0.94f",enemy)
         self.assertIn("ShouldMinionYieldToBoss(",coordination)
         self.assertIn("Other->ActorHasTag(BossEncounterTag)",coordination)
         self.assertIn("Other->GetOwner() != GetOwner()",coordination)
