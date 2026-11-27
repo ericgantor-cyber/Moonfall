@@ -3797,6 +3797,17 @@ int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
  return MoonfallSkillMastery::Rank(GetSkillMasteryXP(SkillIndex));
 }
 
+int32 AMoonfallHeroPawn::GetCollectedMasteryRouteOrbs() const
+{
+ if(!IsSkillMasteryPreviewEnabled())return -1;
+ int32 Count=0;
+ for(int32 I=0;I<MoonfallSkillMastery::WorldRouteCount;++I){
+  const auto P=MoonfallSkillMastery::RoutePlacement(I);
+  if(MoonfallSkillMastery::IsCollected(SessionMastery,P.Region,P.Index))++Count;
+ }
+ return Count;
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
