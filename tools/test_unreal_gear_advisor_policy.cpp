@@ -208,6 +208,35 @@ int main() {
  assert(!L::TryMoveFullRing(17,23,Flexible,24,true,RingBag,RingResult));
  assert(L::TryMoveFullRing(17,23,Flexible,24,false,RingBag,RingResult));
  assert(RingResult[23]==HighRing&&RingResult[17]==CommonRing);
+ // Count physical ownership through one traversal even when many codes
+ // and duplicate rings are present. No heap use in the policy itself.
+ struct CountingBag{
+  std::vector<int> Items;
+  mutable int Traversals=0;
+  auto begin()const{++Traversals;return Items.begin();}
+  auto end()const{return Items.end();}
+ };
+ L::FFullLoadout Dense{};
+ CountingBag Large;
+ Large.Items.assign(9976,0);
+ for(int Slot=0;Slot<L::FullSlotCount;++Slot){
+  Dense[Slot]=L::EncodeFullItem(Slot,1,2,5);
+  if(L::IsRingSlot(Slot))Dense[Slot]=CommonRing;
+  Large.Items.push_back(Dense[Slot]);
+ }
+ assert(L::IsFullLoadoutOwned(Dense,24,Large));
+ assert(Large.Traversals==1);
+ Large.Items.pop_back();
+ Large.Traversals=0;
+ assert(!L::IsFullLoadoutOwned(Dense,24,Large));
+ assert(Large.Traversals==1);
+ auto InvalidDense=Dense;
+ InvalidDense[0]=CommonRing;
+ Large.Traversals=0;
+ assert(!L::IsFullLoadoutOwned(InvalidDense,24,Large));
+ assert(Large.Traversals==0);
+ assert(L::IsFullLoadoutOwned(L::FFullLoadout{},24,Large));
+ assert(Large.Traversals==0);
  const auto BeforeRemove=RingResult;
  auto Removed=BeforeRemove;
  assert(!L::TryRemoveFullRing(23,BeforeRemove,24,true,RingBag,Removed));
