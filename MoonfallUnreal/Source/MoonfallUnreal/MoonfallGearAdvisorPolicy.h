@@ -105,8 +105,14 @@ namespace MoonfallEquipmentLayout {
 enum class ESlot : int { Weapon=0, Chest=1, Trinket=2, Head=3, Shoulders=4, Hands=5, Legs=6, Feet=7, Ring=8 };
 inline constexpr int SlotCount=9;
 inline constexpr int LegacySlotCount=3;
-// All nine player equipment slots; companion slots retain their legacy limit.
-inline constexpr int ActiveSlotCount=SlotCount;
+// Production remains V17. The isolated editor preview is explicit opt-in.
+inline constexpr int FullSlotCount=24;
+#ifndef MOONFALL_V19_EDITOR_PREVIEW
+#define MOONFALL_V19_EDITOR_PREVIEW 0
+#endif
+static_assert(MOONFALL_V19_EDITOR_PREVIEW==0||MOONFALL_V19_EDITOR_PREVIEW==1,"Invalid equipment preview mode");
+inline constexpr bool bV19EditorPreview=MOONFALL_V19_EDITOR_PREVIEW==1;
+inline constexpr int ActiveSlotCount=bV19EditorPreview?FullSlotCount:SlotCount;
 using FLoadout=std::array<int,SlotCount>;
 constexpr bool Valid(int Code,int Slot) {
  if(Code<=0 || Slot<0 || Slot>=SlotCount || (Code/10000)%10!=Slot) return false;
@@ -299,7 +305,6 @@ enum class EFullSlot : int {
  Ring8=21, Ring9=22, Ring10=23
 };
 inline constexpr int SixteenSlotCount=16;
-inline constexpr int FullSlotCount=24;
 inline constexpr int RingSlotCount=10;
 inline constexpr std::array<int,RingSlotCount> RingSlots{{8,13,16,17,18,19,20,21,22,23}};
 constexpr int RingSlot(int Index) {
