@@ -839,7 +839,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Code = GetRawEquipmentSlotCode(Slot);", getter)
         self.assertIn("return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;", getter)
         raw = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(", 1)[1].split(
-            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
+            "void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[0]
         for slot, field in enumerate(("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode")):
             self.assertIn(f"case {slot}: return {field};", raw)
         self.assertIn("Slot >= MoonfallEquipmentLayout::FullSlotCount) return 0;", raw)
