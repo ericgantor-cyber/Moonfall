@@ -141,7 +141,9 @@ constexpr const char* RegionalDangerName(int Danger){
 constexpr EEvent ReactiveEncounter(EEvent Planned,EWeather Weather,int Danger,int DefeatedBosses){
  if(Danger<0||Danger>100||DefeatedBosses<0||DefeatedBosses>5)return Planned;
  if(Severe(Weather))return Planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
- if(Danger>=65&&(Planned==EEvent::Merchant||Planned==EEvent::Dispute))return EEvent::Patrol;
+ // Watch-level security responds to disputes before restricting commerce.
+ if(Danger>=35&&Planned==EEvent::Dispute)return EEvent::Patrol;
+ if(Danger>=65&&Planned==EEvent::Merchant)return EEvent::Patrol;
  if(Danger<35&&DefeatedBosses==5&&Planned==EEvent::Monster)return EEvent::Merchant;
  return Planned;
 }
@@ -183,6 +185,10 @@ static_assert(StepRegionalPressure(1,false)==0,"Pressure decay");
 static_assert(RegionalDanger(60,0)==100&&RegionalDanger(0,5)==0,"Danger bounds");
 static_assert(RegionalDanger(0,6)==-1,"Invalid dungeon count");
 static_assert(ReactiveEncounter(EEvent::Merchant,EWeather::Clear,70,0)==EEvent::Patrol,"High pressure patrol");
+static_assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,34,0)==EEvent::Dispute,"Calm road keeps civilian variety");
+static_assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,35,0)==EEvent::Patrol,"Watch level patrol responds to disputes");
+static_assert(ReactiveEncounter(EEvent::Merchant,EWeather::Clear,64,0)==EEvent::Merchant,"Watch level trade remains available");
+static_assert(ReactiveEncounter(EEvent::Rescue,EWeather::Clear,100,0)==EEvent::Rescue,"Rescue remains available at high danger");
 static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Clear,10,5)==EEvent::Merchant,"Liberated region trade");
 static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue,"Weather priority");
 // Encounter expiry is deliberately paused while a player is actively
