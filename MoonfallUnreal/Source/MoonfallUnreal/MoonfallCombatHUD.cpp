@@ -2732,7 +2732,9 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
-  if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
+  if (Hero->WaterCurrentStrength > 0.01f && Hero->WaterTonicRemaining <= 0.f)
+   DrawText(TEXT("CURRENT"),FLinearColor(0.40f,0.88f,0.95f),X+162.f,Y+3.f,nullptr,0.75f);
+  else if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
    DrawText(FString::Printf(TEXT("+%.0f%% SWIM"),(Hero->WaterSwimScale-1.f)*100.f),AirColor,X+150.f,Y+3.f,nullptr,0.75f);
   if (GetWorld()) {
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
