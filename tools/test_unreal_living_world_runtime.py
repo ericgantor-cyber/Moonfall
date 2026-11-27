@@ -16,6 +16,14 @@ class LivingWorldPolicyTests(unittest.TestCase):
 #include <initializer_list>
 using namespace MoonfallLivingSimulation;
 int main(){
+ for(unsigned int actorId=0;actorId<16u;++actorId){
+  const unsigned int lane=actorId%8u;
+  assert(MoonfallPackTactics::ApproachLaneIndex(actorId)==lane);
+  assert(MoonfallPackTactics::ApproachLaneSign(actorId)==(lane%2u==0u?-1.f:1.f));
+  assert(MoonfallPackTactics::ApproachLaneDistance(actorId)==70.f+25.f*static_cast<float>(lane/2u));
+ }
+ assert(MoonfallPackTactics::ApproachLaneIndex(8u)==0u);
+ assert(MoonfallPackTactics::ApproachLaneDistance(7u)==145.f);
  assert(MoonfallPackTactics::ShouldYieldAttackSlot(1));
  assert(MoonfallPackTactics::ShouldYieldAttackSlot(2));
  assert(!MoonfallPackTactics::ShouldYieldAttackSlot(0));
@@ -783,6 +791,8 @@ int main(){
         self.assertIn("MaxWindingAllies",block)
         self.assertIn("MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)",block)
         self.assertIn("MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID())",block)
+        self.assertIn("MoonfallPackTactics::ApproachLaneSign(LaneActorId)",block)
+        self.assertIn("MoonfallPackTactics::ApproachLaneDistance(LaneActorId)",block)
         self.assertNotIn("NearbyWindingAllies >= 2",block)
         self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))",block)
         self.assertIn("Other->GetOwner() != GetOwner()",block)
