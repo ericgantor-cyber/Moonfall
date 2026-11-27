@@ -2081,13 +2081,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         preview = hud.split("// Match the combat decoder:", 1)[1].split(
             'DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage', 1)[0]
-        self.assertIn("!Hero->InventoryItemCodes.Contains(Code)", preview)
-        self.assertIn("Slot != ExpectedSlot", preview)
-        self.assertIn("EncodedRarity == 0 && EncodedTrait != 0", preview)
-        self.assertIn("Code != EncodedTrait * 100000 + Slot * 10000", preview)
-        for code, slot in (("EquippedWeaponCode", "0"), ("EquippedArmorCode", "1"),
-                           ("EquippedAccessoryCode", "2")):
-            self.assertIn(f"ReadOwnedGear(Hero->{code}, {slot}", preview)
+        self.assertIn("WornCodes.IsValidIndex(ExpectedSlot)", preview)
+        self.assertIn("WornCodes[ExpectedSlot]", preview)
+        self.assertIn("MoonfallEquipmentLayout::DecodeFullItem(Code)", preview)
+        self.assertIn("!Decoded.IsValid()", preview)
+        self.assertIn("MoonfallEquipmentLayout::CanWearFullItem(", preview)
+        for slot in range(3):
+            self.assertIn(f"ReadOwnedGear({slot},", preview)
+        self.assertNotIn("InventoryItemCodes.Contains", preview)
+        self.assertNotIn("Code / 100000", preview)
+        self.assertIn("Hero->GetValidatedEquipmentCodes(CachedValidatedEquipmentCodes)", hud)
         for unsafe in ("Hero->WeaponTier", "Hero->ArmorTier", "Hero->AccessoryTier",
                        "Hero->WeaponAffix", "Hero->ArmorAffix", "Hero->AccessoryAffix"):
             self.assertNotIn(unsafe, preview)
