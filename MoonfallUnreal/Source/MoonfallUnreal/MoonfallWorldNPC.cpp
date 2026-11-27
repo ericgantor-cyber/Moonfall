@@ -163,7 +163,6 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      !bInConversation&&!bSheltering&&!bHoldPost);
  const bool bRegionalHome=Regional==RegionRoutine::ReturnHome;
  const bool bRegionalWatch=Regional==RegionRoutine::GuardWatch;
- const bool bRegionalCautious=Regional==RegionRoutine::CautiousWork;
  const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
      < FMath::Square(420.f);
  bool bRoutineHome=false;
