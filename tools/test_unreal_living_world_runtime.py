@@ -63,6 +63,20 @@ int main(){
  assert(FollowerStepBudget(200,24,0.2)==48);
  assert(FollowerStepBudget(200,48,0.2)==60);
  assert(FollowerStepBudget(200,48,0.2,80)==72);
+ using MoonfallWorldPolicy::CompanionTravelFormation;
+ using MoonfallWorldPolicy::CompanionTravelStepCap;
+ assert(!CompanionTravelFormation(100*100,0,false,false));
+ assert(CompanionTravelFormation(100*100,0,true,false));
+ assert(CompanionTravelFormation(121*121,0,false,false));
+ assert(!CompanionTravelFormation(80*80,0,true,false));
+ assert(!CompanionTravelFormation(500*500,100,true,false));
+ assert(!CompanionTravelFormation(500*500,0,true,true));
+ assert(!CompanionTravelFormation(std::numeric_limits<double>::infinity(),0,true,false));
+ assert(CompanionTravelStepCap(300,0)==70);
+ assert(CompanionTravelStepCap(550,0)==80);
+ assert(CompanionTravelStepCap(550,500*500)==90);
+ assert(CompanionTravelStepCap(550,900*900)==100);
+ assert(CompanionTravelStepCap(-1,900*900)==60);
  assert(FollowerStepBudget(200,72,0.2,80)==80);
  assert(FollowerStepBudget(40,80,0.2,80)==20);
  assert(FollowerStepBudget(200,80,0.5,80)==24);
@@ -717,7 +731,7 @@ int main(){
         self.assertIn("FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt,MaxStep)",npc)
         self.assertIn("float MaxStep",npc)
         self.assertIn("float MaxStep=60.f",npc_header)
-        self.assertIn("FollowerLastStep=FMath::Min(60.0,ActualMove.Size2D())",npc)
+        self.assertIn("FollowerLastStep=FMath::Min(static_cast<double>(MaxStep),ActualMove.Size2D())",npc)
         self.assertIn("!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2",npc)
         self.assertIn("FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1",npc)
         self.assertIn("else MarkBlocked();",npc)
@@ -728,9 +742,10 @@ int main(){
         self.assertIn("ActualMove=GetActorLocation()-Start",npc)
         self.assertIn("FMath::FixedTurn(CurrentYaw,DesiredYaw,45.f)",npc)
         self.assertIn("FMath::IsFinite(CurrentYaw)&&FMath::IsFinite(DesiredYaw)",npc)
-        self.assertIn("Velocity.SizeSquared2D()>FMath::Square(120.0)",mode)
+        self.assertIn("CompanionTravelFormation(Velocity.SizeSquared2D(),Velocity.Z",mode)
         self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep",mode)
-        self.assertIn("FMath::Abs(Velocity.Z)<100.0&&!bThreat",mode)
+        self.assertIn("Scout->bFollowerTravelFormation,bFreshThreat||Hero->IsRecentlyInCombatForAmbientAI()",mode)
+        self.assertIn("if(bTraveling!=Scout->bFollowerTravelFormation)",mode)
         self.assertIn("FindPathToLocationSynchronously",npc)
         self.assertIn("Ground.ImpactNormal.Z<0.65",npc)
         self.assertIn("AddActorWorldOffset(Move,true)",npc)
@@ -799,7 +814,7 @@ int main(){
         self.assertIn("if(!bFreshThreat){CompanionThreat.Reset();CompanionThreatAt=-1000.f;}",mode)
         self.assertIn("FMath::Abs(Player.Z-Threat->GetActorLocation().Z)<=100.0",mode)
         self.assertIn("PreviousIntent!=Scout->LivingIntent)ResetFollowerMomentum()",mode)
-        self.assertIn("HeroSpeed>=550.0?80.f:HeroSpeed>=300.0?70.f:60.f",mode)
+        self.assertIn("CompanionTravelStepCap(HeroSpeed,Separation)",mode)
         self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep",mode)
         self.assertIn("Scout->FollowerLastMoveAt=-1.f",mode)
         self.assertIn("LocalCompanion.Get()!=Scout||!IsLocalCompanionOwner(Hero)",mode)
