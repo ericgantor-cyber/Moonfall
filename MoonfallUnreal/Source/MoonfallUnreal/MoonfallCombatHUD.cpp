@@ -2718,6 +2718,26 @@ void AMoonfallCombatHUD::DrawHUD()
    }
   }
  }
+ // Three bounded preview contracts; no additional quest scan or persistent slots.
+ if (GetWorld() && Canvas->SizeX>=620 && Canvas->SizeY>=360) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview)) {
+   int32 Active=0;
+   for (int32 I=0; I<3; ++I) if (Preview->GetIslandQuestState(I)==1) ++Active;
+   if (Active>0) {
+    const float X=Canvas->SizeX-270.f,Y=110.f;
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,258.f,28.f+22.f*Active);
+    DrawText(TEXT("MOONWATCH CONTRACTS"),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+5.f,nullptr,0.8f);
+    int32 Row=0;
+    const TCHAR* Names[]={TEXT("Wreck survey"),TEXT("Cavern survey"),TEXT("Grotto recovery")};
+    for (int32 I=0; I<3; ++I) if (Preview->GetIslandQuestState(I)==1) {
+     const int32 Progress=Preview->GetIslandQuestProgress(I),Required=MoonfallIslandQuest::Required(I);
+     DrawText(FString::Printf(TEXT("%s: %d/%d%s"),Names[I],Progress,Required,Progress>=Required?TEXT(" - return"):TEXT("")),
+       FLinearColor::White,X+8.f,Y+26.f+22.f*Row++,nullptr,0.74f);
+    }
+   }
+  }
+ }
  // Temporary contextual resource, independent of the three permanent orbs.
  if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
