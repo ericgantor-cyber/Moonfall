@@ -228,6 +228,17 @@ int main() {
     assert(SchoolSpecies(-1)==-1 && SchoolSpecies(8)==-1);
     assert(SchoolPosition(0,-1,6000,4000).X==0);
     assert(SchoolWait(7)==3.5 && SchoolWait(2)==2);
+    FSchoolStock Stock;
+    for(int I=0;I<SchoolCapacity;++I) assert(Stock.Take(0,10));
+    assert(!Stock.Available(0,99.99) && !Stock.Take(0,99.99));
+    assert(Stock.Available(1,10) && Stock.Available(0,100));
+    assert(Stock.Take(0,100) && Stock.Used[0]==1);
+    assert(!Stock.Take(-1,100) && !Stock.Take(8,100));
+    assert(!Stock.Take(1,std::numeric_limits<double>::quiet_NaN()));
+    assert(TrophyChance(0,false,0)==2 && TrophyChance(27,true,1)==13);
+    MoonfallOceanGathering::FCollection Trophy;
+    assert(Trophy.Catch(0,0,1,true) && Trophy.LastSpecies==1 && Trophy.LastTrophy && Trophy.TrophyCatches==1);
+    assert(Trophy.Catch(0,0) && !Trophy.LastTrophy && Trophy.TrophyCatches==1 && Trophy.Catches()==2);
     MoonfallOceanGathering::FCollection SchoolCatch;
     assert(SchoolCatch.Catch(0,0,2) && SchoolCatch.Species(2)==1);
     assert(!SchoolCatch.Catch(0,0,3));
