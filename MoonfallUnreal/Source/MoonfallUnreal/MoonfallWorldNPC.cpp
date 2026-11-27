@@ -342,7 +342,8 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Scout
      && !MoonfallLivingSimulation::Severe(Weather) && (LivingIntent==TEXT("Guiding Nearby")||LivingIntent==TEXT("Holding Position"))) return LivingIntent;
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
-     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty() && !bRegionalIntent)
+     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty() && !bRegionalIntent
+     && LivingIntent!=TEXT("Seeking Shelter"))
   return LivingIntent;
  switch(MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)) {
  case MoonfallLivingSimulation::EActivity::Patrol:return TEXT("Patrolling");
