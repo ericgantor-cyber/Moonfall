@@ -4135,9 +4135,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("Distance > AttackRange * 2.f && Distance < 900.f", tick)
-        self.assertIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
-        self.assertIn("FlankSign = Lane % 2u == 0u ? -1.f : 1.f;", tick)
-        self.assertIn("FlankDistance = Lane >= 2u ? 105.f : 70.f;", tick)
+        self.assertIn("const uint32 LaneActorId = GetUniqueID();", tick)
+        self.assertIn("MoonfallPackTactics::ApproachLaneSign(LaneActorId)", tick)
+        self.assertIn("MoonfallPackTactics::ApproachLaneDistance(LaneActorId)", tick)
+        self.assertNotIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
         self.assertIn("if (BossPhase >= 2)", tick)
         self.assertIn("FlankDistance = 175.f;", tick)
         self.assertIn("FlankDistance = 125.f;", tick)
