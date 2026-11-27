@@ -40,6 +40,7 @@ public:
  FVector FollowerPathGoal=FVector::ZeroVector;
  float NextFollowerPathAt=-1.f;
  bool bFollowerWaypointValid=false;
+ int32 FollowerBlockedSteps=0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
  float CompanionHealth=100.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Companion")
