@@ -122,6 +122,8 @@ public:
  float GetResidentContextRowPitch(float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
+ // -1 merchant, -2 recipe list, 0-2 recipe detail.
+ int32 OceanRecipePage = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
  float ResidentTurnInConfirmAfter = 0.f;
