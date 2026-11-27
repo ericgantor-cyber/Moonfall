@@ -20,6 +20,15 @@ namespace MoonfallOceanCrafting
             for(int I=0;I<4;++I) if((C.Claimed&~Spent)&(1u<<I)) ++N;
             return N;
         }
+        bool HasMaterial(int Id,const MoonfallOceanGathering::FCollection& C) const {
+            return Id>=0&&Id<4&&((C.Claimed&~Spent)&(1u<<Id));
+        }
+        bool CanCraft(int Recipe,const MoonfallOceanGathering::FCollection& C,
+                      const MoonfallAquaticRewards::FSessionGear& Gear) const {
+            auto Copy=*this;
+            auto Preview=Gear;
+            return Copy.Craft(Recipe,C,Preview);
+        }
         bool Craft(int Recipe,const MoonfallOceanGathering::FCollection& C,
                    MoonfallAquaticRewards::FSessionGear& Gear) {
             const unsigned Mask=MaterialMask(Recipe);
