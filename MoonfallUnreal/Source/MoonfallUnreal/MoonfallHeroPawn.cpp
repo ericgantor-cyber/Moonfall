@@ -119,7 +119,8 @@ namespace {
 MoonfallEquipmentLayout::FLoadout ReadOwnedEquipmentLoadout(const AMoonfallHeroPawn& Hero)
 {
  MoonfallEquipmentLayout::FLoadout Equipped{};
- for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)
+ // This legacy helper returns nine positions even after the full layout activates.
+ for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount && Slot < MoonfallEquipmentLayout::SlotCount; ++Slot)
   Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);
  return Equipped;
 }
@@ -5244,7 +5245,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=CheckedSavedWorn[Slot];
  // A defeated loadout may select only gear still owned after checkpoint restore.
  // Reconcile armor capacity against the saved armor tier exactly once.
- if (DefeatedEquipmentSelection[0] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
+ if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[0], 0)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[0]))
   RestoreGear(DefeatedEquipmentSelection[0], 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
  if (DefeatedEquipmentSelection[1] && MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[1], 1)
      && InventoryItemCodes.Contains(DefeatedEquipmentSelection[1])) {
@@ -5254,7 +5256,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    MaxHealth = NewCap;
   }
  }
- if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
+ if (MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[2], 2)
+     && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  // Restore only owned, active expanded gear selected while defeated.
  static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::FullSlotCount,

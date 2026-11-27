@@ -1963,6 +1963,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_checkpoint_recovery_checks_full_equipment_ownership(self):
         load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1]
+        for slot in (0, 1, 2):
+            self.assertIn(f"MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[{slot}], {slot})", load)
         recovery = load.split("FFullLoadout RecoveryWorn{}", 1)[1].split("RefreshEquipmentTier();", 1)[0]
         self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", recovery)
         self.assertIn("&&MoonfallEquipmentLayout::IsRingSlot(Slot))continue;", recovery)
@@ -2010,6 +2012,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetEquipmentSlotCode", 1)[0]
         self.assertIn("MoonfallEquipmentLayout::FLoadout Equipped{};", snapshot)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", snapshot)
+        self.assertIn("Slot < MoonfallEquipmentLayout::SlotCount", snapshot)
         self.assertIn("Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);", snapshot)
         self.assertIn("return Equipped;", snapshot)
         self.assertEqual(self.hero_cpp.count("ReadOwnedEquipmentLoadout(*this)"), 3)
