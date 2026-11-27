@@ -9,7 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
     grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry, wreck_geometry,
-    MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
+    MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH, EXPANDED_HALF_WIDTH, EXPANDED_HALF_LENGTH,
+    cave_geometry, island_geometry
 )
 
 MAP_PATH = "/Game/DeepWaters/Maps/DeepWatersPreview"
@@ -128,6 +129,13 @@ def main():
             block(label, pos, scale)
         for label, pos, scale, yaw in wreck_geometry():
             block(label, pos, scale, yaw)
+        if extent.x >= EXPANDED_HALF_WIDTH and extent.y >= EXPANDED_HALF_LENGTH:
+            for label, pos, scale in cave_geometry():
+                block(label, pos, scale)
+            for label, pos, scale in island_geometry():
+                block(label, pos, scale)
+            block("Moonwatch Isle foundation", (0, 3300, -190), (12, 8, 4.4))
+            unreal.log("Expanded basin enabled: two caverns and Moonwatch Isle.")
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
         for index, (name, (x, y, z)) in enumerate(grotto_layout()):
