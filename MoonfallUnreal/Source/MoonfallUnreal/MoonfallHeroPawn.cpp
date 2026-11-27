@@ -447,6 +447,21 @@ float AMoonfallHeroPawn::GetCriticalChance() const
    0.05f, 0.25f);
 }
 
+void AMoonfallHeroPawn::GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const
+{
+ // One validated snapshot; unequipped, malformed and duplicate unowned items confer no bonus.
+ TArray<int32> Codes;
+ GetValidatedEquipmentCodes(Codes);
+ const auto FocusRarity = [&](int32 Slot) {
+  int32 Trait=0, Rarity=0, Tier=0;
+  return Codes.IsValidIndex(Slot) && DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)
+      && Trait==3 ? Rarity : -1;
+ };
+ OutBreath = MoonfallWaterRules::GearBreathMultiplier(bRaceChosen,RaceId,
+     FMath::Max(FocusRarity(2),FocusRarity(9)));
+ OutSwim = MoonfallWaterRules::GearSwimMultiplier(FocusRarity(7));
+}
+
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
  const float TraitHaste = ValidEquippedTraitRarity(GetEquipmentSlotCode(2), 2, 3) * 0.006f;
@@ -736,7 +751,17 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
- const float BreathScale = MoonfallWaterRules::BreathMultiplier(bRaceChosen, RaceId);
+ if (bWaterSwimming) {
+  GetWaterTraversalBonuses(WaterBreathScale,WaterSwimScale);
+  if (auto* Movement = GetCharacterMovement())
+   Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale * WaterSwimScale;
+ } else {
+  WaterBreathScale = MoonfallWaterRules::BreathMultiplier(bRaceChosen,RaceId);
+  WaterSwimScale = 1.f;
+  if (auto* Movement = GetCharacterMovement())
+   Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
+ }
+ const float BreathScale = WaterBreathScale;
  const float PreviousAir = Oxygen;
  const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
