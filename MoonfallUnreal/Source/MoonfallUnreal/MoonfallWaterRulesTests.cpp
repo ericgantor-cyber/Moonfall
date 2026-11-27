@@ -6,7 +6,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
-    TestEqual(TEXT("Submerged drain"), AdvanceAir(100.f, 5.f, true, true, false), 80.f);
+    TestTrue(TEXT("Half breath after 90 seconds"), FMath::IsNearlyEqual(AdvanceAir(100.f, 90.f, true, true, false), 50.f));
+    TestTrue(TEXT("Three-minute breath"), FMath::IsNearlyZero(AdvanceAir(100.f, 180.f, true, true, false)));
     TestEqual(TEXT("Surface refill"), AdvanceAir(50.f, 1.f, true, false, false), 75.f);
     TestEqual(TEXT("Lower bound"), AdvanceAir(1.f, 10.f, true, true, false), 0.f);
     TestEqual(TEXT("Upper bound"), AdvanceAir(99.f, 10.f, true, false, false), 100.f);
@@ -16,7 +17,7 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     float Exposure = 0.f;
     TestFalse(TEXT("Air remains"), AdvanceDrowning(Exposure, 2.f, 0.25f, true, false));
     TestEqual(TEXT("No exposure before depletion"), Exposure, 0.f);
-    TestFalse(TEXT("Partial empty frame"), AdvanceDrowning(Exposure, 0.5f, 0.25f, true, false));
+    TestFalse(TEXT("Partial empty frame"), AdvanceDrowning(Exposure, DrainPerSecond * 0.125f, 0.25f, true, false));
     TestEqual(TEXT("Only empty portion counted"), Exposure, 0.125f);
     TestFalse(TEXT("Pause preserves exposure"), AdvanceDrowning(Exposure, 0.f, 0.25f, true, true));
     TestEqual(TEXT("Paused exposure unchanged"), Exposure, 0.125f);
