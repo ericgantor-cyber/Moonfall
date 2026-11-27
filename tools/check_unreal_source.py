@@ -4252,6 +4252,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_mastery_crafting_and_jump_preview_contract(self):
+        for method, notification in (
+            ("UpgradeInventoryItem", "OnEquipmentCrafted"),
+            ("ReforgeInventoryItemAffix", "OnEquipmentReforged"),
+            ("AscendInventoryItemRarity", "OnEquipmentAscended"),
+        ):
+            body = self.hero_cpp.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}\n", 1)[0]
+            reward = "AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::CompletedCraft);"
+            self.assertEqual(body.count(reward), 1)
+            self.assertLess(body.index("Salvage -= Cost;"), body.index(reward))
+            self.assertLess(body.index(reward), body.index(notification + "("))
+        jump = self.hero_cpp.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split("void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("#if WITH_EDITOR", jump)
+        self.assertIn("GetSkillMasteryBonusBps(static_cast<int32>(MoonfallSkillMastery::Skill::Agility)):0", jump)
+        self.assertIn("MasteryBaseJumpZ*(1.f+float(Bonus)/10000.f)", jump)
+        self.assertNotIn("AirDash", self.hero_cpp)
+
     def test_melee_callbacks_revalidate_actors_before_followups(self):
         melee = self.hero_cpp.split("void AMoonfallHeroPawn::MeleeAttack()", 1)[1].split("void AMoonfallHeroPawn::BreakGuard()", 1)[0]
         caster = "if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;"
