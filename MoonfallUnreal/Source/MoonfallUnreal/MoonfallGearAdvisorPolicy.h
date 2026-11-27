@@ -464,6 +464,19 @@ bool TryMoveFullRing(int From,int To,const FFullLoadout& Worn,int ActiveSlots,
  Out=Candidate;
  return true;
 }
+// Removing a worn reference does not remove the physical bag item.
+template<class Bag>
+bool TryRemoveFullRing(int Slot,const FFullLoadout& Worn,int ActiveSlots,
+    bool InCombat,const Bag& Inventory,FFullLoadout& Out) {
+ if(InCombat||!ValidFullActiveCount(ActiveSlots)||!IsRingSlot(Slot)
+     ||Slot>=ActiveSlots||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)
+     ||!Worn[Slot])return false;
+ auto Candidate=Worn;
+ Candidate[Slot]=0;
+ if(!IsFullLoadoutOwned(Candidate,ActiveSlots,Inventory))return false;
+ Out=Candidate;
+ return true;
+}
 // V17/V18 retain their original strict slot semantics. V19 permits ring
 // interchange only after bag multiplicities and legacy mirrors are verified.
 template<class Bag>

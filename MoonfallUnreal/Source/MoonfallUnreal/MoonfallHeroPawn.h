@@ -482,6 +482,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
  // RingSlotIndex is zero-based in the stable ten-finger order.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryRing(int32 InventoryIndex, int32 RingSlotIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool MoveEquippedRing(int32 FromRingIndex,int32 ToRingIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool UnequipRing(int32 RingSlotIndex);
  // Explicit inventory action, never automatic on loot pickup.
  // Read-only advisor from #899. Never equips, sorts, saves or mutates the bag.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
@@ -507,6 +509,7 @@ private:
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
  bool CanCraftEquipmentCopy(int32 Code,int32 Slot) const;
+ bool CanEditEquippedRings() const;
  int32 GetLootComparisonTier(int32 Slot) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;

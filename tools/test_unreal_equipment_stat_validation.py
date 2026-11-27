@@ -147,6 +147,23 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertLess(body.index(guard), body.index("const TArray<int32> PreviousBag"))
         self.assertIn("InventoryItemCodes=PreviousBag;", body)
 
+    def test_native_ring_move_and_remove_are_guarded_and_bag_read_only(self):
+        guard = self.source.split("bool AMoonfallHeroPawn::CanEditEquippedRings()", 1)[1].split(
+            "bool AMoonfallHeroPawn::MoveEquippedRing(", 1)[0]
+        for token in ("Health>0.f", "!IsRecentlyInCombatForAmbientAI()",
+                      "!bEquipmentCraftInProgress", "!bEquipBestInProgress",
+                      "!bPersistentSaveWritesBlocked", "!bWorldProgressLoadInProgress",
+                      "ActiveSlotCount>MoonfallEquipmentLayout::SlotCount"):
+            self.assertIn(token, guard)
+        for name, policy in (("MoveEquippedRing", "TryMoveFullRing"),
+                             ("UnequipRing", "TryRemoveFullRing")):
+            body = self.source.split("bool AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("if(!CanEditEquippedRings())return false;", body)
+            self.assertLess(body.index(policy), body.index("ExtraEquippedCodes["))
+            self.assertLess(body.index("ExtraEquippedCodes["), body.index("RefreshEquipmentTier();"))
+            for forbidden in ("InventoryItemCodes.Remove", "InventoryItemCodes.Add", "SaveWorldProgress("):
+                self.assertNotIn(forbidden, body)
+
     def test_expanded_crafting_preflights_physical_copies(self):
         source = self.source
         helper = source.split("bool AMoonfallHeroPawn::CanCraftEquipmentCopy(", 1)[1].split(
