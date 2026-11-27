@@ -26,5 +26,6 @@ private:
  int32 CachedAdvisorWeapon = 0;
  int32 CachedAdvisorArmor = 0;
  int32 CachedAdvisorAccessory = 0;
+ uint32 CachedAdvisorLoadoutHash = 0;
  int32 CachedAdvisorScore = 0;
 };
