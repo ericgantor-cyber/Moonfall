@@ -447,6 +447,7 @@ public:
  bool HitTestInventoryEquipButton() const;
  int32 HitTestInventoryRingStrip() const;
  int32 GetFocusedRingIndex() const;
+ int32 GetRingNavigationSwapSource() const;
  bool HasRingNavigationFocus() const;
  int32 GetRingPointerDragCode() const;
  int32 GetRingPointerDragFinger() const { return RingDragFingerIndex; }
@@ -517,6 +518,14 @@ private:
  bool CanCraftEquipmentCopy(int32 Code,int32 Slot) const;
  bool CanEditEquippedRings() const;
  int32 RingNavigationIndex=INDEX_NONE;
+ int32 RingNavigationSwapSource=INDEX_NONE;
+ int32 RingNavigationSwapCode=0;
+ uint32 RingNavigationSwapRevision=0;
+ uint64 RingNavigationSwapFingerprint=0;
+ void ClearRingNavigationSwap();
+ void ClearRingNavigationFocus();
+ void ArmOrCancelRingNavigationSwap();
+ void ConfirmRingNavigationAction();
  bool CanFocusRingNavigation() const;
  void ClearRingPointerDrag();
  void BeginRingPointerDrag(int32 BagIndex,int32 FingerIndex);
