@@ -4749,6 +4749,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);
  // Reject inactive or unowned references across the entire 24-slot storage.
  // Keep the V17 writer until the remaining native systems are activated.
+ static_assert(MoonfallEquipmentLayout::ActiveSlotCount == MoonfallEquipmentLayout::SlotCount,
+     "Activate expanded equipment only with a matching persistent save writer and loader.");
  if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
