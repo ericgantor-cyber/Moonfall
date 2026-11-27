@@ -5936,17 +5936,26 @@ bool AMoonfallHeroPawn::CanDropDraggedRingOnFinger(int32 FingerIndex) const
  const int32 Code=GetRingPointerDragCode();
  if(Code<=0)return false;
  const int32 Target=MoonfallEquipmentLayout::RingSlot(FingerIndex);
+ if(Target<0||Target>=MoonfallEquipmentLayout::ActiveSlotCount)return false;
+ // The drag identity and both revisions are checked above on every call.
+ // Zero means not evaluated, 1 allowed, -1 rejected. Release still revalidates.
+ int8& Cached=RingDragTargetCache[FingerIndex];
+ if(Cached!=0)return Cached>0;
  MoonfallEquipmentLayout::FFullLoadout Worn{},Next{};
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)Worn[Slot]=GetRawEquipmentSlotCode(Slot);
  if(RingDragBagIndex!=INDEX_NONE){
   if(!InventoryItemCodes.IsValidIndex(RingDragBagIndex)||InventoryItemCodes[RingDragBagIndex]!=Code)return false;
-  return MoonfallEquipmentLayout::TryAssignFullRing(Code,Target,Worn,
+  const bool Allowed=MoonfallEquipmentLayout::TryAssignFullRing(Code,Target,Worn,
       MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next);
+  Cached=Allowed?1:-1;
+  return Allowed;
  }
  const int32 From=MoonfallEquipmentLayout::RingSlot(RingDragFingerIndex);
  if(From<0||Worn[From]!=Code)return false;
- return MoonfallEquipmentLayout::TryMoveFullRing(From,Target,Worn,
+ const bool Allowed=MoonfallEquipmentLayout::TryMoveFullRing(From,Target,Worn,
      MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next);
+ Cached=Allowed?1:-1;
+ return Allowed;
 }
 
 void AMoonfallHeroPawn::ClearRingPointerDrag()
@@ -5955,6 +5964,7 @@ void AMoonfallHeroPawn::ClearRingPointerDrag()
  RingDragCode=0;
  RingDragInventoryRevision=0;
  RingDragLoadoutFingerprint=0;
+ RingDragTargetCache.fill(0);
 }
 
 void AMoonfallHeroPawn::BeginRingPointerDrag(int32 BagIndex,int32 FingerIndex)
