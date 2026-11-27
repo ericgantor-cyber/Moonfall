@@ -48,6 +48,14 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Three pieces increase speed"),FMath::IsNearlyEqual(SetSwimMultiplier(1.30f,3),1.40f));
     TestTrue(TEXT("Set breath remains bounded"),FMath::IsNearlyEqual(SetBreathMultiplier(2.6f,3),2.86f));
     TestTrue(TEXT("Drain reflects set bonus"),FMath::IsNearlyEqual(EffectiveDrain(2.86f),100.f/514.8f));
+    TestTrue(TEXT("Critical air triggers tonic"),ShouldUseTonic(10.f,0.f,true,false));
+    TestFalse(TEXT("No early tonic"),ShouldUseTonic(11.f,0.f,true,false));
+    TestFalse(TEXT("No tonic stacking"),ShouldUseTonic(0.f,1.f,true,false));
+    TestFalse(TEXT("Air pocket does not consume tonic"),ShouldUseTonic(0.f,0.f,false,false));
+    TestFalse(TEXT("Paused world does not consume tonic"),ShouldUseTonic(0.f,0.f,true,true));
+    TestEqual(TEXT("Two minute duration"),AdvanceTonic(TonicDuration,60.f,false),60.f);
+    TestEqual(TEXT("Pause preserves tonic"),AdvanceTonic(60.f,20.f,true),60.f);
+    TestEqual(TEXT("Tonic expires"),AdvanceTonic(1.f,2.f,false),0.f);
     return true;
 }
 #endif
