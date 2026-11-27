@@ -49,10 +49,10 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const double Distance=FVector::Dist2D(Start,Goal);
  const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
  if(!FMath::IsFinite(Distance))return false;
- if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;return true;}
+ if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;return true;}
  // A moving goal can invalidate a cached waypoint without bypassing the query cooldown.
  if(bFollowerWaypointValid&&(FollowerPathGoal.ContainsNaN()||
-     FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0)))bFollowerWaypointValid=false;
+     FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0))){bFollowerWaypointValid=false;FollowerBlockedSteps=0;}
  // At most one synchronous nav query per second for the active follower.
  if(Now>=NextFollowerPathAt){
   NextFollowerPathAt=Now+1.f;bFollowerWaypointValid=false;
@@ -69,24 +69,39 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const FVector Target=bFollowerWaypointValid?FollowerWaypoint:Goal;
  FVector Step=Target-Start;Step.Z=0;
  if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;return false;}
+ // Try one bounded diagonal detour on a later pulse, never an extra trace
+ // batch. Alternate sides after repeated obstructions; authored nav wins.
+ const bool bDetour=!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2;
+ if(bDetour){
+  const FVector Forward=Step.GetSafeNormal2D();
+  const FVector Side(-Forward.Y,Forward.X,0);
+  const double Sign=((FollowerBlockedSteps/2+static_cast<int32>(GetTypeHash(ResidentId)%2u))%2)?1.0:-1.0;
+  Step=(Forward*0.5+Side*Sign).GetSafeNormal2D()*Step.Size2D();
+ }
+ const auto MarkBlocked=[&](){
+  bFollowerWaypointValid=false;
+  FollowerBlockedSteps=FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1;
+ };
  const double StepLimit=bSameFloor?FMath::Min(60.0,FMath::Max(0.0,Distance-StopDistance)):60.0;
  const FVector End=Start+Step.GetClampedToMaxSize2D(StepLimit);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
  FHitResult Obstacle;
  if(GetWorld()->LineTraceSingleByChannel(Obstacle,Start+FVector(0,0,55),End+FVector(0,0,55),ECC_Visibility,Params)){
-  bFollowerWaypointValid=false;return false;
+  MarkBlocked();return false;
  }
  FHitResult Ground,OldGround;
  if(!GetWorld()->LineTraceSingleByChannel(Ground,End+FVector(0,0,150),End-FVector(0,0,150),ECC_Visibility,Params)
      ||!GetWorld()->LineTraceSingleByChannel(OldGround,Start+FVector(0,0,150),Start-FVector(0,0,150),ECC_Visibility,Params)
      ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0){
-  bFollowerWaypointValid=false;return false;
+  MarkBlocked();return false;
  }
  FVector Move=End-Start;Move.Z=Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z;
  AddActorWorldOffset(Move,true);
  const FVector ActualMove=GetActorLocation()-Start;
- if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0)
+ if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0){
+  FollowerBlockedSteps=0;
   SetActorRotation(FRotator(0.f,ActualMove.Rotation().Yaw,0.f));
+ }else MarkBlocked();
  return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance&&FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0;
 }
 bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
@@ -124,7 +139,7 @@ bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
   FHitResult Sight;
   if(GetWorld()->LineTraceSingleByChannel(Sight,Center,Player,ECC_Visibility,GroundParams))continue;
   if(!TeleportTo(Destination,GetActorRotation(),false,false))continue;
-  bFollowerWaypointValid=false;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
+  bFollowerWaypointValid=false;FollowerBlockedSteps=0;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
   return true;
  }
  return false;
