@@ -3,6 +3,7 @@
 //          -ExecCmds="Automation RunTests Moonfall.Dungeons; Quit" -log
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "HAL/PlatformMisc.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
@@ -230,8 +231,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallEquipmentSaveRoundTripTest,
 
 bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
 {
- // Exercise the complete V17 serialized layout, not live equipping. No disk
- // slot is read or written; the fifteen inactive gameplay slots remain disabled.
+ // Verify the requested mode matches the actual compiled editor module.
+ // This fails closed if an incremental build reused the wrong configuration.
+ const FString RequestedPreview=FPlatformMisc::GetEnvironmentVariable(TEXT("MOONFALL_V19_EDITOR_PREVIEW"));
+ if(!TestEqual(TEXT("Compiled equipment preview matches requested mode"),
+     MoonfallEquipmentLayout::bV19EditorPreview,RequestedPreview==TEXT("1")))return false;
+ if(!TestEqual(TEXT("Compiled active equipment slot count"),
+     MoonfallEquipmentLayout::ActiveSlotCount,RequestedPreview==TEXT("1")?24:9))return false;
+ // Exercise the serialized layouts in memory, not live equipping or disk saves.
  UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!TestNotNull(TEXT("Create equipment save"), Original)) return false;

@@ -41,6 +41,27 @@ int main() {
  assert(New.Finish().Changes==3);
  namespace L=MoonfallEquipmentLayout;
  static_assert(L::SlotCount==9);
+#if MOONFALL_V19_EDITOR_PREVIEW
+ static_assert(L::bV19EditorPreview&&L::ActiveSlotCount==24);
+#else
+ static_assert(!L::bV19EditorPreview&&L::ActiveSlotCount==9);
+#endif
+ static_assert(L::RingSlotCount==10);
+ assert(L::ValidFullActiveCount(L::ActiveSlotCount));
+ const int LastFinger=L::RingSlot(9);
+ const int LastRing=L::EncodeFullItem(LastFinger,1,2,5);
+ assert(L::CanOperateFull(LastRing,L::ActiveSlotCount,L::EInventoryOperation::Equip)==L::bV19EditorPreview);
+ L::FFullLoadout PreviewActivation{};
+ const int SharedPreviewRing=L::EncodeFullItem(8,1,2,5);
+ std::vector<int> PreviewActivationBag;
+ for(int Finger:L::RingSlots){
+  if(Finger>=L::ActiveSlotCount)break;
+  PreviewActivation[Finger]=SharedPreviewRing;
+  PreviewActivationBag.push_back(SharedPreviewRing);
+ }
+ assert(L::IsFullLoadoutOwned(PreviewActivation,L::ActiveSlotCount,PreviewActivationBag));
+ const auto ActiveRingBonuses=L::BuildRingBonuses(PreviewActivation,L::ActiveSlotCount,PreviewActivationBag);
+ assert(ActiveRingBonuses.Valid&&ActiveRingBonuses.EquippedCount==(L::bV19EditorPreview?10:1));
  constexpr auto Migrated=L::ExpandLegacy(G::FEquipped{101005,111005,121005});
  static_assert(Migrated[0]==101005&&Migrated[1]==111005&&Migrated[2]==121005);
  static_assert(Migrated[3]==0&&Migrated[8]==0&&L::ValidLayout(Migrated));

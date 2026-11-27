@@ -563,7 +563,238 @@ jobs:
                        ('unreal-source-checks.yml', 'unreal-gear-advisor-policy.yml')]
           counts = Counter()
           for workflow in workflows:
-              counts.update(re.findall(r'^\s+run: bash tools/run_unreal_sanitizer\.sh (tools/test_[a-z0-9_]+\.cpp)$',
+              counts.update(re.findall(r'^[ \t]+(?:run: )?bash tools/run_unreal_sanitizer\.sh (tools/test_[a-z0-9_]+\.cpp),
+                                       workflow.read_text(), re.MULTILINE))
+          missing = sorted(files - counts.keys())
+          stale = sorted(counts.keys() - files)
+          duplicates = sorted(name for name, count in counts.items() if count != 1)
+          if not files or missing or stale or duplicates:
+              raise SystemExit(f'Sanitizer coverage mismatch: missing={missing}, stale={stale}, duplicates={duplicates}')
+          print(f'All {len(files)} portable C++ suites have exactly one default sanitizer invocation.')
+          preview = re.findall(r'^[ \t]+bash tools/run_unreal_sanitizer\.sh tools/test_unreal_gear_advisor_policy\.cpp --v19-preview
+          PY
+
+      - name: Publish independent regression results
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          STEP_RESULTS: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          steps = json.loads(os.environ['STEP_RESULTS'])
+          checks = [["check_validate_unreal_source_layout","Validate Unreal source layout"],["check_run_complete_unreal_integration_regression_tests","Run complete Unreal integration regression tests"],["check_compile_and_run_original_141_node_ue5_talent_rules_c_17","Compile and run original 141-node UE5 talent rules (C++17)"],["check_compile_and_run_performance_audit_and_bug_reporter_regressions_c_17","Compile and run performance audit and bug reporter regressions (C++17)"],["check_verify_every_ue5_talent_matches_the_canonical_141_node_catalog","Verify every UE5 talent matches the canonical 141-node catalog"],["check_validate_ue5_v13_talent_save_load_and_rollback_contracts","Validate UE5 V13 talent save, load and rollback contracts"],["check_compile_and_test_full_141_node_talent_web_layout_and_hit_testing","Compile and test full 141-node talent-web layout and hit-testing"],["check_verify_shared_ue5_panel_chrome_focus_highlights_and_compact_accessibility","Verify shared UE5 panel chrome, focus highlights and compact accessibility"],["check_verify_12_saved_racial_passives_and_c_character_ancestry_pages","Verify 12 saved racial passives and C character ancestry pages"],["check_verify_creator_to_gameplay_ancestry_save_backed_confirmation","Verify creator-to-gameplay ancestry save-backed confirmation"],["check_verify_playable_talent_web_input_modal_safety_and_native_hud_contracts","Verify playable talent web input, modal safety and native HUD contracts"],["check_verify_red_damage_feedback_and_talent_web_defeat_recovery","Verify red damage feedback and talent-web defeat recovery"],["check_verify_wasd_and_arrow_keys_are_movement_only_across_engines","Verify WASD and arrow keys are movement-only across engines"],["check_verify_native_omniattack_and_movement_only_keyboard_controls","Verify native Omniattack and movement-only keyboard controls"],["check_verify_buffered_sword_combos_and_enemy_npc_pause_behavior","Verify buffered sword combos and enemy NPC pause behavior"],["check_verify_shattered_sanctuary_gothic_architecture_and_safe_paths","Verify Shattered Sanctuary gothic architecture and safe paths"],["check_verify_firstlight_tutorial_and_safe_practice_sentry_ai","Verify Firstlight tutorial and safe practice sentry AI"],["check_verify_six_region_climate_and_living_world_runtime","Verify six-region climate and living-world runtime"],["check_compile_and_execute_v27_living_ai_policies_c_17","Compile and execute V27 living AI policies (C++17)"],["check_verify_ue5_combat_momentum_and_immediate_flinch_regressions","Verify UE5 combat momentum and immediate flinch regressions"],["check_verify_native_spell_book_catalog_layout_and_modal_controls","Verify native Spell Book catalog, layout, and modal controls"],["check_run_unreal_equipment_and_loot_safety_regression_tests","Run Unreal equipment and loot safety regression tests"],["check_verify_combat_hud_scan_regressions","Verify combat HUD scan regressions"],["check_verify_enemy_navigation_budget_regressions","Verify enemy navigation budget regressions"],["check_verify_cooked_content_gates_for_windows_installer","Verify cooked content gates for Windows installer"],["check_test_windows_packaged_root_discovery_with_synthetic_layouts","Test Windows packaged root discovery with synthetic layouts"],["check_test_native_automation_evidence_parser_with_synthetic_records","Test native automation evidence parser with synthetic records"],["check_parse_windows_build_scripts","Parse Windows build scripts"],["check_parse_github_hosted_unreal_inline_powershell","Parse GitHub-hosted Unreal inline PowerShell"],["check_test_unreal_5_4_engine_guard_with_synthetic_installations","Test Unreal 5.4 engine guard with synthetic installations"],["check_validate_unreal_project_and_module_configuration","Validate Unreal project and module configuration"],["check_sanitize_talent_rules","Sanitize 141-node talent rules"],["check_sanitize_talent_web","Sanitize Talent web layout and hit testing"],["check_sanitize_performance","Sanitize Performance audit and bug reporter"],["check_sanitize_living_world","Sanitize Living world AI policy"],["check_sanitize_npc","Sanitize NPC AI policy"],["check_sanitize_attack_tells","Sanitize Combat attack tells"],["check_sanitize_hit_feedback","Sanitize Confirmed hit feedback"],["check_sanitize_dungeon_startup","Sanitize Dungeon startup safety"],["check_sanitize_quest_xp","Sanitize Quest XP recovery"],["check_sanitize_ferry_routes","Sanitize Ferry route safety"],["check_sanitize_ferry_autosail","Sanitize Ferry automatic sailing"],["check_sanitize_ferry_landing","Sanitize Ferry dry landing safety"],["check_sanitize_attack_outcome","Sanitize Combat attack outcomes"],["check_sanitize_chronicle","Sanitize Chronicle progression"],["check_sanitize_chronicle_ui","Sanitize Chronicle UI"],["check_sanitize_elite_tactics","Sanitize Elite enemy tactics"],["check_sanitize_forge_forecast","Sanitize Forge crafting forecasts"],["check_sanitize_guardian_footprints","Sanitize Guardian footprints"],["check_sanitize_living_world_rules_only","Sanitize Living world rules"],["check_sanitize_north_catalog_only","Sanitize Northern zone catalog"],["check_sanitize_north_discovery_routes","Sanitize Northern discovery routes"],["check_sanitize_north_layout_policy","Sanitize Northern continent layout"],["check_sanitize_north_sanctum_policy","Sanitize Northern sanctum geometry"],["check_sanitize_north_weather_policy","Sanitize Northern weather"],["check_sanitize_north_zones","Sanitize Northern zone integration"],["check_sanitize_resident_morality_only","Sanitize Resident morality"],["check_sanitize_world_quests","Sanitize World quests and journal"],["check_sanitizer_coverage","Verify complete portable sanitizer coverage"]]
+          import re
+          from pathlib import Path
+          from collections import Counter
+          checkout = steps.get('checkout', {}).get('outcome', 'not-run')
+          sha = None
+          registry_valid = False
+          if checkout == 'success':
+              declared = re.findall(r'^        id: (check_[a-z0-9_]+)$',
+                                    Path('.github/workflows/unreal-source-checks.yml').read_text(), re.MULTILINE)
+              registry_valid = Counter(declared) == Counter(key for key, _ in checks)
+              sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          revision_valid = sha == os.environ['GITHUB_SHA']
+          results = [{'id': key, 'name': name, 'outcome': steps.get(key, {}).get('outcome', 'not-run')}
+                     for key, name in checks]
+          counts = dict(Counter(item['outcome'] for item in results))
+          verified = checkout == 'success' and registry_valid and revision_valid and counts.get('success', 0) == len(checks)
+          evidence = {
+              'schema_version': 1,
+              'scope': 'source contracts and standalone policy tests',
+              'native_unreal_compilation_verified': False,
+              'packaged_gameplay_verified': False,
+              'checkout': checkout,
+              'requested_sha': os.environ['GITHUB_SHA'],
+              'checked_out_sha': sha,
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'registry_valid': registry_valid,
+              'revision_valid': revision_valid,
+              'verified': verified,
+              'counts': counts,
+              'checks': results,
+          }
+          evidence_path = Path(os.environ['RUNNER_TEMP']) / ('MoonfallSource-' + evidence['run_id'] + '-' + evidence['run_attempt'])
+          evidence_path.mkdir(exist_ok=False)
+          (evidence_path / 'verification.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as report:
+              report.write('### UE5 source regression results\n\n')
+              report.write(f'Checkout: {checkout}\n\n')
+              report.write(f'Checked-out commit: `{sha}`\n\n')
+              report.write(f'Revision matches requested SHA: {revision_valid}; registry valid: {registry_valid}\n\n')
+              report.write('Scope: source contracts and standalone policy tests only. Native Unreal compilation and gameplay are NOT verified.\n\n')
+              report.write('| Check | Outcome |\n| --- | --- |\n')
+              for item in results:
+                  report.write(f"| {item['name']} | {item['outcome']} |\n")
+              report.write('\n' + ', '.join(f'{n} {status}' for status, n in sorted(counts.items())) + '\n')
+          # The original steps are still required; none use continue-on-error.
+          # Also fail closed if a required check did not actually complete successfully.
+          if not verified:
+              raise SystemExit('Required checks, registry or revision did not verify; inspect the summary and evidence.')
+          PY
+      - name: Preserve commit-specific source verification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-source-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/MoonfallSource-${{ github.run_id }}-${{ github.run_attempt }}/verification.json
+          if-no-files-found: error
+          retention-days: 30
+,
+                                       workflow.read_text(), re.MULTILINE))
+          missing = sorted(files - counts.keys())
+          stale = sorted(counts.keys() - files)
+          duplicates = sorted(name for name, count in counts.items() if count != 1)
+          if not files or missing or stale or duplicates:
+              raise SystemExit(f'Sanitizer coverage mismatch: missing={missing}, stale={stale}, duplicates={duplicates}')
+          print(f'All {len(files)} portable C++ suites have exactly one sanitizer invocation.')
+          PY
+
+      - name: Publish independent regression results
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          STEP_RESULTS: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          steps = json.loads(os.environ['STEP_RESULTS'])
+          checks = [["check_validate_unreal_source_layout","Validate Unreal source layout"],["check_run_complete_unreal_integration_regression_tests","Run complete Unreal integration regression tests"],["check_compile_and_run_original_141_node_ue5_talent_rules_c_17","Compile and run original 141-node UE5 talent rules (C++17)"],["check_compile_and_run_performance_audit_and_bug_reporter_regressions_c_17","Compile and run performance audit and bug reporter regressions (C++17)"],["check_verify_every_ue5_talent_matches_the_canonical_141_node_catalog","Verify every UE5 talent matches the canonical 141-node catalog"],["check_validate_ue5_v13_talent_save_load_and_rollback_contracts","Validate UE5 V13 talent save, load and rollback contracts"],["check_compile_and_test_full_141_node_talent_web_layout_and_hit_testing","Compile and test full 141-node talent-web layout and hit-testing"],["check_verify_shared_ue5_panel_chrome_focus_highlights_and_compact_accessibility","Verify shared UE5 panel chrome, focus highlights and compact accessibility"],["check_verify_12_saved_racial_passives_and_c_character_ancestry_pages","Verify 12 saved racial passives and C character ancestry pages"],["check_verify_creator_to_gameplay_ancestry_save_backed_confirmation","Verify creator-to-gameplay ancestry save-backed confirmation"],["check_verify_playable_talent_web_input_modal_safety_and_native_hud_contracts","Verify playable talent web input, modal safety and native HUD contracts"],["check_verify_red_damage_feedback_and_talent_web_defeat_recovery","Verify red damage feedback and talent-web defeat recovery"],["check_verify_wasd_and_arrow_keys_are_movement_only_across_engines","Verify WASD and arrow keys are movement-only across engines"],["check_verify_native_omniattack_and_movement_only_keyboard_controls","Verify native Omniattack and movement-only keyboard controls"],["check_verify_buffered_sword_combos_and_enemy_npc_pause_behavior","Verify buffered sword combos and enemy NPC pause behavior"],["check_verify_shattered_sanctuary_gothic_architecture_and_safe_paths","Verify Shattered Sanctuary gothic architecture and safe paths"],["check_verify_firstlight_tutorial_and_safe_practice_sentry_ai","Verify Firstlight tutorial and safe practice sentry AI"],["check_verify_six_region_climate_and_living_world_runtime","Verify six-region climate and living-world runtime"],["check_compile_and_execute_v27_living_ai_policies_c_17","Compile and execute V27 living AI policies (C++17)"],["check_verify_ue5_combat_momentum_and_immediate_flinch_regressions","Verify UE5 combat momentum and immediate flinch regressions"],["check_verify_native_spell_book_catalog_layout_and_modal_controls","Verify native Spell Book catalog, layout, and modal controls"],["check_run_unreal_equipment_and_loot_safety_regression_tests","Run Unreal equipment and loot safety regression tests"],["check_verify_combat_hud_scan_regressions","Verify combat HUD scan regressions"],["check_verify_enemy_navigation_budget_regressions","Verify enemy navigation budget regressions"],["check_verify_cooked_content_gates_for_windows_installer","Verify cooked content gates for Windows installer"],["check_test_windows_packaged_root_discovery_with_synthetic_layouts","Test Windows packaged root discovery with synthetic layouts"],["check_test_native_automation_evidence_parser_with_synthetic_records","Test native automation evidence parser with synthetic records"],["check_parse_windows_build_scripts","Parse Windows build scripts"],["check_parse_github_hosted_unreal_inline_powershell","Parse GitHub-hosted Unreal inline PowerShell"],["check_test_unreal_5_4_engine_guard_with_synthetic_installations","Test Unreal 5.4 engine guard with synthetic installations"],["check_validate_unreal_project_and_module_configuration","Validate Unreal project and module configuration"],["check_sanitize_talent_rules","Sanitize 141-node talent rules"],["check_sanitize_talent_web","Sanitize Talent web layout and hit testing"],["check_sanitize_performance","Sanitize Performance audit and bug reporter"],["check_sanitize_living_world","Sanitize Living world AI policy"],["check_sanitize_npc","Sanitize NPC AI policy"],["check_sanitize_attack_tells","Sanitize Combat attack tells"],["check_sanitize_hit_feedback","Sanitize Confirmed hit feedback"],["check_sanitize_dungeon_startup","Sanitize Dungeon startup safety"],["check_sanitize_quest_xp","Sanitize Quest XP recovery"],["check_sanitize_ferry_routes","Sanitize Ferry route safety"],["check_sanitize_ferry_autosail","Sanitize Ferry automatic sailing"],["check_sanitize_ferry_landing","Sanitize Ferry dry landing safety"],["check_sanitize_attack_outcome","Sanitize Combat attack outcomes"],["check_sanitize_chronicle","Sanitize Chronicle progression"],["check_sanitize_chronicle_ui","Sanitize Chronicle UI"],["check_sanitize_elite_tactics","Sanitize Elite enemy tactics"],["check_sanitize_forge_forecast","Sanitize Forge crafting forecasts"],["check_sanitize_guardian_footprints","Sanitize Guardian footprints"],["check_sanitize_living_world_rules_only","Sanitize Living world rules"],["check_sanitize_north_catalog_only","Sanitize Northern zone catalog"],["check_sanitize_north_discovery_routes","Sanitize Northern discovery routes"],["check_sanitize_north_layout_policy","Sanitize Northern continent layout"],["check_sanitize_north_sanctum_policy","Sanitize Northern sanctum geometry"],["check_sanitize_north_weather_policy","Sanitize Northern weather"],["check_sanitize_north_zones","Sanitize Northern zone integration"],["check_sanitize_resident_morality_only","Sanitize Resident morality"],["check_sanitize_world_quests","Sanitize World quests and journal"],["check_sanitizer_coverage","Verify complete portable sanitizer coverage"]]
+          import re
+          from pathlib import Path
+          from collections import Counter
+          checkout = steps.get('checkout', {}).get('outcome', 'not-run')
+          sha = None
+          registry_valid = False
+          if checkout == 'success':
+              declared = re.findall(r'^        id: (check_[a-z0-9_]+)$',
+                                    Path('.github/workflows/unreal-source-checks.yml').read_text(), re.MULTILINE)
+              registry_valid = Counter(declared) == Counter(key for key, _ in checks)
+              sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          revision_valid = sha == os.environ['GITHUB_SHA']
+          results = [{'id': key, 'name': name, 'outcome': steps.get(key, {}).get('outcome', 'not-run')}
+                     for key, name in checks]
+          counts = dict(Counter(item['outcome'] for item in results))
+          verified = checkout == 'success' and registry_valid and revision_valid and counts.get('success', 0) == len(checks)
+          evidence = {
+              'schema_version': 1,
+              'scope': 'source contracts and standalone policy tests',
+              'native_unreal_compilation_verified': False,
+              'packaged_gameplay_verified': False,
+              'checkout': checkout,
+              'requested_sha': os.environ['GITHUB_SHA'],
+              'checked_out_sha': sha,
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'registry_valid': registry_valid,
+              'revision_valid': revision_valid,
+              'verified': verified,
+              'counts': counts,
+              'checks': results,
+          }
+          evidence_path = Path(os.environ['RUNNER_TEMP']) / ('MoonfallSource-' + evidence['run_id'] + '-' + evidence['run_attempt'])
+          evidence_path.mkdir(exist_ok=False)
+          (evidence_path / 'verification.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as report:
+              report.write('### UE5 source regression results\n\n')
+              report.write(f'Checkout: {checkout}\n\n')
+              report.write(f'Checked-out commit: `{sha}`\n\n')
+              report.write(f'Revision matches requested SHA: {revision_valid}; registry valid: {registry_valid}\n\n')
+              report.write('Scope: source contracts and standalone policy tests only. Native Unreal compilation and gameplay are NOT verified.\n\n')
+              report.write('| Check | Outcome |\n| --- | --- |\n')
+              for item in results:
+                  report.write(f"| {item['name']} | {item['outcome']} |\n")
+              report.write('\n' + ', '.join(f'{n} {status}' for status, n in sorted(counts.items())) + '\n')
+          # The original steps are still required; none use continue-on-error.
+          # Also fail closed if a required check did not actually complete successfully.
+          if not verified:
+              raise SystemExit('Required checks, registry or revision did not verify; inspect the summary and evidence.')
+          PY
+      - name: Preserve commit-specific source verification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-source-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/MoonfallSource-${{ github.run_id }}-${{ github.run_attempt }}/verification.json
+          if-no-files-found: error
+          retention-days: 30
+, workflows[1].read_text(), re.MULTILINE)
+          if len(preview) != 1:
+              raise SystemExit('V19 equipment preview must have exactly one additional sanitizer invocation.')
+          print('V19 equipment preview has its own sanitizer invocation.')
+          PY
+
+      - name: Publish independent regression results
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          STEP_RESULTS: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          steps = json.loads(os.environ['STEP_RESULTS'])
+          checks = [["check_validate_unreal_source_layout","Validate Unreal source layout"],["check_run_complete_unreal_integration_regression_tests","Run complete Unreal integration regression tests"],["check_compile_and_run_original_141_node_ue5_talent_rules_c_17","Compile and run original 141-node UE5 talent rules (C++17)"],["check_compile_and_run_performance_audit_and_bug_reporter_regressions_c_17","Compile and run performance audit and bug reporter regressions (C++17)"],["check_verify_every_ue5_talent_matches_the_canonical_141_node_catalog","Verify every UE5 talent matches the canonical 141-node catalog"],["check_validate_ue5_v13_talent_save_load_and_rollback_contracts","Validate UE5 V13 talent save, load and rollback contracts"],["check_compile_and_test_full_141_node_talent_web_layout_and_hit_testing","Compile and test full 141-node talent-web layout and hit-testing"],["check_verify_shared_ue5_panel_chrome_focus_highlights_and_compact_accessibility","Verify shared UE5 panel chrome, focus highlights and compact accessibility"],["check_verify_12_saved_racial_passives_and_c_character_ancestry_pages","Verify 12 saved racial passives and C character ancestry pages"],["check_verify_creator_to_gameplay_ancestry_save_backed_confirmation","Verify creator-to-gameplay ancestry save-backed confirmation"],["check_verify_playable_talent_web_input_modal_safety_and_native_hud_contracts","Verify playable talent web input, modal safety and native HUD contracts"],["check_verify_red_damage_feedback_and_talent_web_defeat_recovery","Verify red damage feedback and talent-web defeat recovery"],["check_verify_wasd_and_arrow_keys_are_movement_only_across_engines","Verify WASD and arrow keys are movement-only across engines"],["check_verify_native_omniattack_and_movement_only_keyboard_controls","Verify native Omniattack and movement-only keyboard controls"],["check_verify_buffered_sword_combos_and_enemy_npc_pause_behavior","Verify buffered sword combos and enemy NPC pause behavior"],["check_verify_shattered_sanctuary_gothic_architecture_and_safe_paths","Verify Shattered Sanctuary gothic architecture and safe paths"],["check_verify_firstlight_tutorial_and_safe_practice_sentry_ai","Verify Firstlight tutorial and safe practice sentry AI"],["check_verify_six_region_climate_and_living_world_runtime","Verify six-region climate and living-world runtime"],["check_compile_and_execute_v27_living_ai_policies_c_17","Compile and execute V27 living AI policies (C++17)"],["check_verify_ue5_combat_momentum_and_immediate_flinch_regressions","Verify UE5 combat momentum and immediate flinch regressions"],["check_verify_native_spell_book_catalog_layout_and_modal_controls","Verify native Spell Book catalog, layout, and modal controls"],["check_run_unreal_equipment_and_loot_safety_regression_tests","Run Unreal equipment and loot safety regression tests"],["check_verify_combat_hud_scan_regressions","Verify combat HUD scan regressions"],["check_verify_enemy_navigation_budget_regressions","Verify enemy navigation budget regressions"],["check_verify_cooked_content_gates_for_windows_installer","Verify cooked content gates for Windows installer"],["check_test_windows_packaged_root_discovery_with_synthetic_layouts","Test Windows packaged root discovery with synthetic layouts"],["check_test_native_automation_evidence_parser_with_synthetic_records","Test native automation evidence parser with synthetic records"],["check_parse_windows_build_scripts","Parse Windows build scripts"],["check_parse_github_hosted_unreal_inline_powershell","Parse GitHub-hosted Unreal inline PowerShell"],["check_test_unreal_5_4_engine_guard_with_synthetic_installations","Test Unreal 5.4 engine guard with synthetic installations"],["check_validate_unreal_project_and_module_configuration","Validate Unreal project and module configuration"],["check_sanitize_talent_rules","Sanitize 141-node talent rules"],["check_sanitize_talent_web","Sanitize Talent web layout and hit testing"],["check_sanitize_performance","Sanitize Performance audit and bug reporter"],["check_sanitize_living_world","Sanitize Living world AI policy"],["check_sanitize_npc","Sanitize NPC AI policy"],["check_sanitize_attack_tells","Sanitize Combat attack tells"],["check_sanitize_hit_feedback","Sanitize Confirmed hit feedback"],["check_sanitize_dungeon_startup","Sanitize Dungeon startup safety"],["check_sanitize_quest_xp","Sanitize Quest XP recovery"],["check_sanitize_ferry_routes","Sanitize Ferry route safety"],["check_sanitize_ferry_autosail","Sanitize Ferry automatic sailing"],["check_sanitize_ferry_landing","Sanitize Ferry dry landing safety"],["check_sanitize_attack_outcome","Sanitize Combat attack outcomes"],["check_sanitize_chronicle","Sanitize Chronicle progression"],["check_sanitize_chronicle_ui","Sanitize Chronicle UI"],["check_sanitize_elite_tactics","Sanitize Elite enemy tactics"],["check_sanitize_forge_forecast","Sanitize Forge crafting forecasts"],["check_sanitize_guardian_footprints","Sanitize Guardian footprints"],["check_sanitize_living_world_rules_only","Sanitize Living world rules"],["check_sanitize_north_catalog_only","Sanitize Northern zone catalog"],["check_sanitize_north_discovery_routes","Sanitize Northern discovery routes"],["check_sanitize_north_layout_policy","Sanitize Northern continent layout"],["check_sanitize_north_sanctum_policy","Sanitize Northern sanctum geometry"],["check_sanitize_north_weather_policy","Sanitize Northern weather"],["check_sanitize_north_zones","Sanitize Northern zone integration"],["check_sanitize_resident_morality_only","Sanitize Resident morality"],["check_sanitize_world_quests","Sanitize World quests and journal"],["check_sanitizer_coverage","Verify complete portable sanitizer coverage"]]
+          import re
+          from pathlib import Path
+          from collections import Counter
+          checkout = steps.get('checkout', {}).get('outcome', 'not-run')
+          sha = None
+          registry_valid = False
+          if checkout == 'success':
+              declared = re.findall(r'^        id: (check_[a-z0-9_]+)$',
+                                    Path('.github/workflows/unreal-source-checks.yml').read_text(), re.MULTILINE)
+              registry_valid = Counter(declared) == Counter(key for key, _ in checks)
+              sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          revision_valid = sha == os.environ['GITHUB_SHA']
+          results = [{'id': key, 'name': name, 'outcome': steps.get(key, {}).get('outcome', 'not-run')}
+                     for key, name in checks]
+          counts = dict(Counter(item['outcome'] for item in results))
+          verified = checkout == 'success' and registry_valid and revision_valid and counts.get('success', 0) == len(checks)
+          evidence = {
+              'schema_version': 1,
+              'scope': 'source contracts and standalone policy tests',
+              'native_unreal_compilation_verified': False,
+              'packaged_gameplay_verified': False,
+              'checkout': checkout,
+              'requested_sha': os.environ['GITHUB_SHA'],
+              'checked_out_sha': sha,
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'registry_valid': registry_valid,
+              'revision_valid': revision_valid,
+              'verified': verified,
+              'counts': counts,
+              'checks': results,
+          }
+          evidence_path = Path(os.environ['RUNNER_TEMP']) / ('MoonfallSource-' + evidence['run_id'] + '-' + evidence['run_attempt'])
+          evidence_path.mkdir(exist_ok=False)
+          (evidence_path / 'verification.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as report:
+              report.write('### UE5 source regression results\n\n')
+              report.write(f'Checkout: {checkout}\n\n')
+              report.write(f'Checked-out commit: `{sha}`\n\n')
+              report.write(f'Revision matches requested SHA: {revision_valid}; registry valid: {registry_valid}\n\n')
+              report.write('Scope: source contracts and standalone policy tests only. Native Unreal compilation and gameplay are NOT verified.\n\n')
+              report.write('| Check | Outcome |\n| --- | --- |\n')
+              for item in results:
+                  report.write(f"| {item['name']} | {item['outcome']} |\n")
+              report.write('\n' + ', '.join(f'{n} {status}' for status, n in sorted(counts.items())) + '\n')
+          # The original steps are still required; none use continue-on-error.
+          # Also fail closed if a required check did not actually complete successfully.
+          if not verified:
+              raise SystemExit('Required checks, registry or revision did not verify; inspect the summary and evidence.')
+          PY
+      - name: Preserve commit-specific source verification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-source-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/MoonfallSource-${{ github.run_id }}-${{ github.run_attempt }}/verification.json
+          if-no-files-found: error
+          retention-days: 30
+,
                                        workflow.read_text(), re.MULTILINE))
           missing = sorted(files - counts.keys())
           stale = sorted(counts.keys() - files)

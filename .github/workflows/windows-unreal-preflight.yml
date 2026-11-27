@@ -8,6 +8,11 @@ on:
         type: boolean
         required: true
         default: false
+      v19_editor_preview:
+        description: 'Opt into isolated 24-slot editor migration tests (not packaged gameplay)'
+        type: boolean
+        required: false
+        default: false
   pull_request:
     paths:
       - 'MoonfallUnreal/Build/**'
@@ -122,6 +127,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
     runs-on: [self-hosted, Windows, X64, unreal-5-4]
     timeout-minutes: 120
+    env:
+      MOONFALL_V19_EDITOR_PREVIEW: ${{ inputs.v19_editor_preview && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -161,6 +168,7 @@ jobs:
             "Run: $env:GITHUB_RUN_ID"
             "Attempt: $env:GITHUB_RUN_ATTEMPT"
             'Scope: compilation only; automation and packaged gameplay not yet verified'
+            "V19 editor preview requested: $env:MOONFALL_V19_EDITOR_PREVIEW"
             "Git ref: $env:GITHUB_REF"
             "Runner: $env:RUNNER_NAME"
             "Verified at: $([DateTime]::UtcNow.ToString('o'))"
@@ -205,6 +213,7 @@ jobs:
             "Commit=$actual"
             "Run=$env:GITHUB_RUN_ID"
             "Attempt=$env:GITHUB_RUN_ATTEMPT"
+            "V19EditorPreview=$env:MOONFALL_V19_EDITOR_PREVIEW"
             "ReportSHA256=$((Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash)"
             "LogSHA256=$((Get-FileHash -LiteralPath $log -Algorithm SHA256).Hash)"
             'Scope=UE5.4 Editor automation; not packaged gameplay'
