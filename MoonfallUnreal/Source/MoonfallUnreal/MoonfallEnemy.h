@@ -21,6 +21,7 @@ public:
  int32 AquaticProfileId = 0;
  float GetAquaticWarningRemaining(float Now) const;
  int32 GetAquaticPhase() const;
+ int32 GetAquaticCommittedMove() const { return AquaticCommittedMove; }
  float GetMaxHealthAtSpawn() const { return MaxHealthAtSpawn; }
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
@@ -156,6 +157,8 @@ private:
  bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
+ int32 AquaticCommittedMove = 0;
+ int32 AquaticAttackSequence = 0;
  TWeakObjectPtr<AMoonfallWorldNPC> RecentCompanionAttacker;
  float RecentCompanionAttackerAt=-1000.f;
  TWeakObjectPtr<AMoonfallWorldNPC> LockedCompanionTarget;
