@@ -36,6 +36,28 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertIn(f"ValidEquippedTraitRarity(Owned{name}Code, {slot}, {trait})", self.source)
             self.assertIn(f"ValidEquippedTier(Owned{name}Code, {slot})", self.source)
         self.assertIn("const float Tier = static_cast<float>(GetValidatedEquippedTier(0));", self.source)
+    def test_expanded_previews_use_all_slots_and_require_a_spare_ring_copy(self):
+        source = self.source
+        policy = SOURCE.with_name("MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        self.assertIn("FullCandidateImprovement", policy)
+        self.assertIn("FullWornCopies(Candidate,Worn,ActiveSlots)+1", policy)
+        score = source.split("int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex()", 1)[0]
+        self.assertIn("FFullLoadout EquippedCodes", score)
+        self.assertIn("IsFullLoadoutOwned(EquippedCodes", score)
+        self.assertIn("FullCandidateImprovement(Candidate,EquippedCodes", score)
+        recommended = source.split("int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
+        self.assertIn("TMap<int32,int32> OwnedCounts", recommended)
+        self.assertIn("FullCandidateImprovement(Code", recommended)
+        delta = source.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
+        self.assertIn("FullWornCopies(ItemCode,Worn", delta)
+        self.assertIn("RingSlots", delta)
+        projected = source.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
+        self.assertIn("FullWornCopies(CandidateCode,Worn", projected)
+        self.assertIn("BestProjection", projected)
     def test_ring_stats_respect_activation_ownership_and_global_caps(self):
         source = self.source
         rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
