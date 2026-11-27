@@ -11,9 +11,14 @@ class GroundLootCollectionSafety(unittest.TestCase):
         body = self.source.split("void AMoonfallGroundLoot::InitializeLoot(", 1)[1].split(
             "void AMoonfallGroundLoot::InitializeDungeonReward(", 1)[0]
         for token in ("ItemCode != 0 || bCollected || IsActorBeingDestroyed()",
-                      "if (InItemCode <= 0) { Destroy(); return; }",
-                      "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25", "Destroy();"):
+                      "MoonfallEquipmentLayout::CanOperateFull(InItemCode,",
+                      "MoonfallEquipmentLayout::EInventoryOperation::Equip", "Destroy();"):
             self.assertIn(token, body)
+        self.assertLess(body.index("CanOperateFull(InItemCode,"), body.index("Destroy();"))
+        self.assertLess(body.index("Destroy();"), body.index("ItemCode = InItemCode;"))
+        policy = SOURCE.with_name("MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        for token in ("Tier<1||Tier>25", "Rarity<0||Rarity>5", "EncodeFullItem(Slot,Trait,Rarity,Tier)!=Code"):
+            self.assertIn(token, policy)
     def test_world_drop_guid_is_valid_and_write_once(self):
         body = self.source.split("void AMoonfallGroundLoot::SetPersistentDropId(", 1)[1].split(
             "void AMoonfallGroundLoot::InitializeDungeonReward(", 1)[0]

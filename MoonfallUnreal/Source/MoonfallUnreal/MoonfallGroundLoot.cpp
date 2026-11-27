@@ -86,19 +86,17 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  // Never overwrite an existing or collected drop.
  if (ItemCode != 0 || bCollected || IsActorBeingDestroyed()) return;
  // Reject malformed spawned loot instead of leaving an uncollectable actor.
- if (InItemCode <= 0) { Destroy(); return; }
- const int32 Affix = InItemCode / 100000;
- const int32 Slot = (InItemCode / 10000) % 10;
- const int32 Rarity = (InItemCode / 1000) % 10;
- const int32 Tier = InItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount ||
-     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
-     (Rarity == 0 && Affix != 0) ||
-     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(InItemCode);
+ if (!MoonfallEquipmentLayout::CanOperateFull(InItemCode,MoonfallEquipmentLayout::ActiveSlotCount,
+     MoonfallEquipmentLayout::EInventoryOperation::Equip))
  {
   Destroy();
   return;
  }
+ const int32 Affix = Decoded.Trait;
+ const int32 Slot = Decoded.Slot;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
  ItemCode = InItemCode;
  // Slot changes silhouette without changing the item's code, drop location,
  // pickup collision rules, persistent ID, rarity, or seed-dependent roll.
@@ -117,7 +115,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupDetailA->SetRelativeRotation(FRotator(0.f,0.f,-8.f));
   PickupDetailB->SetRelativeLocation(FVector(0.f,0.f,30.f));
   PickupDetailB->SetRelativeScale3D(FVector(0.10f,0.10f,0.33f));
- } else if (Slot == 1 || (Slot >= 3 && Slot <= 7)) {
+ } else if (Slot == 1 || (Slot >= 3 && Slot <= 7) || Slot == 10 || Slot == 11 || Slot == 12) {
   // Broad armor silhouette for chest and future armor pieces.
   if (GearCube) PickupMesh->SetStaticMesh(GearCube);
   PickupMesh->SetRelativeLocation(FVector(0.f,0.f,49.f));
@@ -173,8 +171,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  RarityBeacon->SetRelativeScale3D(FVector(BeaconWidth,BeaconWidth,
    1.25f + 0.11f * Rarity));
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
-   TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring")};
- static_assert(UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentLayout::SlotCount,"Gear label count must match slots");
+   TEXT("Head"), TEXT("Shoulders"), TEXT("Hands"), TEXT("Legs"), TEXT("Feet"), TEXT("Ring"),
+   TEXT("Neck"), TEXT("Back"), TEXT("Wrists"), TEXT("Waist"), TEXT("Ring"), TEXT("Trinket"), TEXT("Off-hand"),
+   TEXT("Ring"), TEXT("Ring"), TEXT("Ring"), TEXT("Ring"), TEXT("Ring"), TEXT("Ring"), TEXT("Ring"), TEXT("Ring")};
+ static_assert(UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentLayout::FullSlotCount,"Gear label count must match slots");
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),

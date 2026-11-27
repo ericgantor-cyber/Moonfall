@@ -131,8 +131,8 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", valid)
-        self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", valid)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", valid)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", valid)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         self.assertIn("Affix >= 0 && Affix <= 3", policy)
         self.assertIn("Rarity >= 0", policy)
@@ -141,7 +141,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Tier >= 1 && Tier <= 25", policy)
         self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", policy)
         self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
-        self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(ItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", pickup)
         self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", equip)
         self.assertIn("Slot>=ActiveSlots||!Valid(Code,Slot)", policy)
