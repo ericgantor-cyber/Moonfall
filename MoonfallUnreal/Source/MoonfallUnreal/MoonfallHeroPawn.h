@@ -445,6 +445,7 @@ public:
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
  bool HitTestInventoryEquipButton() const;
+ int32 HitTestInventoryRingStrip() const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.
