@@ -1013,8 +1013,8 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
   const auto DecodedA=MoonfallEquipmentLayout::DecodeFullItem(CodeA);
   const auto DecodedB=MoonfallEquipmentLayout::DecodeFullItem(CodeB);
-  const int32 SlotA=DecodedA.IsValid()?DecodedA.Slot:99;
-  const int32 SlotB=DecodedB.IsValid()?DecodedB.Slot:99;
+  const int32 SlotA=MoonfallEquipmentLayout::FullInventorySortSlot(DecodedA,MoonfallEquipmentLayout::ActiveSlotCount);
+  const int32 SlotB=MoonfallEquipmentLayout::FullInventorySortSlot(DecodedB,MoonfallEquipmentLayout::ActiveSlotCount);
   const int32 RarityA=DecodedA.IsValid()?DecodedA.Rarity:-1;
   const int32 RarityB=DecodedB.IsValid()?DecodedB.Rarity:-1;
   const int32 TierA=DecodedA.IsValid()?DecodedA.Tier:-1;
