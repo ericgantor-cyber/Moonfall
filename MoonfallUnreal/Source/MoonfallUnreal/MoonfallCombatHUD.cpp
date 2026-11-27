@@ -719,6 +719,9 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
+   if (!(Hero->OceanRecipePage>=0 && Hero->OceanRecipePage<3 &&
+       Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview"))) &&
+       Resident->ResidentId==FName(TEXT("MoonwatchTrader"))))
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
