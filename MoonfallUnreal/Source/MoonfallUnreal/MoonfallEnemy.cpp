@@ -657,8 +657,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
-  const FVector DesiredScale(0.85f * Scale / FMath::Max(0.75f,Squash),
-    0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
+  const FVector DesiredScale = ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
+    ? FVector(1.2f,0.48f,0.48f)
+    : FVector(0.85f * Scale / FMath::Max(0.75f,Squash),
+        0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
   // In large worlds, idle enemies otherwise send the same mesh transform
   // every AI tick. Preserve all attack tells and hit reactions.
   if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
@@ -691,7 +693,6 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        && !Position.ContainsNaN() && !Target.ContainsNaN() && !DungeonHomePosition.ContainsNaN();
    const bool bEngaged = bValid && Hero->bWaterSwimming && !Hero->bInsideAirPocket
        && FVector::DistSquared(Target, DungeonHomePosition) <= FMath::Square(480.f);
-   if (IsValid(Body)) Body->SetRelativeScale3D(FVector(1.2f,0.48f,0.48f));
    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAquaticSight), false);
    Params.AddIgnoredActor(this);
    Params.AddIgnoredActor(Hero);
