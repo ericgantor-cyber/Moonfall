@@ -68,7 +68,7 @@ class EquipmentStatSafety(unittest.TestCase):
                       "for(int32 Code:InventoryItemCodes)", "RequiredCounts.FindOrAdd(Code)",
                       "OwnedCounts.Find(Code)", "*Owned>=*Required"):
             self.assertIn(token, snapshot)
-        fingerprint = self.source.split("uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[1].split(
+        fingerprint = self.source.split("uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
         self.assertIn("GetRawEquipmentSlotCode(Slot)", fingerprint)
         self.assertNotIn("InventoryItemCodes", fingerprint)
