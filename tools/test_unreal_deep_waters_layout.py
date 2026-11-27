@@ -17,6 +17,14 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::ManualLootOrFish)', source)
         manual = source.split("void AMoonfallHeroPawn::ManualLootOrFish()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         self.assertIn("if (CanContinueFishing() && TryFishingAction()) return;", manual)
+        self.assertIn("!IsRecentlyInCombatForAmbientAI()", manual)
+        self.assertIn("IsValid(GetNearestResidentNPC())", manual)
+        self.assertLess(manual.index("Fishing.Stage!=MoonfallFishing::EStage::Idle"), manual.index("OpenFocusedResidentContext();"))
+        self.assertLess(manual.index("bSpellBookOpen"), manual.index("OpenFocusedResidentContext();"))
+        self.assertLess(manual.index("OpenFocusedResidentContext();"), manual.index("PickupNearestGroundLoot();"))
+        controller = source.split("void AMoonfallHeroPawn::ControllerLootOrSalvage()", 1)[1].split("void AMoonfallHeroPawn::ControllerLeftTrigger()", 1)[0]
+        self.assertIn("ManualLootOrFish();", controller)
+        self.assertLess(controller.index("InventorySalvage();"), controller.index("ManualLootOrFish();"))
         self.assertIn("PickupNearestGroundLoot();", manual)
         pickup = source.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split("void AMoonfallHeroPawn::SetAutoLootEnabled", 1)[0]
         self.assertNotIn("TryFishingAction", pickup)
