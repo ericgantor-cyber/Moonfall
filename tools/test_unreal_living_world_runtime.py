@@ -69,7 +69,7 @@ int main(){
  assert(MoonfallPackTactics::RangedRepositionMode(200.0)==-1);
  assert(MoonfallPackTactics::RangedRepositionMode(390.0)==0);
  assert(MoonfallPackTactics::RangedRepositionMode(500.0)==0);
- assert(MoonfallPackTactics::RangedRepositionMode(501.0)==1);
+ assert(MoonfallPackTactics::RangedRepositionMode(501.0)==0);
  assert(MoonfallPackTactics::RangedRepositionMode(-1.0)==0);
  assert(MoonfallPackTactics::ShouldMinionYieldToBoss(true,true));
  assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(true,false));
@@ -858,7 +858,7 @@ int main(){
         self.assertIn("RangedAttackRange=520.f",policy)
         self.assertIn("RangedPreferredRange=390.0",policy)
         self.assertIn("RangedMinimumRange=280.0",policy)
-        self.assertIn("RangedMaximumRange=500.0",policy)
+        self.assertIn("RangedMaximumRange=520.0",policy)
         self.assertIn("RangedRepositionMode(Distance)",enemy)
         self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
         self.assertIn("Distance > EffectiveAttackRange",enemy)
