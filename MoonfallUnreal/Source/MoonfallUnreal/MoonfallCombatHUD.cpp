@@ -1765,7 +1765,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FString::Printf(TEXT("Abyssal Crown %s"),Preview->HasLegendaryFish(2)?TEXT("FOUND"):TEXT("--")),
       FString::Printf(TEXT("Bait %d/20 | used on catches"),Preview->GetFishingBaitCount()),
       TEXT("Rank 7+: match schools to ocean activity."),
-      TEXT("Preview session only; not campaign saved.")
+      !Preview->IsProfessionSaveEnabled()?TEXT("Session only (editor)"):Preview->IsProfessionSaveBlocked()?TEXT("Preview save blocked; progress not saved"):Preview->IsProfessionSaveDirty()?TEXT("Preview progress pending save"):TEXT("Separate preview save; no campaign changes")
      };
      const float RowH=FMath::Min(30.f,(PanelHeight-188.f)/UE_ARRAY_COUNT(Lines));
      for(int32 I=0;I<UE_ARRAY_COUNT(Lines);++I) {

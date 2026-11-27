@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "MoonfallAquaticRewards.h"
 #include "MoonfallIslandQuest.h"
 #include "MoonfallOceanEvents.h"
@@ -17,36 +18,43 @@ class MOONFALLUNREAL_API AMoonfallNorthPreviewGameMode : public AGameModeBase {
  GENERATED_BODY()
 public:
  AMoonfallNorthPreviewGameMode();
+ virtual void StartPlay() override;
+ virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+ bool IsProfessionSaveBlocked() const { return bProfessionSaveBlocked; }
+ bool IsProfessionSaveDirty() const { return bProfessionDirty; }
+ bool IsProfessionSaveEnabled() const { return bProfessionSaveEnabled; }
+ bool HasGrottoClaim(int32 Id) const { return Id>=0&&Id<6&&(GrottoGear.Claims&(1u<<Id)); }
  // Rewards and claims are session-only and survive hero respawn.
- bool ClaimGrotto(int32 Index) { return GrottoGear.Claim(Index,FMath::RandRange(0,99)); }
+ bool ClaimGrotto(int32 Index) { const bool OK=GrottoGear.Claim(Index,FMath::RandRange(0,99)); bProfessionDirty|=OK; return OK; }
  int32 GetGrottoClaimCount() const { return GrottoGear.Count(); }
  int32 GetGrottoSetPieces() const { return GrottoGear.Pieces(); }
  int32 GetGrottoGearRarity(int32 Piece) const { return GrottoGear.Rarity(Piece); }
  int32 GetLastGrottoRewardCode() const { return GrottoGear.LastCode; }
  int32 GetBreathingTonicCharges() const { return GrottoGear.TonicCharges; }
- bool ConsumeBreathingTonic() { return GrottoGear.ConsumeTonic(); }
+ bool ConsumeBreathingTonic() { const bool OK=GrottoGear.ConsumeTonic(); bProfessionDirty|=OK; return OK; }
  // Wreck discoveries are separate from grotto rewards and reset with the world.
- void DiscoverWreck(int32 Index) { if (Index>=0 && Index<2) WreckClaims|=uint8(1u<<Index); }
+ void DiscoverWreck(int32 Index) { if (Index>=0 && Index<2 && !(WreckClaims&(1u<<Index))) { WreckClaims|=uint8(1u<<Index); bProfessionDirty=true; } }
  int32 GetWreckDiscoveryCount() const { return int32((WreckClaims&1u)!=0)+int32((WreckClaims&2u)!=0); }
- void DiscoverCave(int32 Index) { if (Index>=0 && Index<2) CaveClaims|=uint8(1u<<Index); }
+ void DiscoverCave(int32 Index) { if (Index>=0 && Index<2 && !(CaveClaims&(1u<<Index))) { CaveClaims|=uint8(1u<<Index); bProfessionDirty=true; } }
  int32 GetCaveDiscoveryCount() const { return int32((CaveClaims&1u)!=0)+int32((CaveClaims&2u)!=0); }
  int32 GetIslandQuestProgress(int32 Id) const {
   return Id==0?GetWreckDiscoveryCount():Id==1?GetCaveDiscoveryCount():Id==2?GetGrottoClaimCount():0;
  }
  int32 TalkIslandQuest(int32 Id) {
-  return IslandJournal.Talk(Id,GetIslandQuestProgress(Id));
+  const int32 Before=IslandJournal.State(Id); const int32 Result=IslandJournal.Talk(Id,GetIslandQuestProgress(Id));
+  bProfessionDirty|=Before!=IslandJournal.State(Id); return Result;
  }
  int32 GetIslandQuestState(int32 Id) const { return IslandJournal.State(Id); }
  int32 GetIslandQuestCount() const { return IslandJournal.Count(); }
  int32 GetIslandReputation() const { return IslandJournal.Reputation(); }
  int32 GetIslandCredits() const { return IslandJournal.Credits; }
  int32 GetIslandTonicPrice() const { return IslandJournal.TonicPrice(); }
- bool BuyIslandTonic() { return IslandJournal.BuyTonic(GrottoGear.TonicCharges); }
+ bool BuyIslandTonic() { const bool OK=IslandJournal.BuyTonic(GrottoGear.TonicCharges); bProfessionDirty|=OK; return OK; }
  int32 GetOceanActivity() const;
- bool DiscoverAquaticCreature(int32 Id) { return Sightings.Discover(Id); }
+ bool DiscoverAquaticCreature(int32 Id) { const bool OK=Sightings.Discover(Id); bProfessionDirty|=OK; return OK; }
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
- bool CollectOceanResource(int32 Id) { return HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); }
+ bool CollectOceanResource(int32 Id) { const bool OK=HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); bProfessionDirty|=OK; return OK; }
  float GetOceanResourceCooldown(int32 Id) const {
   return GetWorld()?float(Gathering.RemainingCooldown(Id,GetWorld()->GetTimeSeconds())):0.f;
  }
@@ -63,6 +71,7 @@ public:
   const int32 Legendary=bSchool?MoonfallFishing::LegendarySpecies(Gathering.Catches(),SchoolId,Event,FMath::RandRange(0,99),bBait):-1;
   const bool bCaught=Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):-1,bTrophy,Legendary);
   if(bCaught&&bBait) Workshop.UseBait();
+  bProfessionDirty|=bCaught;
   return bCaught;
  }
  int32 GetFishingBaitCount() const { return Workshop.Bait; }
@@ -78,12 +87,17 @@ public:
  int32 GetOceanMaterialStock(int32 Id) const { return Workshop.RemainingMaterial(Id,Gathering); }
  int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
  int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
- bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }
+ bool CraftOceanRecipe(int32 Recipe) { const bool OK=Workshop.Craft(Recipe,Gathering,GrottoGear); bProfessionDirty|=OK; return OK; }
  bool CanCraftOceanRecipe(int32 Recipe) const { return Workshop.CanCraft(Recipe,Gathering,GrottoGear); }
  bool HasOceanCraftMaterial(int32 Id) const { return Workshop.HasMaterial(Id,Gathering); }
  int32 GetAvailableOceanMaterials() const { return Workshop.AvailableMaterials(Gathering); }
  int32 GetAvailableOceanFish() const { return Workshop.RemainingFish(Gathering); }
 private:
+ bool bProfessionDirty=false,bProfessionSaveBlocked=false,bProfessionSaveEnabled=false;
+ int64 ProfessionSequence=0;
+ FTimerHandle ProfessionSaveTimer;
+ void LoadProfessions();
+ void FlushProfessions();
  // Eight shared schools for the isolated single-basin preview.
  MoonfallFishing::FSchoolStock Schools;
  MoonfallOceanCrafting::FWorkshop Workshop;

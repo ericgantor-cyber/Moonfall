@@ -5,6 +5,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -275,6 +276,19 @@ int main() {
     assert(BaitWorkshop.AvailableMaterials(BaitMaterials)==10);
     BaitWorkshop.Bait=0;
     assert(!BaitWorkshop.UseBait());
+    MoonfallProfessionLedger::FSnapshot Snapshot,Restored;
+    Snapshot.Gathering=BaitMaterials; Snapshot.Workshop=BaitWorkshop;
+    Snapshot.Gathering.Catch(0,0,0,true,0);
+    Snapshot.Gear.Claim(0,99);
+    int Ledger[MoonfallProfessionLedger::Count]={};
+    Snapshot.Encode(Ledger);
+    assert(Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
+    assert(Restored.Gathering.HasLegendary(0) && Restored.Gathering.TrophyCatches==1);
+    assert(Restored.Workshop.AvailableMaterials(Restored.Gathering)==10 && Restored.Gear.Count()==1);
+    Ledger[4]=100;
+    assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
+    assert(Restored.Gathering.HasLegendary(0));
+    assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::Count-1));
     assert(Workshop.RemainingMaterial(0,Supplies)==1 && Workshop.RemainingMaterial(-1,Supplies)==0);
     MoonfallOceanGathering::FCollection SchoolCatch;
     assert(SchoolCatch.Catch(0,0,2) && SchoolCatch.Species(2)==1);
