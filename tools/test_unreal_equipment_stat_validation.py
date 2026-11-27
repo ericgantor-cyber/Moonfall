@@ -170,6 +170,16 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(release.index("ClearRingPointerDrag();"), release.index("EquipInventoryRing("))
         self.assertIn("RINGS: drag to equip / swap | drag to bag to remove", hud)
 
+    def test_ring_navigation_focus_consumes_existing_menu_actions(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("CurrentRow<=0&&CanFocusRingNavigation()", self.source)
+        self.assertIn("RingNavigationIndex=0;", self.source)
+        self.assertIn("if(HasRingNavigationFocus()){UnequipRing(RingNavigationIndex);return;}", self.source)
+        self.assertIn("if(HasRingNavigationFocus()){RingNavigationIndex=INDEX_NONE;return;}", self.source)
+        self.assertIn("if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);", self.source)
+        self.assertIn("if(Index==FocusedRing)DrawSelectionRail", hud)
+        self.assertIn("A/ENTER equip | X/DEL remove", hud)
+
     def test_ring_drag_feedback_is_read_only_and_validates_hovered_target(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         preview = self.source.split("bool AMoonfallHeroPawn::CanDropDraggedRingOnFinger(", 1)[1].split("\n}", 1)[0]

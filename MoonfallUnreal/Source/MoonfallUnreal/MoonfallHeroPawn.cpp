@@ -716,6 +716,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ||RingDragInventoryRevision!=EquipmentInventoryRevision
      ||RingDragLoadoutFingerprint!=GetEquipmentLoadoutFingerprint()))
   ClearRingPointerDrag();
+ if(RingNavigationIndex!=INDEX_NONE&&!CanFocusRingNavigation())RingNavigationIndex=INDEX_NONE;
  // Dialogue focus and modal state must agree. A stale focused resident
  // otherwise blocks movement/attacks and keeps enemy AI paused indefinitely.
  // This is a cheap pointer check, with no per-frame actor search or trace.
@@ -1150,6 +1151,29 @@ bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
         MouseY >= EquipY && MouseY <= EquipY + 30.f;
 }
 
+bool AMoonfallHeroPawn::CanFocusRingNavigation() const
+{
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
+     ||!bInventoryOpen||bCharacterStatsOpen||bSpellBookOpen||bOptionsOpen
+     ||bTalentWebOpen||bAtlasOpen||bResidentContextOpen||FocusedResident.IsValid())return false;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if(!PC)return false;
+ int32 Width=0,Height=0;PC->GetViewportSize(Width,Height);
+ return Width>=300&&Height>=444;
+}
+
+bool AMoonfallHeroPawn::HasRingNavigationFocus() const
+{
+ return RingNavigationIndex>=0&&CanFocusRingNavigation()
+     &&MoonfallEquipmentLayout::RingSlot(RingNavigationIndex)>=0
+     &&MoonfallEquipmentLayout::RingSlot(RingNavigationIndex)<MoonfallEquipmentLayout::ActiveSlotCount;
+}
+
+int32 AMoonfallHeroPawn::GetFocusedRingIndex() const
+{
+ return HasRingNavigationFocus()?RingNavigationIndex:INDEX_NONE;
+}
+
 int32 AMoonfallHeroPawn::HitTestInventoryRingStrip() const
 {
  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
@@ -1282,6 +1306,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::ControllerLeftShoulder()
 {
+ if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(-1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -1291,6 +1316,7 @@ void AMoonfallHeroPawn::ControllerLeftShoulder()
 }
 void AMoonfallHeroPawn::ControllerRightShoulder()
 {
+ if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(1); return; }
  if (bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -1309,6 +1335,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
 {
+ if(HasRingNavigationFocus())return;
  // Preserve Equip Best's existing zero-health inventory policy; its own
  // validated transaction remains authoritative. Never cast at zero health.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
@@ -1320,6 +1347,7 @@ void AMoonfallHeroPawn::ControllerLeftTrigger()
 }
 void AMoonfallHeroPawn::ControllerRightTrigger()
 {
+ if(HasRingNavigationFocus())return;
  // Route physical RT once; mouse combat continues to call RightHandAction.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -1328,6 +1356,7 @@ void AMoonfallHeroPawn::ControllerRightTrigger()
 }
 void AMoonfallHeroPawn::ControllerBack()
 {
+ if(HasRingNavigationFocus()){RingNavigationIndex=INDEX_NONE;return;}
  // Choose one route before a modal transition can expose gameplay input.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
  // Match Escape: a defeated player may close an open bag, never craft or dodge.
@@ -1340,6 +1369,7 @@ void AMoonfallHeroPawn::ControllerBack()
 }
 void AMoonfallHeroPawn::ControllerConfirm()
 {
+ if(HasRingNavigationFocus()){if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);return;}
  // One A press takes exactly one route, even when a synchronous UI callback
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
@@ -2763,6 +2793,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  }
  bInventoryOpen = !bInventoryOpen;
  bInventoryScrollbarDragging = false;
+ RingNavigationIndex=INDEX_NONE;
  ClearRingPointerDrag();
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bInventoryOpen;
@@ -2780,7 +2811,10 @@ void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
  if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) SalvageInventoryItem(InventorySelection);
 }
-void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
+void AMoonfallHeroPawn::InventorySalvage() {
+ if(HasRingNavigationFocus()){UnequipRing(RingNavigationIndex);return;}
+ SalvageSelectedInventoryItem();
+}
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
@@ -3019,6 +3053,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ if(HasRingNavigationFocus()){RingNavigationIndex=INDEX_NONE;return;}
  if (bTalentWebOpen) { ToggleTalentWeb(); return; }
  if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The bag is the sole exception: Esc/X closes it without opening Options.
@@ -3217,6 +3252,7 @@ void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if(HasRingNavigationFocus())return;
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(-1); return; }
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
@@ -3247,6 +3283,11 @@ void AMoonfallHeroPawn::OptionsUp() {
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
+  if(CurrentRow<=0&&CanFocusRingNavigation()){
+   ClearRingPointerDrag();
+   RingNavigationIndex=0;
+   return;
+  }
   if (DisplayOrder.Num() > 0)
    InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];
   KeepInventorySelectionVisible();
@@ -3255,6 +3296,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if(HasRingNavigationFocus()){RingNavigationIndex=INDEX_NONE;return;}
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(1); return; }
  if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
@@ -3293,6 +3335,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
@@ -3312,6 +3355,12 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if(HasRingNavigationFocus()){
+  const int32 Next=RingNavigationIndex+1;
+  const int32 Slot=MoonfallEquipmentLayout::RingSlot(Next);
+  if(Slot>=0&&Slot<MoonfallEquipmentLayout::ActiveSlotCount)RingNavigationIndex=Next;
+  return;
+ }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
  if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
@@ -4714,6 +4763,10 @@ void AMoonfallHeroPawn::TalentChangeBranch(int32 Direction) {
  bTalentRespecArmed=false;
 }
 void AMoonfallHeroPawn::TalentSpendSelected() {
+ if(HasRingNavigationFocus()){
+  if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);
+  return;
+ }
  if (!bTalentWebOpen || Health<=0.f || !FMath::IsFinite(Health)
      || IsActorBeingDestroyed() || !GetWorld() || bWorldProgressLoadInProgress
      || bPersistentSaveWritesBlocked)return;
@@ -5803,6 +5856,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ RingNavigationIndex=INDEX_NONE;
  ClearRingPointerDrag();
  if (bTalentWebOpen) return;
  // The map owns right-clicks; never hit-test NPCs behind the Atlas.
@@ -5966,6 +6020,7 @@ bool AMoonfallHeroPawn::HasResidentContextPointerSurface(float ViewportWidth, fl
      && GetResidentContextRowPitch(GetResidentContextPanelHeight(ViewportHeight)) >= 32.f;
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ RingNavigationIndex=INDEX_NONE;
  ClearRingPointerDrag();
  if (bTalentWebOpen) { TalentPointerClick(); return; }
  // Handle all Atlas pointer actions before gameplay/NPC input.

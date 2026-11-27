@@ -2386,7 +2386,9 @@ void AMoonfallCombatHUD::DrawHUD()
   if (PanelHeight >= 420.f) {
    const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
    if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
-    DrawText(TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
+    const int32 FocusedRing=Hero->GetFocusedRingIndex();
+    DrawText(FocusedRing!=INDEX_NONE?TEXT("RINGS: LEFT/RIGHT | A/ENTER equip | X/DEL remove"):
+       TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
        FLinearColor::White,Left+18.f,Top+PanelHeight-HelpOffset,nullptr,PanelWidth<550.f?0.48f:0.68f);
     const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
     const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
@@ -2405,6 +2407,7 @@ void AMoonfallCombatHUD::DrawHUD()
        bWorn?FLinearColor(0.20f,0.43f,0.35f,0.95f):FLinearColor(0.19f,0.23f,0.33f,0.95f),
        X,RingY,RingWidth-2.f,18.f);
      DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
+     if(Index==FocusedRing)DrawSelectionRail(X,RingY,18.f);
      if(Index==DragSource)DrawRect(FLinearColor(0.95f,0.78f,0.28f,1.f),X,RingY,RingWidth-2.f,2.f);
      if(Index==DragHover){
       const FLinearColor DropColor=bDropAllowed?FLinearColor(0.30f,0.95f,0.50f,1.f):FLinearColor(0.95f,0.28f,0.25f,1.f);
