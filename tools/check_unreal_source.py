@@ -3640,17 +3640,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
+        self.assertIn('#include "MoonfallPackTactics.h"', self.enemy_cpp)
+        pack=(ROOT/"MoonfallPackTactics.h").read_text(encoding="utf-8")
+        self.assertIn("ShouldYieldAttackSlot", pack)
+        self.assertIn("AttackSlotDelay", pack)
+        self.assertIn("MaxScannedActors = 64", pack)
+        self.assertIn("MaxNearbyCandidates = 32", pack)
         self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {", tick)
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", tick)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
         self.assertIn("ConsideredAllies < 32", tick)
         self.assertIn("Other->WindupEndsAt > Now", tick)
         self.assertIn("FVector::DistSquared2D(", tick)
         self.assertIn("FMath::Square(550.f)", tick)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", tick)
         self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
-        self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
+        self.assertIn("MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID())", tick)
         self.assertLess(tick.index("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
@@ -3667,7 +3674,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, scope)
         self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
                         scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))", scope)
         self.assertIn("(Other->bElite && !bDungeonRole)", scope)
         self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex", scope)
@@ -3688,7 +3696,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"))
         self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
                         scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
 
     def test_attack_coordination_ignores_destroying_and_nonfinite_allies(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3698,7 +3707,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "!FMath::IsFinite(Other->Health)", "Other->Health <= 0.f"):
             self.assertIn(guard, scope)
             self.assertLess(scope.index(guard), scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertLess(scope.index("++ScannedActors;"),
                         scope.index("Other->IsActorBeingDestroyed()"))
 
@@ -3708,8 +3718,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Alternate quick strikes", 1)[0]
         self.assertIn("FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now", scope)
         self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin)", scope)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
                         scope.index("if (++NearbyWindingAllies >= 2) break;"))
 
@@ -3724,8 +3735,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("++ConsideredAllies;"))
         self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
                         scope.index("AllyDistanceSquared >= FMath::Square(550.f)"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", scope)
 
     def test_enemy_recovers_own_corrupt_windup_without_instant_hit(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
