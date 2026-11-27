@@ -59,6 +59,7 @@ public:
  UPROPERTY(BlueprintReadOnly, Transient, Category="Moonfall|Fishing") int32 FishingVisualStage=0;
  void SyncFishingPresentation(bool bCaught=false);
  int32 FishingSchoolId=-1;
+ int32 FishingProvince=-1;
  bool bCharacterProfessionsPageOpen=false;
  bool HasWaterProfessionsPage() const;
  void StepCharacterPage(int32 Direction);

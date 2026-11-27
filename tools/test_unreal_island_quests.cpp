@@ -6,6 +6,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -318,5 +319,13 @@ int main() {
     assert(!Cast.Advance(59,true) && Cast.Stage==EStage::Idle);
     assert(Cast.Start(70,2));
     assert(!Cast.Advance(std::numeric_limits<double>::max(),true) && Cast.Stage==EStage::Idle);
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+        assert(MoonfallRegionalFishing::Preferred(I,10)>=0);
+        assert(MoonfallRegionalFishing::TrophyBonus(I,10,true)>=1);
+        assert(MoonfallRegionalFishing::TrophyBonus(I,10,false)==0);
+    }
+    assert(MoonfallRegionalFishing::Preferred(8,7)==-1);
+    assert(MoonfallRegionalFishing::Preferred(8,8)==0);
+    assert(MoonfallRegionalFishing::Preferred(-1,10)==-1);
     return 0;
 }
