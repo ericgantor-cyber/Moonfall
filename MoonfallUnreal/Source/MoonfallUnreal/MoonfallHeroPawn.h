@@ -151,6 +151,8 @@ public:
  // Shared one-pass snapshot for HUD, previews and ring-stat consumers.
  void GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const;
  uint64 GetEquipmentLoadoutFingerprint() const;
+ // Read-only mutation token for presentation caches; no inventory access.
+ uint32 GetEquipmentInventoryRevision() const { return EquipmentInventoryRevision; }
  // Perks activate only on owned, correctly slotted legendary gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Perks") bool HasLegendaryPerk(int32 Slot) const;
  // Read-only owned-item comparison and projected set totals.
