@@ -53,6 +53,7 @@
 #include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallCheckpointShrine.h"
 #include "MoonfallMasteryOrb.h"
+#include "MoonfallMasterySave.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -70,6 +71,20 @@
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
 namespace {
+bool IsMasteryCheckpointPreview()
+{
+#if WITH_EDITOR
+ return FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"));
+#else
+ return false;
+#endif
+}
+const FString& GetMoonfallWorldSlot()
+{
+ static const FString Campaign(TEXT("MoonfallPersistentWorldV1"));
+ static const FString MasteryPreview(TEXT("MoonfallMasteryPreviewWorldV1"));
+ return IsMasteryCheckpointPreview()?MasteryPreview:Campaign;
+}
 // HUD shows only a fallback message below these inventory viewport dimensions.
 bool HasVisibleInventoryPointerSurface(const AController* Controller)
 {
@@ -564,6 +579,7 @@ bool AMoonfallHeroPawn::IsNearStartingSanctuary() const {
 }
 
 void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
+ const FString& MoonfallWorldSlot=GetMoonfallWorldSlot();
  if (bStartingSanctuaryPlaced || !GetWorld() || bPersistentSaveWritesBlocked
      || UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
@@ -588,6 +604,7 @@ void AMoonfallHeroPawn::TryPlaceNewCharacterAtSanctuary() {
 }
 
 void AMoonfallHeroPawn::BeginPlay() {
+ const FString& MoonfallWorldSlot=GetMoonfallWorldSlot();
  Super::BeginPlay();
  // The Northern preview must never load or overwrite the campaign slot.
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
@@ -3825,7 +3842,10 @@ void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action 
  if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
     ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return;
- if(auto* Ledger=GetSessionMastery())MoonfallSkillMastery::TryAward(*Ledger,Action,true,*Ledger,Challenge);
+ if(auto* Ledger=GetSessionMastery()){
+  if(MoonfallSkillMastery::TryAward(*Ledger,Action,true,*Ledger,Challenge))
+   GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()->bMasteryLedgerRestored=true;
+ }
 }
 
 bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind)
@@ -3834,7 +3854,9 @@ bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSk
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
     ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return false;
  auto* Ledger=GetSessionMastery();
- return Ledger&&MoonfallSkillMastery::TryCollect(*Ledger,Region,Index,Kind,true,*Ledger);
+ if(!Ledger||!MoonfallSkillMastery::TryCollect(*Ledger,Region,Index,Kind,true,*Ledger))return false;
+ GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()->bMasteryLedgerRestored=true;
+ return true;
 }
 
 int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
@@ -4574,7 +4596,6 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
 
 
 namespace {
-const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 // Defined with the faction/relationship helpers below; shared by save migration.
 const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
@@ -5120,6 +5141,7 @@ bool AMoonfallHeroPawn::RespecTalentPoints() {
 }
 
 bool AMoonfallHeroPawn::SaveWorldProgress() {
+ const FString& MoonfallWorldSlot=GetMoonfallWorldSlot();
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
   return false;
@@ -5248,6 +5270,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
+ // Only the isolated preview checkpoint can contain mastery records.
+ if(IsMasteryCheckpointPreview()){
+  const auto* Ledger=GetSessionMastery();
+  if(!Ledger||!MoonfallMasterySave::Write(*Ledger,*Save))return false;
+ }
  // Never overwrite the shrine checkpoint with the hero's current position.
  Save->CheckpointLocation = RespawnCheckpointLocation;
  Save->ActiveShrineId = ActiveShrineId;
@@ -5289,6 +5316,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
 }
 bool AMoonfallHeroPawn::LoadWorldProgress() {
+ const FString& MoonfallWorldSlot=GetMoonfallWorldSlot();
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
   return false;
@@ -5310,6 +5338,19 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ MoonfallSkillMastery::State LoadedMastery{};
+ AMoonfallUnrealGameMode* MasteryMode=nullptr;
+ if(IsMasteryCheckpointPreview()){
+  MasteryMode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+  if(GetWorld()->GetNetMode()!=NM_Standalone||!IsValid(MasteryMode)||
+     MasteryMode->IsActorBeingDestroyed()||!MoonfallMasterySave::Read(*Save,LoadedMastery)){
+   bPersistentSaveWritesBlocked=true;return false;
+  }
+ }else if(Save->SkillMasteryVersion!=0||!Save->SkillMasteryXP.IsEmpty()||
+          !Save->SkillMasteryOrbWords.IsEmpty()){
+  // Never silently strip a preview mastery record copied into a campaign slot.
+  bPersistentSaveWritesBlocked=true;return false;
  }
  if(Save->Version>=16){
   const auto& Party=Save->CompanionParty;
@@ -5726,6 +5767,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
+ // Restore once per world, after the checkpoint and all save validation.
+ // Respawning a pawn must not roll the live mastery ledger back to disk.
+ if(IsValid(MasteryMode)&&!MasteryMode->IsActorBeingDestroyed()&&!MasteryMode->bMasteryLedgerRestored){
+  MasteryMode->MasterySessionLedger=LoadedMastery;
+  MasteryMode->bMasteryLedgerRestored=true;
+ }
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  bWorldProgressLoadInProgress = false;
