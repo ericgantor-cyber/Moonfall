@@ -491,8 +491,24 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
    }
   }
  }
+ // Only the actual recruited companion may speak about active party orders.
+ // This is read-only dialogue: it cannot change stance, bond or health.
+ const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+ const bool bActiveCompanion=!bAmbientVisitor&&IsValid(Mode)&&Mode->GetLocalCompanionForHero(Hero)==this;
+ if(bActiveCompanion&&Disposition!=TEXT("Hostile")&&Bond>=60){
+  const TCHAR* PartyLine=nullptr;
+  if(bCompanionDowned)PartyLine=TEXT(" I need help before I can travel again.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold)PartyLine=TEXT(" I will hold this position until you give another order.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Passive)PartyLine=TEXT(" I will stay out of the fighting unless you change my orders.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow){
+   PartyLine=Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT(" I will watch your flank as we travel."):
+       Mode->LocalCompanionRole==EMoonfallCompanionRole::Striker?TEXT(" I am ready to support your next fight."):
+       TEXT(" I am ready to travel with you.");
+  }
+  if(PartyLine)Reaction=FText::FromString(Reaction.ToString()+PartyLine);
+ }
  const int32 RegionalDanger=GetLocalRegionalDanger();
- if(!bAmbientVisitor&&Disposition!=TEXT("Hostile")&&RegionalDanger>=65&&RegionalDanger<=100){
+ if(!bAmbientVisitor&&!bActiveCompanion&&Disposition!=TEXT("Hostile")&&RegionalDanger>=65&&RegionalDanger<=100){
   const TCHAR* RegionalWarning=SocialRole==FName(TEXT("Guard"))?TEXT(" The province is on alert. We are keeping close to our posts."):
       SocialRole==FName(TEXT("Merchant"))?TEXT(" Trade continues, but I am staying close to my stall."):
       SocialRole==FName(TEXT("Scout"))?TEXT(" The roads are dangerous. I am staying near the settlement."):
