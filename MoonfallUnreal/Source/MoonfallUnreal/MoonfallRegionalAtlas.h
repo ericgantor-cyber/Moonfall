@@ -3,7 +3,7 @@
 namespace MoonfallRegionalAtlas {
  struct FRect { float X,Y,W,H; };
  constexpr FRect Node(int Id,float W,float H) {
-  if(!MoonfallNorth::ValidZone(Id)||W<276||H<216) return {};
+  if(!MoonfallNorth::ValidZone(Id)||!(W>=276&&W<=10000&&H>=216&&H<=10000)) return {};
   const auto P=MoonfallNorth::ContinentCenters[Id];
   const float Gap=(H-102.f)/5.f;
   return {W*(P.Xcm<0?.25f:.71f)-W*.22f,54.f+Gap*(4.f-float(P.Ycm)/13000.f),W*.44f,Gap-2.f<37.f?Gap-2.f:37.f};

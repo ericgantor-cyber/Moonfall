@@ -2,6 +2,7 @@
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallRegionalFishing.h"
 #include "MoonfallRegionalAtlas.h"
+#include "MoonfallProfessionUI.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
@@ -1546,6 +1547,7 @@ bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(-1); return; }
  if (bTalentWebOpen) {
   bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
@@ -1567,6 +1569,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(1); return; }
  if (bTalentWebOpen) {
   bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
@@ -2905,6 +2908,13 @@ bool AMoonfallHeroPawn::HasWaterProfessionsPage() const
      && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview");
 }
 
+void AMoonfallHeroPawn::StepProfessionScroll(int32 Direction) {
+ if(!bInventoryOpen||!bCharacterStatsOpen||!bCharacterProfessionsPageOpen||!HasWaterProfessionsPage()||bOptionsOpen) return;
+ int32 W=0,H=0;
+ if(const auto* PC=Cast<APlayerController>(Controller)) PC->GetViewportSize(W,H);
+ const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(H)-24.f));
+ ProfessionScroll=MoonfallProfessionUI::Step(ProfessionScroll,MoonfallProfessionUI::Rows(PanelH),Direction);
+}
 void AMoonfallHeroPawn::StepCharacterPage(int32 Direction)
 {
  const int32 Count=HasWaterProfessionsPage()?4:3;
@@ -2919,6 +2929,7 @@ void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
      || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  bCharacterRacePageOpen = Page == 1;
  bCharacterRepPageOpen = Page == 2;
+ if(Page==3&&!bCharacterProfessionsPageOpen) ProfessionScroll=0;
  bCharacterProfessionsPageOpen = Page == 3;
 }
 
@@ -3634,7 +3645,8 @@ void AMoonfallHeroPawn::OptionsUp() {
    return;
   }
   if (bCharacterStatsOpen) {
-   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
+   if(bCharacterProfessionsPageOpen) StepProfessionScroll(-1);
+   else if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
    return; // Never move the hidden bag selection while reading character pages.
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
@@ -3682,7 +3694,8 @@ void AMoonfallHeroPawn::OptionsDown() {
    return;
   }
   if (bCharacterStatsOpen) {
-   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
+   if(bCharacterProfessionsPageOpen) StepProfessionScroll(1);
+   else if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
    return;
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
@@ -6802,6 +6815,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
         break;
        }
       }
+     }
+     if(bCharacterProfessionsPageOpen&&MouseY>=PanelT+PanelH-83.f&&MouseY<PanelT+PanelH-65.f&&MouseX>=PanelL+15.f&&MouseX<PanelL+PanelW-15.f) {
+      StepProfessionScroll(MouseX<PanelL+PanelW*.5f?-1:1); return;
      }
      // Read-only reputation rows share the HUD's responsive panel geometry.
      // Tab clicks above have priority; row hits never mutate gameplay reputation.

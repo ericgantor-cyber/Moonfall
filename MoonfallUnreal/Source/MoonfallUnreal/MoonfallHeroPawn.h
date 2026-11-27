@@ -68,6 +68,8 @@ public:
  void StepRegionalWaypoint(int32 Direction);
  bool HasRegionalWaypoint() const;
  bool bCharacterProfessionsPageOpen=false;
+ int32 ProfessionScroll=0;
+ void StepProfessionScroll(int32 Direction);
  bool HasWaterProfessionsPage() const;
  void StepCharacterPage(int32 Direction);
  TArray<FVector> NearbyFishingSchools;
