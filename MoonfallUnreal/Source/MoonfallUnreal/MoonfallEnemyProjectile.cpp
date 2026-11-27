@@ -3,6 +3,7 @@
 #include "MoonfallHeroPawn.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Components/PointLightComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -80,7 +81,7 @@ void AMoonfallEnemyProjectile::Initialize(AMoonfallEnemy* InSourceEnemy,float In
  ProjectileMovement->InitialSpeed=Speed;
  ProjectileMovement->MaxSpeed=Speed;
  ProjectileMovement->Velocity=SafeDirection*Speed;
- Visual->SetRelativeScale3D(FVector(bSpellcaster?0.38f:0.28f));
+ Visual->SetRelativeScale3D(bSpellcaster?FVector(0.38f):FVector(0.48f,0.12f,0.12f));
  ArcaneGlow->SetVisibility(bSpellcaster);
 }
 
@@ -134,6 +135,7 @@ void AMoonfallEnemyProjectile::ResolveHeroImpact(AActor* OtherActor)
  else Enemy->OnEnemyAttack();
  if(IsValid(Enemy)&&!Enemy->IsActorBeingDestroyed())
   Enemy->OnRangedProjectileResolved(bParried,false);
+ if(!IsValid(this)||IsActorBeingDestroyed())return;
  OnProjectileImpact(ImpactPoint,bParried,false);
  if(IsValid(this)&&!IsActorBeingDestroyed())Destroy();
 }
