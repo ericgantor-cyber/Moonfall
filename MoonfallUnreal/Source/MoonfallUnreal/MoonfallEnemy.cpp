@@ -899,14 +899,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     const float ProjectileDamage=AttackDamage*FMath::Clamp(CurrentAttackMultiplier,0.1f,2.3f)*DamageScale;
     if(!ProjectileMuzzle.ContainsNaN()&&!Direction.ContainsNaN()&&!Direction.IsNearlyZero()
        &&FMath::IsFinite(ProjectileDamage)&&ProjectileDamage>0.f){
-     FActorSpawnParameters SpawnParams;
-     SpawnParams.Owner=this;
-     SpawnParams.SpawnCollisionHandlingOverride=ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-     SpawnedProjectile=GetWorld()->SpawnActor<AMoonfallEnemyProjectile>(
-       AMoonfallEnemyProjectile::StaticClass(),FTransform(Direction.Rotation(),ProjectileMuzzle),SpawnParams);
+     const FTransform ProjectileTransform(Direction.Rotation(),ProjectileMuzzle);
+     SpawnedProjectile=GetWorld()->SpawnActorDeferred<AMoonfallEnemyProjectile>(
+       AMoonfallEnemyProjectile::StaticClass(),ProjectileTransform,this,nullptr,
+       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
      if(IsValid(SpawnedProjectile)){
       SpawnedProjectile->Initialize(this,ProjectileDamage,Direction,
         MoonfallPackTactics::RangedProjectileSpeed(bCasterCombatRole),bCasterCombatRole);
+      if(IsValid(SpawnedProjectile)&&!SpawnedProjectile->IsActorBeingDestroyed())
+       SpawnedProjectile->FinishSpawning(ProjectileTransform);
       if(!IsValid(SpawnedProjectile)||SpawnedProjectile->IsActorBeingDestroyed()) SpawnedProjectile=nullptr;
      }
     }
