@@ -83,8 +83,14 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
      && Hero->GetMovementBase() == Ship->PassengerDeck) {
   Hero->SetBase(nullptr);
  }
- bool bRescued = bArrived;
- if (!bArrived && bVoyagerOnDeck && IsValid(Hero)) {
+ // A living passenger who entered native swimming mode has left the ferry.
+ // Cancel travel without teleporting them to shore or back onto the boat.
+ const bool bSwimmingDeparture = !bArrived && IsValid(Hero)
+     && FMath::IsFinite(Hero->Health) && Hero->Health>0.f
+     && IsValid(Hero->GetCharacterMovement())
+     && Hero->GetCharacterMovement()->IsSwimming();
+ bool bRescued = bArrived || bSwimmingDeparture;
+ if (!bArrived && !bSwimmingDeparture && bVoyagerOnDeck && IsValid(Hero)) {
   // Always try a safe port fallback, even when the recorded boarding
   // location was made invalid during the voyage.
   FVector SafeOriginal;
@@ -170,7 +176,7 @@ bool AMoonfallNorthFerryGate::IsVoyagerAboard(
  // A jumping/falling hero is allowed briefly inside the protected rail space,
  // but a grounded hero on anything other than this deck fails closed.
  const UCharacterMovementComponent* Movement = Hero->GetCharacterMovement();
- if (!IsValid(Movement)
+ if (!IsValid(Movement) || Movement->IsSwimming()
      || (Movement->IsMovingOnGround()
          && Hero->GetMovementBase() != Ship->PassengerDeck)) return false;
  const FVector Local = Ship->GetActorTransform().InverseTransformPosition(
