@@ -230,12 +230,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallEquipmentSaveRoundTripTest,
 
 bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
 {
- // Exercise the complete V17 serialized layout, not live equipping. No disk
- // slot is read or written; the six inactive gameplay slots remain disabled.
+ // Exercise V17/V18 migration fixtures and the active V19 24-slot layout.
+ // No disk slot is read or written by this memory-only round-trip test.
  UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!TestNotNull(TEXT("Create equipment save"), Original)) return false;
- TestEqual(TEXT("Fresh equipment save has nine slots"), Original->EquippedSlotCodes.Num(), 9);
+ TestEqual(TEXT("Fresh equipment save uses V19"),Original->Version,19);
+ TestEqual(TEXT("Fresh equipment save has 24 slots"),Original->EquippedSlotCodes.Num(),24);
  for (const int32 Code : Original->EquippedSlotCodes)
   TestEqual(TEXT("Fresh equipment slot is empty"), Code, 0);
  const TArray<int32> AllCodes = {101005,111006,121007,131008,141009,151010,161011,171012,181013};
@@ -281,6 +282,16 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  TArray<int32> Long = AllCodes;
  Long.Add(0);
  if (!RoundTrip(Long, 17)) return false;
+ // Synthetic V18 fixture: verifies the 16-slot strict-position migration record.
+ TArray<int32> V18Codes;
+ V18Codes.Init(0,MoonfallEquipmentLayout::SixteenSlotCount);
+ for(int32 Slot=0;Slot<V18Codes.Num();++Slot)
+  V18Codes[Slot]=MoonfallEquipmentLayout::EncodeFullItem(Slot,1,2,5);
+ Original->InventoryItemCodes=V18Codes;
+ Original->EquippedWeaponCode=V18Codes[0];
+ Original->EquippedArmorCode=V18Codes[1];
+ Original->EquippedAccessoryCode=V18Codes[2];
+ if(!RoundTrip(V18Codes,18))return false;
  // Synthetic V16 fixture: verifies serialization of the legacy mirrors only,
  // not loading a real historical save or upgrading a live character.
  Original->InventoryItemCodes = {AllCodes[0],AllCodes[1],AllCodes[2]};
@@ -288,8 +299,8 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->EquippedArmorCode = AllCodes[1];
  Original->EquippedAccessoryCode = AllCodes[2];
  if (!RoundTrip(TArray<int32>{}, 16)) return false;
- // Synthetic future V19 fixture: prove 24 entries and repeated ring codes
- // survive native memory serialization. The live V17 loader stays gated.
+ // V19 fixture: prove all 24 entries and repeated flexible ring codes
+ // survive native memory serialization alongside legacy mirrors.
  TArray<int32> Future;
  Future.Init(0,MoonfallEquipmentLayout::FullSlotCount);
  for(int32 Slot=0;Slot<Future.Num();++Slot)
