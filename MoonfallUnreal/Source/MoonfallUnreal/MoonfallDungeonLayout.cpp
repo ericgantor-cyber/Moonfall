@@ -2,6 +2,7 @@
 #include "MoonfallRoadLandmarks.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallPackTactics.h"
 #include "MoonfallGroundLoot.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -368,10 +369,13 @@ bool AMoonfallDungeonLayout::TrySpawnBonusGroup(
    Enemy->AttackDamage = Enemy->bElite ? 11.f : 7.f;
    Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
    Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonBonus")));
-   if (Member == 0) Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
-   // Later bonus packs already include one elite. Give that existing elite
-   // a distinct movement role without spawning additional enemies.
-   if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
+   const auto CombatRole=MoonfallPackTactics::RoleForEncounterSlot(Member,Enemy->bElite);
+   if (CombatRole==MoonfallPackTactics::CombatRole::Scout)
+    Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+   else if (MoonfallPackTactics::IsRangedRole(CombatRole))
+    Enemy->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Ranged")));
+   else if (CombatRole==MoonfallPackTactics::CombatRole::PackLeader)
+    Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
    Enemy->FinishSpawning(SpawnTransform);
    // Deferred spawning can run Blueprint initialization that kills or rejects
    // this enemy. Never consume a bonus-pack slot for a dead/invalid actor.
@@ -628,11 +632,15 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
   // Record chamber before BeginPlay to isolate attack slots across rooms.
   Enemy->DungeonChamberIndex = ChamberIndex;
   Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
-  // The first surviving regular spawn in a multi-mob chamber is the scout.
-  // A rejected first spawn must not leave the chamber without a scout.
-  // Elite encounters retain their original behavior.
-  if (!bEliteEncounter && Spawned == 0 && Count > 1)
+  // Roles follow successful spawn order, so collision-rejected slots cannot
+  // accidentally remove the chamber's scout or ranged specialist.
+  const auto CombatRole=MoonfallPackTactics::RoleForEncounterSlot(Spawned,bEliteEncounter);
+  if (CombatRole==MoonfallPackTactics::CombatRole::Scout)
    Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+  else if (MoonfallPackTactics::IsRangedRole(CombatRole))
+   Enemy->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Ranged")));
+  else if (CombatRole==MoonfallPackTactics::CombatRole::PackLeader)
+   Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
   Enemy->FinishSpawning(SpawnTransform);
   // Do not count or retain actors whose deferred spawn was rejected.
   // A valid but rejected actor must be cleaned up before another attempt.
@@ -783,7 +791,10 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  Boss->AttackRange = Style.AttackRange;
  Boss->AttackCooldown = Style.AttackCooldown;
  Boss->MaxPosture = Style.Posture * RankScale;
+ Boss->DungeonChamberIndex = ChamberCount-1;
  Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));
+ Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
+ Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));
  Boss->FinishSpawning(SpawnTransform);
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) continue;
  if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
@@ -799,6 +810,68 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
   Boss->Destroy();
   return false;
  }
+ // Higher-rank dungeons add one vanguard and one ranged minion. These are
+ // part of the boss encounter, not a separate room wave or spawn-budget cost.
+ // If either spawn is blocked, roll both back and keep the boss fight intact.
+ if (Rank>=3) {
+  TArray<AMoonfallEnemy*,TInlineAllocator<2>> BossMinions;
+  FCollisionQueryParams MinionCollisionParams(SCENE_QUERY_STAT(MoonfallBossMinionSpawn),false);
+  bool bAllMinionsSpawned=true;
+  for (int32 MinionIndex=0;MinionIndex<2;++MinionIndex) {
+   bool bSpawnedMinion=false;
+   for (int32 MinionAttempt=0;MinionAttempt<3;++MinionAttempt) {
+    const float RetryX=MinionAttempt==0?0.f:(MinionAttempt==1?-55.f:55.f);
+    const FVector MinionPosition=GetActorTransform().TransformPosition(
+      FVector((ChamberCount-1)*ChamberLength+120.f+RetryX,
+        MinionIndex==0?300.f:-300.f,100.f));
+    if (GetWorld()->OverlapBlockingTestByChannel(MinionPosition,FQuat::Identity,
+        ECC_Pawn,FCollisionShape::MakeSphere(48.f),MinionCollisionParams)) continue;
+    const FTransform MinionTransform(GetActorRotation(),MinionPosition);
+    AMoonfallEnemy* Minion=GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+      AMoonfallEnemy::StaticClass(),MinionTransform,this,nullptr,
+      ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+    if (!IsValid(Minion)) continue;
+    Minion->bElite=false;
+    Minion->bBoss=false;
+    Minion->RaceId=(Boss->RaceId+MinionIndex+1)%12;
+    Minion->EncounterLevelOverride=EncounterLevel;
+    Minion->DungeonChamberIndex=ChamberCount-1;
+    Minion->Health=60.f*FMath::Clamp(RankScale,1.f,1.5f);
+    Minion->AttackDamage=5.f*(1.f+0.05f*(Rank-3));
+    Minion->ChaseSpeed=155.f;
+    Minion->AttackRange=145.f;
+    Minion->AttackCooldown=MinionIndex==0?1.8f:2.1f;
+    Minion->MaxPosture=70.f*RankScale;
+    Minion->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
+    Minion->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));
+    Minion->Tags.AddUnique(FName(TEXT("MoonfallBossMinion")));
+    const auto MinionRole=MoonfallPackTactics::RoleForBossMinion(MinionIndex);
+    if (MoonfallPackTactics::IsRangedRole(MinionRole))
+     Minion->Tags.AddUnique(FName(TEXT("MoonfallEnemyRole_Ranged")));
+    Minion->FinishSpawning(MinionTransform);
+    if (!IsValid(Minion)) continue;
+    if (Minion->IsActorBeingDestroyed() || Minion->GetOwner()!=this
+        || !FMath::IsFinite(Minion->Health) || Minion->Health<=0.f) {
+     Minion->Destroy();
+     continue;
+    }
+    BossMinions.Add(Minion);
+    bSpawnedMinion=true;
+    break;
+   }
+   if (!bSpawnedMinion) {
+    bAllMinionsSpawned=false;
+    break;
+   }
+  }
+  if (!bAllMinionsSpawned || BossMinions.Num()!=2) {
+   for (AMoonfallEnemy* Minion:BossMinions)
+    if (IsValid(Minion)) Minion->Destroy();
+  }
+ }
+ // Minion initialization is synchronous; revalidate the boss before callbacks.
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()
+     || !FMath::IsFinite(Boss->Health) || Boss->Health<=0.f) return false;
  OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
  // Encounter callbacks can also invalidate a live boss synchronously.
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
