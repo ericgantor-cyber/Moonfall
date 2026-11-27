@@ -139,10 +139,29 @@ int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
  return ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount];
 }
 
+void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()
+{
+ ++EquipmentInventoryRevision;
+ if(EquipmentInventoryRevision==0)++EquipmentInventoryRevision;
+ CachedValidatedInventoryRevision=0;
+}
+
 void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const
 {
+ const uint64 Fingerprint=GetEquipmentLoadoutFingerprint();
+ if(CachedValidatedInventoryRevision==EquipmentInventoryRevision
+     &&CachedValidatedLoadoutFingerprint==Fingerprint
+     &&CachedValidatedEquipmentCodes.Num()==MoonfallEquipmentLayout::FullSlotCount){
+  OutCodes=CachedValidatedEquipmentCodes;
+  return;
+ }
  OutCodes.Init(0,MoonfallEquipmentLayout::FullSlotCount);
- if(!MoonfallEquipmentLayout::ValidFullActiveCount(MoonfallEquipmentLayout::ActiveSlotCount))return;
+ if(!MoonfallEquipmentLayout::ValidFullActiveCount(MoonfallEquipmentLayout::ActiveSlotCount)){
+  CachedValidatedEquipmentCodes=OutCodes;
+  CachedValidatedInventoryRevision=EquipmentInventoryRevision;
+  CachedValidatedLoadoutFingerprint=Fingerprint;
+  return;
+ }
  // Count the bag once, then validate all 24 raw references and duplicate
  // multiplicities without rescanning the inventory for every finger.
  TMap<int32,int32> OwnedCounts,RequiredCounts;
@@ -159,14 +178,17 @@ void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) cons
   const int32* Owned=OwnedCounts.Find(Code);
   if(Required&&Owned&&*Owned>=*Required)OutCodes[Slot]=Code;
  }
+ CachedValidatedEquipmentCodes=OutCodes;
+ CachedValidatedInventoryRevision=EquipmentInventoryRevision;
+ CachedValidatedLoadoutFingerprint=Fingerprint;
 }
 
-uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint() const
+uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint() const
 {
- uint32 Hash=2166136261u;
+ uint64 Hash=14695981039346656037ull;
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot){
   Hash^=static_cast<uint32>(GetRawEquipmentSlotCode(Slot));
-  Hash*=16777619u;
+  Hash*=1099511628211ull;
  }
  return Hash;
 }
