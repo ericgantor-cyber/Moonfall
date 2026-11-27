@@ -17,6 +17,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UNavigationInvokerComponent;
 class UAnimMontage;
+class USoundBase;
 class AMoonfallEnemy;
 class AMoonfallWorldNPC;
 class AMoonfallCheckpointShrine;
@@ -50,6 +51,13 @@ public:
  FVector FishingBobber=FVector::ZeroVector;
  float FishingNoticeUntil=0.f;
  bool bFishingCaught=false;
+ // Optional authored audio assets. No implicit playback or asset load.
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingCastSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingBiteSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingReelSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingCatchSound=nullptr;
+ UPROPERTY(BlueprintReadOnly, Transient, Category="Moonfall|Fishing") int32 FishingVisualStage=0;
+ void SyncFishingPresentation(bool bCaught=false);
  int32 FishingSchoolId=-1;
  bool bCharacterProfessionsPageOpen=false;
  bool HasWaterProfessionsPage() const;
