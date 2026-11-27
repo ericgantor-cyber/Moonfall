@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
     grotto_layout, grotto_geometry, grotto_art, shoreline_geometry, ruin_geometry, wreck_geometry,
     MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH, EXPANDED_HALF_WIDTH, EXPANDED_HALF_LENGTH,
-    cave_geometry, island_geometry
+    cave_geometry, island_geometry, settlement_geometry, ISLAND_RESIDENTS
 )
 
 MAP_PATH = "/Game/DeepWaters/Maps/DeepWatersPreview"
@@ -29,7 +29,8 @@ def main():
     pocket_class = getattr(unreal, "MoonfallAirPocket", None)
     treasure_class = getattr(unreal, "MoonfallGrottoTreasure", None)
     enemy_class = getattr(unreal, "MoonfallEnemy", None)
-    if any(cls is None for cls in (preview_mode, pocket_class, treasure_class, enemy_class)):
+    npc_class = getattr(unreal, "MoonfallWorldNPC", None)
+    if any(cls is None for cls in (preview_mode, pocket_class, treasure_class, enemy_class, npc_class)):
         raise RuntimeError("Compile MoonfallUnreal before installing the preview")
     if world.get_world_settings().get_editor_property("default_game_mode") != preview_mode:
         raise RuntimeError("Use the save-isolated MoonfallNorthPreviewGameMode")
@@ -135,7 +136,17 @@ def main():
             for label, pos, scale in island_geometry():
                 block(label, pos, scale)
             block("Moonwatch Isle foundation", (0, 3300, -190), (12, 8, 4.4))
-            unreal.log("Expanded basin enabled: two caverns and Moonwatch Isle.")
+            for label, pos, scale in settlement_geometry():
+                block(label, pos, scale)
+            for name, resident_id, pos in ISLAND_RESIDENTS:
+                npc = place(npc_class, name, pos)
+                npc.set_editor_property("tags", [unreal.Name(TAG), unreal.Name("MoonfallIslandPreview")])
+                npc.set_editor_property("display_name", unreal.Text(name))
+                npc.set_editor_property("resident_id", unreal.Name(resident_id))
+                npc.set_editor_property("settlement_id", unreal.Name("Moonwatch"))
+                npc.set_editor_property("use_personality_routines", False)
+                npc.set_editor_property("ambient_visitor", True)
+            unreal.log("Expanded basin enabled: two caverns and Moonwatch settlement.")
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
         for index, (name, (x, y, z)) in enumerate(grotto_layout()):
