@@ -252,8 +252,8 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
  if (Step.SizeSquared2D() > FMath::Square(1.f)){
-  if(bGuide){
-   // One small guarded step, never a teleport or navigation request.
+  if(bGuide||bRegionalHome||bRegionalWatch){
+   // Guide and regional return steps must stay on clear, level ground.
    const FVector Start=GetActorLocation();
    const FVector End=Start+Step.GetClampedToMaxSize2D(32.f);
    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLocalGuide),false,this);
@@ -326,9 +326,11 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if(Role==ERole::Scout&&(LivingIntent==TEXT("Following")||LivingIntent==TEXT("Holding Position")||LivingIntent==TEXT("Passive")||LivingIntent==TEXT("Returning Home")||LivingIntent==TEXT("Moving to order")||LivingIntent==TEXT("Intercepting")||LivingIntent==TEXT("Flanking")||LivingIntent==TEXT("Withdrawing")||LivingIntent==TEXT("Downed")))return LivingIntent;
  if(Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost) return TEXT("On Alert");
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
- if(!MoonfallLivingSimulation::Severe(Weather)&&GetLocalRegionalDanger()>=65){
-  if(LivingIntent==TEXT("Regional Watch")||LivingIntent==TEXT("Staying Near Home")||LivingIntent==TEXT("Cautious Work"))return LivingIntent;
- }
+ const bool bRegionalIntent=LivingIntent==TEXT("Regional Watch")||
+     LivingIntent==TEXT("Staying Near Home")||LivingIntent==TEXT("Cautious Work");
+ const auto Regional=MoonfallLivingSimulation::RegionalRoutine(Role,GetLocalRegionalDanger(),
+     !MoonfallLivingSimulation::Severe(Weather)||Role==ERole::Guard);
+ if(bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal)return LivingIntent;
  // Only ordinary residents expose the new activity in the existing HUD.
  // Fresh danger/weather and authored specialist roles take precedence.
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport) {
@@ -340,7 +342,7 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Scout
      && !MoonfallLivingSimulation::Severe(Weather) && (LivingIntent==TEXT("Guiding Nearby")||LivingIntent==TEXT("Holding Position"))) return LivingIntent;
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
-     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
+     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty() && !bRegionalIntent)
   return LivingIntent;
  switch(MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)) {
  case MoonfallLivingSimulation::EActivity::Patrol:return TEXT("Patrolling");
