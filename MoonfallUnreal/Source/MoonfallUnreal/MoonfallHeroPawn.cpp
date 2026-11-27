@@ -5030,8 +5030,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  }
  // Do not silently discard malformed saved gear then overwrite the original
  // slot during autosave. Leave the slot untouched for backup or repair.
+ // Validate against both the saved schema and the current runtime layout.
+ const auto ValidSavedItem=[Save](int32 Code){
+  return MoonfallEquipmentLayout::ValidSavedInventoryItem(
+      Code,Save->Version,MoonfallEquipmentLayout::ActiveSlotCount);
+ };
  for (const int32 Code : Save->InventoryItemCodes) {
-  if (!ValidMoonfallItemCode(Code)) {
+  if (!ValidSavedItem(Code)) {
    bPersistentSaveWritesBlocked = true;
    UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid equipment; original inventory protected."));
    return false;
@@ -5099,7 +5104,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   }
   for (int32 Index = 0; Index < Save->DungeonTreasureStates.Num(); ++Index) {
    const int32 Code = Save->DungeonTreasureStates[Index];
-   if ((Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code))
+   if ((Code != 0 && Code != -1 && !ValidSavedItem(Code))
        || (Code != 0 && (Index % 14 == 0 || Index % 14 == 13))) {
     bPersistentSaveWritesBlocked = true;
     return false;
@@ -5112,7 +5117,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   TSet<FGuid> Seen;
   for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot) {
    if (!Record.DropId.IsValid() || Seen.Contains(Record.DropId)
-       || !ValidMoonfallItemCode(Record.ItemCode) || Record.LevelId.IsNone()
+       || !ValidSavedItem(Record.ItemCode) || Record.LevelId.IsNone()
        || Record.Location.ContainsNaN() || Record.Location.SizeSquared() >= 1.0e14f) {
     bPersistentSaveWritesBlocked = true;
     return false;
