@@ -172,7 +172,7 @@ int main(){
         self.assertIn("bool bInConversation=false",npc_h)
         self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide, bool bHoldCompanion)",movement)
         self.assertIn("PauseResidentMotion(",movement)
-        self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
+        self.assertIn("bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
         self.assertIn("inConversation || (nearHero && !sheltering && !holdingPost)",policy)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
