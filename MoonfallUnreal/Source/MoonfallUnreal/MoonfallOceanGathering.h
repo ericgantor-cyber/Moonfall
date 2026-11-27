@@ -2,7 +2,9 @@
 #include <cmath>
 namespace MoonfallOceanGathering
 {
-    constexpr int NodeCount=12;
+    constexpr int BaseNodeCount=12;
+    constexpr int NodeCount=48;
+    constexpr int RegionalNode(int Province,int Type) { return Province>=0&&Province<9&&Type>=0&&Type<4?BaseNodeCount+Province*4+Type:-1; }
     constexpr float RespawnSeconds=90.f;
     constexpr int MaxMaterialPerType=1000000;
     constexpr int MaxSessionCatches=1000000; // arithmetic safety guard, not a gameplay quota

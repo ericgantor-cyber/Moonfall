@@ -7,6 +7,26 @@ from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, M
 
 
 class DeepWatersLayoutTests(unittest.TestCase):
+    def test_regional_water_layout(self):
+        from deep_waters_layout import regional_water_plan
+        ids=set()
+        for province in range(9):
+            shore,nodes=regional_water_plan(province,600,600,500)
+            self.assertEqual(len(shore),4)
+            self.assertEqual(len(nodes),4)
+            for i,_,_,(x,y,z),scale in nodes:
+                self.assertNotIn(i,ids)
+                ids.add(i)
+                self.assertLess(abs(x)+scale[0]*50,600)
+                self.assertLess(abs(y)+scale[1]*50,600)
+                self.assertLess(z+scale[2]*50,0)
+                self.assertGreater(z-scale[2]*50,-500)
+        self.assertEqual(ids,set(range(12,48)))
+        with self.assertRaises(ValueError):
+            regional_water_plan(9,600,600,500)
+        with self.assertRaises(ValueError):
+            regional_water_plan(0,500,600,500)
+
     def test_six_unique_rooms(self):
         rooms = grotto_layout()
         self.assertEqual(len(rooms), 6)
