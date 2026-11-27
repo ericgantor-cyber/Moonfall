@@ -300,6 +300,23 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->EquippedArmorCode=Future[1];
  Original->EquippedAccessoryCode=Future[2];
  if (!RoundTrip(Future,19)) return false;
+ const int32 Mirrors[] = {Future[0],Future[1],Future[2]};
+ MoonfallEquipmentLayout::FFullLoadout Migrated{};
+ TestTrue(TEXT("V19 accepts all 24 owned slots including duplicate rings"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
+ for(int32 Slot=0;Slot<Future.Num();++Slot)
+  TestEqual(TEXT("V19 migration retains exact equipment position"),Migrated[Slot],Future[Slot]);
+ TArray<int32> MissingCopy=Original->InventoryItemCodes;
+ MissingCopy.RemoveAt(23);
+ const auto BeforeRejected= Migrated;
+ TestFalse(TEXT("V19 rejects a missing physical ring copy"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),19,MissingCopy,Migrated));
+ TestTrue(TEXT("Rejected migration leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V19 rejects truncated slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num()-1,19,Original->InventoryItemCodes,Migrated));
  return !HasAnyErrors();
 }
 
