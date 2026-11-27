@@ -391,6 +391,92 @@ constexpr bool CanOperateFull(int Code,int ActiveSlots,EInventoryOperation Opera
  }
  return false;
 }
+// A ring's encoded slot is its stable historical item identity, not a
+// restriction on which finger can wear it. Other equipment stays slot-bound.
+constexpr bool CanWearFullItem(int Code,int TargetSlot,int ActiveSlots=FullSlotCount) {
+ if(!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip)
+     ||TargetSlot<0||TargetSlot>=ActiveSlots)return false;
+ const auto D=DecodeFullItem(Code);
+ return D.Slot==TargetSlot||(IsRingSlot(D.Slot)&&IsRingSlot(TargetSlot));
+}
+constexpr int FullWornCopies(int Code,const FFullLoadout& Worn,int ActiveSlots) {
+ if(Code<=0||!ValidFullActiveCount(ActiveSlots))return 0;
+ int Count=0;
+ for(int Slot=0;Slot<ActiveSlots;++Slot)if(Worn[Slot]==Code)++Count;
+ return Count;
+}
+template<class Bag>
+int FullOwnedCopies(int Code,const Bag& Inventory,int Limit=FullSlotCount+1) {
+ if(Code<=0||Limit<=0)return 0;
+ int Count=0;
+ for(int Item:Inventory)if(Item==Code&&++Count>=Limit)break;
+ return Count;
+}
+// Save/equip transaction boundary. Identical codes represent separate bag
+// copies, never one item multiplied across several fingers. Validate all
+// references and multiplicities before publishing a candidate.
+template<class Bag>
+bool IsFullLoadoutOwned(const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ if(!ValidFullActiveCount(ActiveSlots))return false;
+ for(int Slot=0;Slot<FullSlotCount;++Slot){
+  const int Code=Worn[Slot];
+  if(!Code)continue;
+  if(!CanWearFullItem(Code,Slot,ActiveSlots))return false;
+  bool Seen=false;
+  for(int Prior=0;Prior<Slot;++Prior)if(Worn[Prior]==Code){Seen=true;break;}
+  if(Seen)continue;
+  const int Required=FullWornCopies(Code,Worn,ActiveSlots);
+  if(FullOwnedCopies(Code,Inventory,Required)<Required)return false;
+ }
+ return true;
+}
+template<class Bag>
+bool TryAssignFullRing(int Code,int TargetSlot,const FFullLoadout& Worn,
+    int ActiveSlots,bool InCombat,const Bag& Inventory,FFullLoadout& Out) {
+ if(InCombat||!IsRingSlot(TargetSlot)||!IsRingSlot(DecodeFullItem(Code).Slot)
+     ||!CanWearFullItem(Code,TargetSlot,ActiveSlots)
+     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)||Worn[TargetSlot]==Code)return false;
+ auto Candidate=Worn;
+ Candidate[TargetSlot]=Code;
+ if(!IsFullLoadoutOwned(Candidate,ActiveSlots,Inventory))return false;
+ Out=Candidate;
+ return true;
+}
+template<class Bag>
+bool TryMoveFullRing(int From,int To,const FFullLoadout& Worn,int ActiveSlots,
+    bool InCombat,const Bag& Inventory,FFullLoadout& Out) {
+ if(InCombat||!ValidFullActiveCount(ActiveSlots)||From==To
+     ||!IsRingSlot(From)||!IsRingSlot(To)||From>=ActiveSlots||To>=ActiveSlots
+     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)||!Worn[From]
+     ||Worn[From]==Worn[To])return false;
+ auto Candidate=Worn;
+ Candidate[From]=Worn[To];Candidate[To]=Worn[From];
+ if(!IsFullLoadoutOwned(Candidate,ActiveSlots,Inventory))return false;
+ Out=Candidate;
+ return true;
+}
+// V17/V18 retain their original strict slot semantics. V19 permits ring
+// interchange only after bag multiplicities and legacy mirrors are verified.
+template<class Bag>
+bool TryRestoreFlexibleFullLoadout(const int* Legacy,int LegacyCount,
+    const int* Record,int RecordCount,int Version,const Bag& Inventory,FFullLoadout& Out) {
+ FFullLoadout Candidate{};
+ const auto Owns=[&Inventory](int Code){return FullOwnedCopies(Code,Inventory,1)>0;};
+ if(Version<19){
+  if(!TryRestoreFullLoadout(Legacy,LegacyCount,Record,RecordCount,Version,Owns,Candidate))return false;
+ }else{
+  if(Version!=19||!Legacy||LegacyCount!=LegacySlotCount
+      ||!Record||RecordCount!=FullSlotCount)return false;
+  for(int Slot=0;Slot<FullSlotCount;++Slot){
+   if(Slot<LegacySlotCount&&Record[Slot]!=Legacy[Slot])return false;
+   Candidate[Slot]=Record[Slot];
+  }
+ }
+ const int Active=Version<17?LegacySlotCount:Version==17?SlotCount:Version==18?SixteenSlotCount:FullSlotCount;
+ if(!IsFullLoadoutOwned(Candidate,Active,Inventory))return false;
+ Out=Candidate;
+ return true;
+}
 // Crafting never loses the bank/slot identity. Reforge RNG is supplied by
 // the caller, keeping this policy deterministic and transaction-independent.
 constexpr int FullUpgradeCode(int Code,int ActiveSlots) {
@@ -412,11 +498,9 @@ constexpr int FullReforgeCode(int Code,int NewTrait,int ActiveSlots) {
 template<class Bag>
 bool CanRemoveFullCopy(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
  if(!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Salvage))return false;
- const auto Item=DecodeFullItem(Code);
- if(Worn[Item.Slot]!=Code)return true;
- int Copies=0;
- for(int Candidate:Inventory)if(Candidate==Code&&++Copies>=2)return true;
- return false;
+ // Count every raw worn reference, including a ring on another finger.
+ const int Required=FullWornCopies(Code,Worn,ActiveSlots)+1;
+ return FullOwnedCopies(Code,Inventory,Required)>=Required;
 }
 constexpr int FullRank(int Code) {
  const auto D=DecodeFullItem(Code);
@@ -429,7 +513,7 @@ constexpr int FullTotalScore(const FFullLoadout& Codes,int ActiveSlots=FullSlotC
  int Score=0,Counts[4]{};
  for(int Slot=0;Slot<ActiveSlots;++Slot){
   const auto D=DecodeFullItem(Codes[Slot]);
-  if(D.Slot!=Slot)continue;
+  if(!CanWearFullItem(Codes[Slot],Slot,ActiveSlots))continue;
   Score+=FullRank(Codes[Slot])*100+(D.Trait?10+80*Counts[D.Trait]:0);
   if(D.Trait)++Counts[D.Trait];
  }
@@ -459,6 +543,7 @@ class FFullPlanner {
  std::array<std::array<FChoice,4>,FullSlotCount> Candidates{};
  bool WeaponsOnly=false;
  int ActiveSlots=0;
+ bool RequiresFlexibleRingPlanner=false;
  static constexpr int Base=FullSlotCount+1,States=Base*Base*Base;
  static constexpr int Weights[4]={0,1,Base,Base*Base};
  struct FState {int Score=-1,Changes=0;std::uint64_t Path=0;};
@@ -470,7 +555,10 @@ public:
  explicit FFullPlanner(const FFullLoadout& Equipped,bool CombatOnly=false,int EnabledSlots=FullSlotCount)
      :WeaponsOnly(CombatOnly),ActiveSlots(ValidFullActiveCount(EnabledSlots)?EnabledSlots:0) {
   for(int Slot=0;Slot<ActiveSlots;++Slot){
-   Worn[Slot]=ValidFullItem(Equipped[Slot],Slot)?Equipped[Slot]:0;
+   Worn[Slot]=CanWearFullItem(Equipped[Slot],Slot,ActiveSlots)?Equipped[Slot]:0;
+   // Until inventory-copy-aware optimization is integrated, never let the
+   // position-specific planner discard or duplicate a flexible worn ring.
+   if(Worn[Slot]&&!ValidFullItem(Worn[Slot],Slot))RequiresFlexibleRingPlanner=true;
    const auto D=DecodeFullItem(Worn[Slot]);
    Candidates[Slot][D.Trait]={Worn[Slot],-1};
   }
@@ -484,7 +572,7 @@ public:
  }
  FFullPlan Finish()const{
   FFullPlan Result;Result.Codes=Worn;
-  if(!ActiveSlots)return Result;
+  if(!ActiveSlots||RequiresFlexibleRingPlanner)return Result;
   std::vector<FState> Current(States),Next(States);
   Current[0].Score=0;
   for(int Slot=0;Slot<ActiveSlots;++Slot){
