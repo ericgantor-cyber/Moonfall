@@ -73,14 +73,16 @@ void AMoonfallMasteryOrb::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero){
     Hero->IsActorBeingDestroyed()||Hero->GetWorld()!=GetWorld()||
     !Hero->IsSkillMasteryPreviewEnabled()||!Hero->IsPlayerControlled()||
     !Hero->bWorldProgressInitialized||Hero->bWorldProgressLoadInProgress||
-    Hero->bPersistentSaveWritesBlocked||!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f||
-    !PickupRange->IsOverlappingComponent(Hero->GetCapsuleComponent()))return;
- const auto Kind=bHiddenOrb?MoonfallSkillMastery::Orb::Hidden:MoonfallSkillMastery::Orb::Agility;
- // Duplicate actors for an already-collected identity disappear without XP.
+    Hero->bPersistentSaveWritesBlocked||!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f)return;
+ // Retire saved or duplicate collectibles even when the hero is far away.
+ // New rewards still require current capsule overlap and a validated identity.
  const auto* Ledger=Hero->GetSessionMastery();
- if(!Ledger)return;
- if(!MoonfallSkillMastery::IsCollected(*Ledger,Region,Index)&&
-    !Hero->TryCollectMasteryOrb(Region,Index,Kind))return;
+ if(!Ledger||!MoonfallSkillMastery::ValidOrbID(Region,Index))return;
+ if(!MoonfallSkillMastery::IsCollected(*Ledger,Region,Index)){
+  if(!PickupRange->IsOverlappingComponent(Hero->GetCapsuleComponent()))return;
+  const auto Kind=bHiddenOrb?MoonfallSkillMastery::Orb::Hidden:MoonfallSkillMastery::Orb::Agility;
+  if(!Hero->TryCollectMasteryOrb(Region,Index,Kind))return;
+ }
  bClaimed=true;
  PickupRange->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  Destroy();
