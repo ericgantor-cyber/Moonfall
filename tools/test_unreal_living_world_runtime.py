@@ -263,7 +263,8 @@ int main(){
         with tempfile.TemporaryDirectory() as d:
             source=Path(d)/"sim.cpp";exe=Path(d)/"sim"
             source.write_text(code)
-            subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True,check=True)
+            compile_result=subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True)
+            self.assertEqual(compile_result.returncode,0,compile_result.stderr)
             subprocess.run([str(exe)],check=True)
     def test_regional_crowns_and_dungeon_wall_art_are_visual_only(self):
         arena=(SRC/"MoonfallArena.cpp").read_text()
