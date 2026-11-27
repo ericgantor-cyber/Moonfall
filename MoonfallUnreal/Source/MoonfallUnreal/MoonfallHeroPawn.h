@@ -506,6 +506,10 @@ private:
  int32 GetCraftEquipmentSlot(int32 Code) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;
+ mutable uint32 CachedInventoryOrderRevision=0;
+ mutable int32 CachedInventoryOrderMode=-1;
+ mutable TArray<int32> CachedInventoryOrder;
+ mutable TArray<int32> CachedInventoryOrderSource;
  mutable uint32 CachedValidatedInventoryRevision=0;
  mutable uint64 CachedValidatedLoadoutFingerprint=0;
  mutable TArray<int32> CachedValidatedEquipmentCodes;
