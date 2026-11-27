@@ -5222,7 +5222,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Restore only owned, active expanded gear selected while defeated.
  static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::FullSlotCount,
      "Defeated selection must match the equipment layout");
- for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
+ for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot) {
   const int32 Code=DefeatedEquipmentSelection[Slot];
   if (MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
       MoonfallEquipmentLayout::EInventoryOperation::Equip)
