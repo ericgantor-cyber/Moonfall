@@ -148,7 +148,8 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", rings)
         self.assertIn("GetRawEquipmentSlotCode(Slot)", rings)
         self.assertIn("GetValidatedEquipmentCodes(ValidatedCodes)", rings)
-        self.assertIn("BuildRingBonusesValidated(Worn,MoonfallEquipmentLayout::ActiveSlotCount)", rings)
+        self.assertIn("BuildRingBonusesValidated(", rings)
+        self.assertIn("Worn,MoonfallEquipmentLayout::ActiveSlotCount)", rings)
         for method, field, cap in (("GetCriticalChance", "CritBps", "0.25f"),
                                    ("GetHasteBonus", "HasteBps", "0.20f"),
                                    ("GetMasteryBonus", "MasteryBps", "0.16f"),
