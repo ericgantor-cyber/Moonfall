@@ -99,6 +99,15 @@ class EquipmentStatSafety(unittest.TestCase):
             body = self.source.split(signature, 1)[1].split("\n}\n", 1)[0]
             self.assertIn("MarkEquipmentInventoryDirty()", body, signature)
 
+    def test_save_restore_batches_equipment_cache_invalidation(self):
+        load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress(", 1)[1]
+        rebuild = load.split("InventoryItemCodes.Reset();", 1)[1].split("const auto RestoreGear", 1)[0]
+        self.assertEqual(rebuild.count("MarkEquipmentInventoryDirty();"), 1)
+        self.assertIn("InventoryItemCodes.Reserve(LoadScanCount);", rebuild)
+        self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", rebuild)
+        self.assertLess(rebuild.index("InventoryItemCodes.Add(Code);"), rebuild.index("MarkEquipmentInventoryDirty();"))
+        self.assertIn("}\n // Invalidate once", rebuild)
+
     def test_ring_stats_respect_activation_ownership_and_global_caps(self):
         source = self.source
         rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(

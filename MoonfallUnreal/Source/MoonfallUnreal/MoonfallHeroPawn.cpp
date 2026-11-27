@@ -5182,11 +5182,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
  const int32 LoadScanCount = FMath::Min(Save->InventoryItemCodes.Num(), 10000);
+ InventoryItemCodes.Reserve(LoadScanCount);
  for (int32 Index = 0; Index < LoadScanCount; ++Index) {
   const int32 Code = Save->InventoryItemCodes[Index];
   if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
- MarkEquipmentInventoryDirty();
  }
+ // Invalidate once after rebuilding, even when the restored bag is empty.
+ MarkEquipmentInventoryDirty();
  const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
   if (MoonfallGearAdvisor::Valid(Code,Slot) && InventoryItemCodes.Contains(Code)) {
    Equipped = Code;
