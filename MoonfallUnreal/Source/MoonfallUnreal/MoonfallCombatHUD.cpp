@@ -13,6 +13,7 @@
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallWaterRules.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -2699,6 +2700,13 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
+  if (GetWorld()) {
+   const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   if (IsValid(Preview)) {
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,24.f);
+    DrawText(FString::Printf(TEXT("GROTTO TREASURES  %d / 6"),Preview->GetGrottoClaimCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
+   }
+  }
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
