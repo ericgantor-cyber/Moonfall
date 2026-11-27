@@ -730,7 +730,14 @@ int main(){
         self.assertLess(strike.index("CanCompanionStrike(Age"),strike.index("Enemy=CompanionThreat.Get()"))
         self.assertEqual(strike.count("LineTraceSingleByChannel("),1)
         self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
-        self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("&&bFreshThreat)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("FreshCompanionThreat(Now,CompanionThreatAt,Existing->Health",report)
+        self.assertIn("CanCompanionSupportOffensively(Scout->CompanionHealth)",strike)
+        self.assertIn("const bool bFreshThreat=IsFreshThreat(CompanionThreat.Get())",mode)
+        self.assertIn("if(!bFreshThreat){CompanionThreat.Reset();CompanionThreatAt=-1000.f;}",mode)
+        self.assertIn("FMath::Abs(Player.Z-Threat->GetActorLocation().Z)<=100.0",mode)
+        self.assertIn("PreviousIntent!=Scout->LivingIntent)Scout->bFollowerWaypointValid=false",mode)
+        self.assertIn("LocalCompanion.Get()!=Scout||!IsLocalCompanionOwner(Hero)",mode)
         self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
 
     def test_v27_companion_counterattack_is_committed_and_has_no_hero_fallback(self):
