@@ -70,6 +70,7 @@ int main(){
  assert(MoonfallPackTactics::RangedRepositionMode(390.0)==0);
  assert(MoonfallPackTactics::RangedRepositionMode(500.0)==0);
  assert(MoonfallPackTactics::RangedRepositionMode(501.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(521.0)==1);
  assert(MoonfallPackTactics::RangedRepositionMode(-1.0)==0);
  assert(MoonfallPackTactics::ShouldMinionYieldToBoss(true,true));
  assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(true,false));
