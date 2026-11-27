@@ -723,6 +723,12 @@ int main(){
             "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
         self.assertLess(strike.index("GetRecentCompanionAssistTarget(Age)"),strike.index("Enemy=CompanionThreat.Get()"))
         self.assertIn("Age<0.f||Age>2.f",strike)
+        self.assertIn("if(!CanAssist(Enemy,Age))",strike)
+        self.assertIn("Age>2.f||!CanAssist(Enemy,Age)",strike)
+        self.assertIn("!FMath::IsFinite(Enemy->Health)",strike)
+        self.assertIn("Enemy->bPostureFinisherAvailable||Now<Enemy->PostureBrokenUntil",strike)
+        self.assertLess(strike.index("CanCompanionStrike(Age"),strike.index("Enemy=CompanionThreat.Get()"))
+        self.assertEqual(strike.count("LineTraceSingleByChannel("),1)
         self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
         self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
         self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
