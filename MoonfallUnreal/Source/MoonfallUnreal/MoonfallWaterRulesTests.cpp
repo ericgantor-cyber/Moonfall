@@ -13,6 +13,19 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Land reset"), AdvanceAir(0.f, 1.f, false, false, false), 100.f);
     TestEqual(TEXT("Actual pause"), AdvanceAir(50.f, 10.f, true, true, true), 50.f);
     TestEqual(TEXT("Negative time ignored"), AdvanceAir(50.f, -1.f, true, true, false), 50.f);
+    float Exposure = 0.f;
+    TestFalse(TEXT("Air remains"), AdvanceDrowning(Exposure, 2.f, 0.25f, true, false));
+    TestEqual(TEXT("No exposure before depletion"), Exposure, 0.f);
+    TestFalse(TEXT("Partial empty frame"), AdvanceDrowning(Exposure, 0.5f, 0.25f, true, false));
+    TestEqual(TEXT("Only empty portion counted"), Exposure, 0.125f);
+    TestFalse(TEXT("Pause preserves exposure"), AdvanceDrowning(Exposure, 0.f, 0.25f, true, true));
+    TestEqual(TEXT("Paused exposure unchanged"), Exposure, 0.125f);
+    for (int32 I = 0; I < 3; ++I)
+        TestFalse(TEXT("No premature drowning pulse"), AdvanceDrowning(Exposure, 0.f, 0.25f, true, false));
+    TestTrue(TEXT("One second without air triggers pulse"), AdvanceDrowning(Exposure, 0.f, 0.25f, true, false));
+    TestEqual(TEXT("Pulse preserves remainder"), Exposure, 0.125f);
+    TestFalse(TEXT("Surface cancels damage"), AdvanceDrowning(Exposure, 0.f, 0.25f, false, false));
+    TestEqual(TEXT("Surface resets exposure"), Exposure, 0.f);
     return true;
 }
 #endif
