@@ -837,7 +837,11 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
     if (MoonfallLivingSimulation::Severe(CurrentWeather))
      Story+=TEXT(" The weather has made travel dangerous.");
     if(Danger>=65&&Event==MoonfallLivingSimulation::EEvent::Patrol)
-     Story+=TEXT(" Recent fighting has put this province on alert.");
+     Story+=TEXT(" The province is on alert. Travelers should stay near guarded roads.");
+    else if(Danger>=35&&Danger<65&&Event==MoonfallLivingSimulation::EEvent::Patrol)
+     Story+=TEXT(" We are keeping watch over the trade routes.");
+    else if(Danger>=35&&Danger<65&&Event==MoonfallLivingSimulation::EEvent::Merchant)
+     Story+=TEXT(" Trade continues, but we are watching the roads carefully.");
     else if(Danger>=0&&Danger<35&&RegionalBossVictories[Region]==5)
      Story+=TEXT(" With the dungeon bosses defeated, the roads are quieter.");
     Visitor->Greeting=FText::FromString(Story);
