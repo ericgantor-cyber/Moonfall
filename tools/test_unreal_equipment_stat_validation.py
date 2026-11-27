@@ -237,6 +237,12 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn('TEXT("RING T%d")', hud)
         self.assertIn("FMath::IsFinite(MX)&&FMath::IsFinite(MY)", hud)
 
+    def test_bag_drop_surface_has_no_gold_highlight(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("CanDropDraggedRingInBag()", hud)
+        self.assertNotIn("DrawRect(SlotGold,BagX", hud)
+        self.assertIn("else if(HitTestInventoryBagDropSurface())", self.source)
+
     def test_expanded_ring_equip_entry_points_share_transaction_guard(self):
         explicit = self.source.split("bool AMoonfallHeroPawn::EquipInventoryRing(", 1)[1].split("\n}", 1)[0]
         self.assertLess(explicit.index("if(!CanEditEquippedRings())return false;"), explicit.index("EquipInventoryItemWithPreviousTier("))
