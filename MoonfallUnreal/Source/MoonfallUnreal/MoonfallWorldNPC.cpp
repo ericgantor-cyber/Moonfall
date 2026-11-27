@@ -103,7 +103,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const FVector ActualMove=GetActorLocation()-Start;
  if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0){
   FollowerBlockedSteps=0;
-  FollowerLastStep=FMath::Min(60.0,ActualMove.Size2D());FollowerLastMoveAt=Now;
+  FollowerLastStep=FMath::Min(static_cast<double>(MaxStep),ActualMove.Size2D());FollowerLastMoveAt=Now;
   // Bound visible turns per existing 0.2-second follower pulse, including
   // wraparound at +/-180 degrees. No animation tick or asset dependency.
   const float CurrentYaw=static_cast<float>(GetActorRotation().Yaw);
@@ -148,7 +148,7 @@ bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
   FHitResult Sight;
   if(GetWorld()->LineTraceSingleByChannel(Sight,Center,Player,ECC_Visibility,GroundParams))continue;
   if(!TeleportTo(Destination,GetActorRotation(),false,false))continue;
-  bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;FollowerLastMoveAt=-1.f;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
+  bFollowerWaypointValid=false;bFollowerTravelFormation=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;FollowerLastMoveAt=-1.f;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
   return true;
  }
  return false;
