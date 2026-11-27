@@ -813,8 +813,12 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
  // Higher-rank dungeons add one vanguard and one ranged minion. These are
  // part of the boss encounter, not a separate room wave or spawn-budget cost.
  // If either spawn is blocked, roll both back and keep the boss fight intact.
+ TArray<AMoonfallEnemy*,TInlineAllocator<2>> BossMinions;
+ const auto RollbackBossMinions=[&](){
+  for (AMoonfallEnemy* Minion:BossMinions)
+   if (IsValid(Minion)) Minion->Destroy();
+ };
  if (Rank>=3) {
-  TArray<AMoonfallEnemy*,TInlineAllocator<2>> BossMinions;
   FCollisionQueryParams MinionCollisionParams(SCENE_QUERY_STAT(MoonfallBossMinionSpawn),false);
   bool bAllMinionsSpawned=true;
   for (int32 MinionIndex=0;MinionIndex<2;++MinionIndex) {
@@ -864,19 +868,23 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
     break;
    }
   }
-  if (!bAllMinionsSpawned || BossMinions.Num()!=2) {
-   for (AMoonfallEnemy* Minion:BossMinions)
-    if (IsValid(Minion)) Minion->Destroy();
-  }
+  if (!bAllMinionsSpawned || BossMinions.Num()!=2) RollbackBossMinions();
  }
  // Minion initialization is synchronous; revalidate the boss before callbacks.
  if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()
-     || !FMath::IsFinite(Boss->Health) || Boss->Health<=0.f) return false;
+     || !FMath::IsFinite(Boss->Health) || Boss->Health<=0.f) {
+  RollbackBossMinions();
+  return false;
+ }
  OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
  // Encounter callbacks can also invalidate a live boss synchronously.
- if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) {
+  RollbackBossMinions();
+  return false;
+ }
  if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f) {
   Boss->Destroy();
+  RollbackBossMinions();
   return false;
  }
  return true;
