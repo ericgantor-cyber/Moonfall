@@ -1,4 +1,5 @@
 #include "MoonfallAquaticProfiles.h"
+#include "MoonfallAquaticArt.h"
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
 
@@ -48,6 +49,16 @@ bool FMoonfallAquaticProfilesTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Side swimming avoids lunge"),Hits(Lunge,FVector(0,200,0),FVector::ForwardVector));
     TestFalse(TEXT("Ascending avoids lunge"),Hits(Lunge,FVector(0,0,200),FVector::ForwardVector));
     TestFalse(TEXT("Out of reach avoids lunge"),Hits(Lunge,FVector(300,0,0),FVector::ForwardVector));
+    for (int32 Id=0; Id<6; ++Id) {
+        const auto Parts = MoonfallAquaticArt::Fins(Id);
+        TestTrue(TEXT("Bounded instance count"),Parts.Num()>=5 && Parts.Num()<=8);
+        for (const auto& Part : Parts) {
+            TestFalse(TEXT("Finite ornament transform"),Part.ContainsNaN());
+            TestTrue(TEXT("Positive bounded ornament scale"),Part.GetScale3D().GetMin()>0.f && Part.GetScale3D().GetMax()<=0.5f);
+        }
+    }
+    TestEqual(TEXT("Leviathan has four dorsal spines"),MoonfallAquaticArt::Fins(5).Num(),8);
+    TestEqual(TEXT("Pearlback has three shell ridges"),MoonfallAquaticArt::Fins(1).Num(),7);
     return true;
 }
 #endif
