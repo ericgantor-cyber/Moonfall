@@ -479,8 +479,11 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  if (!bAutoVoyageInProgress || !IsValid(Hero) || PendingVoyager.Get() != Hero
      || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival)
   return;
- if (PairedGate != Arrival || Arrival->PairedGate != this
+ if (!HasConfiguredPassage() || !IsValid(Arrival) || !IsValid(Ship)
+     || PairedGate != Arrival || Arrival->PairedGate != this
      || SailingVessel != Ship || Arrival->SailingVessel != PendingTargetShip.Get()
+     || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, Ship)
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
      || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen) {
