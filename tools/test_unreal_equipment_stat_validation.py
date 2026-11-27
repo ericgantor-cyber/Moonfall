@@ -44,7 +44,8 @@ class EquipmentStatSafety(unittest.TestCase):
         score = source.split("int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex()", 1)[0]
         self.assertIn("FFullLoadout EquippedCodes", score)
-        self.assertIn("IsFullLoadoutOwned(EquippedCodes", score)
+        self.assertIn("GetValidatedEquipmentCodes(ValidatedCodes)", score)
+        self.assertIn("GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot]", score)
         self.assertIn("FullCandidateImprovement(Candidate,EquippedCodes", score)
         recommended = source.split("int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex()", 1)[1].split(
             "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
@@ -89,7 +90,7 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertIn(f"GetNativeRingBonuses().{field} * 0.0001f", body)
             self.assertIn(cap, body)
         mastery = source.split("float AMoonfallHeroPawn::GetMasteryBonus() const", 1)[1].split("\n}", 1)[0]
-        self.assertIn("!MoonfallEquipmentLayout::IsRingSlot(Slot)", mastery)
+        self.assertIn("MoonfallEquipmentLayout::IsRingSlot(Slot)", mastery)
         self.assertIn("GetNativeRingBonuses().LuckBps / 100", source)
         self.assertIn("GetNativeRingBonuses().LuckBps * 0.0001f", source)
     def test_expanded_equip_best_revalidates_and_commits_rings_atomically(self):
