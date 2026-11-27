@@ -12,6 +12,7 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallWaterRules.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -2692,7 +2693,9 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Y = Canvas->SizeY*0.69f;
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
-  DrawText(Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),FMath::CeilToInt(Air*1.8f)/60,FMath::CeilToInt(Air*1.8f)%60),AirColor,X+8.f,Y+3.f,nullptr,0.9f);
+  const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
+      MoonfallWaterRules::BreathMultiplier(Hero->bRaceChosen, Hero->RaceId)));
+  DrawText(Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
