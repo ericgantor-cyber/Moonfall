@@ -4,6 +4,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -26,16 +27,21 @@ AMoonfallGrottoTreasure::AMoonfallGrottoTreasure()
     if (Cube.Succeeded()) ChestMesh->SetStaticMesh(Cube.Object);
 }
 
-bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero)
+bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
 {
     if (!HasAuthority() || IsActorBeingDestroyed() || !GetWorld() || !IsValid(Hero)
         || Hero->GetWorld() != GetWorld() || !FMath::IsFinite(Hero->Health)
-        || Hero->Health <= 0.f || !Hero->bWaterSwimming
+        || Hero->Health <= 0.f
         || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
         || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen)
         return false;
     auto* Mode = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
     if (!IsValid(Mode)) return false;
+    const auto* Movement=Hero->GetCharacterMovement();
+    if (ResourceIndex == -1) {
+        if (!Hero->bWaterSwimming) return false;
+    } else if (!MoonfallOceanGathering::CanCollect(ResourceIndex,Hero->bWaterSwimming,
+        IsValid(Movement)&&Movement->IsMovingOnGround(),bManual)) return false;
     const FVector Start = Hero->GetActorLocation();
     const FVector End = GetActorLocation();
     if (Start.ContainsNaN() || End.ContainsNaN()
@@ -45,7 +51,9 @@ bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero)
     Params.AddIgnoredActor(this);
     FHitResult Hit;
     if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)) return false;
-    if (!Mode->ClaimGrotto(GrottoIndex)) return false;
+    if (ResourceIndex == -1) {
+        if (!Mode->ClaimGrotto(GrottoIndex)) return false;
+    } else if (!Mode->CollectOceanResource(ResourceIndex)) return false;
     Destroy();
     return true;
 }
