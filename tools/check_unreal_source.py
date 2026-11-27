@@ -3722,7 +3722,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
         self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
-                        scope.index("if (++NearbyWindingAllies >= 2) break;"))
+                        scope.index("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;"))
 
     def test_attack_coordination_filters_distant_allies_before_budget(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
