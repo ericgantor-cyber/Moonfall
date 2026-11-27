@@ -2394,6 +2394,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedSlot=SelectedDecoded.Slot;
    const int32 SelectedAffix=SelectedDecoded.Trait;
    const bool bCraftCombatLocked=Hero->IsRecentlyInCombatForAmbientAI();
+   const bool bCraftHealthLocked=!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f;
    const bool bForgeable=MoonfallEquipmentLayout::CanOperateFull(SelectedCode,
        MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Upgrade);
    const bool bAscendable=MoonfallEquipmentLayout::CanOperateFull(SelectedCode,
@@ -2444,10 +2445,11 @@ void AMoonfallCombatHUD::DrawHUD()
    // Read-only five-tier projection from the same forge cost schedule.
    // Display in the existing tall-panel detail gap; never spend salvage here.
    if (PanelHeight >= 500.f) {
-    const MoonfallForgeForecast::FPlan Plan = bCraftCombatLocked
+    const MoonfallForgeForecast::FPlan Plan = bCraftHealthLocked || bCraftCombatLocked
       ? MoonfallForgeForecast::FPlan{}
       : MoonfallForgeForecast::Preview(SelectedCode, Hero->Salvage, 5);
-    const FString Forecast = bCraftCombatLocked ? TEXT("FORGE 5: UNAVAILABLE IN COMBAT")
+    const FString Forecast = bCraftHealthLocked ? TEXT("FORGE 5: UNAVAILABLE")
+      : bCraftCombatLocked ? TEXT("FORGE 5: UNAVAILABLE IN COMBAT")
       : !Plan.Valid ? TEXT("FORGE 5: INVALID GEAR")
       : Plan.NextTierCost == 0 ? TEXT("FORGE 5: MAX TIER")
       : Plan.Upgrades == 0
@@ -2455,7 +2457,7 @@ void AMoonfallCombatHUD::DrawHUD()
         : FString::Printf(TEXT("FORGE 5: +%d TIERS TO T%d  |  %d SALVAGE"),
             Plan.Upgrades, Plan.FinalTier, Plan.TotalCost);
     DrawText(Forecast,
-      !bCraftCombatLocked && Plan.Valid && Plan.Upgrades > 0
+      !bCraftHealthLocked && !bCraftCombatLocked && Plan.Valid && Plan.Upgrades > 0
         ? FLinearColor(0.58f,0.91f,0.83f) : FLinearColor(0.93f,0.72f,0.50f),
       Left + 18.f, Top + PanelHeight - 182.f, nullptr,
       PanelWidth < 550.f ? 0.57f : 0.72f);
@@ -2463,19 +2465,21 @@ void AMoonfallCombatHUD::DrawHUD()
    // Keep minimum-height inventory rows clear of optional crafting previews.
    if (PanelHeight >= 360.f) {
     const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
-    DrawText(bCraftCombatLocked ? TEXT("Reforge: unavailable in combat") : bReforgeable
+    DrawText(bCraftHealthLocked ? TEXT("Reforge: unavailable")
+      : bCraftCombatLocked ? TEXT("Reforge: unavailable in combat") : bReforgeable
       ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
           ReforgeCost, Hero->Salvage >= ReforgeCost ? TEXT("READY") : TEXT("NEED MORE"))
       : TEXT("Reforge trait: requires Rare or better"),
-      !bCraftCombatLocked && bReforgeable && Hero->Salvage >= ReforgeCost
+      !bCraftHealthLocked && !bCraftCombatLocked && bReforgeable && Hero->Salvage >= ReforgeCost
         ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
       Left + 18.f, Top + PanelHeight - 156.f, nullptr, 0.70f);
     const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
-    DrawText(bCraftCombatLocked ? TEXT("Ascend: unavailable in combat") : bAscendable
+    DrawText(bCraftHealthLocked ? TEXT("Ascend: unavailable")
+      : bCraftCombatLocked ? TEXT("Ascend: unavailable in combat") : bAscendable
       ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
           AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
       : TEXT("Ascend rarity: LEGENDARY / invalid"),
-      !bCraftCombatLocked && bAscendable && Hero->Salvage >= AscendCost
+      !bCraftHealthLocked && !bCraftCombatLocked && bAscendable && Hero->Salvage >= AscendCost
         ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
       Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
    }
@@ -2532,11 +2536,12 @@ void AMoonfallCombatHUD::DrawHUD()
         : FLinearColor(0.78f,0.86f,1.f),
       Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
     const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
-    const FString ForgeStatus = bCraftCombatLocked ? TEXT("Crafting: unavailable in combat")
+    const FString ForgeStatus = bCraftHealthLocked ? TEXT("Crafting: unavailable")
+      : bCraftCombatLocked ? TEXT("Crafting: unavailable in combat")
       : !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
       : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
         NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
-    DrawText(ForgeStatus, !bCraftCombatLocked && bForgeable && Hero->Salvage >= NextCost
+    DrawText(ForgeStatus, !bCraftHealthLocked && !bCraftCombatLocked && bForgeable && Hero->Salvage >= NextCost
       ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
       Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
    }

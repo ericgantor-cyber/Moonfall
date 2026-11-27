@@ -140,7 +140,10 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("Reforge: unavailable in combat", hud)
         self.assertIn("Ascend: unavailable in combat", hud)
         self.assertIn("FORGE 5: UNAVAILABLE IN COMBAT", hud)
-        self.assertIn("FPlan Plan = bCraftCombatLocked", hud)
+        self.assertIn("FPlan Plan = bCraftHealthLocked || bCraftCombatLocked", hud)
+        self.assertIn("bCraftHealthLocked=!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f", hud)
+        for operation in ("Plan.Valid", "bReforgeable", "bAscendable", "bForgeable"):
+            self.assertIn("!bCraftHealthLocked && !bCraftCombatLocked && " + operation, hud)
         self.assertIn("!bCraftCombatLocked && Plan.Valid && Plan.Upgrades > 0", hud)
 
     def test_save_restore_batches_equipment_cache_invalidation(self):
