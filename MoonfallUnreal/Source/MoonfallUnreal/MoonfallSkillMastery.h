@@ -152,6 +152,8 @@ inline constexpr int TrailsPerRegion=RouteOrbsPerRegion/OrbsPerTrail;
 inline constexpr int WorldRouteCount=RouteRegions*RouteOrbsPerRegion;
 inline constexpr int RouteCompletionAgilityXP=80;
 inline constexpr int RouteCompletionOtherXP=20;
+inline constexpr int ProvinceCompletionAgilityXP=300;
+inline constexpr int ProvinceCompletionOtherXP=60;
 // Preserve the original 28 entries and region/index pairs exactly.
 // Additional positions are appended, never shift saved collectible identities.
 constexpr Placement RoutePlacement(int I) {
@@ -186,6 +188,9 @@ constexpr int RegionOrbCount(const State& S,int Region){
  for(int Index=0;Index<RouteOrbsPerRegion;++Index)if(IsCollected(S,Region,Index))++Count;
  return Count;
 }
+constexpr bool ProvinceCompleted(const State& S,int Region){
+ return RegionOrbCount(S,Region)==RouteOrbsPerRegion;
+}
 constexpr bool TrailCompleted(const State& S,int Region,int Trail){
  if(!Valid(S)||Region<0||Region>=RouteRegions||Trail<0||Trail>=TrailsPerRegion)return false;
  const auto Mask=std::uint64_t{0xf}<<(Trail*OrbsPerTrail);
@@ -219,6 +224,12 @@ inline bool TryCollectWithTrailReward(const State& Current,int Region,int Index,
   for(int K=0;K<SkillCount;++K){
    auto& XP=Next.XP[static_cast<std::size_t>(K)];
    XP=SaturatingXP(XP,K==static_cast<int>(Skill::Agility)?RouteCompletionAgilityXP:RouteCompletionOtherXP);
+  }
+ }
+ if(IsRouteID(Region,Index)&&ProvinceCompleted(Next,Region)){
+  for(int K=0;K<SkillCount;++K){
+   auto& XP=Next.XP[static_cast<std::size_t>(K)];
+   XP=SaturatingXP(XP,K==static_cast<int>(Skill::Agility)?ProvinceCompletionAgilityXP:ProvinceCompletionOtherXP);
   }
  }
  Out=Next;return true;
