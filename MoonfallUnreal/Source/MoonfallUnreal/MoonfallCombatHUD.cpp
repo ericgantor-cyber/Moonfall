@@ -746,10 +746,21 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
+   const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
+   const bool bRecipeDetail=RecipePage>=0&&RecipePage<3;
+   const bool bRecipeReady=bRecipeDetail && IslandPreview->CanCraftOceanRecipe(RecipePage);
+   const TCHAR* RecipeNames[]={TEXT("Water-breathing tonic"),TEXT("Tidebound accessory"),TEXT("Tidebound footwear")};
    if(bIslandTrader){
-    Names[3]=TEXT("Brew tonic: kelp + fish");
-    Names[4]=TEXT("Accessory: pearl + coral");
-    Names[5]=TEXT("Footwear: salt + fish");
+    Names[3]=TEXT("Crafting workshop");
+    if(RecipePage==-2){
+     for(int32 I=0;I<3;++I) Names[I]=FString::Printf(TEXT("%s | %s"),RecipeNames[I],
+        IslandPreview->CanCraftOceanRecipe(I)?TEXT("Ready"):TEXT("Unavailable"));
+     Names[3]=TEXT("Back to merchant");
+    } else if(bRecipeDetail){
+     Names[0]=bRecipeReady?TEXT("Craft / Upgrade"):TEXT("Cannot craft");
+     Names[1]=TEXT("Back to recipes");
+     Names[2]=TEXT("Close");
+    }
    }
    if(Hero->bResidentCompanionMenu){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
@@ -828,7 +839,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (Row == Hero->ResidentContextSelection)
      DrawSelectionRail(L+14.f,Y,Pitch-10.f);
     DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
-    DrawText(Names[Row], !Hero->bResidentCompanionMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2)
+    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
@@ -842,6 +853,8 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
+   if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     if(Mode&&Mode->GetLocalCompanion()==Resident)
@@ -874,6 +887,21 @@ void AMoonfallCombatHUD::DrawHUD()
        : FString::Printf(TEXT("Salvage: %d / %d"),
            Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
+   if (bRecipeDetail) {
+    FString Reagents;
+    if(RecipePage==0) Reagents=FString::Printf(TEXT("Kelp %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),IslandPreview->GetAvailableOceanFish());
+    else if(RecipePage==1) Reagents=FString::Printf(TEXT("Pearl %d/1 | Coral %d/1"),int32(IslandPreview->HasOceanCraftMaterial(1)),int32(IslandPreview->HasOceanCraftMaterial(2)));
+    else Reagents=FString::Printf(TEXT("Salt %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(3)),IslandPreview->GetAvailableOceanFish());
+    const TCHAR* Ranks[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Exalted"),TEXT("Legendary")};
+    const int32 Rank=RecipePage>0?IslandPreview->GetGrottoGearRarity(RecipePage-1):-1;
+    const FString Output=RecipePage==0?FString::Printf(TEXT("Tonics %d/3 -> +1"),IslandPreview->GetBreathingTonicCharges()):
+      Rank<1||Rank>5?FString(TEXT("Requires Tidebound loan gear")):
+      Rank==5?FString(TEXT("Maximum rarity reached")):
+      FString::Printf(TEXT("%s -> %s"),Ranks[Rank],Ranks[Rank+1]);
+    DrawText(Reagents,bRecipeReady?FLinearColor(0.45f,0.94f,0.60f):FLinearColor(0.95f,0.65f,0.38f),L+18.f,T+53.f,nullptr,0.78f);
+    if (!(Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds()<Hero->ResidentFeedbackUntil))
+     DrawText(Output,FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,0.72f);
+   }
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
