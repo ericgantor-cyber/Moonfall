@@ -325,6 +325,18 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
    Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
  const auto BeforeRejected= Migrated;
+ TArray<int32> WrongV18Slot=Middle;
+ WrongV18Slot[9]=Middle[10];
+ TestFalse(TEXT("V18 rejects an item encoded for a different slot"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   WrongV18Slot.GetData(),WrongV18Slot.Num(),18,Middle,Migrated));
+ TestTrue(TEXT("Rejected V18 slot mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TArray<int32> WrongV19Slot=Future;
+ WrongV19Slot[9]=Future[10];
+ TestFalse(TEXT("V19 rejects an item encoded for a different slot"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   WrongV19Slot.GetData(),WrongV19Slot.Num(),19,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V19 slot mismatch leaves output unchanged"),Migrated==BeforeRejected);
  TestFalse(TEXT("V19 rejects a missing physical ring copy"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
    Future.GetData(),Future.Num(),19,MissingCopy,Migrated));
