@@ -38,6 +38,11 @@ AMoonfallMasteryOrb::AMoonfallMasteryOrb(){
  OrbLabel->SetGenerateOverlapEvents(false);
  OrbLabel->SetCanEverAffectNavigation(false);
 }
+bool AMoonfallMasteryOrb::InitializeRouteIdentity(int32 InRegion,int32 InIndex,bool bInHidden){
+ if(HasActorBegunPlay()||IsActorBeingDestroyed()||Region!=INDEX_NONE||Index!=INDEX_NONE||
+    !MoonfallSkillMastery::ValidOrbID(InRegion,InIndex))return false;
+ Region=InRegion;Index=InIndex;bHiddenOrb=bInHidden;return true;
+}
 void AMoonfallMasteryOrb::BeginPlay(){
  Super::BeginPlay();
 #if WITH_EDITOR
