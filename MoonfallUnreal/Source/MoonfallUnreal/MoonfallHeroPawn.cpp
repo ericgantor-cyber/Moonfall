@@ -52,6 +52,7 @@
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallCheckpointShrine.h"
+#include "MoonfallMasteryOrb.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -653,6 +654,10 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GetWorld()) {
   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
    if (IsValid(*It)) It->CheckHeroAtSpawn(this);
+  // Reconcile initial orb overlaps only after the save/character is ready.
+  if(IsSkillMasteryPreviewEnabled())
+   for(TActorIterator<AMoonfallMasteryOrb> It(GetWorld());It;++It)
+    if(IsValid(*It)&&!It->IsActorBeingDestroyed())It->CheckHeroAtSpawn(this);
  }
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
