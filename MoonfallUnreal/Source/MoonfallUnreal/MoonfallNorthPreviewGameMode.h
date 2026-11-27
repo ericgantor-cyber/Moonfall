@@ -22,7 +22,10 @@ public:
  // Wreck discoveries are separate from grotto rewards and reset with the world.
  void DiscoverWreck(int32 Index) { if (Index>=0 && Index<2) WreckClaims|=uint8(1u<<Index); }
  int32 GetWreckDiscoveryCount() const { return int32((WreckClaims&1u)!=0)+int32((WreckClaims&2u)!=0); }
+ void DiscoverCave(int32 Index) { if (Index>=0 && Index<2) CaveClaims|=uint8(1u<<Index); }
+ int32 GetCaveDiscoveryCount() const { return int32((CaveClaims&1u)!=0)+int32((CaveClaims&2u)!=0); }
 private:
+ uint8 CaveClaims=0;
  uint8 WreckClaims=0;
  MoonfallAquaticRewards::FSessionGear GrottoGear;
 };
