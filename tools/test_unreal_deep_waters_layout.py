@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Tools"))
-from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, MIN_HALF_LENGTH, grotto_art, GROTTO_ART, shoreline_geometry, ruin_geometry, wreck_geometry, WRECK_CENTERS, cave_geometry, island_geometry, EXPANDED_HALF_WIDTH, EXPANDED_HALF_LENGTH
+from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, MIN_HALF_LENGTH, grotto_art, GROTTO_ART, shoreline_geometry, ruin_geometry, wreck_geometry, WRECK_CENTERS, cave_geometry, island_geometry, EXPANDED_HALF_WIDTH, EXPANDED_HALF_LENGTH, ocean_resources
 
 
 class DeepWatersLayoutTests(unittest.TestCase):
@@ -102,6 +102,20 @@ class DeepWatersLayoutTests(unittest.TestCase):
         for (_,(_,y,z),scale),(_,(_,ny,nz),next_scale) in zip(island[:6],island[1:7]):
             self.assertLessEqual(y-scale[1]*50,ny+next_scale[1]*50)
             self.assertEqual(z-nz,25.0)
+
+    def test_scattered_gathering_nodes_are_submerged_and_clear(self):
+        nodes=ocean_resources(MIN_HALF_WIDTH)
+        self.assertEqual(len(nodes),12)
+        self.assertEqual({node[0] for node in nodes},set(range(12)))
+        self.assertEqual(len({node[3] for node in nodes}),12)
+        for index,name,shape,(x,y,z),scale in nodes:
+            hx,hy,hz=(s*50 for s in scale)
+            self.assertLess(abs(x)+hx,MIN_HALF_WIDTH,name)
+            self.assertLess(abs(y)+hy,MIN_HALF_LENGTH,name)
+            self.assertLess(z+hz,0,name)
+            self.assertGreater(z-hz,-410,name)
+            for _,(gx,gy,_) in grotto_layout():
+                self.assertTrue(abs(x-gx)>350+hx or abs(y-gy)>305+hy,name)
 
     def test_rooms_do_not_overlap(self):
         rooms = grotto_layout()
