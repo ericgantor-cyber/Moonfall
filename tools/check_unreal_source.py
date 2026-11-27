@@ -2058,8 +2058,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         craft = hero.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[1].split(
             "bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(", 1)[0]
-        self.assertIn("GetValidatedEquippedTier(LastLootSlot)", roll)
-        self.assertIn("GetValidatedEquippedTier(SlotIndex)", pickup)
+        self.assertIn("GetLootComparisonTier(LastLootSlot)", roll)
+        self.assertIn("GetLootComparisonTier(SlotIndex)", pickup)
+        comparison = hero.split("int32 AMoonfallHeroPawn::GetLootComparisonTier(", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshEquipmentTier()", 1)[0]
+        self.assertIn("GetValidatedEquippedTier(Slot)", comparison)
+        self.assertIn("GetValidatedEquipmentCodes(Codes)", comparison)
+        self.assertIn("FullLootComparisonTier(Worn,Slot,MoonfallEquipmentLayout::ActiveSlotCount)", comparison)
         self.assertIn("GetValidatedEquippedTier(Slot)", craft)
         self.assertIn("const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);", craft)
         self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;", craft)

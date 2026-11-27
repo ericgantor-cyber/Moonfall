@@ -553,6 +553,20 @@ constexpr int FullCandidateImprovement(int Candidate,const FFullLoadout& Worn,
  auto Next=Worn;Next[Target]=Candidate;
  return FullTotalScore(Next,ActiveSlots)-Baseline;
 }
+// Tier-only loot preview (not a set score or an equip recommendation).
+// The caller supplies validated worn codes; empty fingers count as tier zero.
+constexpr int FullLootComparisonTier(const FFullLoadout& Worn,int Slot,int ActiveSlots) {
+ if(!ValidFullActiveCount(ActiveSlots)||Slot<0||Slot>=ActiveSlots)return 0;
+ if(!IsRingSlot(Slot)||ActiveSlots<=SlotCount)
+  return CanWearFullItem(Worn[Slot],Slot,ActiveSlots)?DecodeFullItem(Worn[Slot]).Tier:0;
+ int Lowest=25;
+ for(int Finger:RingSlots){
+  if(Finger>=ActiveSlots)break;
+  if(!CanWearFullItem(Worn[Finger],Finger,ActiveSlots))return 0;
+  Lowest=std::min(Lowest,DecodeFullItem(Worn[Finger]).Tier);
+ }
+ return Lowest;
+}
 // Choose a free finger first, otherwise replace the lowest-ranked ring.
 // Require a physical unused copy; the selected bag item is never cloned.
 template<class Bag>
