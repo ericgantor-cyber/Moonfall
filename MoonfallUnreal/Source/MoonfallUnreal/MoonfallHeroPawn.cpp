@@ -457,9 +457,21 @@ void AMoonfallHeroPawn::GetWaterTraversalBonuses(float& OutBreath, float& OutSwi
   return Codes.IsValidIndex(Slot) && DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)
       && Trait==3 ? Rarity : -1;
  };
- OutBreath = MoonfallWaterRules::GearBreathMultiplier(bRaceChosen,RaceId,
-     FMath::Max(FocusRarity(2),FocusRarity(9)));
- OutSwim = MoonfallWaterRules::GearSwimMultiplier(FocusRarity(7));
+ int32 BreathRarity=FMath::Max(FocusRarity(2),FocusRarity(9));
+ int32 SwimRarity=FocusRarity(7);
+ int32 Pieces=0;
+ if (bPersistentSaveWritesBlocked && GetWorld()) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview)) {
+   BreathRarity=FMath::Max(BreathRarity,Preview->GetGrottoGearRarity(0));
+   SwimRarity=FMath::Max(SwimRarity,Preview->GetGrottoGearRarity(1));
+   Pieces=Preview->GetGrottoSetPieces();
+  }
+ }
+ OutBreath=MoonfallWaterRules::SetBreathMultiplier(
+     MoonfallWaterRules::GearBreathMultiplier(bRaceChosen,RaceId,BreathRarity),Pieces);
+ OutSwim=MoonfallWaterRules::SetSwimMultiplier(
+     MoonfallWaterRules::GearSwimMultiplier(SwimRarity),Pieces);
 }
 
 float AMoonfallHeroPawn::GetHasteBonus() const
