@@ -13,6 +13,7 @@
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallWaterRules.h"
+#include "MoonfallAquaticProfiles.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
@@ -2712,6 +2713,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // This avoids iterating the entire enemy population twice every rendered frame.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
+ const AMoonfallEnemy* AquaticTarget = nullptr;
+ double AquaticDistanceSq = FMath::Square(650.f);
  int32 NearbySwordTell = -1;
  float SwordTellDistanceSq = FMath::Square(650.f);
  float BossDistanceSq = FMath::Square(3000.f);
@@ -2742,6 +2745,11 @@ void AMoonfallCombatHUD::DrawHUD()
   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   // No live combat HUD elements are visible beyond the boss alert radius.
   if (DistSq >= FMath::Square(3000.f) || !FMath::IsFinite(E->Health) || E->Health <= 0.f) continue;
+  if (Hero->bWaterSwimming && E->ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
+      && DistSq < AquaticDistanceSq && E->GetAquaticWarningRemaining(WorldTime)>0.f) {
+   AquaticTarget = E;
+   AquaticDistanceSq = DistSq;
+  }
   if (DistSq < SwordTellDistanceSq) {
    const int32 Tell = E->GetDirectionalWindup(WorldTime, HeroLocation);
    if (MoonfallOmniattack::ValidAngle(Tell)) {
@@ -2756,6 +2764,15 @@ void AMoonfallCombatHUD::DrawHUD()
    PostureTarget = E;
    PostureDistanceSq = DistSq;
   }
+ }
+ if (IsValid(AquaticTarget) && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const auto P = MoonfallAquatic::Profile(AquaticTarget->AquaticProfileId);
+  const float W = FMath::Min(300.f, Canvas->SizeX-20.f);
+  const float X = (Canvas->SizeX-W)*0.5f;
+  const float Y = Canvas->SizeY*0.25f;
+  DrawRect(FLinearColor(0.035f,0.055f,0.09f,0.96f),X,Y,W,54.f);
+  DrawText(FString::Printf(TEXT("%s | PHASE %d"),P.Name,AquaticTarget->GetAquaticPhase()),FLinearColor::White,X+8.f,Y+4.f,nullptr,0.85f);
+  DrawText(FString::Printf(TEXT("%s  %.1fs | GUARD / PARRY"),P.Attack,AquaticTarget->GetAquaticWarningRemaining(WorldTime)),FLinearColor(1.f,0.72f,0.35f),X+8.f,Y+25.f,nullptr,0.82f);
  }
  // Fixed high-contrast text, no flashing or extra world scan. Boss alerts take priority.
  if (MoonfallOmniattack::ValidAngle(NearbySwordTell)
