@@ -55,10 +55,14 @@ class EquipmentStatSafety(unittest.TestCase):
         delta = source.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
         self.assertIn("FullWornCopies(ItemCode,Worn", delta)
+        self.assertIn("FullOwnedCopies(ItemCode,InventoryItemCodes,Required)<Required", delta)
+        self.assertNotIn("int32 Copies=0;for(int32 Code:InventoryItemCodes)", delta)
         self.assertIn("RingSlots", delta)
         projected = source.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
             "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
         self.assertIn("FullWornCopies(CandidateCode,Worn", projected)
+        self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required", projected)
+        self.assertNotIn("int32 Copies=0;for(int32 Code:InventoryItemCodes)", projected)
         self.assertIn("BestProjection", projected)
     def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
         snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(

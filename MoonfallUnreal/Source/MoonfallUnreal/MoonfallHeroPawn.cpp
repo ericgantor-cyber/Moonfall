@@ -286,8 +286,8 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
    Worn[I]=ValidatedCodes[I];
    if(GetRawEquipmentSlotCode(I)!=ValidatedCodes[I])return 0;
   }
-  int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==ItemCode)++Copies;
-  if(Copies<MoonfallEquipmentLayout::FullWornCopies(ItemCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
+  const int32 Required=MoonfallEquipmentLayout::FullWornCopies(ItemCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1;
+  if(MoonfallEquipmentLayout::FullOwnedCopies(ItemCode,InventoryItemCodes,Required)<Required)return 0;
   int32 BestDelta=MIN_int32;const int32 Rank=MoonfallEquipmentLayout::FullRank(ItemCode);
   for(int32 Target:MoonfallEquipmentLayout::RingSlots){
    if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
@@ -316,8 +316,8 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
    Worn[I]=ValidatedCodes[I];
    if(GetRawEquipmentSlotCode(I)!=ValidatedCodes[I])return 0;
   }
-  int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==CandidateCode)++Copies;
-  if(Copies<MoonfallEquipmentLayout::FullWornCopies(CandidateCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
+  const int32 Required=MoonfallEquipmentLayout::FullWornCopies(CandidateCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1;
+  if(MoonfallEquipmentLayout::FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required)return 0;
   int32 CurrentPieces=0;
   for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I){
    int32 T=0,R=0,Ti=0;
