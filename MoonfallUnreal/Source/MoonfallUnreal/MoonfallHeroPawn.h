@@ -506,6 +506,7 @@ private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
+ bool CanCraftEquipmentCopy(int32 Code,int32 Slot) const;
  int32 GetLootComparisonTier(int32 Slot) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;
