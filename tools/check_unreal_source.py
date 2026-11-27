@@ -850,18 +850,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
             self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
-        self.assertIn("const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),", self.hud)
-        self.assertIn("bValid && Code == Hero->GetEquipmentSlotCode(Slot)", self.hud)
-        self.assertIn("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
+        self.assertIn("const int32 Codes[] = {", self.hud)
+        self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", self.hud)
+        self.assertIn("Hero->GetEquipmentSlotCode(23)", self.hud)
+        self.assertIn("CanWearFullItem(", self.hud)
+        self.assertIn("for(int32 Ring:MoonfallEquipmentLayout::RingSlots", self.hud)
+        self.assertIn("const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
+
+    def test_expanded_character_sheet_and_inventory_decode_all_24_slots(self):
+        hud = self.hud
+        self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", hud)
+        self.assertIn('TEXT("RING 10")', hud)
+        self.assertIn("GridColumns=MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?4:3", hud.replace(" ",""))
+        self.assertIn("GridRows=(MoonfallEquipmentLayout::ActiveSlotCount+GridColumns-1)/GridColumns", hud.replace(" ",""))
+        self.assertIn("GridRows*(CardHeight+3.f)", hud)
+        self.assertIn("DecodeFullItem(Code)", hud)
+        self.assertIn("CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount", hud)
+        self.assertIn("DecodeFullItem(SelectedCode)", hud)
+        self.assertIn("best eligible finger", hud)
+        self.assertIn("IsRingSlot(Slot)", hud)
+        self.assertIn("CachedAdvisorLoadoutHash != AdvisorLoadoutHash", hud)
+        self.assertIn("CachedAdvisorLoadoutHash = AdvisorLoadoutHash", hud)
+        self.assertIn("uint32 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
+        self.assertIn("DecodeFullItem(CodeA)", self.hero_cpp)
 
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
-        block = self.hud.split("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", 1)[1].split("const int32 NextCost", 1)[0]
+        block = self.hud.split("const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);", 1)[1].split("const int32 NextCost", 1)[0]
         self.assertNotIn("Hero->EquippedWeaponCode", block)
         self.assertNotIn("Hero->EquippedArmorCode", block)
         self.assertNotIn("Hero->EquippedAccessoryCode", block)
         self.assertIn("const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;", block)
-        self.assertIn("bValidSelection && !bAlreadyEquipped && PowerDelta > 0", block)
-        self.assertIn("bValidSelection && EquippedCode > 0 && PowerDelta < 0", block)
+        self.assertIn("bValidSelection&&!bAlreadyEquipped&&PowerDelta>0", block)
+        self.assertIn("bValidSelection&&EquippedCode>0&&PowerDelta<0", block)
         self.assertIn('FString::Printf(TEXT("  |  %+d gear power"), PowerDelta)', block)
         self.assertEqual(block.count("GetItemPowerDelta(SelectedCode)"), 1)
         self.assertNotIn("TierDelta", block)
@@ -870,9 +890,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
         self.assertIn("SelectedSlot < MoonfallEquipmentLayout::ActiveSlotCount", block)
-        self.assertIn("MoonfallEquipmentLayout::Valid(SelectedCode, SelectedSlot)", block)
-        self.assertIn("bValidSelection && SelectedCode == EquippedCode", block)
-        self.assertIn('bAlreadyEquipped ? TEXT("EQUIPPED")', block)
+        self.assertIn("CanOperateFull(SelectedCode", block)
+        self.assertIn("bValidSelection&&SelectedCode==EquippedCode", block)
+        self.assertIn('TEXT("EQUIPPED")', block)
+        self.assertIn("bFlexibleRingCandidate", block)
+        self.assertIn("best eligible finger", block)
         self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
         self.assertIn("!bValidSelection ? CompareLine :", block)
         self.assertIn('FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta)', block)
@@ -888,7 +910,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (PanelHeight >= 360.f) {", bag)
         self.assertIn("if (PanelHeight >= 320.f) {", bag)
         self.assertLess(bag.index("if (PanelHeight >= 360.f) {"), bag.index("const int32 ReforgeCost"))
-        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);"))
+        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);"))
         # Match the shared inventory drawing and mouse hit-test geometry.
         for height in range(280, 861):
             room = height - (430 if height >= 500 else 390)
@@ -4442,7 +4464,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "CachedAdvisorSelectedCode != AdvisorCode",
                       "CachedAdvisorWeapon != Hero->EquippedWeaponCode",
                       "CachedAdvisorArmor != Hero->EquippedArmorCode",
-                      "CachedAdvisorAccessory != Hero->EquippedAccessoryCode"):
+                      "CachedAdvisorAccessory != Hero->EquippedAccessoryCode",
+                      "CachedAdvisorLoadoutHash != AdvisorLoadoutHash"):
             self.assertIn(field, bag)
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
         self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
