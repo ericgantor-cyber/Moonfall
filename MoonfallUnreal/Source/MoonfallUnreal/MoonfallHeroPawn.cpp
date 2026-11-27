@@ -947,7 +947,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
   Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost
-    * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
+    * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f))
+    * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Survival)), 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -1682,7 +1683,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
-    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier * TalentMagicMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier * TalentMagicMultiplier
+    * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Arcane));
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -1702,7 +1704,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       ? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;
   if (ActualSpellDamage > 0.f) {
    if(HealthBeforeSpell>0.f&&Enemy->Health<=0.f&&!Enemy->ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice"))))
-    AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::SpellVictory);
+    AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::SpellVictory,
+       Enemy->bBoss?MoonfallSkillMastery::Challenge::Boss:Enemy->bElite?MoonfallSkillMastery::Challenge::Elite:MoonfallSkillMastery::Challenge::Standard);
    if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
     ResolvedImpactPoint = Hit.ImpactPoint;
     ResolvedImpactOrigin = Origin;
@@ -2193,7 +2196,8 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Damage = (18.f + Tier * 1.15f
      + FMath::Clamp(FMath::IsFinite(Might) ? Might : 0.f, 0.f, 200.f) * 0.12f)
      * AngleBonus * HitComboMultiplier * GuardScale * CounterMultiplier * (1.f + GetMasteryBonus())
-     * (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;
+     * (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier
+     * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Swordsmanship));
  if (!FMath::IsFinite(Damage) || Damage <= 0.f) {
   ResetMeleeHitCombo();
   OnMeleeSwing(CurrentSwordAngle, false);
@@ -2213,8 +2217,12 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
  const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;
- if(bResolvedSwordKill&&!Enemy->ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice"))))
-  AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::MeleeVictory);
+ if(bResolvedSwordKill&&!Enemy->ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))){
+  const auto Challenge=Enemy->bBoss?MoonfallSkillMastery::Challenge::Boss:Enemy->bElite?MoonfallSkillMastery::Challenge::Elite:MoonfallSkillMastery::Challenge::Standard;
+  AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::MeleeVictory,Challenge);
+  // Existing overhead strikes train strength; no additional attack binding.
+  if(ResolvedSwordAngle==0)AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::HeavyVictory,Challenge);
+ }
  const bool bResolvedSwordRiposte = bConnected && bCounterReady;
  const bool bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)
      && !ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle);
@@ -2236,7 +2244,7 @@ void AMoonfallHeroPawn::MeleeAttack()
   }
   // Low sweeps pressure posture; the original enemy posture-break caps apply.
   if (Enemy->Health > 0.f)
-   Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale);
+   Enemy->ApplyPostureDamage(Dealt * Attack.PostureScale * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Strength)));
   if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)) { ResetMeleeHitCombo(); return; }
   const float Window = FMath::IsFinite(HitComboWindowSeconds)
@@ -2568,7 +2576,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
-   DamageAfterGuard *= 0.4f;
+   DamageAfterGuard *= 0.4f*(1.f-SkillMasteryBonus(MoonfallSkillMastery::Skill::Defense));
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   // Blueprint feedback may synchronously defeat or destroy the defending pawn.
@@ -3081,6 +3089,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::CompletedCraft);
  LastLootAffix = NewAffix;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentReforged(NewCode, Cost);
  return true;
@@ -3807,12 +3816,12 @@ bool AMoonfallHeroPawn::IsSkillMasteryPreviewEnabled() const
  return GetSessionMastery()!=nullptr;
 }
 
-void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action)
+void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action,MoonfallSkillMastery::Challenge Challenge)
 {
  if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
-    ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return;
- if(auto* Ledger=GetSessionMastery())MoonfallSkillMastery::TryAward(*Ledger,Action,true,*Ledger);
+    ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return;
+ if(auto* Ledger=GetSessionMastery())MoonfallSkillMastery::TryAward(*Ledger,Action,true,*Ledger,Challenge);
 }
 
 bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind)
@@ -3828,6 +3837,17 @@ int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
 {
  const auto* Ledger=GetSessionMastery();
  return Ledger?MoonfallSkillMastery::XPFor(*Ledger,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):-1;
+}
+
+int32 AMoonfallHeroPawn::GetSkillMasteryBonusBps(int32 SkillIndex) const
+{
+ const auto* Ledger=GetSessionMastery();
+ return Ledger&&bWorldProgressInitialized&&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress
+  ?MoonfallSkillMastery::PassiveBonusBps(*Ledger,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):0;
+}
+float AMoonfallHeroPawn::SkillMasteryBonus(MoonfallSkillMastery::Skill Skill) const
+{
+ return float(GetSkillMasteryBonusBps(static_cast<int32>(Skill)))/10000.f;
 }
 
 int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
