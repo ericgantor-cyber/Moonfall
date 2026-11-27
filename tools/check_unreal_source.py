@@ -2094,8 +2094,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for unsafe in ("Hero->WeaponTier", "Hero->ArmorTier", "Hero->AccessoryTier",
                        "Hero->WeaponAffix", "Hero->ArmorAffix", "Hero->AccessoryAffix"):
             self.assertNotIn(unsafe, preview)
-        self.assertIn("EncodedRarity == 0 && EncodedTrait != 0", preview)
-        self.assertIn("Code != EncodedTrait * 100000 + Slot * 10000", preview)
+        # Canonical decoder must still reject malformed and noncanonical codes.
+        policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        encoder = policy.split("constexpr int EncodeFullItem(", 1)[1].split(
+            "constexpr FDecodedItem DecodeFullItem(", 1)[0]
+        decoder = policy.split("constexpr FDecodedItem DecodeFullItem(", 1)[1].split(
+            "constexpr bool ValidFullItem(", 1)[0]
+        self.assertIn("(Rarity==0&&Trait!=0)", encoder)
+        self.assertIn("EncodeFullItem(Slot,Trait,Rarity,Tier)!=Code", decoder)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
