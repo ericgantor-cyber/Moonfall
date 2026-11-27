@@ -2699,6 +2699,25 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawLiveMenuHitCue();
   return;
  }
+ // Camera-local underwater overlay: fixed work, no emitters, no world scans.
+ // Draw beneath the combat HUD and skip motion entirely when requested.
+ if (FMath::IsFinite(Hero->WaterCameraDepth) && Hero->WaterCameraDepth>0.f
+     && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const float Depth=FMath::Clamp(Hero->WaterCameraDepth/500.f,0.f,1.f);
+  const float W=Canvas->SizeX, H=Canvas->SizeY;
+  DrawRect(FLinearColor(0.02f,0.30f,0.38f,0.045f+0.065f*Depth),0.f,0.f,W,H);
+  if (!Hero->bReduceMotion && GetWorld()) {
+   const float Now=GetWorld()->GetTimeSeconds();
+   if (FMath::IsFinite(Now)) {
+    for (int32 I=0;I<6;++I) {
+     const float X=(I%2==0?0.07f:0.91f)*W + float(I/2)*4.f;
+     const float Y=H*(1.f-FMath::Fmod(Now*0.10f+float(I)*0.173f,1.f));
+     const float S=2.f+float(I%3);
+     DrawRect(FLinearColor(0.50f,0.86f,0.91f,0.22f),X,Y,S,S);
+    }
+   }
+  }
+ }
  // Temporary contextual resource, independent of the three permanent orbs.
  if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
