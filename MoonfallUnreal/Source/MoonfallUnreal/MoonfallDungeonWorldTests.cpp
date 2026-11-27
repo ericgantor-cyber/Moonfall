@@ -8,6 +8,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallMasterySave.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -433,6 +434,36 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  if(!RejectSerialized(TEXT("Serialized V19 truncated record rejected"),19,ShortV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V19 oversized record rejected"),19,LongV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V20 future schema rejected"),20,Future,Future))return false;
+ // Exercise mastery via the actual Unreal memory serializer, without
+ // modifying the active equipment schema or a player's disk checkpoint.
+ namespace Mastery=MoonfallSkillMastery;
+ auto* MasteryRecord=Cast<UMoonfallPersistentSave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if(!TestNotNull(TEXT("Create mastery save fixture"),MasteryRecord))return false;
+ Mastery::State Earned{},Decoded{};
+ if(!TestTrue(TEXT("Legacy absent mastery loads zero state"),MoonfallMasterySave::Read(*MasteryRecord,Decoded)))return false;
+ for(int32 Region=0;Region<Mastery::RegionCount;++Region){
+  if(!Mastery::TryCollect(Earned,Region,63,Mastery::Orb::Hidden,true,Earned))return false;
+  if(!Mastery::TryCollect(Earned,Region,0,Mastery::Orb::Agility,true,Earned))return false;
+ }
+ if(!TestTrue(TEXT("Write mastery record"),MoonfallMasterySave::Write(Earned,*MasteryRecord)))return false;
+ TArray<uint8> MasteryBytes;
+ if(!TestTrue(TEXT("Serialize mastery record"),UGameplayStatics::SaveGameToMemory(MasteryRecord,MasteryBytes)))return false;
+ auto* MasteryReload=Cast<UMoonfallPersistentSave>(UGameplayStatics::LoadGameFromMemory(MasteryBytes));
+ if(!TestNotNull(TEXT("Deserialize mastery record"),MasteryReload))return false;
+ if(!TestTrue(TEXT("Read mastery record"),MoonfallMasterySave::Read(*MasteryReload,Decoded)))return false;
+ TestTrue(TEXT("Mastery XP and all orb bits survive serialization"),Decoded.XP==Earned.XP&&Decoded.Collected==Earned.Collected);
+ MasteryReload->SkillMasteryOrbWords[1]=-1;
+ TestFalse(TEXT("Reject negative orb word"),MoonfallMasterySave::Read(*MasteryReload,Decoded));
+ TestTrue(TEXT("Rejected mastery preserves output"),Decoded.XP==Earned.XP&&Decoded.Collected==Earned.Collected);
+ MasteryReload->SkillMasteryOrbWords[1]=0x100000000LL;
+ TestFalse(TEXT("Reject oversized orb word"),MoonfallMasterySave::Read(*MasteryReload,Decoded));
+ MasteryReload->SkillMasteryVersion=99;
+ TestFalse(TEXT("Reject future mastery record"),MoonfallMasterySave::Read(*MasteryReload,Decoded));
+ auto InvalidMastery=Earned;InvalidMastery.XP[0]=-1;
+ TestFalse(TEXT("Invalid mastery cannot overwrite record"),MoonfallMasterySave::Write(InvalidMastery,*MasteryRecord));
+ TestEqual(TEXT("Mastery version retained"),MasteryRecord->SkillMasteryVersion,Mastery::RecordVersion);
+
  return !HasAnyErrors();
 }
 
