@@ -67,6 +67,10 @@
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
 namespace {
+// Keep experimental character checkpoints separate from the normal V17 slot.
+// Defined before the first use in sanctuary placement and BeginPlay.
+const FString MoonfallWorldSlot(MoonfallEquipmentLayout::bV19EditorPreview
+    ? TEXT("MoonfallPersistentWorldV19EditorPreview") : TEXT("MoonfallPersistentWorldV1"));
 // HUD shows only a fallback message below these inventory viewport dimensions.
 bool HasVisibleInventoryPointerSurface(const AController* Controller)
 {
@@ -4456,7 +4460,6 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
 
 
 namespace {
-const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
 // Defined with the faction/relationship helpers below; shared by save migration.
 const TArray<FName>& NamedMoonfallResidentIds();
 bool IsNamedMoonfallResident(FName Id);
@@ -5106,8 +5109,12 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  static_assert(SaveSlotCount==MoonfallEquipmentLayout::SlotCount ||
      SaveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount ||
      SaveSlotCount==MoonfallEquipmentLayout::FullSlotCount,"Unsupported persistent equipment layout");
- // The writer remains on V17 until expanded native playtesting is complete.
- static_assert(EquipmentSaveVersion==17,"Expanded equipment requires native migration testing before activation");
+ // Only an explicitly configured isolated editor may exercise the V19 writer.
+ static_assert(EquipmentSaveVersion==17 || (MoonfallEquipmentLayout::bV19EditorPreview && EquipmentSaveVersion==19),
+     "Expanded equipment requires isolated native migration testing before activation");
+#if MOONFALL_V19_EDITOR_PREVIEW && !WITH_EDITOR
+#error V19 preview must not be compiled into a packaged game
+#endif
  if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
