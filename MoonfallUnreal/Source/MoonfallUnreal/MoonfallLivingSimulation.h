@@ -145,6 +145,24 @@ constexpr EEvent ReactiveEncounter(EEvent Planned,EWeather Weather,int Danger,in
  if(Danger<35&&DefeatedBosses==5&&Planned==EEvent::Monster)return EEvent::Merchant;
  return Planned;
 }
+// Regional concern is deliberately separate from firsthand danger memory.
+enum class ERegionalRoutine { Normal, CautiousWork, GuardWatch, ReturnHome };
+constexpr ERegionalRoutine RegionalRoutine(ERole Role,int Danger,bool Eligible){
+ if(!Eligible||Danger<65||Danger>100)return ERegionalRoutine::Normal;
+ switch(Role){
+ case ERole::Guard:return ERegionalRoutine::GuardWatch;
+ case ERole::Scout:case ERole::Merchant:return ERegionalRoutine::CautiousWork;
+ default:return ERegionalRoutine::ReturnHome;
+ }
+}
+constexpr bool RegionalRoutineAllowsGuide(ERegionalRoutine Routine){
+ return Routine==ERegionalRoutine::Normal;
+}
+static_assert(RegionalRoutine(ERole::Guard,65,true)==ERegionalRoutine::GuardWatch,"Guard watch");
+static_assert(RegionalRoutine(ERole::Merchant,90,true)==ERegionalRoutine::CautiousWork,"Merchant stays available");
+static_assert(RegionalRoutine(ERole::Citizen,90,true)==ERegionalRoutine::ReturnHome,"Civilian returns home");
+static_assert(RegionalRoutine(ERole::Citizen,90,false)==ERegionalRoutine::Normal,"Protected resident");
+static_assert(RegionalRoutine(ERole::Scout,101,true)==ERegionalRoutine::Normal,"Invalid danger fails closed");
 static_assert(StepRegionalPressure(58,true)==60,"Pressure cap");
 static_assert(StepRegionalPressure(1,false)==0,"Pressure decay");
 static_assert(RegionalDanger(60,0)==100&&RegionalDanger(0,5)==0,"Danger bounds");
