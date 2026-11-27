@@ -527,6 +527,32 @@ constexpr int FullImprovement(int Candidate,const FFullLoadout& Worn,int ActiveS
  Next[D.Slot]=Candidate;
  return FullTotalScore(Next,ActiveSlots)-FullTotalScore(Worn,ActiveSlots);
 }
+// Read-only comparison for the expanded inventory. Rings may preview against
+// any finger, but the selected bag copy must remain physically available and
+// a candidate may not lower the replaced item's tier/rarity rank.
+constexpr int FullCandidateImprovement(int Candidate,const FFullLoadout& Worn,
+    int ActiveSlots,int OwnedCopies) {
+ if(!CanOperateFull(Candidate,ActiveSlots,EInventoryOperation::Equip))return 0;
+ const int Required=FullWornCopies(Candidate,Worn,ActiveSlots)+1;
+ if(OwnedCopies<Required)return 0;
+ const auto D=DecodeFullItem(Candidate);
+ const int Baseline=FullTotalScore(Worn,ActiveSlots);
+ if(IsRingSlot(D.Slot)){
+  int Best=0;
+  for(int Target:RingSlots){
+   if(Target>=ActiveSlots)break;
+   if(Worn[Target]==Candidate||FullRank(Candidate)<FullRank(Worn[Target]))continue;
+   auto Next=Worn;Next[Target]=Candidate;
+   Best=std::max(Best,FullTotalScore(Next,ActiveSlots)-Baseline);
+  }
+  return Best;
+ }
+ const int Target=D.Slot;
+ if(Target<0||Target>=ActiveSlots||Worn[Target]==Candidate
+     ||FullRank(Candidate)<FullRank(Worn[Target]))return 0;
+ auto Next=Worn;Next[Target]=Candidate;
+ return FullTotalScore(Next,ActiveSlots)-Baseline;
+}
 // Choose a free finger first, otherwise replace the lowest-ranked ring.
 // Require a physical unused copy; the selected bag item is never cloned.
 template<class Bag>
