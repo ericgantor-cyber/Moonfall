@@ -2726,6 +2726,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   CloseResidentContext();
   WaterVerticalIntent = 0;
   DrowningExposureSeconds = 0.f;
+  WaterTonicRemaining = 0.f;
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -5817,6 +5818,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  Oxygen = MoonfallWaterRules::MaxAir;
  WaterVerticalIntent = 0;
  DrowningExposureSeconds = 0.f;
+ WaterTonicRemaining = 0.f;
  bWaterSwimming = false;
  bWaterSubmerged = false;
  bInsideAirPocket = false;
