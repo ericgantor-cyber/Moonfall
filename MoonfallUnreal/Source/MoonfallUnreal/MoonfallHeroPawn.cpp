@@ -1281,7 +1281,8 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY))
   return INDEX_NONE;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
@@ -1303,6 +1304,28 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
+}
+
+// Dropping onto the bag's empty visible rows is as valid as an occupied row.
+// No item selection, sorting or index lookup is needed for this gesture.
+bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface() const
+{
+ if(!CanEditEquippedRings()||!HasVisibleInventoryPointerSurface(Controller))return false;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if(!PC||!PC->bShowMouseCursor)return false;
+ int32 Width=0,Height=0;float MouseX=0.f,MouseY=0.f;
+ PC->GetViewportSize(Width,Height);
+ if(Width<=0||Height<=0||!PC->GetMousePosition(MouseX,MouseY)
+     ||!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY))return false;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(Width)-24.f,float(Width)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(Height)-24.f));
+ if(PanelHeight<420.f)return false;
+ const float Left=float(Width)-PanelWidth-12.f,Top=(float(Height)-PanelHeight)*0.5f;
+ const int32 Rows=GetInventoryVisibleRows();
+ const float Spacing=FMath::Max(21.f,(PanelHeight-(PanelHeight>=500.f?430.f:390.f))/Rows);
+ const float FirstY=Top+145.f;
+ return MouseX>=Left+12.f&&MouseX<Left+PanelWidth-16.f
+     &&MouseY>=FirstY&&MouseY<FirstY+Rows*Spacing;
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
@@ -6046,7 +6069,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
   if(GetEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(FingerIndex))!=Code)return;
   if(Target!=INDEX_NONE){
    if(Target!=FingerIndex)MoveEquippedRing(FingerIndex,Target);
-  }else if(HitTestInventoryRow()!=INDEX_NONE){
+  }else if(HitTestInventoryBagDropSurface()){
    UnequipRing(FingerIndex); // The existing bag retains the physical copy.
   }
  }
