@@ -3651,7 +3651,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
-        self.assertIn("ConsideredAllies < 32", tick)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", tick)
         self.assertIn("Other->WindupEndsAt > Now", tick)
         self.assertIn("FVector::DistSquared2D(", tick)
         self.assertIn("FMath::Square(550.f)", tick)
