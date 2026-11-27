@@ -228,6 +228,10 @@ int main() {
     assert(SchoolSpecies(-1)==-1 && SchoolSpecies(8)==-1);
     assert(SchoolPosition(0,-1,6000,4000).X==0);
     assert(SchoolWait(7)==3.5 && SchoolWait(2)==2);
+    assert(ReelProgress(0,1,2)==0 && ReelProgress(1.5,1,2)==0.5 && ReelProgress(3,1,2)==1);
+    assert(ReelProgress(1,2,2)==0 && ReelProgress(std::numeric_limits<double>::quiet_NaN(),1,2)==0);
+    assert(RippleRadius(0,false,false)==6 && RippleRadius(0.5,false,false)==12);
+    assert(RippleRadius(0.5,true,true)==18 && RippleRadius(0.9,false,true)==10);
     FSchoolStock Stock;
     for(int I=0;I<SchoolCapacity;++I) assert(Stock.Take(0,10));
     assert(!Stock.Available(0,99.99) && !Stock.Take(0,99.99));

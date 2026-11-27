@@ -2858,10 +2858,23 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    if(bActive && GetOwningPlayerController()) {
     FVector2D Screen;
-    if(GetOwningPlayerController()->ProjectWorldLocationToScreen(Hero->FishingBobber,Screen)
+    const double Age=GetWorld()->GetTimeSeconds()-Hero->Fishing.StageStarted;
+    const bool bReeling=Stage==MoonfallFishing::EStage::Reeling;
+    const double Reel=bReeling&&!Hero->bReduceMotion?MoonfallFishing::ReelProgress(GetWorld()->GetTimeSeconds(),Hero->Fishing.StageStarted,Hero->Fishing.Deadline):0.0;
+    const FVector Bobber=FMath::Lerp(Hero->FishingBobber,Hero->GetActorLocation(),Reel);
+    if(GetOwningPlayerController()->ProjectWorldLocationToScreen(Bobber,Screen)
        && FMath::IsFinite(Screen.X)&&FMath::IsFinite(Screen.Y)
        && Screen.X>=8.f&&Screen.X<=Canvas->SizeX-8.f&&Screen.Y>=8.f&&Screen.Y<=Canvas->SizeY-8.f) {
      DrawRect(Ink,Screen.X-4.f,Screen.Y-4.f,8.f,8.f);
+     const float R=float(MoonfallFishing::RippleRadius(Age,bBite,Hero->bReduceMotion));
+     if(Screen.X>=R+2 && Screen.X<=Canvas->SizeX-R-2 && Screen.Y>=R+2 && Screen.Y<=Canvas->SizeY-R-2) {
+      const FLinearColor Ripple(Ink.R,Ink.G,Ink.B,0.65f);
+      for(int32 I=0;I<16;++I) {
+       const float A=2.f*PI*I/16.f,B=2.f*PI*(I+1)/16.f;
+       Canvas->K2_DrawLine(Screen+FVector2D(FMath::Cos(A)*R,FMath::Sin(A)*R*0.45f),
+        Screen+FVector2D(FMath::Cos(B)*R,FMath::Sin(B)*R*0.45f),1.3f,Ripple);
+      }
+     }
      if(bBite) DrawText(TEXT("!"),Ink,Screen.X-3.f,Screen.Y-23.f,nullptr,1.1f);
     }
    }

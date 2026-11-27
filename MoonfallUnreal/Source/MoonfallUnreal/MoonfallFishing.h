@@ -54,6 +54,16 @@ namespace MoonfallFishing
     }
     constexpr double SchoolWait(double Wait) { return Wait>3.5?3.5:Wait; }
     enum class EStage { Idle, Waiting, Bite, Reeling };
+    inline double ReelProgress(double Now,double Started,double Deadline) {
+        if(!std::isfinite(Now)||!std::isfinite(Started)||!std::isfinite(Deadline)||Deadline<=Started) return 0.0;
+        if(Now<=Started) return 0.0;
+        if(Now>=Deadline) return 1.0;
+        return (Now-Started)/(Deadline-Started);
+    }
+    inline double RippleRadius(double Age,bool Bite,bool ReduceMotion) {
+        if(ReduceMotion||!std::isfinite(Age)||Age<0.0) return Bite?18.0:10.0;
+        return (Bite?12.0:6.0)+12.0*std::fmod(Age,1.0);
+    }
     struct FSession {
         EStage Stage=EStage::Idle;
         double Deadline=0.0;

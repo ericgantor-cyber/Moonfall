@@ -11,6 +11,7 @@
 #include "MoonfallSpellBook.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Misc/DateTime.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -871,11 +872,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
   const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+  bool bCaughtThisTick=false;
   if (Fishing.Advance(Now,CanContinueFishing())) {
    auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish(FishingSchoolId);
    FishingNoticeUntil=Now+4.f;
+   bCaughtThisTick=bFishingCaught;
   }
+  SyncFishingPresentation(bCaughtThisTick);
  }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
@@ -4362,11 +4366,23 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
  }
 }
 
+void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
+ const int32 Next=static_cast<int32>(Fishing.Stage);
+ if(FishingVisualStage==Next&&!bCaught) return;
+ FishingVisualStage=Next;
+ if(!IsLocallyControlled()||GetNetMode()==NM_DedicatedServer) return;
+ USoundBase* Sound=bCaught?FishingCatchSound:
+  Fishing.Stage==MoonfallFishing::EStage::Waiting?FishingCastSound:
+  Fishing.Stage==MoonfallFishing::EStage::Bite?FishingBiteSound:
+  Fishing.Stage==MoonfallFishing::EStage::Reeling?FishingReelSound:nullptr;
+ if(IsValid(Sound)) UGameplayStatics::PlaySound2D(this,Sound);
+}
+
 bool AMoonfallHeroPawn::TryFishingAction() {
- if (!CanContinueFishing()) { Fishing.Cancel(); return false; }
+ if (!CanContinueFishing()) { Fishing.Cancel(); SyncFishingPresentation(); return false; }
  const float Now=GetWorld()->GetTimeSeconds();
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
-  Fishing.Hook(Now);
+  if(Fishing.Hook(Now)) SyncFishingPresentation();
   return true;
  }
  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
@@ -4400,6 +4416,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
  if(BestSchoolId>=0) {
   if(!Fishing.Start(Now,MoonfallFishing::SchoolWait(MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount())),Preview->GetOceanCatchCount())) return false;
   FishingSchoolId=BestSchoolId; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingNoticeUntil=0.f;
+  SyncFishingPresentation();
   return true;
  }
  for (TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
@@ -4419,6 +4436,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
    FishingNoticeUntil=0.f;
+   SyncFishingPresentation();
    return true;
   }
   }
