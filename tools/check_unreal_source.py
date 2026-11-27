@@ -1415,10 +1415,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(signature, self.hero_h)
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
-        self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
-        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", sets)
-        self.assertIn("Rarity >= 1", sets)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        set_body = sets.split("int32 AMoonfallHeroPawn::GetMight()", 1)[0]
+        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", set_body)
+        self.assertIn("DecodeEquippedItem(GetEquipmentSlotCode(Slot), Slot, Trait, Rarity, Tier)", set_body)
+        self.assertIn("Rarity >= 1", set_body)
+        self.assertNotIn("EquippedWeaponCode", set_body)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::LegacySlotCount", decoder)
         self.assertIn("!MoonfallEquipmentLayout::Valid(Code, ExpectedSlot)", decoder)
@@ -1443,10 +1444,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
         for code in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
             self.assertGreaterEqual(stats.count(f"InventoryItemCodes.Contains({code})"), 2)
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
-
-        # Inventory is used only as proof of ownership, never as a source of worn stats.
-        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        # Canonical slot reads establish ownership, never bag-wide set bonuses.
+        self.assertNotIn("InventoryItemCodes.Contains(", set_body)
         self.assertNotIn("for (int32 Code : InventoryItemCodes)", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
@@ -5717,7 +5716,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", delta)
         self.assertIn("DecodeEquippedItem(", projected)
         self.assertIn("GetSetPieceCount(Affix)", projected)
+        self.assertIn("const int32 CurrentCode = GetEquipmentSlotCode(Slot);", projected)
         self.assertIn("PreviousRarity >= 1", projected)
+        self.assertIn("0, MoonfallEquipmentLayout::LegacySlotCount", projected)
+        self.assertNotIn("EquippedWeaponCode", projected)
         self.assertIn("CandidateRarity >= 1", projected)
         self.assertIn("Hero->GetItemPowerDelta(SelectedCode)", self.hud)
         self.assertIn("Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode)", self.hud)
@@ -5729,8 +5731,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("HasLegendaryPerk(int32 Slot) const", self.hero_h)
         fn = self.hero_cpp.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
-        self.assertIn("Slot < 0 || Slot > 2", fn)
-        self.assertIn("InventoryItemCodes.Contains(Code)", fn)
+        self.assertIn("const int32 Code = GetEquipmentSlotCode(Slot);", fn)
+        self.assertNotIn("EquippedWeaponCode", fn)
+        self.assertNotIn("InventoryItemCodes.Contains(", fn)
         self.assertIn("DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier)", fn)
         self.assertIn("Rarity == 5", fn)
         self.assertNotIn("SaveWorldProgress(", fn)
