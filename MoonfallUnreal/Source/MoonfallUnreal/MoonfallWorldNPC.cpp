@@ -44,12 +44,15 @@ void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
 }
 bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance){
  if(!HasAuthority()||!GetWorld()||Goal.ContainsNaN()||GetActorLocation().ContainsNaN()
-     ||!FMath::IsFinite(Now)||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
+     ||!FMath::IsFinite(Now)||Now<0.f||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
  const FVector Start=GetActorLocation();
  const double Distance=FVector::Dist2D(Start,Goal);
  const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
  if(!FMath::IsFinite(Distance))return false;
- if(Distance<=StopDistance&&bSameFloor)return true;
+ if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;return true;}
+ // A moving goal can invalidate a cached waypoint without bypassing the query cooldown.
+ if(bFollowerWaypointValid&&(FollowerPathGoal.ContainsNaN()||
+     FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0)))bFollowerWaypointValid=false;
  // At most one synchronous nav query per second for the active follower.
  if(Now>=NextFollowerPathAt){
   NextFollowerPathAt=Now+1.f;bFollowerWaypointValid=false;
@@ -58,7 +61,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
    if(Nav->ProjectPointToNavigation(Goal,Projected)){
     auto* Path=Nav->FindPathToLocationSynchronously(GetWorld(),Start,Projected.Location,this);
     if(IsValid(Path)&&Path->IsValid()&&Path->PathPoints.Num()>1&&!Path->PathPoints[1].ContainsNaN()){
-     FollowerWaypoint=Path->PathPoints[1];bFollowerWaypointValid=true;
+     FollowerWaypoint=Path->PathPoints[1];FollowerPathGoal=Goal;bFollowerWaypointValid=true;
     }
    }
   }
@@ -76,10 +79,14 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  FHitResult Ground,OldGround;
  if(!GetWorld()->LineTraceSingleByChannel(Ground,End+FVector(0,0,150),End-FVector(0,0,150),ECC_Visibility,Params)
      ||!GetWorld()->LineTraceSingleByChannel(OldGround,Start+FVector(0,0,150),Start-FVector(0,0,150),ECC_Visibility,Params)
-     ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0)return false;
+     ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0){
+  bFollowerWaypointValid=false;return false;
+ }
  FVector Move=End-Start;Move.Z=Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z;
  AddActorWorldOffset(Move,true);
- if(!Move.IsNearlyZero())SetActorRotation(FRotator(0.f,Move.Rotation().Yaw,0.f));
+ const FVector ActualMove=GetActorLocation()-Start;
+ if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0)
+  SetActorRotation(FRotator(0.f,ActualMove.Rotation().Yaw,0.f));
  return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance&&FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0;
 }
 bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
