@@ -5,6 +5,8 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallImpactFeedback.h"
 #include "Misc/GuardValue.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "MoonfallTalentWeb.h"
 #include "MoonfallChronicle.h"
 #include "MoonfallChronicleUI.h"
@@ -1675,6 +1677,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float ActualSpellDamage = TargetUsable()
       ? FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell) : 0.f;
   if (ActualSpellDamage > 0.f) {
+   if(HealthBeforeSpell>0.f&&Enemy->Health<=0.f&&!Enemy->ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice"))))
+    AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::SpellVictory);
    if (FMath::IsFinite(ActualSpellDamage) && !Hit.ImpactPoint.ContainsNaN()) {
     ResolvedImpactPoint = Hit.ImpactPoint;
     ResolvedImpactOrigin = Origin;
@@ -2185,6 +2189,8 @@ void AMoonfallHeroPawn::MeleeAttack()
  const float Dealt = FMath::Clamp(HealthBefore - Enemy->Health, 0.f, HealthBefore);
  const bool bConnected = Dealt > 0.f;
  const bool bResolvedSwordKill = bConnected && Enemy->Health <= 0.f;
+ if(bResolvedSwordKill&&!Enemy->ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice"))))
+  AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::MeleeVictory);
  const bool bResolvedSwordRiposte = bConnected && bCounterReady;
  const bool bEmitSwordImpact = bConnected && FMath::IsFinite(Dealt)
      && !ResolvedSwordImpact.ContainsNaN() && MoonfallOmniattack::ValidAngle(ResolvedSwordAngle);
@@ -2529,6 +2535,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
     Mana = FMath::Clamp(Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f), 0.f, MaxMana);
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
+   AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::SuccessfulDefense);
    ParryWindowEndsAt = -1.f;
    // Malformed tuning must not preserve a previous counterattack window.
    ParryCounterUntil = -1.f;
@@ -2998,6 +3005,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::CompletedCraft);
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  if (bUpgradingEquipped && Slot == 1 && PreviousEquippedTier != Tier + 1)
   OnHealthChanged(Health, MaxHealth);
@@ -3751,6 +3759,34 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
    : FLinearColor(0.2f, 0.78f, 1.f));
  FinisherFlash->SetIntensity((bReduceMotion ? 900.f : (bNativeFinisherBoss ? 4800.f : 3500.f)) * Envelope);
  FinisherFlash->SetVisibility(true);
+}
+
+bool AMoonfallHeroPawn::IsSkillMasteryPreviewEnabled() const
+{
+#if WITH_EDITOR
+ // Explicit session-only opt-in. Never enable progression in a packaged game.
+ return FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"));
+#else
+ return false;
+#endif
+}
+
+void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action)
+{
+ if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
+    ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
+    ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return;
+ MoonfallSkillMastery::TryAward(SessionMastery,Action,true,SessionMastery);
+}
+
+int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
+{
+ return IsSkillMasteryPreviewEnabled()?MoonfallSkillMastery::XPFor(SessionMastery,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):-1;
+}
+
+int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
+{
+ return MoonfallSkillMastery::Rank(GetSkillMasteryXP(SkillIndex));
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
