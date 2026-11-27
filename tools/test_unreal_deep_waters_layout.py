@@ -155,6 +155,19 @@ class DeepWatersLayoutTests(unittest.TestCase):
             for _,(gx,gy,_) in grotto_layout():
                 self.assertTrue(abs(x-gx)>350+hx or abs(y-gy)>305+hy,name)
 
+    def test_independent_swim_pose_contract(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        rules = (root / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWaterRules.h").read_text(encoding="utf-8")
+        pose = source.split("void AMoonfallHeroPawn::RefreshSwimPose()", 1)[1].split("void AMoonfallHeroPawn::Tick", 1)[0]
+        self.assertIn("SwimPoseAnchor->SetupAttachment(GetRootComponent())", source)
+        self.assertIn("SwimPoseAnchor->SetRelativeRotation(Pose)", pose)
+        self.assertIn("bWaterSwimming,bWaterSubmerged,bReduceMotion,WaterVerticalSpeed", pose)
+        self.assertNotIn("GetMesh()", pose)
+        self.assertNotIn("SetActorRotation", pose)
+        self.assertIn("!bSwimming||!bSubmerged||bReducedMotion", rules)
+        self.assertIn("bWaterSubmerged = false;\n RefreshSwimPose();", source)
+
     def test_rooms_do_not_overlap(self):
         rooms = grotto_layout()
         for index, (_, (x,y,_)) in enumerate(rooms):
