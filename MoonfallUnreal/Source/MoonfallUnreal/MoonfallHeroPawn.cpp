@@ -872,6 +872,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
+   TGuardValue<bool> AutoLootGuard(bAutoLootDispatch,true);
    PickupNearestGroundLoot();
   }
  } else AutoLootElapsed = 0.f;
@@ -4289,12 +4290,12 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
      || bCharacterStatsOpen || FocusedResident.IsValid()) return;
  // Only the isolated preview may collect its session-only grotto discoveries.
  if (bPersistentSaveWritesBlocked) {
-  if (bWaterSwimming && GetCapsuleComponent()
+  if ((bWaterSwimming || !bAutoLootDispatch) && GetCapsuleComponent()
       && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
    TArray<AActor*> Chests;
    GetCapsuleComponent()->GetOverlappingActors(Chests, AMoonfallGrottoTreasure::StaticClass());
    for (AActor* Actor : Chests)
-    if (auto* Chest = Cast<AMoonfallGrottoTreasure>(Actor); IsValid(Chest)) Chest->TryClaim(this);
+    if (auto* Chest = Cast<AMoonfallGrottoTreasure>(Actor); IsValid(Chest)) Chest->TryClaim(this,!bAutoLootDispatch);
   }
   return;
  }
