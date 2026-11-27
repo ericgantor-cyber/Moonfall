@@ -58,6 +58,8 @@ public:
  int32 GetRegionalFished() const { return Regions.Count(Regions.Caught); }
  int32 GetRegionalGathered() const { return Regions.Count(Regions.Harvested); }
  int32 GetRegionalCompleted() const { return Regions.Completed(); }
+ int32 GetRegionalMilestones(int32 Id) const { return Regions.Milestones(Id); }
+ bool HasVisitedRegionalWater(int32 Id) const { return Regions.HasVisited(Id); }
  bool DiscoverAquaticCreature(int32 Id) { const bool OK=Sightings.Discover(Id); bProfessionDirty|=OK; return OK; }
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }

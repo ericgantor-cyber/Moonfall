@@ -15,6 +15,7 @@
 #include "MoonfallWaterRules.h"
 #include "MoonfallAquaticProfiles.h"
 #include "MoonfallNorthPreviewGameMode.h"
+#include "MoonfallNorthContinentLayout.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -930,6 +931,43 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.91f, 0.84f, 0.68f), 12.f, 14.f, nullptr, 0.75f);
    DrawLiveMenuHitCue();
    return;
+  }
+  if(!Hero->bQuestLogOpen && Hero->HasWaterProfessionsPage()) {
+   const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   if(IsValid(Preview)) {
+    const float W=FMath::Min(900.f,Canvas->SizeX-24.f),H=FMath::Min(650.f,Canvas->SizeY-24.f);
+    const float L=(Canvas->SizeX-W)*.5f,T=(Canvas->SizeY-H)*.5f;
+    DrawRect(FLinearColor(.045f,.055f,.075f,.98f),L,T,W,H);
+    DrawModalChrome(L,T,W,H,FLinearColor(.55f,.46f,.30f,.98f));
+    DrawText(TEXT("NORTHERN WATERS | DISCOVERY ATLAS"),FLinearColor(.95f,.82f,.58f),L+12,T+12,nullptr,W<480?.65f:1.f);
+    DrawRect(FLinearColor(.37f,.16f,.22f),L+W-42,T+12,28,28);
+    DrawText(TEXT("X"),FLinearColor::White,L+W-33,T+16,nullptr,.9f);
+    DrawText(FString::Printf(TEXT("%d/9 visited | %d/9 mastered"),Preview->GetRegionalVisited(),Preview->GetRegionalCompleted()),
+     FLinearColor::White,L+12,T+40,nullptr,.72f);
+    const float Gap=(H-102.f)/5.f;
+    FVector2D Nodes[MoonfallNorth::ZoneCount];
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+     const auto Point=MoonfallNorth::ContinentCenters[I];
+     Nodes[I]=FVector2D(L+W*(Point.Xcm<0?.25f:.71f),T+65.f+Gap*(4.f-float(Point.Ycm)/13000.f));
+    }
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I)
+     for(int J=I+1;J<MoonfallNorth::ZoneCount;++J)
+      if(MoonfallNorth::Linked(I,J)&&Preview->HasVisitedRegionalWater(I)&&Preview->HasVisitedRegionalWater(J))
+       Canvas->K2_DrawLine(Nodes[I],Nodes[J],1.f,FLinearColor(.40f,.45f,.52f,.7f));
+    const TCHAR* Names[]={TEXT("Shiverwake"),TEXT("Wolfsong"),TEXT("Palehorn"),TEXT("Gravewind"),TEXT("Verdant Rift"),TEXT("Skyshard"),TEXT("Sunken Crown"),TEXT("Starveil"),TEXT("Nightspire")};
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+     const int N=Preview->GetRegionalMilestones(I);
+     const bool Visited=Preview->HasVisitedRegionalWater(I);
+     const FLinearColor Ink=N==3?FLinearColor(.94f,.78f,.34f):Visited?FLinearColor(.36f,.85f,.65f):FLinearColor(.55f,.59f,.65f);
+     const float X=Nodes[I].X,Y=Nodes[I].Y;
+     DrawRect(FLinearColor(.08f,.12f,.18f,.99f),X-W*.22f,Y-11,W*.44f,FMath::Min(37.f,Gap-2.f));
+     DrawText(FString::Printf(TEXT("%s %d/3"),Names[I],N),Ink,X-W*.22f+5,Y-8,nullptr,W<480?.55f:.8f);
+     for(int K=0;K<3;++K) DrawRect(K<N?Ink:FLinearColor(.22f,.25f,.30f),X-12+K*9,Y+7,6,4);
+    }
+    DrawText(TEXT("Schematic | links planned, not travel | J / Esc: close"),FLinearColor(.74f,.78f,.86f),L+12,T+H-21,nullptr,W<480?.49f:.68f);
+    DrawLiveMenuHitCue();
+    return;
+   }
   }
   if(Hero->bQuestLogOpen) {
    namespace J=MoonfallQuestJournal;
