@@ -1537,12 +1537,15 @@ void AMoonfallHeroPawn::TryJump()
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
- if(IsSkillMasteryPreviewEnabled()&&GetCharacterMovement()
-    &&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked
-    &&!bEquipmentCraftInProgress&&!bTalentAllocationInProgress){
-  const int32 Bonus=MoonfallSkillMastery::JumpBonusBps(*GetSessionMastery());
+ // Restore the authored jump whenever mastery is temporarily unavailable
+ // after a preview jump. Ordinary non-preview movement tuning is untouched.
+#if WITH_EDITOR
+ if(GetCharacterMovement()&&FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"))){
+  const int32 Bonus=(!bEquipmentCraftInProgress&&!bTalentAllocationInProgress)
+    ?GetSkillMasteryBonusBps(static_cast<int32>(MoonfallSkillMastery::Skill::Agility)):0;
   GetCharacterMovement()->JumpZVelocity=MasteryBaseJumpZ*(1.f+float(Bonus)/10000.f);
  }
+#endif
  Jump();
 }
 
@@ -3139,6 +3142,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ AwardConfirmedSkillMastery(MoonfallSkillMastery::Action::CompletedCraft);
  LastLootRarity = Rarity + 1;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentAscended(NewCode, Cost);
  return true;
