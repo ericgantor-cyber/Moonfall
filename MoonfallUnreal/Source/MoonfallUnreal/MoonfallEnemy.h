@@ -75,6 +75,13 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedAttackTelegraphed(FVector AimPoint,float WarningSeconds,bool bSpellcaster);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedProjectileFired(FVector MuzzlePoint,FVector AimPoint,bool bSpellcaster);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedProjectileResolved(bool bParried,bool bPerfectDodge);
+ void NotifyRangedProjectileCountered(bool bPerfectDodge);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -151,6 +158,7 @@ private:
  // This prevents direct pursuit into walls when NavMesh cannot find a route.
  bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
+ FVector LockedRangedAimPoint = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  TWeakObjectPtr<AMoonfallWorldNPC> RecentCompanionAttacker;
  float RecentCompanionAttackerAt=-1000.f;
