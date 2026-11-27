@@ -1062,10 +1062,10 @@ void AMoonfallCombatHUD::DrawHUD()
         nullptr, Scale * AtlasSideTextScale * 0.75f);
     const int32 Orbs=Hero->GetRegionMasteryOrbCount(Zone);
     if(Orbs>=0&&RowHeight>=66.f)
-     DrawText(FString::Printf(TEXT("ORBS %d/%d | TRAILS %d/%d"),Orbs,
+     DrawText(FString::Printf(Orbs==MoonfallSkillMastery::RouteOrbsPerRegion?TEXT("COMPLETE %d/%d | %d/%d"):TEXT("ORBS %d/%d | TRAILS %d/%d"),Orbs,
        MoonfallSkillMastery::RouteOrbsPerRegion,Hero->GetCompletedMasteryTrails(Zone),
        MoonfallSkillMastery::TrailsPerRegion),
-       FLinearColor(0.51f,0.85f,0.64f),Left+23.f,Y+53.f,
+       Orbs==MoonfallSkillMastery::RouteOrbsPerRegion?FLinearColor(0.95f,0.78f,0.36f):FLinearColor(0.51f,0.85f,0.64f),Left+23.f,Y+53.f,
        nullptr,Scale*AtlasSideTextScale*0.67f);
    }
   }
