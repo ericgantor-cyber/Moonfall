@@ -2902,12 +2902,12 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolId>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
-      bBite?TEXT("BITE! N / X: Hook"):
+      bBite?TEXT("BITE! F / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
       (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch unavailable")):
-      TEXT("Face water | N / X: Cast");
-   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
+      TEXT("Face water | F / X: Cast");
+   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! F / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
    if(bCatchNotice) {
     const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
