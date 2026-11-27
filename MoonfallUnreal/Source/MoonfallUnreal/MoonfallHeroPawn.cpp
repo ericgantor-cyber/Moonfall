@@ -6763,6 +6763,16 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ if (Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) {
+  auto* Preview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+  const bool bBought=IsValid(Preview) && bPersistentSaveWritesBlocked && !bWaterSwimming
+      && Preview->BuyIslandTonic();
+  ResidentFeedbackMessage=bBought?TEXT("Breath tonic purchased."):
+      TEXT("Need credits and room for a tonic.");
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  return bBought;
+ }
  if (Resident->bAmbientVisitor) {
   // Ambient encounters never offer an unfinishable persistent contract.
   const FText Notice=FText::FromString(
