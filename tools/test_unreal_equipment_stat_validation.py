@@ -75,6 +75,15 @@ class EquipmentStatSafety(unittest.TestCase):
         power = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentPower() const", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
         self.assertIn("GetValidatedEquipmentCodes(Codes)", power)
+    def test_equipment_snapshot_counts_only_worn_item_codes(self):
+        snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
+            "uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
+        self.assertIn("for(const auto& Required:RequiredCounts)OwnedCounts.Add(Required.Key,0);", snapshot)
+        self.assertIn("if(!RequiredCounts.IsEmpty())", snapshot)
+        self.assertIn("if(int32* Owned=OwnedCounts.Find(Code))++*Owned;", snapshot)
+        self.assertNotIn("OwnedCounts.FindOrAdd(Code)", snapshot)
+        self.assertLess(snapshot.index("RequiredCounts.FindOrAdd(Code)"), snapshot.index("for(int32 Code:InventoryItemCodes)"))
+
     def test_equipment_snapshot_cache_invalidates_on_inventory_mutation(self):
         header = HEADER.read_text(encoding="utf-8")
         self.assertIn("uint32 EquipmentInventoryRevision=1;", header)

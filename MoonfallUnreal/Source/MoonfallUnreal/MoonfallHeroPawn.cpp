@@ -165,11 +165,18 @@ void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) cons
  // Count the bag once, then validate all 24 raw references and duplicate
  // multiplicities without rescanning the inventory for every finger.
  TMap<int32,int32> OwnedCounts,RequiredCounts;
- for(int32 Code:InventoryItemCodes)++OwnedCounts.FindOrAdd(Code);
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
   const int32 Code=GetRawEquipmentSlotCode(Slot);
   if(Code&&MoonfallEquipmentLayout::CanWearFullItem(Code,Slot,MoonfallEquipmentLayout::ActiveSlotCount))
    ++RequiredCounts.FindOrAdd(Code);
+ }
+ // Only worn codes need ownership counts. Keep scratch storage bounded by
+ // the equipment layout, even with a full 10,000-item inventory.
+ for(const auto& Required:RequiredCounts)OwnedCounts.Add(Required.Key,0);
+ if(!RequiredCounts.IsEmpty()){
+  for(int32 Code:InventoryItemCodes){
+   if(int32* Owned=OwnedCounts.Find(Code))++*Owned;
+  }
  }
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
   const int32 Code=GetRawEquipmentSlotCode(Slot);
