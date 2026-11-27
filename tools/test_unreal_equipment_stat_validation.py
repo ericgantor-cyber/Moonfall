@@ -84,6 +84,15 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("OwnedCounts.FindOrAdd(Code)", snapshot)
         self.assertLess(snapshot.index("RequiredCounts.FindOrAdd(Code)"), snapshot.index("for(int32 Code:InventoryItemCodes)"))
 
+    def test_expanded_tier_refresh_uses_one_validated_loadout(self):
+        body = self.source.split("void AMoonfallHeroPawn::RefreshEquipmentTier()", 1)[1].split("\n}\n", 1)[0]
+        expanded = body.split("if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount)", 1)[1].split("return;", 1)[0]
+        self.assertEqual(expanded.count("GetValidatedEquipmentCodes(Codes)"), 1)
+        self.assertLess(expanded.index("GetValidatedEquipmentCodes(Codes)"), expanded.index("for(int32 Slot=0;"))
+        self.assertIn("ValidEquippedTier(Codes[Slot],Slot)", expanded)
+        self.assertNotIn("GetValidatedEquippedTier(Slot)", expanded)
+        self.assertIn("FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot))", body)
+
     def test_expanded_tier_queries_reuse_validated_snapshot(self):
         tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(", 1)[0]

@@ -234,6 +234,14 @@ int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(int32 Code) const
 void AMoonfallHeroPawn::RefreshEquipmentTier()
 {
  EquipmentTier = 0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  // Validate and copy the expanded loadout once, not once per slot.
+  TArray<int32> Codes;
+  GetValidatedEquipmentCodes(Codes);
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+   EquipmentTier=FMath::Max(EquipmentTier,ValidEquippedTier(Codes[Slot],Slot));
+  return;
+ }
  for (int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
   EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
 }
