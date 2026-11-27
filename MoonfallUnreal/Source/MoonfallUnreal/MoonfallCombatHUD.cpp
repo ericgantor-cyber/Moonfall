@@ -2780,18 +2780,37 @@ void AMoonfallCombatHUD::DrawHUD()
    }
   }
  }
- // Session-only fishing and gathering journal. No world scan.
+ // Fishing feedback and projected bobber use the existing HUD, no actor per cast.
  if (GetWorld() && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
   const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
   if (IsValid(Preview) && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
       && !Hero->bWaterSwimming) {
    const float X=(Canvas->SizeX-252.f)*0.5f,Y=Canvas->SizeY*0.62f;
+   const auto Stage=Hero->Fishing.Stage;
+   const bool bBite=Stage==MoonfallFishing::EStage::Bite;
+   const bool bActive=Stage!=MoonfallFishing::EStage::Idle;
+   const FLinearColor Ink=bBite?FLinearColor(1.f,0.8f,0.25f):FLinearColor(0.44f,0.88f,0.91f);
    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
-   DrawText(FString::Printf(TEXT("FISH %d/3 | MATERIALS %d/4"),Preview->GetOceanCatchCount(),
+   DrawText(FString::Printf(TEXT("FISH %d/30 | MATERIALS %d/12"),Preview->GetOceanCatchCount(),
      Preview->GetOceanMaterialCount()),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
-   DrawText(TEXT("F: Fish at a dock marker"),FLinearColor(0.44f,0.88f,0.91f),X+8.f,Y+23.f,nullptr,0.72f);
+   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?TEXT("Waiting for a bite..."):
+      bBite?TEXT("BITE! N / X: Hook"):
+      Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
+      GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
+      (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch limit reached")):
+      TEXT("Face water | N / X: Cast");
+   DrawText(Prompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
      Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
+   if(bActive && GetOwningPlayerController()) {
+    FVector2D Screen;
+    if(GetOwningPlayerController()->ProjectWorldLocationToScreen(Hero->FishingBobber,Screen)
+       && FMath::IsFinite(Screen.X)&&FMath::IsFinite(Screen.Y)
+       && Screen.X>=8.f&&Screen.X<=Canvas->SizeX-8.f&&Screen.Y>=8.f&&Screen.Y<=Canvas->SizeY-8.f) {
+     DrawRect(Ink,Screen.X-4.f,Screen.Y-4.f,8.f,8.f);
+     if(bBite) DrawText(TEXT("!"),Ink,Screen.X-3.f,Screen.Y-23.f,nullptr,1.1f);
+    }
+   }
   }
  }
  // Temporary contextual resource, independent of the three permanent orbs.
@@ -2825,7 +2844,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
       Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
       Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
-    DrawText(FString::Printf(TEXT("MATERIALS %d/4 | FISH %d/3"),Preview->GetOceanMaterialCount(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("MATERIALS %d/12 | FISH %d/30"),Preview->GetOceanMaterialCount(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
    }
   }
  }
