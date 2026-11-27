@@ -123,15 +123,17 @@ void AMoonfallEnemyProjectile::ResolveHeroImpact(AActor* OtherActor)
  const FVector ImpactPoint=GetActorLocation();
  if(Hero->TryRewardPerfectDodge()){
   Enemy->NotifyRangedProjectileCountered(true);
-  Enemy->OnRangedProjectileResolved(false,true);
+  if(IsValid(Enemy)&&!Enemy->IsActorBeingDestroyed())
+   Enemy->OnRangedProjectileResolved(false,true);
   OnProjectileImpact(ImpactPoint,false,true);
-  Destroy();
+  if(IsValid(this)&&!IsActorBeingDestroyed())Destroy();
   return;
  }
  const bool bParried=Hero->ApplyMoonfallDamageFrom(Damage,ImpactPoint);
  if(bParried)Enemy->NotifyRangedProjectileCountered(false);
  else Enemy->OnEnemyAttack();
- Enemy->OnRangedProjectileResolved(bParried,false);
+ if(IsValid(Enemy)&&!Enemy->IsActorBeingDestroyed())
+  Enemy->OnRangedProjectileResolved(bParried,false);
  OnProjectileImpact(ImpactPoint,bParried,false);
- Destroy();
+ if(IsValid(this)&&!IsActorBeingDestroyed())Destroy();
 }
