@@ -3,6 +3,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "MoonfallAquaticRewards.h"
 #include "MoonfallIslandQuest.h"
+#include "MoonfallOceanEvents.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -37,7 +38,12 @@ public:
  int32 GetIslandCredits() const { return IslandJournal.Credits; }
  int32 GetIslandTonicPrice() const { return IslandJournal.TonicPrice(); }
  bool BuyIslandTonic() { return IslandJournal.BuyTonic(GrottoGear.TonicCharges); }
+ int32 GetOceanActivity() const;
+ bool DiscoverAquaticCreature(int32 Id) { return Sightings.Discover(Id); }
+ int32 GetAquaticSightingCount() const { return Sightings.Count(); }
+ bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
 private:
+ MoonfallOceanEvents::FSightings Sightings;
  MoonfallIslandQuest::FJournal IslandJournal;
  uint8 CaveClaims=0;
  uint8 WreckClaims=0;
