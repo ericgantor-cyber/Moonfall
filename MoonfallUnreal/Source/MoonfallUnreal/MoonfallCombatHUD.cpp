@@ -895,7 +895,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if(RecipePage==0) Reagents=FString::Printf(TEXT("Kelp %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),IslandPreview->GetAvailableOceanFish());
     else if(RecipePage==1) Reagents=FString::Printf(TEXT("Pearl %d/1 | Coral %d/1"),int32(IslandPreview->HasOceanCraftMaterial(1)),int32(IslandPreview->HasOceanCraftMaterial(2)));
     else Reagents=FString::Printf(TEXT("Salt %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(3)),IslandPreview->GetAvailableOceanFish());
-    const TCHAR* Ranks[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Exalted"),TEXT("Legendary")};
+    const TCHAR* Ranks[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
     const int32 Rank=RecipePage>0?IslandPreview->GetGrottoGearRarity(RecipePage-1):-1;
     const FString Output=RecipePage==0?FString::Printf(TEXT("Tonics %d/3 -> +1"),IslandPreview->GetBreathingTonicCharges()):
       Rank<1||Rank>5?FString(TEXT("Requires Tidebound loan gear")):
