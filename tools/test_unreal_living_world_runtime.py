@@ -865,7 +865,7 @@ int main(){
         self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
         self.assertIn("Distance > EffectiveAttackRange",enemy)
         self.assertIn("RangedProjectileWindup(bCasterCombatRole)",enemy)
-        self.assertIn("SpawnActor<AMoonfallEnemyProjectile>",enemy)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>",enemy)
         self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
         self.assertIn("OnRangedAttackTelegraphed(",enemy)
         projectile=(SRC/"MoonfallEnemyProjectile.cpp").read_text()
