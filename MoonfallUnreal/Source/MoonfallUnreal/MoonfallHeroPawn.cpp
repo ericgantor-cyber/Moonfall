@@ -390,14 +390,21 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
- int32 ExtraTierTotal=0;
- for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
-  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount||!MoonfallEquipmentLayout::IsRingSlot(Slot))
+ int32 ExtraTierTotal=0,PrimaryTierTotal=0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  TArray<int32> Codes;GetValidatedEquipmentCodes(Codes);
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
+   if(MoonfallEquipmentLayout::IsRingSlot(Slot))continue;
+   const int32 Tier=MoonfallEquipmentLayout::DecodeFullItem(Codes[Slot]).Tier;
+   if(Slot<MoonfallEquipmentLayout::LegacySlotCount)PrimaryTierTotal+=Tier;
+   else ExtraTierTotal+=Tier;
+  }
+ }else{
+  for(int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
    ExtraTierTotal+=GetValidatedEquippedTier(Slot);
- const float GearMastery = FMath::Clamp(
-   (GetValidatedEquippedTier(0)
-    + GetValidatedEquippedTier(1)
-    + GetValidatedEquippedTier(2) + ExtraTierTotal) * 0.0015f, 0.f, 0.12f);
+  PrimaryTierTotal=GetValidatedEquippedTier(0)+GetValidatedEquippedTier(1)+GetValidatedEquippedTier(2);
+ }
+ const float GearMastery=FMath::Clamp((PrimaryTierTotal+ExtraTierTotal)*0.0015f,0.f,0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f)
    + GetNativeRingBonuses().MasteryBps * 0.0001f,
    0.f, 0.16f);
