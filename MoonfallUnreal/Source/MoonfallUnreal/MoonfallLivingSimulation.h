@@ -155,6 +155,10 @@ constexpr ERegionalRoutine RegionalRoutine(ERole Role,int Danger,bool Eligible){
  default:return ERegionalRoutine::ReturnHome;
  }
 }
+constexpr float RegionalRoutineStepLimit(ERegionalRoutine Routine){
+ return Routine==ERegionalRoutine::GuardWatch?0.f:
+        Routine==ERegionalRoutine::CautiousWork?16.f:32.f;
+}
 constexpr bool RegionalRoutineAllowsGuide(ERegionalRoutine Routine){
  return Routine==ERegionalRoutine::Normal;
 }
@@ -163,6 +167,9 @@ static_assert(RegionalRoutine(ERole::Merchant,90,true)==ERegionalRoutine::Cautio
 static_assert(RegionalRoutine(ERole::Citizen,90,true)==ERegionalRoutine::ReturnHome,"Civilian returns home");
 static_assert(RegionalRoutine(ERole::Citizen,90,false)==ERegionalRoutine::Normal,"Protected resident");
 static_assert(RegionalRoutine(ERole::Scout,101,true)==ERegionalRoutine::Normal,"Invalid danger fails closed");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::GuardWatch)==0.f,"Guard holds watch post");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::CautiousWork)==16.f,"Cautious work slows movement");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::ReturnHome)==32.f,"Residents retain safe return speed");
 static_assert(StepRegionalPressure(58,true)==60,"Pressure cap");
 static_assert(StepRegionalPressure(1,false)==0,"Pressure decay");
 static_assert(RegionalDanger(60,0)==100&&RegionalDanger(0,5)==0,"Danger bounds");
