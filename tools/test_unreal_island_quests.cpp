@@ -189,9 +189,18 @@ int main() {
     assert(!Cast.Advance(17,true));
     assert(Cast.Start(20,2));
     assert(!Cast.Advance(22,true));
-    assert(!Cast.Advance(27,true) && Cast.Stage==EStage::Idle);
+    assert(!Cast.Advance(27,true) && Cast.Stage==EStage::Bite);
+    assert(!Cast.Advance(32,true) && Cast.Stage==EStage::Idle);
     assert(Cast.Start(30,3));
     assert(!Cast.Advance(31,false) && Cast.Stage==EStage::Idle);
     assert(!Cast.Start(std::numeric_limits<double>::quiet_NaN(),3));
+    assert(Rank(-1)==1 && Rank(0)==1 && Rank(3)==2 && Rank(27)==10 && Rank(30)==10);
+    assert(CastWait(1,0)==7.0 && CastWait(0,30)==2.0 && CastWait(1,30)<5.0);
+    assert(BiteSeconds(0)==10.0 && BiteSeconds(30)==14.5);
+    assert(Cast.Start(40,2,30));
+    assert(!Cast.Advance(42,true) && Cast.Stage==EStage::Bite);
+    assert(Cast.Hook(56) && Cast.Stage==EStage::Reeling);
+    assert(Cast.Advance(57.5,true));
+    assert(!Cast.Advance(58,true));
     return 0;
 }

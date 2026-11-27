@@ -2791,15 +2791,16 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bActive=Stage!=MoonfallFishing::EStage::Idle;
    const FLinearColor Ink=bBite?FLinearColor(1.f,0.8f,0.25f):FLinearColor(0.44f,0.88f,0.91f);
    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
-   DrawText(FString::Printf(TEXT("FISH %d/30 | MATERIALS %d/12"),Preview->GetOceanCatchCount(),
-     Preview->GetOceanMaterialCount()),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
+   DrawText(FString::Printf(TEXT("FISH %d/30 | RANK %d/10"),Preview->GetOceanCatchCount(),
+     MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?TEXT("Waiting for a bite..."):
       bBite?TEXT("BITE! N / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
       (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch limit reached")):
       TEXT("Face water | N / X: Cast");
-   DrawText(Prompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
+   const FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
+   DrawText(FishingPrompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
      Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
    if(bActive && GetOwningPlayerController()) {
