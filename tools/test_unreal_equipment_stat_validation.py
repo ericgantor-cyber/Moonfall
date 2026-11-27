@@ -36,5 +36,23 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertIn(f"ValidEquippedTraitRarity(Owned{name}Code, {slot}, {trait})", self.source)
             self.assertIn(f"ValidEquippedTier(Owned{name}Code, {slot})", self.source)
         self.assertIn("const float Tier = static_cast<float>(GetValidatedEquippedTier(0));", self.source)
+    def test_ring_stats_respect_activation_ownership_and_global_caps(self):
+        source = self.source
+        rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
+            "float AMoonfallHeroPawn::GetRingLuckBonus()", 1)[0]
+        self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", rings)
+        self.assertIn("GetRawEquipmentSlotCode(Slot)", rings)
+        self.assertIn("BuildRingBonuses(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)", rings)
+        for method, field, cap in (("GetCriticalChance", "CritBps", "0.25f"),
+                                   ("GetHasteBonus", "HasteBps", "0.20f"),
+                                   ("GetMasteryBonus", "MasteryBps", "0.16f"),
+                                   ("GetVersatilityBonus", "VersatilityBps", "0.12f")):
+            body = source.split(f"float AMoonfallHeroPawn::{method}() const", 1)[1].split("\n}", 1)[0]
+            self.assertIn(f"GetNativeRingBonuses().{field} * 0.0001f", body)
+            self.assertIn(cap, body)
+        mastery = source.split("float AMoonfallHeroPawn::GetMasteryBonus() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!MoonfallEquipmentLayout::IsRingSlot(Slot)", mastery)
+        self.assertIn("GetNativeRingBonuses().LuckBps / 100", source)
+        self.assertIn("GetNativeRingBonuses().LuckBps * 0.0001f", source)
 if __name__ == "__main__":
     unittest.main()
