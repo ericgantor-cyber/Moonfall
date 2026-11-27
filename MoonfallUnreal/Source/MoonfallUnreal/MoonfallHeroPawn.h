@@ -509,6 +509,9 @@ private:
  mutable uint32 CachedValidatedInventoryRevision=0;
  mutable uint64 CachedValidatedLoadoutFingerprint=0;
  mutable TArray<int32> CachedValidatedEquipmentCodes;
+ mutable uint32 CachedRingBonusInventoryRevision=0;
+ mutable uint64 CachedRingBonusLoadoutFingerprint=0;
+ mutable MoonfallEquipmentLayout::FRingBonuses CachedNativeRingBonuses{};
  int32 EquipBestExpandedLoadout();
  MoonfallEquipmentLayout::FRingBonuses GetNativeRingBonuses() const;
  // Fixed storage for slot IDs 3–23. Public gameplay remains gated until

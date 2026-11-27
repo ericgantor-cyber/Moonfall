@@ -144,6 +144,7 @@ void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()
  ++EquipmentInventoryRevision;
  if(EquipmentInventoryRevision==0)++EquipmentInventoryRevision;
  CachedValidatedInventoryRevision=0;
+ CachedRingBonusInventoryRevision=0;
 }
 
 void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const
@@ -384,13 +385,25 @@ MoonfallEquipmentLayout::FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses() 
 {
  // Keep all nine-slot balance unchanged until the full ring layout activates.
  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return {};
+ const uint64 Fingerprint=GetEquipmentLoadoutFingerprint();
+ if(CachedRingBonusInventoryRevision==EquipmentInventoryRevision
+     &&CachedRingBonusLoadoutFingerprint==Fingerprint)return CachedNativeRingBonuses;
  TArray<int32> ValidatedCodes;GetValidatedEquipmentCodes(ValidatedCodes);
  MoonfallEquipmentLayout::FFullLoadout Worn{};
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
   Worn[Slot]=ValidatedCodes[Slot];
-  if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot])return {};
+  if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot]){
+   CachedNativeRingBonuses={};
+   CachedRingBonusInventoryRevision=EquipmentInventoryRevision;
+   CachedRingBonusLoadoutFingerprint=Fingerprint;
+   return CachedNativeRingBonuses;
+  }
  }
- return MoonfallEquipmentLayout::BuildRingBonusesValidated(Worn,MoonfallEquipmentLayout::ActiveSlotCount);
+ CachedNativeRingBonuses=MoonfallEquipmentLayout::BuildRingBonusesValidated(
+     Worn,MoonfallEquipmentLayout::ActiveSlotCount);
+ CachedRingBonusInventoryRevision=EquipmentInventoryRevision;
+ CachedRingBonusLoadoutFingerprint=Fingerprint;
+ return CachedNativeRingBonuses;
 }
 
 float AMoonfallHeroPawn::GetRingLuckBonus() const

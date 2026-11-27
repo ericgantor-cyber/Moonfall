@@ -125,6 +125,22 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(rebuild.index("InventoryItemCodes.Add(Code);"), rebuild.index("MarkEquipmentInventoryDirty();"))
         self.assertIn("}\n // Invalidate once", rebuild)
 
+    def test_ring_bonus_cache_tracks_inventory_revision_and_loadout_fingerprint(self):
+        header = HEADER.read_text(encoding="utf-8")
+        self.assertIn("mutable uint32 CachedRingBonusInventoryRevision=0;", header)
+        self.assertIn("mutable uint64 CachedRingBonusLoadoutFingerprint=0;", header)
+        self.assertIn("mutable MoonfallEquipmentLayout::FRingBonuses CachedNativeRingBonuses{};", header)
+        dirty = self.source.split("void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()", 1)[1].split(
+            "void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[0]
+        self.assertIn("CachedRingBonusInventoryRevision=0;", dirty)
+        rings = self.source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
+            "float AMoonfallHeroPawn::GetRingLuckBonus()", 1)[0]
+        self.assertIn("CachedRingBonusInventoryRevision==EquipmentInventoryRevision", rings)
+        self.assertIn("CachedRingBonusLoadoutFingerprint==Fingerprint", rings)
+        self.assertIn("return CachedNativeRingBonuses;", rings)
+        self.assertIn("CachedNativeRingBonuses=MoonfallEquipmentLayout::BuildRingBonusesValidated(", rings)
+        self.assertIn("GetEquipmentLoadoutFingerprint()", rings)
+
     def test_ring_stats_respect_activation_ownership_and_global_caps(self):
         source = self.source
         rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
