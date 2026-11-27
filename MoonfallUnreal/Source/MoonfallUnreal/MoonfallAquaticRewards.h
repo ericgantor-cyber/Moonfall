@@ -16,6 +16,7 @@ namespace MoonfallAquaticRewards
         unsigned Claims=0;
         int Codes[3]={};
         int LastCode=0;
+        int TonicCharges=0;
         bool Claim(int Index,int Roll)
         {
             const int Code=RewardCode(Index,Roll);
@@ -27,6 +28,12 @@ namespace MoonfallAquaticRewards
                 Codes[SlotIndex]=Code;
             LastCode=Code;
             Claims|=1u<<Index;
+            if (Index%2==0 && TonicCharges<3) ++TonicCharges;
+            return true;
+        }
+        bool ConsumeTonic() {
+            if (TonicCharges<=0 || TonicCharges>3) return false;
+            --TonicCharges;
             return true;
         }
         int Count() const {
