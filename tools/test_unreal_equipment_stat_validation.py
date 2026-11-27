@@ -139,6 +139,9 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("Crafting: unavailable in combat", hud)
         self.assertIn("Reforge: unavailable in combat", hud)
         self.assertIn("Ascend: unavailable in combat", hud)
+        self.assertIn("FORGE 5: UNAVAILABLE IN COMBAT", hud)
+        self.assertIn("FPlan Plan = bCraftCombatLocked", hud)
+        self.assertIn("!bCraftCombatLocked && Plan.Valid && Plan.Upgrades > 0", hud)
 
     def test_save_restore_batches_equipment_cache_invalidation(self):
         load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress(", 1)[1]
