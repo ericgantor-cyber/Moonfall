@@ -26,6 +26,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "MoonfallWaterRules.h"
+#include "MoonfallAirPocket.h"
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
@@ -711,6 +712,20 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    }
   }
  }
+ bInsideAirPocket = false;
+ if (bWaterSwimming && bWaterSubmerged && GetCapsuleComponent()) {
+  // Only query existing local capsule overlaps; no per-frame world actor scan.
+  TArray<AActor*> Pockets;
+  GetCapsuleComponent()->GetOverlappingActors(Pockets, AMoonfallAirPocket::StaticClass());
+  for (AActor* Actor : Pockets) {
+   const AMoonfallAirPocket* Pocket = Cast<AMoonfallAirPocket>(Actor);
+   if (IsValid(Pocket) && Pocket->ContainsEye(GetPawnViewLocation())) {
+    bInsideAirPocket = true;
+    break;
+   }
+  }
+ }
+ const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
  if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
@@ -725,9 +740,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const float PreviousAir = Oxygen;
  const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bWaterSubmerged, bWaterPaused, BreathScale);
+     bNeedsBreath, bWaterPaused, BreathScale);
  const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
-     PreviousAir, SafeTimerDelta, bWaterSwimming && bWaterSubmerged, bWaterPaused, BreathScale);
+     PreviousAir, SafeTimerDelta, bWaterSwimming && bNeedsBreath, bWaterPaused, BreathScale);
  if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
   TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
   TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
@@ -5735,6 +5750,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DrowningExposureSeconds = 0.f;
  bWaterSwimming = false;
  bWaterSubmerged = false;
+ bInsideAirPocket = false;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();
