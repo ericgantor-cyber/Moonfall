@@ -6973,7 +6973,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
         projectile=(ROOT/"MoonfallEnemyProjectile.cpp").read_text(encoding="utf-8")
         self.assertIn('#include "MoonfallEnemyProjectile.h"',enemy)
-        self.assertIn("SpawnActor<AMoonfallEnemyProjectile>",enemy)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>",enemy)
         self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
         self.assertIn("OnRangedAttackTelegraphed(",enemy)
         self.assertIn("OnRangedProjectileFired(",enemy)
