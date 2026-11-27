@@ -8,7 +8,7 @@ namespace MoonfallOceanCrafting
         return Recipe==0?1u:Recipe==1?6u:Recipe==2?8u:0u;
     }
     struct FWorkshop {
-        unsigned Spent=0;
+        int Spent[4]={};
         int FishSpent[3]={};
         int RemainingFish(const MoonfallOceanGathering::FCollection& C) const {
             int N=0;
@@ -17,11 +17,11 @@ namespace MoonfallOceanCrafting
         }
         int AvailableMaterials(const MoonfallOceanGathering::FCollection& C) const {
             int N=0;
-            for(int I=0;I<4;++I) if((C.Claimed&~Spent)&(1u<<I)) ++N;
+            for(int I=0;I<4;++I) N+=C.Material(I)-Spent[I];
             return N;
         }
         bool HasMaterial(int Id,const MoonfallOceanGathering::FCollection& C) const {
-            return Id>=0&&Id<4&&((C.Claimed&~Spent)&(1u<<Id));
+            return Id>=0&&Id<4&&Spent[Id]>=0&&Spent[Id]<C.Material(Id);
         }
         bool CanCraft(int Recipe,const MoonfallOceanGathering::FCollection& C,
                       const MoonfallAquaticRewards::FSessionGear& Gear) const {
@@ -32,7 +32,8 @@ namespace MoonfallOceanCrafting
         bool Craft(int Recipe,const MoonfallOceanGathering::FCollection& C,
                    MoonfallAquaticRewards::FSessionGear& Gear) {
             const unsigned Mask=MaterialMask(Recipe);
-            if(!Mask || (C.Claimed&Mask)!=Mask || (Spent&Mask)) return false;
+            if(!Mask) return false;
+            for(int I=0;I<4;++I) if((Mask&(1u<<I))&&!HasMaterial(I,C)) return false;
             int FishId=-1;
             if(Recipe!=1) {
                 for(int I=0;I<3;++I) {
@@ -54,7 +55,7 @@ namespace MoonfallOceanCrafting
                 if(!Code) return false;
                 Gear.Codes[Piece]=Code;
             }
-            Spent|=Mask;
+            for(int I=0;I<4;++I) if(Mask&(1u<<I)) ++Spent[I];
             if(FishId>=0) ++FishSpent[FishId];
             return true;
         }
