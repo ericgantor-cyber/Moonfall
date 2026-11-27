@@ -1,10 +1,11 @@
 #pragma once
 namespace MoonfallOceanGathering
 {
-    constexpr bool IsResource(int Id) { return Id>=0 && Id<7; }
-    constexpr bool IsFishing(int Id) { return Id>=4 && Id<7; }
-    constexpr bool CanCollect(int Id,bool Swimming,bool Grounded,bool Manual) {
-        return IsResource(Id) && !IsFishing(Id) && Swimming && Manual;
+    constexpr int NodeCount=12;
+    constexpr bool IsResource(int Id) { return Id>=0 && Id<NodeCount; }
+    constexpr int MaterialType(int Id) { return IsResource(Id)?Id%4:-1; }
+    constexpr bool CanCollect(int Id,bool Swimming,bool /*Grounded*/,bool Manual) {
+        return IsResource(Id) && Swimming && Manual;
     }
     struct FCollection {
         unsigned Claimed=0;
@@ -14,7 +15,6 @@ namespace MoonfallOceanGathering
             const unsigned Bit=1u<<Id;
             if(Claimed&Bit) return false;
             Claimed|=Bit;
-            if(IsFishing(Id)) ++Fish[(Id-4+Event)%3];
             return true;
         }
         bool Catch(int Event,int Roll) {
@@ -23,8 +23,12 @@ namespace MoonfallOceanGathering
             ++Fish[SpeciesId];
             return true;
         }
+        int Material(int Type) const {
+            if(Type<0||Type>=4) return 0;
+            int N=0; for(int I=Type;I<NodeCount;I+=4) if(Claimed&(1u<<I)) ++N; return N;
+        }
         int Materials() const {
-            int N=0; for(int I=0;I<4;++I) if(Claimed&(1u<<I)) ++N; return N;
+            int N=0; for(int I=0;I<4;++I) N+=Material(I); return N;
         }
         int Catches() const { return Fish[0]+Fish[1]+Fish[2]; }
         int Species(int Id) const { return Id>=0&&Id<3?Fish[Id]:0; }
