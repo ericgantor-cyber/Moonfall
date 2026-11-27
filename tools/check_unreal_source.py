@@ -850,16 +850,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
             self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
-        self.assertIn("const int32 Codes[] = {", self.hud)
-        self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", self.hud)
-        self.assertIn("Hero->GetEquipmentSlotCode(23)", self.hud)
+        self.assertIn("GetValidatedEquipmentCodes(CachedValidatedEquipmentCodes)", self.hud)
+        self.assertIn("const TArray<int32>& Codes=CachedValidatedEquipmentCodes", self.hud)
+        self.assertIn("const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes", self.hud)
         self.assertIn("CanWearFullItem(", self.hud)
         self.assertIn("for(int32 Ring:MoonfallEquipmentLayout::RingSlots", self.hud)
-        self.assertIn("const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
+        self.assertIn("const int32 EquippedCode=bFlexibleRingCandidate?0", self.hud)
+        self.assertIn("WornCodes.IsValidIndex(SelectedSlot)", self.hud)
 
     def test_expanded_character_sheet_and_inventory_decode_all_24_slots(self):
         hud = self.hud
-        self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", hud)
+        self.assertIn("const TArray<int32>& Codes=CachedValidatedEquipmentCodes", hud)
         self.assertIn('TEXT("RING 10")', hud)
         self.assertIn("UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount", hud)
         self.assertIn("UE_ARRAY_COUNT(DetailSlots)==MoonfallEquipmentLayout::FullSlotCount", hud)
@@ -876,9 +877,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CachedAdvisorLoadoutHash = AdvisorLoadoutHash", hud)
         self.assertIn("uint32 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
         self.assertIn("DecodeFullItem(CodeA)", self.hero_cpp)
+        self.assertIn("GetEquipmentLoadoutFingerprint()", hud)
 
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
-        block = self.hud.split("const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);", 1)[1].split("const int32 NextCost", 1)[0]
+        block = self.hud.split("const int32 EquippedCode=bFlexibleRingCandidate?0", 1)[1].split("const int32 NextCost", 1)[0]
         self.assertNotIn("Hero->EquippedWeaponCode", block)
         self.assertNotIn("Hero->EquippedArmorCode", block)
         self.assertNotIn("Hero->EquippedAccessoryCode", block)
