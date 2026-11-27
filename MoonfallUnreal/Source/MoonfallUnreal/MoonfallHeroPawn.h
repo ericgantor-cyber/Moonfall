@@ -44,6 +44,8 @@ public:
  bool bWaterSwimming = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSubmerged = false;
+ // Tap-to-toggle vertical swimming; no sustained key hold required.
+ int32 WaterVerticalIntent = 0;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
