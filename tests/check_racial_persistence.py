@@ -131,7 +131,7 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("Slot < MoonfallEquipmentLayout::LegacySlotCount", valid)
+        self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", valid)
         self.assertIn("MoonfallEquipmentLayout::Valid(Code, Slot)", valid)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         self.assertIn("Affix >= 0 && Affix <= 3", policy)
@@ -142,7 +142,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", policy)
         self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
         self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::LegacySlotCount,", equip)
+        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", equip)
         self.assertIn("Slot>=ActiveSlots||!Valid(Code,Slot)", policy)
         self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperate("), equip.index("*EquippedCode = Code;"))
@@ -155,16 +155,16 @@ class TestRacialPersistence(unittest.TestCase):
             if code <= 0:
                 return False
             affix, slot, rarity, tier = code // 100000, code // 10000 % 10, code // 1000 % 10, code % 1000
-            return (0 <= affix <= 3 and 0 <= slot <= 2 and 0 <= rarity <= 5
+            return (0 <= affix <= 3 and 0 <= slot <= 8 and 0 <= rarity <= 5
                     and 1 <= tier <= 25 and (rarity != 0 or affix == 0)
                     and code == affix * 100000 + slot * 10000 + rarity * 1000 + tier)
 
         # Representative codes from actual loot encoding, including the two
         # classes previously discarded on load, must all remain valid.
-        for code in (1, 12, 1001, 11003, 2007, 21001, 122004, 325025):
+        for code in (1, 12, 1001, 11003, 2007, 21001, 122004, 325025, 30001, 35001, 40001, 50001, 60001, 70001, 80001, 385025):
             with self.subTest(item_code=code):
                 self.assertTrue(valid_item_code(code))
-        for code in (0, -1, 26, 100001, 35001, 6001, 1000000, 120026):
+        for code in (0, -1, 26, 100001, 90001, 390001, 6001, 1000000, 120026, 180001, 386025):
             with self.subTest(invalid_code=code):
                 self.assertFalse(valid_item_code(code))
 

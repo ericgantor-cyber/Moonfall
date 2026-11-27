@@ -1863,11 +1863,11 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste (20%% cap)"),
        Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
-     FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
+     FString::Printf(TEXT("Force %d pieces: 2pc +3%% crit; 3pc +4%% mastery"),
        Hero->GetSetPieceCount(1)),
-     FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
+     FString::Printf(TEXT("Ward %d pieces: 2pc +3%% vers; 3pc +2.5%% protection"),
        Hero->GetSetPieceCount(2)),
-     FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
+     FString::Printf(TEXT("Focus %d pieces: 2pc +4%% haste; 3pc +6%% mana regen"),
        Hero->GetSetPieceCount(3)),
      TEXT("DUNGEON CAMPAIGN"),
      FString::Printf(TEXT("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30"),
@@ -2335,7 +2335,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 ForcePieces = Hero->GetSetPieceCount(1);
   const int32 WardPieces = Hero->GetSetPieceCount(2);
   const int32 FocusPieces = Hero->GetSetPieceCount(3);
-  DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
+  DrawText(FString::Printf(TEXT("Sets: Force %d  Ward %d  Focus %d    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   // Give mouse help its own rows rather than painting over advisor/crafting text.
@@ -2407,7 +2407,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
       TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
     const FString SetLine = bValidDetail && SelectedAffix > 0
-      ? FString::Printf(TEXT("SET PREVIEW: %s %d/3 -> %d/3  |  %s"),
+      ? FString::Printf(TEXT("SET PREVIEW: %s %d -> %d  |  %s"),
           DetailTraits[SelectedAffix], SetPieces,
           Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
           SetEffects[SelectedAffix])
