@@ -2567,11 +2567,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
- const int32 Affix = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int32 Slot = Decoded.Slot;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
+ if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Upgrade)) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
@@ -2583,7 +2583,8 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
- const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ const int32 NewCode = MoonfallEquipmentLayout::FullUpgradeCode(Code,MoonfallEquipmentLayout::ActiveSlotCount);
+ if (NewCode <= 0) return false;
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
@@ -2613,11 +2614,12 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
- const int32 Affix = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int32 Affix = Decoded.Trait;
+ const int32 Slot = Decoded.Slot;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
+ if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Reforge)) return false;
  // Unlike normal drops, reforge always yields a nonzero affix different
  // from the old one, including for an originally traitless Rare item.
@@ -2625,7 +2627,8 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  if (Salvage < Cost) return false;
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
- const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ const int32 NewCode = MoonfallEquipmentLayout::FullReforgeCode(Code,NewAffix,MoonfallEquipmentLayout::ActiveSlotCount);
+ if (NewCode <= 0) return false;
  const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
  const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
@@ -2661,11 +2664,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
- const int32 Affix = Code / 100000;
- const int32 Slot = (Code / 10000) % 10;
- const int32 Rarity = (Code / 1000) % 10;
- const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int32 Slot = Decoded.Slot;
+ const int32 Rarity = Decoded.Rarity;
+ const int32 Tier = Decoded.Tier;
+ if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Ascend)) return false;
  // Rising rank requires progressively more materials, but costs remain
  // bounded. Validate the entire transaction before editing inventory.
@@ -2674,7 +2677,8 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 EquippedCode = GetEquipmentSlotCode(Slot);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
- const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ const int32 NewCode = MoonfallEquipmentLayout::FullAscendCode(Code,MoonfallEquipmentLayout::ActiveSlotCount);
+ if (NewCode <= 0) return false;
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
  if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
@@ -3350,7 +3354,9 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // equipment for any of the nine player slots.
- LastLootSlot = FMath::RandRange(0, MoonfallEquipmentLayout::ActiveSlotCount-1);
+ LastLootSlot = MoonfallEquipmentLayout::FullLootCategorySlot(
+     FMath::RandRange(0, MoonfallEquipmentLayout::FullLootCategoryCount(MoonfallEquipmentLayout::ActiveSlotCount)-1),
+     MoonfallEquipmentLayout::ActiveSlotCount);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -3360,8 +3366,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
  // tier (units). Distinct drops persist until the player salvages them.
- const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
-   + LastLootRarity * 1000 + NewTier;
+ const int32 ItemCode = MoonfallEquipmentLayout::EncodeFullItem(LastLootSlot,LastLootAffix,LastLootRarity,NewTier);
  return ItemCode;
 }
 
@@ -3969,11 +3974,13 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  }
  // Use a deterministic seed, independent of framerate and visit order.
  FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
- const int32 Slot = Stream.RandRange(0, MoonfallEquipmentLayout::ActiveSlotCount-1);
+ const int32 Slot = MoonfallEquipmentLayout::FullLootCategorySlot(
+     Stream.RandRange(0, MoonfallEquipmentLayout::FullLootCategoryCount(MoonfallEquipmentLayout::ActiveSlotCount)-1),
+     MoonfallEquipmentLayout::ActiveSlotCount);
  const int32 Rarity = Stream.RandRange(2, 5);
  const int32 Affix = Stream.RandRange(0, 3);
  const int32 Tier = FMath::Clamp(Level, 1, 25);
- const int32 Code = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ const int32 Code = MoonfallEquipmentLayout::EncodeFullItem(Slot,Affix,Rarity,Tier);
  const TArray<int32> Previous = DungeonTreasureStates;
  DungeonTreasureStates.SetNumZeroed(420);
  DungeonTreasureStates[Key] = Code;

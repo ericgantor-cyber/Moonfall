@@ -1518,7 +1518,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
         self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Reforge", body)
         self.assertIn("const int32 Cost = 12 + Tier * 2 + Rarity * 8;", body)
         self.assertIn("if (Salvage < Cost) return false;", body)
@@ -1586,7 +1586,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen", body)
         self.assertIn("|| bOptionsOpen || Health <= 0.f", body)
         self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Ascend", body)
         self.assertIn("const int32 Cost = 20 + Tier * 3 + Rarity * 15;", body)
         self.assertIn("if (Salvage < Cost) return false;", body)
@@ -1670,7 +1670,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 EquippedCode = GetEquipmentSlotCode(Slot);", body)
         self.assertIn("const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);", body)
         self.assertIn("const bool bUpgradingEquipped = Code == EquippedCode;", body)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", body)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Upgrade", body)
         self.assertIn("const int32 Cost = 4 + Tier * 2 + Rarity * 3;", body)
         self.assertIn("if (Salvage < Cost) return false;", body)
@@ -2059,7 +2059,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        self.assertIn("MoonfallEquipmentLayout::EncodeFullItem(LastLootSlot,LastLootAffix,LastLootRarity,NewTier)", loot)
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertNotIn("EquipInventoryItem(", award)
@@ -2080,7 +2080,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, MoonfallEquipmentLayout::ActiveSlotCount-1);", loot)
+        self.assertIn("LastLootSlot = MoonfallEquipmentLayout::FullLootCategorySlot(", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
         self.assertIn("LastLootRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
@@ -2090,7 +2090,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
         self.assertIn("FMath::Clamp(Level / 5", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        self.assertIn("MoonfallEquipmentLayout::EncodeFullItem(LastLootSlot,LastLootAffix,LastLootRarity,NewTier)", loot)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_equipment_stats_affect_combat(self):

@@ -20,19 +20,21 @@ int main() {
  // Cross-check thousands of canonical equipment codes, budgets and limits
  // against an independent single-tier transaction reference.
  for (int Trait = 0; Trait <= 3; ++Trait)
- for (int Slot = 0; Slot < MoonfallEquipmentLayout::SlotCount; ++Slot)
+ for (int Slot = 0; Slot < MoonfallEquipmentLayout::FullSlotCount; ++Slot)
  for (int Rarity = 0; Rarity <= 5; ++Rarity)
  for (int Tier = 1; Tier <= 25; ++Tier) {
-  const int Code = Trait*100000 + Slot*10000 + Rarity*1000 + Tier;
+  const int Code = MoonfallEquipmentLayout::EncodeFullItem(Slot,Trait,Rarity,Tier);
   if (Rarity == 0 && Trait != 0) {
-   assert(!ValidCode(Code,9));
+   assert(!ValidCode(Code,24));
    continue;
   }
-  assert(ValidCode(Code,9));
+  assert(ValidCode(Code,24));
+  assert(ValidCode(Code,16)==(Slot<16));
+  assert(ValidCode(Code,9)==(Slot<9));
   assert(ValidCode(Code,3)==(Slot<3));
   for (int Balance : {-5, 0, 1, 6, 20, 55, 100, 200, 1000, 100000000})
   for (int Limit = -2; Limit <= 9; ++Limit) {
-   const FPlan Plan = Preview(Code, Balance, Limit,9);
+   const FPlan Plan = Preview(Code, Balance, Limit,24);
    assert(Plan.Valid);
    const int ClampedLimit = Limit < 0 ? 0 : Limit > 5 ? 5 : Limit;
    int ReferenceBalance = Balance < 0 ? 0 : Balance;
