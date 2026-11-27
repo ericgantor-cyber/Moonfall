@@ -1547,7 +1547,6 @@ bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface() const
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(-1); return; }
  if (bTalentWebOpen) {
   bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
@@ -1558,6 +1557,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(-1); return; }
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(-1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -1569,7 +1569,6 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(1); return; }
  if (bTalentWebOpen) {
   bTalentRespecArmed=false;
   int ViewW=1280,ViewH=720;
@@ -1580,6 +1579,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(1); return; }
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
