@@ -37,6 +37,13 @@ public:
  virtual void BeginPlay() override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
+ // Runtime water state; never serialized to character or checkpoint saves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float Oxygen = 100.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSwimming = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSubmerged = false;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
