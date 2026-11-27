@@ -70,7 +70,11 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("FullWornCopies(CandidateCode,Worn", projected)
         self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required", projected)
         self.assertNotIn("int32 Copies=0;for(int32 Code:InventoryItemCodes)", projected)
-        self.assertIn("BestProjection", projected)
+        self.assertIn("int32 BestProjection=INDEX_NONE;", projected)
+        self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required)return CurrentPieces;", projected)
+        self.assertIn("return BestProjection==INDEX_NONE?CurrentPieces:BestProjection;", projected)
+        self.assertLess(projected.index("++CurrentPieces"), projected.index("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)"))
+        self.assertIn("BestProjection=FMath::Max(BestProjection,Projected);", projected)
     def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
         snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
             "uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
