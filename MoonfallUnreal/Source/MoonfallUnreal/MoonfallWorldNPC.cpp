@@ -122,6 +122,15 @@ bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
  }
  return false;
 }
+int32 AMoonfallWorldNPC::GetLocalRegionalDanger() const
+{
+ if(bAmbientVisitor||!bUsePersonalityRoutines||!GetWorld()||
+    AuthoredHomeLocation.ContainsNaN()||AuthoredHomeLocation.Y>-1800.f||
+    SettlementId==FName(TEXT("Firstlight")))return -1;
+ const auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+ return IsValid(Mode)?Mode->GetRegionalDanger(
+  MoonfallLivingSimulation::RegionFromWorldX(AuthoredHomeLocation.X)):-1;
+}
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
 }
@@ -146,6 +155,14 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  const bool bSheltering=(MoonfallLivingSimulation::Severe(Weather) && !bGuard)
       || Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter;
  const bool bHoldPost=Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost;
+ using RegionRoutine=MoonfallLivingSimulation::ERegionalRoutine;
+ using RegionRole=MoonfallLivingSimulation::ERole;
+ const RegionRole Role=bGuard?RegionRole::Guard:SocialRole==FName(TEXT("Merchant"))?RegionRole::Merchant:
+     SocialRole==FName(TEXT("Scout"))?RegionRole::Scout:RegionRole::Citizen;
+ const auto Regional=MoonfallLivingSimulation::RegionalRoutine(Role,GetLocalRegionalDanger(),
+     !bInConversation&&!bSheltering&&!bHoldPost);
+ const bool bRegionalHome=Regional==RegionRoutine::ReturnHome;
+ const bool bRegionalWatch=Regional==RegionRoutine::GuardWatch;
  const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
      < FMath::Square(420.f);
  bool bRoutineHome=false;
@@ -182,7 +199,9 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   if (bInConversation) LivingIntent=TEXT("Conversing");
   else if (bHoldPost) LivingIntent=TEXT("On Alert");
   else if (bSheltering) LivingIntent=TEXT("Seeking Shelter");
-  else if (bGuard) LivingIntent=bReviewingCombatReport?TEXT("Reviewing Reports"):TEXT("On Duty");
+  else if (bGuard) LivingIntent=bReviewingCombatReport?TEXT("Reviewing Reports"):bRegionalWatch?TEXT("Regional Watch"):TEXT("On Duty");
+  else if (bRegionalHome) { LivingIntent=TEXT("Staying Near Home"); bRoutineHome=true; }
+  else if (Regional==RegionRoutine::CautiousWork) LivingIntent=TEXT("Cautious Work");
   else switch(Intent) {
    case Action::Sleep: LivingIntent=TEXT("Resting"); bRoutineHome=true; break;
    case Action::Eat: LivingIntent=TEXT("Meal Break"); bRoutineHome=true; break;
@@ -203,9 +222,9 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      FVector::DistSquared(HeroLocation,AuthoredHomeLocation),
      FVector::DistSquared(HeroLocation,GetActorLocation()),
      !bInConversation&&!bSheltering&&!bHoldPost&&Alert==MoonfallLivingSimulation::EAlertReaction::Normal,
-     bAllowLocalGuide&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
+     bAllowLocalGuide&&MoonfallLivingSimulation::RegionalRoutineAllowsGuide(Regional)&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
  if (MoonfallLivingSimulation::PauseResidentMotion(
-      bInConversation,bNearHero,bSheltering,bHoldPost) && !bGuide) return;
+      bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost) && !bGuide) return;
  float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  // Credible reports bias a guard toward one of the original four watch
@@ -305,6 +324,9 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if(Role==ERole::Scout&&(LivingIntent==TEXT("Following")||LivingIntent==TEXT("Holding Position")||LivingIntent==TEXT("Passive")||LivingIntent==TEXT("Returning Home")||LivingIntent==TEXT("Moving to order")||LivingIntent==TEXT("Intercepting")||LivingIntent==TEXT("Flanking")||LivingIntent==TEXT("Withdrawing")||LivingIntent==TEXT("Downed")))return LivingIntent;
  if(Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost) return TEXT("On Alert");
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
+ if(!MoonfallLivingSimulation::Severe(Weather)&&GetLocalRegionalDanger()>=65){
+  if(LivingIntent==TEXT("Regional Watch")||LivingIntent==TEXT("Staying Near Home")||LivingIntent==TEXT("Cautious Work"))return LivingIntent;
+ }
  // Only ordinary residents expose the new activity in the existing HUD.
  // Fresh danger/weather and authored specialist roles take precedence.
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport) {
@@ -453,6 +475,8 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
    }
   }
  }
+ if(!bAmbientVisitor&&Disposition!=TEXT("Hostile")&&GetLocalRegionalDanger()>=65)
+  Reaction=FText::FromString(Reaction.ToString()+TEXT(" The province is on alert. We are keeping close to our posts."));
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
