@@ -7,6 +7,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalAtlas.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -346,5 +347,14 @@ int main() {
         assert(!Regional.Collect(Id,0,0));
       }
     assert(Regional.Materials()==36 && RegionalNode(9,0)==-1 && RegionalNode(0,4)==-1);
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+      const auto Rect=MoonfallRegionalAtlas::Node(I,800,600);
+      assert(MoonfallRegionalAtlas::Hit(Rect.X+Rect.W/2,Rect.Y+Rect.H/2,800,600)==I);
+    }
+    assert(MoonfallRegionalAtlas::Step(-1,1,5)==0);
+    assert(MoonfallRegionalAtlas::Step(0,1,5)==2);
+    assert(MoonfallRegionalAtlas::Step(2,1,5)==-1);
+    assert(MoonfallRegionalAtlas::Step(-1,-1,5)==2);
+    assert(MoonfallRegionalAtlas::Step(-1,1,0)==-1);
     return 0;
 }
