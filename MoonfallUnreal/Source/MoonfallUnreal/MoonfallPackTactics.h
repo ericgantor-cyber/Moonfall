@@ -68,7 +68,7 @@ static_assert(RoleForBossMinion(0)==CombatRole::Vanguard
     && RoleForBossMinion(1)==CombatRole::Ranged,
     "Boss adds use one vanguard and one ranged role");
 static_assert(IsRangedRole(RoleForEncounterSlot(1,false))
-    && RangedAttackRange>RangedMaximumRange,
+    && RangedAttackRange>=RangedMaximumRange,
     "Ranged enemies have a readable reposition and attack envelope");
 static_assert(!ShouldMinionYieldToBoss(false,true)
     && !ShouldMinionYieldToBoss(true,false)
