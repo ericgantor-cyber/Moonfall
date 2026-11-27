@@ -4126,6 +4126,47 @@ bool AMoonfallHeroPawn::EquipInventoryRing(int32 InventoryIndex,int32 RingSlotIn
  return EquipInventoryItemWithPreviousTier(InventoryIndex,-1,Target);
 }
 
+bool AMoonfallHeroPawn::CanEditEquippedRings() const
+{
+ return MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+     &&GetWorld()&&!IsActorBeingDestroyed()&&bInventoryOpen&&!bCharacterStatsOpen
+     &&!bOptionsOpen&&!bSpellBookOpen&&!bTalentWebOpen&&!bAtlasOpen
+     &&!bResidentContextOpen&&!FocusedResident.IsValid()
+     &&FMath::IsFinite(Health)&&Health>0.f&&FMath::IsFinite(MaxHealth)&&MaxHealth>=1.f
+     &&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress
+     &&!bTalentAllocationInProgress&&!bEquipmentCraftInProgress&&!bEquipBestInProgress
+     &&!IsRecentlyInCombatForAmbientAI();
+}
+
+bool AMoonfallHeroPawn::MoveEquippedRing(int32 FromRingIndex,int32 ToRingIndex)
+{
+ if(!CanEditEquippedRings())return false;
+ const int32 From=MoonfallEquipmentLayout::RingSlot(FromRingIndex);
+ const int32 To=MoonfallEquipmentLayout::RingSlot(ToRingIndex);
+ MoonfallEquipmentLayout::FFullLoadout Worn{},Next{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ if(!MoonfallEquipmentLayout::TryMoveFullRing(From,To,Worn,
+     MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next))return false;
+ // Publish both references together before refreshing derived stats.
+ ExtraEquippedCodes[From-MoonfallEquipmentLayout::LegacySlotCount]=Next[From];
+ ExtraEquippedCodes[To-MoonfallEquipmentLayout::LegacySlotCount]=Next[To];
+ RefreshEquipmentTier();
+ return true;
+}
+
+bool AMoonfallHeroPawn::UnequipRing(int32 RingSlotIndex)
+{
+ if(!CanEditEquippedRings())return false;
+ const int32 Slot=MoonfallEquipmentLayout::RingSlot(RingSlotIndex);
+ MoonfallEquipmentLayout::FFullLoadout Worn{},Next{};
+ for(int32 I=0;I<MoonfallEquipmentLayout::FullSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
+ if(!MoonfallEquipmentLayout::TryRemoveFullRing(Slot,Worn,
+     MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next))return false;
+ ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Next[Slot];
+ RefreshEquipmentTier();
+ return true;
+}
+
 bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride, int32 TargetSlot)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
