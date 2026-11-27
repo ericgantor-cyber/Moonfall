@@ -137,8 +137,4 @@ def ocean_resources(half_width):
         (1, "Pearl cluster", "Sphere", (900.0,-1600.0,-280.0), (0.65,0.65,0.65)),
         (2, "Crimson coral", "Cone", (-900.0,1600.0,-240.0), (0.7,0.7,1.1)),
         (3, "Sea salt", "Cylinder", (900.0,1600.0,-280.0), (0.7,0.7,0.55)),
-        # Dock fishing stations use explicit pickup interaction on dry ground.
-        (4, "Fishing station west", "Cylinder", (-half_width-100.0,-350.0,60.0), (0.6,0.6,0.8)),
-        (5, "Fishing station center", "Cylinder", (-half_width-100.0,0.0,60.0), (0.6,0.6,0.8)),
-        (6, "Fishing station east", "Cylinder", (-half_width-100.0,350.0,60.0), (0.6,0.6,0.8)),
     )
