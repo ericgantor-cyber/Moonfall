@@ -203,6 +203,21 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  if (CandidatePower <= 0) return 0;
  const int32 Slot = MoonfallEquipmentLayout::DecodeFullItem(ItemCode).Slot;
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+     &&MoonfallEquipmentLayout::IsRingSlot(Slot)){
+  MoonfallEquipmentLayout::FFullLoadout Worn{};
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetEquipmentSlotCode(I);
+  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==ItemCode)++Copies;
+  if(Copies<MoonfallEquipmentLayout::FullWornCopies(ItemCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
+  int32 BestDelta=MIN_int32;const int32 Rank=MoonfallEquipmentLayout::FullRank(ItemCode);
+  for(int32 Target:MoonfallEquipmentLayout::RingSlots){
+   if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+   if(Worn[Target]==ItemCode||Rank<MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
+   BestDelta=FMath::Max(BestDelta,CandidatePower-GetItemPower(GetEquipmentSlotCode(Target)));
+  }
+  return BestDelta==MIN_int32?0:BestDelta;
+ }
  return CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot));
 }
 
@@ -215,6 +230,28 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
  if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
   return 0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+     &&MoonfallEquipmentLayout::IsRingSlot(Slot)){
+  MoonfallEquipmentLayout::FFullLoadout Worn{};
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetEquipmentSlotCode(I);
+  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  int32 Copies=0;for(int32 Code:InventoryItemCodes)if(Code==CandidateCode)++Copies;
+  if(Copies<MoonfallEquipmentLayout::FullWornCopies(CandidateCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1)return 0;
+  int32 BestProjection=0;
+  for(int32 Target:MoonfallEquipmentLayout::RingSlots){
+   if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+   if(Worn[Target]==CandidateCode||MoonfallEquipmentLayout::FullRank(CandidateCode)
+       <MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
+   int32 PreviousTrait=0,PreviousRarity=0,PreviousTier=0;
+   const bool bCurrentValid=DecodeEquippedItem(GetEquipmentSlotCode(Target),Target,
+       PreviousTrait,PreviousRarity,PreviousTier);
+   const int32 Projected=FMath::Clamp(GetSetPieceCount(Affix)
+       -(bCurrentValid&&PreviousRarity>=1&&PreviousTrait==Affix?1:0)
+       +(CandidateRarity>=1&&CandidateTrait==Affix?1:0),0,MoonfallEquipmentLayout::ActiveSlotCount);
+   BestProjection=FMath::Max(BestProjection,Projected);
+  }
+  return BestProjection;
+ }
  const int32 CurrentCode = GetEquipmentSlotCode(Slot);
  int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
  const bool bCurrentValid = DecodeEquippedItem(CurrentCode, Slot, PreviousTrait, PreviousRarity, PreviousTier);
@@ -3715,6 +3752,18 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
  // Only an explicit equip request needs a valid living pawn.
  if (!bInventoryOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  MoonfallEquipmentLayout::FFullLoadout EquippedCodes{};
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+   EquippedCodes[Slot]=GetEquipmentSlotCode(Slot);
+  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(EquippedCodes,
+      MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return 0;
+  const int32 Candidate=InventoryItemCodes[InventoryIndex];
+  int32 OwnedCopies=0;
+  for(int32 Code:InventoryItemCodes)if(Code==Candidate)++OwnedCopies;
+  return MoonfallEquipmentLayout::FullCandidateImprovement(Candidate,EquippedCodes,
+      MoonfallEquipmentLayout::ActiveSlotCount,OwnedCopies);
+ }
  const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  return MoonfallEquipmentLayout::Improvement(InventoryItemCodes[InventoryIndex], EquippedCodes,
      MoonfallEquipmentLayout::ActiveSlotCount);
@@ -3725,6 +3774,24 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  // Validate worn ownership once, then scan the inventory once. The candidate
  // is already owned by construction, so no nested bag searches are needed.
  if (!bInventoryOpen || bOptionsOpen) return INDEX_NONE;
+ if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
+  MoonfallEquipmentLayout::FFullLoadout EquippedCodes{};
+  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+   EquippedCodes[Slot]=GetEquipmentSlotCode(Slot);
+  if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(EquippedCodes,
+      MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return INDEX_NONE;
+  TMap<int32,int32> OwnedCounts;
+  for(int32 Code:InventoryItemCodes)++OwnedCounts.FindOrAdd(Code);
+  int32 FullBestIndex=INDEX_NONE,FullBestImprovement=0;
+  for(int32 Index=0;Index<InventoryItemCodes.Num();++Index){
+   const int32 Code=InventoryItemCodes[Index];
+   const int32* Copies=OwnedCounts.Find(Code);
+   const int32 Improvement=MoonfallEquipmentLayout::FullCandidateImprovement(Code,
+       EquippedCodes,MoonfallEquipmentLayout::ActiveSlotCount,Copies?*Copies:0);
+   if(Improvement>FullBestImprovement){FullBestImprovement=Improvement;FullBestIndex=Index;}
+  }
+  return FullBestIndex;
+ }
  const MoonfallEquipmentLayout::FLoadout EquippedCodes = ReadOwnedEquipmentLoadout(*this);
  int32 BestIndex = INDEX_NONE;
  int32 BestImprovement = 0;
