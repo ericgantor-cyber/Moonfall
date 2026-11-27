@@ -20,6 +20,16 @@ namespace MoonfallAquatic
         default: return {TEXT("Saltveil Hunter"), TEXT("BITE"), 60.f, 8.f, 140.f, 0.8f, 2.f, 160.f, FVector(1.2f,0.48f,0.48f)};
         }
     }
+    // One roll per authored slot per world. No extra spawns or repeated rolls.
+    // The Leviathan remains guaranteed, Glassfin appears only in its own grotto.
+    inline int32 SelectEncounter(int32 Slot, int32 Roll)
+    {
+        if (Slot < 0 || Slot > 5 || Roll < 0 || Roll > 99) return 0;
+        if (Slot == 5) return 5;
+        if (Slot == 4) return Roll < 25 ? 4 : (Roll - 25) % 4;
+        if (Roll < 70) return Slot;
+        return (Slot + 1 + (Roll - 70) % 3) % 4;
+    }
     inline int32 Phase(int32 Id, float HealthFraction)
     {
         if (Id != 5 || !FMath::IsFinite(HealthFraction)) return 1;
