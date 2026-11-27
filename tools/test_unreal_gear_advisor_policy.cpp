@@ -208,6 +208,17 @@ int main() {
  assert(!L::TryMoveFullRing(17,23,Flexible,24,true,RingBag,RingResult));
  assert(L::TryMoveFullRing(17,23,Flexible,24,false,RingBag,RingResult));
  assert(RingResult[23]==HighRing&&RingResult[17]==CommonRing);
+ const auto BeforeRemove=RingResult;
+ auto Removed=BeforeRemove;
+ assert(!L::TryRemoveFullRing(23,BeforeRemove,24,true,RingBag,Removed));
+ assert(!L::TryRemoveFullRing(0,BeforeRemove,24,false,RingBag,Removed));
+ assert(!L::TryRemoveFullRing(23,BeforeRemove,16,false,RingBag,Removed));
+ assert(!L::TryRemoveFullRing(8,BeforeRemove,24,false,RingBag,Removed));
+ assert(!L::TryRemoveFullRing(23,BeforeRemove,24,false,std::array<int,1>{HighRing},Removed));
+ assert(Removed==BeforeRemove);
+ assert(L::TryRemoveFullRing(17,BeforeRemove,24,false,RingBag,Removed));
+ assert(Removed[17]==0&&Removed[16]==CommonRing&&Removed[23]==HighRing);
+ assert(L::CanRemoveFullCopy(CommonRing,Removed,24,RingBag));
  Flexible=RingResult;
  assert(L::TryRestoreFlexibleFullLoadout(Flexible.data(),3,Flexible.data(),24,19,RingBag,RingResult));
  assert(RingResult==Flexible);
