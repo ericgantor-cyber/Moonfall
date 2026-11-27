@@ -901,6 +901,13 @@ int main(){
         self.assertLess(talk.index("SupportsResidentContract"),talk.index("Reaction.ToString()+PartyLine"))
         self.assertNotIn("SetLocalCompanionStance(",talk)
         self.assertNotIn("SetLocalCompanionRole(",talk)
+        self.assertIn("!Hero->IsRecentlyInCombatForAmbientAI()",talk)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()",talk)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()",talk)
+        self.assertIn("if(!bCompanionDowned&&Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow",talk)
+        self.assertLess(talk.index("if(bActiveCompanion&&Disposition"),talk.index("Hero->GetTotalDefeatedDungeonBosses()"))
+        self.assertNotIn("MarkDungeonBossDefeated(",talk)
+        self.assertNotIn("DiscoverDungeonEntrance(",talk)
 
     def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
