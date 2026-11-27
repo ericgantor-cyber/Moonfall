@@ -3901,8 +3901,8 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
    if(GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot])return 0;
   }
   const int32 Candidate=InventoryItemCodes[InventoryIndex];
-  int32 OwnedCopies=0;
-  for(int32 Code:InventoryItemCodes)if(Code==Candidate)++OwnedCopies;
+  const int32 Required=MoonfallEquipmentLayout::FullWornCopies(Candidate,EquippedCodes,MoonfallEquipmentLayout::ActiveSlotCount)+1;
+  const int32 OwnedCopies=MoonfallEquipmentLayout::FullOwnedCopies(Candidate,InventoryItemCodes,Required);
   return MoonfallEquipmentLayout::FullCandidateImprovement(Candidate,EquippedCodes,
       MoonfallEquipmentLayout::ActiveSlotCount,OwnedCopies);
  }

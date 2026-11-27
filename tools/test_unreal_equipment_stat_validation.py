@@ -48,6 +48,8 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("GetValidatedEquipmentCodes(ValidatedCodes)", score)
         self.assertIn("GetRawEquipmentSlotCode(Slot)!=ValidatedCodes[Slot]", score)
         self.assertIn("FullCandidateImprovement(Candidate,EquippedCodes", score)
+        self.assertIn("FullOwnedCopies(Candidate,InventoryItemCodes,Required)", score)
+        self.assertNotIn("for(int32 Code:InventoryItemCodes)", score)
         recommended = source.split("int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex()", 1)[1].split(
             "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         self.assertIn("TMap<int32,int32> OwnedCounts", recommended)
