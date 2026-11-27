@@ -861,6 +861,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = self.hud
         self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", hud)
         self.assertIn('TEXT("RING 10")', hud)
+        self.assertIn("UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount", hud)
+        self.assertIn("UE_ARRAY_COUNT(DetailSlots)==MoonfallEquipmentLayout::FullSlotCount", hud)
         self.assertIn("GridColumns=bExpandedGear?", hud.replace(" ",""))
         self.assertIn("ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?4:3", hud.replace(" ",""))
         self.assertIn("GridRows=(MoonfallEquipmentLayout::ActiveSlotCount+GridColumns-1)/GridColumns", hud.replace(" ",""))
