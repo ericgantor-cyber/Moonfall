@@ -1275,4 +1275,17 @@ int main(){
         self.assertIn('static_assert(StepRegionalPressure(58,true)==60',policy)
         self.assertIn('static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue',policy)
 
+    def test_regional_concern_is_not_witness_memory(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        query=npc.split("int32 AMoonfallWorldNPC::GetLocalRegionalDanger()",1)[1].split("\n}",1)[0]
+        self.assertIn('SettlementId==FName(TEXT("Firstlight"))',query)
+        self.assertIn("AuthoredHomeLocation.Y>-1800.f",query)
+        self.assertIn("bAmbientVisitor||!bUsePersonalityRoutines",query)
+        routine=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split("\n}",1)[0]
+        self.assertIn("RegionalRoutine(Role,GetLocalRegionalDanger()",routine)
+        self.assertIn("!bInConversation&&!bSheltering&&!bHoldPost",routine)
+        self.assertIn("RegionalRoutineAllowsGuide(Regional)",routine)
+        self.assertNotIn("WitnessNearbyDanger(",routine)
+        self.assertNotIn("PublishObservation(",routine)
+
 if __name__=="__main__":unittest.main()
