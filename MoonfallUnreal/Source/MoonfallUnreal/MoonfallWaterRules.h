@@ -9,6 +9,21 @@ namespace MoonfallWaterRules
     constexpr float RefillPerSecond = 25.f;
     constexpr float SurfaceSpeedScale = 4.722222f / 7.f;
     constexpr float DrowningHealthFraction = 0.20f;
+    constexpr float TonicDuration = 120.f;
+    constexpr float TonicThreshold = 10.f;
+    inline bool ShouldUseTonic(float Air, float Remaining, bool bNeedsBreath, bool bPaused)
+    {
+        return bNeedsBreath && !bPaused && FMath::IsFinite(Air)
+            && Air >= 0.f && Air <= TonicThreshold
+            && FMath::IsFinite(Remaining) && Remaining <= 0.f;
+    }
+    inline float AdvanceTonic(float Remaining, float Seconds, bool bPaused)
+    {
+        if (!FMath::IsFinite(Remaining)) return 0.f;
+        Remaining = FMath::Clamp(Remaining, 0.f, TonicDuration);
+        return bPaused || !FMath::IsFinite(Seconds) || Seconds <= 0.f
+            ? Remaining : FMath::Max(0.f, Remaining - Seconds);
+    }
     inline float BreathMultiplier(bool bRaceChosen, int32 RaceId)
     {
         return bRaceChosen && RaceId == 9 ? 2.f : 1.f;
