@@ -722,7 +722,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
-   if (!(Hero->OceanRecipePage>=0 && Hero->OceanRecipePage<4 &&
+   if (!(Hero->OceanRecipePage>=0 && Hero->OceanRecipePage<MoonfallOceanCrafting::RecipeCount &&
        Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview"))) &&
        Resident->ResidentId==FName(TEXT("MoonwatchTrader"))))
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
@@ -753,19 +753,23 @@ void AMoonfallCombatHUD::DrawHUD()
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
-   const bool bRecipeDetail=RecipePage>=0&&RecipePage<4;
+   const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
    const bool bRecipeReady=bRecipeDetail && IslandPreview->CanCraftOceanRecipe(RecipePage);
-   const TCHAR* RecipeNames[]={TEXT("Water-breathing tonic"),TEXT("Tidebound accessory"),TEXT("Tidebound footwear"),TEXT("Moonkelp bait")};
+   const TCHAR* RecipeNames[]={TEXT("Water-breathing tonic"),TEXT("Tidebound accessory"),TEXT("Tidebound footwear"),TEXT("Moonkelp bait"),TEXT("Moonfish provisions")};
    if(bIslandTrader){
     Names[3]=TEXT("Crafting workshop");
+    const int32 Contract=IslandPreview->NextRegionalContract();
+    Names[4]=Contract>=0?FString::Printf(TEXT("Delivery %d: fish, kelp, mineral -> tonic"),Contract+1):
+      FString::Printf(TEXT("Regional deliveries %d/9 | not ready"),IslandPreview->GetRegionalContractCount());
     if(RecipePage==-2){
-     for(int32 I=0;I<4;++I) Names[I]=FString::Printf(TEXT("%s | %s"),RecipeNames[I],
+     for(int32 I=0;I<MoonfallOceanCrafting::RecipeCount;++I) Names[I]=FString::Printf(TEXT("%s | %s"),RecipeNames[I],
         IslandPreview->CanCraftOceanRecipe(I)?TEXT("Ready"):TEXT("Unavailable"));
-     Names[4]=TEXT("Back to merchant");
+     Names[MoonfallOceanCrafting::RecipeCount]=TEXT("Back to merchant");
     } else if(bRecipeDetail){
      Names[0]=bRecipeReady?TEXT("Craft / Upgrade"):TEXT("Cannot craft");
      Names[1]=TEXT("Back to recipes");
      Names[2]=TEXT("Close");
+     if(RecipePage==4) Names[3]=FString::Printf(TEXT("Eat provision (+30%% HP) | %d"),IslandPreview->GetProvisions());
     }
    }
    if(Hero->bResidentCompanionMenu){
@@ -895,13 +899,13 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (bRecipeDetail) {
     FString Reagents;
-    if(RecipePage==0) Reagents=FString::Printf(TEXT("Kelp %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),IslandPreview->GetAvailableOceanFish());
+    if(RecipePage==0||RecipePage==4) Reagents=FString::Printf(TEXT("Kelp %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),IslandPreview->GetAvailableOceanFish());
     else if(RecipePage==1) Reagents=FString::Printf(TEXT("Pearl %d/1 | Coral %d/1"),int32(IslandPreview->HasOceanCraftMaterial(1)),int32(IslandPreview->HasOceanCraftMaterial(2)));
     else if(RecipePage==3) Reagents=FString::Printf(TEXT("Kelp %d/1 | Salt %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),int32(IslandPreview->HasOceanCraftMaterial(3)));
     else Reagents=FString::Printf(TEXT("Salt %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(3)),IslandPreview->GetAvailableOceanFish());
     const TCHAR* Ranks[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
     const int32 Rank=RecipePage>0&&RecipePage<3?IslandPreview->GetGrottoGearRarity(RecipePage-1):-1;
-    const FString Output=RecipePage==3?FString::Printf(TEXT("Bait %d/20 | craft +5"),IslandPreview->GetFishingBaitCount()):RecipePage==0?FString::Printf(TEXT("Tonics %d/3 -> +1"),IslandPreview->GetBreathingTonicCharges()):
+    const FString Output=RecipePage==4?FString::Printf(TEXT("Provisions %d/5 | craft +1"),IslandPreview->GetProvisions()):RecipePage==3?FString::Printf(TEXT("Bait %d/20 | craft +5"),IslandPreview->GetFishingBaitCount()):RecipePage==0?FString::Printf(TEXT("Tonics %d/3 -> +1"),IslandPreview->GetBreathingTonicCharges()):
       Rank<1||Rank>5?FString(TEXT("Requires Tidebound loan gear")):
       Rank==5?FString(TEXT("Maximum rarity reached")):
       FString::Printf(TEXT("%s -> %s"),Ranks[Rank],Ranks[Rank+1]);
@@ -1793,7 +1797,13 @@ void AMoonfallCombatHUD::DrawHUD()
      const int32 Caught=Preview->GetOceanCatchCount(), Harvests=Preview->GetOceanMaterialCount();
      const FString Lines[]={
       FString::Printf(TEXT("FISHING RANK %d/10 | %d caught"),MoonfallFishing::Rank(Caught),Caught),
+      FString::Printf(TEXT("HERBALISM RANK %d/10"),Preview->GetProfessionRank(1)),
+      FString::Printf(TEXT("MINING RANK %d/10"),Preview->GetProfessionRank(2)),
+      FString::Printf(TEXT("COOKING RANK %d/10 | meals %d"),Preview->GetProfessionRank(3),Preview->GetProvisions()),
+      FString::Printf(TEXT("ALCHEMY RANK %d/10"),Preview->GetProfessionRank(4)),
+      FString::Printf(TEXT("SMITHING RANK %d/10"),Preview->GetProfessionRank(5)),
       FString::Printf(TEXT("GATHERING RANK %d/10 | %d harvests"),Preview->GetOceanGatheringRank(),Harvests),
+      FString::Printf(TEXT("REGIONAL DELIVERIES %d/9"),Preview->GetRegionalContractCount()),
       FString::Printf(TEXT("Species %d/3 | Trophies %d"),Preview->GetDiscoveredFishSpecies(),Preview->GetTrophyCatchCount()),
       TEXT("FISH: stock / caught / trophies"),
       FString::Printf(TEXT("Silverfin: %d / %d / %d"),Preview->GetOceanFishCount(0),Preview->GetLifetimeSpeciesCount(0),Preview->GetTrophySpeciesCount(0)),
