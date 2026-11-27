@@ -1,6 +1,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallIslandQuest.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAquaticRewards.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAquaticTactics.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanEvents.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -87,5 +88,23 @@ int main() {
     assert(!MayReposition(false,true,false));
     assert(!MayReposition(true,false,false));
     assert(!MayReposition(true,true,true));
+    using namespace MoonfallOceanEvents;
+    for(int second=0;second<180;++second) assert(Activity(second)==second/60);
+    assert(Activity(-1)==0 && Activity(180)==0);
+    for(int id=0;id<6;++id) {
+        assert(PatrolScale(0,id)==1.f);
+        assert(PatrolScale(1,id)>=1.f && PatrolScale(1,id)<=1.45f);
+        assert(AwarenessRadius(2,id)<=540.f);
+    }
+    assert(PatrolScale(1,5)==1.f && PatrolScale(1,1)==1.f);
+    assert(AwarenessRadius(2,5)==480.f);
+    FSightings Sightings;
+    assert(!Sightings.Discover(-1) && !Sightings.Discover(6));
+    for(int id=0;id<6;++id) {
+        assert(Sightings.Discover(id));
+        assert(Sightings.Has(id));
+        assert(!Sightings.Discover(id));
+        assert(Sightings.Count()==id+1);
+    }
     return 0;
 }
