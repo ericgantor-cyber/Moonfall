@@ -892,7 +892,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TEXT(\"UPGRADE\")", block)
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
-        self.assertIn("IsRingSlot(SelectedSlot)", block)
+        self.assertIn("IsRingSlot(SelectedSlot)", self.hud)
         self.assertIn("const bool bValidSelection=MoonfallEquipmentLayout::CanOperateFull(SelectedCode", self.hud)
         self.assertIn("bValidSelection&&SelectedCode==EquippedCode", block)
         self.assertIn('TEXT("EQUIPPED")', block)
