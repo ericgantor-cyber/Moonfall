@@ -2541,7 +2541,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
   // Changing selection, equipped gear, count or selected item invalidates it.
   // Hash all active slots so ring swaps refresh immediately without a bag scan.
-  const uint32 AdvisorLoadoutHash=Hero->GetEquipmentLoadoutFingerprint();
+  const uint64 AdvisorLoadoutHash=Hero->GetEquipmentLoadoutFingerprint();
   const double AdvisorNow = FPlatformTime::Seconds();
   const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
