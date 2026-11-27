@@ -7,6 +7,22 @@ from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, M
 
 
 class DeepWatersLayoutTests(unittest.TestCase):
+    def test_manual_fishing_interaction(self):
+        root = Path(__file__).resolve().parents[1]
+        module = root / "MoonfallUnreal/Source/MoonfallUnreal"
+        source = (module / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (module / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (root / "MoonfallUnreal/Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="PickupLoot",Key=F', inputs)
+        self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::ManualLootOrFish)', source)
+        manual = source.split("void AMoonfallHeroPawn::ManualLootOrFish()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("if (CanContinueFishing() && TryFishingAction()) return;", manual)
+        self.assertIn("PickupNearestGroundLoot();", manual)
+        pickup = source.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split("void AMoonfallHeroPawn::SetAutoLootEnabled", 1)[0]
+        self.assertNotIn("TryFishingAction", pickup)
+        self.assertIn("F / X: Cast", hud)
+        self.assertIn("F / X: Hook", hud)
+
     def test_regional_water_layout(self):
         from deep_waters_layout import regional_water_plan
         ids=set()
