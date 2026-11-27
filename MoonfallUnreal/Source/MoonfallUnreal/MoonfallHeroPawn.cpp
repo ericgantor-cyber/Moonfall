@@ -1048,8 +1048,11 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) {
+  bInventoryScrollbarDragging = false;
   return false;
+ }
  const int32 Rows = GetInventoryVisibleRows();
  const int32 Count = InventoryItemCodes.Num();
  // A bag may shrink while dragging after a salvage or item transfer.
@@ -1091,7 +1094,8 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY))
   return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
    FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
@@ -1114,7 +1118,8 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
  // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
@@ -1136,7 +1141,8 @@ bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
      FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  if (PanelWidth < 550.f) return false; // compact layout leaves this button hidden
@@ -1274,7 +1280,8 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 
 int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return INDEX_NONE;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
@@ -1295,11 +1302,12 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const int32 End = FMath::Min(Count, Start + Rows);
  const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
  const float FirstY = Top + 145.f;
- if (MouseX < Left + 12.f || MouseX > Left + PanelWidth - 16.f ||
-     MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
+ if (MouseX < Left + 12.f || MouseX >= Left + PanelWidth - 16.f ||
+     MouseY < FirstY || MouseY >= FirstY + (End - Start) * Spacing)
   return INDEX_NONE;
  const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
  const int32 DisplayPosition = Start + RelativeRow;
+ if (DisplayPosition < Start || DisplayPosition >= End) return INDEX_NONE;
  const TArray<int32> Order = GetInventoryDisplayOrder();
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
