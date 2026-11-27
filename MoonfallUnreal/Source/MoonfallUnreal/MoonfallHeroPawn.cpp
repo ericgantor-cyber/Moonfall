@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallRegionalFishing.h"
+#include "MoonfallRegionalAtlas.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
@@ -3085,6 +3086,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
+  if (HasWaterProfessionsPage()) RefreshRegionalWaypoints();
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -3610,6 +3612,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
+  if(HasWaterProfessionsPage()) { StepRegionalWaypoint(-1); return; }
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
@@ -3657,6 +3660,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
+  if(HasWaterProfessionsPage()) { StepRegionalWaypoint(1); return; }
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
@@ -4359,6 +4363,47 @@ bool DeepWaterSchoolPoint(const FBox& Bounds,int32 Id,float Now,FVector& Out) {
  Out=FVector(Bounds.Min.X+Point.X,Bounds.Min.Y+Point.Y,Bounds.Max.Z+2.f);
  return !Out.ContainsNaN();
 }
+}
+
+bool AMoonfallHeroPawn::HasRegionalWaypoint() const {
+ return HasWaterProfessionsPage()&&MoonfallNorth::ValidZone(RegionalWaypoint)&&
+  (RegionalWaypointAvailable&(1u<<RegionalWaypoint))&&!RegionalWaypointLocation.ContainsNaN();
+}
+
+void AMoonfallHeroPawn::RefreshRegionalWaypoints() {
+ RegionalWaypointAvailable=0;
+ if(!HasWaterProfessionsPage()) { RegionalWaypoint=-1; return; }
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ uint32 Seen=0,Duplicate=0;
+ FVector Locations[MoonfallNorth::ZoneCount];
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const int32 Id=ResolveFishingProvince(*It);
+  if(!MoonfallNorth::ValidZone(Id)||!Preview->HasVisitedRegionalWater(Id)) continue;
+  const uint32 Bit=1u<<Id;
+  if(Seen&Bit) { Duplicate|=Bit; continue; }
+  Seen|=Bit;
+  const FBox B=It->GetComponentsBoundingBox(true);
+  if(!B.IsValid||B.Min.ContainsNaN()||B.Max.ContainsNaN()||B.GetSize().X<1200||B.GetSize().Y<1200) continue;
+  // Aim at the authored western bank, not underwater or at a teleport point.
+  Locations[Id]=FVector(B.Min.X-300,B.GetCenter().Y,B.Max.Z);
+  RegionalWaypointAvailable|=Bit;
+ }
+ RegionalWaypointAvailable&=~Duplicate;
+ if(MoonfallNorth::ValidZone(RegionalWaypoint)&&(RegionalWaypointAvailable&(1u<<RegionalWaypoint)))
+  RegionalWaypointLocation=Locations[RegionalWaypoint];
+ else RegionalWaypoint=-1;
+}
+
+void AMoonfallHeroPawn::SelectRegionalWaypoint(int32 Id) {
+ if(!bAtlasOpen||bQuestLogOpen||!HasWaterProfessionsPage()) return;
+ if(Id!=-1&&(!MoonfallNorth::ValidZone(Id)||!(RegionalWaypointAvailable&(1u<<Id)))) return;
+ RegionalWaypoint=Id;
+ RefreshRegionalWaypoints();
+}
+
+void AMoonfallHeroPawn::StepRegionalWaypoint(int32 Direction) {
+ SelectRegionalWaypoint(MoonfallRegionalAtlas::Step(RegionalWaypoint,Direction,RegionalWaypointAvailable));
 }
 
 void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
@@ -6583,7 +6628,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      ToggleAtlas();
      return;
     }
-    if(!bQuestLogOpen&&HasWaterProfessionsPage()) return; // regional schematic is read-only
+    if(!bQuestLogOpen&&HasWaterProfessionsPage()) {
+     const int32 Id=MoonfallRegionalAtlas::Hit(MouseX-PanelL,MouseY-PanelT,PanelW,PanelH);
+     if(Id>=0) SelectRegionalWaypoint(Id==RegionalWaypoint?-1:Id);
+     return;
+    }
     const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(PanelW);
     if (QuestButtons.HitMap(MouseX-PanelL,MouseY-PanelT)) {
      ToggleQuestLog(); return;

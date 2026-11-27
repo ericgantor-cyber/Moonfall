@@ -60,6 +60,13 @@ public:
  void SyncFishingPresentation(bool bCaught=false);
  int32 FishingSchoolId=-1;
  int32 FishingProvince=-1;
+ int32 RegionalWaypoint=-1;
+ FVector RegionalWaypointLocation=FVector::ZeroVector;
+ uint32 RegionalWaypointAvailable=0;
+ void RefreshRegionalWaypoints();
+ void SelectRegionalWaypoint(int32 Id);
+ void StepRegionalWaypoint(int32 Direction);
+ bool HasRegionalWaypoint() const;
  bool bCharacterProfessionsPageOpen=false;
  bool HasWaterProfessionsPage() const;
  void StepCharacterPage(int32 Direction);

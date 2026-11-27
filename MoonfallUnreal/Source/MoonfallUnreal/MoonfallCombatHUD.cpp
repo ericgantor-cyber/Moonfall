@@ -16,6 +16,7 @@
 #include "MoonfallAquaticProfiles.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallNorthContinentLayout.h"
+#include "MoonfallRegionalAtlas.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -944,11 +945,10 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("X"),FLinearColor::White,L+W-33,T+16,nullptr,.9f);
     DrawText(FString::Printf(TEXT("%d/9 visited | %d/9 mastered"),Preview->GetRegionalVisited(),Preview->GetRegionalCompleted()),
      FLinearColor::White,L+12,T+40,nullptr,.72f);
-    const float Gap=(H-102.f)/5.f;
     FVector2D Nodes[MoonfallNorth::ZoneCount];
     for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
-     const auto Point=MoonfallNorth::ContinentCenters[I];
-     Nodes[I]=FVector2D(L+W*(Point.Xcm<0?.25f:.71f),T+65.f+Gap*(4.f-float(Point.Ycm)/13000.f));
+     const auto R=MoonfallRegionalAtlas::Node(I,W,H);
+     Nodes[I]=FVector2D(L+R.X+R.W*.5f,T+R.Y+11.f);
     }
     for(int I=0;I<MoonfallNorth::ZoneCount;++I)
      for(int J=I+1;J<MoonfallNorth::ZoneCount;++J)
@@ -960,11 +960,15 @@ void AMoonfallCombatHUD::DrawHUD()
      const bool Visited=Preview->HasVisitedRegionalWater(I);
      const FLinearColor Ink=N==3?FLinearColor(.94f,.78f,.34f):Visited?FLinearColor(.36f,.85f,.65f):FLinearColor(.55f,.59f,.65f);
      const float X=Nodes[I].X,Y=Nodes[I].Y;
-     DrawRect(FLinearColor(.08f,.12f,.18f,.99f),X-W*.22f,Y-11,W*.44f,FMath::Min(37.f,Gap-2.f));
+     const auto R=MoonfallRegionalAtlas::Node(I,W,H);
+     const bool Available=(Hero->RegionalWaypointAvailable&(1u<<I))!=0;
+     DrawRect(Hero->RegionalWaypoint==I?FLinearColor(.19f,.32f,.44f):FLinearColor(.08f,.12f,.18f,.99f),L+R.X,T+R.Y,R.W,R.H);
+     if(Available) DrawHoverFrame(L+R.X,T+R.Y,R.W,R.H);
+     if(Hero->RegionalWaypoint==I) DrawRect(FLinearColor(.95f,.78f,.35f),L+R.X,T+R.Y,3,R.H);
      DrawText(FString::Printf(TEXT("%s %d/3"),Names[I],N),Ink,X-W*.22f+5,Y-8,nullptr,W<480?.55f:.8f);
      for(int K=0;K<3;++K) DrawRect(K<N?Ink:FLinearColor(.22f,.25f,.30f),X-12+K*9,Y+7,6,4);
     }
-    DrawText(TEXT("Schematic | links planned, not travel | J / Esc: close"),FLinearColor(.74f,.78f,.86f),L+12,T+H-21,nullptr,W<480?.49f:.68f);
+    DrawText(TEXT("Click / up-down: waypoint | links planned | J/Esc"),FLinearColor(.74f,.78f,.86f),L+12,T+H-21,nullptr,W<480?.49f:.68f);
     DrawLiveMenuHitCue();
     return;
    }
@@ -2853,6 +2857,24 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor::White,X+8.f,Y+26.f+22.f*Row++,nullptr,0.74f);
     }
    }
+  }
+ }
+ // Local direction and straight-line distance only; no fabricated navigation route.
+ if(Hero->HasRegionalWaypoint()&&Canvas->SizeX>=360&&Canvas->SizeY>=240) {
+  const FVector Delta=Hero->RegionalWaypointLocation-Hero->GetActorLocation();
+  if(!Delta.ContainsNaN()&&FMath::IsFinite(Delta.Size2D())) {
+   const float Meters=float(Delta.Size2D()/100.0);
+   const float X=Canvas->SizeX*.5f,Y=82.f;
+   const FVector Direction=Delta.GetSafeNormal2D();
+   const auto Rotation=Hero->GetActorRotation();
+   const FVector Local=Rotation.UnrotateVector(Direction);
+   DrawRect(FLinearColor(.04f,.07f,.11f,.90f),X-130,Y-8,260,43);
+   DrawText(FString::Printf(TEXT("%s | %.0fm"),UTF8_TO_TCHAR(MoonfallNorth::Zones[Hero->RegionalWaypoint].Name),Meters),
+    FLinearColor(.94f,.82f,.48f),X-121,Y,nullptr,.74f);
+   if(Meters>3.f) {
+    const FVector2D Tip(X+Local.Y*15,Y+24-Local.X*9);
+    Canvas->K2_DrawLine(FVector2D(X,Y+24),Tip,2.f,FLinearColor(.94f,.82f,.48f));
+   } else DrawText(TEXT("Near water bank"),FLinearColor::White,X-45,Y+19,nullptr,.65f);
   }
  }
  // Fishing feedback and projected bobber use the existing HUD, no actor per cast.
