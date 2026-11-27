@@ -171,6 +171,15 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("bRingSelectionChanged?MoonfallEquipmentLayout::FFullPlan{}", body)
         self.assertLess(body.index("if(!bRingSelectionChanged&&RingPlan.Changes>0"), body.index("=RingPlan.Codes[Slot]"))
 
+    def test_expanded_equip_best_recovers_shifted_inventory_indices(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("int32 Index=FixedPlan.Indices[Slot];", body)
+        self.assertIn("Index=InventoryItemCodes.IndexOfByKey(FixedPlan.Codes[Slot]);", body)
+        self.assertIn("InventoryItemCodes[Index]!=FixedPlan.Codes[Slot]", body)
+        self.assertLess(body.index("IndexOfByKey(FixedPlan.Codes[Slot])"),
+                        body.index("if(FixedPlan.Codes[Slot]<=0"))
+
     def test_expanded_equip_best_revalidates_and_commits_rings_atomically(self):
         source = self.source
         body = source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(

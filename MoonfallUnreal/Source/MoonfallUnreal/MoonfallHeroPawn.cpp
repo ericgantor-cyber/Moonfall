@@ -4001,8 +4001,13 @@ int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()
   if(!CanContinue())break;
   if(MoonfallEquipmentLayout::IsRingSlot(Slot)||GetRawEquipmentSlotCode(Slot)!=Initial[Slot])continue;
   if(Slot!=0&&IsRecentlyInCombatForAmbientAI())continue;
-  const int32 Index=FixedPlan.Indices[Slot];
-  if(!InventoryItemCodes.IsValidIndex(Index)||InventoryItemCodes[Index]!=FixedPlan.Codes[Slot])continue;
+  int32 Index=FixedPlan.Indices[Slot];
+  // Earlier equips can remove/insert inventory entries and shift later
+  // planner indices. Re-find the exact encoded item before skipping a valid upgrade.
+  if(!InventoryItemCodes.IsValidIndex(Index)||InventoryItemCodes[Index]!=FixedPlan.Codes[Slot])
+   Index=InventoryItemCodes.IndexOfByKey(FixedPlan.Codes[Slot]);
+  if(FixedPlan.Codes[Slot]<=0||!InventoryItemCodes.IsValidIndex(Index)
+      ||InventoryItemCodes[Index]!=FixedPlan.Codes[Slot])continue;
   if(EquipInventoryItem(Index))++Applied;
  }
  // No Blueprint notifications occur while publishing ring references.
