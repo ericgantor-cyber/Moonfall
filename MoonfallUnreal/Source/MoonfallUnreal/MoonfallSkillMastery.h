@@ -121,7 +121,7 @@ constexpr Placement RoutePlacement(int I) {
   return {6,J,Xs[J],Ys[J],J==3?Orb::Hidden:Orb::Agility};
  }
  const int Region=I/4,Index=I%4;
- const int Center=(Region*5-12)*1350+675;
+ const int Center=(Region*5-12)*1350-675;
  constexpr int XOffsets[]={-2000,-850,850,2000};
  constexpr int YOffsets[]={-2600,-2225,-2225,-2675};
  return {Region,Index,Center+XOffsets[Index],YOffsets[Index],Index==3?Orb::Hidden:Orb::Agility};
