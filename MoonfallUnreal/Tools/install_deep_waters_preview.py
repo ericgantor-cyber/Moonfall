@@ -60,6 +60,13 @@ def main():
     if any(mesh is None for mesh in art_meshes.values()):
         raise RuntimeError("Required grotto ornament meshes unavailable")
 
+    water_material = unreal.EditorAssetLibrary.load_asset(
+        "/Game/DeepWaters/Materials/M_DeepWatersSurface"
+    )
+    plane = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Plane.Plane")
+    if water_material is None or plane is None:
+        raise RuntimeError("Run create_deep_waters_material.py first; water surface asset required")
+
     surface = origin.z + extent.z
     created = []
 
@@ -102,6 +109,15 @@ def main():
         light.set_editor_property("cast_shadows", False)
 
     try:
+        # Visual plane is separate from water physics; it cannot block sight,
+        # swimming, spell traces, pickups or emergency ascent.
+        water = place(unreal.StaticMeshActor, "Deep Waters visible surface", (0, 0, 0))
+        mesh = water.get_editor_property("static_mesh_component")
+        mesh.set_static_mesh(plane)
+        mesh.set_material(0, water_material)
+        mesh.set_collision_profile_name("NoCollision")
+        mesh.set_editor_property("cast_shadow", False)
+        water.set_actor_scale3d(unreal.Vector(extent.x / 50, extent.y / 50, 1.0))
         # A dry deck adjacent to the pool, with a submerged step and open exit.
         block("Deep Waters dry dock", (-extent.x - 300, 0, -20), (7, 12, 0.4))
         block("Deep Waters entry step", (-extent.x + 150, 0, -90), (4, 12, 0.4))
@@ -122,7 +138,7 @@ def main():
         for actor in reversed(created):
             actors.destroy_actor(actor)
         raise
-    unreal.log("Installed six grotto greyboxes, six air pockets, 24 ornaments and six ambient beacons. Inspect and save manually.")
+    unreal.log("Installed visible water, six grottoes, air pockets, art, chests and encounters. Inspect and save manually.")
 
 
 if __name__ == "__main__":
