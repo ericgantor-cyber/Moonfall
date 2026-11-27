@@ -140,7 +140,16 @@ int main() {
     assert(!Workshop.Craft(0,Supplies,Loan));
     assert(Workshop.AvailableMaterials(Supplies)==4);
     Loan.TonicCharges=2;
+    assert(Workshop.HasMaterial(0,Supplies));
+    assert(Workshop.CanCraft(0,Supplies,Loan));
+    assert(Workshop.CanCraft(0,Supplies,Loan));
+    assert(Loan.TonicCharges==2);
+    assert(Workshop.AvailableMaterials(Supplies)==4);
+    assert(Workshop.RemainingFish(Supplies)==3);
+    assert(!Workshop.CanCraft(1,Supplies,Loan));
     assert(Workshop.Craft(0,Supplies,Loan));
+    assert(!Workshop.HasMaterial(0,Supplies));
+    assert(!Workshop.CanCraft(0,Supplies,Loan));
     assert(Loan.TonicCharges==3);
     assert(!Workshop.Craft(0,Supplies,Loan));
     assert(!Workshop.Craft(1,Supplies,Loan));
