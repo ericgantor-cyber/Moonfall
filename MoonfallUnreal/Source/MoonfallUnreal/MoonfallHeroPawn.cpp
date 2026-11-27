@@ -3779,6 +3779,14 @@ void AMoonfallHeroPawn::AwardConfirmedSkillMastery(MoonfallSkillMastery::Action 
  MoonfallSkillMastery::TryAward(SessionMastery,Action,true,SessionMastery);
 }
 
+bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind)
+{
+ if(!IsSkillMasteryPreviewEnabled()||!IsValid(this)||IsActorBeingDestroyed()
+    ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
+    ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return false;
+ return MoonfallSkillMastery::TryCollect(SessionMastery,Region,Index,Kind,true,SessionMastery);
+}
+
 int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
 {
  return IsSkillMasteryPreviewEnabled()?MoonfallSkillMastery::XPFor(SessionMastery,static_cast<MoonfallSkillMastery::Skill>(SkillIndex)):-1;
