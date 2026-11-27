@@ -1,4 +1,5 @@
 #include "MoonfallWaterRules.h"
+#include "MoonfallWaterCurrent.h"
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
 
@@ -56,6 +57,14 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Two minute duration"),AdvanceTonic(TonicDuration,60.f,false),60.f);
     TestEqual(TEXT("Pause preserves tonic"),AdvanceTonic(60.f,20.f,true),60.f);
     TestEqual(TEXT("Tonic expires"),AdvanceTonic(1.f,2.f,false),0.f);
+    using MoonfallWaterCurrent::Input;
+    TestTrue(TEXT("West current flows north"),FMath::IsNearlyEqual(Input(FVector(-700,0,-200),false,false).Y,0.18));
+    TestTrue(TEXT("East current flows south"),FMath::IsNearlyEqual(Input(FVector(700,0,-200),false,false).Y,-0.18));
+    TestTrue(TEXT("No current in air pocket"),Input(FVector(-700,0,-200),false,true).IsNearlyZero());
+    TestTrue(TEXT("No current while ascending"),Input(FVector(-700,0,-200),true,false).IsNearlyZero());
+    TestTrue(TEXT("No current in grotto"),Input(FVector(-1400,-850,-200),false,false).IsNearlyZero());
+    TestTrue(TEXT("No surface drift"),Input(FVector(-700,0,-20),false,false).IsNearlyZero());
+    TestTrue(TEXT("No downward current"),Input(FVector(-700,0,-200),false,false).Z==0.0);
     return true;
 }
 #endif
