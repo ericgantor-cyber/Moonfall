@@ -700,6 +700,8 @@ int main(){
         self.assertEqual(move.count("FindPathToLocationSynchronously("),1)
         self.assertLess(move.index("if(bDetour)"),move.index("LineTraceSingleByChannel("))
         self.assertIn("ActualMove=GetActorLocation()-Start",npc)
+        self.assertIn("FMath::FixedTurn(CurrentYaw,DesiredYaw,45.f)",npc)
+        self.assertIn("FMath::IsFinite(CurrentYaw)&&FMath::IsFinite(DesiredYaw)",npc)
         self.assertIn("Velocity.SizeSquared2D()>FMath::Square(120.0)",mode)
         self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f",mode)
         self.assertIn("FMath::Abs(Velocity.Z)<100.0&&!bThreat",mode)
@@ -922,7 +924,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bReviewingCombatReport=false;",movement)
-        self.assertIn("bGuard && !bInConversation",movement)
+        self.assertIn("bGuard && !bRegionalWatch && !bInConversation",movement)
         self.assertIn("bReviewingCombatReport=Society->GetNearbyCombatReport",movement)
         self.assertIn('TEXT("Reviewing Reports")',movement)
         self.assertNotIn("WitnessNearbyDanger(",movement)
