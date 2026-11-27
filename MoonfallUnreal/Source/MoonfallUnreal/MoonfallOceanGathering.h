@@ -4,7 +4,7 @@ namespace MoonfallOceanGathering
     constexpr bool IsResource(int Id) { return Id>=0 && Id<7; }
     constexpr bool IsFishing(int Id) { return Id>=4 && Id<7; }
     constexpr bool CanCollect(int Id,bool Swimming,bool Grounded,bool Manual) {
-        return IsResource(Id) && (IsFishing(Id)?(!Swimming&&Grounded&&Manual):Swimming);
+        return IsResource(Id) && !IsFishing(Id) && Swimming && Manual;
     }
     struct FCollection {
         unsigned Claimed=0;
@@ -15,6 +15,12 @@ namespace MoonfallOceanGathering
             if(Claimed&Bit) return false;
             Claimed|=Bit;
             if(IsFishing(Id)) ++Fish[(Id-4+Event)%3];
+            return true;
+        }
+        bool Catch(int Event,int Roll) {
+            if(Event<0||Event>2||Roll<0||Roll>99||Catches()>=30) return false;
+            const int SpeciesId=((Roll<50?0:Roll<80?1:2)+Event)%3;
+            ++Fish[SpeciesId];
             return true;
         }
         int Materials() const {
