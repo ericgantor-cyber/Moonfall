@@ -431,8 +431,9 @@ class TestNativeModalPanels(unittest.TestCase):
         ):
             self.assertIn(token, INPUT)
         self.assertIn("void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)", HERO)
-        self.assertIn("const float TabW=(PanelW-60.f)/3.f;", HERO)
-        self.assertIn("for (int32 Tab=0;Tab<3;++Tab)", HERO)
+        self.assertIn("const float TabW=TabCount==3?(PanelW-60.f)/3.f:(PanelW-68.f)/4.f;", HERO)
+        self.assertIn("const int32 TabCount=HasWaterProfessionsPage()?4:3;", HERO)
+        self.assertIn("for (int32 Tab=0;Tab<TabCount;++Tab)", HERO)
         self.assertIn('TEXT("STATS & GEAR")', HUD)
         self.assertIn('TEXT("EQUIPPED GEAR")', HUD)
         self.assertNotIn("ActionName=\"CharacterStats\",Key=Tab", INPUT)
