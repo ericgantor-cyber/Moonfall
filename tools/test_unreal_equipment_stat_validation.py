@@ -170,6 +170,16 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("EquipInventoryRing(BagIndex,Target);", release)
         self.assertIn("MoveEquippedRing(FingerIndex,Target);", release)
         self.assertIn("UnequipRing(FingerIndex);", release)
+        self.assertIn("else if(HitTestInventoryBagDropSurface())", release)
+        drop = self.source.split("bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("MouseY<FirstY+Rows*Spacing", drop)
+        self.assertIn("MouseX<Left+PanelWidth-16.f", drop)
+        self.assertIn("!CanEditEquippedRings()", drop)
+        self.assertIn("!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY)", drop)
+        self.assertNotIn("GetInventoryDisplayOrder()", drop)
+        self.assertNotIn("InventoryItemCodes.Num()", drop)
+        row = self.source.split("int32 AMoonfallHeroPawn::HitTestInventoryRow()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(row.index("!FMath::IsFinite(MouseY)"), row.index("FMath::FloorToInt("))
         self.assertIn("InventoryItemCodes[BagIndex]==Code", release)
         self.assertIn("Revision!=EquipmentInventoryRevision", release)
         self.assertIn("Fingerprint!=GetEquipmentLoadoutFingerprint()", release)
