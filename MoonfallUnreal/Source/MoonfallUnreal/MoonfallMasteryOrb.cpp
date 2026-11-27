@@ -6,6 +6,7 @@
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "UObject/ConstructorHelpers.h"
@@ -55,17 +56,29 @@ void AMoonfallMasteryOrb::BeginPlay(){
  PickupRange->OnComponentBeginOverlap.AddDynamic(this,&AMoonfallMasteryOrb::OnPickup);
  PickupRange->SetGenerateOverlapEvents(true);
  PickupRange->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+ if(!IsActorBeingDestroyed())
+  CheckHeroAtSpawn(Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0)));
 #else
  Destroy();
 #endif
 }
 void AMoonfallMasteryOrb::OnPickup(UPrimitiveComponent* Component,AActor* Other,UPrimitiveComponent* OtherComponent,int32 BodyIndex,bool bSweep,const FHitResult& Hit){
- if(bClaimed||IsActorBeingDestroyed()||Component!=PickupRange||!GetWorld())return;
+ if(Component!=PickupRange)return;
  auto* Hero=Cast<AMoonfallHeroPawn>(Other);
- if(!IsValid(Hero)||OtherComponent!=Hero->GetCapsuleComponent()||
-    !PickupRange->IsOverlappingActor(Hero))return;
+ if(!IsValid(Hero)||OtherComponent!=Hero->GetCapsuleComponent())return;
+ CheckHeroAtSpawn(Hero);
+}
+void AMoonfallMasteryOrb::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero){
+ if(bClaimed||IsActorBeingDestroyed()||!GetWorld()||!IsValid(Hero)||
+    Hero->IsActorBeingDestroyed()||Hero->GetWorld()!=GetWorld()||
+    !Hero->IsSkillMasteryPreviewEnabled()||!Hero->IsPlayerControlled()||
+    !Hero->bWorldProgressInitialized||Hero->bWorldProgressLoadInProgress||
+    Hero->bPersistentSaveWritesBlocked||!FMath::IsFinite(Hero->Health)||Hero->Health<=0.f||
+    !PickupRange->IsOverlappingComponent(Hero->GetCapsuleComponent()))return;
  const auto Kind=bHiddenOrb?MoonfallSkillMastery::Orb::Hidden:MoonfallSkillMastery::Orb::Agility;
- if(!Hero->TryCollectMasteryOrb(Region,Index,Kind))return;
+ // Duplicate actors for an already-collected identity disappear without XP.
+ if(!MoonfallSkillMastery::IsCollected(Hero->SessionMastery,Region,Index)&&
+    !Hero->TryCollectMasteryOrb(Region,Index,Kind))return;
  bClaimed=true;
  PickupRange->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  Destroy();
