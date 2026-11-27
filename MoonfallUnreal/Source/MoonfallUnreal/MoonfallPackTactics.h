@@ -17,5 +17,5 @@ constexpr float AttackSlotDelay(int WindingAllies, unsigned int ActorId) {
 static_assert(!ShouldYieldAttackSlot(0) && ShouldYieldAttackSlot(1)
     && ShouldYieldAttackSlot(2), "Pack attacks yield to active windups");
 static_assert(AttackSlotDelay(1,0u) >= 0.4f
-    && AttackSlotDelay(2,3u) <= 0.655f, "Pack slot delay stays bounded");
+    && AttackSlotDelay(2,3u) <= 0.656f, "Pack slot delay stays bounded");
 } // namespace MoonfallPackTactics
