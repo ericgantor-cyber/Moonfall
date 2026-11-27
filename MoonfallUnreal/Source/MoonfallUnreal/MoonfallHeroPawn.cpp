@@ -721,8 +721,19 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
+ const float PreviousAir = Oxygen;
+ const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bWaterSubmerged, !GetWorld() || GetWorld()->IsPaused());
+     bWaterSubmerged, bWaterPaused);
+ const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
+     PreviousAir, SafeTimerDelta, bWaterSwimming && bWaterSubmerged, bWaterPaused);
+ if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
+  TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
+  TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
+  TGuardValue<bool> NoSourceGuard(bHasIncomingDamageSource, false);
+  ApplyMoonfallDamage(MaxHealth * MoonfallWaterRules::DrowningHealthFraction);
+  if (IsActorBeingDestroyed()) return;
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
@@ -2528,7 +2539,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
    && Now < RacePowerActiveUntil;
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
+ const float ArmoredDamage = bApplyingDrowningDamage ? Amount : Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -2639,6 +2650,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  }
  if (Health <= 0.f) {
   CloseResidentContext();
+  WaterVerticalIntent = 0;
+  DrowningExposureSeconds = 0.f;
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -5716,6 +5729,11 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  for (int32& Code : DefeatedEquipmentSelection) Code = 0;
  if (bReadyDefeatedWeapon) ReadyRightHandWeapon();
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
+ Oxygen = MoonfallWaterRules::MaxAir;
+ WaterVerticalIntent = 0;
+ DrowningExposureSeconds = 0.f;
+ bWaterSwimming = false;
+ bWaterSubmerged = false;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();
