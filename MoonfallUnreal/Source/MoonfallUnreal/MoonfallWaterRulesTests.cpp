@@ -35,6 +35,14 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Pulse preserves remainder"), Exposure, 0.125f);
     TestFalse(TEXT("Surface cancels damage"), AdvanceDrowning(Exposure, 0.f, 0.25f, false, false));
     TestEqual(TEXT("Surface resets exposure"), Exposure, 0.f);
+    TestEqual(TEXT("No equipped Focus gear"),GearBreathMultiplier(false,9,-1),1.f);
+    TestTrue(TEXT("Common Focus adds five percent"),FMath::IsNearlyEqual(GearBreathMultiplier(false,0,0),1.05f));
+    TestTrue(TEXT("Legendary Focus adds thirty percent"),FMath::IsNearlyEqual(GearBreathMultiplier(false,0,5),1.30f));
+    TestTrue(TEXT("Shadowborn legendary breath cap"),FMath::IsNearlyEqual(GearBreathMultiplier(true,9,5),2.6f));
+    TestTrue(TEXT("Legendary Focus footwear"),FMath::IsNearlyEqual(GearSwimMultiplier(5),1.30f));
+    TestEqual(TEXT("Invalid rarity cannot add speed"),GearSwimMultiplier(6),1.f);
+    TestTrue(TEXT("HUD rate honors gear cap"),FMath::IsNearlyEqual(EffectiveDrain(2.6f),100.f/468.f));
+    TestTrue(TEXT("Gear breath duration matches air depletion"),FMath::IsNearlyZero(AdvanceAir(100.f,468.f,true,true,false,2.6f),0.001f));
     return true;
 }
 #endif
