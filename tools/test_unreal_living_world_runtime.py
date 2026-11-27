@@ -9,6 +9,7 @@ class LivingWorldPolicyTests(unittest.TestCase):
         code=r'''
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallRoadLandmarks.h"
+#include "MoonfallLivingWorldPolicy.h"
 #include <cassert>
 #include <limits>
 #include <initializer_list>
@@ -38,6 +39,25 @@ int main(){
  assert(!PauseResidentMotion(false,true,true,false));
  assert(!PauseResidentMotion(false,true,false,true));
  assert(!PauseResidentMotion(false,false,false,false));
+ // Test the same health boundary in support and tactical withdrawal.
+ for(int health=1;health<=100;++health){
+  assert(MoonfallWorldPolicy::CanCompanionSupportOffensively(float(health))==(health>25));
+  for(int role=0;role<3;++role){
+   auto tactic=MoonfallWorldPolicy::SelectCompanionTactic(float(health),3,role,true);
+   assert((tactic==MoonfallWorldPolicy::CompanionTactic::Withdraw)==(health<=25));
+  }
+ }
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(0));
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(101));
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(std::numeric_limits<float>::quiet_NaN()));
+ assert(MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,350.0*350.0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12.01,10,1,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(9,10,1,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,0,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,350.0*350.0+1));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,-1));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,std::numeric_limits<float>::quiet_NaN(),0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,std::numeric_limits<double>::infinity()));
  assert(RegionalAllowsSocial(-1));
  for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
  assert(RegionalAllowsSocial(101));
