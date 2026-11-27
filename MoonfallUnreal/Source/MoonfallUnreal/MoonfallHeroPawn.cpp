@@ -6026,6 +6026,21 @@ bool AMoonfallHeroPawn::CanDropDraggedRingOnFinger(int32 FingerIndex) const
  return Allowed;
 }
 
+bool AMoonfallHeroPawn::CanDropDraggedRingInBag() const
+{
+ const int32 Code=GetRingPointerDragCode();
+ if(Code<=0||RingDragFingerIndex==INDEX_NONE||!HitTestInventoryBagDropSurface())return false;
+ if(RingDragBagDropCache!=0)return RingDragBagDropCache>0;
+ const int32 Slot=MoonfallEquipmentLayout::RingSlot(RingDragFingerIndex);
+ if(Slot<0||Slot>=MoonfallEquipmentLayout::ActiveSlotCount)return false;
+ MoonfallEquipmentLayout::FFullLoadout Worn{},Next{};
+ for(int32 I=0;I<MoonfallEquipmentLayout::FullSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
+ const bool Allowed=Worn[Slot]==Code&&MoonfallEquipmentLayout::TryRemoveFullRing(
+     Slot,Worn,MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Next);
+ RingDragBagDropCache=Allowed?1:-1;
+ return Allowed;
+}
+
 void AMoonfallHeroPawn::ClearRingPointerDrag()
 {
  RingDragBagIndex=RingDragFingerIndex=INDEX_NONE;
@@ -6033,6 +6048,7 @@ void AMoonfallHeroPawn::ClearRingPointerDrag()
  RingDragInventoryRevision=0;
  RingDragLoadoutFingerprint=0;
  RingDragTargetCache.fill(0);
+ RingDragBagDropCache=0;
 }
 
 void AMoonfallHeroPawn::BeginRingPointerDrag(int32 BagIndex,int32 FingerIndex)
