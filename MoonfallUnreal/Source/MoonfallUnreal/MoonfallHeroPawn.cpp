@@ -146,6 +146,7 @@ void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()
  if(EquipmentInventoryRevision==0)++EquipmentInventoryRevision;
  CachedValidatedInventoryRevision=0;
  CachedRingBonusInventoryRevision=0;
+ CachedInventoryOrderRevision=0;
 }
 
 void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const
@@ -968,6 +969,13 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 {
  TArray<int32> Order;
  const int32 Count = InventoryItemCodes.Num();
+ // Reuse the same sorted order for HUD rendering, hit testing and keyboard
+ // selection. Keep an exact source snapshot as a guard against direct C++
+ // inventory edits that bypass the normal revisioned mutation paths.
+ if(InventorySortMode!=0&&CachedInventoryOrderRevision==EquipmentInventoryRevision
+    &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryOrder.Num()==Count
+    &&CachedInventoryOrderSource==InventoryItemCodes)
+  return CachedInventoryOrder;
  Order.Reserve(Count);
  for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
  if (InventorySortMode == 0) return Order;
@@ -994,6 +1002,10 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
   }
   return A < B;
  });
+ CachedInventoryOrder=Order;
+ CachedInventoryOrderSource=InventoryItemCodes;
+ CachedInventoryOrderRevision=EquipmentInventoryRevision;
+ CachedInventoryOrderMode=InventorySortMode;
  return Order;
 }
 

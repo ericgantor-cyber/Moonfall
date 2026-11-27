@@ -793,6 +793,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (InventorySortMode == 1)", sort)
         self.assertIn("if (SlotA != SlotB)", sort)
         self.assertIn("return A < B;", sort)
+        self.assertIn("CachedInventoryOrderRevision==EquipmentInventoryRevision", sort)
+        self.assertIn("CachedInventoryOrderMode==InventorySortMode", sort)
+        self.assertIn("CachedInventoryOrder.Num()==Count", sort)
+        self.assertIn("CachedInventoryOrderSource==InventoryItemCodes", sort)
+        self.assertLess(sort.index("return CachedInventoryOrder;"), sort.index("Order.Sort("))
+        self.assertLess(sort.index("Order.Sort("), sort.index("CachedInventoryOrder=Order;"))
+        self.assertIn("CachedInventoryOrderSource=InventoryItemCodes", sort)
+        self.assertIn("CachedInventoryOrderMode=InventorySortMode", sort)
+        dirty = self.hero_cpp.split("void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("CachedInventoryOrderRevision=0;", dirty)
+        self.assertIn("mutable TArray<int32> CachedInventoryOrderSource;", self.hero_h)
         for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, sort)
         self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
