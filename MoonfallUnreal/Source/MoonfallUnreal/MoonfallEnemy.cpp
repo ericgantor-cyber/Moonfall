@@ -732,8 +732,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      WindupEndsAt = -1.f;
      NextAttackAt = Now + Profile.Recovery * MoonfallAquatic::RecoveryScale(AquaticPhase);
      RefreshAttackTellMarker(Now, Hero->bReduceMotion);
-     if (DistanceSq <= FMath::Square(Profile.Reach + 20.f)) {
-      const bool bParried = Hero->ApplyMoonfallDamageFrom(Profile.Damage, Position);
+     const auto Move = MoonfallAquatic::Move(AquaticProfileId, AquaticCommittedMove);
+     if (MoonfallAquatic::Hits(Move, Target-Position, LockedAttackDirection)) {
+      const bool bParried = Move.bUnblockable
+       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(Move.Damage, Position)
+       : Hero->ApplyMoonfallDamageFrom(Move.Damage, Position);
       if (IsValid(this) && !IsActorBeingDestroyed() && Health > 0.f) {
        if (bParried) ApplyPostureDamage(ParryPostureDamage);
        else OnEnemyAttack();
@@ -743,10 +746,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     }
     return;
    } else if (DistanceSq <= FMath::Square(Profile.Reach) && Now >= NextAttackAt) {
-    CurrentWindup = Profile.Windup;
+    AquaticCommittedMove = MoonfallAquatic::SelectMove(AquaticProfileId, AquaticPhase, AquaticAttackSequence);
+    AquaticAttackSequence = (AquaticAttackSequence + 1) % 6;
+    const auto Move = MoonfallAquatic::Move(AquaticProfileId, AquaticCommittedMove);
+    LockedAttackDirection = (Target-Position).GetSafeNormal();
+    CurrentWindup = Move.Windup;
     WindupEndsAt = Now + CurrentWindup;
-    CurrentAttackMultiplier = 1.f;
-    CurrentAttackRangeMultiplier = 1.f;
+    CurrentAttackMultiplier = Move.bUnblockable ? 1.5f : 1.f;
+    CurrentAttackRangeMultiplier = Move.Reach / Profile.Reach;
     RefreshAttackTellMarker(Now, Hero->bReduceMotion);
     return;
    }
