@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deep_waters_layout import (
-    grotto_layout, grotto_geometry, MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
+    grotto_layout, grotto_geometry, grotto_art, MIN_HALF_WIDTH, MIN_HALF_LENGTH, MIN_DEPTH
 )
 
 MAP_PATH = "/Game/DeepWaters/Maps/DeepWatersPreview"
@@ -51,6 +51,12 @@ def main():
     cube = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cube.Cube")
     if cube is None:
         raise RuntimeError("Engine greybox cube unavailable")
+    art_meshes = {
+        name: unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/" + name + "." + name)
+        for name in ("Cone", "Sphere", "Cylinder")
+    }
+    if any(mesh is None for mesh in art_meshes.values()):
+        raise RuntimeError("Required grotto ornament meshes unavailable")
 
     surface = origin.z + extent.z
     created = []
@@ -75,22 +81,41 @@ def main():
         mesh.set_collision_profile_name("BlockAll")
         actor.set_actor_scale3d(unreal.Vector(*scale))
 
+    def decorate(name, index, x, y):
+        ornaments, light_pos, color = grotto_art(index, x, y)
+        for label, shape, pos, scale in ornaments:
+            actor = place(unreal.StaticMeshActor, name + " " + label, pos)
+            mesh = actor.get_editor_property("static_mesh_component")
+            mesh.set_static_mesh(art_meshes[shape])
+            mesh.set_collision_profile_name("NoCollision")
+            mesh.set_editor_property("cast_shadow", False)
+            actor.set_actor_scale3d(unreal.Vector(*scale))
+        lamp = place(unreal.PointLight, name + " ambient beacon", light_pos)
+        light = lamp.get_component_by_class(unreal.PointLightComponent)
+        if light is None:
+            raise RuntimeError("Missing grotto point light component")
+        light.set_light_color(unreal.LinearColor(*color, 1.0))
+        light.set_intensity(1800.0)
+        light.set_attenuation_radius(480.0)
+        light.set_editor_property("cast_shadows", False)
+
     try:
         # A dry deck adjacent to the pool, with a submerged step and open exit.
         block("Deep Waters dry dock", (-extent.x - 300, 0, -20), (7, 12, 0.4))
         block("Deep Waters entry step", (-extent.x + 150, 0, -90), (4, 12, 0.4))
         place(unreal.PlayerStart, "Deep Waters start", (-extent.x - 300, 0, 150))
         block("Deep Waters pool floor", (0, 0, -430), (extent.x / 50, extent.y / 50, 0.4))
-        for name, (x, y, z) in grotto_layout():
+        for index, (name, (x, y, z)) in enumerate(grotto_layout()):
             for piece, position, scale in grotto_geometry(x, y):
                 block(name + " " + piece, position, scale)
             place(pocket_class, name + " Air Pocket", (x, y, z))
+            decorate(name, index, x, y)
         place(unreal.DirectionalLight, "Deep Waters preview light", (0, 0, 1500))
     except Exception:
         for actor in reversed(created):
             actors.destroy_actor(actor)
         raise
-    unreal.log("Installed six open-top grotto greyboxes and six air pockets. Inspect and save manually.")
+    unreal.log("Installed six grotto greyboxes, six air pockets, 24 ornaments and six ambient beacons. Inspect and save manually.")
 
 
 if __name__ == "__main__":
