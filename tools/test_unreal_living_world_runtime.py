@@ -58,6 +58,21 @@ int main(){
  assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,-1));
  assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,std::numeric_limits<float>::quiet_NaN(),0));
  assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,std::numeric_limits<double>::infinity()));
+ using MoonfallWorldPolicy::FollowerStepBudget;
+ assert(FollowerStepBudget(200,0,0.2)==24);
+ assert(FollowerStepBudget(200,24,0.2)==48);
+ assert(FollowerStepBudget(200,48,0.2)==60);
+ assert(FollowerStepBudget(200,60,0.5)==24);
+ assert(FollowerStepBudget(40,60,0.2)==20);
+ assert(FollowerStepBudget(5,60,0.2)==5);
+ assert(FollowerStepBudget(0,60,0.2)==0);
+ assert(FollowerStepBudget(200,60,-1)==24);
+ assert(FollowerStepBudget(std::numeric_limits<double>::quiet_NaN(),60,0.2)==0);
+ assert(FollowerStepBudget(200,std::numeric_limits<double>::infinity(),0.2)==24);
+ for(int remaining=0;remaining<=200;++remaining){
+  const double step=FollowerStepBudget(remaining,48,0.2);
+  assert(step>=0&&step<=remaining&&step<=60);
+ }
  assert(RegionalAllowsSocial(-1));
  for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
  assert(RegionalAllowsSocial(101));
@@ -691,7 +706,9 @@ int main(){
         self.assertIn("NextFollowerPathAt=Now+1.f",npc)
         self.assertIn("FollowerPathGoal=Goal",npc)
         self.assertIn("FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0)",npc)
-        self.assertIn("if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;return true;}",npc)
+        self.assertIn("if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;return true;}",npc)
+        self.assertIn("FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt)",npc)
+        self.assertIn("FollowerLastStep=FMath::Min(60.0,ActualMove.Size2D())",npc)
         self.assertIn("!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2",npc)
         self.assertIn("FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1",npc)
         self.assertIn("else MarkBlocked();",npc)
