@@ -1164,7 +1164,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FHitResult Hit;
   FVector Target = (!bBoss && !bCanSeeHero) ? LastKnownHeroPosition : Hero->GetActorLocation();
   // Give different ordinary enemies stable approach lanes instead of all
-  // pursuing the same point. A fixed four-slot split avoids per-tick random
+  // pursuing the same point. Eight fixed approach lanes avoid per-tick random
   // jitter, extra neighbor searches, and new navigation queries.
   if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
