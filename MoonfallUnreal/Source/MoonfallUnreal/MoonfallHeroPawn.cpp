@@ -791,6 +791,19 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
         && FMath::Abs(Offset.Y)<=100.f && FMath::Abs(Offset.Z)<=90.f)
      Preview->DiscoverWreck(I);
    }
+   const FVector CaveCenters[] = {FVector(-3800,2200,-255),FVector(3800,-2200,-255)};
+   const auto* Volume=GetPhysicsVolume();
+   if (IsValid(Volume)) {
+    const FVector Extent=Volume->GetComponentsBoundingBox(true).GetExtent();
+    if (Extent.X>=6000.0 && Extent.Y>=4500.0) {
+     for (int32 I=0; I<2; ++I) {
+      const FVector Offset=WaterRelativePosition-CaveCenters[I];
+      if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
+          && FMath::Abs(Offset.Y)<=160.f && FMath::Abs(Offset.Z)<=70.f)
+       Preview->DiscoverCave(I);
+     }
+    }
+   }
   }
  }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
