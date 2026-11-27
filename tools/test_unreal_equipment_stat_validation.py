@@ -181,7 +181,8 @@ class EquipmentStatSafety(unittest.TestCase):
     def test_expanded_equip_best_recovers_shifted_inventory_indices(self):
         body = self.source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("int32 Index=FixedPlan.Indices[Slot];", body)
+        self.assertIn("const int32 PlannedIndex=FixedPlan.Indices[Slot];", body)
+        self.assertIn("int32 Index=PlannedIndex;", body)
         self.assertIn("Index=InventoryItemCodes.IndexOfByKey(FixedPlan.Codes[Slot]);", body)
         self.assertIn("InventoryItemCodes[Index]!=FixedPlan.Codes[Slot]", body)
         self.assertLess(body.index("if(PlannedIndex<0||FixedPlan.Codes[Slot]<=0)continue;"),
