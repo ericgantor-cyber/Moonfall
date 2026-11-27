@@ -905,13 +905,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      if(IsValid(Projectile)){
       Projectile->Initialize(this,ProjectileDamage,Direction,
         MoonfallPackTactics::RangedProjectileSpeed(bCasterCombatRole),bCasterCombatRole);
-      if(IsValid(Projectile)&&!Projectile->IsActorBeingDestroyed())
-       OnRangedProjectileFired(Muzzle,LockedRangedAimPoint,bCasterCombatRole);
+      if(!IsValid(Projectile)||Projectile->IsActorBeingDestroyed()) Projectile=nullptr;
      }
     }
    }
    bComboSecondHitPending=false;
    bComboSecondHitActive=false;
+   if(IsValid(Projectile)&&!Projectile->IsActorBeingDestroyed())
+    OnRangedProjectileFired(Muzzle,LockedRangedAimPoint,bCasterCombatRole);
    return;
   }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
@@ -1709,8 +1710,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    WindupEndsAt = Now + CurrentWindup;
    if(bRangedCombatRole){
     LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f);
-    if(!LockedRangedAimPoint.ContainsNaN())
+    if(!LockedRangedAimPoint.ContainsNaN()){
      OnRangedAttackTelegraphed(LockedRangedAimPoint,CurrentWindup,bCasterCombatRole);
+     if(!IsValid(this)||IsActorBeingDestroyed())return;
+    }
    } else LockedRangedAimPoint=FVector::ZeroVector;
    // A real visible attack commitment is a defensive assist opportunity,
    // even before the player lands their first strike. Practice foes excluded.
