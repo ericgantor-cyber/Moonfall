@@ -2081,7 +2081,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
         self.assertIn("LastLootSlot = MoonfallEquipmentLayout::FullLootCategorySlot(", loot)
-        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
+        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12)", loot)
         self.assertIn("LastLootRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", loot)
