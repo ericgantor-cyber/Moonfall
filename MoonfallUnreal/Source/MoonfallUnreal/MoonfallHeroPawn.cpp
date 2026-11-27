@@ -27,6 +27,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PhysicsVolume.h"
+namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "MoonfallWaterRules.h"
 #include "MoonfallWaterCurrent.h"
 #include "MoonfallAirPocket.h"
@@ -786,6 +787,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && IsLocallyControlled() && GetWorld()
      && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")) {
   if (auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   const int32 Province=ResolveFishingProvince(GetPhysicsVolume());
+   if(MoonfallRegionalFishing::Valid(Province)) Preview->DiscoverRegionalWater(Province);
+   else {
    const FVector WreckCenters[] = {FVector(-2200,-1250,-260),FVector(2200,1250,-260)};
    for (int32 I=0; I<2; ++I) {
     const FVector Offset=WaterRelativePosition-WreckCenters[I];
@@ -806,6 +810,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      }
     }
    }
+  }
   }
  }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;

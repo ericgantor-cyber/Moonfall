@@ -281,10 +281,17 @@ int main() {
     Snapshot.Gathering=BaitMaterials; Snapshot.Workshop=BaitWorkshop;
     Snapshot.Gathering.Catch(0,0,0,true,0);
     Snapshot.Gear.Claim(0,99);
+    assert(Snapshot.Regions.Visit(0) && Snapshot.Regions.Fish(0) && Snapshot.Regions.Gather(0));
+    assert(!Snapshot.Regions.Visit(0) && Snapshot.Regions.Complete(0) && Snapshot.Regions.Completed()==1);
+    assert(!Snapshot.Regions.Visit(9) && !Snapshot.Regions.Fish(-1));
     int Ledger[MoonfallProfessionLedger::Count]={};
     Snapshot.Encode(Ledger);
     assert(Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
     assert(Restored.Gathering.HasLegendary(0) && Restored.Gathering.TrophyCatches==1);
+    assert(Restored.Regions.Complete(0));
+    MoonfallProfessionLedger::FSnapshot Migrated;
+    assert(Migrated.Decode(Ledger,MoonfallProfessionLedger::LegacyCount));
+    assert(Migrated.Regions.Completed()==0 && Migrated.Gathering.HasLegendary(0));
     assert(Restored.Workshop.AvailableMaterials(Restored.Gathering)==10 && Restored.Gear.Count()==1);
     Ledger[4]=100;
     assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
