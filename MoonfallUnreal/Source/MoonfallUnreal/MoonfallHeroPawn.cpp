@@ -232,6 +232,17 @@ int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(int32 Code) const
  return MoonfallEquipmentLayout::SelectCraftRingSlot(Code,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
 }
 
+bool AMoonfallHeroPawn::CanCraftEquipmentCopy(int32 Code,int32 Slot) const
+{
+ // Preserve the current nine-slot crafting behavior. Expanded crafting
+ // must distinguish an unavailable ring target from an actual spare copy.
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return true;
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 I=0;I<MoonfallEquipmentLayout::FullSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
+ return MoonfallEquipmentLayout::CanCraftFullCopy(Code,Slot,Worn,
+     MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
+}
+
 int32 AMoonfallHeroPawn::GetLootComparisonTier(int32 Slot) const
 {
  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
@@ -2787,6 +2798,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
  const int32 Slot = GetCraftEquipmentSlot(Code);
+ if(!CanCraftEquipmentCopy(Code,Slot))return false;
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
@@ -2838,6 +2850,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
  const int32 Affix = Decoded.Trait;
  const int32 Slot = GetCraftEquipmentSlot(Code);
+ if(!CanCraftEquipmentCopy(Code,Slot))return false;
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
@@ -2890,6 +2903,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (Code <= 0) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
  const int32 Slot = GetCraftEquipmentSlot(Code);
+ if(!CanCraftEquipmentCopy(Code,Slot))return false;
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,

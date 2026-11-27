@@ -389,6 +389,16 @@ int main() {
  assert(L::SelectFullRingTarget(CommonRing,AutoRing,24,RingBag)==-1);
  assert(L::SelectCraftRingSlot(CommonRing,AutoRing,24,RingBag)==16);
  assert(L::SelectCraftRingSlot(CommonRing,AutoRing,24,std::array<int,1>{CommonRing})==-1);
+ // No ambiguous missing target may consume a worn ring or corrupt a bag.
+ assert(!L::CanCraftFullCopy(CommonRing,-1,AutoRing,24,RingBag));
+ assert(L::CanCraftFullCopy(CommonRing,16,AutoRing,24,RingBag));
+ assert(!L::CanCraftFullCopy(CommonRing,16,AutoRing,24,std::array<int,1>{CommonRing}));
+ assert(L::CanCraftFullCopy(CommonRing,-1,AutoRing,24,std::array<int,3>{CommonRing,CommonRing,CommonRing}));
+ auto InvalidCraft=AutoRing;
+ InvalidCraft[0]=CommonRing;
+ assert(!L::CanCraftFullCopy(CommonRing,-1,InvalidCraft,24,RingBag));
+ assert(!L::CanCraftFullCopy(CommonRing,16,InvalidCraft,24,RingBag));
+ assert(!L::CanCraftFullCopy(CommonRing,-1,L::FFullLoadout{},24,std::array<int,0>{}));
  assert(L::SelectFullRingTarget(HighRing,AutoRing,24,RingBag)==8);
  L::FFullLoadout FilledRings{};
  std::array<int,11> FilledBag{};

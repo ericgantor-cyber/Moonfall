@@ -147,6 +147,18 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertLess(body.index(guard), body.index("const TArray<int32> PreviousBag"))
         self.assertIn("InventoryItemCodes=PreviousBag;", body)
 
+    def test_expanded_crafting_preflights_physical_copies(self):
+        source = self.source
+        helper = source.split("bool AMoonfallHeroPawn::CanCraftEquipmentCopy(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetLootComparisonTier(", 1)[0]
+        self.assertIn("GetRawEquipmentSlotCode(I)", helper)
+        self.assertIn("MoonfallEquipmentLayout::CanCraftFullCopy(", helper)
+        self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", helper)
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix", "AscendInventoryItemRarity"):
+            body = source.split("bool AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("if(!CanCraftEquipmentCopy(Code,Slot))return false;"),
+                            body.index("InventoryItemCodes[InventoryIndex] = NewCode;"))
+
     def test_crafting_blocks_combat_at_entry_and_between_batch_steps(self):
         for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix", "AscendInventoryItemRarity", "ForgeInventoryItemLevels"):
             body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}\n", 1)[0]
