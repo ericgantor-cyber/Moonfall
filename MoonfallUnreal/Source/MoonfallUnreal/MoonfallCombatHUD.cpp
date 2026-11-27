@@ -32,6 +32,8 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }
+ if(Hero->bInventoryOpen||Hero->bCharacterStatsOpen)
+  Hero->GetValidatedEquipmentCodes(CachedValidatedEquipmentCodes);
  // A hidden bag/character sheet must not retain a previously computed score.
  // Reopening the bag always recomputes advice for its current contents.
  if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
@@ -1928,19 +1930,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Left+23.f,GearTop,nullptr,PanelWidth<440.f?0.57f:0.78f);
     const float CardsTop=GearTop+16.f;
     const float CardsAvailable=GearBottom-CardsTop;
-    const int32 Codes[] = {
-      Hero->GetEquipmentSlotCode(0),Hero->GetEquipmentSlotCode(1),
-      Hero->GetEquipmentSlotCode(2),Hero->GetEquipmentSlotCode(3),
-      Hero->GetEquipmentSlotCode(4),Hero->GetEquipmentSlotCode(5),
-      Hero->GetEquipmentSlotCode(6),Hero->GetEquipmentSlotCode(7),
-      Hero->GetEquipmentSlotCode(8),Hero->GetEquipmentSlotCode(9),
-      Hero->GetEquipmentSlotCode(10),Hero->GetEquipmentSlotCode(11),
-      Hero->GetEquipmentSlotCode(12),Hero->GetEquipmentSlotCode(13),
-      Hero->GetEquipmentSlotCode(14),Hero->GetEquipmentSlotCode(15),
-      Hero->GetEquipmentSlotCode(16),Hero->GetEquipmentSlotCode(17),
-      Hero->GetEquipmentSlotCode(18),Hero->GetEquipmentSlotCode(19),
-      Hero->GetEquipmentSlotCode(20),Hero->GetEquipmentSlotCode(21),
-      Hero->GetEquipmentSlotCode(22),Hero->GetEquipmentSlotCode(23)};
+    const TArray<int32>& Codes=CachedValidatedEquipmentCodes;
     const TCHAR* SlotNames[] = {
       TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY"),TEXT("HEAD"),
       TEXT("SHOULDERS"),TEXT("HANDS"),TEXT("LEGS"),TEXT("FEET"),
@@ -1969,9 +1959,10 @@ void AMoonfallCombatHUD::DrawHUD()
        (CardsAvailable-ResourceReserve-GridGaps)/FMath::Max(1,GridRows),10.f,46.f);
      const float GridWidth=(PanelWidth-36.f)/GridColumns;
      for (int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot) {
-      const int32 Tier=Hero->GetValidatedEquippedTier(Slot);
-      const bool bEquipped=Tier>0;
+      if(!Codes.IsValidIndex(Slot))continue;
       const auto Decoded=MoonfallEquipmentLayout::DecodeFullItem(Codes[Slot]);
+      const int32 Tier=Decoded.Tier;
+      const bool bEquipped=Decoded.IsValid();
       const int32 Rarity=bEquipped ? Decoded.Rarity : 0;
       const int32 Trait=bEquipped ? Decoded.Trait : 0;
       const bool bValid=bEquipped && Decoded.IsValid() && Rarity>=0 && Rarity<6
@@ -2253,6 +2244,7 @@ void AMoonfallCombatHUD::DrawHUD()
        Slot == 0 ? 0.55f : 0.68f);
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
+  const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
@@ -2293,9 +2285,9 @@ void AMoonfallCombatHUD::DrawHUD()
    if(bValid&&MoonfallEquipmentLayout::IsRingSlot(Slot)
       &&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
     for(int32 Ring:MoonfallEquipmentLayout::RingSlots)
-     if(Ring<MoonfallEquipmentLayout::ActiveSlotCount&&Hero->GetEquipmentSlotCode(Ring)==Code)
+     if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]==Code)
       {bEquipped=true;break;}
-   }else if(bValid)bEquipped=Code==Hero->GetEquipmentSlotCode(Slot);
+   }else if(bValid)bEquipped=WornCodes.IsValidIndex(Slot)&&Code==WornCodes[Slot];
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -2492,14 +2484,15 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bFlexibleRingCandidate=bValidSelection
       &&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
       &&MoonfallEquipmentLayout::IsRingSlot(SelectedSlot);
-    const int32 EquippedCode=bFlexibleRingCandidate?0:Hero->GetEquipmentSlotCode(SelectedSlot);
+    const int32 EquippedCode=bFlexibleRingCandidate?0
+      :(WornCodes.IsValidIndex(SelectedSlot)?WornCodes[SelectedSlot]:0);
     const int32 EquippedTier=EquippedCode>0?MoonfallEquipmentLayout::DecodeFullItem(EquippedCode).Tier:0;
     const int32 EquippedRarity=EquippedCode>0?MoonfallEquipmentLayout::DecodeFullItem(EquippedCode).Rarity:0;
     const int32 EquippedAffix=EquippedCode>0?MoonfallEquipmentLayout::DecodeFullItem(EquippedCode).Trait:0;
     bool bAlreadyEquipped=bValidSelection&&SelectedCode==EquippedCode;
     if(bFlexibleRingCandidate){
      for(int32 Ring:MoonfallEquipmentLayout::RingSlots)
-      if(Ring<MoonfallEquipmentLayout::ActiveSlotCount&&Hero->GetEquipmentSlotCode(Ring)==SelectedCode)
+      if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]==SelectedCode)
        {bAlreadyEquipped=true;break;}
     }
     // The power delta for a flexible ring compares against its best eligible finger.
@@ -2548,11 +2541,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // bag, so avoid repeating it at HUD frame rate on 9,999-item inventories.
   // Changing selection, equipped gear, count or selected item invalidates it.
   // Hash all active slots so ring swaps refresh immediately without a bag scan.
-  uint32 AdvisorLoadoutHash=2166136261u;
-  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot){
-   AdvisorLoadoutHash^=static_cast<uint32>(Hero->GetEquipmentSlotCode(Slot));
-   AdvisorLoadoutHash*=16777619u;
-  }
+  const uint32 AdvisorLoadoutHash=Hero->GetEquipmentLoadoutFingerprint();
   const double AdvisorNow = FPlatformTime::Seconds();
   const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
