@@ -39,6 +39,35 @@ output from any unsuccessful build and attach the first compiler error and surro
 can trigger workflow runs, avoid adding repository secrets to the build process,
 and keep the runner and developer toolchain updated.
 
+## Experimental V19 equipment editor verification
+
+On the V19 preview branch only, use a disposable Windows checkout and test
+profile (including unrelated saved data). Do not use a production player profile.
+The default is still nine active slots and packaged builds remain V17.
+
+For a self-hosted dispatch, select both `compile_on_self_hosted` and
+`v19_editor_preview`. The required equipment automation asserts that the
+compiled module actually matches the requested mode. For local editor tests:
+
+```powershell
+$env:MOONFALL_V19_EDITOR_PREVIEW = '1'
+try {
+    ./MoonfallUnreal/Build/Test-DungeonNative.ps1 -UnrealRoot $env:UE54_ROOT
+} finally {
+    Remove-Item Env:MOONFALL_V19_EDITOR_PREVIEW -ErrorAction SilentlyContinue
+}
+```
+
+Use a fresh checkout/build if UnrealBuildTool reuses a cached configuration.
+The preview uses a separate character checkpoint, but unrelated persistence
+systems are not isolated by this flag. The memory round-trip test does not
+load a real player's checkpoint. Before production activation, verify native
+compilation, the required automation report, actual V17-to-V19 migration on
+a disposable copied fixture, all ten ring positions, equip/swap/unequip,
+crafting, controller navigation, and save/relaunch. Do not copy V19 saves
+back into the normal V17 slot. Portable policy results alone cannot authorize
+production activation.
+
 ## What counts as verified
 
 - **Source checks passed:** Source layout, project metadata, Python balance checks and
