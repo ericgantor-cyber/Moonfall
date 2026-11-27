@@ -11,6 +11,7 @@
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallFishing.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -37,6 +38,43 @@ public:
  virtual void BeginPlay() override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
+ // Runtime water state; never serialized to character or checkpoint saves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float Oxygen = 100.f;
+ // Runtime-derived from validated equipment; shared with the HUD.
+ float WaterBreathScale = 1.f;
+ float WaterTonicRemaining = 0.f;
+ float WaterSwimScale = 1.f;
+ MoonfallFishing::FSession Fishing;
+ FVector FishingOrigin=FVector::ZeroVector;
+ FVector FishingBobber=FVector::ZeroVector;
+ float FishingNoticeUntil=0.f;
+ bool bFishingCaught=false;
+ bool CanContinueFishing() const;
+ bool TryFishingAction();
+ void FishingAction() { TryFishingAction(); }
+ void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSwimming = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSubmerged = false;
+ // Camera depth drives presentation independently of the hero's breathing.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCameraDepth = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterStrokeSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterVerticalSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCurrentStrength = 0.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Water")
+ void OnSwimmingStateChanged(bool bSwimming, bool bSubmerged);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bInsideAirPocket = false;
+ // Tap-to-toggle vertical swimming; no sustained key hold required.
+ int32 WaterVerticalIntent = 0;
+ float DrowningExposureSeconds = 0.f;
+ bool bApplyingDrowningDamage = false;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
@@ -93,6 +131,8 @@ public:
  float GetResidentContextRowPitch(float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
+ // -1 merchant, -2 recipe list, 0-2 recipe detail.
+ int32 OceanRecipePage = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
  float ResidentTurnInConfirmAfter = 0.f;
@@ -376,6 +416,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SetAutoLootEnabled(bool bEnabled);
  float AutoLootElapsed = 0.f;
+ bool bAutoLootDispatch = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;

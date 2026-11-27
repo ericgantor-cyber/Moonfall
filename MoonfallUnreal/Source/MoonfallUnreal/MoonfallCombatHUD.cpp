@@ -12,6 +12,9 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallWaterRules.h"
+#include "MoonfallAquaticProfiles.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -60,6 +63,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(HitRed,0.f,0.f,Border,Canvas->SizeY);
    DrawRect(HitRed,Canvas->SizeX-Border,0.f,Border,Canvas->SizeY);
   }
+ }
+ // Keep critical breath warnings visible above menus, without a flashing effect.
+ if (bLiveMenuOpen && Hero->bWaterSwimming && Hero->bWaterSubmerged
+     && !Hero->bInsideAirPocket && FMath::IsFinite(Hero->Oxygen)
+     && Hero->Oxygen <= 20.f && Canvas->SizeX >= 300 && Canvas->SizeY >= 120) {
+  const float X = (Canvas->SizeX - 260.f)*0.5f;
+  const int32 Seconds = FMath::CeilToInt(FMath::Max(0.f,Hero->Oxygen)
+      / MoonfallWaterRules::EffectiveDrain(Hero->WaterBreathScale));
+  DrawRect(FLinearColor(0.16f,0.025f,0.04f,0.96f),X,8.f,260.f,32.f);
+  DrawText(Seconds == 0 ? FString(TEXT("DROWNING | CLOSE MENU"))
+      : FString::Printf(TEXT("LOW BREATH %ds | CLOSE MENU"),Seconds),
+      FLinearColor::White,X+8.f,14.f,nullptr,0.85f);
  }
  };
  // Shared, fixed-cost panel frame for all major Unreal menus.
@@ -704,6 +719,9 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
+   if (!(Hero->OceanRecipePage>=0 && Hero->OceanRecipePage<3 &&
+       Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview"))) &&
+       Resident->ResidentId==FName(TEXT("MoonwatchTrader"))))
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
      *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
      Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
@@ -718,7 +736,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const auto QuestReward=MoonfallQuestXP::Preview(ContractCost,Hero->Level,
        Hero->Experience,Hero->ExperienceToNextLevel);
    const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu;
-   const FString QuestAction = bNoContract ? TEXT("No contract")
+   const auto* IslandPreview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+   const bool bIslandTrader=IsValid(IslandPreview) && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+       && Resident->ResidentId==FName(TEXT("MoonwatchTrader"));
+   const FString QuestAction = bIslandTrader
+       ? FString::Printf(TEXT("Buy breath tonic (%d credits)"),IslandPreview->GetIslandTonicPrice())
+       : bNoContract ? TEXT("No contract")
      : Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? (Hero->Salvage<ContractCost ? TEXT("Need salvage") : TEXT("Turn in salvage")) : TEXT("Completed");
    FString Names[9] = { TEXT("Talk"),
@@ -726,6 +749,22 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
+   const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
+   const bool bRecipeDetail=RecipePage>=0&&RecipePage<3;
+   const bool bRecipeReady=bRecipeDetail && IslandPreview->CanCraftOceanRecipe(RecipePage);
+   const TCHAR* RecipeNames[]={TEXT("Water-breathing tonic"),TEXT("Tidebound accessory"),TEXT("Tidebound footwear")};
+   if(bIslandTrader){
+    Names[3]=TEXT("Crafting workshop");
+    if(RecipePage==-2){
+     for(int32 I=0;I<3;++I) Names[I]=FString::Printf(TEXT("%s | %s"),RecipeNames[I],
+        IslandPreview->CanCraftOceanRecipe(I)?TEXT("Ready"):TEXT("Unavailable"));
+     Names[3]=TEXT("Back to merchant");
+    } else if(bRecipeDetail){
+     Names[0]=bRecipeReady?TEXT("Craft / Upgrade"):TEXT("Cannot craft");
+     Names[1]=TEXT("Back to recipes");
+     Names[2]=TEXT("Close");
+    }
+   }
    if(Hero->bResidentCompanionMenu){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     const bool bRecruited=Mode&&Mode->GetLocalCompanion()==Resident;
@@ -803,7 +842,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (Row == Hero->ResidentContextSelection)
      DrawSelectionRail(L+14.f,Y,Pitch-10.f);
     DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
-    DrawText(Names[Row], !Hero->bResidentCompanionMenu && Row == 1 && (Resident->bAmbientVisitor || Quest == 2)
+    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
@@ -814,8 +853,11 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString ContextStatus=Hero->bResidentCompanionMenu
      ? FString::Printf(TEXT("Bond rank %d / 3 | %s"),CompanionRank,
          CompanionRank==3?TEXT("Veteran"):CompanionRank==2?TEXT("Proven"):CompanionRank==1?TEXT("Trusted"):TEXT("Not eligible"))
+     : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
+   if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
     const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
     if(Mode&&Mode->GetLocalCompanion()==Resident)
@@ -842,12 +884,27 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
            Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
+   if (bRecipeDetail) {
+    FString Reagents;
+    if(RecipePage==0) Reagents=FString::Printf(TEXT("Kelp %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(0)),IslandPreview->GetAvailableOceanFish());
+    else if(RecipePage==1) Reagents=FString::Printf(TEXT("Pearl %d/1 | Coral %d/1"),int32(IslandPreview->HasOceanCraftMaterial(1)),int32(IslandPreview->HasOceanCraftMaterial(2)));
+    else Reagents=FString::Printf(TEXT("Salt %d/1 | Fish %d/1"),int32(IslandPreview->HasOceanCraftMaterial(3)),IslandPreview->GetAvailableOceanFish());
+    const TCHAR* Ranks[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+    const int32 Rank=RecipePage>0?IslandPreview->GetGrottoGearRarity(RecipePage-1):-1;
+    const FString Output=RecipePage==0?FString::Printf(TEXT("Tonics %d/3 -> +1"),IslandPreview->GetBreathingTonicCharges()):
+      Rank<1||Rank>5?FString(TEXT("Requires Tidebound loan gear")):
+      Rank==5?FString(TEXT("Maximum rarity reached")):
+      FString::Printf(TEXT("%s -> %s"),Ranks[Rank],Ranks[Rank+1]);
+    DrawText(Reagents,bRecipeReady?FLinearColor(0.45f,0.94f,0.60f):FLinearColor(0.95f,0.65f,0.38f),L+18.f,T+53.f,nullptr,0.78f);
+    if (!(Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds()<Hero->ResidentFeedbackUntil))
+     DrawText(Output,FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,0.72f);
+   }
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
@@ -2684,10 +2741,119 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawLiveMenuHitCue();
   return;
  }
+ // Camera-local underwater overlay: fixed work, no emitters, no world scans.
+ // Draw beneath the combat HUD and skip motion entirely when requested.
+ if (FMath::IsFinite(Hero->WaterCameraDepth) && Hero->WaterCameraDepth>0.f
+     && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const float Depth=FMath::Clamp(Hero->WaterCameraDepth/500.f,0.f,1.f);
+  const float W=Canvas->SizeX, H=Canvas->SizeY;
+  DrawRect(FLinearColor(0.02f,0.30f,0.38f,0.045f+0.065f*Depth),0.f,0.f,W,H);
+  if (!Hero->bReduceMotion && GetWorld()) {
+   const float Now=GetWorld()->GetTimeSeconds();
+   if (FMath::IsFinite(Now)) {
+    for (int32 I=0;I<6;++I) {
+     const float X=(I%2==0?0.07f:0.91f)*W + float(I/2)*4.f;
+     const float Y=H*(1.f-FMath::Fmod(Now*0.10f+float(I)*0.173f,1.f));
+     const float S=2.f+float(I%3);
+     DrawRect(FLinearColor(0.50f,0.86f,0.91f,0.22f),X,Y,S,S);
+    }
+   }
+  }
+ }
+ // Three bounded preview contracts; no additional quest scan or persistent slots.
+ if (GetWorld() && Canvas->SizeX>=620 && Canvas->SizeY>=360) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview)) {
+   int32 Active=0;
+   for (int32 I=0; I<3; ++I) if (Preview->GetIslandQuestState(I)==1) ++Active;
+   if (Active>0) {
+    const float X=Canvas->SizeX-270.f,Y=110.f;
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,258.f,28.f+22.f*Active);
+    DrawText(TEXT("MOONWATCH CONTRACTS"),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+5.f,nullptr,0.8f);
+    int32 Row=0;
+    const TCHAR* Names[]={TEXT("Wreck survey"),TEXT("Cavern survey"),TEXT("Grotto recovery")};
+    for (int32 I=0; I<3; ++I) if (Preview->GetIslandQuestState(I)==1) {
+     const int32 Progress=Preview->GetIslandQuestProgress(I),Required=MoonfallIslandQuest::Required(I);
+     DrawText(FString::Printf(TEXT("%s: %d/%d%s"),Names[I],Progress,Required,Progress>=Required?TEXT(" - return"):TEXT("")),
+       FLinearColor::White,X+8.f,Y+26.f+22.f*Row++,nullptr,0.74f);
+    }
+   }
+  }
+ }
+ // Fishing feedback and projected bobber use the existing HUD, no actor per cast.
+ if (GetWorld() && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview) && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+      && !Hero->bWaterSwimming) {
+   const float X=(Canvas->SizeX-252.f)*0.5f,Y=Canvas->SizeY*0.62f;
+   const auto Stage=Hero->Fishing.Stage;
+   const bool bBite=Stage==MoonfallFishing::EStage::Bite;
+   const bool bActive=Stage!=MoonfallFishing::EStage::Idle;
+   const FLinearColor Ink=bBite?FLinearColor(1.f,0.8f,0.25f):FLinearColor(0.44f,0.88f,0.91f);
+   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
+   DrawText(FString::Printf(TEXT("FISH %d/30 | MATERIALS %d/12"),Preview->GetOceanCatchCount(),
+     Preview->GetOceanMaterialCount()),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
+   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?TEXT("Waiting for a bite..."):
+      bBite?TEXT("BITE! N / X: Hook"):
+      Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
+      GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
+      (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch limit reached")):
+      TEXT("Face water | N / X: Cast");
+   DrawText(Prompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
+   DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
+     Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
+   if(bActive && GetOwningPlayerController()) {
+    FVector2D Screen;
+    if(GetOwningPlayerController()->ProjectWorldLocationToScreen(Hero->FishingBobber,Screen)
+       && FMath::IsFinite(Screen.X)&&FMath::IsFinite(Screen.Y)
+       && Screen.X>=8.f&&Screen.X<=Canvas->SizeX-8.f&&Screen.Y>=8.f&&Screen.Y<=Canvas->SizeY-8.f) {
+     DrawRect(Ink,Screen.X-4.f,Screen.Y-4.f,8.f,8.f);
+     if(bBite) DrawText(TEXT("!"),Ink,Screen.X-3.f,Screen.Y-23.f,nullptr,1.1f);
+    }
+   }
+  }
+ }
+ // Temporary contextual resource, independent of the three permanent orbs.
+ if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
+  const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
+  const float W = 252.f;
+  const float X = (Canvas->SizeX-W)*0.5f;
+  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-182.f);
+  const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
+  DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
+  const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
+      Hero->WaterBreathScale));
+  DrawText(Hero->WaterTonicRemaining > 0.f ? FString::Printf(TEXT("WATER BREATHING %ds"),FMath::CeilToInt(Hero->WaterTonicRemaining)) : Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),(Hero->bInsideAirPocket || Hero->WaterTonicRemaining > 0.f) ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
+  DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
+  DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
+  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
+  if (Hero->WaterCurrentStrength > 0.01f && Hero->WaterTonicRemaining <= 0.f)
+   DrawText(TEXT("CURRENT"),FLinearColor(0.40f,0.88f,0.95f),X+162.f,Y+3.f,nullptr,0.75f);
+  else if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
+   DrawText(FString::Printf(TEXT("+%.0f%% SWIM"),(Hero->WaterSwimScale-1.f)*100.f),AirColor,X+150.f,Y+3.f,nullptr,0.75f);
+  if (GetWorld()) {
+   const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   if (IsValid(Preview)) {
+    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,116.f);
+    DrawText(FString::Printf(TEXT("G %d/6 | WRECK %d/2 | CAVE %d"),Preview->GetGrottoClaimCount(),Preview->GetWreckDiscoveryCount(),Preview->GetCaveDiscoveryCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
+    const int32 Pieces=Preview->GetGrottoSetPieces();
+    DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
+    DrawText(Pieces>=3 ? TEXT("+10% BREATH | +10% SWIM") : Pieces>=2 ? TEXT("+10% BREATH | 3PC: +SWIM") : TEXT("2PC: BREATH | 3PC: SWIM"),FLinearColor(0.42f,0.86f,0.82f),X+8.f,Y+98.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("BREATH TONICS %d | AUTO AT 10%%"),Preview->GetBreathingTonicCharges()),FLinearColor(0.44f,0.88f,0.91f),X+8.f,Y+116.f,nullptr,0.72f);
+    const int32 Event=Preview->GetOceanActivity();
+    DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
+      Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
+      Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("MATERIALS %d/12 | FISH %d/30"),Preview->GetOceanMaterialCount(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
+   }
+  }
+ }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
+ const AMoonfallEnemy* AquaticTarget = nullptr;
+ double AquaticDistanceSq = FMath::Square(650.f);
  int32 NearbySwordTell = -1;
  float SwordTellDistanceSq = FMath::Square(650.f);
  float BossDistanceSq = FMath::Square(3000.f);
@@ -2718,6 +2884,11 @@ void AMoonfallCombatHUD::DrawHUD()
   if (bHasRecentDamage) NearbyDamageEnemies.Add(E);
   // No live combat HUD elements are visible beyond the boss alert radius.
   if (DistSq >= FMath::Square(3000.f) || !FMath::IsFinite(E->Health) || E->Health <= 0.f) continue;
+  if (Hero->bWaterSwimming && E->ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
+      && DistSq < AquaticDistanceSq && E->GetAquaticWarningRemaining(WorldTime)>0.f) {
+   AquaticTarget = E;
+   AquaticDistanceSq = DistSq;
+  }
   if (DistSq < SwordTellDistanceSq) {
    const int32 Tell = E->GetDirectionalWindup(WorldTime, HeroLocation);
    if (MoonfallOmniattack::ValidAngle(Tell)) {
@@ -2732,6 +2903,17 @@ void AMoonfallCombatHUD::DrawHUD()
    PostureTarget = E;
    PostureDistanceSq = DistSq;
   }
+ }
+ if (IsValid(AquaticTarget) && Canvas->SizeX>=360 && Canvas->SizeY>=240) {
+  const auto P = MoonfallAquatic::Profile(AquaticTarget->AquaticProfileId);
+  const float W = FMath::Min(300.f, Canvas->SizeX-20.f);
+  const float X = (Canvas->SizeX-W)*0.5f;
+  const float Y = Canvas->SizeY*0.25f;
+  DrawRect(FLinearColor(0.035f,0.055f,0.09f,0.96f),X,Y,W,64.f);
+  DrawText(FString::Printf(TEXT("%s | PHASE %d"),P.Name,AquaticTarget->GetAquaticPhase()),FLinearColor::White,X+8.f,Y+4.f,nullptr,0.85f);
+  const auto Move = MoonfallAquatic::Move(AquaticTarget->AquaticProfileId,AquaticTarget->GetAquaticCommittedMove());
+  DrawText(FString::Printf(TEXT("%s  %.1fs"),Move.Name,AquaticTarget->GetAquaticWarningRemaining(WorldTime)),FLinearColor(1.f,0.72f,0.35f),X+8.f,Y+23.f,nullptr,0.82f);
+  DrawText(Move.bUnblockable ? TEXT("SWIM AWAY | UNBLOCKABLE") : TEXT("GUARD / PARRY | MOVE CLEAR"),Move.bUnblockable ? FLinearColor(1.f,0.34f,0.30f) : FLinearColor::White,X+8.f,Y+41.f,nullptr,0.76f);
  }
  // Fixed high-contrast text, no flashing or extra world scan. Boss alerts take priority.
  if (MoonfallOmniattack::ValidAngle(NearbySwordTell)

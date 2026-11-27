@@ -206,7 +206,10 @@ assert "FindSafeDryLandingAt(Hero, this, OriginalBoardingLocation, SafeOriginal)
 assert "Hero->TeleportTo(SafeOriginal," in cleanup
 assert "Hero->TeleportTo(Fallback" in cleanup
 assert "FindSafeDryLanding(Hero, this, Fallback)" in cleanup
-assert "if (!bArrived && bVoyagerOnDeck && IsValid(Hero))" in cleanup
+assert "if (!bArrived && !bSwimmingDeparture && bVoyagerOnDeck && IsValid(Hero))" in cleanup
+assert "Hero->GetCharacterMovement()->IsSwimming()" in cleanup
+assert "bool bRescued = bArrived || bSwimmingDeparture;" in cleanup
+assert cleanup.index("const bool bSwimmingDeparture") < cleanup.index("FindSafeDryLandingAt(Hero")
 assert "OriginalBoardingLocation.SizeSquared() < 1.0e14f" not in cleanup
 # The old raw original-location teleport was unsafe if dock collision vanished.
 assert "Hero->TeleportTo(OriginalBoardingLocation" not in cleanup
