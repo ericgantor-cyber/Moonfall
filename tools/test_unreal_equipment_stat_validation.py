@@ -162,6 +162,15 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("MoonfallEquipmentLayout::IsRingSlot(Slot)", mastery)
         self.assertIn("GetNativeRingBonuses().LuckBps / 100", source)
         self.assertIn("GetNativeRingBonuses().LuckBps * 0.0001f", source)
+    def test_expanded_equip_best_preserves_callback_ring_changes_and_health_guard(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("!IsActorBeingDestroyed()&&GetWorld()", body)
+        self.assertIn("FMath::IsFinite(MaxHealth)&&MaxHealth>=1.f", body)
+        self.assertIn("BeforeRings[Slot]!=Initial[Slot]", body)
+        self.assertIn("bRingSelectionChanged?MoonfallEquipmentLayout::FFullPlan{}", body)
+        self.assertLess(body.index("if(!bRingSelectionChanged&&RingPlan.Changes>0"), body.index("=RingPlan.Codes[Slot]"))
+
     def test_expanded_equip_best_revalidates_and_commits_rings_atomically(self):
         source = self.source
         body = source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(

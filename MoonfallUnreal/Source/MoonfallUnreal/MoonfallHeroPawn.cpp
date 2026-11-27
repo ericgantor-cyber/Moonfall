@@ -3974,9 +3974,10 @@ int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()
  // Called only after the shared public entry point's modal/reentry checks.
  TGuardValue<bool> BatchGuard(bEquipBestInProgress,true);
  const auto CanContinue=[this](){
-  return IsValid(this)&&!IsActorBeingDestroyed()&&bInventoryOpen&&!bOptionsOpen
+  return IsValid(this)&&!IsActorBeingDestroyed()&&GetWorld()&&bInventoryOpen&&!bOptionsOpen
    &&!bCharacterStatsOpen&&!bSpellBookOpen&&!bTalentWebOpen&&!bAtlasOpen
    &&!bResidentContextOpen&&!FocusedResident.IsValid()&&FMath::IsFinite(Health)
+   &&FMath::IsFinite(MaxHealth)&&MaxHealth>=1.f
    &&Health>=0.f&&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress
    &&!bTalentAllocationInProgress&&!bEquipmentCraftInProgress;
  };
@@ -4009,8 +4010,16 @@ int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()
  // or expose a partially applied loadout to autosave or callbacks.
  if(CanContinue()&&Health>0.f&&!IsRecentlyInCombatForAmbientAI()){
   const auto BeforeRings=ReadRaw();
-  const auto RingPlan=MoonfallEquipmentLayout::PlanFlexibleRings(BeforeRings,MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes);
-  if(RingPlan.Changes>0&&MoonfallEquipmentLayout::IsFullLoadoutOwned(RingPlan.Codes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)){
+  // A fixed-gear notification may explicitly change a ring. Preserve that
+  // choice instead of silently overwriting it with the automatic ring plan.
+  bool bRingSelectionChanged=false;
+  for(int32 Slot:MoonfallEquipmentLayout::RingSlots){
+   if(Slot>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+   if(BeforeRings[Slot]!=Initial[Slot]){bRingSelectionChanged=true;break;}
+  }
+  const auto RingPlan=bRingSelectionChanged?MoonfallEquipmentLayout::FFullPlan{}:
+   MoonfallEquipmentLayout::PlanFlexibleRings(BeforeRings,MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes);
+  if(!bRingSelectionChanged&&RingPlan.Changes>0&&MoonfallEquipmentLayout::IsFullLoadoutOwned(RingPlan.Codes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)){
    for(int32 Slot:MoonfallEquipmentLayout::RingSlots){
     if(Slot>=MoonfallEquipmentLayout::ActiveSlotCount)break;
     ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=RingPlan.Codes[Slot];
