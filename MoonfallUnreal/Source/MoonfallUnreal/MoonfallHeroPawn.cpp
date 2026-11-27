@@ -6353,6 +6353,10 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?9:3;
  }
+ if (IsValid(Resident) && bPersistentSaveWritesBlocked && GetWorld()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return 6;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -6748,6 +6752,18 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   ResidentFeedbackMessage=Notice;
   ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
   return bSuccess;
+ }
+ if (Choice>=3 && Choice<=5 && GetResidentContextRowCount()==6
+     && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) {
+  auto* Preview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+  const bool bCrafted=IsValid(Preview) && bPersistentSaveWritesBlocked && !bWaterSwimming
+      && HasAuthority() && !IsRecentlyInCombatForAmbientAI()
+      && Preview->CraftOceanRecipe(Choice-3);
+  ResidentFeedbackMessage=bCrafted?TEXT("Recipe crafted."):
+      TEXT("Need materials, eligible gear or room; no combat.");
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  return bCrafted;
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
