@@ -21,6 +21,7 @@ public:
  int32 AquaticProfileId = 0;
  float GetAquaticWarningRemaining(float Now) const;
  int32 GetAquaticPhase() const;
+ float GetMaxHealthAtSpawn() const { return MaxHealthAtSpawn; }
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
