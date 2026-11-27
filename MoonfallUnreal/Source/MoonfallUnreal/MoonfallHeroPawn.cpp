@@ -3854,7 +3854,7 @@ bool AMoonfallHeroPawn::TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSk
     ||!GetWorld()||!IsPlayerControlled()||!FMath::IsFinite(Health)||Health<=0.f
     ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked||!bWorldProgressInitialized)return false;
  auto* Ledger=GetSessionMastery();
- if(!Ledger||!MoonfallSkillMastery::TryCollect(*Ledger,Region,Index,Kind,true,*Ledger))return false;
+ if(!Ledger||!MoonfallSkillMastery::TryCollectWithTrailReward(*Ledger,Region,Index,Kind,true,*Ledger))return false;
  GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()->bMasteryLedgerRestored=true;
  return true;
 }
@@ -3879,6 +3879,17 @@ float AMoonfallHeroPawn::SkillMasteryBonus(MoonfallSkillMastery::Skill Skill) co
 int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
 {
  return MoonfallSkillMastery::Rank(GetSkillMasteryXP(SkillIndex));
+}
+
+int32 AMoonfallHeroPawn::GetRegionMasteryOrbCount(int32 Region) const
+{
+ const auto* Ledger=GetSessionMastery();
+ return Ledger?MoonfallSkillMastery::RegionOrbCount(*Ledger,Region):-1;
+}
+int32 AMoonfallHeroPawn::GetCompletedMasteryTrails(int32 Region) const
+{
+ const auto* Ledger=GetSessionMastery();
+ return Ledger?MoonfallSkillMastery::CompletedTrails(*Ledger,Region):-1;
 }
 
 int32 AMoonfallHeroPawn::GetCollectedMasteryRouteOrbs() const
