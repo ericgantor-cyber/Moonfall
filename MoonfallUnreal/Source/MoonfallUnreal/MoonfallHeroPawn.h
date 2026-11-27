@@ -44,6 +44,8 @@ public:
  bool bWaterSwimming = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSubmerged = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
  float DrowningExposureSeconds = 0.f;
