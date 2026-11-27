@@ -5,6 +5,7 @@ namespace MoonfallIslandQuest
     constexpr int Required(int Id) { return Id==0?2:Id==1?2:Id==2?6:0; }
     struct FJournal {
         unsigned Accepted=0, Completed=0;
+        int Credits=0;
         int Talk(int Id,int Progress) {
             if (Required(Id)==0) return 0;
             const unsigned Bit=1u<<Id;
@@ -12,12 +13,22 @@ namespace MoonfallIslandQuest
             if (!(Accepted&Bit)) { Accepted|=Bit; return 1; }
             if (Progress<Required(Id)) return 1;
             Completed|=Bit;
+            Credits+=2;
             return 2;
         }
         int State(int Id) const {
             if (!Required(Id)) return 0;
             const unsigned Bit=1u<<Id;
             return Completed&Bit?2:Accepted&Bit?1:0;
+        }
+        int Reputation() const { return Count()*30; }
+        int TonicPrice() const { return Count()>=3?1:2; }
+        bool BuyTonic(int& Stock) {
+            const int Price=TonicPrice();
+            if (Stock<0 || Stock>=3 || Credits<Price || Credits>6) return false;
+            Credits-=Price;
+            ++Stock;
+            return true;
         }
         int Count() const {
             int N=0; for (int I=0;I<3;++I) if (Completed&(1u<<I)) ++N; return N;
