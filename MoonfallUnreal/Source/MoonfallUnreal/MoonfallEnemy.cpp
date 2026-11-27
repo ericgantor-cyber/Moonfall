@@ -1388,8 +1388,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
   }
   if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f && Now >= NextAttackAt) {
-   // Small-pack coordination: avoid three ordinary enemies delivering their
-   // tells at once. Scan only at attack decisions, not on every AI tick;
+   // Small-pack coordination: yield to active nearby attack tells.
+   // Leaders retry sooner, but never bypass another committed attack. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
    static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));
    const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);
@@ -1409,7 +1409,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // candidate budget or delaying another enemy's attack.
      if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
          || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
-         || Other->bBoss || (Other->bElite && !bDungeonRole)) continue;
+         || Other->bBoss || (Other->bElite && !bDungeonRole)
+         || Other->ActorHasTag(PracticeSimulationTag)) continue;
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
      const bool bDungeonMember = bDungeonRole;
@@ -1424,7 +1425,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // positions too, while preserving the outer 64-actor scan limit.
      const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin);
      if (!FMath::IsFinite(AllyDistanceSquared)
-         || AllyDistanceSquared >= FMath::Square(550.f)) continue;
+         || AllyDistanceSquared >= FMath::Square(550.f)
+         || Other->GetActorLocation().ContainsNaN()
+         || FMath::Abs(Other->GetActorLocation().Z-PackOrigin.Z)>100.0) continue;
      ++ConsideredAllies;
      // A corrupt infinite windup must not reserve an attack slot forever.
      // Failed/NaN timers also cannot represent a real active warning.
@@ -1433,8 +1436,22 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      }
     }
     if (MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)) {
-     const float SlotDelay = MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID());
+     const bool bLeader = bElite && bDungeonRole
+       && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
+       && ActorHasTag(FName(TEXT("DungeonPackLeader")));
+     const float SlotDelay = MoonfallPackTactics::RoleAdjustedSlotDelay(
+       MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID()),bLeader);
      NextAttackAt = Now + SlotDelay;
+     const float YieldStep=MoonfallPackTactics::YieldRepositionStep(Distance,AttackRange,SafeAIDelta,
+       !bElite&&bCanSeeHero&&Now>=HitReactionEndsAt&&Now>=PostureBrokenUntil);
+     if(YieldStep>0.f){
+      const FVector Side(-Difference.Y,Difference.X,0.f);
+      const FVector Offset=Side.GetSafeNormal2D()*MoonfallPackTactics::ApproachLaneSign(GetUniqueID())*YieldStep;
+      if(!Offset.ContainsNaN()&&!Offset.IsNearlyZero()){
+       FHitResult YieldHit;
+       AddActorWorldOffset(Offset,true,&YieldHit);
+      }
+     }
      return;
     }
    }
