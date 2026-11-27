@@ -2283,6 +2283,7 @@ void AMoonfallCombatHUD::DrawHUD()
      TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),
      TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),
      TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+   static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Inventory slot labels must match the full layout");
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const bool bValid = Decoded.IsValid()
@@ -2415,6 +2416,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),
       TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),
       TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+    static_assert(UE_ARRAY_COUNT(DetailSlots)==MoonfallEquipmentLayout::FullSlotCount,"Detail labels must match the full layout");
     const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
       TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
     const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
