@@ -235,6 +235,20 @@ int main() {
  }
  assert(L::IsFullLoadoutOwned(Dense,24,Large));
  assert(Large.Traversals==1);
+ // Activation prerequisite: migrate a fully occupied V19 record containing
+ // ten identical ring references with ten physical bag copies.
+ const std::vector<int> DenseOwned(Dense.begin(),Dense.end());
+ L::FFullLoadout DenseRestored{};
+ assert(L::TryRestoreFlexibleFullLoadout(Dense.data(),3,Dense.data(),24,19,DenseOwned,DenseRestored));
+ assert(DenseRestored==Dense);
+ assert(L::FullWornCopies(CommonRing,DenseRestored,24)==L::RingSlotCount);
+ assert(L::BuildRingBonuses(DenseRestored,24,DenseOwned).EquippedCount==L::RingSlotCount);
+ auto DenseMissing=DenseOwned;
+ DenseMissing.pop_back();
+ assert(!L::TryRestoreFlexibleFullLoadout(Dense.data(),3,Dense.data(),24,19,DenseMissing,DenseRestored));
+ assert(DenseRestored==Dense);
+ assert(!L::BuildRingBonuses(DenseRestored,24,DenseMissing).Valid);
+
  Large.Items.pop_back();
  Large.Traversals=0;
  assert(!L::IsFullLoadoutOwned(Dense,24,Large));
