@@ -26,7 +26,8 @@ def main():
     preview_mode = getattr(unreal, "MoonfallNorthPreviewGameMode", None)
     pocket_class = getattr(unreal, "MoonfallAirPocket", None)
     treasure_class = getattr(unreal, "MoonfallGrottoTreasure", None)
-    if preview_mode is None or pocket_class is None or treasure_class is None:
+    enemy_class = getattr(unreal, "MoonfallEnemy", None)
+    if any(cls is None for cls in (preview_mode, pocket_class, treasure_class, enemy_class)):
         raise RuntimeError("Compile MoonfallUnreal before installing the preview")
     if world.get_world_settings().get_editor_property("default_game_mode") != preview_mode:
         raise RuntimeError("Use the save-isolated MoonfallNorthPreviewGameMode")
@@ -113,6 +114,9 @@ def main():
             decorate(name, index, x, y)
             chest = place(treasure_class, name + " Treasure", (x, y + 155.0, -300.0))
             chest.set_editor_property("grotto_index", index)
+            enemy = place(enemy_class, name + " Aquatic Guardian", (x, y - 240.0, -225.0))
+            enemy.set_editor_property("tags", [unreal.Name(TAG), unreal.Name("MoonfallAquaticPreview")])
+            enemy.set_editor_property("health", 60.0)
         place(unreal.DirectionalLight, "Deep Waters preview light", (0, 0, 1500))
     except Exception:
         for actor in reversed(created):
