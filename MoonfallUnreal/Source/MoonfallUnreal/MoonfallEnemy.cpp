@@ -746,10 +746,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const auto Tactics=MoonfallAquaticTactics::Behavior(AquaticProfileId);
    const FVector Position = GetActorLocation();
    const FVector Target = Hero->GetActorLocation();
-   const bool bValid = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+   auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   const int32 OceanActivity=IsValid(Preview)?Preview->GetOceanActivity():0;
+   const bool bValid = IsValid(Preview)
        && !Position.ContainsNaN() && !Target.ContainsNaN() && !DungeonHomePosition.ContainsNaN();
    const bool bEngaged = bValid && Hero->bWaterSwimming && !Hero->bInsideAirPocket
-       && FVector::DistSquared(Target, DungeonHomePosition) <= FMath::Square(480.f);
+       && FVector::DistSquared(Target, DungeonHomePosition) <= FMath::Square(MoonfallOceanEvents::AwarenessRadius(OceanActivity,AquaticProfileId));
    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAquaticSight), false);
    Params.AddIgnoredActor(this);
    Params.AddIgnoredActor(Hero);
@@ -757,6 +759,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const bool bClear = bEngaged && !GetWorld()->LineTraceSingleByChannel(
        Sight, Position, Target, ECC_Visibility, Params);
    const double DistanceSq = FVector::DistSquared(Position, Target);
+   // Sightings require genuine proximity and clear visibility, not a spawn roll.
+   if (bClear && DistanceSq<=FMath::Square(420.f) && !Preview->HasAquaticSighting(AquaticProfileId))
+    Preview->DiscoverAquaticCreature(AquaticProfileId);
    if (!FMath::IsFinite(NextAttackAt)) NextAttackAt=Now+0.35f;
    const int32 NextMoveId=MoonfallAquatic::SelectMove(AquaticProfileId,AquaticPhase,AquaticAttackSequence);
    const auto NextMove=MoonfallAquatic::Move(AquaticProfileId,NextMoveId);
@@ -805,8 +810,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        Hero->bInsideAirPocket,bEngaged,float(FVector::Dist(Target,DungeonHomePosition)));
    if (bPatrol) {
     const float Angle=FMath::Fmod(Now,120.f)*Tactics.PatrolRate+float(AquaticProfileId);
-    Destination+=FVector(FMath::Cos(Angle)*Tactics.PatrolRadius,
-        FMath::Sin(Angle)*Tactics.PatrolRadius,0.f);
+    const float Radius=Tactics.PatrolRadius*MoonfallOceanEvents::PatrolScale(OceanActivity,AquaticProfileId);
+    Destination+=FVector(FMath::Cos(Angle)*Radius,
+        FMath::Sin(Angle)*Radius,0.f);
     SpeedScale=0.35f;
    } else if (bReposition) {
     const FVector Away=(Position-Target).GetSafeNormal2D();
