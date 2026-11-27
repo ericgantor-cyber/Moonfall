@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "MoonfallAquaticRewards.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -10,19 +11,12 @@ class MOONFALLUNREAL_API AMoonfallNorthPreviewGameMode : public AGameModeBase {
  GENERATED_BODY()
 public:
  AMoonfallNorthPreviewGameMode();
- // Six distinct session discoveries, reset only when the preview world ends.
- bool ClaimGrotto(int32 Index) {
-  if (Index < 0 || Index >= 6) return false;
-  const uint8 Bit = uint8(1u << Index);
-  if (GrottoClaims & Bit) return false;
-  GrottoClaims |= Bit;
-  return true;
- }
- int32 GetGrottoClaimCount() const {
-  int32 Count = 0;
-  for (int32 I = 0; I < 6; ++I) if (GrottoClaims & (1u << I)) ++Count;
-  return Count;
- }
+ // Rewards and claims are session-only and survive hero respawn.
+ bool ClaimGrotto(int32 Index) { return GrottoGear.Claim(Index,FMath::RandRange(0,99)); }
+ int32 GetGrottoClaimCount() const { return GrottoGear.Count(); }
+ int32 GetGrottoSetPieces() const { return GrottoGear.Pieces(); }
+ int32 GetGrottoGearRarity(int32 Piece) const { return GrottoGear.Rarity(Piece); }
+ int32 GetLastGrottoRewardCode() const { return GrottoGear.LastCode; }
 private:
- uint8 GrottoClaims = 0;
+ MoonfallAquaticRewards::FSessionGear GrottoGear;
 };
