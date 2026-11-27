@@ -21,7 +21,7 @@ constexpr float RangedProjectileWindup(bool bCaster) { return bCaster?1.2f:0.95f
 constexpr float RangedProjectileDamageScale(bool bCaster) { return bCaster?0.95f:1.f; }
 constexpr double RangedMinimumRange=280.0;
 constexpr double RangedPreferredRange=390.0;
-constexpr double RangedMaximumRange=500.0;
+constexpr double RangedMaximumRange=520.0;
 constexpr float RangedAttackRange=520.f;
 inline int RangedRepositionMode(double Distance) {
  if(!std::isfinite(Distance)||Distance<0.0)return 0;
