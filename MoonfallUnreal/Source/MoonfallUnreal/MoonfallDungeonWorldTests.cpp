@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -287,6 +288,18 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->EquippedArmorCode = AllCodes[1];
  Original->EquippedAccessoryCode = AllCodes[2];
  if (!RoundTrip(TArray<int32>{}, 16)) return false;
+ // Synthetic future V19 fixture: prove 24 entries and repeated ring codes
+ // survive native memory serialization. The live V17 loader stays gated.
+ TArray<int32> Future;
+ Future.Init(0,MoonfallEquipmentLayout::FullSlotCount);
+ for(int32 Slot=0;Slot<Future.Num();++Slot)
+  Future[Slot]=MoonfallEquipmentLayout::EncodeFullItem(Slot,1,2,5);
+ Future[23]=Future[8];
+ Original->InventoryItemCodes=Future;
+ Original->EquippedWeaponCode=Future[0];
+ Original->EquippedArmorCode=Future[1];
+ Original->EquippedAccessoryCode=Future[2];
+ if (!RoundTrip(Future,19)) return false;
  return !HasAnyErrors();
 }
 

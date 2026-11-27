@@ -130,9 +130,9 @@ int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
   case 2: return EquippedAccessoryCode;
   default: break;
  }
- static_assert(UE_ARRAY_COUNT(ExtraEquippedCodes)==MoonfallEquipmentLayout::SlotCount-MoonfallEquipmentLayout::LegacySlotCount,
+ static_assert(UE_ARRAY_COUNT(ExtraEquippedCodes)==MoonfallEquipmentLayout::FullSlotCount-MoonfallEquipmentLayout::LegacySlotCount,
      "Extra equipment storage must match the canonical layout");
- if (Slot < MoonfallEquipmentLayout::LegacySlotCount || Slot >= MoonfallEquipmentLayout::SlotCount) return 0;
+ if (Slot < MoonfallEquipmentLayout::LegacySlotCount || Slot >= MoonfallEquipmentLayout::FullSlotCount) return 0;
  return ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount];
 }
 
@@ -4450,16 +4450,16 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
  // would silently clear an equipped slot on the next launch.
- MoonfallEquipmentLayout::FLoadout WornCodes{};
- for (int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+ MoonfallEquipmentLayout::FFullLoadout WornCodes{};
+ for (int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
   WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);
- MoonfallEquipmentLayout::FLoadout CheckedWorn{};
- // Even before activation, validate every stored slot. Never silently discard
- // nonempty inactive gear or overwrite the last good save.
- if (!MoonfallEquipmentLayout::TryRestoreMirroredLoadout(
+ // Reject inactive or unowned references across the entire 24-slot storage.
+ // Keep the V17 writer until the remaining native systems are activated.
+ if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
+ MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
+ if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
      WornCodes.data(),MoonfallEquipmentLayout::LegacySlotCount,
-     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,true,MoonfallEquipmentLayout::ActiveSlotCount,
-     [this](int32 Code){return InventoryItemCodes.Contains(Code);},CheckedWorn)) return false;
+     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,17,InventoryItemCodes,CheckedWorn)) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4643,14 +4643,14 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  const int32 SavedWornCodes[3] = {
   Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
  };
- MoonfallEquipmentLayout::FLoadout CheckedSavedWorn{};
+ MoonfallEquipmentLayout::FFullLoadout CheckedSavedWorn{};
  // V17 mirrors must agree with legacy slots. Invalid gear is rejected
  // before any live state changes, so autosave cannot erase it.
- if (!MoonfallEquipmentLayout::TryRestoreMirroredLoadout(
+ if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
      SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),
      Save->EquippedSlotCodes.GetData(),Save->EquippedSlotCodes.Num(),
-     Save->Version>=17,MoonfallEquipmentLayout::ActiveSlotCount,
-     [Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);},CheckedSavedWorn)) {
+     Save->Version,Save->InventoryItemCodes,CheckedSavedWorn)
+     || !MoonfallEquipmentLayout::IsFullLoadoutOwned(CheckedSavedWorn,MoonfallEquipmentLayout::ActiveSlotCount,Save->InventoryItemCodes)) {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent or inactive equipped gear; original save protected."));
   return false;
@@ -4895,7 +4895,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  // Use only the preflight-validated record, including zero-filled V1–V16
  // migrations. Do not retain extra gear from a previous character state.
- for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+ for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
   ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=CheckedSavedWorn[Slot];
  // A defeated loadout may select only gear still owned after checkpoint restore.
  // Reconcile armor capacity against the saved armor tier exactly once.
@@ -4912,7 +4912,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (DefeatedEquipmentSelection[2] && InventoryItemCodes.Contains(DefeatedEquipmentSelection[2]))
   RestoreGear(DefeatedEquipmentSelection[2], 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
  // Restore only owned, active expanded gear selected while defeated.
- static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::SlotCount,
+ static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::FullSlotCount,
      "Defeated selection must match the equipment layout");
  for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
   const int32 Code=DefeatedEquipmentSelection[Slot];
