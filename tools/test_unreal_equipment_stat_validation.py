@@ -225,6 +225,13 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(preview.index("GetRingPointerDragCode()"), preview.index("RingDragTargetCache[FingerIndex]"))
         clear = self.source.split("void AMoonfallHeroPawn::ClearRingPointerDrag()", 1)[1].split("\n}", 1)[0]
         self.assertIn("RingDragTargetCache.fill(0);", clear)
+        self.assertIn("RingDragBagDropCache=0;", clear)
+        bag_preview = self.source.split("bool AMoonfallHeroPawn::CanDropDraggedRingInBag()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(bag_preview.index("GetRingPointerDragCode()"), bag_preview.index("if(RingDragBagDropCache!=0)"))
+        self.assertIn("!HitTestInventoryBagDropSurface()", bag_preview)
+        self.assertIn("Worn[Slot]==Code&&MoonfallEquipmentLayout::TryRemoveFullRing(", bag_preview)
+        self.assertIn("DragSource!=INDEX_NONE&&Hero->CanDropDraggedRingInBag()", hud)
+        self.assertIn("BagW=PanelWidth-28.f,BagH=PerPage*RowSpacing", hud)
         self.assertIn("else if(bWorn)DrawRect", hud)
         self.assertIn("DragHover!=INDEX_NONE&&Hero->CanDropDraggedRingOnFinger(DragHover)", hud)
         self.assertNotIn('bDropAllowed?TEXT("+"):TEXT("X")', hud)
