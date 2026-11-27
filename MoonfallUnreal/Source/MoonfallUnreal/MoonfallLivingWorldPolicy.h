@@ -126,11 +126,11 @@ inline float FollowerIncomingDamage(float damage,int armorTier,bool braced){
 // Keep offensive support and tactical withdrawal on the same health boundary.
 // Movement budget per existing follower pulse, not a new timer. Brake near
 // the destination and discard momentum after a pause or blocked move.
-inline double FollowerStepBudget(double remaining,double previousStep,double elapsed){
- if(!std::isfinite(remaining)||remaining<=0)return 0.0;
+inline double FollowerStepBudget(double remaining,double previousStep,double elapsed,double maxStep=60.0){
+ if(!std::isfinite(remaining)||remaining<=0||!std::isfinite(maxStep)||maxStep<=0||maxStep>100.0)return 0.0;
  const double previous=std::isfinite(previousStep)&&previousStep>=0&&
-     std::isfinite(elapsed)&&elapsed>=0&&elapsed<=0.4?std::fmin(previousStep,60.0):0.0;
- const double braking=std::fmin(60.0,std::fmax(12.0,remaining*0.5));
+     std::isfinite(elapsed)&&elapsed>=0&&elapsed<=0.4?std::fmin(previousStep,maxStep):0.0;
+ const double braking=std::fmin(maxStep,std::fmax(12.0,remaining*0.5));
  return std::fmin(remaining,std::fmin(braking,previous+24.0));
 }
 inline bool CanCompanionSupportOffensively(float health){
