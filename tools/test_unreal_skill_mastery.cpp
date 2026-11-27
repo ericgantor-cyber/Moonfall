@@ -46,5 +46,29 @@ int main(){
  assert(!M::TryCollect(S,0,2,M::Orb::Hidden,true,S));
  assert(!M::TryAward(S,M::Action::MeleeVictory,true,S));
  assert(!M::IsCollected(S,0,2));
+ // Record restoration is atomic, with exact lengths and range checks.
+ M::State Restored{};
+ const std::array<int,6> SavedXP{{0,650,1800,300,650,300}};
+ const std::array<std::uint64_t,8> SavedOrbs{{1,0,0,0,0,0,0,std::uint64_t{1}<<63}};
+ assert(M::TryRestoreRecord(1,SavedXP,SavedOrbs,Restored));
+ assert(Restored.XP==SavedXP&&Restored.Collected==SavedOrbs);
+ assert(M::HasUnlock(Restored,M::Unlock::Vault));
+ assert(M::HasUnlock(Restored,M::Unlock::AirDash));
+ assert(M::HasUnlock(Restored,M::Unlock::AdvancedClimb));
+ assert(M::HasUnlock(Restored,M::Unlock::PerfectGuard));
+ assert(M::HasUnlock(Restored,M::Unlock::HeavyFollowup));
+ assert(M::HasUnlock(Restored,M::Unlock::ArcaneChain));
+ assert(M::HasUnlock(Restored,M::Unlock::EfficientCraft));
+ assert(!M::HasUnlock(Restored,static_cast<M::Unlock>(99)));
+ assert(!M::TryRestoreRecord(2,SavedXP,SavedOrbs,Restored));
+ assert(!M::TryRestoreRecord(0,SavedXP,SavedOrbs,Restored));
+ auto BadXP=SavedXP;BadXP[2]=-1;
+ assert(!M::TryRestoreRecord(1,BadXP,SavedOrbs,Restored));
+ assert(!M::TryRestoreRecord(1,std::array<int,5>{},SavedOrbs,Restored));
+ assert(!M::TryRestoreRecord(1,SavedXP,std::array<std::uint64_t,7>{},Restored));
+ assert(Restored.XP==SavedXP&&Restored.Collected==SavedOrbs);
+ assert(M::TryRestoreRecord(0,std::array<int,0>{},std::array<std::uint64_t,0>{},Restored));
+ assert(M::RankFor(Restored,M::Skill::Agility)==0&&!M::HasUnlock(Restored,M::Unlock::Vault));
+ for(auto Bits:Restored.Collected)assert(Bits==0);
  return 0;
 }
