@@ -27,9 +27,9 @@ namespace MoonfallOceanGathering
             return true;
         }
         bool CanCatch() const { return Catches()<MaxSessionCatches; }
-        bool Catch(int Event,int Roll) {
-            if(Event<0||Event>2||Roll<0||Roll>99||!CanCatch()) return false;
-            const int SpeciesId=((Roll<50?0:Roll<80?1:2)+Event)%3;
+        bool Catch(int Event,int Roll,int Preferred=-1) {
+            if(Event<0||Event>2||Roll<0||Roll>99||Preferred<-1||Preferred>2||!CanCatch()) return false;
+            const int SpeciesId=Preferred>=0&&Roll<75?Preferred:((Roll<50?0:Roll<80?1:2)+Event)%3;
             ++Fish[SpeciesId];
             return true;
         }

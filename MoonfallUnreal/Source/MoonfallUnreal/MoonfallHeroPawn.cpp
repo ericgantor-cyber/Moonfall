@@ -866,11 +866,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   ApplyMoonfallDamage(MaxHealth * MoonfallWaterRules::DrowningHealthFraction);
   if (IsActorBeingDestroyed()) return;
  }
+ if (bPersistentSaveWritesBlocked && GetWorld() && GetWorld()->GetTimeSeconds()>=NextFishingSchoolScan) {
+  RefreshFishingSchools(GetWorld()->GetTimeSeconds());
+ }
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
   const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
   if (Fishing.Advance(Now,CanContinueFishing())) {
    auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
-   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish();
+   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish(FishingSchoolSpecies);
    FishingNoticeUntil=Now+4.f;
   }
  }
@@ -4305,6 +4308,37 @@ bool AMoonfallHeroPawn::CanContinueFishing() const {
          FVector::DistSquared(GetActorLocation(),FishingOrigin)<=FMath::Square(35.f));
 }
 
+namespace {
+bool DeepWaterSchoolPoint(const FBox& Bounds,int32 Id,float Now,FVector& Out) {
+ if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()) return false;
+ const auto Size=Bounds.GetSize();
+ if(Size.X<600||Size.Y<600) return false;
+ const auto Point=MoonfallFishing::SchoolPosition(Id,Now,Size.X,Size.Y);
+ Out=FVector(Bounds.Min.X+Point.X,Bounds.Min.Y+Point.Y,Bounds.Max.Z+2.f);
+ return !Out.ContainsNaN();
+}
+}
+
+void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
+ NearbyFishingSchools.Reset();
+ NextFishingSchoolScan=Now+1.f;
+ if(!CanContinueFishing()||Fishing.Stage!=MoonfallFishing::EStage::Idle) return;
+ const FVector Start=GetPawnViewLocation();
+ if(Start.ContainsNaN()) return;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSchoolSight),false,this);
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const FBox Bounds=It->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
+   FVector Target;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(850.f)) continue;
+   FHitResult Hit;
+   if(!GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) NearbyFishingSchools.Add(Target);
+  }
+ }
+}
+
 bool AMoonfallHeroPawn::TryFishingAction() {
  if (!CanContinueFishing()) { Fishing.Cancel(); return false; }
  const float Now=GetWorld()->GetTimeSeconds();
@@ -4318,6 +4352,31 @@ bool AMoonfallHeroPawn::TryFishingAction() {
  const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
  if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
+ FishingSchoolSpecies=-1;
+ // Prefer the nearest visible school in the same cast cone; ordinary water stays valid.
+ FVector BestSchool=FVector::ZeroVector;
+ double BestDistance=FMath::Square(850.f);
+ int32 BestSpecies=-1;
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const FBox Bounds=It->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
+   FVector Target;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
+   const double Distance=FVector::DistSquared2D(Start,Target);
+   if(Distance<FMath::Square(100.f)||Distance>BestDistance||
+       FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
+   BestDistance=Distance; BestSchool=Target; BestSpecies=MoonfallFishing::SchoolSpecies(Id);
+  }
+ }
+ if(BestSpecies>=0) {
+  if(!Fishing.Start(Now,MoonfallFishing::SchoolWait(MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount())),Preview->GetOceanCatchCount())) return false;
+  FishingSchoolSpecies=BestSpecies; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingNoticeUntil=0.f;
+  return true;
+ }
  for (TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
   const auto* Volume=*It;
   if(!IsValid(Volume)||!Volume->bWaterVolume) continue;

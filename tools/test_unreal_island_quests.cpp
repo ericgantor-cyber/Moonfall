@@ -219,6 +219,18 @@ int main() {
     assert(Cast.Start(30,3));
     assert(!Cast.Advance(31,false) && Cast.Stage==EStage::Idle);
     assert(!Cast.Start(std::numeric_limits<double>::quiet_NaN(),3));
+    for(int Id=0;Id<SchoolCount;++Id) {
+        auto A=SchoolPosition(Id,0,6000,4000),B=SchoolPosition(Id,30,6000,4000);
+        assert(A.X>0 && A.X<6000 && A.Y>0 && A.Y<4000);
+        assert(A.X!=B.X || A.Y!=B.Y);
+        assert(SchoolSpecies(Id)==Id%3);
+    }
+    assert(SchoolSpecies(-1)==-1 && SchoolSpecies(8)==-1);
+    assert(SchoolPosition(0,-1,6000,4000).X==0);
+    assert(SchoolWait(7)==3.5 && SchoolWait(2)==2);
+    MoonfallOceanGathering::FCollection SchoolCatch;
+    assert(SchoolCatch.Catch(0,0,2) && SchoolCatch.Species(2)==1);
+    assert(!SchoolCatch.Catch(0,0,3));
     assert(Rank(-1)==1 && Rank(0)==1 && Rank(3)==2 && Rank(27)==10 && Rank(30)==10);
     assert(CastWait(1,0)==7.0 && CastWait(0,30)==2.0 && CastWait(1,30)<5.0);
     assert(BiteSeconds(0)==10.0 && BiteSeconds(30)==14.5);

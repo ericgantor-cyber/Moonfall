@@ -2793,7 +2793,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
    DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
-   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?TEXT("Waiting for a bite..."):
+   const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolSpecies>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
       bBite?TEXT("BITE! N / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
@@ -2803,6 +2803,17 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FishingPrompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),
      Preview->GetOceanFishCount(1),Preview->GetOceanFishCount(2)),FLinearColor::White,X+8.f,Y+40.f,nullptr,0.7f);
+   if(!bActive && Hero->CanContinueFishing() && GetOwningPlayerController()) {
+    for(const FVector& School:Hero->NearbyFishingSchools) {
+     FVector2D Screen;
+     if(GetOwningPlayerController()->ProjectWorldLocationToScreen(School,Screen)
+        && FMath::IsFinite(Screen.X)&&FMath::IsFinite(Screen.Y)
+        && Screen.X>=30.f&&Screen.X<=Canvas->SizeX-30.f&&Screen.Y>=12.f&&Screen.Y<=Canvas->SizeY-12.f) {
+      DrawRect(FLinearColor(0.44f,0.88f,0.91f),Screen.X-9.f,Screen.Y-2.f,18.f,4.f);
+      DrawText(TEXT("SCHOOL"),FLinearColor::White,Screen.X-24.f,Screen.Y-16.f,nullptr,0.65f);
+     }
+    }
+   }
    if(bActive && GetOwningPlayerController()) {
     FVector2D Screen;
     if(GetOwningPlayerController()->ProjectWorldLocationToScreen(Hero->FishingBobber,Screen)
