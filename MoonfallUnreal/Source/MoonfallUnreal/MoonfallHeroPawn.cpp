@@ -731,8 +731,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
      || bResidentContextOpen || FocusedResident.IsValid()
-     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)
-     || (WaterVerticalIntent < 0 && WaterEyeDepth >= 330.f)) {
+     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)) {
   WaterVerticalIntent = 0;
  }
  if (WaterVerticalIntent != 0)
@@ -1675,8 +1674,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   // Reject corrupted target resource state before damage, mana cost or combo rewards.
-  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
-      || Enemy->MaxHealth <= 0.f) return false;
+  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->GetMaxHealthAtSpawn())
+      || Enemy->GetMaxHealthAtSpawn() <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
   const bool bCounterReady = FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil
@@ -2173,10 +2172,18 @@ void AMoonfallHeroPawn::MeleeAttack()
      FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
      Now + 3.f);
 
- const FVector Start = Position + FVector(0.f, 0.f, 65.f);
+ const FVector Start = Position + FVector(0.f, 0.f, bWaterSwimming ? 0.f : 65.f);
  // Each angle has a distinct swept reach and contact width. Single-hit
  // visibility sweeps retain the first obstruction and never hit through walls.
- const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange * Attack.RangeScale, 60.f, 350.f);
+ FVector StrikeDirection = Facing;
+ if (bWaterSwimming && Controller) {
+  const float Pitch = Controller->GetControlRotation().GetNormalized().Pitch;
+  if (FMath::IsFinite(Pitch)) {
+   const float Radians = FMath::DegreesToRadians(FMath::Clamp(Pitch,-60.f,60.f));
+   StrikeDirection = Facing * FMath::Cos(Radians) + FVector::UpVector * FMath::Sin(Radians);
+  }
+ }
+ const FVector End = Start + StrikeDirection * FMath::Clamp(MeleeAttackRange * Attack.RangeScale, 60.f, 350.f);
  FHitResult Hit;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallMelee), false, this);
  Params.AddIgnoredActor(this);
