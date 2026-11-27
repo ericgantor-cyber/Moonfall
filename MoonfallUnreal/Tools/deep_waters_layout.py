@@ -128,3 +128,17 @@ def settlement_geometry():
         yield name + " canopy", (x,y+80.0,365.0), (3.6,2.8,0.25)
         for side in (-1,1):
             yield name + " support", (x+side*160.0,y+190.0,215.0), (0.35,0.35,2.7)
+
+
+def ocean_resources(half_width):
+    # Four nonblocking underwater nodes in clear water outside grotto walls.
+    return (
+        (0, "Moonkelp", "Cone", (-900.0,-1600.0,-240.0), (0.5,0.5,1.2)),
+        (1, "Pearl cluster", "Sphere", (900.0,-1600.0,-280.0), (0.65,0.65,0.65)),
+        (2, "Crimson coral", "Cone", (-900.0,1600.0,-240.0), (0.7,0.7,1.1)),
+        (3, "Sea salt", "Cylinder", (900.0,1600.0,-280.0), (0.7,0.7,0.55)),
+        # Dock fishing stations use explicit pickup interaction on dry ground.
+        (4, "Fishing station west", "Cylinder", (-half_width-100.0,-350.0,60.0), (0.6,0.6,0.8)),
+        (5, "Fishing station center", "Cylinder", (-half_width-100.0,0.0,60.0), (0.6,0.6,0.8)),
+        (6, "Fishing station east", "Cylinder", (-half_width-100.0,350.0,60.0), (0.6,0.6,0.8)),
+    )
