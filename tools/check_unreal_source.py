@@ -1442,8 +1442,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Every derived bonus must reject valid-looking codes for items not owned.
         stats = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
             "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
+        for slot, trait in ((0, 1), (1, 2), (2, 3)):
+            self.assertGreaterEqual(stats.count(f"GetValidatedEquippedTier({slot})"), 2)
+            self.assertIn(f"ValidEquippedTraitRarity(GetEquipmentSlotCode({slot}), {slot}, {trait})", stats)
+        self.assertNotIn("InventoryItemCodes.Contains(", stats)
         for code in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
-            self.assertGreaterEqual(stats.count(f"InventoryItemCodes.Contains({code})"), 2)
+            self.assertNotIn(code, stats)
         # Canonical slot reads establish ownership, never bag-wide set bonuses.
         self.assertNotIn("InventoryItemCodes.Contains(", set_body)
         self.assertNotIn("for (int32 Code : InventoryItemCodes)", sets)
