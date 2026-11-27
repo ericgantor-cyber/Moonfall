@@ -19,6 +19,14 @@ constexpr int RoadEdgeCount() {
    if(Linked(A,B)) ++Edges;
  return Edges;
 }
+struct FRoadSign { int From,To; double X,Y,DX,DY; };
+constexpr FRoadSign RoadSign(int From,int To) {
+ if(!Linked(From,To)) return {-1,-1,0,0,0,0};
+ const auto A=ContinentCenters[From], B=ContinentCenters[To];
+ // Keep sign near the departure plaza, not in the middle of the long road.
+ return {From,To,A.Xcm+(B.Xcm-A.Xcm)*.12,A.Ycm+(B.Ycm-A.Ycm)*.12,
+  double(B.Xcm-A.Xcm),double(B.Ycm-A.Ycm)};
+}
 constexpr bool ValidContinentCenters() {
  for(int A=0; A<ZoneCount; ++A) {
   for(int B=A+1; B<ZoneCount; ++B) {

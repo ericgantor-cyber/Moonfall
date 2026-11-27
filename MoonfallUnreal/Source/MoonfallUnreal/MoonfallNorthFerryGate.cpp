@@ -56,6 +56,13 @@ AMoonfallNorthFerryGate::AMoonfallNorthFerryGate() {
  FerrySign->SetTextRenderColor(FColor(235, 240, 255));
 }
 
+bool AMoonfallNorthFerryGate::HasConfiguredPassage() const {
+ return bEnableSeaPassage&&IsValid(PairedGate)&&PairedGate!=this&&PairedGate->PairedGate==this&&
+  PairedGate->bEnableSeaPassage&&PairedGate->bIslandHarbor!=bIslandHarbor&&
+  IsValid(SailingVessel)&&IsValid(PairedGate->SailingVessel)&&SailingVessel!=PairedGate->SailingVessel&&
+  GetWorld()&&PairedGate->GetWorld()==GetWorld()&&SailingVessel->GetWorld()==GetWorld()&&
+  PairedGate->SailingVessel->GetWorld()==GetWorld();
+}
 void AMoonfallNorthFerryGate::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
  if (FerrySign) {
@@ -63,7 +70,7 @@ void AMoonfallNorthFerryGate::OnConstruction(const FTransform& Transform) {
       ? TEXT("RETURN FERRY TO MAINLAND")
       : TEXT("FERRY TO SHIVERWAKE COAST");
   FerrySign->SetText(FText::FromString(Direction
-      + (bEnableSeaPassage ? TEXT("\nAUTOMATIC FERRY BOARDING")
+      + (HasConfiguredPassage() ? TEXT("\nAUTOMATIC FERRY BOARDING")
                            : TEXT("\nNOT YET AVAILABLE"))));
  }
 }
@@ -161,7 +168,7 @@ void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
  if (FerrySign) {
   const FString Direction = bIslandHarbor
       ? TEXT("RETURN FERRY TO MAINLAND") : TEXT("FERRY TO SHIVERWAKE COAST");
-  const FString Availability = bEnableSeaPassage
+  const FString Availability = HasConfiguredPassage()
       ? TEXT("\nAUTOMATIC FERRY BOARDING") : TEXT("\nNOT YET AVAILABLE");
   FerrySign->SetText(FText::FromString(Direction + Availability));
  }
@@ -273,7 +280,7 @@ bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // The boat sails itself. There is no helm, player acceleration, steering
  // or enemy encounter code in this finite-duration boarding gate.
- if (bAutoVoyageInProgress || !IsValid(Hero) || !IsValid(PairedGate)
+ if (!HasConfiguredPassage() || bAutoVoyageInProgress || !IsValid(Hero) || !IsValid(PairedGate)
      || PairedGate == this || !IsValid(SailingVessel)
      || !IsValid(PairedGate->SailingVessel) || SailingVessel == PairedGate->SailingVessel
      || !GetWorld() || Hero->GetWorld() != GetWorld()
@@ -292,7 +299,8 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  const MoonfallNorth::ESeaPort Finish = PairedGate->bIslandHarbor
      ? MoonfallNorth::ESeaPort::Shiverwake : MoonfallNorth::ESeaPort::Mainland;
  const bool bMenuOpen = Hero->bOptionsOpen || Hero->bInventoryOpen
-     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen;
+     || Hero->bAtlasOpen || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen;
  if (!MoonfallNorth::MayBoard(Origin, Finish,
          bEnableSeaPassage && PairedGate->bEnableSeaPassage,
          PairedGate->PairedGate == this,

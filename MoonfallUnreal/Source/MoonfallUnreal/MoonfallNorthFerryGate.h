@@ -66,6 +66,9 @@ public:
  // Can also be invoked from a future mouse/controller boarding prompt.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Sea Travel")
  bool BoardFerry(AMoonfallHeroPawn* Hero);
+ // Structural readiness only; BoardFerry still validates live dry land and hero.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Sea Travel")
+ bool HasConfiguredPassage() const;
  // Fired AFTER successful teleport; hook authored audio/fade/quest cues here.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Sea Travel")
  void OnFerryArrival(AMoonfallHeroPawn* Hero, bool bFirstIslandLanding);
