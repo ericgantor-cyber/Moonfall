@@ -3982,8 +3982,14 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   if (Slot != 0 && IsRecentlyInCombatForAmbientAI()) continue;
   // Do not overwrite an explicit gear change made by an earlier callback.
   if (GetEquipmentSlotCode(Slot) != EquippedCodes[Slot]) continue;
-  const int32 Index = Plan.Indices[Slot];
-  if (Index < 0 || !InventoryItemCodes.IsValidIndex(Index)
+  const int32 PlannedIndex = Plan.Indices[Slot];
+  if (PlannedIndex < 0 || Plan.Codes[Slot] <= 0) continue;
+  int32 Index = PlannedIndex;
+  // A callback may shift bag entries. Recover only the originally planned
+  // exact item, never substitute a different item or re-equip retained gear.
+  if (!InventoryItemCodes.IsValidIndex(Index) || InventoryItemCodes[Index] != Plan.Codes[Slot])
+   Index = InventoryItemCodes.IndexOfByKey(Plan.Codes[Slot]);
+  if (!InventoryItemCodes.IsValidIndex(Index)
       || InventoryItemCodes[Index] != Plan.Codes[Slot]) continue;
   if (EquipInventoryItem(Index)) ++UpgradesEquipped;
  }

@@ -233,6 +233,17 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("if(PlannedIndex<0||FixedPlan.Codes[Slot]<=0)continue;", body)
         self.assertLess(body.index("if(PlannedIndex<0"), body.index("IndexOfByKey(FixedPlan.Codes[Slot])"))
 
+    def test_legacy_equip_best_recovers_only_planned_inventory_items(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[0]
+        self.assertIn("const int32 PlannedIndex = Plan.Indices[Slot];", body)
+        self.assertLess(body.index("if (PlannedIndex < 0 || Plan.Codes[Slot] <= 0) continue;"),
+                        body.index("IndexOfByKey(Plan.Codes[Slot])"))
+        self.assertLess(body.index("IndexOfByKey(Plan.Codes[Slot])"),
+                        body.rindex("InventoryItemCodes[Index] != Plan.Codes[Slot]"))
+        self.assertLess(body.rindex("InventoryItemCodes[Index] != Plan.Codes[Slot]"),
+                        body.index("if (EquipInventoryItem(Index))"))
+
     def test_expanded_equip_best_recovers_shifted_inventory_indices(self):
         body = self.source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
