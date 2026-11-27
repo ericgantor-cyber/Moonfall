@@ -465,6 +465,7 @@ public:
  void KeepInventorySelectionVisible();
  // Read-only pointer hit test sharing the inventory Canvas row geometry.
  int32 HitTestInventoryRow() const;
+ bool HitTestInventoryBagDropSurface() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
