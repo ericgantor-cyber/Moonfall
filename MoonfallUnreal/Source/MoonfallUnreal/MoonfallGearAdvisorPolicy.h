@@ -761,10 +761,11 @@ constexpr int RingCapped(int Value,int Cap){return Value<Cap?Value:Cap;}
 // Force = crit, Ward = versatility, Focus = haste, untraited = luck.
 // Every ring contributes a smaller mastery amount. Legendary perks are
 // keyed by trait family, not the historical ring-position digit or tier.
-template<class Bag>
-FRingBonuses BuildRingBonuses(const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+inline FRingBonuses BuildRingBonusesValidated(const FFullLoadout& Worn,int ActiveSlots) {
  FRingBonuses Out{};
- if(!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return Out;
+ if(!ValidFullActiveCount(ActiveSlots))return Out;
+ for(int Slot=0;Slot<ActiveSlots;++Slot)
+  if(Worn[Slot]&&!CanWearFullItem(Worn[Slot],Slot,ActiveSlots))return Out;
  Out.Valid=true;
  for(int R=0;R<RingSlotCount;++R){
   const int Slot=RingSlot(R);
@@ -794,6 +795,11 @@ FRingBonuses BuildRingBonuses(const FFullLoadout& Worn,int ActiveSlots,const Bag
  Out.MasteryBps=RingCapped(Out.MasteryBps,RingMasteryCapBps);
  Out.LuckBps=RingCapped(Out.LuckBps,RingLuckCapBps);
  return Out;
+}
+template<class Bag>
+FRingBonuses BuildRingBonuses(const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ if(!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return {};
+ return BuildRingBonusesValidated(Worn,ActiveSlots);
 }
 // Generate one interchangeable ring loot category instead of ten finger
 // categories. Old encoded ring variants remain valid owned items. Select
