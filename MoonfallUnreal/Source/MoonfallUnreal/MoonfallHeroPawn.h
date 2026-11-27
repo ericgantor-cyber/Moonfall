@@ -446,6 +446,9 @@ public:
  bool HitTestInventorySortButton() const;
  bool HitTestInventoryEquipButton() const;
  int32 HitTestInventoryRingStrip() const;
+ int32 GetRingPointerDragCode() const;
+ int32 GetRingPointerDragFinger() const { return RingDragFingerIndex; }
+ bool CanDropDraggedRingOnFinger(int32 FingerIndex) const;
  // Pointer close button is independent of gear and sort hit regions.
  bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.

@@ -2391,6 +2391,11 @@ void AMoonfallCombatHUD::DrawHUD()
     const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
     const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
     const bool bRingLocked=Hero->Health<=0.f||!FMath::IsFinite(Hero->Health)||Hero->IsRecentlyInCombatForAmbientAI();
+    const int32 DragCode=Hero->GetRingPointerDragCode();
+    const int32 DragSource=DragCode>0?Hero->GetRingPointerDragFinger():INDEX_NONE;
+    const int32 DragHover=DragCode>0?Hero->HitTestInventoryRingStrip():INDEX_NONE;
+    // Only evaluate the hovered target, not all ten fingers every frame.
+    const bool bDropAllowed=DragHover!=INDEX_NONE&&Hero->CanDropDraggedRingOnFinger(DragHover);
     for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
      const int32 Finger=MoonfallEquipmentLayout::RingSlot(Index);
      if(Finger>=MoonfallEquipmentLayout::ActiveSlotCount)break;
@@ -2400,8 +2405,25 @@ void AMoonfallCombatHUD::DrawHUD()
        bWorn?FLinearColor(0.20f,0.43f,0.35f,0.95f):FLinearColor(0.19f,0.23f,0.33f,0.95f),
        X,RingY,RingWidth-2.f,18.f);
      DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
+     if(Index==DragSource)DrawRect(FLinearColor(0.95f,0.78f,0.28f,1.f),X,RingY,RingWidth-2.f,2.f);
+     if(Index==DragHover){
+      const FLinearColor DropColor=bDropAllowed?FLinearColor(0.30f,0.95f,0.50f,1.f):FLinearColor(0.95f,0.28f,0.25f,1.f);
+      DrawRect(DropColor,X,RingY+16.f,RingWidth-2.f,2.f);
+      DrawText(bDropAllowed?TEXT("+"):TEXT("X"),DropColor,X+RingWidth-10.f,RingY+2.f,nullptr,0.58f);
+     }
      DrawText(FString::Printf(TEXT("%d%s"),Index+1,bWorn?TEXT("*"):TEXT("")),
        FLinearColor::White,X+3.f,RingY+2.f,nullptr,PanelWidth<550.f?0.54f:0.68f);
+    }
+    if(DragCode>0){
+     const auto DragItem=MoonfallEquipmentLayout::DecodeFullItem(DragCode);
+     const APlayerController* PC=Cast<APlayerController>(Hero->GetController());
+     float MX=0.f,MY=0.f;
+     if(PC&&PC->GetMousePosition(MX,MY)&&FMath::IsFinite(MX)&&FMath::IsFinite(MY)){
+      const float GhostX=FMath::Clamp(MX+12.f,0.f,FMath::Max(0.f,float(Canvas->SizeX)-90.f));
+      const float GhostY=FMath::Clamp(MY+12.f,0.f,FMath::Max(0.f,float(Canvas->SizeY)-25.f));
+      DrawRect(FLinearColor(0.10f,0.12f,0.20f,0.96f),GhostX,GhostY,90.f,25.f);
+      DrawText(FString::Printf(TEXT("RING T%d"),DragItem.Tier),FLinearColor::White,GhostX+6.f,GhostY+4.f,nullptr,0.68f);
+     }
     }
    }else{
     DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),

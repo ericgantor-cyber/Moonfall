@@ -170,6 +170,19 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertLess(release.index("ClearRingPointerDrag();"), release.index("EquipInventoryRing("))
         self.assertIn("RINGS: drag to equip / swap | drag to bag to remove", hud)
 
+    def test_ring_drag_feedback_is_read_only_and_validates_hovered_target(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        preview = self.source.split("bool AMoonfallHeroPawn::CanDropDraggedRingOnFinger(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("TryAssignFullRing(Code,Target,Worn", preview)
+        self.assertIn("TryMoveFullRing(From,Target,Worn", preview)
+        self.assertIn("InventoryItemCodes[RingDragBagIndex]!=Code", preview)
+        self.assertNotIn("ExtraEquippedCodes[", preview)
+        self.assertNotIn("RefreshEquipmentTier()", preview)
+        self.assertIn("DragHover!=INDEX_NONE&&Hero->CanDropDraggedRingOnFinger(DragHover)", hud)
+        self.assertIn("bDropAllowed?TEXT(\"+\"):TEXT(\"X\")", hud)
+        self.assertIn('TEXT("RING T%d")', hud)
+        self.assertIn("FMath::IsFinite(MX)&&FMath::IsFinite(MY)", hud)
+
     def test_native_ring_move_and_remove_are_guarded_and_bag_read_only(self):
         guard = self.source.split("bool AMoonfallHeroPawn::CanEditEquippedRings()", 1)[1].split(
             "bool AMoonfallHeroPawn::MoveEquippedRing(", 1)[0]
