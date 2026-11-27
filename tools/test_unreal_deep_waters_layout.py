@@ -27,6 +27,24 @@ class DeepWatersLayoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             regional_water_plan(0,500,600,500)
 
+    def test_regional_environment_art_and_wildlife(self):
+        from deep_waters_layout import regional_environment_plan, REGIONAL_ART
+        self.assertEqual(len({p[2] for p in REGIONAL_ART}),9)
+        for province in range(9):
+            ornaments,light,color,wildlife=regional_environment_plan(province,600,600,500)
+            self.assertEqual(len(ornaments),4)
+            self.assertIsNone(wildlife)
+            self.assertTrue(all(0<=v<=1 for v in color))
+            for _,shape,(x,y,z),scale in ornaments:
+                self.assertIn(shape,("Cone","Sphere","Cylinder","Cube"))
+                self.assertLess(abs(x)+50*scale[0],600)
+                self.assertLess(abs(y)+50*scale[1],600)
+                self.assertLess(z+50*scale[2],0)
+                self.assertGreater(z-50*scale[2],-500)
+            _,_,_,large=regional_environment_plan(province,1400,1400,500)
+            self.assertIn(large[0],range(5))
+            self.assertEqual(large[1],(0,0,-240))
+
     def test_six_unique_rooms(self):
         rooms = grotto_layout()
         self.assertEqual(len(rooms), 6)

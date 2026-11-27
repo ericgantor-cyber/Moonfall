@@ -6,7 +6,10 @@ Does not save maps or modify existing actors. Inspect geometry before saving.
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from deep_waters_layout import regional_water_plan, REGIONAL_HABITATS
+from deep_waters_layout import regional_water_plan, regional_environment_plan, REGIONAL_HABITATS
+
+# Opt in only after inspecting the swimming space; no forced combat.
+ENABLE_WILDLIFE = False
 
 def main():
     import unreal
@@ -17,6 +20,9 @@ def main():
         raise RuntimeError("Open DeepWatersPreview")
     mode=getattr(unreal,"MoonfallNorthPreviewGameMode",None)
     treasure=getattr(unreal,"MoonfallGrottoTreasure",None)
+    enemy=getattr(unreal,"MoonfallEnemy",None)
+    if ENABLE_WILDLIFE and enemy is None:
+        raise RuntimeError("Compile aquatic enemy class first")
     if mode is None or treasure is None or world.get_world_settings().get_editor_property("default_game_mode")!=mode:
         raise RuntimeError("Compile and select isolated preview game mode")
     selected=actors.get_selected_level_actors()
@@ -47,14 +53,15 @@ def main():
             raise RuntimeError("Invalid bounds")
         shore,nodes=regional_water_plan(province,extent.x,extent.y,extent.z*2)
         used.add(province)
-        plans.append((province,tag,origin,extent,shore,nodes))
+        environment=regional_environment_plan(province,extent.x,extent.y,extent.z*2)
+        plans.append((province,tag,origin,extent,shore,nodes,environment))
     meshes={name:unreal.EditorAssetLibrary.load_asset(f"/Engine/BasicShapes/{name}.{name}") for name in ("Cube","Plane","Cone","Sphere","Cylinder")}
     material=unreal.EditorAssetLibrary.load_asset("/Game/DeepWaters/Materials/M_DeepWatersSurface")
     if any(v is None for v in meshes.values()) or material is None:
         raise RuntimeError("Required meshes or water surface material missing")
     created=[]
     try:
-        for province,tag,origin,extent,shore,nodes in plans:
+        for province,tag,origin,extent,shore,nodes,environment in plans:
             surface=origin.z+extent.z
             def place(cls,label,pos):
                 x,y,z=pos
@@ -83,6 +90,27 @@ def main():
                 mesh=node.get_editor_property("chest_mesh")
                 mesh.set_static_mesh(meshes[shape])
                 mesh.set_relative_scale3d(unreal.Vector(*scale))
+            ornaments,light_pos,color,wildlife=environment
+            for label,shape,pos,scale in ornaments:
+                ornament=place(unreal.StaticMeshActor,label,pos)
+                mesh=ornament.get_editor_property("static_mesh_component")
+                mesh.set_static_mesh(meshes[shape])
+                mesh.set_collision_profile_name("NoCollision")
+                mesh.set_editor_property("cast_shadow",False)
+                ornament.set_actor_scale3d(unreal.Vector(*scale))
+            beacon=place(unreal.PointLight,"habitat light",light_pos)
+            light=beacon.get_component_by_class(unreal.PointLightComponent)
+            if light is None:
+                raise RuntimeError("Missing habitat light component")
+            light.set_light_color(unreal.LinearColor(*color,1.0))
+            light.set_intensity(1200.0)
+            light.set_attenuation_radius(400.0)
+            light.set_editor_property("cast_shadows",False)
+            if ENABLE_WILDLIFE and wildlife is not None:
+                profile,pos=wildlife
+                creature=place(enemy,"aquatic guardian",pos)
+                creature.set_editor_property("tags",[unreal.Name(tag),unreal.Name("MoonfallAquaticPreview")])
+                creature.set_editor_property("aquatic_profile_id",profile)
     except Exception:
         for actor in reversed(created):
             actors.destroy_actor(actor)

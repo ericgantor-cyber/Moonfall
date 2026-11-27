@@ -169,20 +169,44 @@ def regional_water_plan(province, half_width, half_length, depth):
         ("Middle step", (-half_width+285, 0, -70), (2, half_length/50, .4)),
         ("Deep step", (-half_width+475, 0, -95), (2, half_length/50, .4)),
     )
+    # East half is reserved for resources, leaving western access steps clear.
     nodes = tuple(
-        (12+province*4+i, label, shape, (sx*half_width*.4, sy*half_length*.4, -260),
-         scale)
-        for i, (label, shape, sx, sy, scale) in enumerate((
-            ("Moonkelp", "Cone", -1,-1,(.5,.5,1.2)),
-            ("Pearl cluster", "Sphere", 1,-1,(.65,.65,.65)),
-            ("Crimson coral", "Cone", -1,1,(.7,.7,1.1)),
-            ("Sea salt", "Cylinder", 1,1,(.7,.7,.55)),
+        (12+province*4+i, label, shape, (half_width*x, y*half_length*.4, -260), scale)
+        for i, (label, shape, x, y, scale) in enumerate((
+            ("Moonkelp", "Cone", .15,-1,(.5,.5,1.2)),
+            ("Pearl cluster", "Sphere", .65,-1,(.65,.65,.65)),
+            ("Crimson coral", "Cone", .15,1,(.7,.7,1.1)),
+            ("Sea salt", "Cylinder", .65,1,(.7,.7,.55)),
         ))
     )
-    # Keep deposits clear of west entry steps even in the minimum pool.
-    nodes = tuple((i,n,s,(max(x,-half_width+670),y,z),scale)
-                  for i,n,s,(x,y,z),scale in nodes)
-    # For narrow pools, retain distinct east/west lanes instead of clamping both.
-    nodes = tuple((i,n,s,(half_width*.15 if i%2==0 else half_width*.65,y,z),scale)
-                  for i,n,s,(x,y,z),scale in nodes)
     return shore, nodes
+
+
+# Original regional silhouettes and lighting palettes. Each uses only the
+# engine primitive meshes; no imported or hero assets.
+REGIONAL_ART = (
+    ("Ice spire", "Cone", (.42,.76,1.0), (.55,.55,1.4), 0),
+    ("River root", "Cylinder", (.35,.74,.44), (.55,.55,1.05), 3),
+    ("Frost boulder", "Sphere", (.72,.89,1.0), (.85,.7,.7), 1),
+    ("Bone obelisk", "Cone", (.83,.61,.32), (.45,.45,1.3), 2),
+    ("Bloom coral", "Sphere", (.28,.92,.54), (.7,.7,.95), 3),
+    ("Storm pillar", "Cylinder", (.45,.57,.94), (.5,.5,1.35), 2),
+    ("Sunken column", "Cube", (.78,.68,.44), (.65,.65,1.2), 1),
+    ("Astral crystal", "Cone", (.69,.37,1.0), (.6,.6,1.55), 4),
+    ("Eclipse relic", "Sphere", (.9,.25,.46), (.75,.75,.85), 4),
+)
+
+def regional_environment_plan(province, half_width, half_length, depth):
+    regional_water_plan(province, half_width, half_length, depth)
+    label, shape, color, scale, profile = REGIONAL_ART[province]
+    ornaments=tuple(
+        (f"{label} {i+1}", shape, (half_width*x, half_length*y, -340),
+         tuple(v*factor for v in scale))
+        for i,(x,y,factor) in enumerate((
+            (.12,-.78,1), (.62,-.78,.75), (.12,.78,.85), (.62,.78,1)
+        ))
+    )
+    # Small pools keep gathering and swimming unobstructed; only larger
+    # pools can host an optional hostile creature with its existing 270cm leash.
+    wildlife = (profile, (0,0,-240)) if half_width>=1400 and half_length>=1400 else None
+    return ornaments, (.35*half_width,0,-120), color, wildlife
