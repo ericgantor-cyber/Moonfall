@@ -5776,6 +5776,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  bWorldProgressLoadInProgress = false;
+ if(IsValid(this)&&!IsActorBeingDestroyed())ReconcileMasteryOrbOverlaps();
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
