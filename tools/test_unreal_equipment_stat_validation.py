@@ -62,19 +62,21 @@ class EquipmentStatSafety(unittest.TestCase):
         delta = source.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
         self.assertIn("FullWornCopies(ItemCode,Worn", delta)
-        self.assertIn("FullOwnedCopies(ItemCode,InventoryItemCodes,Required)<Required", delta)
+        self.assertIn("FullOwnedCopies(ItemCode,InventoryItemCodes,Required)", delta)
         self.assertNotIn("int32 Copies=0;for(int32 Code:InventoryItemCodes)", delta)
-        self.assertIn("RingSlots", delta)
+        self.assertIn("FullRingQuickEquipTarget(ItemCode,Worn", delta)
+        self.assertIn("return Target<0?0:CandidatePower-GetItemPower(Worn[Target]);", delta)
         projected = source.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split(
             "bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[0]
         self.assertIn("FullWornCopies(CandidateCode,Worn", projected)
-        self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required", projected)
+        self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)", projected)
         self.assertNotIn("int32 Copies=0;for(int32 Code:InventoryItemCodes)", projected)
-        self.assertIn("int32 BestProjection=INDEX_NONE;", projected)
-        self.assertIn("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required)return CurrentPieces;", projected)
-        self.assertIn("return BestProjection==INDEX_NONE?CurrentPieces:BestProjection;", projected)
+        self.assertIn("FullRingQuickEquipTarget(CandidateCode,Worn", projected)
+        self.assertIn("if(Target<0)return CurrentPieces;", projected)
         self.assertLess(projected.index("++CurrentPieces"), projected.index("FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)"))
-        self.assertIn("BestProjection=FMath::Max(BestProjection,Projected);", projected)
+        self.assertIn("DecodeEquippedItem(Worn[Target],Target", projected)
+        policy = SOURCE.with_name("MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        self.assertIn("return FullRingQuickEquipTarget(Code,Worn,ActiveSlots,FullOwnedCopies(Code,Inventory));", policy)
     def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
         snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
             "uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
