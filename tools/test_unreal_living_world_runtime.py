@@ -10,11 +10,27 @@ class LivingWorldPolicyTests(unittest.TestCase):
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallRoadLandmarks.h"
 #include "MoonfallLivingWorldPolicy.h"
+#include "MoonfallPackTactics.h"
 #include <cassert>
 #include <limits>
 #include <initializer_list>
 using namespace MoonfallLivingSimulation;
 int main(){
+ assert(MoonfallPackTactics::ShouldYieldAttackSlot(1));
+ assert(MoonfallPackTactics::ShouldYieldAttackSlot(2));
+ assert(!MoonfallPackTactics::ShouldYieldAttackSlot(0));
+ assert(!MoonfallPackTactics::ShouldYieldAttackSlot(-1));
+ assert(MoonfallPackTactics::AttackSlotDelay(0,7u)==0.f);
+ assert(MoonfallPackTactics::AttackSlotDelay(-1,7u)==0.f);
+ assert(MoonfallPackTactics::AttackSlotDelay(1,0u)>=0.4f);
+ assert(MoonfallPackTactics::AttackSlotDelay(1,3u)<=0.505f);
+ assert(MoonfallPackTactics::AttackSlotDelay(2,3u)<=0.655f);
+ assert(MoonfallPackTactics::AttackSlotDelay(2,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
+ assert(MoonfallPackTactics::AttackSlotDelay(1,0u)!=MoonfallPackTactics::AttackSlotDelay(1,1u));
+ assert(MoonfallPackTactics::AttackSlotDelay(99,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
+ assert(MoonfallPackTactics::MaxScannedActors==64);
+ assert(MoonfallPackTactics::MaxNearbyCandidates==32);
+ assert(MoonfallPackTactics::MaxWindingAllies==2);
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ArtProfilesSafe());
  static_assert(sizeof(MoonfallRoadLandmarks::ArtProfiles)/sizeof(MoonfallRoadLandmarks::ArtProfiles[0])==6);
@@ -756,6 +772,22 @@ int main(){
         self.assertIn("Mode->ReviveLocalCompanion(this)",hero)
         self.assertIn('TEXT("Move ahead")',hud)
         self.assertIn('TEXT("Revive companion")',hud)
+
+    def test_v27_enemy_pack_attacks_use_bounded_deterministic_slots(self):
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        block=enemy.split("// Small-pack coordination:",1)[1].split(
+            "// Alternate quick strikes",1)[0]
+        self.assertIn('#include "MoonfallPackTactics.h"',enemy)
+        self.assertIn("MaxScannedActors",block)
+        self.assertIn("MaxNearbyCandidates",block)
+        self.assertIn("MaxWindingAllies",block)
+        self.assertIn("MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)",block)
+        self.assertIn("MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID())",block)
+        self.assertNotIn("NearbyWindingAllies >= 2",block)
+        self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))",block)
+        self.assertIn("Other->GetOwner() != GetOwner()",block)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",block)
+        self.assertEqual(block.count("TActorIterator<AMoonfallEnemy>"),1)
 
     def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
