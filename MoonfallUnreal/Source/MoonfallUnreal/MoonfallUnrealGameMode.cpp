@@ -278,22 +278,28 @@ void AMoonfallUnrealGameMode::TryLocalCompanionStrike(AMoonfallHeroPawn* Hero,fl
      &&CompanionAbilityRole==LocalCompanionRole&&Now<CompanionAbilityEndsAt;
  const float ExtraPosture=(bPrecisionBurst?8.f:0.f)+MoonfallWorldPolicy::CompanionExtraPosture(Rank,Role)+
      MoonfallWorldPolicy::ActiveCompanionTraining(LocalCompanionTraining,Rank,Role,7);
+ const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation();
+ if(!FMath::IsFinite(Now)||Now<0.f||!FMath::IsFinite(Scout->CompanionHealth)||Scout->CompanionHealth<=0.f
+     ||HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Scout->AuthoredHomeLocation.ContainsNaN()
+     ||FVector::DistSquared(HeroLocation,ScoutLocation)>FMath::Square(500.0))return;
+ // At most two cheap candidate checks, then one line-of-sight trace.
+ const auto CanAssist=[&](const AMoonfallEnemy* Enemy,float Age){
+  if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
+      ||Enemy->bBoss||Enemy->bElite||!FMath::IsFinite(Enemy->Health)||Enemy->Health<=StrikeDamage
+      ||Enemy->bPostureFinisherAvailable||Now<Enemy->PostureBrokenUntil)return false;
+  const FVector Target=Enemy->GetActorLocation();
+  return !Target.ContainsNaN()&&MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
+      FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true,
+      Rank,Role,LocalCompanionTraining);
+ };
  float Age=-1.f;
  auto* Enemy=Hero->GetRecentCompanionAssistTarget(Age);
- // Player target wins when viable; otherwise defend against a fresh attack commitment.
- if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()||Enemy->bBoss||Enemy->bElite||!FMath::IsFinite(Enemy->Health)||Enemy->Health<=StrikeDamage){
+ // Player target wins only when viable; otherwise check a fresh defensive threat.
+ if(!CanAssist(Enemy,Age)){
   Enemy=CompanionThreat.Get();Age=Now-CompanionThreatAt;
-  if(!FMath::IsFinite(Age)||Age<0.f||Age>2.f)return;
+  if(!FMath::IsFinite(Age)||Age<0.f||Age>2.f||!CanAssist(Enemy,Age))return;
  }
- if(!IsValid(Enemy)||Enemy->IsActorBeingDestroyed()||Enemy->GetWorld()!=GetWorld()
-     ||Enemy->bBoss||Enemy->bElite||Enemy->Health<=StrikeDamage)return;
- const FVector HeroLocation=Hero->GetActorLocation(),ScoutLocation=Scout->GetActorLocation(),Target=Enemy->GetActorLocation();
- if(HeroLocation.ContainsNaN()||ScoutLocation.ContainsNaN()||Target.ContainsNaN()
-     ||Scout->AuthoredHomeLocation.ContainsNaN()
-     ||FVector::DistSquared(HeroLocation,ScoutLocation)>FMath::Square(500.0))return;
- if(!MoonfallWorldPolicy::CanCompanionStrike(Age,Now-LastCompanionStrikeAt,
-      FVector::DistSquared(ScoutLocation,Target),FVector::DistSquared(HeroLocation,Target),true,
-      MoonfallWorldPolicy::CompanionRank(Scout->GetBondWithHero(Hero)),static_cast<int>(LocalCompanionRole),LocalCompanionTraining))return;
+ const FVector Target=Enemy->GetActorLocation();
  const int Region=MoonfallLivingSimulation::RegionFromWorldX(ScoutLocation.X);
  if(MoonfallLivingSimulation::Severe(MoonfallLivingSimulation::WeatherFor(Region,
        MoonfallLivingSimulation::Phase(Now,360.f))))return;
