@@ -56,6 +56,8 @@ public:
  float WaterStrokeSpeed = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float WaterVerticalSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCurrentStrength = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Water")
  void OnSwimmingStateChanged(bool bSwimming, bool bSubmerged);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
