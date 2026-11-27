@@ -379,6 +379,12 @@ static_assert(RingSlot(0)==8&&RingSlot(9)==23&&RingIndex(13)==1,"Ring order stab
 constexpr bool ValidFullActiveCount(int Count) {
  return Count==LegacySlotCount||Count==SlotCount||Count==SixteenSlotCount||Count==FullSlotCount;
 }
+// Bag sorting is by wearable category, not the historical encoded finger.
+// Keep inactive and malformed item records at the end.
+constexpr int FullInventorySortSlot(const FDecodedItem& Item,int ActiveSlots) {
+ if(!ValidFullActiveCount(ActiveSlots)||!Item.IsValid()||Item.Slot>=ActiveSlots)return 99;
+ return ActiveSlots>SlotCount&&IsRingSlot(Item.Slot)?RingSlot(0):Item.Slot;
+}
 constexpr bool CanOperateFull(int Code,int ActiveSlots,EInventoryOperation Operation) {
  const auto Item=DecodeFullItem(Code);
  if(!ValidFullActiveCount(ActiveSlots)||!Item.IsValid()||Item.Slot>=ActiveSlots)return false;

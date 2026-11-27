@@ -2492,7 +2492,9 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(1.f,0.52f,0.12f)};
     const FString ItemName = bValidDetail
       ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
-          DetailSlots[SelectedSlot], DetailRarities[SelectedRarity], SelectedTier,
+          MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+              &&MoonfallEquipmentLayout::IsRingSlot(SelectedSlot)?TEXT("Ring"):DetailSlots[SelectedSlot],
+          DetailRarities[SelectedRarity], SelectedTier,
           DetailTraits[SelectedAffix])
       : TEXT("SELECTED  |  Invalid equipment data");
     DrawText(ItemName,
