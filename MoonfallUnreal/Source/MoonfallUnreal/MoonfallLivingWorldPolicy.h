@@ -123,10 +123,19 @@ inline float FollowerIncomingDamage(float damage,int armorTier,bool braced){
  const float Armor=1.f-0.01f*Clamp(armorTier,0,25);
  return std::fmin(damage,100.f)*Armor*(braced?0.5f:1.f);
 }
+// Keep offensive support and tactical withdrawal on the same health boundary.
+inline bool CanCompanionSupportOffensively(float health){
+ return std::isfinite(health)&&health>25.f&&health<=100.f;
+}
+inline bool FreshCompanionThreat(double now,double observedAt,float health,double heroDistanceSquared){
+ return std::isfinite(now)&&std::isfinite(observedAt)&&now>=0&&observedAt>=0
+     &&now>=observedAt&&now-observedAt<=2.0&&std::isfinite(health)&&health>0.f
+     &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
+}
 enum class CompanionTactic { Follow, Intercept, Flank, Withdraw };
 inline CompanionTactic SelectCompanionTactic(float health,int rank,int role,bool threat){
  if(!threat||!std::isfinite(health)||health<=0.f||health>100.f||rank<1)return CompanionTactic::Follow;
- if(health<=25.f)return CompanionTactic::Withdraw;
+ if(!CanCompanionSupportOffensively(health))return CompanionTactic::Withdraw;
  const int Effective=EffectiveCompanionRole(rank,role);
  return Effective==1?CompanionTactic::Intercept:Effective==2?CompanionTactic::Flank:CompanionTactic::Follow;
 }
