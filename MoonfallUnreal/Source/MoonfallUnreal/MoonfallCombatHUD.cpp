@@ -1054,6 +1054,13 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("EXPLORED %d%%"), FMath::RoundToInt(100.f * Revealed / 56.f)),
         FLinearColor(0.72f, 0.66f, 0.55f), Left + 23.f, Y + 38.f,
         nullptr, Scale * AtlasSideTextScale * 0.75f);
+    const int32 Orbs=Hero->GetRegionMasteryOrbCount(Zone);
+    if(Orbs>=0&&RowHeight>=66.f)
+     DrawText(FString::Printf(TEXT("ORBS %d/%d | TRAILS %d/%d"),Orbs,
+       MoonfallSkillMastery::RouteOrbsPerRegion,Hero->GetCompletedMasteryTrails(Zone),
+       MoonfallSkillMastery::TrailsPerRegion),
+       FLinearColor(0.51f,0.85f,0.64f),Left+23.f,Y+53.f,
+       nullptr,Scale*AtlasSideTextScale*0.67f);
    }
   }
   // Read-only worldwide Chronicle progress on the Atlas sidebar footer.
@@ -1672,9 +1679,15 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawText(FString::Printf(TEXT("+%.1f%% %s"),Hero->GetSkillMasteryBonusBps(K)/100.f,Effects[K]),
        FLinearColor(0.78f,0.84f,0.90f),MX+14,Y+29,nullptr,0.56f);
     }
-    DrawText(FString::Printf(TEXT("Route orbs collected: %d"),Hero->GetCollectedMasteryRouteOrbs()),
+    DrawText(FString::Printf(TEXT("Route orbs: %d/%d planned"),Hero->GetCollectedMasteryRouteOrbs(),MoonfallSkillMastery::WorldRouteCount),
        FLinearColor(1.f,0.85f,0.52f),MX+14,MY+369,nullptr,0.76f);
-    DrawText(TEXT("Isolated preview checkpoint"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
+    int32 Trails=0;
+    for(int32 Region=0;Region<MoonfallSkillMastery::RouteRegions;++Region)
+     Trails+=FMath::Max(0,Hero->GetCompletedMasteryTrails(Region));
+    DrawText(FString::Printf(TEXT("Trails %d/%d | Firstlight %d/%d"),Trails,
+     MoonfallSkillMastery::RouteRegions*MoonfallSkillMastery::TrailsPerRegion,
+     Hero->GetRegionMasteryOrbCount(6),MoonfallSkillMastery::RouteOrbsPerRegion),
+     FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
    }
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
