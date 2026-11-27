@@ -866,6 +866,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   ApplyMoonfallDamage(MaxHealth * MoonfallWaterRules::DrowningHealthFraction);
   if (IsActorBeingDestroyed()) return;
  }
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+  if (Fishing.Advance(Now,CanContinueFishing())) {
+   auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish();
+   FishingNoticeUntil=Now+4.f;
+  }
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
@@ -1165,6 +1173,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("Fishing"), IE_Pressed, this, &AMoonfallHeroPawn::FishingAction);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1603,6 +1612,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
  if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
+ if (!bWaterSwimming && TryFishingAction()) return;
  PickupNearestGroundLoot();
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
@@ -4278,6 +4288,55 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
    Loot->InitializeLoot(Record.ItemCode);
   }
  }
+}
+
+bool AMoonfallHeroPawn::CanContinueFishing() const {
+ const auto* Movement=GetCharacterMovement();
+ return HasAuthority() && GetWorld() && bPersistentSaveWritesBlocked
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
+     && IsValid(Movement) && Movement->IsMovingOnGround() && !bWaterSwimming
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !IsRecentlyInCombatForAmbientAI()
+     && (Fishing.Stage==MoonfallFishing::EStage::Idle ||
+         FVector::DistSquared(GetActorLocation(),FishingOrigin)<=FMath::Square(35.f));
+}
+
+bool AMoonfallHeroPawn::TryFishingAction() {
+ if (!CanContinueFishing()) { Fishing.Cancel(); return false; }
+ const float Now=GetWorld()->GetTimeSeconds();
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  Fishing.Hook(Now);
+  return true;
+ }
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ if (!IsValid(Preview) || Preview->GetOceanCatchCount()>=30) return false;
+ const FVector Start=GetPawnViewLocation();
+ const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
+ if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
+ for (TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  const auto* Volume=*It;
+  if(!IsValid(Volume)||!Volume->bWaterVolume) continue;
+  const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  for(float Reach : {250.f,450.f,650.f,850.f}) {
+   FVector Target=Start+Forward*Reach;
+   Target.Z=Bounds.Max.Z+2.f;
+   if(Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f
+       ||Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f) continue;
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
+   if(!Fishing.Start(Now,FMath::FRandRange(2.f,7.f))) return false;
+   FishingOrigin=GetActorLocation();
+   FishingBobber=Target;
+   FishingNoticeUntil=0.f;
+   return true;
+  }
+ }
+ return false;
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
