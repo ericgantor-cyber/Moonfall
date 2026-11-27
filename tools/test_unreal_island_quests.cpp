@@ -4,6 +4,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanEvents.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -111,29 +112,36 @@ int main() {
     using namespace MoonfallOceanGathering;
     for(int event=0;event<3;++event) {
         FCollection Collection;
-        for(int id=0;id<7;++id) {
-            const bool fishing=IsFishing(id);
-            assert(CanCollect(id,!fishing,fishing,true));
-            assert(!CanCollect(id,!fishing,fishing,false)==fishing);
-            assert(!CanCollect(id,fishing,!fishing,true));
+        for(int id=0;id<NodeCount;++id) {
+            assert(CanCollect(id,true,false,true));
+            assert(!CanCollect(id,true,false,false));
+            assert(!CanCollect(id,false,true,true));
             assert(Collection.Collect(id,event));
             assert(!Collection.Collect(id,event));
+            assert(MaterialType(id)==id%4);
         }
-        assert(Collection.Materials()==4 && Collection.Catches()==3);
-        assert(Collection.Species(0)==1 && Collection.Species(1)==1 && Collection.Species(2)==1);
-        assert(!Collection.Collect(7,event));
+        assert(Collection.Materials()==12);
+        for(int type=0;type<4;++type) assert(Collection.Material(type)==3);
+        assert(!Collection.Collect(NodeCount,event));
         assert(!Collection.Collect(-1,event));
+        for(int roll : {0,50,80}) assert(Collection.Catch(event,roll));
+        assert(Collection.Catches()==3);
+        assert(Collection.Species(0)==1 && Collection.Species(1)==1 && Collection.Species(2)==1);
+        for(int i=3;i<30;++i) assert(Collection.Catch(event,0));
+        assert(!Collection.Catch(event,0));
     }
     FCollection Invalid;
     assert(!Invalid.Collect(4,3) && Invalid.Catches()==0);
     assert(!CanCollect(4,false,false,true));
+    assert(!Invalid.Catch(3,0) && !Invalid.Catch(0,100));
     MoonfallOceanCrafting::FWorkshop Workshop;
     MoonfallOceanGathering::FCollection Supplies;
     MoonfallAquaticRewards::FSessionGear Loan;
     assert(!Workshop.Craft(-1,Supplies,Loan));
     assert(!Workshop.Craft(3,Supplies,Loan));
     assert(!Workshop.Craft(0,Supplies,Loan));
-    for(int id=0;id<7;++id) assert(Supplies.Collect(id,0));
+    for(int id=0;id<4;++id) assert(Supplies.Collect(id,0));
+    for(int roll : {0,50,80}) assert(Supplies.Catch(0,roll));
     assert(Workshop.AvailableMaterials(Supplies)==4);
     assert(Workshop.RemainingFish(Supplies)==3);
     Loan.TonicCharges=3;
@@ -168,5 +176,22 @@ int main() {
     Loan.Codes[0]=MoonfallEquipmentLayout::EncodeFullItem(2,3,5,4);
     assert(!MaxWorkshop.Craft(1,Supplies,Loan));
     assert(MaxWorkshop.AvailableMaterials(Supplies)==4);
+    using namespace MoonfallFishing;
+    FSession Cast;
+    assert(!Cast.Start(0,1));
+    assert(Cast.Start(10,3));
+    assert(!Cast.Hook(11));
+    assert(!Cast.Advance(12,true) && Cast.Stage==EStage::Waiting);
+    assert(!Cast.Advance(13,true) && Cast.Stage==EStage::Bite);
+    assert(Cast.Hook(15) && Cast.Stage==EStage::Reeling);
+    assert(!Cast.Advance(16,true));
+    assert(Cast.Advance(16.5,true) && Cast.Stage==EStage::Idle);
+    assert(!Cast.Advance(17,true));
+    assert(Cast.Start(20,2));
+    assert(!Cast.Advance(22,true));
+    assert(!Cast.Advance(27,true) && Cast.Stage==EStage::Idle);
+    assert(Cast.Start(30,3));
+    assert(!Cast.Advance(31,false) && Cast.Stage==EStage::Idle);
+    assert(!Cast.Start(std::numeric_limits<double>::quiet_NaN(),3));
     return 0;
 }
