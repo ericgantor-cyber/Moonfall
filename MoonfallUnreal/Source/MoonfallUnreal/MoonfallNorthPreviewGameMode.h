@@ -19,6 +19,10 @@ public:
  int32 GetLastGrottoRewardCode() const { return GrottoGear.LastCode; }
  int32 GetBreathingTonicCharges() const { return GrottoGear.TonicCharges; }
  bool ConsumeBreathingTonic() { return GrottoGear.ConsumeTonic(); }
+ // Wreck discoveries are separate from grotto rewards and reset with the world.
+ void DiscoverWreck(int32 Index) { if (Index>=0 && Index<2) WreckClaims|=uint8(1u<<Index); }
+ int32 GetWreckDiscoveryCount() const { return int32((WreckClaims&1u)!=0)+int32((WreckClaims&2u)!=0); }
 private:
+ uint8 WreckClaims=0;
  MoonfallAquaticRewards::FSessionGear GrottoGear;
 };
