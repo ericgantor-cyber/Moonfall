@@ -11,6 +11,7 @@ class LivingWorldPolicyTests(unittest.TestCase):
 #include "MoonfallRoadLandmarks.h"
 #include <cassert>
 #include <limits>
+#include <initializer_list>
 using namespace MoonfallLivingSimulation;
 int main(){
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
@@ -40,6 +41,22 @@ int main(){
  assert(RegionalAllowsSocial(-1));
  for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
  assert(RegionalAllowsSocial(101));
+ // Exhaust every valid danger level and boss count for every encounter kind.
+ for(int danger=0;danger<=100;++danger){
+  for(int bosses=0;bosses<=5;++bosses){
+   for(auto event:{EEvent::Merchant,EEvent::Patrol,EEvent::Rescue,EEvent::Dispute,EEvent::Monster}){
+    auto expected=event;
+    if(danger>=35&&event==EEvent::Dispute)expected=EEvent::Patrol;
+    if(danger>=65&&event==EEvent::Merchant)expected=EEvent::Patrol;
+    if(danger<35&&bosses==5&&event==EEvent::Monster)expected=EEvent::Merchant;
+    assert(ReactiveEncounter(event,EWeather::Clear,danger,bosses)==expected);
+    assert(ReactiveEncounter(event,EWeather::Storm,danger,bosses)==(event==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue));
+   }
+  }
+ }
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,-1,0)==EEvent::Dispute);
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,101,0)==EEvent::Dispute);
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,50,6)==EEvent::Dispute);
  assert(ResidentWindowCount(0)==0);
  assert(ResidentWindowCount(1)==1);
  assert(ResidentWindowCount(19)==19);
