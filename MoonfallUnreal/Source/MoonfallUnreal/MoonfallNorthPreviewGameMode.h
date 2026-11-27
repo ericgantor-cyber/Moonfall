@@ -49,7 +49,7 @@ public:
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CanCatchOceanFish() const { return Gathering.CanCatch(); }
- bool CatchOceanFish() { return HasAuthority() && Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99)); }
+ bool CatchOceanFish(int32 Preferred=-1) { return HasAuthority() && Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99),Preferred); }
  int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
  int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
  bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }

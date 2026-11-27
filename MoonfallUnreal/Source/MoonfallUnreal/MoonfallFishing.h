@@ -8,6 +8,22 @@ namespace MoonfallFishing
         const double Bounded=Roll>=0.0&&Roll<=1.0?Roll:0.5;
         return 2.0+Bounded*(5.0-(Rank(Catches)-1)*0.3);
     }
+    constexpr int SchoolCount=8;
+    constexpr int SchoolSpecies(int Id) { return Id>=0&&Id<SchoolCount?Id%3:-1; }
+    struct FSchoolPosition { double X=0,Y=0; };
+    inline FSchoolPosition SchoolPosition(int Id,double Now,double Width,double Length) {
+        if(SchoolSpecies(Id)<0||!std::isfinite(Now)||Now<0||!std::isfinite(Width)||!std::isfinite(Length)||Width<600||Length<600) return {};
+        const double Phase=std::fmod(Now,120.0)*0.0523598775598+Id*0.785398163397;
+        const double Along=(Id%2?0.75:0.25)+0.08*std::sin(Phase);
+        const double Inset=200+60*std::cos(Phase);
+        switch(Id/2) {
+        case 0:return {Inset,Length*Along};
+        case 1:return {Width-Inset,Length*Along};
+        case 2:return {Width*Along,Inset};
+        default:return {Width*Along,Length-Inset};
+        }
+    }
+    constexpr double SchoolWait(double Wait) { return Wait>3.5?3.5:Wait; }
     enum class EStage { Idle, Waiting, Bite, Reeling };
     struct FSession {
         EStage Stage=EStage::Idle;
