@@ -25,7 +25,9 @@ assert "MoonfallTalents::Evaluate(Level, TalentRanks, ValidTalentSnapshot)" in s
 assert save_body.index("Evaluate(Level, TalentRanks, ValidTalentSnapshot)") < save_body.index("CreateSaveGameObject")
 assert "Save->TalentRanks.Reserve(MoonfallTalents::NodeCount)" in save_body
 assert "for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank)" in save_body
-assert "Save->Version > 17" in load_body
+assert "Save->Version > MaxEquipmentSaveVersion" in load_body
+assert "constexpr int32 MaxEquipmentSaveVersion" in load_body
+assert load_body.index("Save->Version > MaxEquipmentSaveVersion") < load_body.index("TeleportTo(")
 assert "MoonfallTalents::Ranks LoadedTalentRanks{};" in load_body
 assert "if (Save->Version >= 13)" in load_body
 assert "Save->TalentRanks.Num() != MoonfallTalents::NodeCount" in load_body
