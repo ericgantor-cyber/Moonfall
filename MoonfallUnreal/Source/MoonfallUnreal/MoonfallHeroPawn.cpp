@@ -4313,7 +4313,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
   return true;
  }
  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
- if (!IsValid(Preview) || Preview->GetOceanCatchCount()>=30) return false;
+ if (!IsValid(Preview) || !Preview->CanCatchOceanFish()) return false;
  const FVector Start=GetPawnViewLocation();
  const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
  if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;

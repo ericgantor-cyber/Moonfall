@@ -48,8 +48,10 @@ public:
  bool CollectOceanResource(int32 Id) { return HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); }
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
- bool CatchOceanFish() { return Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99)); }
- int32 GetOceanFishCount(int32 Id) const { return Gathering.Species(Id); }
+ bool CanCatchOceanFish() const { return Gathering.CanCatch(); }
+ bool CatchOceanFish() { return HasAuthority() && Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99)); }
+ int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
+ int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
  bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }
  bool CanCraftOceanRecipe(int32 Recipe) const { return Workshop.CanCraft(Recipe,Gathering,GrottoGear); }
  bool HasOceanCraftMaterial(int32 Id) const { return Workshop.HasMaterial(Id,Gathering); }

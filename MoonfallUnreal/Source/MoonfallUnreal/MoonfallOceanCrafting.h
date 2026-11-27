@@ -10,9 +10,12 @@ namespace MoonfallOceanCrafting
     struct FWorkshop {
         int Spent[4]={};
         int FishSpent[3]={};
+        int RemainingSpecies(int Id,const MoonfallOceanGathering::FCollection& C) const {
+            return Id>=0&&Id<3?C.Species(Id)-FishSpent[Id]:0;
+        }
         int RemainingFish(const MoonfallOceanGathering::FCollection& C) const {
             int N=0;
-            for(int I=0;I<3;++I) N+=C.Species(I)-FishSpent[I];
+            for(int I=0;I<3;++I) N+=RemainingSpecies(I,C);
             return N;
         }
         int AvailableMaterials(const MoonfallOceanGathering::FCollection& C) const {
