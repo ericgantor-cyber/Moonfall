@@ -126,6 +126,7 @@ void AMoonfallEnemyProjectile::ResolveHeroImpact(AActor* OtherActor)
   Enemy->NotifyRangedProjectileCountered(true);
   if(IsValid(Enemy)&&!Enemy->IsActorBeingDestroyed())
    Enemy->OnRangedProjectileResolved(false,true);
+  if(!IsValid(this)||IsActorBeingDestroyed())return;
   OnProjectileImpact(ImpactPoint,false,true);
   if(IsValid(this)&&!IsActorBeingDestroyed())Destroy();
   return;
