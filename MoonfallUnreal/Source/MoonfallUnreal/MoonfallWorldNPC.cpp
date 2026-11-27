@@ -224,7 +224,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      !bInConversation&&!bSheltering&&!bHoldPost&&Alert==MoonfallLivingSimulation::EAlertReaction::Normal,
      bAllowLocalGuide&&MoonfallLivingSimulation::RegionalRoutineAllowsGuide(Regional)&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
  if (MoonfallLivingSimulation::PauseResidentMotion(
-      bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost) && !bGuide) return;
+      bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost||bRegionalWatch) && !bGuide) return;
  float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
  if(bRegionalWatch){Side=0.f;Front=0.f;}
