@@ -391,6 +391,15 @@ constexpr bool CanOperateFull(int Code,int ActiveSlots,EInventoryOperation Opera
  }
  return false;
 }
+// Pre-V18 saves may contain any original nine-slot bag item, even when
+// their worn record contains only the three legacy mirror positions.
+// Later schema banks are only legitimate starting with their own version.
+constexpr bool ValidSavedInventoryItem(int Code,int Version,int ActiveSlots) {
+ if(Version<1||Version>19)return false;
+ const int SchemaSlots=Version==19?FullSlotCount:Version==18?SixteenSlotCount:SlotCount;
+ return CanOperateFull(Code,SchemaSlots,EInventoryOperation::Equip)
+     &&CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip);
+}
 // A ring's encoded slot is its stable historical item identity, not a
 // restriction on which finger can wear it. Other equipment stays slot-bound.
 constexpr bool CanWearFullItem(int Code,int TargetSlot,int ActiveSlots=FullSlotCount) {
