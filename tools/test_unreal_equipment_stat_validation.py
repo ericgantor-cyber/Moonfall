@@ -23,8 +23,12 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("GetValidatedEquippedTier(Slot) > 0 ? Code : 0", getter)
         self.assertIn("InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0", tier)
         self.assertIn("Slot < 0 || Slot > 2", tier)
-        for token in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
-            self.assertIn(token, tier)
+        self.assertIn("GetRawEquipmentSlotCode(Slot)", getter)
+        self.assertIn("GetRawEquipmentSlotCode(Slot)", tier)
+        raw = self.source.split("int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(", 1)[1].split("int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
+        for slot, field in enumerate(("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode")):
+            self.assertIn(f"case {slot}: return {field};", raw)
+        self.assertIn("default: return 0;", raw)
         for name, slot, trait in (("Weapon", 0, 1), ("Armor", 1, 2), ("Accessory", 2, 3)):
             self.assertIn(f"Owned{name}Code = GetEquipmentSlotCode({slot})", self.source)
             self.assertIn(f"ValidEquippedTraitRarity(Owned{name}Code, {slot}, {trait})", self.source)
