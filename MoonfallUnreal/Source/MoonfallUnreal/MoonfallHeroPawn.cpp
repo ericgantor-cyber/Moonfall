@@ -1145,6 +1145,32 @@ bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
         MouseY >= EquipY && MouseY <= EquipY + 30.f;
 }
 
+int32 AMoonfallHeroPawn::HitTestInventoryRingStrip() const
+{
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
+     ||!bInventoryOpen||bCharacterStatsOpen||bSpellBookOpen||bOptionsOpen
+     ||bTalentWebOpen||bAtlasOpen||!HasVisibleInventoryPointerSurface(Controller))return INDEX_NONE;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if(!PC||!PC->bShowMouseCursor)return INDEX_NONE;
+ int32 Width=0,Height=0;float MouseX=0.f,MouseY=0.f;
+ PC->GetViewportSize(Width,Height);
+ if(Width<=0||Height<=0||!PC->GetMousePosition(MouseX,MouseY)
+     ||!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY))return INDEX_NONE;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(Width)-24.f,float(Width)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(Height)-24.f));
+ if(PanelHeight<420.f)return INDEX_NONE;
+ const float Left=float(Width)-PanelWidth-12.f,Top=(float(Height)-PanelHeight)*0.5f;
+ const float HelpOffset=PanelHeight>=500.f?270.f:230.f;
+ const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
+ const float RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount;
+ for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
+  if(MoonfallEquipmentLayout::RingSlot(Index)>=MoonfallEquipmentLayout::ActiveSlotCount)break;
+  const float X=RingX+Index*RingWidth;
+  if(MouseX>=X&&MouseX<X+RingWidth-2.f&&MouseY>=RingY&&MouseY<RingY+18.f)return Index;
+ }
+ return INDEX_NONE;
+}
+
 int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
 {
  int32 ViewWidth = 0;
@@ -5779,6 +5805,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
   if (HitTestInventorySortButton()) return;
   if (HitTestInventoryEquipButton()) return;
+  const int32 RingIndex=HitTestInventoryRingStrip();
+  if(RingIndex!=INDEX_NONE){UnequipRing(RingIndex);return;}
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
@@ -6080,6 +6108,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   }
   if (HitTestInventoryEquipButton()) {
    EquipSelectedInventoryItem();
+   return;
+  }
+  const int32 RingIndex=HitTestInventoryRingStrip();
+  if(RingIndex!=INDEX_NONE){
+   EquipInventoryRing(InventorySelection,RingIndex);
    return;
   }
   const int32 Favorite = HitTestRightHandFavorite();
