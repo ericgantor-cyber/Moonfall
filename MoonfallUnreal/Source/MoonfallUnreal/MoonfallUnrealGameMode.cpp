@@ -441,7 +441,7 @@ void AMoonfallUnrealGameMode::PulseFollower(){
  if(!IsValid(Scout)||Scout->IsActorBeingDestroyed()||Scout->bCompanionDowned||LocalCompanion.Get()!=Scout||!IsLocalCompanionOwner(Hero))return;
  const FString PreviousIntent=Scout->LivingIntent;
  const auto ResetFollowerMomentum=[&](){
-  Scout->bFollowerWaypointValid=false;Scout->FollowerLastStep=0.0;Scout->FollowerLastMoveAt=-1.f;
+  Scout->bFollowerWaypointValid=false;Scout->bFollowerTravelFormation=false;Scout->FollowerLastStep=0.0;Scout->FollowerLastMoveAt=-1.f;
  };
  if(bFollowerMoveOrdered){
   Scout->LivingIntent=TEXT("Moving to order");
@@ -463,14 +463,18 @@ void AMoonfallUnrealGameMode::PulseFollower(){
    // Idle heroes retain the original follow radius and do not force repositioning.
    const FVector Velocity=Hero->GetVelocity();
    const bool bTraveling=!Player.ContainsNaN()&&!Velocity.ContainsNaN()
-       &&Velocity.SizeSquared2D()>FMath::Square(120.0)
-       &&FMath::Abs(Velocity.Z)<100.0&&!bThreat;
+       &&MoonfallWorldPolicy::CompanionTravelFormation(Velocity.SizeSquared2D(),Velocity.Z,
+           Scout->bFollowerTravelFormation,bFreshThreat||Hero->IsRecentlyInCombatForAmbientAI());
+   if(bTraveling!=Scout->bFollowerTravelFormation){
+    Scout->bFollowerWaypointValid=false;
+    Scout->bFollowerTravelFormation=bTraveling;
+   }
    if(bTraveling){
     const FVector Forward=Velocity.GetSafeNormal2D();
     const FVector Side(-Forward.Y,Forward.X,0);
     const double Sign=(GetTypeHash(Scout->ResidentId)%2u)?1.0:-1.0;
     const double HeroSpeed=Velocity.Size2D();
-    const float AdaptiveMaxStep=HeroSpeed>=550.0?80.f:HeroSpeed>=300.0?70.f:60.f;
+    const float AdaptiveMaxStep=MoonfallWorldPolicy::CompanionTravelStepCap(HeroSpeed,Separation);
     Scout->AdvanceFollowerToward(Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep);
    }else Scout->AdvanceFollowerToward(Hero->GetActorLocation(),Now,180.f);
   }else{
