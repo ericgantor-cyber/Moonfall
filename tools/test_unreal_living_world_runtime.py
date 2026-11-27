@@ -1289,6 +1289,6 @@ int main(){
         self.assertNotIn("PublishObservation(",routine)
         self.assertIn("RegionalRoutineStepLimit(Regional)",routine)
         self.assertIn("if(bRegionalWatch){Side=0.f;Front=0.f;}",routine)
-        self.assertIn("bRegionalCautious?RoutineStep:32.f",routine)
+        self.assertIn("GetClampedToMaxSize2D(RoutineStep)",routine)
 
 if __name__=="__main__":unittest.main()
