@@ -141,7 +141,7 @@ int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(int32 Slot) const
 
 void AMoonfallHeroPawn::GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const
 {
- OutCodes.SetNumZeroed(MoonfallEquipmentLayout::FullSlotCount);
+ OutCodes.Init(0,MoonfallEquipmentLayout::FullSlotCount);
  if(!MoonfallEquipmentLayout::ValidFullActiveCount(MoonfallEquipmentLayout::ActiveSlotCount))return;
  // Count the bag once, then validate all 24 raw references and duplicate
  // multiplicities without rescanning the inventory for every finger.
