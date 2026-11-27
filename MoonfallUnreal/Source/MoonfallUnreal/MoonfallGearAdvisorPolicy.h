@@ -625,13 +625,12 @@ constexpr int FullLootComparisonTier(const FFullLoadout& Worn,int Slot,int Activ
  }
  return Lowest;
 }
-// Choose a free finger first, otherwise replace the lowest-ranked ring.
-// Require a physical unused copy; the selected bag item is never cloned.
-template<class Bag>
-int SelectFullRingTarget(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory){
+// Shared deterministic quick-equip destination. The preview supplies a
+// validated loadout and bounded copy count; mutation also checks raw ownership.
+// An explicit quick equip may downgrade gear, unlike the upgrade advisor.
+constexpr int FullRingQuickEquipTarget(int Code,const FFullLoadout& Worn,int ActiveSlots,int OwnedCopies){
  if(!IsRingSlot(DecodeFullItem(Code).Slot)||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip)
-     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)
-     ||FullOwnedCopies(Code,Inventory)<=FullWornCopies(Code,Worn,ActiveSlots))return -1;
+     ||OwnedCopies<=FullWornCopies(Code,Worn,ActiveSlots))return -1;
  int Target=-1;
  for(int Slot:RingSlots){
   if(Slot>=ActiveSlots)break;
@@ -639,6 +638,11 @@ int SelectFullRingTarget(int Code,const FFullLoadout& Worn,int ActiveSlots,const
   if(Worn[Slot]!=Code&&(Target<0||FullRank(Worn[Slot])<FullRank(Worn[Target])))Target=Slot;
  }
  return Target;
+}
+template<class Bag>
+int SelectFullRingTarget(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory){
+ if(!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return -1;
+ return FullRingQuickEquipTarget(Code,Worn,ActiveSlots,FullOwnedCopies(Code,Inventory));
 }
 // Identical codes lack per-copy identity. Craft an unworn copy first;
 // otherwise update exactly one matching worn finger, in stable order.
