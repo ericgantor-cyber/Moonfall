@@ -118,6 +118,7 @@ ISLAND_RESIDENTS = (
     ("Warden Veyra", "MoonwatchWarden", (-450.0, 3050.0, 130.0)),
     ("Cartographer Soren", "MoonwatchCartographer", (0.0, 3500.0, 130.0)),
     ("Keeper Maelis", "MoonwatchKeeper", (450.0, 3050.0, 130.0)),
+    ("Trader Ilyen", "MoonwatchTrader", (450.0, 3550.0, 130.0)),
 )
 
 
