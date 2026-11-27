@@ -361,7 +361,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
         self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier", self.source)
-        self.assertIn("SpawnActor<AMoonfallEnemyProjectile>", self.source)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>", self.source)
         self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)", self.source)
         self.assertIn("Distance > EffectiveAttackRange", self.source)
         self.assertIn("RangedProjectileWindup(bCasterCombatRole)", self.source)
