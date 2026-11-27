@@ -106,5 +106,28 @@ int main(){
  }
  Travel.XP[0]=-1;
  assert(M::JumpBonusBps(Travel)==0);
+ M::State Rewards{};
+ assert(M::TryAward(Rewards,M::Action::MeleeVictory,true,Rewards,M::Challenge::Boss));
+ assert(M::XPFor(Rewards,M::Skill::Swordsmanship)==48);
+ assert(M::TryAward(Rewards,M::Action::HeavyVictory,true,Rewards,M::Challenge::Elite));
+ assert(M::XPFor(Rewards,M::Skill::Strength)==24);
+ const auto Snapshot=Rewards;
+ assert(!M::TryAward(Rewards,M::Action::CompletedCraft,true,Rewards,M::Challenge::Boss));
+ assert(!M::TryAward(Rewards,M::Action::SpellVictory,true,Rewards,static_cast<M::Challenge>(99)));
+ assert(Rewards.XP==Snapshot.XP);
+ Rewards.XP.fill(M::MaxXP);
+ const int Caps[]={1000,1000,4000,1500,2000,1500};
+ for(int K=0;K<M::SkillCount;++K){
+  const auto Skill=static_cast<M::Skill>(K);
+  assert(M::PassiveBonusBps(Rewards,Skill)==Caps[K]);
+  int Previous=0;
+  for(int R=0;R<=M::MaxRank;++R){
+   Rewards.XP[K]=M::RankThresholds[R];
+   const int Bonus=M::PassiveBonusBps(Rewards,Skill);
+   assert(Bonus>=Previous&&Bonus<=Caps[K]);Previous=Bonus;
+  }
+ }
+ Rewards.XP[0]=-1;
+ assert(M::PassiveBonusBps(Rewards,M::Skill::Strength)==0);
  return 0;
 }
