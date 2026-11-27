@@ -87,5 +87,20 @@ int main(){
  assert(Hidden==7);
  assert(!M::ValidOrbID(M::RoutePlacement(-1).Region,0));
  assert(!M::ValidOrbID(M::RoutePlacement(M::WorldRouteCount).Region,0));
+ M::State Travel{};
+ assert(M::JumpBonusBps(Travel)==0);
+ assert(!M::CanAirDash(Travel,true,false,true));
+ Travel.XP[static_cast<int>(M::Skill::Agility)]=100;
+ assert(M::JumpBonusBps(Travel)==600);
+ Travel.XP[static_cast<int>(M::Skill::Agility)]=650;
+ assert(M::JumpBonusBps(Travel)==1800);
+ assert(M::CanAirDash(Travel,true,false,true));
+ assert(!M::CanAirDash(Travel,false,false,true));
+ assert(!M::CanAirDash(Travel,true,true,true));
+ assert(!M::CanAirDash(Travel,true,false,false));
+ Travel.XP[static_cast<int>(M::Skill::Agility)]=1800;
+ assert(M::JumpBonusBps(Travel)==2500);
+ Travel.XP[0]=-1;
+ assert(M::JumpBonusBps(Travel)==0&&!M::CanAirDash(Travel,true,false,true));
  return 0;
 }
