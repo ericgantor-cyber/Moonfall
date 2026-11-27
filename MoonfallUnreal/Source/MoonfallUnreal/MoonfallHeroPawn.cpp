@@ -1410,6 +1410,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
 {
  // One X press owns one action; keyboard F and Delete remain independent.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bTalentWebOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
@@ -1456,6 +1457,7 @@ void AMoonfallHeroPawn::ControllerConfirm()
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
+ if (bOptionsOpen) return;
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
  if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()) return;
@@ -2233,6 +2235,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::ControllerRightStickPress()
 {
+ if(HasRingNavigationFocus())return; // Do not abandon a focused ring transaction for Atlas.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bOptionsOpen) { ExportBugReport(); return; }
  if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -3334,6 +3337,9 @@ void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ArmOrCancelRingNavigationSwap();return;}
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(-1); return; }
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
@@ -3378,6 +3384,9 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ClearRingNavigationFocus();return;}
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(1); return; }
  if (bTalentWebOpen) { TalentMove(0,1); return; }
@@ -3417,6 +3426,9 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
@@ -3437,6 +3449,9 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){
   const int32 Next=RingNavigationIndex+1;
   const int32 Slot=MoonfallEquipmentLayout::RingSlot(Next);
