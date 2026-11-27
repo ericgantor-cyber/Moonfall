@@ -64,6 +64,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(HitRed,Canvas->SizeX-Border,0.f,Border,Canvas->SizeY);
   }
  }
+ // Keep critical breath warnings visible above menus, without a flashing effect.
+ if (bLiveMenuOpen && Hero->bWaterSwimming && Hero->bWaterSubmerged
+     && !Hero->bInsideAirPocket && FMath::IsFinite(Hero->Oxygen)
+     && Hero->Oxygen <= 20.f && Canvas->SizeX >= 300 && Canvas->SizeY >= 120) {
+  const float X = (Canvas->SizeX - 260.f)*0.5f;
+  const int32 Seconds = FMath::CeilToInt(FMath::Max(0.f,Hero->Oxygen)
+      / MoonfallWaterRules::EffectiveDrain(MoonfallWaterRules::BreathMultiplier(Hero->bRaceChosen,Hero->RaceId)));
+  DrawRect(FLinearColor(0.16f,0.025f,0.04f,0.96f),X,8.f,260.f,32.f);
+  DrawText(Seconds == 0 ? FString(TEXT("DROWNING | CLOSE MENU"))
+      : FString::Printf(TEXT("LOW BREATH %ds | CLOSE MENU"),Seconds),
+      FLinearColor::White,X+8.f,14.f,nullptr,0.85f);
+ }
  };
  // Shared, fixed-cost panel frame for all major Unreal menus.
  // Painting accents does not change mouse hit targets, layouts, or controls.
@@ -2692,7 +2704,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
   const float W = 252.f;
   const float X = (Canvas->SizeX-W)*0.5f;
-  const float Y = Canvas->SizeY*0.69f;
+  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-90.f);
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
   const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
