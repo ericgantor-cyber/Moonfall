@@ -147,6 +147,23 @@ assert "!bAutoVoyageInProgress || !IsValid(Hero)" in post_tick_event
 assert "PendingVoyager.Get() != Hero" in post_tick_event
 assert "PendingShip.Get() != Ship" in post_tick_event
 assert "PairedGate != Arrival" in post_tick_event
+# A progress Blueprint can disable or destroy a harbor or invalidate the
+# passenger on the final update. Require the same live guards before arrival.
+post_callback_guard = post_tick_event.split("MoonfallNorth::AutoSailShouldArrive", 1)[0]
+for expected in (
+    "!HasConfiguredPassage()",
+    "!IsValid(Arrival)",
+    "!IsValid(Ship)",
+    "!Hero->IsPlayerControlled()",
+    "!FMath::IsFinite(Hero->Health)",
+    "Hero->Health <= 0.f",
+    "Hero->GetWorld() != GetWorld()",
+    "!IsVoyagerAboard(Hero, Ship)",
+):
+    assert expected in post_callback_guard, f"Missing post-callback guard: {expected}"
+assert post_callback_guard.index("!IsValid(Arrival)") < post_callback_guard.index(
+    "Arrival->PairedGate"
+)
 assert "StopAutomaticVoyage();" in post_tick_event
 assert post_tick_event.index("StopAutomaticVoyage();") < post_tick_event.index(
     "MoonfallNorth::AutoSailShouldArrive"
