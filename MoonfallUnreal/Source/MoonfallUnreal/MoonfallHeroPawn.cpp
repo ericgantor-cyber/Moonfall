@@ -1,5 +1,6 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallNorthPreviewGameMode.h"
+#include "MoonfallRegionalFishing.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
@@ -875,7 +876,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   bool bCaughtThisTick=false;
   if (Fishing.Advance(Now,CanContinueFishing())) {
    auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
-   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish(FishingSchoolId);
+   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish(FishingSchoolId,FishingProvince);
    FishingNoticeUntil=Now+4.f;
    bCaughtThisTick=bFishingCaught;
   }
@@ -4333,6 +4334,18 @@ bool AMoonfallHeroPawn::CanContinueFishing() const {
 }
 
 namespace {
+int32 ResolveFishingProvince(const APhysicsVolume* Volume) {
+ if(!IsValid(Volume)) return -1;
+ int32 Region=-1;
+ for(int32 I=0;I<MoonfallNorth::ZoneCount;++I) {
+  const FName Tag(*FString::Printf(TEXT("MoonfallFishingProvince_%d"),I));
+  if(Volume->ActorHasTag(Tag)) {
+   if(Region>=0) return -1;
+   Region=I;
+  }
+ }
+ return Region;
+}
 bool DeepWaterSchoolPoint(const FBox& Bounds,int32 Id,float Now,FVector& Out) {
  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()) return false;
  const auto Size=Bounds.GetSize();
@@ -4392,11 +4405,13 @@ bool AMoonfallHeroPawn::TryFishingAction() {
  if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
  FishingSchoolId=-1;
+ FishingProvince=-1;
  // Prefer the nearest visible school in the same cast cone; ordinary water stays valid.
  FVector BestSchool=FVector::ZeroVector;
  const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
  double BestDistance=FMath::Square(MaxReach);
  int32 BestSchoolId=-1;
+ int32 BestProvince=-1;
  for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
   if(!IsValid(*It)||!It->bWaterVolume) continue;
   const FBox Bounds=It->GetComponentsBoundingBox(true);
@@ -4410,12 +4425,12 @@ bool AMoonfallHeroPawn::TryFishingAction() {
        FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   BestDistance=Distance; BestSchool=Target; BestSchoolId=Id;
+   BestDistance=Distance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It);
   }
  }
  if(BestSchoolId>=0) {
   if(!Fishing.Start(Now,MoonfallFishing::SchoolWait(MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount())),Preview->GetOceanCatchCount())) return false;
-  FishingSchoolId=BestSchoolId; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingNoticeUntil=0.f;
+  FishingSchoolId=BestSchoolId; FishingProvince=BestProvince; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingNoticeUntil=0.f;
   SyncFishingPresentation();
   return true;
  }
@@ -4435,6 +4450,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
    if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
+   FishingProvince=ResolveFishingProvince(Volume);
    FishingNoticeUntil=0.f;
    SyncFishingPresentation();
    return true;

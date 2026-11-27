@@ -9,6 +9,7 @@
 #include "MoonfallOceanGathering.h"
 #include "MoonfallOceanCrafting.h"
 #include "MoonfallFishing.h"
+#include "MoonfallRegionalFishing.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -62,14 +63,16 @@ public:
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CanCatchOceanFish() const { return Gathering.CanCatch(); }
  bool IsFishingSchoolAvailable(int32 Id) const { return GetWorld() && Schools.Available(Id,GetWorld()->GetTimeSeconds()); }
- bool CatchOceanFish(int32 SchoolId=-1) {
+ bool CatchOceanFish(int32 SchoolId=-1,int32 Province=-1) {
   if(!HasAuthority()||!GetWorld()||!Gathering.CanCatch()||SchoolId<-1||SchoolId>=MoonfallFishing::SchoolCount) return false;
   const bool bSchool=SchoolId>=0 && Schools.Take(SchoolId,GetWorld()->GetTimeSeconds());
   const int32 Event=GetOceanActivity();
   const bool bBait=Workshop.Bait>0 && Workshop.Bait<=MoonfallOceanCrafting::BaitCapacity;
-  const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event,bBait);
+  const int32 Rank=MoonfallFishing::Rank(Gathering.Catches());
+  const int32 Bonus=MoonfallRegionalFishing::TrophyBonus(Province,Rank,bSchool);
+  const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event,bBait)+Bonus;
   const int32 Legendary=bSchool?MoonfallFishing::LegendarySpecies(Gathering.Catches(),SchoolId,Event,FMath::RandRange(0,99),bBait):-1;
-  const bool bCaught=Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):-1,bTrophy,Legendary);
+  const bool bCaught=Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):MoonfallRegionalFishing::Preferred(Province,Rank),bTrophy,Legendary);
   if(bCaught&&bBait) Workshop.UseBait();
   bProfessionDirty|=bCaught;
   return bCaught;
