@@ -2966,7 +2966,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(Hero->WaterTonicRemaining > 0.f ? FString::Printf(TEXT("WATER BREATHING %ds"),FMath::CeilToInt(Hero->WaterTonicRemaining)) : Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),(Hero->bInsideAirPocket || Hero->WaterTonicRemaining > 0.f) ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
-  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
+  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+33.f,nullptr,0.76f);
+  const TCHAR* WaterTip=Hero->bInsideAirPocket?TEXT("Air pocket: breathe here"):
+      Air<=20.f?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
+  if (Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
+      && GetWorld() && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+      && !Hero->IsRecentlyInCombatForAmbientAI())
+   WaterTip=TEXT("F1 / D-pad Up: shore rescue if safe");
+  DrawText(WaterTip,Air<=20.f?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+8.f,Y+45.f,nullptr,0.65f);
   if (Hero->WaterCurrentStrength > 0.01f && Hero->WaterTonicRemaining <= 0.f)
    DrawText(TEXT("CURRENT"),FLinearColor(0.40f,0.88f,0.95f),X+162.f,Y+3.f,nullptr,0.75f);
   else if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
