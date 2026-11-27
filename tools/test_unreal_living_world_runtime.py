@@ -51,6 +51,22 @@ int main(){
  assert(MoonfallPackTactics::MaxScannedActors==64);
  assert(MoonfallPackTactics::MaxNearbyCandidates==32);
  assert(MoonfallPackTactics::MaxWindingAllies==2);
+ using MoonfallPackTactics::CombatRole;
+ assert(MoonfallPackTactics::RoleForEncounterSlot(0,false)==CombatRole::Scout);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(1,false)==CombatRole::Ranged);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(2,false)==CombatRole::Vanguard);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(0,true)==CombatRole::PackLeader);
+ assert(MoonfallPackTactics::RoleForBossMinion(0)==CombatRole::Vanguard);
+ assert(MoonfallPackTactics::RoleForBossMinion(1)==CombatRole::Ranged);
+ assert(MoonfallPackTactics::RangedAttackRange==520.f);
+ assert(MoonfallPackTactics::RangedRepositionMode(200.0)==-1);
+ assert(MoonfallPackTactics::RangedRepositionMode(390.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(500.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(501.0)==1);
+ assert(MoonfallPackTactics::RangedRepositionMode(-1.0)==0);
+ assert(MoonfallPackTactics::ShouldMinionYieldToBoss(true,true));
+ assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(true,false));
+ assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(false,true));
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ArtProfilesSafe());
  static_assert(sizeof(MoonfallRoadLandmarks::ArtProfiles)/sizeof(MoonfallRoadLandmarks::ArtProfiles[0])==6);
@@ -818,6 +834,41 @@ int main(){
         self.assertEqual(block.count("AddActorWorldOffset(Offset,true,&YieldHit)"),1)
         self.assertLess(block.index("NextAttackAt = Now + SlotDelay"),block.index("YieldRepositionStep("))
         self.assertNotIn("FindPathToLocationSynchronously",block)
+
+    def test_v27_dungeon_combat_roles_ranged_spacing_and_boss_minions(self):
+        dungeon=(SRC/"MoonfallDungeonLayout.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        policy=(SRC/"MoonfallPackTactics.h").read_text()
+        regular=dungeon.split("bool AMoonfallDungeonLayout::StartCombatChamber(",1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber",1)[0]
+        bonus=dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(",1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel",1)[0]
+        boss=dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(",1)[1]
+        self.assertIn("RoleForEncounterSlot(Spawned,bEliteEncounter)",regular)
+        self.assertIn('FName(TEXT("DungeonScout"))',regular)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))',regular)
+        self.assertIn("RoleForEncounterSlot(Member,Enemy->bElite)",bonus)
+        self.assertIn("RangedAttackRange=520.f",policy)
+        self.assertIn("RangedPreferredRange=390.0",policy)
+        self.assertIn("RangedMinimumRange=280.0",policy)
+        self.assertIn("RangedMaximumRange=500.0",policy)
+        self.assertIn("RangedRepositionMode(Distance)",enemy)
+        self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
+        self.assertIn("Distance <= EffectiveAttackRange * CurrentAttackRangeMultiplier",enemy)
+        self.assertIn("CurrentWindup=FMath::Max(CurrentWindup,0.95f)",enemy)
+        self.assertIn("Boss->DungeonChamberIndex = ChamberCount-1;",boss)
+        self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));',boss)
+        self.assertIn("if (Rank>=3)",boss)
+        self.assertIn("RoleForBossMinion(MinionIndex)",boss)
+        self.assertIn('FName(TEXT("MoonfallBossMinion"))',boss)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))',boss)
+        self.assertIn("Minion->DungeonChamberIndex=ChamberCount-1;",boss)
+        self.assertIn("if (!bAllMinionsSpawned || BossMinions.Num()!=2) RollbackBossMinions();",boss)
+        self.assertIn("ShouldMinionYieldToBoss(",enemy)
+        self.assertIn("Other->ActorHasTag(BossEncounterTag)",enemy)
+        self.assertIn("Other->GetOwner() != GetOwner()",enemy)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",enemy)
+        self.assertEqual(enemy.count("TActorIterator<AMoonfallEnemy>"),1)
 
     def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
