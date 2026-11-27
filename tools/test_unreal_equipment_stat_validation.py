@@ -148,7 +148,7 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("InventoryItemCodes=PreviousBag;", body)
 
     def test_ring_strip_hit_testing_matches_hud_and_consumes_clicks(self):
-        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         hit = self.source.split("int32 AMoonfallHeroPawn::HitTestInventoryRingStrip()", 1)[1].split("\n}", 1)[0]
         for token in ("RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f",
                       "RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount",
