@@ -148,6 +148,9 @@ public:
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
+ // Shared one-pass snapshot for HUD, previews and ring-stat consumers.
+ void GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const;
+ uint32 GetEquipmentLoadoutFingerprint() const;
  // Perks activate only on owned, correctly slotted legendary gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Perks") bool HasLegendaryPerk(int32 Slot) const;
  // Read-only owned-item comparison and projected set totals.
