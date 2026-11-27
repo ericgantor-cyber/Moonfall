@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 // Deterministic, bounded turn-taking for ordinary enemies in a local pack.
 // No registry, shared mutable state, extra timer, or additional actor scan.
 namespace MoonfallPackTactics {
@@ -22,6 +23,17 @@ constexpr float AttackSlotDelay(int WindingAllies, unsigned int ActorId) {
  const int Count = WindingAllies > MaxWindingAllies ? MaxWindingAllies : WindingAllies;
  return 0.25f + 0.15f * static_cast<float>(Count)
      + 0.035f * static_cast<float>(ActorId % 4u);
+}
+// Leaders retry sooner, but cannot bypass an occupied attack slot.
+constexpr float RoleAdjustedSlotDelay(float Delay,bool Leader) {
+ return Delay<=0.f?0.f:(Leader?Delay*0.8f:Delay);
+}
+// A waiting ordinary foe can circle at the edge of melee range, not push
+// through the hero or change its committed strike. One step per deferral.
+inline float YieldRepositionStep(double Distance,double Range,float Delta,bool Eligible) {
+ if(!Eligible||!std::isfinite(Distance)||!std::isfinite(Range)||!std::isfinite(Delta)
+    ||Range<=0.0||Distance<=Range*0.65||Distance>Range||Delta<=0.f)return 0.f;
+ return std::fmin(18.f,180.f*Delta);
 }
 static_assert(!ShouldYieldAttackSlot(0) && ShouldYieldAttackSlot(1)
     && ShouldYieldAttackSlot(2), "Pack attacks yield to active windups");
