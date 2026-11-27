@@ -34,6 +34,20 @@ bool FMoonfallAquaticProfilesTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Leviathan phase two"), MoonfallAquatic::Phase(5,0.65f), 2);
     TestEqual(TEXT("Leviathan phase three"), MoonfallAquatic::Phase(5,0.3f), 3);
     TestTrue(TEXT("Bounded accelerated recovery"), MoonfallAquatic::RecoveryScale(3) >= 0.7f);
+    using namespace MoonfallAquatic;
+    TestEqual(TEXT("Rare alternates sweep"), SelectMove(4,1,1),1);
+    TestEqual(TEXT("First boss phase has no specials"), SelectMove(5,1,2),0);
+    TestEqual(TEXT("Second boss phase has pulse"), SelectMove(5,2,1),1);
+    TestEqual(TEXT("Third boss phase has lunge"), SelectMove(5,3,2),2);
+    const auto Pulse = Move(5,1);
+    TestTrue(TEXT("Pulse is radial and unblockable"),Pulse.bRadial && Pulse.bUnblockable);
+    TestTrue(TEXT("Pulse reaches rear"),Hits(Pulse,FVector(-250,0,0),FVector::ForwardVector));
+    TestFalse(TEXT("Leaving pulse radius avoids damage"),Hits(Pulse,FVector(300,0,0),FVector::ForwardVector));
+    const auto Lunge = Move(5,2);
+    TestTrue(TEXT("Lunge hits locked direction"),Hits(Lunge,FVector(200,0,0),FVector::ForwardVector));
+    TestFalse(TEXT("Side swimming avoids lunge"),Hits(Lunge,FVector(0,200,0),FVector::ForwardVector));
+    TestFalse(TEXT("Ascending avoids lunge"),Hits(Lunge,FVector(0,0,200),FVector::ForwardVector));
+    TestFalse(TEXT("Out of reach avoids lunge"),Hits(Lunge,FVector(300,0,0),FVector::ForwardVector));
     return true;
 }
 #endif
