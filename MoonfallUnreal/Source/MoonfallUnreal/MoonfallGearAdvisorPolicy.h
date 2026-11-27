@@ -427,17 +427,37 @@ int FullOwnedCopies(int Code,const Bag& Inventory,int Limit=FullSlotCount+1) {
 template<class Bag>
 bool IsFullLoadoutOwned(const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
  if(!ValidFullActiveCount(ActiveSlots))return false;
+ // Validate every raw reference before scanning the bag. Sorted fixed-size
+ // scratch arrays keep the ownership check bounded and allocation-free.
+ std::array<int,FullSlotCount> Codes{},Required{},Found{};
+ int Count=0,Remaining=0;
  for(int Slot=0;Slot<FullSlotCount;++Slot){
   const int Code=Worn[Slot];
   if(!Code)continue;
   if(!CanWearFullItem(Code,Slot,ActiveSlots))return false;
-  bool Seen=false;
-  for(int Prior=0;Prior<Slot;++Prior)if(Worn[Prior]==Code){Seen=true;break;}
-  if(Seen)continue;
-  const int Required=FullWornCopies(Code,Worn,ActiveSlots);
-  if(FullOwnedCopies(Code,Inventory,Required)<Required)return false;
+  Codes[Count++]=Code;
+  ++Remaining;
  }
- return true;
+ if(!Remaining)return true;
+ std::sort(Codes.begin(),Codes.begin()+Count);
+ int Unique=0;
+ for(int I=0;I<Count;++I){
+  const int Code=Codes[I];
+  if(Unique&&Codes[Unique-1]==Code)++Required[Unique-1];
+  else {Codes[Unique]=Code;Required[Unique]=1;++Unique;}
+ }
+ // A single bag traversal, with early exit once every physical copy is found.
+ for(int Item:Inventory){
+  const auto End=Codes.begin()+Unique;
+  const auto It=std::lower_bound(Codes.begin(),End,Item);
+  if(It==End||*It!=Item)continue;
+  const auto Index=It-Codes.begin();
+  if(Found[Index]<Required[Index]){
+   ++Found[Index];
+   if(--Remaining==0)return true;
+  }
+ }
+ return false;
 }
 template<class Bag>
 bool TryAssignFullRing(int Code,int TargetSlot,const FFullLoadout& Worn,
