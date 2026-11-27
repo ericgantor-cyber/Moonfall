@@ -42,9 +42,10 @@ void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
    Mode->UnregisterLivingResident(this);
  Super::EndPlay(EndPlayReason);
 }
-bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance){
+bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance,float MaxStep){
  if(!HasAuthority()||!GetWorld()||Goal.ContainsNaN()||GetActorLocation().ContainsNaN()
-     ||!FMath::IsFinite(Now)||Now<0.f||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
+     ||!FMath::IsFinite(Now)||Now<0.f||!FMath::IsFinite(StopDistance)||StopDistance<0.f
+     ||!FMath::IsFinite(MaxStep)||MaxStep<=0.f||MaxStep>100.f)return false;
  const FVector Start=GetActorLocation();
  const double Distance=FVector::Dist2D(Start,Goal);
  const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
@@ -84,7 +85,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
   FollowerLastStep=0.0;
  };
  const double Remaining=bSameFloor?FMath::Max(0.0,Distance-StopDistance):120.0;
- const double StepLimit=MoonfallWorldPolicy::FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt);
+ const double StepLimit=MoonfallWorldPolicy::FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt,MaxStep);
  const FVector End=Start+Step.GetClampedToMaxSize2D(StepLimit);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
  FHitResult Obstacle;
