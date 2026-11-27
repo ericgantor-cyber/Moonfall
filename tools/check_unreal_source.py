@@ -5610,6 +5610,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Legacy->Level, 23", source)
         self.assertIn("all seven required native tests explicitly passed", runner)
         self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", source)
+        for token in ("Serialize malformed equipment fixture",
+                      "Deserialize malformed equipment fixture",
+                      "Serialized rejection leaves previous output unchanged",
+                      "Serialized V19 missing ring copy rejected",
+                      "Serialized V19 wrong slot rejected",
+                      "Serialized V19 mirror mismatch rejected",
+                      "Serialized V19 truncated record rejected",
+                      "Serialized V19 oversized record rejected",
+                      "Serialized V20 future schema rejected"):
+            self.assertIn(token, source)
         self.assertIn("Moonfall.Dungeons.EquipmentSaveRoundTrip", runner)
 
     def test_v10_dungeon_completion_rewards_are_exactly_once_and_atomic(self):
