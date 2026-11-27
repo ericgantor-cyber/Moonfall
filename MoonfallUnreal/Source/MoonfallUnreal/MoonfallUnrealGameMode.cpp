@@ -455,7 +455,18 @@ void AMoonfallUnrealGameMode::PulseFollower(){
   if(Tactic==CompanionTactic::Follow){
    Scout->LivingIntent=TEXT("Following");
    if(PreviousIntent!=Scout->LivingIntent)Scout->bFollowerWaypointValid=false;
-   Scout->AdvanceFollowerToward(Hero->GetActorLocation(),Now,180.f);
+   // Trail a moving hero instead of cutting directly across their travel lane.
+   // Idle heroes retain the original follow radius and do not force repositioning.
+   const FVector Velocity=Hero->GetVelocity();
+   const bool bTraveling=!Player.ContainsNaN()&&!Velocity.ContainsNaN()
+       &&Velocity.SizeSquared2D()>FMath::Square(120.0)
+       &&FMath::Abs(Velocity.Z)<100.0&&!bThreat;
+   if(bTraveling){
+    const FVector Forward=Velocity.GetSafeNormal2D();
+    const FVector Side(-Forward.Y,Forward.X,0);
+    const double Sign=(GetTypeHash(Scout->ResidentId)%2u)?1.0:-1.0;
+    Scout->AdvanceFollowerToward(Player-Forward*200.0+Side*90.0*Sign,Now,85.f);
+   }else Scout->AdvanceFollowerToward(Hero->GetActorLocation(),Now,180.f);
   }else{
    const FVector Toward=(Threat->GetActorLocation()-Player).GetSafeNormal2D();
    const FVector Side(-Toward.Y,Toward.X,0);
