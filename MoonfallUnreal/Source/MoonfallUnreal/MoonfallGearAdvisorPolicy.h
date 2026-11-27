@@ -693,4 +693,78 @@ FFullPlan PlanFlexibleRings(const FFullLoadout& Worn,int ActiveSlots,bool InComb
  }
  return Best;
 }
+// Ring stat budgets use integer basis points, with aggregate caps independent
+// of item encoding and finger assignment. This is a proposed combat policy;
+// native consumers must combine it with their existing global stat caps.
+struct FRingBonuses {
+ bool Valid=false;
+ int CritBps=0,HasteBps=0,VersatilityBps=0,MasteryBps=0,LuckBps=0;
+ unsigned LegendaryMask=0;
+ int EquippedCount=0;
+};
+inline constexpr int RingCritCapBps=300,RingHasteCapBps=250,
+ RingVersatilityCapBps=200,RingMasteryCapBps=300,RingLuckCapBps=500;
+constexpr int RingCapped(int Value,int Cap){return Value<Cap?Value:Cap;}
+// Force = crit, Ward = versatility, Focus = haste, untraited = luck.
+// Every ring contributes a smaller mastery amount. Legendary perks are
+// keyed by trait family, not the historical ring-position digit or tier.
+template<class Bag>
+FRingBonuses BuildRingBonuses(const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ FRingBonuses Out{};
+ if(!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return Out;
+ Out.Valid=true;
+ for(int R=0;R<RingSlotCount;++R){
+  const int Slot=RingSlot(R);
+  if(Slot>=ActiveSlots)break;
+  const auto Item=DecodeFullItem(Worn[Slot]);
+  if(!Item.IsValid())continue;
+  ++Out.EquippedCount;
+  const int Budget=Item.Tier*2+Item.Rarity*5;
+  Out.MasteryBps+=Budget/2;
+  switch(Item.Trait){
+   case 0:Out.LuckBps+=Budget;break;
+   case 1:Out.CritBps+=Budget;break;
+   case 2:Out.VersatilityBps+=Budget;break;
+   case 3:Out.HasteBps+=Budget;break;
+  }
+  if(Item.Rarity==5)Out.LegendaryMask|=1u<<Item.Trait;
+ }
+ // One legendary bonus per trait family, even across distinct item codes.
+ // The family bonus consumes the same aggregate budget as ordinary stats.
+ if(Out.LegendaryMask&1u)Out.LuckBps+=50;
+ if(Out.LegendaryMask&2u)Out.CritBps+=50;
+ if(Out.LegendaryMask&4u)Out.VersatilityBps+=50;
+ if(Out.LegendaryMask&8u)Out.HasteBps+=50;
+ Out.CritBps=RingCapped(Out.CritBps,RingCritCapBps);
+ Out.HasteBps=RingCapped(Out.HasteBps,RingHasteCapBps);
+ Out.VersatilityBps=RingCapped(Out.VersatilityBps,RingVersatilityCapBps);
+ Out.MasteryBps=RingCapped(Out.MasteryBps,RingMasteryCapBps);
+ Out.LuckBps=RingCapped(Out.LuckBps,RingLuckCapBps);
+ return Out;
+}
+// Generate one interchangeable ring loot category instead of ten finger
+// categories. Old encoded ring variants remain valid owned items. Select
+// categories uniformly using the caller's seeded RNG; rarity and tier
+// rolls are independent of this mapping. Existing non-ring IDs stay stable.
+constexpr int FullLootCategoryCount(int ActiveSlots) {
+ if(!ValidFullActiveCount(ActiveSlots))return 0;
+ int Count=0;
+ for(int Slot=0;Slot<ActiveSlots;++Slot)
+  if(!IsRingSlot(Slot)||Slot==RingSlot(0))++Count;
+ return Count;
+}
+constexpr int FullLootCategorySlot(int Category,int ActiveSlots) {
+ if(Category<0||!ValidFullActiveCount(ActiveSlots))return -1;
+ for(int Slot=0;Slot<ActiveSlots;++Slot){
+  if(IsRingSlot(Slot)&&Slot!=RingSlot(0))continue;
+  if(Category--==0)return Slot;
+ }
+ return -1;
+}
+constexpr int EncodeFullLoot(int Category,int ActiveSlots,int Trait,int Rarity,int Tier) {
+ return EncodeFullItem(FullLootCategorySlot(Category,ActiveSlots),Trait,Rarity,Tier);
+}
+static_assert(FullLootCategoryCount(3)==3&&FullLootCategoryCount(9)==9
+    &&FullLootCategoryCount(16)==15&&FullLootCategoryCount(24)==15,
+    "Ring fingers are not separate loot categories");
 } // namespace MoonfallEquipmentLayout

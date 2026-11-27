@@ -267,6 +267,64 @@ int main() {
  assert(L::PlanFlexibleRings(RingStart,24,true,FlexibleBag).Codes==RingStart);
  assert(L::PlanFlexibleRings(RingStart,24,false,std::array<int,2>{FixedChest,CommonRing}).Codes==RingStart);
  assert(L::PlanFlexibleRings(RingStart,23,false,FlexibleBag).Codes==RingStart);
+ // Ring combat budgets: no unowned bonuses, no duplicate legendary
+ // family stacking, capped maximums, and unchanged values across finger moves.
+ const int ForceLegend=L::EncodeFullItem(8,1,5,25);
+ const int ForceLegendOther=L::EncodeFullItem(23,1,5,25);
+ const int WardLegend=L::EncodeFullItem(13,2,5,25);
+ const int FocusLegend=L::EncodeFullItem(16,3,5,25);
+ const int LuckLegend=L::EncodeFullItem(17,0,5,25);
+ L::FFullLoadout BudgetLoadout{};
+ BudgetLoadout[8]=ForceLegend;BudgetLoadout[13]=ForceLegendOther;
+ const std::array<int,5> BudgetBag{{ForceLegend,ForceLegendOther,WardLegend,FocusLegend,LuckLegend}};
+ auto Bonuses=L::BuildRingBonuses(BudgetLoadout,24,BudgetBag);
+ assert(Bonuses.Valid&&Bonuses.EquippedCount==2&&Bonuses.CritBps==200);
+ assert(Bonuses.MasteryBps==74&&Bonuses.LegendaryMask==2u);
+ assert(!L::BuildRingBonuses(BudgetLoadout,24,std::array<int,1>{ForceLegend}).Valid);
+ BudgetLoadout[16]=WardLegend;BudgetLoadout[17]=FocusLegend;BudgetLoadout[18]=LuckLegend;
+ Bonuses=L::BuildRingBonuses(BudgetLoadout,24,BudgetBag);
+ assert(Bonuses.Valid&&Bonuses.EquippedCount==5&&Bonuses.LegendaryMask==15u);
+ assert(Bonuses.CritBps==200&&Bonuses.VersatilityBps==125&&Bonuses.HasteBps==125);
+ assert(Bonuses.LuckBps==125&&Bonuses.MasteryBps==185);
+ auto MovedBudget=BudgetLoadout;MovedBudget[23]=MovedBudget[8];MovedBudget[8]=0;
+ const auto MovedBonuses=L::BuildRingBonuses(MovedBudget,24,BudgetBag);
+ assert(MovedBonuses.Valid&&MovedBonuses.CritBps==Bonuses.CritBps
+    &&MovedBonuses.MasteryBps==Bonuses.MasteryBps&&MovedBonuses.LegendaryMask==Bonuses.LegendaryMask);
+ for(int Trait=0;Trait<4;++Trait){
+  const int MaxRing=L::EncodeFullItem(8,Trait,5,25);
+  L::FFullLoadout MaxBudget{};std::array<int,10> MaxBag{};MaxBag.fill(MaxRing);
+  for(int R=0;R<10;++R)MaxBudget[L::RingSlot(R)]=MaxRing;
+  const auto Caps=L::BuildRingBonuses(MaxBudget,24,MaxBag);
+  assert(Caps.Valid&&Caps.EquippedCount==10&&Caps.LegendaryMask==(1u<<Trait));
+  assert(Caps.MasteryBps==L::RingMasteryCapBps);
+  assert(Caps.CritBps==(Trait==1?L::RingCritCapBps:0));
+  assert(Caps.HasteBps==(Trait==3?L::RingHasteCapBps:0));
+  assert(Caps.VersatilityBps==(Trait==2?L::RingVersatilityCapBps:0));
+  assert(Caps.LuckBps==(Trait==0?L::RingLuckCapBps:0));
+ }
+ const auto EmptyBudget=L::BuildRingBonuses(L::FFullLoadout{},24,std::array<int,0>{});
+ assert(EmptyBudget.Valid&&EmptyBudget.EquippedCount==0&&EmptyBudget.LegendaryMask==0);
+ assert(!L::BuildRingBonuses(BudgetLoadout,23,BudgetBag).Valid);
+ // Only one ring loot category in each layout; no missing armor/off-hand
+ // categories or accidental invalid ring positions from seeded selection.
+ for(int LayoutCount:{3,9,16,24}){
+  const int Categories=L::FullLootCategoryCount(LayoutCount);
+  int RingCategories=0;
+  std::array<bool,24> SeenLoot{};
+  for(int Category=0;Category<Categories;++Category){
+   const int LootSlot=L::FullLootCategorySlot(Category,LayoutCount);
+   assert(LootSlot>=0&&LootSlot<LayoutCount&&!SeenLoot[LootSlot]);
+   SeenLoot[LootSlot]=true;
+   if(L::IsRingSlot(LootSlot)){++RingCategories;assert(LootSlot==8);}
+   assert(L::DecodeFullItem(L::EncodeFullLoot(Category,LayoutCount,3,5,25)).Slot==LootSlot);
+  }
+  for(int Slot=0;Slot<LayoutCount;++Slot)
+   assert(SeenLoot[Slot]==(!L::IsRingSlot(Slot)||Slot==8));
+  assert(RingCategories==(LayoutCount==3?0:1));
+  assert(L::EncodeFullLoot(-1,LayoutCount,0,0,1)==0);
+  assert(L::EncodeFullLoot(Categories,LayoutCount,0,0,1)==0);
+ }
+ assert(L::FullLootCategoryCount(23)==0&&L::FullLootCategorySlot(0,23)==-1);
  // Worst case: all 24 matching traits, with all four candidate buckets.
  // High counts exceed the old decimal DP; first and last slots exercise
  // the full 48-bit decision path. Equal items retain the earliest index.
