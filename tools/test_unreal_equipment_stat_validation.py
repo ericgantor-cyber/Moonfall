@@ -157,9 +157,18 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertIn(token, hud)
         self.assertIn("if(PanelHeight<420.f)return INDEX_NONE;", hit)
         self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", hit)
-        self.assertIn("if(RingIndex!=INDEX_NONE){UnequipRing(RingIndex);return;}", self.source)
-        self.assertIn("EquipInventoryRing(InventorySelection,RingIndex);", self.source)
-        self.assertIn("RINGS: click to equip selected | right-click to remove", hud)
+        self.assertIn("if(RingIndex!=INDEX_NONE)return;", self.source)
+        self.assertIn("BeginRingPointerDrag(INDEX_NONE,RingIndex);", self.source)
+        self.assertIn("BeginRingPointerDrag(HitIndex,INDEX_NONE);", self.source)
+        release = self.source.split("void AMoonfallHeroPawn::ReleaseInventoryPointer()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("EquipInventoryRing(BagIndex,Target);", release)
+        self.assertIn("MoveEquippedRing(FingerIndex,Target);", release)
+        self.assertIn("UnequipRing(FingerIndex);", release)
+        self.assertIn("InventoryItemCodes[BagIndex]==Code", release)
+        self.assertIn("Revision!=EquipmentInventoryRevision", release)
+        self.assertIn("Fingerprint!=GetEquipmentLoadoutFingerprint()", release)
+        self.assertLess(release.index("ClearRingPointerDrag();"), release.index("EquipInventoryRing("))
+        self.assertIn("RINGS: drag to equip / swap | drag to bag to remove", hud)
 
     def test_native_ring_move_and_remove_are_guarded_and_bag_read_only(self):
         guard = self.source.split("bool AMoonfallHeroPawn::CanEditEquippedRings()", 1)[1].split(
