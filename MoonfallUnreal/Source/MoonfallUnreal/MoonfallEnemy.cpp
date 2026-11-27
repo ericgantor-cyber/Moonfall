@@ -887,32 +887,34 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    return;
   }
   if(bRangedCombatRole){
+   AMoonfallEnemyProjectile* SpawnedProjectile=nullptr;
+   FVector ProjectileMuzzle=FVector::ZeroVector;
    // The bolt travels from a real muzzle point to the position locked when
    // the tell began. A later dodge can leave the projectile behind.
    if(IsValid(Hero)&&Hero->IsPlayerControlled()&&FMath::IsFinite(Hero->Health)
       &&Hero->Health>0.f&&bCanSeeHero&&!LockedRangedAimPoint.ContainsNaN()){
-    const FVector Muzzle=GetActorLocation()+GetActorForwardVector()*90.f+FVector(0.f,0.f,65.f);
-    const FVector Direction=(LockedRangedAimPoint-Muzzle).GetSafeNormal();
+    ProjectileMuzzle=GetActorLocation()+GetActorForwardVector()*90.f+FVector(0.f,0.f,65.f);
+    const FVector Direction=(LockedRangedAimPoint-ProjectileMuzzle).GetSafeNormal();
     const float DamageScale=MoonfallPackTactics::RangedProjectileDamageScale(bCasterCombatRole);
     const float ProjectileDamage=AttackDamage*FMath::Clamp(CurrentAttackMultiplier,0.1f,2.3f)*DamageScale;
-    if(!Muzzle.ContainsNaN()&&!Direction.ContainsNaN()&&!Direction.IsNearlyZero()
+    if(!ProjectileMuzzle.ContainsNaN()&&!Direction.ContainsNaN()&&!Direction.IsNearlyZero()
        &&FMath::IsFinite(ProjectileDamage)&&ProjectileDamage>0.f){
      FActorSpawnParameters SpawnParams;
      SpawnParams.Owner=this;
      SpawnParams.SpawnCollisionHandlingOverride=ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-     AMoonfallEnemyProjectile* Projectile=GetWorld()->SpawnActor<AMoonfallEnemyProjectile>(
-       AMoonfallEnemyProjectile::StaticClass(),FTransform(Direction.Rotation(),Muzzle),SpawnParams);
-     if(IsValid(Projectile)){
-      Projectile->Initialize(this,ProjectileDamage,Direction,
+     SpawnedProjectile=GetWorld()->SpawnActor<AMoonfallEnemyProjectile>(
+       AMoonfallEnemyProjectile::StaticClass(),FTransform(Direction.Rotation(),ProjectileMuzzle),SpawnParams);
+     if(IsValid(SpawnedProjectile)){
+      SpawnedProjectile->Initialize(this,ProjectileDamage,Direction,
         MoonfallPackTactics::RangedProjectileSpeed(bCasterCombatRole),bCasterCombatRole);
-      if(!IsValid(Projectile)||Projectile->IsActorBeingDestroyed()) Projectile=nullptr;
+      if(!IsValid(SpawnedProjectile)||SpawnedProjectile->IsActorBeingDestroyed()) SpawnedProjectile=nullptr;
      }
     }
    }
    bComboSecondHitPending=false;
    bComboSecondHitActive=false;
-   if(IsValid(Projectile)&&!Projectile->IsActorBeingDestroyed())
-    OnRangedProjectileFired(Muzzle,LockedRangedAimPoint,bCasterCombatRole);
+   if(IsValid(SpawnedProjectile)&&!SpawnedProjectile->IsActorBeingDestroyed())
+    OnRangedProjectileFired(ProjectileMuzzle,LockedRangedAimPoint,bCasterCombatRole);
    return;
   }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
