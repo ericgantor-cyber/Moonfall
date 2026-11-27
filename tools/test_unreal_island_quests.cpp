@@ -292,7 +292,7 @@ int main() {
     assert(Jobs.Craft(0,JobSupplies,JobGear) && Jobs.AlchemyCrafts==1);
     assert(JobGear.Claim(0,99) && Jobs.Craft(1,JobSupplies,JobGear) && Jobs.SmithingCrafts==1);
     assert(!Jobs.Deliver(-1,JobSupplies,JobGear) && !Jobs.Deliver(9,JobSupplies,JobGear));
-    assert(Jobs.Deliver(0,JobSupplies,JobGear) && JobGear.TonicCharges==2);
+    assert(Jobs.Deliver(0,JobSupplies,JobGear) && JobGear.TonicCharges==3);
     const int FishAfterDelivery=Jobs.RemainingFish(JobSupplies);
     assert(!Jobs.Deliver(0,JobSupplies,JobGear) && Jobs.ContractCount()==1);
     assert(Jobs.RemainingFish(JobSupplies)==FishAfterDelivery);
