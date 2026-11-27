@@ -1674,7 +1674,7 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     DrawText(FString::Printf(TEXT("Route orbs collected: %d"),Hero->GetCollectedMasteryRouteOrbs()),
        FLinearColor(1.f,0.85f,0.52f),MX+14,MY+369,nullptr,0.76f);
-    DrawText(TEXT("Session only | Not saved"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
+    DrawText(TEXT("Isolated preview checkpoint"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
    }
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
