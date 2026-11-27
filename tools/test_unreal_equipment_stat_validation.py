@@ -54,5 +54,18 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("!MoonfallEquipmentLayout::IsRingSlot(Slot)", mastery)
         self.assertIn("GetNativeRingBonuses().LuckBps / 100", source)
         self.assertIn("GetNativeRingBonuses().LuckBps * 0.0001f", source)
+    def test_expanded_equip_best_revalidates_and_commits_rings_atomically(self):
+        source = self.source
+        body = source.split("int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        for token in ("TGuardValue<bool> BatchGuard", "IsFullLoadoutOwned(Initial",
+                      "FFullPlanner Fixed", "ActiveSlotCount,true)",
+                      "if(!CanContinue())break", "InventoryItemCodes[Index]!=FixedPlan.Codes[Slot]",
+                      "GetRawEquipmentSlotCode(Slot)!=Initial[Slot]", "PlanFlexibleRings(BeforeRings",
+                      "IsFullLoadoutOwned(RingPlan.Codes", "if(CanContinue()&&Health>0.f",
+                      "ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=RingPlan.Codes[Slot]"):
+            self.assertIn(token, body)
+        self.assertLess(body.index("IsFullLoadoutOwned(RingPlan.Codes"), body.index("=RingPlan.Codes[Slot]"))
+        self.assertLess(body.index("=RingPlan.Codes[Slot]"), body.index("OnBestLoadoutEquipped(Applied)"))
 if __name__ == "__main__":
     unittest.main()

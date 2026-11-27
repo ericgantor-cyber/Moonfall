@@ -501,6 +501,7 @@ private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
+ int32 EquipBestExpandedLoadout();
  MoonfallEquipmentLayout::FRingBonuses GetNativeRingBonuses() const;
  // Fixed storage for slot IDs 3–23. Public gameplay remains gated until
  // the expanded inventory, loot and equipment UI are integrated.

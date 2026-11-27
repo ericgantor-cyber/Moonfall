@@ -346,6 +346,22 @@ int main() {
  }
  FilledBag[10]=HighRing;
  assert(L::SelectFullRingTarget(HighRing,FilledRings,24,FilledBag)==L::RingSlot(7));
+ // Fixed-slot planning must remain useful with a flexible ring equipped,
+ // but it must not steal that ring or add another copy from the same bag.
+ L::FFullLoadout FrozenRings{};
+ FrozenRings[23]=CommonRing;
+ const int BetterWeapon=L::EncodeFullItem(0,1,2,5);
+ L::FFullPlanner FixedOnly(FrozenRings,false,24,true);
+ FixedOnly.Add(CommonRing,0);FixedOnly.Add(HighRing,1);FixedOnly.Add(BetterWeapon,2);
+ const auto FixedResult=FixedOnly.Finish();
+ assert(FixedResult.Changes==1&&FixedResult.Codes[0]==BetterWeapon);
+ assert(FixedResult.Codes[23]==CommonRing&&FixedResult.Codes[8]==0&&FixedResult.Codes[13]==0);
+ assert(FixedResult.Indices[0]==2&&FixedResult.Indices[23]==-1);
+ assert(FixedResult.Gain==L::FullTotalScore(FixedResult.Codes)-L::FullTotalScore(FrozenRings));
+ L::FFullPlanner CombatFixed(FrozenRings,true,24,true);
+ CombatFixed.Add(L::EncodeFullItem(1,1,2,5),0);
+ CombatFixed.Add(BetterWeapon,1);
+ assert(CombatFixed.Finish().Codes==FixedResult.Codes);
  // Worst case: all 24 matching traits, with all four candidate buckets.
  // High counts exceed the old decimal DP; first and last slots exercise
  // the full 48-bit decision path. Equal items retain the earliest index.
