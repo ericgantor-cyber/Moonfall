@@ -511,6 +511,16 @@ bool CanRemoveFullCopy(int Code,const FFullLoadout& Worn,int ActiveSlots,const B
  const int Required=FullWornCopies(Code,Worn,ActiveSlots)+1;
  return FullOwnedCopies(Code,Inventory,Required)>=Required;
 }
+// Crafting can replace one worn reference or consume a spare physical copy.
+// Never treat a failed ring-target lookup as proof that a spare exists.
+template<class Bag>
+bool CanCraftFullCopy(int Code,int TargetSlot,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory) {
+ if(!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip)
+     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory))return false;
+ if(TargetSlot>=0&&TargetSlot<ActiveSlots&&Worn[TargetSlot]==Code)
+  return CanWearFullItem(Code,TargetSlot,ActiveSlots);
+ return CanRemoveFullCopy(Code,Worn,ActiveSlots,Inventory);
+}
 constexpr int FullRank(int Code) {
  const auto D=DecodeFullItem(Code);
  return D.IsValid()?D.Tier*10+D.Rarity:0;
