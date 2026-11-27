@@ -77,7 +77,9 @@ void AMoonfallMasteryOrb::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero){
     !PickupRange->IsOverlappingComponent(Hero->GetCapsuleComponent()))return;
  const auto Kind=bHiddenOrb?MoonfallSkillMastery::Orb::Hidden:MoonfallSkillMastery::Orb::Agility;
  // Duplicate actors for an already-collected identity disappear without XP.
- if(!MoonfallSkillMastery::IsCollected(Hero->SessionMastery,Region,Index)&&
+ const auto* Ledger=Hero->GetSessionMastery();
+ if(!Ledger)return;
+ if(!MoonfallSkillMastery::IsCollected(*Ledger,Region,Index)&&
     !Hero->TryCollectMasteryOrb(Region,Index,Kind))return;
  bClaimed=true;
  PickupRange->SetCollisionEnabled(ECollisionEnabled::NoCollision);
