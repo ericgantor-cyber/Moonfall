@@ -16,6 +16,14 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn('ActionName="PickupLoot",Key=F', inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot)', source)
         self.assertNotIn("ManualLootOrFish", source)
+        cast = source.split("bool AMoonfallHeroPawn::TryFishingAction(", 1)[1].split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[0]
+        self.assertIn("RequestedWater->Z-(Bounds.Max.Z+2.f)", cast)
+        self.assertIn("RequestedWater->X<Bounds.Min.X+30.f", cast)
+        self.assertIn("RequestedWater->Y<Bounds.Min.Y+30.f", cast)
+        self.assertIn("Distance>FMath::Square(MaxReach)", cast)
+        self.assertIn("ClickDistance>BestClickDistance", cast)
+        self.assertIn("BestClickDistance=ClickDistance", cast)
+        self.assertLess(cast.index("RequestedWater->Z-(Bounds.Max.Z+2.f)"), cast.index("Preview->IsFishingSchoolAvailable"))
         mouse = source.split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         for token in ("CanContinueFishing()", "DeprojectMousePositionToWorld", "FishingBobber",
                       "FMath::Square(85.f)", "LineTraceSingleByChannel", "bWaterVolume",
