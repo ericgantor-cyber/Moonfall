@@ -695,16 +695,32 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
      && GetCharacterMovement()->IsSwimming();
  bWaterSubmerged = false;
+ float WaterEyeDepth = 0.f;
+ bool bValidWaterSurface = false;
  if (bWaterSwimming) {
   const APhysicsVolume* Volume = GetPhysicsVolume();
   if (IsValid(Volume) && Volume->bWaterVolume) {
    const FBox Bounds = Volume->GetComponentsBoundingBox(true);
    const FVector Eye = GetPawnViewLocation();
    // Authored water physics volumes must use their upper boundary as the surface.
-   bWaterSubmerged = Bounds.IsValid && !Eye.ContainsNaN()
-       && FMath::IsFinite(Bounds.Max.Z) && Eye.Z < Bounds.Max.Z;
+   bValidWaterSurface = Bounds.IsValid && !Eye.ContainsNaN()
+       && FMath::IsFinite(Bounds.Max.Z);
+   if (bValidWaterSurface) {
+    WaterEyeDepth = Bounds.Max.Z - Eye.Z;
+    bWaterSubmerged = WaterEyeDepth > 0.f;
+   }
   }
  }
+ // Swim through native collision, never teleport or bypass the movement component.
+ if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bResidentContextOpen || FocusedResident.IsValid()
+     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)
+     || (WaterVerticalIntent < 0 && WaterEyeDepth >= 330.f)) {
+  WaterVerticalIntent = 0;
+ }
+ if (WaterVerticalIntent != 0)
+  AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
      bWaterSubmerged, !GetWorld() || GetWorld()->IsPaused());
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
@@ -1537,6 +1553,10 @@ void AMoonfallHeroPawn::TryJump()
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
+  WaterVerticalIntent = WaterVerticalIntent == 1 ? 0 : 1;
+  return;
+ }
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
@@ -2374,6 +2394,12 @@ void AMoonfallHeroPawn::Dodge()
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  if (!FMath::IsFinite(Health)) return;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
+  if (!bDispatchingBufferedDodge) WaterVerticalIntent = WaterVerticalIntent == -1 ? 0 : -1;
+  DodgeBuffer.Clear();
+  BufferedDodgeDirection = FVector::ZeroVector;
+  return;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
