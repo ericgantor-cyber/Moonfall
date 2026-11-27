@@ -239,6 +239,9 @@ int main() {
     MoonfallOceanGathering::FCollection Trophy;
     assert(Trophy.Catch(0,0,1,true) && Trophy.LastSpecies==1 && Trophy.LastTrophy && Trophy.TrophyCatches==1);
     assert(Trophy.Catch(0,0) && !Trophy.LastTrophy && Trophy.TrophyCatches==1 && Trophy.Catches()==2);
+    assert(Trophy.Trophies(1)==1 && Trophy.Trophies(0)==0 && Trophy.Trophies(3)==0);
+    assert(Trophy.DiscoveredSpecies()==2);
+    assert(Workshop.RemainingMaterial(0,Supplies)==1 && Workshop.RemainingMaterial(-1,Supplies)==0);
     MoonfallOceanGathering::FCollection SchoolCatch;
     assert(SchoolCatch.Catch(0,0,2) && SchoolCatch.Species(2)==1);
     assert(!SchoolCatch.Catch(0,0,3));

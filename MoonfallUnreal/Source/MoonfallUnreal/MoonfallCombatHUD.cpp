@@ -1706,7 +1706,8 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
-   const TCHAR* CharacterTitle = Hero->bCharacterRepPageOpen
+   const bool bProfessions=Hero->HasWaterProfessionsPage() && Hero->bCharacterProfessionsPageOpen;
+   const TCHAR* CharacterTitle = bProfessions?TEXT("PROFESSIONS"):Hero->bCharacterRepPageOpen
      ? (PanelWidth < 550.f ? TEXT("REPUTATION") : TEXT("MOONFALL  |  REPUTATION"))
      : Hero->bCharacterRacePageOpen
        ? (PanelWidth < 550.f ? TEXT("ANCESTRY") : TEXT("MOONFALL  |  ANCESTRY"))
@@ -1717,14 +1718,15 @@ void AMoonfallCombatHUD::DrawHUD()
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
    // Three clickable tabs: combined Stats & Gear, Ancestry, Reputation.
-   const float PageTabWidth = (PanelWidth - 60.f) / 3.f;
+   const int32 PageCount=Hero->HasWaterProfessionsPage()?4:3;
+   const float PageTabWidth = PageCount==3?(PanelWidth - 60.f) / 3.f:(PanelWidth-68.f)/4.f;
    const float PageTabLeft = Left + 18.f;
    const float PageTabTop = Top + 77.f;
-   const int32 ActivePage = Hero->bCharacterRepPageOpen ? 2
+   const int32 ActivePage = bProfessions?3:Hero->bCharacterRepPageOpen ? 2
       : (Hero->bCharacterRacePageOpen ? 1 : 0);
-   const TCHAR* TabLabels[] = {TEXT("STATS & GEAR"), TEXT("ANCESTRY & PASSIVES"), TEXT("REPUTATION")};
-   const TCHAR* CompactTabLabels[] = {TEXT("STATS+GEAR"), TEXT("RACE"), TEXT("REP")};
-   for (int32 Tab = 0; Tab < 3; ++Tab) {
+   const TCHAR* TabLabels[] = {TEXT("STATS & GEAR"), TEXT("ANCESTRY & PASSIVES"), TEXT("REPUTATION"), TEXT("PROFESSIONS")};
+   const TCHAR* CompactTabLabels[] = {TEXT("STATS+GEAR"), TEXT("RACE"), TEXT("REP"), TEXT("JOBS")};
+   for (int32 Tab = 0; Tab < PageCount; ++Tab) {
     const float TabX = PageTabLeft + Tab * (PageTabWidth + 8.f);
     const bool bSelected = Tab == ActivePage;
     DrawRect(bSelected
@@ -1735,13 +1737,38 @@ void AMoonfallCombatHUD::DrawHUD()
       : FLinearColor(0.27f,0.32f,0.40f,0.9f),
       TabX,PageTabTop+29.f,PageTabWidth,3.f);
     DrawHoverFrame(TabX,PageTabTop,PageTabWidth,32.f);
-    DrawText(PanelWidth < 480.f ? CompactTabLabels[Tab] : TabLabels[Tab],
+    DrawText(PanelWidth < 480.f || PageCount==4 ? CompactTabLabels[Tab] : TabLabels[Tab],
       bSelected ? FLinearColor(1.f,0.89f,0.64f) : FLinearColor(0.85f,0.89f,0.95f),
       TabX+6.f,PageTabTop+7.f,nullptr,
       PanelWidth<480.f ? 0.61f : (Tab==1 ? 0.51f : 0.70f));
    }
    const float StartY = Top + 123.f;
-   if (Hero->bCharacterRacePageOpen) {
+   if (bProfessions) {
+    const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+    if(IsValid(Preview)) {
+     const int32 Caught=Preview->GetOceanCatchCount(), Harvests=Preview->GetOceanMaterialCount();
+     const FString Lines[]={
+      FString::Printf(TEXT("FISHING RANK %d/10 | %d caught"),MoonfallFishing::Rank(Caught),Caught),
+      FString::Printf(TEXT("GATHERING RANK %d/10 | %d harvests"),Preview->GetOceanGatheringRank(),Harvests),
+      FString::Printf(TEXT("Species %d/3 | Trophies %d"),Preview->GetDiscoveredFishSpecies(),Preview->GetTrophyCatchCount()),
+      TEXT("FISH: stock / caught / trophies"),
+      FString::Printf(TEXT("Silverfin: %d / %d / %d"),Preview->GetOceanFishCount(0),Preview->GetLifetimeSpeciesCount(0),Preview->GetTrophySpeciesCount(0)),
+      FString::Printf(TEXT("Eel: %d / %d / %d"),Preview->GetOceanFishCount(1),Preview->GetLifetimeSpeciesCount(1),Preview->GetTrophySpeciesCount(1)),
+      FString::Printf(TEXT("Moonperch: %d / %d / %d"),Preview->GetOceanFishCount(2),Preview->GetLifetimeSpeciesCount(2),Preview->GetTrophySpeciesCount(2)),
+      FString::Printf(TEXT("Moonkelp %d | Pearls %d"),Preview->GetOceanMaterialStock(0),Preview->GetOceanMaterialStock(1)),
+      FString::Printf(TEXT("Coral %d | Sea salt %d"),Preview->GetOceanMaterialStock(2),Preview->GetOceanMaterialStock(3)),
+      TEXT("Preview session only; not campaign saved.")
+     };
+     const float RowH=FMath::Min(30.f,(PanelHeight-188.f)/UE_ARRAY_COUNT(Lines));
+     for(int32 I=0;I<UE_ARRAY_COUNT(Lines);++I) {
+      const float Y=StartY+I*RowH;
+      if(Y+RowH>Top+PanelHeight-65.f) break;
+      DrawRect(FLinearColor(0.08f,0.13f,0.17f,0.92f),Left+15.f,Y,PanelWidth-30.f,RowH-1.f);
+      DrawText(Lines[I],I<4?FLinearColor(0.95f,0.81f,0.48f):FLinearColor::White,
+       Left+22.f,Y+1.f,nullptr,RowH<15.f?0.48f:PanelWidth<420.f?0.63f:0.82f);
+     }
+    }
+   } else if (Hero->bCharacterRacePageOpen) {
     // This is the saved 12-race gameplay ancestry, not the 30-entry
     // world-race browsing catalog. Never imply an unchosen race has bonuses.
     const bool Chosen = Hero->bRaceChosen;
@@ -2097,7 +2124,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
 
    }
-   DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
+   DrawText(PageCount==4?TEXT("C / D-pad Left/Right: switch page"):TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep"),FLinearColor(0.69f,0.89f,0.75f),
       Left+18.f,Top+PanelHeight-53.f,nullptr,PanelWidth<460.f?0.62f:0.8f);
    DrawText(TEXT("A/K: talents   J/R3: atlas   Esc/Pad B: back   Select: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
