@@ -3,6 +3,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAquaticTactics.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanEvents.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -126,5 +127,37 @@ int main() {
     FCollection Invalid;
     assert(!Invalid.Collect(4,3) && Invalid.Catches()==0);
     assert(!CanCollect(4,false,false,true));
+    MoonfallOceanCrafting::FWorkshop Workshop;
+    MoonfallOceanGathering::FCollection Supplies;
+    MoonfallAquaticRewards::FSessionGear Loan;
+    assert(!Workshop.Craft(-1,Supplies,Loan));
+    assert(!Workshop.Craft(3,Supplies,Loan));
+    assert(!Workshop.Craft(0,Supplies,Loan));
+    for(int id=0;id<7;++id) assert(Supplies.Collect(id,0));
+    assert(Workshop.AvailableMaterials(Supplies)==4);
+    assert(Workshop.RemainingFish(Supplies)==3);
+    Loan.TonicCharges=3;
+    assert(!Workshop.Craft(0,Supplies,Loan));
+    assert(Workshop.AvailableMaterials(Supplies)==4);
+    Loan.TonicCharges=2;
+    assert(Workshop.Craft(0,Supplies,Loan));
+    assert(Loan.TonicCharges==3);
+    assert(!Workshop.Craft(0,Supplies,Loan));
+    assert(!Workshop.Craft(1,Supplies,Loan));
+    assert(Workshop.AvailableMaterials(Supplies)==3);
+    assert(Loan.Claim(0,99));
+    assert(Loan.Claim(1,99));
+    assert(Workshop.Craft(1,Supplies,Loan));
+    assert(Loan.Rarity(0)==3);
+    assert(!Workshop.Craft(1,Supplies,Loan));
+    assert(Workshop.Craft(2,Supplies,Loan));
+    assert(Loan.Rarity(1)==3);
+    assert(Workshop.AvailableMaterials(Supplies)==0);
+    assert(Workshop.RemainingFish(Supplies)==1);
+    assert(Supplies.Materials()==4 && Supplies.Catches()==3);
+    MoonfallOceanCrafting::FWorkshop MaxWorkshop;
+    Loan.Codes[0]=MoonfallEquipmentLayout::EncodeFullItem(2,3,5,4);
+    assert(!MaxWorkshop.Craft(1,Supplies,Loan));
+    assert(MaxWorkshop.AvailableMaterials(Supplies)==4);
     return 0;
 }
