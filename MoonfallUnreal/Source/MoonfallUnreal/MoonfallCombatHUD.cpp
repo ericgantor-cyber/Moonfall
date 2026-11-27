@@ -70,7 +70,7 @@ void AMoonfallCombatHUD::DrawHUD()
      && Hero->Oxygen <= 20.f && Canvas->SizeX >= 300 && Canvas->SizeY >= 120) {
   const float X = (Canvas->SizeX - 260.f)*0.5f;
   const int32 Seconds = FMath::CeilToInt(FMath::Max(0.f,Hero->Oxygen)
-      / MoonfallWaterRules::EffectiveDrain(MoonfallWaterRules::BreathMultiplier(Hero->bRaceChosen,Hero->RaceId)));
+      / MoonfallWaterRules::EffectiveDrain(Hero->WaterBreathScale));
   DrawRect(FLinearColor(0.16f,0.025f,0.04f,0.96f),X,8.f,260.f,32.f);
   DrawText(Seconds == 0 ? FString(TEXT("DROWNING | CLOSE MENU"))
       : FString::Printf(TEXT("LOW BREATH %ds | CLOSE MENU"),Seconds),
@@ -2708,11 +2708,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
   const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
-      MoonfallWaterRules::BreathMultiplier(Hero->bRaceChosen, Hero->RaceId)));
+      Hero->WaterBreathScale));
   DrawText(Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),Hero->bInsideAirPocket ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
+  if (Hero->WaterSwimScale > 1.001f)
+   DrawText(FString::Printf(TEXT("+%.0f%% SWIM"),(Hero->WaterSwimScale-1.f)*100.f),AirColor,X+150.f,Y+3.f,nullptr,0.75f);
   if (GetWorld()) {
    const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    if (IsValid(Preview)) {
