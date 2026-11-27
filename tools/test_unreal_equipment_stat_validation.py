@@ -61,7 +61,7 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("BestProjection", projected)
     def test_validated_equipment_snapshot_counts_duplicates_in_one_pass(self):
         snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
-            "uint32 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
+            "uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
         for token in ("OutCodes.Init(0,MoonfallEquipmentLayout::FullSlotCount)",
                       "TMap<int32,int32> OwnedCounts,RequiredCounts",
                       "for(int32 Code:InventoryItemCodes)", "RequiredCounts.FindOrAdd(Code)",
@@ -74,6 +74,30 @@ class EquipmentStatSafety(unittest.TestCase):
         power = self.source.split("int32 AMoonfallHeroPawn::GetEquipmentPower() const", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[0]
         self.assertIn("GetValidatedEquipmentCodes(Codes)", power)
+    def test_equipment_snapshot_cache_invalidates_on_inventory_mutation(self):
+        header = HEADER.read_text(encoding="utf-8")
+        self.assertIn("uint32 EquipmentInventoryRevision=1;", header)
+        self.assertIn("mutable uint32 CachedValidatedInventoryRevision=0;", header)
+        self.assertIn("mutable uint64 CachedValidatedLoadoutFingerprint=0;", header)
+        snapshot = self.source.split("void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[1].split(
+            "uint64 AMoonfallHeroPawn::GetEquipmentLoadoutFingerprint()", 1)[0]
+        self.assertIn("CachedValidatedInventoryRevision==EquipmentInventoryRevision", snapshot)
+        self.assertIn("CachedValidatedLoadoutFingerprint==Fingerprint", snapshot)
+        self.assertIn("OutCodes=CachedValidatedEquipmentCodes", snapshot)
+        dirty = self.source.split("void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()", 1)[1].split(
+            "void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[0]
+        self.assertIn("++EquipmentInventoryRevision", dirty)
+        for signature in ("bool AMoonfallHeroPawn::SalvageInventoryItem(",
+                          "bool AMoonfallHeroPawn::UpgradeInventoryItem(",
+                          "bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(",
+                          "bool AMoonfallHeroPawn::AscendInventoryItemRarity(",
+                          "void AMoonfallHeroPawn::AwardEquipmentDrop(",
+                          "bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(",
+                          "bool AMoonfallHeroPawn::LoadWorldProgress(",
+                          "bool AMoonfallHeroPawn::TradeCompanionGear("):
+            body = self.source.split(signature, 1)[1].split("\n}\n", 1)[0]
+            self.assertIn("MarkEquipmentInventoryDirty()", body, signature)
+
     def test_ring_stats_respect_activation_ownership_and_global_caps(self):
         source = self.source
         rings = source.split("FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses()", 1)[1].split(
