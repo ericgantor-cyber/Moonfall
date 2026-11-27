@@ -285,4 +285,68 @@ public:
  }
 };
 static_assert(SlotCount==9,"Affix count encoding and path capacity assume nine slots");
+// V18 expansion keeps every V1–V17 item code byte-for-byte unchanged.
+// Extended item IDs use a separate decimal bank; slot digits 0–6 in that
+// bank mean stable slot IDs 9–15, not the original weapon through legs.
+enum class EFullSlot : int {
+ MainHand=0, Chest=1, Trinket1=2, Head=3, Shoulders=4, Hands=5,
+ Legs=6, Feet=7, Ring1=8, Neck=9, Back=10, Wrists=11, Waist=12,
+ Ring2=13, Trinket2=14, OffHand=15
+};
+inline constexpr int FullSlotCount=16;
+inline constexpr int ExtendedCodeBank=1000000;
+using FFullLoadout=std::array<int,FullSlotCount>;
+struct FDecodedItem {
+ int Slot=-1, Trait=0, Rarity=0, Tier=0;
+ constexpr bool IsValid() const {return Slot>=0;}
+};
+constexpr int EncodeFullItem(int Slot,int Trait,int Rarity,int Tier) {
+ if(Slot<0||Slot>=FullSlotCount||Trait<0||Trait>3||Rarity<0||Rarity>5
+     ||Tier<1||Tier>25||(Rarity==0&&Trait!=0))return 0;
+ const bool Extended=Slot>=SlotCount;
+ return (Extended?ExtendedCodeBank:0)+Trait*100000+
+     (Extended?Slot-SlotCount:Slot)*10000+Rarity*1000+Tier;
+}
+constexpr FDecodedItem DecodeFullItem(int Code) {
+ if(Code<=0||Code>=2*ExtendedCodeBank)return {};
+ const bool Extended=Code>=ExtendedCodeBank;
+ const int Payload=Extended?Code-ExtendedCodeBank:Code;
+ const int Digit=(Payload/10000)%10;
+ const int Slot=Extended?Digit+SlotCount:Digit;
+ if((!Extended&&Slot>=SlotCount)||(Extended&&Slot>=FullSlotCount))return {};
+ const int Trait=Payload/100000,Rarity=(Payload/1000)%10,Tier=Payload%1000;
+ if(EncodeFullItem(Slot,Trait,Rarity,Tier)!=Code)return {};
+ return {Slot,Trait,Rarity,Tier};
+}
+constexpr bool ValidFullItem(int Code,int Slot) {
+ return Slot>=0&&Slot<FullSlotCount&&DecodeFullItem(Code).Slot==Slot;
+}
+// Future native loader: older records restore exact original slots and
+// zero-fill only the newly introduced slots. Invalid data never publishes
+// a partial loadout. V17 has nine entries; V18 has sixteen.
+template<class Owns>
+bool TryRestoreFullLoadout(const int* Legacy,int LegacyCount,
+    const int* Record,int RecordCount,int Version,Owns IsOwned,FFullLoadout& Out) {
+ if(Version<1||Version>18)return false;
+ FLoadout Mirrors{};
+ if(!TryRestoreLoadout(Legacy,LegacyCount,false,IsOwned,Mirrors))return false;
+ FFullLoadout Candidate{};
+ for(int Slot=0;Slot<LegacySlotCount;++Slot)Candidate[Slot]=Mirrors[Slot];
+ if(Version>=17){
+  const int ExpectedCount=Version==17?SlotCount:FullSlotCount;
+  if(!Record||RecordCount!=ExpectedCount)return false;
+  for(int Slot=0;Slot<ExpectedCount;++Slot){
+   const int Code=Record[Slot];
+   if(Slot<LegacySlotCount&&Code!=Mirrors[Slot])return false;
+   if(Code!=0&&(!ValidFullItem(Code,Slot)||!IsOwned(Code)))return false;
+   Candidate[Slot]=Code;
+  }
+ }
+ Out=Candidate;
+ return true;
+}
+static_assert(FullSlotCount-SlotCount<=10,"Extended bank reserves one slot digit");
+static_assert(EncodeFullItem(0,1,1,5)==101005,"Legacy ID stability");
+static_assert(EncodeFullItem(8,1,1,5)==181005,"V17 ID stability");
+static_assert(DecodeFullItem(EncodeFullItem(15,3,5,25)).Slot==15,"Off-hand round trip");
 } // namespace MoonfallEquipmentLayout
