@@ -71,6 +71,14 @@ bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
 void AMoonfallGrottoTreasure::RestoreResource()
 {
     if (!HasAuthority() || IsActorBeingDestroyed() || !bResourceDepleted) return;
+    auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+    if(!IsValid(Mode)) return;
+    const float Remaining=Mode->GetOceanResourceCooldown(ResourceIndex);
+    if(Remaining>0.f) {
+        FTimerHandle Retry;
+        GetWorld()->GetTimerManager().SetTimer(Retry,this,&AMoonfallGrottoTreasure::RestoreResource,FMath::Max(.01f,Remaining),false);
+        return;
+    }
     bResourceDepleted=false;
     SetActorHiddenInGame(false);
     SetActorEnableCollision(true);

@@ -17,6 +17,7 @@
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallNorthContinentLayout.h"
 #include "MoonfallRegionalAtlas.h"
+#include "MoonfallProfessionUI.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
@@ -1811,14 +1812,24 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("Rank 7+: match schools to ocean activity."),
       !Preview->IsProfessionSaveEnabled()?TEXT("Session only (editor)"):Preview->IsProfessionSaveBlocked()?TEXT("Preview save blocked; progress not saved"):Preview->IsProfessionSaveDirty()?TEXT("Preview progress pending save"):TEXT("Separate preview save; no campaign changes")
      };
-     const float RowH=FMath::Min(30.f,(PanelHeight-188.f)/UE_ARRAY_COUNT(Lines));
-     for(int32 I=0;I<UE_ARRAY_COUNT(Lines);++I) {
-      const float Y=StartY+I*RowH;
-      if(Y+RowH>Top+PanelHeight-65.f) break;
+     static_assert(UE_ARRAY_COUNT(Lines)==MoonfallProfessionUI::LineCount,"Profession list and scroll bounds must agree");
+     const int32 Rows=MoonfallProfessionUI::Rows(PanelHeight);
+     const int32 First=MoonfallProfessionUI::Start(Hero->ProfessionScroll,Rows);
+     constexpr float RowH=22.f;
+     for(int32 Row=0;Row<Rows&&First+Row<UE_ARRAY_COUNT(Lines);++Row) {
+      const int32 I=First+Row;
+      const float Y=StartY+Row*RowH;
       DrawRect(FLinearColor(0.08f,0.13f,0.17f,0.92f),Left+15.f,Y,PanelWidth-30.f,RowH-1.f);
       DrawText(Lines[I],I<4?FLinearColor(0.95f,0.81f,0.48f):FLinearColor::White,
-       Left+22.f,Y+1.f,nullptr,RowH<15.f?0.48f:PanelWidth<420.f?0.63f:0.82f);
+       Left+22.f,Y+2.f,nullptr,PanelWidth<420.f?0.63f:0.82f);
      }
+     const float NavY=Top+PanelHeight-83.f,NavW=(PanelWidth-30.f)*.5f;
+     DrawRect(FLinearColor(.15f,.21f,.29f),Left+15,NavY,NavW-2,18);
+     DrawRect(FLinearColor(.15f,.21f,.29f),Left+15+NavW,NavY,NavW,18);
+     DrawHoverFrame(Left+15,NavY,NavW,18);
+     DrawHoverFrame(Left+15+NavW,NavY,NavW,18);
+     DrawText(FString::Printf(TEXT("< UP | %d/%d"),First+1,MoonfallProfessionUI::LineCount),FLinearColor::White,Left+20,NavY+1,nullptr,.62f);
+     DrawText(TEXT("DOWN >"),FLinearColor::White,Left+20+NavW,NavY+1,nullptr,.62f);
     }
    } else if (Hero->bCharacterRacePageOpen) {
     // This is the saved 12-race gameplay ancestry, not the 30-entry

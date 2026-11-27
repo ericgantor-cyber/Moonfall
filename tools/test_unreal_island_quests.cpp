@@ -8,6 +8,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalAtlas.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionUI.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -356,5 +357,11 @@ int main() {
     assert(MoonfallRegionalAtlas::Step(2,1,5)==-1);
     assert(MoonfallRegionalAtlas::Step(-1,-1,5)==2);
     assert(MoonfallRegionalAtlas::Step(-1,1,0)==-1);
+    assert(MoonfallProfessionUI::Rows(280)==3);
+    assert(MoonfallProfessionUI::Rows(860)==19);
+    assert(MoonfallProfessionUI::Start(99,3)==16);
+    assert(MoonfallProfessionUI::Step(16,3,1)==16);
+    assert(MoonfallProfessionUI::Step(16,19,-1)==0);
+    assert(MoonfallRegionalAtlas::Node(0,std::numeric_limits<float>::quiet_NaN(),600).W==0);
     return 0;
 }

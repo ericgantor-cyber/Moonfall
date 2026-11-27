@@ -166,7 +166,10 @@ assert "VoyageSecondsRemaining = 0;" in cleanup
 assert "VoyagePhaseIndex = 0;" in cleanup
 # Cancellation must not advertise automatic boarding when a harbor was
 # disabled during the voyage or by a Blueprint event.
-assert "const FString Availability = bEnableSeaPassage" in cleanup
+assert "const FString Availability = HasConfiguredPassage()" in cleanup
+assert "PairedGate->PairedGate==this" in gate_cpp
+assert "PairedGate->bEnableSeaPassage" in gate_cpp
+assert "SailingVessel!=PairedGate->SailingVessel" in gate_cpp
 assert 'TEXT("\\nNOT YET AVAILABLE")' in cleanup
 assert "FerrySign->SetText(FText::FromString(Direction + Availability))" in cleanup
 assert "const bool bShipMoved = Ship->SetActorLocation(" in tick
