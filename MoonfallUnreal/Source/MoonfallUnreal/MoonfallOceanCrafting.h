@@ -4,12 +4,16 @@
 
 namespace MoonfallOceanCrafting
 {
+    constexpr int BaitCapacity=20;
+    constexpr int BaitPerCraft=5;
     constexpr unsigned MaterialMask(int Recipe) {
-        return Recipe==0?1u:Recipe==1?6u:Recipe==2?8u:0u;
+        return Recipe==0?1u:Recipe==1?6u:Recipe==2?8u:Recipe==3?9u:0u;
     }
     struct FWorkshop {
         int Spent[4]={};
         int FishSpent[3]={};
+        int Bait=0;
+        bool UseBait() { if(Bait<=0||Bait>BaitCapacity) return false; --Bait; return true; }
         int RemainingSpecies(int Id,const MoonfallOceanGathering::FCollection& C) const {
             return Id>=0&&Id<3?C.Species(Id)-FishSpent[Id]:0;
         }
@@ -41,14 +45,17 @@ namespace MoonfallOceanCrafting
             if(!Mask) return false;
             for(int I=0;I<4;++I) if((Mask&(1u<<I))&&!HasMaterial(I,C)) return false;
             int FishId=-1;
-            if(Recipe!=1) {
+            if(Recipe!=1 && Recipe!=3) {
                 for(int I=0;I<3;++I) {
                     if(FishSpent[I]<0 || FishSpent[I]>C.Species(I)) return false;
                     if(FishId<0 && FishSpent[I]<C.Species(I)) FishId=I;
                 }
                 if(FishId<0) return false;
             }
-            if(Recipe==0) {
+            if(Recipe==3) {
+                if(Bait<0||Bait>BaitCapacity-BaitPerCraft) return false;
+                Bait+=BaitPerCraft;
+            } else if(Recipe==0) {
                 if(Gear.TonicCharges<0||Gear.TonicCharges>=3) return false;
                 ++Gear.TonicCharges;
             } else {
