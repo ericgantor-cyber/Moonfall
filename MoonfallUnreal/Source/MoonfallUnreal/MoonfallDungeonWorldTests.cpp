@@ -344,13 +344,23 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
    Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
  const auto BeforeRejected= Migrated;
- TestFalse(TEXT("V17 rejects mismatched legacy mirrors"),
-  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
-   Future.GetData(),MoonfallEquipmentLayout::SlotCount,17,Original->InventoryItemCodes,Migrated));
+ const int32 AlternateSlotZero=MoonfallEquipmentLayout::EncodeFullItem(0,2,2,5);
+ TArray<int32> V17Inventory=Original->InventoryItemCodes;
+ V17Inventory.Add(AlternateSlotZero);
+ TArray<int32> V17Record;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)V17Record.Add(Future[Slot]);
+ V17Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V17 rejects valid owned slot-zero record that differs from legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V17Record.GetData(),V17Record.Num(),17,V17Inventory,Migrated));
  TestTrue(TEXT("Rejected V17 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
- TestFalse(TEXT("V18 rejects mismatched legacy mirrors"),
-  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
-   Middle.GetData(),Middle.Num(),18,Original->InventoryItemCodes,Migrated));
+ TArray<int32> V18Inventory=Middle;
+ V18Inventory.Add(AlternateSlotZero);
+ TArray<int32> V18Record=Middle;
+ V18Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V18 rejects valid owned slot-zero record that differs from legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V18Record.GetData(),V18Record.Num(),18,V18Inventory,Migrated));
  TestTrue(TEXT("Rejected V18 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
  TestFalse(TEXT("V17 rejects truncated nine-slot records"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
