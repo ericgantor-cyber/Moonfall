@@ -569,6 +569,7 @@ class FFullPlanner {
  bool WeaponsOnly=false;
  int ActiveSlots=0;
  bool RequiresFlexibleRingPlanner=false;
+ bool FreezeRings=false;
  static constexpr int Base=FullSlotCount+1,States=Base*Base*Base;
  static constexpr int Weights[4]={0,1,Base,Base*Base};
  struct FState {int Score=-1,Changes=0;std::uint64_t Path=0;};
@@ -577,13 +578,13 @@ class FFullPlanner {
       ||(A.Changes==B.Changes&&A.Path<B.Path)));
  }
 public:
- explicit FFullPlanner(const FFullLoadout& Equipped,bool CombatOnly=false,int EnabledSlots=FullSlotCount)
-     :WeaponsOnly(CombatOnly),ActiveSlots(ValidFullActiveCount(EnabledSlots)?EnabledSlots:0) {
+ explicit FFullPlanner(const FFullLoadout& Equipped,bool CombatOnly=false,int EnabledSlots=FullSlotCount,bool HoldRings=false)
+     :WeaponsOnly(CombatOnly),ActiveSlots(ValidFullActiveCount(EnabledSlots)?EnabledSlots:0),FreezeRings(HoldRings) {
   for(int Slot=0;Slot<ActiveSlots;++Slot){
    Worn[Slot]=CanWearFullItem(Equipped[Slot],Slot,ActiveSlots)?Equipped[Slot]:0;
    // Until inventory-copy-aware optimization is integrated, never let the
    // position-specific planner discard or duplicate a flexible worn ring.
-   if(Worn[Slot]&&!ValidFullItem(Worn[Slot],Slot))RequiresFlexibleRingPlanner=true;
+   if(!FreezeRings&&Worn[Slot]&&!ValidFullItem(Worn[Slot],Slot))RequiresFlexibleRingPlanner=true;
    const auto D=DecodeFullItem(Worn[Slot]);
    Candidates[Slot][D.Trait]={Worn[Slot],-1};
   }
@@ -591,7 +592,8 @@ public:
  void Add(int Code,int Index){
   if(Index<0||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip))return;
   const auto D=DecodeFullItem(Code);
-  if((WeaponsOnly&&D.Slot!=0)||FullRank(Code)<FullRank(Worn[D.Slot]))return;
+  if((WeaponsOnly&&D.Slot!=0)||(FreezeRings&&IsRingSlot(D.Slot))
+     ||FullRank(Code)<FullRank(Worn[D.Slot]))return;
   auto& Choice=Candidates[D.Slot][D.Trait];
   if(!Choice.Code||FullRank(Code)>FullRank(Choice.Code))Choice={Code,Index};
  }
