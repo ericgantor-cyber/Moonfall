@@ -35,6 +35,13 @@ bool FMoonfallAquaticRewardsTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Six unique claims"),Gear.Count(),6);
     TestEqual(TEXT("Legendary final piece"),Gear.Rarity(2),5);
     TestEqual(TEXT("No extra set slots"),Gear.Pieces(),3);
+    TestEqual(TEXT("Three unique chests award three tonics"),Gear.TonicCharges,3);
+    TestTrue(TEXT("Consume one tonic"),Gear.ConsumeTonic());
+    TestEqual(TEXT("Two remaining"),Gear.TonicCharges,2);
+    TestFalse(TEXT("Claim replay cannot replenish"),Gear.Claim(0,0));
+    TestTrue(TEXT("Consume second tonic"),Gear.ConsumeTonic());
+    TestTrue(TEXT("Consume third tonic"),Gear.ConsumeTonic());
+    TestFalse(TEXT("Empty stock cannot consume"),Gear.ConsumeTonic());
     return true;
 }
 #endif
