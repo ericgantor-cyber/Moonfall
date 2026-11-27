@@ -2,6 +2,7 @@
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallAquaticProfiles.h"
+#include "MoonfallAquaticTactics.h"
 #include "MoonfallAquaticArt.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "MoonfallWorldNPC.h"
@@ -742,6 +743,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
    const auto Profile = MoonfallAquatic::Profile(AquaticProfileId);
    const int32 AquaticPhase = GetAquaticPhase();
+   const auto Tactics=MoonfallAquaticTactics::Behavior(AquaticProfileId);
    const FVector Position = GetActorLocation();
    const FVector Target = Hero->GetActorLocation();
    const bool bValid = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
@@ -755,6 +757,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const bool bClear = bEngaged && !GetWorld()->LineTraceSingleByChannel(
        Sight, Position, Target, ECC_Visibility, Params);
    const double DistanceSq = FVector::DistSquared(Position, Target);
+   if (!FMath::IsFinite(NextAttackAt)) NextAttackAt=Now+0.35f;
+   const int32 NextMoveId=MoonfallAquatic::SelectMove(AquaticProfileId,AquaticPhase,AquaticAttackSequence);
+   const auto NextMove=MoonfallAquatic::Move(AquaticProfileId,NextMoveId);
    if (!bClear) {
     WindupEndsAt = -1.f;
     NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
@@ -776,11 +781,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      return;
     }
     return;
-   } else if (DistanceSq <= FMath::Square(Profile.Reach) && Now >= NextAttackAt) {
-    AquaticCommittedMove = MoonfallAquatic::SelectMove(AquaticProfileId, AquaticPhase, AquaticAttackSequence);
+   } else if (DistanceSq <= FMath::Square(NextMove.Reach-20.f) && Now >= NextAttackAt) {
+    AquaticCommittedMove = NextMoveId;
     AquaticAttackSequence = (AquaticAttackSequence + 1) % 6;
     const auto Move = MoonfallAquatic::Move(AquaticProfileId, AquaticCommittedMove);
     LockedAttackDirection = (Target-Position).GetSafeNormal();
+    if (!LockedAttackDirection.GetSafeNormal2D().IsNearlyZero())
+     SetActorRotation(FRotator(0.f,LockedAttackDirection.Rotation().Yaw,0.f));
     CurrentWindup = Move.Windup;
     WindupEndsAt = Now + CurrentWindup;
     CurrentAttackMultiplier = Move.bUnblockable ? 1.5f : 1.f;
@@ -791,10 +798,28 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    RefreshAttackTellMarker(Now, Hero->bReduceMotion);
    if (!bValid) return;
    FVector Destination = bClear ? Target : DungeonHomePosition;
+   float SpeedScale=1.f;
+   const bool bRecovering=Now<NextAttackAt;
+   const bool bReposition=MoonfallAquaticTactics::MayReposition(bClear,bRecovering,false);
+   const bool bPatrol=MoonfallAquaticTactics::MayPatrol(Hero->bWaterSwimming,
+       Hero->bInsideAirPocket,bEngaged,float(FVector::Dist(Target,DungeonHomePosition)));
+   if (bPatrol) {
+    const float Angle=FMath::Fmod(Now,120.f)*Tactics.PatrolRate+float(AquaticProfileId);
+    Destination+=FVector(FMath::Cos(Angle)*Tactics.PatrolRadius,
+        FMath::Sin(Angle)*Tactics.PatrolRadius,0.f);
+    SpeedScale=0.35f;
+   } else if (bReposition) {
+    const FVector Away=(Position-Target).GetSafeNormal2D();
+    const FVector Side(-Away.Y,Away.X,0.f);
+    const float Direction=AquaticAttackSequence%2==0?1.f:-1.f;
+    Destination=Target+Away*(Profile.Reach+Tactics.RecoveryDistance)+Side*(Direction*Tactics.StrafeDistance);
+    Destination.Z=Position.Z;
+    SpeedScale=Tactics.RecoverySpeedScale;
+   }
    Destination = DungeonHomePosition + (Destination-DungeonHomePosition).GetClampedToMaxSize(270.f);
    Destination.Z = FMath::Clamp(Destination.Z, DungeonHomePosition.Z-55.0, DungeonHomePosition.Z+55.0);
-   if (!bClear || DistanceSq > FMath::Square(Profile.Reach-15.f)) {
-    const FVector Step = (Destination-Position).GetClampedToMaxSize(Profile.Speed*SafeAIDelta);
+   if (!bClear || bReposition || DistanceSq > FMath::Square(Profile.Reach-15.f)) {
+    const FVector Step = (Destination-Position).GetClampedToMaxSize(Profile.Speed*SafeAIDelta*SpeedScale);
     if (!Step.IsNearlyZero()) {
      SetActorRotation(FRotator(0.f, Step.Rotation().Yaw, 0.f));
      FHitResult MoveHit;
