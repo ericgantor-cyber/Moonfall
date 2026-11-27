@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "MoonfallAquaticRewards.h"
+#include "MoonfallIslandQuest.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -24,7 +25,16 @@ public:
  int32 GetWreckDiscoveryCount() const { return int32((WreckClaims&1u)!=0)+int32((WreckClaims&2u)!=0); }
  void DiscoverCave(int32 Index) { if (Index>=0 && Index<2) CaveClaims|=uint8(1u<<Index); }
  int32 GetCaveDiscoveryCount() const { return int32((CaveClaims&1u)!=0)+int32((CaveClaims&2u)!=0); }
+ int32 GetIslandQuestProgress(int32 Id) const {
+  return Id==0?GetWreckDiscoveryCount():Id==1?GetCaveDiscoveryCount():Id==2?GetGrottoClaimCount():0;
+ }
+ int32 TalkIslandQuest(int32 Id) {
+  return IslandJournal.Talk(Id,GetIslandQuestProgress(Id));
+ }
+ int32 GetIslandQuestState(int32 Id) const { return IslandJournal.State(Id); }
+ int32 GetIslandQuestCount() const { return IslandJournal.Count(); }
 private:
+ MoonfallIslandQuest::FJournal IslandJournal;
  uint8 CaveClaims=0;
  uint8 WreckClaims=0;
  MoonfallAquaticRewards::FSessionGear GrottoGear;
