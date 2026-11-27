@@ -564,6 +564,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
+ if (!bBoss && ActorHasTag(FName(TEXT("MoonfallBossMinion")))) {
+  const AMoonfallEnemy* Parent=EncounterBoss.Get();
+  if (!IsValid(Parent)||Parent->IsActorBeingDestroyed()||!Parent->bBoss
+      ||Parent->GetWorld()!=GetWorld()||Parent->GetOwner()!=GetOwner()
+      ||Parent->DungeonChamberIndex!=DungeonChamberIndex
+      ||!FMath::IsFinite(Parent->Health)||Parent->Health<=0.f) {
+   Destroy(); // No reward, attack or victory callback for encounter cleanup.
+   return;
+  }
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
@@ -876,6 +886,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const bool bOrdinaryDirectionalMelee =
     bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
   const bool bRangedShot = bRangedCombatRole && bWithinAttackArc
+    && FacingDot>=0.94f && FMath::Abs(HeroPosition.Z-EnemyPosition.Z)<=100.0
     && Distance <= EffectiveAttackRange * CurrentAttackRangeMultiplier;
   const bool bWithinBasicAttack = !bDivineSignatureActive &&
     (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint
@@ -1415,6 +1426,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));
    const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);
    if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {
+    const AMoonfallEnemy* Parent=bBossMinion?EncounterBoss.Get():nullptr;
+    const bool bParentWinding=IsValid(Parent)&&!Parent->IsActorBeingDestroyed()
+      &&FMath::IsFinite(Parent->WindupEndsAt)&&Parent->WindupEndsAt>Now;
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
@@ -1459,12 +1473,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;
      }
     }
-    if (MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)) {
+    if (bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)) {
      const bool bLeader = bElite && bDungeonRole
        && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
        && ActorHasTag(FName(TEXT("DungeonPackLeader")));
      const float SlotDelay = MoonfallPackTactics::RoleAdjustedSlotDelay(
-       MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID()),bLeader);
+       MoonfallPackTactics::AttackSlotDelay(FMath::Max(NearbyWindingAllies,bParentWinding?1:0), GetUniqueID()),bLeader);
      NextAttackAt = Now + SlotDelay;
      const float YieldStep=MoonfallPackTactics::YieldRepositionStep(Distance,AttackRange,SafeAIDelta,
        !bElite&&bCanSeeHero&&Now>=HitReactionEndsAt&&Now>=PostureBrokenUntil);
