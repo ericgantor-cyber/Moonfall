@@ -1759,6 +1759,10 @@ void AMoonfallCombatHUD::DrawHUD()
       FString::Printf(TEXT("Coral %d | Sea salt %d"),Preview->GetOceanMaterialStock(2),Preview->GetOceanMaterialStock(3)),
       FString::Printf(TEXT("Rod T%d | reach %.1fm"),MoonfallFishing::RodTier(Caught),double(MoonfallFishing::CastReach(Caught)/100.f)),
       FString::Printf(TEXT("Gathering kit T%d | renewal %.0fs"),MoonfallOceanGathering::ToolTier(Harvests),double(MoonfallOceanGathering::RecoverySeconds(Harvests))),
+      FString::Printf(TEXT("LEGENDARY COLLECTION %d/3"),Preview->GetLegendaryFishCount()),
+      FString::Printf(TEXT("Dawncrest %s | Stormcoil %s"),Preview->HasLegendaryFish(0)?TEXT("FOUND"):TEXT("--"),Preview->HasLegendaryFish(1)?TEXT("FOUND"):TEXT("--")),
+      FString::Printf(TEXT("Abyssal Crown %s"),Preview->HasLegendaryFish(2)?TEXT("FOUND"):TEXT("--")),
+      TEXT("Rank 7+: match schools to ocean activity."),
       TEXT("Preview session only; not campaign saved.")
      };
      const float RowH=FMath::Min(30.f,(PanelHeight-188.f)/UE_ARRAY_COUNT(Lines));
@@ -2833,7 +2837,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if(bCatchNotice) {
     const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
     const int32 Species=Preview->GetLastFishSpecies();
-    if(Species>=0&&Species<3) FishingPrompt=FString::Printf(TEXT("%s%s caught!"),Preview->WasLastFishTrophy()?TEXT("TROPHY "):TEXT(""),Names[Species]);
+    const TCHAR* LegendaryNames[]={TEXT("Dawncrest"),TEXT("Stormcoil"),TEXT("Abyssal Crown")};
+    if(Species>=0&&Species<3) FishingPrompt=Preview->WasLastFishLegendary()?FString::Printf(TEXT("LEGENDARY: %s"),LegendaryNames[Species]):FString::Printf(TEXT("%s%s caught!"),Preview->WasLastFishTrophy()?TEXT("TROPHY "):TEXT(""),Names[Species]);
    }
    DrawText(FishingPrompt,bCatchNotice&&Preview->WasLastFishTrophy()?FLinearColor(1.f,0.8f,0.25f):Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),

@@ -32,6 +32,13 @@ namespace MoonfallFishing
     constexpr int TrophyChance(int Catches,bool School,int Event) {
         return 2+(Rank(Catches)-1)/2+(School?4:0)+(Event==1?3:0);
     }
+    // Legendary specimens share ordinary species stock; their unique records
+    // are independent from consumable fish and never grant campaign items.
+    constexpr int LegendaryCount=3;
+    constexpr int LegendarySpecies(int Catches,int SchoolId,int Event,int Roll) {
+        return Rank(Catches)<7||SchoolSpecies(SchoolId)<0||Event<0||Event>=LegendaryCount||
+               Roll<0||Roll>=3||SchoolSpecies(SchoolId)!=Event ? -1 : Event;
+    }
     struct FSchoolPosition { double X=0,Y=0; };
     inline FSchoolPosition SchoolPosition(int Id,double Now,double Width,double Length) {
         if(SchoolSpecies(Id)<0||!std::isfinite(Now)||Now<0||!std::isfinite(Width)||!std::isfinite(Length)||Width<600||Length<600) return {};
