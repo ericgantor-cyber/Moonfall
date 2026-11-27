@@ -310,14 +310,10 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
    if(GetRawEquipmentSlotCode(I)!=ValidatedCodes[I])return 0;
   }
   const int32 Required=MoonfallEquipmentLayout::FullWornCopies(ItemCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1;
-  if(MoonfallEquipmentLayout::FullOwnedCopies(ItemCode,InventoryItemCodes,Required)<Required)return 0;
-  int32 BestDelta=MIN_int32;const int32 Rank=MoonfallEquipmentLayout::FullRank(ItemCode);
-  for(int32 Target:MoonfallEquipmentLayout::RingSlots){
-   if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
-   if(Worn[Target]==ItemCode||Rank<MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
-   BestDelta=FMath::Max(BestDelta,CandidatePower-GetItemPower(Worn[Target]));
-  }
-  return BestDelta==MIN_int32?0:BestDelta;
+  const int32 Copies=MoonfallEquipmentLayout::FullOwnedCopies(ItemCode,InventoryItemCodes,Required);
+  const int32 Target=MoonfallEquipmentLayout::FullRingQuickEquipTarget(ItemCode,Worn,
+      MoonfallEquipmentLayout::ActiveSlotCount,Copies);
+  return Target<0?0:CandidatePower-GetItemPower(Worn[Target]);
  }
  return CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot));
 }
@@ -345,24 +341,17 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
    if(DecodeEquippedItem(Worn[I],I,T,R,Ti)&&T==Affix&&R>=1)++CurrentPieces;
   }
   const int32 Required=MoonfallEquipmentLayout::FullWornCopies(CandidateCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount)+1;
-  // No spare copy means no proposed equipment change, not lost set pieces.
-  if(MoonfallEquipmentLayout::FullOwnedCopies(CandidateCode,InventoryItemCodes,Required)<Required)return CurrentPieces;
-  int32 BestProjection=INDEX_NONE;
-  for(int32 Target:MoonfallEquipmentLayout::RingSlots){
-   if(Target>=MoonfallEquipmentLayout::ActiveSlotCount)break;
-   if(Worn[Target]==CandidateCode||MoonfallEquipmentLayout::FullRank(CandidateCode)
-       <MoonfallEquipmentLayout::FullRank(Worn[Target]))continue;
-   int32 PreviousTrait=0,PreviousRarity=0,PreviousTier=0;
-   const bool bCurrentValid=DecodeEquippedItem(Worn[Target],Target,
-       PreviousTrait,PreviousRarity,PreviousTier);
-   const int32 Projected=FMath::Clamp(CurrentPieces
-       -(bCurrentValid&&PreviousRarity>=1&&PreviousTrait==Affix?1:0)
-       +(CandidateRarity>=1&&CandidateTrait==Affix?1:0),0,MoonfallEquipmentLayout::ActiveSlotCount);
-   BestProjection=FMath::Max(BestProjection,Projected);
-  }
-  // A real zero-piece result remains valid; only an absent eligible target
-  // falls back to the current set count.
-  return BestProjection==INDEX_NONE?CurrentPieces:BestProjection;
+  const int32 Copies=MoonfallEquipmentLayout::FullOwnedCopies(CandidateCode,InventoryItemCodes,Required);
+  const int32 Target=MoonfallEquipmentLayout::FullRingQuickEquipTarget(CandidateCode,Worn,
+      MoonfallEquipmentLayout::ActiveSlotCount,Copies);
+  // No spare or destination means the current set remains unchanged.
+  if(Target<0)return CurrentPieces;
+  int32 PreviousTrait=0,PreviousRarity=0,PreviousTier=0;
+  const bool bCurrentValid=DecodeEquippedItem(Worn[Target],Target,
+      PreviousTrait,PreviousRarity,PreviousTier);
+  return FMath::Clamp(CurrentPieces
+      -(bCurrentValid&&PreviousRarity>=1&&PreviousTrait==Affix?1:0)
+      +(CandidateRarity>=1&&CandidateTrait==Affix?1:0),0,MoonfallEquipmentLayout::ActiveSlotCount);
  }
  const int32 CurrentCode = GetEquipmentSlotCode(Slot);
  int32 PreviousTrait = 0, PreviousRarity = 0, PreviousTier = 0;
