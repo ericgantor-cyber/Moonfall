@@ -217,6 +217,21 @@ int main() {
  auto BadRings=Flexible;BadRings[0]=CommonRing;
  assert(!L::TryRestoreFlexibleFullLoadout(BadRings.data(),3,BadRings.data(),24,19,RingBag,RingResult));
  assert(L::FullTotalScore(Flexible)>0);
+ // Expanded read-only previews can compare a ring against any finger, but
+ // must have a spare physical copy and must never recommend lowering rank.
+ L::FFullLoadout PreviewRings{};
+ const int WeakPreview=L::EncodeFullItem(8,0,0,1);
+ const int StrongPreview=L::EncodeFullItem(13,2,5,25);
+ PreviewRings[23]=WeakPreview;
+ assert(L::FullCandidateImprovement(StrongPreview,PreviewRings,24,1)>0);
+ assert(L::FullCandidateImprovement(WeakPreview,PreviewRings,24,1)==0);
+ assert(L::FullCandidateImprovement(WeakPreview,PreviewRings,24,2)>0);
+ assert(L::FullCandidateImprovement(StrongPreview,PreviewRings,24,0)==0);
+ L::FFullLoadout FullHighRings{};std::array<int,11> FullHighBag{};
+ const int HighCopy=L::EncodeFullItem(8,2,5,25);
+ for(int R=0;R<10;++R){FullHighRings[L::RingSlot(R)]=HighCopy;FullHighBag[R]=HighCopy;}
+ const int LowerCopy=L::EncodeFullItem(13,0,0,1);FullHighBag[10]=LowerCopy;
+ assert(L::FullCandidateImprovement(LowerCopy,FullHighRings,24,1)==0);
  L::FFullPlanner PreserveFlexible(Flexible);
  PreserveFlexible.Add(L::EncodeFullItem(23,3,5,25),0);
  assert(PreserveFlexible.Finish().Codes==Flexible&&PreserveFlexible.Finish().Changes==0);
