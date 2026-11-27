@@ -721,12 +721,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
+ const float BreathScale = MoonfallWaterRules::BreathMultiplier(bRaceChosen, RaceId);
  const float PreviousAir = Oxygen;
  const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
  Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bWaterSubmerged, bWaterPaused);
+     bWaterSubmerged, bWaterPaused, BreathScale);
  const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
-     PreviousAir, SafeTimerDelta, bWaterSwimming && bWaterSubmerged, bWaterPaused);
+     PreviousAir, SafeTimerDelta, bWaterSwimming && bWaterSubmerged, bWaterPaused, BreathScale);
  if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
   TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
   TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
@@ -5823,7 +5824,8 @@ FString AMoonfallHeroPawn::GetRacePassiveSummary() const {
      TEXT("+%d Might  |  +%d Insight  |  +%d Resolve\nStamina regen +%.0f%%  |  Mana regen +%.0f%%"),
      R.Might,R.Insight,R.Resolve,
      static_cast<double>(R.StaminaRegen)*100.0,
-     static_cast<double>(R.ManaRegen)*100.0);
+     static_cast<double>(R.ManaRegen)*100.0)
+     + (MoonfallWaterRules::BreathMultiplier(bRaceChosen, RaceId)>1.f ? FString(TEXT("\nExtended breath: 6 minutes")) : FString());
 }
 FString AMoonfallHeroPawn::GetRacePowerDescription() const {
  if (!bRaceChosen) return TEXT("Choose an ancestry to unlock its racial power.");
