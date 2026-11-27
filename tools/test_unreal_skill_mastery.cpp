@@ -120,11 +120,11 @@ int main(){
  for(int K=0;K<M::SkillCount;++K){
   const auto Skill=static_cast<M::Skill>(K);
   assert(M::PassiveBonusBps(Rewards,Skill)==Caps[K]);
-  int Previous=0;
+  int PreviousRankBonus=0;
   for(int R=0;R<=M::MaxRank;++R){
    Rewards.XP[K]=M::RankThresholds[R];
    const int Bonus=M::PassiveBonusBps(Rewards,Skill);
-   assert(Bonus>=Previous&&Bonus<=Caps[K]);Previous=Bonus;
+   assert(Bonus>=PreviousRankBonus&&Bonus<=Caps[K]);PreviousRankBonus=Bonus;
   }
  }
  Rewards.XP[0]=-1;
