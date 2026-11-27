@@ -4193,9 +4193,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 
 bool AMoonfallHeroPawn::EquipInventoryRing(int32 InventoryIndex,int32 RingSlotIndex)
 {
- if(bEquipmentCraftInProgress||MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return false;
+ if(!CanEditEquippedRings())return false;
  const int32 Target=MoonfallEquipmentLayout::RingSlot(RingSlotIndex);
- if(Target<0)return false;
+ if(Target<0||Target>=MoonfallEquipmentLayout::ActiveSlotCount)return false;
  return EquipInventoryItemWithPreviousTier(InventoryIndex,-1,Target);
 }
 
@@ -4268,6 +4268,9 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
   // Defeated ring recovery remains gated until checkpoint reconciliation
   // understands flexible references and physical copy counts.
   if(Health<=0.f)return false;
+  // Public quick equip cannot reenter the ring planner's transaction.
+  // The internal crafting replacement has its own preflight and rollback.
+  if(!bEquipmentCraftInProgress&&!CanEditEquippedRings())return false;
   MoonfallEquipmentLayout::FFullLoadout Worn{};
   for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
   const int32 Target=TargetSlot==INDEX_NONE
