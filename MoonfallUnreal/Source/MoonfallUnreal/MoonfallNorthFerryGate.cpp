@@ -406,19 +406,33 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  if (!bAutoVoyageInProgress || PendingVoyager.Get() != Hero
      || !IsValid(PendingShip.Get()) || PendingShip.Get() != SailingVessel)
   return false;
- if (!IsValid(PairedGate) || PendingArrivalGate.Get() != PairedGate
-     || PairedGate->PairedGate != this || !bEnableSeaPassage
-     || !PairedGate->bEnableSeaPassage) {
+ if (!HasConfiguredPassage() || !IsValid(PairedGate)
+     || PendingArrivalGate.Get() != PairedGate
+     || PairedGate->PairedGate != this
+     || PendingTargetShip.Get() != PairedGate->SailingVessel
+     || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, SailingVessel)
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen) {
   StopAutomaticVoyage();
   return false;
  }
  UpdateVoyagePresentation(Hero, 0.f);
  // The progress event can also change an enabled harbor into an invalid
  // route before this call returns. End it now, not on a later timer tick.
- if (bAutoVoyageInProgress &&
-     (!IsValid(PairedGate) || PendingArrivalGate.Get() != PairedGate
-     || PairedGate->PairedGate != this || !bEnableSeaPassage
-     || !PairedGate->bEnableSeaPassage))
+ if (bAutoVoyageInProgress && PendingVoyager.Get() == Hero &&
+     (!HasConfiguredPassage() || !IsValid(PairedGate)
+     || PendingArrivalGate.Get() != PairedGate
+     || PendingShip.Get() != SailingVessel
+     || PendingTargetShip.Get() != PairedGate->SailingVessel
+     || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, SailingVessel)
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen))
   StopAutomaticVoyage();
  return bAutoVoyageInProgress && PendingVoyager.Get() == Hero;
 }
