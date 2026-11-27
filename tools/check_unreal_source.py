@@ -1898,11 +1898,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("const int32 SavedWornCodes[3] = {", load)
         self.assertIn("Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode", load)
-        self.assertIn("TryRestoreLoadout(SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes),false,", load)
-        self.assertIn("if(Save->Version>=17)", load)
-        self.assertIn("Save->EquippedSlotCodes.Num(),true", load)
-        self.assertIn("ExpandedWorn!=CheckedSavedWorn", load)
-        self.assertLess(load.index("ExpandedWorn!=CheckedSavedWorn"), load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertIn("TryRestoreMirroredLoadout(", load)
+        self.assertIn("SavedWornCodes,UE_ARRAY_COUNT(SavedWornCodes)", load)
+        self.assertIn("Save->EquippedSlotCodes.GetData(),Save->EquippedSlotCodes.Num()", load)
+        self.assertIn("Save->Version>=17,MoonfallEquipmentLayout::LegacySlotCount", load)
+        self.assertLess(load.index("TryRestoreMirroredLoadout("), load.index("bWorldProgressLoadInProgress = true;"))
+        policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
+        mirror = policy.split("bool TryRestoreMirroredLoadout(", 1)[1].split("// Exact set-aware", 1)[0]
+        self.assertIn("Candidate[Slot]!=Mirrors[Slot]", mirror)
+        self.assertIn("Candidate[Slot]!=0", mirror)
+        self.assertLess(mirror.index("Candidate[Slot]!=0"), mirror.index("Out=Candidate;"))
         self.assertIn("[Save](int32 Code){return Save->InventoryItemCodes.Contains(Code);}", load)
         guard = load.split("const int32 SavedWornCodes[3]", 1)[1].split(
             "// Validate the V7 discovered-shrine ledger", 1)[0]
