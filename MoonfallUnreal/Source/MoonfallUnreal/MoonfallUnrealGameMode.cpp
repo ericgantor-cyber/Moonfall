@@ -799,26 +799,43 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
    Visitor->ResidentId=NAME_None;
    Visitor->SettlementId=FName(TEXT("Roadside"));
    Visitor->FactionId=FName(TEXT("Wanderers"));
+   const int32 DialogueVariant=MoonfallLivingSimulation::EncounterDialogueVariant(Region,Phase);
+   static const TCHAR* const MerchantGreetings[3]={
+    TEXT("I bring supplies and stories from the next province."),
+    TEXT("Every province has its own craft. I keep an ear out for what travelers need."),
+    TEXT("A long road teaches patience. I prefer a quiet crossing to a hurried one.")};
+   static const TCHAR* const PatrolGreetings[3]={
+    TEXT("We patrol these roads. Keep an eye on the shadows."),
+    TEXT("We keep watch between settlements so travelers know where to turn."),
+    TEXT("The boundary stones are our landmarks. A clear road is a good day's work.")};
+   static const TCHAR* const WayfarerGreetings[3]={
+    TEXT("I lost my caravan near the old boundary stones."),
+    TEXT("I took the wrong turning. These roads are harder to read than I expected."),
+    TEXT("I stopped to get my bearings. The next settlement cannot be far.")};
+   static const TCHAR* const DisputeGreetings[3]={
+    TEXT("Two caravans claim this road. Who can settle it?"),
+    TEXT("Some travelers think the old road belongs to them alone."),
+    TEXT("Everyone wants the shortest crossing, but nobody wants to give way.")};
    switch (Event) {
     case MoonfallLivingSimulation::EEvent::Merchant:
      Visitor->DisplayName=FText::FromString(TEXT("Roadside Trader"));
      Visitor->SocialRole=FName(TEXT("Merchant"));
-     Visitor->Greeting=FText::FromString(TEXT("I bring supplies and stories from the next province."));
+     Visitor->Greeting=FText::FromString(MerchantGreetings[DialogueVariant]);
      break;
     case MoonfallLivingSimulation::EEvent::Patrol:
      Visitor->DisplayName=FText::FromString(TEXT("Passing Patrol"));
      Visitor->SocialRole=FName(TEXT("Guard"));
-     Visitor->Greeting=FText::FromString(TEXT("We patrol these roads. Keep an eye on the shadows."));
+     Visitor->Greeting=FText::FromString(PatrolGreetings[DialogueVariant]);
      break;
     case MoonfallLivingSimulation::EEvent::Rescue:
      Visitor->DisplayName=FText::FromString(TEXT("Stranded Wayfarer"));
      Visitor->SocialRole=FName(TEXT("Scout"));
-     Visitor->Greeting=FText::FromString(TEXT("I lost my caravan near the old boundary stones."));
+     Visitor->Greeting=FText::FromString(WayfarerGreetings[DialogueVariant]);
      break;
     case MoonfallLivingSimulation::EEvent::Dispute:
      Visitor->DisplayName=FText::FromString(TEXT("Disputing Traveler"));
      Visitor->SocialRole=FName(TEXT("Citizen"));
-     Visitor->Greeting=FText::FromString(TEXT("Two caravans claim this road. Who can settle it?"));
+     Visitor->Greeting=FText::FromString(DisputeGreetings[DialogueVariant]);
      break;
     default:break;
    }
