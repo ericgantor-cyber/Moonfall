@@ -2,6 +2,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAquaticRewards.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAquaticTactics.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanEvents.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
 #include <limits>
 #include <cassert>
 int main() {
@@ -106,5 +107,24 @@ int main() {
         assert(!Sightings.Discover(id));
         assert(Sightings.Count()==id+1);
     }
+    using namespace MoonfallOceanGathering;
+    for(int event=0;event<3;++event) {
+        FCollection Collection;
+        for(int id=0;id<7;++id) {
+            const bool fishing=IsFishing(id);
+            assert(CanCollect(id,!fishing,fishing,true));
+            assert(!CanCollect(id,!fishing,fishing,false)==fishing);
+            assert(!CanCollect(id,fishing,!fishing,true));
+            assert(Collection.Collect(id,event));
+            assert(!Collection.Collect(id,event));
+        }
+        assert(Collection.Materials()==4 && Collection.Catches()==3);
+        assert(Collection.Species(0)==1 && Collection.Species(1)==1 && Collection.Species(2)==1);
+        assert(!Collection.Collect(7,event));
+        assert(!Collection.Collect(-1,event));
+    }
+    FCollection Invalid;
+    assert(!Invalid.Collect(4,3) && Invalid.Catches()==0);
+    assert(!CanCollect(4,false,false,true));
     return 0;
 }
