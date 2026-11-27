@@ -3956,7 +3956,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  if (bEquipmentCraftInProgress || bEquipBestInProgress || bWorldProgressLoadInProgress) return 0;
  // Only a deliberate input while viewing inventory can change worn equipment.
  if (bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
-     || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)) return 0;
+     || bCharacterStatsOpen || bSpellBookOpen || !FMath::IsFinite(Health)
+     || !FMath::IsFinite(MaxHealth) || MaxHealth < 1.f) return 0;
  if (!bInventoryOpen || bOptionsOpen || Health < 0.f) return 0;
  if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount) return EquipBestExpandedLoadout();
  // Use validated owned gear and a single inventory pass. Set-aware plan
@@ -3974,6 +3975,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   // A Blueprint callback may destroy this pawn or close the inventory.
   // Revalidate before reading combat state, equipment, or bag contents.
   if (!IsValid(this) || IsActorBeingDestroyed()) break;
+  if (!GetWorld() || !FMath::IsFinite(MaxHealth) || MaxHealth < 1.f) break;
   if (!bInventoryOpen || bOptionsOpen || bCharacterStatsOpen || bSpellBookOpen
       || bTalentWebOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()
       || !FMath::IsFinite(Health) || Health < 0.f || bPersistentSaveWritesBlocked

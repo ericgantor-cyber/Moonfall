@@ -233,6 +233,14 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("if(PlannedIndex<0||FixedPlan.Codes[Slot]<=0)continue;", body)
         self.assertLess(body.index("if(PlannedIndex<0"), body.index("IndexOfByKey(FixedPlan.Codes[Slot])"))
 
+    def test_legacy_equip_best_revalidates_world_and_health_capacity(self):
+        body = self.source.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[0]
+        entry, loop = body.split("for (int32 Slot = 0; Slot < MoonfallEquipmentLayout::ActiveSlotCount; ++Slot)", 1)
+        for guard in ("!GetWorld()", "!FMath::IsFinite(MaxHealth)", "MaxHealth < 1.f"):
+            self.assertLess(entry.index(guard), entry.index("Planner.Finish()"))
+            self.assertLess(loop.index(guard), loop.index("IsRecentlyInCombatForAmbientAI()"))
+
     def test_legacy_equip_best_recovers_only_planned_inventory_items(self):
         body = self.source.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "int32 AMoonfallHeroPawn::EquipBestExpandedLoadout()", 1)[0]
