@@ -4755,7 +4755,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  static_assert(SaveSlotCount==MoonfallEquipmentLayout::SlotCount ||
      SaveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount ||
      SaveSlotCount==MoonfallEquipmentLayout::FullSlotCount,"Unsupported persistent equipment layout");
- static_assert(EquipmentSaveVersion==17,"Expanded save loader must be enabled before changing equipment layout");
+ // The writer remains on V17 until expanded native playtesting is complete.
+ static_assert(EquipmentSaveVersion==17,"Expanded equipment requires native migration testing before activation");
  if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
@@ -4830,7 +4831,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 17) {
+ // Refuse newer layouts even when their extra slots happen to be empty;
+ // otherwise an older runtime could silently downgrade the save on autosave.
+ constexpr int32 MaxEquipmentSaveVersion=MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::FullSlotCount?19:
+     MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount?18:17;
+ if (!Save || Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
