@@ -17,6 +17,8 @@ public:
  int32 GetGrottoSetPieces() const { return GrottoGear.Pieces(); }
  int32 GetGrottoGearRarity(int32 Piece) const { return GrottoGear.Rarity(Piece); }
  int32 GetLastGrottoRewardCode() const { return GrottoGear.LastCode; }
+ int32 GetBreathingTonicCharges() const { return GrottoGear.TonicCharges; }
+ bool ConsumeBreathingTonic() { return GrottoGear.ConsumeTonic(); }
 private:
  MoonfallAquaticRewards::FSessionGear GrottoGear;
 };
