@@ -709,6 +709,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ||RingDragLoadoutFingerprint!=GetEquipmentLoadoutFingerprint()))
   ClearRingPointerDrag();
  if(RingNavigationIndex!=INDEX_NONE&&!CanFocusRingNavigation())ClearRingNavigationFocus();
+ // Latch interruption until explicit acknowledgement: resuming out of
+ // combat must not resurrect a held swap or turn confirm into bag equip.
+ if(RingNavigationSwapSource!=INDEX_NONE&&!bRingNavigationSwapInterrupted
+     &&(!CanEditEquippedRings()||RingNavigationSwapRevision!=EquipmentInventoryRevision
+         ||RingNavigationSwapFingerprint!=GetEquipmentLoadoutFingerprint()))
+  bRingNavigationSwapInterrupted=true;
  // Dialogue focus and modal state must agree. A stale focused resident
  // otherwise blocks movement/attacks and keeps enemy AI paused indefinitely.
  // This is a cheap pointer check, with no per-frame actor search or trace.
@@ -1168,7 +1174,11 @@ int32 AMoonfallHeroPawn::GetFocusedRingIndex() const
 
 int32 AMoonfallHeroPawn::GetRingNavigationSwapSource() const
 {
- return HasRingNavigationFocus()?RingNavigationSwapSource:INDEX_NONE;
+ return HasRingNavigationFocus()&&!bRingNavigationSwapInterrupted?RingNavigationSwapSource:INDEX_NONE;
+}
+bool AMoonfallHeroPawn::IsRingNavigationSwapInterrupted() const
+{
+ return HasRingNavigationFocus()&&RingNavigationSwapSource!=INDEX_NONE&&bRingNavigationSwapInterrupted;
 }
 void AMoonfallHeroPawn::ClearRingNavigationSwap()
 {
@@ -1176,6 +1186,7 @@ void AMoonfallHeroPawn::ClearRingNavigationSwap()
  RingNavigationSwapCode=0;
  RingNavigationSwapRevision=0;
  RingNavigationSwapFingerprint=0;
+ bRingNavigationSwapInterrupted=false;
 }
 void AMoonfallHeroPawn::ClearRingNavigationFocus()
 {
@@ -1198,7 +1209,7 @@ void AMoonfallHeroPawn::ConfirmRingNavigationAction()
  if(!HasRingNavigationFocus())return;
  if(RingNavigationSwapSource!=INDEX_NONE){
   const int32 Source=RingNavigationSwapSource,Code=RingNavigationSwapCode;
-  const bool bValid=CanEditEquippedRings()&&RingNavigationSwapRevision==EquipmentInventoryRevision
+  const bool bValid=!bRingNavigationSwapInterrupted&&CanEditEquippedRings()&&RingNavigationSwapRevision==EquipmentInventoryRevision
       &&RingNavigationSwapFingerprint==GetEquipmentLoadoutFingerprint()
       &&GetEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(Source))==Code;
   ClearRingNavigationSwap();
