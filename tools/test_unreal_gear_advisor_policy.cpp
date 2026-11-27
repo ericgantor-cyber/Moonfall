@@ -345,6 +345,23 @@ int main() {
   assert(L::EncodeFullLoot(Categories,LayoutCount,0,0,1)==0);
  }
  assert(L::FullLootCategoryCount(23)==0&&L::FullLootCategorySlot(0,23)==-1);
+ // Flexible-ring loot tier previews compare every eligible finger, while
+ // fixed slots and the nine-slot layout retain their original baseline.
+ L::FFullLoadout LootPreview{};
+ LootPreview[8]=L::EncodeFullItem(8,1,3,20);
+ assert(L::FullLootComparisonTier(LootPreview,8,9)==20);
+ assert(L::FullLootComparisonTier(LootPreview,8,24)==0);
+ assert(L::FullLootComparisonTier(LootPreview,13,16)==0);
+ for(int Finger:L::RingSlots)LootPreview[Finger]=L::EncodeFullItem(8,1,3,20);
+ LootPreview[23]=L::EncodeFullItem(8,1,3,3);
+ assert(L::FullLootComparisonTier(LootPreview,8,24)==3);
+ assert(L::FullLootComparisonTier(LootPreview,8,16)==20);
+ LootPreview[1]=L::EncodeFullItem(1,2,3,7);
+ assert(L::FullLootComparisonTier(LootPreview,1,24)==7);
+ assert(L::FullLootComparisonTier(LootPreview,23,16)==0);
+ assert(L::FullLootComparisonTier(LootPreview,8,23)==0);
+ LootPreview[23]=LootPreview[1];
+ assert(L::FullLootComparisonTier(LootPreview,8,24)==0);
  // Auto-target and crafting selection use physical copies, not the
  // encoded finger ID. A spare is crafted before a worn copy.
  L::FFullLoadout AutoRing{};
