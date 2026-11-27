@@ -248,6 +248,16 @@ int main() {
     assert(Rank(-1)==1 && Rank(0)==1 && Rank(3)==2 && Rank(27)==10 && Rank(30)==10);
     assert(CastWait(1,0)==7.0 && CastWait(0,30)==2.0 && CastWait(1,30)<5.0);
     assert(BiteSeconds(0)==10.0 && BiteSeconds(30)==14.5);
+    assert(RodTier(0)==1 && RodTier(9)==2 && RodTier(18)==3 && RodTier(27)==4);
+    assert(CastReach(0)==850.f && CastReach(27)==1150.f);
+    assert(ToolTier(0)==1 && ToolTier(12)==2 && ToolTier(24)==3 && ToolTier(36)==4);
+    assert(RecoverySeconds(0)==90.f && RecoverySeconds(36)==60.f);
+    FCollection AdvancedGathering;
+    AdvancedGathering.Harvested[0]=36;
+    assert(AdvancedGathering.Collect(0,0,100));
+    assert(AdvancedGathering.RemainingCooldown(0,100)==60);
+    assert(!AdvancedGathering.Collect(0,0,159.99));
+    assert(AdvancedGathering.Collect(0,0,160));
     assert(Cast.Start(40,2,30));
     assert(!Cast.Advance(42,true) && Cast.Stage==EStage::Bite);
     assert(Cast.Hook(56) && Cast.Stage==EStage::Reeling);

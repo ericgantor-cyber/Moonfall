@@ -64,7 +64,7 @@ bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
     SetActorHiddenInGame(true);
     FTimerHandle RespawnHandle;
     GetWorld()->GetTimerManager().SetTimer(RespawnHandle,this,&AMoonfallGrottoTreasure::RestoreResource,
-        MoonfallOceanGathering::RespawnSeconds,false);
+        FMath::Max(0.01f,Mode->GetOceanResourceCooldown(ResourceIndex)),false);
     return true;
 }
 
