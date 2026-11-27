@@ -70,5 +70,22 @@ int main(){
  assert(M::TryRestoreRecord(0,std::array<int,0>{},std::array<std::uint64_t,0>{},Restored));
  assert(M::RankFor(Restored,M::Skill::Agility)==0&&!M::HasUnlock(Restored,M::Unlock::Vault));
  for(auto Bits:Restored.Collected)assert(Bits==0);
+ // Stable route identities, bounded region capacity and exactly one hidden
+ // collectible per enabled route; no random IDs or overlapping coordinates.
+ int Hidden=0;
+ for(int I=0;I<M::WorldRouteCount;++I){
+  const auto P=M::RoutePlacement(I);
+  assert(M::ValidOrbID(P.Region,P.Index)&&P.Index<4);
+  if(P.Kind==M::Orb::Hidden)++Hidden;
+  for(int J=0;J<I;++J){
+   const auto Q=M::RoutePlacement(J);
+   assert(P.Region!=Q.Region||P.Index!=Q.Index);
+   assert(P.X!=Q.X||P.Y!=Q.Y);
+  }
+  if(P.Region<6)assert(P.Y>=-2950&&P.Y<=-2050);
+ }
+ assert(Hidden==7);
+ assert(!M::ValidOrbID(M::RoutePlacement(-1).Region,0));
+ assert(!M::ValidOrbID(M::RoutePlacement(M::WorldRouteCount).Region,0));
  return 0;
 }
