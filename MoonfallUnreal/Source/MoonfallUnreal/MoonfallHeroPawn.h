@@ -49,6 +49,15 @@ public:
  bool bWaterSwimming = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSubmerged = false;
+ // Camera depth drives presentation independently of the hero's breathing.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCameraDepth = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterStrokeSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterVerticalSpeed = 0.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Water")
+ void OnSwimmingStateChanged(bool bSwimming, bool bSubmerged);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
