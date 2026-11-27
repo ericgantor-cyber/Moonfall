@@ -4,6 +4,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
@@ -29,11 +30,12 @@ AMoonfallGrottoTreasure::AMoonfallGrottoTreasure()
 
 bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
 {
-    if (!HasAuthority() || IsActorBeingDestroyed() || !GetWorld() || !IsValid(Hero)
+    if (bResourceDepleted || !HasAuthority() || IsActorBeingDestroyed() || !GetWorld() || !IsValid(Hero)
         || Hero->GetWorld() != GetWorld() || !FMath::IsFinite(Hero->Health)
         || Hero->Health <= 0.f
         || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-        || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen || Hero->bTalentWebOpen)
+        || Hero->bCharacterStatsOpen || Hero->bSpellBookOpen || Hero->bQuestLogOpen
+        || Hero->bResidentContextOpen || Hero->bTalentWebOpen || Hero->FocusedResident.IsValid())
         return false;
     auto* Mode = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
     if (!IsValid(Mode)) return false;
@@ -53,7 +55,23 @@ bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
     if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)) return false;
     if (ResourceIndex == -1) {
         if (!Mode->ClaimGrotto(GrottoIndex)) return false;
-    } else if (!Mode->CollectOceanResource(ResourceIndex)) return false;
-    Destroy();
+        Destroy();
+        return true;
+    }
+    if (!Mode->CollectOceanResource(ResourceIndex)) return false;
+    bResourceDepleted=true;
+    SetActorEnableCollision(false);
+    SetActorHiddenInGame(true);
+    FTimerHandle RespawnHandle;
+    GetWorld()->GetTimerManager().SetTimer(RespawnHandle,this,&AMoonfallGrottoTreasure::RestoreResource,
+        MoonfallOceanGathering::RespawnSeconds,false);
     return true;
+}
+
+void AMoonfallGrottoTreasure::RestoreResource()
+{
+    if (!HasAuthority() || IsActorBeingDestroyed() || !bResourceDepleted) return;
+    bResourceDepleted=false;
+    SetActorHiddenInGame(false);
+    SetActorEnableCollision(true);
 }

@@ -116,14 +116,14 @@ int main() {
             assert(CanCollect(id,true,false,true));
             assert(!CanCollect(id,true,false,false));
             assert(!CanCollect(id,false,true,true));
-            assert(Collection.Collect(id,event));
-            assert(!Collection.Collect(id,event));
+            assert(Collection.Collect(id,event,0));
+            assert(!Collection.Collect(id,event,0));
             assert(MaterialType(id)==id%4);
         }
         assert(Collection.Materials()==12);
         for(int type=0;type<4;++type) assert(Collection.Material(type)==3);
-        assert(!Collection.Collect(NodeCount,event));
-        assert(!Collection.Collect(-1,event));
+        assert(!Collection.Collect(NodeCount,event,0));
+        assert(!Collection.Collect(-1,event,0));
         for(int roll : {0,50,80}) assert(Collection.Catch(event,roll));
         assert(Collection.Catches()==3);
         assert(Collection.Species(0)==1 && Collection.Species(1)==1 && Collection.Species(2)==1);
@@ -131,7 +131,7 @@ int main() {
         assert(!Collection.Catch(event,0));
     }
     FCollection Invalid;
-    assert(!Invalid.Collect(4,3) && Invalid.Catches()==0);
+    assert(!Invalid.Collect(4,3,0) && Invalid.Catches()==0);
     assert(!CanCollect(4,false,false,true));
     assert(!Invalid.Catch(3,0) && !Invalid.Catch(0,100));
     MoonfallOceanCrafting::FWorkshop Workshop;
@@ -140,7 +140,7 @@ int main() {
     assert(!Workshop.Craft(-1,Supplies,Loan));
     assert(!Workshop.Craft(3,Supplies,Loan));
     assert(!Workshop.Craft(0,Supplies,Loan));
-    for(int id=0;id<4;++id) assert(Supplies.Collect(id,0));
+    for(int id=0;id<4;++id) assert(Supplies.Collect(id,0,0));
     for(int roll : {0,50,80}) assert(Supplies.Catch(0,roll));
     assert(Workshop.AvailableMaterials(Supplies)==4);
     assert(Workshop.RemainingFish(Supplies)==3);
@@ -176,6 +176,21 @@ int main() {
     Loan.Codes[0]=MoonfallEquipmentLayout::EncodeFullItem(2,3,5,4);
     assert(!MaxWorkshop.Craft(1,Supplies,Loan));
     assert(MaxWorkshop.AvailableMaterials(Supplies)==4);
+    // Replenishment increases cumulative earned stock, never refunds spent stock.
+    assert(!Supplies.Collect(0,0,89.99));
+    assert(!Supplies.Collect(0,0,-1));
+    assert(!Supplies.Collect(0,0,std::numeric_limits<double>::quiet_NaN()));
+    assert(Supplies.Collect(0,0,90));
+    assert(!Supplies.Collect(0,0,90));
+    assert(Supplies.Material(0)==2);
+    assert(Workshop.AvailableMaterials(Supplies)==1);
+    assert(Workshop.HasMaterial(0,Supplies));
+    Loan.TonicCharges=2;
+    assert(Workshop.Craft(0,Supplies,Loan));
+    assert(Workshop.AvailableMaterials(Supplies)==0);
+    assert(!Supplies.Collect(0,0,179.99));
+    assert(Supplies.Collect(0,1,180));
+    assert(Workshop.AvailableMaterials(Supplies)==1);
     using namespace MoonfallFishing;
     FSession Cast;
     assert(!Cast.Start(0,1));
@@ -202,5 +217,12 @@ int main() {
     assert(Cast.Hook(56) && Cast.Stage==EStage::Reeling);
     assert(Cast.Advance(57.5,true));
     assert(!Cast.Advance(58,true));
+    assert(!Cast.Start(std::numeric_limits<double>::max(),3));
+    assert(Cast.Start(60,2));
+    assert(!Cast.Advance(62,true));
+    assert(!Cast.Hook(61.99));
+    assert(!Cast.Advance(59,true) && Cast.Stage==EStage::Idle);
+    assert(Cast.Start(70,2));
+    assert(!Cast.Advance(std::numeric_limits<double>::max(),true) && Cast.Stage==EStage::Idle);
     return 0;
 }

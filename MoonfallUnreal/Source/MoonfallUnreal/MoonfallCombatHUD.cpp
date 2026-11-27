@@ -2845,7 +2845,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
       Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
       Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
-    DrawText(FString::Printf(TEXT("MATERIALS %d/12 | FISH %d/30"),Preview->GetOceanMaterialCount(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("MATERIALS %d | FISH %d/30"),Preview->GetAvailableOceanMaterials(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
    }
   }
  }

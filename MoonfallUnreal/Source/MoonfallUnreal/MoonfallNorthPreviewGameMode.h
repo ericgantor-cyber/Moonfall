@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Engine/World.h"
 #include "MoonfallAquaticRewards.h"
 #include "MoonfallIslandQuest.h"
 #include "MoonfallOceanEvents.h"
@@ -44,7 +45,7 @@ public:
  bool DiscoverAquaticCreature(int32 Id) { return Sightings.Discover(Id); }
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
- bool CollectOceanResource(int32 Id) { return Gathering.Collect(Id,GetOceanActivity()); }
+ bool CollectOceanResource(int32 Id) { return HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); }
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CatchOceanFish() { return Gathering.Catch(GetOceanActivity(),FMath::RandRange(0,99)); }

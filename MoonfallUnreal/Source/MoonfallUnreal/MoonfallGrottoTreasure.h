@@ -24,4 +24,7 @@ public:
     UPROPERTY(VisibleAnywhere, Category="Moonfall|Water")
     UStaticMeshComponent* ChestMesh;
     bool TryClaim(AMoonfallHeroPawn* Hero, bool bManual = true);
+private:
+    void RestoreResource();
+    bool bResourceDepleted=false;
 };
