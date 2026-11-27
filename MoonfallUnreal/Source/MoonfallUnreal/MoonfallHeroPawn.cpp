@@ -232,6 +232,17 @@ int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(int32 Code) const
  return MoonfallEquipmentLayout::SelectCraftRingSlot(Code,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
 }
 
+int32 AMoonfallHeroPawn::GetLootComparisonTier(int32 Slot) const
+{
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
+     ||!MoonfallEquipmentLayout::IsRingSlot(Slot))
+  return GetValidatedEquippedTier(Slot);
+ TArray<int32> Codes;GetValidatedEquipmentCodes(Codes);
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=Codes[I];
+ return MoonfallEquipmentLayout::FullLootComparisonTier(Worn,Slot,MoonfallEquipmentLayout::ActiveSlotCount);
+}
+
 void AMoonfallHeroPawn::RefreshEquipmentTier()
 {
  EquipmentTier = 0;
@@ -3588,7 +3599,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  LastLootAffix = LastLootRarity == 0 ? 0
    : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
      ? 0 : FMath::RandRange(1, 3));
- const int32 PreviousTier = GetValidatedEquippedTier(LastLootSlot);
+ const int32 PreviousTier = GetLootComparisonTier(LastLootSlot);
  LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
  // tier (units). Distinct drops persist until the player salvages them.
@@ -3710,7 +3721,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- const int32 EquippedTier = GetValidatedEquippedTier(SlotIndex);
+ const int32 EquippedTier = GetLootComparisonTier(SlotIndex);
  LastLootUpgrade = Tier - EquippedTier;
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
