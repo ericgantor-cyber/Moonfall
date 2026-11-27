@@ -2782,9 +2782,11 @@ void AMoonfallCombatHUD::DrawHUD()
   const float W = FMath::Min(300.f, Canvas->SizeX-20.f);
   const float X = (Canvas->SizeX-W)*0.5f;
   const float Y = Canvas->SizeY*0.25f;
-  DrawRect(FLinearColor(0.035f,0.055f,0.09f,0.96f),X,Y,W,54.f);
+  DrawRect(FLinearColor(0.035f,0.055f,0.09f,0.96f),X,Y,W,64.f);
   DrawText(FString::Printf(TEXT("%s | PHASE %d"),P.Name,AquaticTarget->GetAquaticPhase()),FLinearColor::White,X+8.f,Y+4.f,nullptr,0.85f);
-  DrawText(FString::Printf(TEXT("%s  %.1fs | GUARD / PARRY"),P.Attack,AquaticTarget->GetAquaticWarningRemaining(WorldTime)),FLinearColor(1.f,0.72f,0.35f),X+8.f,Y+25.f,nullptr,0.82f);
+  const auto Move = MoonfallAquatic::Move(AquaticTarget->AquaticProfileId,AquaticTarget->GetAquaticCommittedMove());
+  DrawText(FString::Printf(TEXT("%s  %.1fs"),Move.Name,AquaticTarget->GetAquaticWarningRemaining(WorldTime)),FLinearColor(1.f,0.72f,0.35f),X+8.f,Y+23.f,nullptr,0.82f);
+  DrawText(Move.bUnblockable ? TEXT("SWIM AWAY | UNBLOCKABLE") : TEXT("GUARD / PARRY | MOVE CLEAR"),Move.bUnblockable ? FLinearColor(1.f,0.34f,0.30f) : FLinearColor::White,X+8.f,Y+41.f,nullptr,0.76f);
  }
  // Fixed high-contrast text, no flashing or extra world scan. Boss alerts take priority.
  if (MoonfallOmniattack::ValidAngle(NearbySwordTell)
