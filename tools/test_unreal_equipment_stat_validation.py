@@ -130,6 +130,7 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("mutable uint32 CachedRingBonusInventoryRevision=0;", header)
         self.assertIn("mutable uint64 CachedRingBonusLoadoutFingerprint=0;", header)
         self.assertIn("mutable MoonfallEquipmentLayout::FRingBonuses CachedNativeRingBonuses{};", header)
+        self.assertLess(header.index('#include "MoonfallGearAdvisorPolicy.h"'), header.index('#include "MoonfallHeroPawn.generated.h"'))
         dirty = self.source.split("void AMoonfallHeroPawn::MarkEquipmentInventoryDirty()", 1)[1].split(
             "void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[0]
         self.assertIn("CachedRingBonusInventoryRevision=0;", dirty)

@@ -10,6 +10,7 @@
 #include "MoonfallPerformanceAudit.h"
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -22,7 +23,6 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UNiagaraSystem;
 class UNiagaraComponent;
-namespace MoonfallEquipmentLayout { struct FRingBonuses; }
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
