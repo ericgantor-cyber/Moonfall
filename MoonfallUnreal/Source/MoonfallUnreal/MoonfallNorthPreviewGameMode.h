@@ -47,6 +47,9 @@ public:
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
  bool CollectOceanResource(int32 Id) { return HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); }
+ float GetOceanResourceCooldown(int32 Id) const {
+  return GetWorld()?float(Gathering.RemainingCooldown(Id,GetWorld()->GetTimeSeconds())):0.f;
+ }
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  bool CanCatchOceanFish() const { return Gathering.CanCatch(); }

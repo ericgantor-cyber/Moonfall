@@ -4355,7 +4355,7 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
    if(!Preview->IsFishingSchoolAvailable(Id)) continue;
    FVector Target;
-   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(850.f)) continue;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(MoonfallFishing::CastReach(Preview->GetOceanCatchCount()))) continue;
    FHitResult Hit;
    if(!GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) NearbyFishingSchools.Add(Target);
   }
@@ -4378,7 +4378,8 @@ bool AMoonfallHeroPawn::TryFishingAction() {
  FishingSchoolId=-1;
  // Prefer the nearest visible school in the same cast cone; ordinary water stays valid.
  FVector BestSchool=FVector::ZeroVector;
- double BestDistance=FMath::Square(850.f);
+ const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
+ double BestDistance=FMath::Square(MaxReach);
  int32 BestSchoolId=-1;
  for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
   if(!IsValid(*It)||!It->bWaterVolume) continue;
@@ -4407,7 +4408,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
   const FBox Bounds=Volume->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
   for(float Angle : {0.f,-20.f,20.f,-40.f,40.f}) {
-  for(float Reach : {250.f,450.f,650.f,850.f}) {
+  for(float Reach : {250.f,450.f,650.f,850.f,MaxReach}) {
    FVector Target=Start+Forward.RotateAngleAxis(Angle,FVector::UpVector)*Reach;
    Target.Z=Bounds.Max.Z+2.f;
    if(Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f

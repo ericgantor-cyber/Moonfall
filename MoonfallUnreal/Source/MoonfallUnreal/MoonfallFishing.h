@@ -3,10 +3,12 @@
 namespace MoonfallFishing
 {
     constexpr int Rank(int Catches) { return Catches<0?1:Catches>=27?10:1+Catches/3; }
+    constexpr int RodTier(int Catches) { return 1+(Rank(Catches)-1)/3; }
+    constexpr float CastReach(int Catches) { return 850.f+100.f*(RodTier(Catches)-1); }
     constexpr double BiteSeconds(int Catches) { return 10.0+(Rank(Catches)-1)*0.5; }
     constexpr double CastWait(double Roll,int Catches) {
         const double Bounded=Roll>=0.0&&Roll<=1.0?Roll:0.5;
-        return 2.0+Bounded*(5.0-(Rank(Catches)-1)*0.3);
+        return 2.0+Bounded*(5.0-(Rank(Catches)-1)*0.3-(RodTier(Catches)-1)*0.2);
     }
     constexpr int SchoolCount=8;
     constexpr int SchoolSpecies(int Id) { return Id>=0&&Id<SchoolCount?Id%3:-1; }

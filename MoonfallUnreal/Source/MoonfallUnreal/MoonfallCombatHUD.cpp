@@ -1757,6 +1757,8 @@ void AMoonfallCombatHUD::DrawHUD()
       FString::Printf(TEXT("Moonperch: %d / %d / %d"),Preview->GetOceanFishCount(2),Preview->GetLifetimeSpeciesCount(2),Preview->GetTrophySpeciesCount(2)),
       FString::Printf(TEXT("Moonkelp %d | Pearls %d"),Preview->GetOceanMaterialStock(0),Preview->GetOceanMaterialStock(1)),
       FString::Printf(TEXT("Coral %d | Sea salt %d"),Preview->GetOceanMaterialStock(2),Preview->GetOceanMaterialStock(3)),
+      FString::Printf(TEXT("Rod T%d | reach %.1fm"),MoonfallFishing::RodTier(Caught),double(MoonfallFishing::CastReach(Caught)/100.f)),
+      FString::Printf(TEXT("Gathering kit T%d | renewal %.0fs"),MoonfallOceanGathering::ToolTier(Harvests),double(MoonfallOceanGathering::RecoverySeconds(Harvests))),
       TEXT("Preview session only; not campaign saved.")
      };
      const float RowH=FMath::Min(30.f,(PanelHeight-188.f)/UE_ARRAY_COUNT(Lines));

@@ -7,6 +7,8 @@ namespace MoonfallOceanGathering
     constexpr int MaxMaterialPerType=1000000;
     constexpr int MaxSessionCatches=1000000; // arithmetic safety guard, not a gameplay quota
     constexpr int GatheringRank(int Harvests) { return Harvests<0?1:Harvests>=36?10:1+Harvests/4; }
+    constexpr int ToolTier(int Harvests) { return 1+(GatheringRank(Harvests)-1)/3; }
+    constexpr float RecoverySeconds(int Harvests) { return RespawnSeconds-10.f*(ToolTier(Harvests)-1); }
     constexpr bool IsResource(int Id) { return Id>=0 && Id<NodeCount; }
     constexpr int MaterialType(int Id) { return IsResource(Id)?Id%4:-1; }
     constexpr bool CanCollect(int Id,bool Swimming,bool /*Grounded*/,bool Manual) {
@@ -26,9 +28,13 @@ namespace MoonfallOceanGathering
         }
         bool Collect(int Id,int Event,double Now) {
             if(Event<0||Event>2||!Ready(Id,Now)) return false;
-            ReadyAt[Id]=Now+RespawnSeconds;
+            ReadyAt[Id]=Now+RecoverySeconds(Materials());
             ++Harvested[MaterialType(Id)];
             return true;
+        }
+        double RemainingCooldown(int Id,double Now) const {
+            if(!IsResource(Id)||!std::isfinite(Now)||Now<0||Now>=ReadyAt[Id]) return 0;
+            return ReadyAt[Id]-Now;
         }
         bool CanCatch() const { return Catches()<MaxSessionCatches; }
         bool Catch(int Event,int Roll,int Preferred=-1,bool Trophy=false) {
